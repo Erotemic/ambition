@@ -225,17 +225,20 @@ pub fn acquire_captures(
             ambition_combat::moveset::cancel_move_playback(&mut commands, victim, &mut playback);
         }
         // **The captive's control projection.** `CapturedBy` stays the authority;
-        // this is only what it means for input. Capture eligibility refuses a
-        // body that already carries the marker, which is what lets release
-        // remove it without stealing somebody else's hold on this body.
+        // this is only what it means for input, and it is CLAIMED rather than
+        // inserted: a KO card or a round break can legitimately hold this same
+        // body while the grab lasts, and a release that removed the marker
+        // outright would take their hold off with its own.
         //
         // ⚠ **it is a PROJECTION, and that is the shape escape needs later**: a
         // mash-to-escape read samples the captive's raw participant input into a
         // restricted capture channel, and would be impossible if capture meant
         // "this body's input ceases to exist".
-        commands
-            .entity(victim)
-            .insert(ambition_characters::brain::ScriptedControl);
+        ambition_characters::brain::claim_control_hold(
+            &mut commands,
+            victim,
+            ambition_characters::brain::ControlHold::Relationship,
+        );
         commands.entity(victim).insert(CapturedBy {
             captor: attempt.captor,
             hold_offset_local: attempt.hold_offset,
@@ -485,6 +488,11 @@ mod tests {
                 pummels_landed: 1,
             },
             ambition_characters::brain::ScriptedControl,
+            // The hold as a CLAIM: a bare marker is nobody's, and the release
+            // deliberately leaves what it did not claim.
+            ambition_characters::brain::ControlHolds::only(
+                ambition_characters::brain::ControlHold::Relationship,
+            ),
         ));
 
         app.update();
@@ -601,6 +609,71 @@ mod tests {
             "freed by a despawn and still weightless — the release path was not \
              the one that ran"
         );
+    }
+
+    /// **⛔⛔ A RELEASE ENDS THE CAPTURE'S HOLD AND NOBODY ELSE'S.**
+    ///
+    /// A capture is the first authority that can legitimately hold a body while
+    /// ANOTHER one does — a KO card, a round break, a countdown all claim the
+    /// same fighters, and a grab can be live across any of them. While capture
+    /// removed `ScriptedControl` outright, the throw's release frame handed a
+    /// frozen fighter back its controls in the middle of somebody else's
+    /// ceremony, and nothing at either end recorded that it had happened.
+    ///
+    /// ⭐ **both directions, because one alone proves nothing.** A release that
+    /// never freed anybody would pass the first half; a release that freed
+    /// everybody would pass the second.
+    #[test]
+    fn a_release_ends_this_holds_claim_and_leaves_the_others() {
+        use ambition_characters::brain::{ControlHold, ControlHolds, ScriptedControl};
+
+        for also_held_by_the_stage in [true, false] {
+            let mut app = App::new();
+            app.add_systems(Update, release_interrupted_captures);
+            let captor = grounded_body(&mut app, "captor", ae::Vec2::ZERO);
+            let victim = grounded_body(&mut app, "victim", ae::Vec2::new(16.0, 0.0));
+            let mut holds = ControlHolds::only(ControlHold::Relationship);
+            if also_held_by_the_stage {
+                holds.claim(ControlHold::Interlude);
+            }
+            app.world_mut().entity_mut(victim).insert((
+                ScriptedControl,
+                holds,
+                surface_state(0.0),
+                CapturedBy {
+                    captor,
+                    hold_offset_local: ae::Vec2::new(16.0, 0.0),
+                    prior_gravity_scale: 1.0,
+                    pummels_landed: 0,
+                },
+            ));
+            // The interruption: the captor is hit.
+            app.world_mut()
+                .get_mut::<ambition_characters::actor::BodyCombat>(captor)
+                .unwrap()
+                .hitstun_timer = 0.2;
+
+            app.update();
+
+            assert!(
+                app.world().get::<CapturedBy>(victim).is_none(),
+                "the interrupted capture did not end"
+            );
+            let still_held = app.world().get::<ScriptedControl>(victim).is_some();
+            assert_eq!(
+                still_held, also_held_by_the_stage,
+                "released while the stage was holding it: {also_held_by_the_stage}. \
+                 A capture ending must free the body when it was the last \
+                 authority, and must NOT free it when another one is still \
+                 holding — those are the two halves of releasing only your own \
+                 claim."
+            );
+            assert_eq!(
+                app.world().get::<ControlHolds>(victim).copied(),
+                also_held_by_the_stage.then(|| ControlHolds::only(ControlHold::Interlude)),
+                "the surviving claim set is not what the other authority left"
+            );
+        }
     }
 
     /// **⭐ A BODY THE REST OF THE LIFECYCLE COULD NOT OPERATE ON IS NOT
@@ -726,6 +799,11 @@ mod tests {
             }),
             surface_state(0.0),
             ambition_characters::brain::ScriptedControl,
+            // The hold as a CLAIM: a bare marker is nobody's, and the release
+            // deliberately leaves what it did not claim.
+            ambition_characters::brain::ControlHolds::only(
+                ambition_characters::brain::ControlHold::Relationship,
+            ),
             CapturedBy {
                 captor,
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
@@ -999,11 +1077,18 @@ pub fn release_capture(
     victim: Entity,
     held: &CapturedBy,
     surface: Option<&mut crate::features::ActorSurfaceState>,
+    holds: Option<&mut ambition_characters::brain::ControlHolds>,
 ) {
-    commands
-        .entity(victim)
-        .remove::<CapturedBy>()
-        .remove::<ambition_characters::brain::ScriptedControl>();
+    commands.entity(victim).try_remove::<CapturedBy>();
+    // ⛔ ONLY the hold this relationship claimed. The body may be held by a
+    // ruleset's KO freeze at the same time — the throw that ends the grab does
+    // not end the fight's hold on the fighter it just threw.
+    ambition_characters::brain::release_control_hold(
+        commands,
+        victim,
+        holds,
+        ambition_characters::brain::ControlHold::Relationship,
+    );
     if let Some(surface) = surface {
         // ⚠ what it WAS, not `1.0`. A flying body's scale is not the reference
         // one, and a release that wrote a constant would land it on the floor.
@@ -1041,6 +1126,7 @@ pub fn release_interrupted_captures(
     bodies: Query<Entity>,
     combat: Query<&ambition_characters::actor::BodyCombat>,
     mut surfaces: Query<&mut crate::features::ActorSurfaceState>,
+    mut holds: Query<&mut ambition_characters::brain::ControlHolds>,
 ) {
     let reacted = |body: Entity| {
         combat
@@ -1055,7 +1141,14 @@ pub fn release_interrupted_captures(
             continue;
         }
         let mut surface = surfaces.get_mut(victim).ok();
-        release_capture(&mut commands, victim, held, surface.as_deref_mut());
+        let mut held_by = holds.get_mut(victim).ok();
+        release_capture(
+            &mut commands,
+            victim,
+            held,
+            surface.as_deref_mut(),
+            held_by.as_deref_mut(),
+        );
     }
 }
 
@@ -1139,16 +1232,26 @@ pub fn apply_capture_throws(
         &mut ambition_characters::actor::BodyHealth,
         &mut crate::features::ActorSurfaceState,
         Option<&ambition_combat::components::CombatTuning>,
+        Option<&mut ambition_characters::brain::ControlHolds>,
     )>,
     gravity: Query<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     feel: Option<Res<crate::time::feel::Platformer2dFeelTuningMonolith>>,
 ) {
     let feel = feel.map(|f| *f).unwrap_or_default();
     for request in requests.read() {
-        let Some((victim, held, mut kin, mut flight, mut combat, mut health, mut surface, tuning)) =
-            captives
-                .iter_mut()
-                .find(|(_, held, ..)| held.captor == request.captor)
+        let Some((
+            victim,
+            held,
+            mut kin,
+            mut flight,
+            mut combat,
+            mut health,
+            mut surface,
+            tuning,
+            mut holds,
+        )) = captives
+            .iter_mut()
+            .find(|(_, held, ..)| held.captor == request.captor)
         else {
             continue;
         };
@@ -1163,7 +1266,13 @@ pub fn apply_capture_throws(
         // 2. The hold ends. Through the ONE release, so gravity and the control
         //    projection come back with it.
         let held = *held;
-        release_capture(&mut commands, victim, &held, Some(&mut surface));
+        release_capture(
+            &mut commands,
+            victim,
+            &held,
+            Some(&mut surface),
+            holds.as_deref_mut(),
+        );
 
         // 3. An ordinary launch on a body that is now ordinary.
         let weight = tuning.map(|t| t.weight).unwrap_or(1.0);

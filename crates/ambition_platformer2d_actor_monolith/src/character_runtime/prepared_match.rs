@@ -1728,7 +1728,17 @@ pub fn activate_the_prepared_match(
             entity.try_insert(crate::combat::components::FighterStocks::new(stocks));
         }
         if rules.opens_suspended {
-            entity.try_insert(ambition_characters::brain::ScriptedControl);
+            // ⭐ the OPENING bit, distinct from the interlude a KO card claims:
+            // two authorities that can hold the same fighter need two bits, or
+            // whichever released first would free a body the other still holds.
+            //
+            // ⚠ deferred like everything else in this flush, so it is written
+            // through `commands` rather than the `entity` builder above.
+            ambition_characters::brain::claim_control_hold(
+                &mut commands,
+                *body,
+                ambition_characters::brain::ControlHold::Opening,
+            );
         }
     }
 
@@ -1783,12 +1793,9 @@ pub fn release_the_opening_hold(
     mut commands: Commands,
     active: Option<Res<super::ActiveMatch>>,
     prepared: Option<Res<PreparedMatch>>,
-    held: Query<
-        Entity,
-        (
-            With<super::MatchSeat>,
-            With<ambition_characters::brain::ScriptedControl>,
-        ),
+    mut held: Query<
+        (Entity, &mut ambition_characters::brain::ControlHolds),
+        With<super::MatchSeat>,
     >,
     tick: Option<Res<ambition_time::SimTick>>,
 ) {
@@ -1815,10 +1822,16 @@ pub fn release_the_opening_hold(
             return;
         }
     }
-    for body in held.iter() {
-        commands
-            .entity(body)
-            .try_remove::<ambition_characters::brain::ScriptedControl>();
+    for (body, mut holds) in &mut held {
+        // ⛔ ONLY the opening's hold. A fighter this ceremony never suspended,
+        // or one a capture is holding when the countdown ends, keeps whatever
+        // else has a claim on it.
+        ambition_characters::brain::release_control_hold(
+            &mut commands,
+            body,
+            Some(&mut holds),
+            ambition_characters::brain::ControlHold::Opening,
+        );
     }
 }
 

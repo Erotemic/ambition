@@ -37,9 +37,9 @@ use bevy::prelude::*;
 use ambition_combat::death_rules::{
     DeathInterlude, DeathRules, DeclaredDeathRules, LevelReset, OutOfPlay,
 };
-use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef;
 use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
+use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use ambition_platformer2d_world::rooms::ActiveRoomMetadata;
 
 use crate::session::reset::RoomReplayRequested;
@@ -92,10 +92,7 @@ pub fn open_death_interlude(
     mut commands: Commands,
     mut deaths: MessageReader<ActorDiedMessage>,
     rules: GoverningDeathRules,
-    participants: Query<
-        (Entity, Option<&SimId>),
-        (With<PlayerEntity>, Without<OutOfPlay>),
-    >,
+    participants: Query<(Entity, Option<&SimId>), (With<PlayerEntity>, Without<OutOfPlay>)>,
     confirmed_boundary: Option<Res<ambition_platformer2d_core::ConfirmedFrameBoundary>>,
     mut pending_lifecycle: ResMut<crate::session::lifecycle_commit::PendingLifecycleCommit>,
 ) {
@@ -255,7 +252,10 @@ pub fn clear_out_of_play_on_restart(
     if out.get(restart.entity).is_ok() {
         commands
             .entity(restart.entity)
-            .remove::<(OutOfPlay, DeathInterlude)>()
-            .remove::<ambition_characters::brain::ScriptedControl>();
+            .remove::<(OutOfPlay, DeathInterlude)>();
+        // ⭐ a RESET, not a release: a body that restarted cannot still be
+        // mid-sequence for anybody, so the whole claim set goes rather than one
+        // bit of it.
+        ambition_characters::brain::clear_control_holds(&mut commands, restart.entity);
     }
 }

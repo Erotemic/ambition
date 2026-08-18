@@ -77,6 +77,15 @@ pub(in crate::rollback) fn register(app: &mut App) {
         OWNER,
         "actor.scripted_control",
     );
+    // ⚠ **registered BECAUSE `ScriptedControl` is.** The marker is derived from
+    // this set, so rewinding one without the other would restore a body that is
+    // held by one account and free by the other — and the next release would
+    // then clear a bit nobody set, or leave one nobody can clear.
+    app.rollback_component_clone_probed::<ambition_characters::brain::ControlHolds>(
+        OWNER,
+        "actor.control_holds",
+        |holds| u64::from(holds.bits()),
+    );
     app.rollback_component_clone::<ambition_characters::actor::BodyAnimFacts>(
         OWNER,
         "actor.animation_facts",

@@ -8,6 +8,8 @@ use ambition_characters::brain::ScriptedControl;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::CenteredAabb;
 
+use ambition_characters::brain::{ControlHold, ControlHolds};
+
 use super::{
     break_dialogue_on_hit_or_separation, project_conversation_hold, ActiveConversation,
     ConversationInputOwner, HeldByConversation,
@@ -650,7 +652,9 @@ fn a_rewind_cannot_leave_a_conversation_holding_a_body_it_no_longer_controls() {
     // rollback-registered component is restored to its snapshot state (so the
     // override goes away), and everything else is left exactly as the abandoned
     // future left it (so the marker stays).
-    app.world_mut().entity_mut(npc).remove::<ScriptedControl>();
+    app.world_mut()
+        .entity_mut(npc)
+        .remove::<(ScriptedControl, ControlHolds)>();
     assert!(
         app.world().get::<HeldByConversation>(npc).is_some(),
         "precondition: the unregistered marker is what survives the rewind"
@@ -675,18 +679,22 @@ fn a_rewind_cannot_leave_a_conversation_holding_a_body_it_no_longer_controls() {
 /// have an answer that is checked rather than reasoned about.
 ///
 /// It does not, because the sweep is scoped by [`HeldByConversation`] and only
-/// this module ever writes that. ⭐ **the second half is the poison**: a body
-/// wearing a STALE conversation marker — the exact thing a rewind leaves behind
-/// — alongside another claimant's override is the case where a marker-blind
-/// sweep would do damage, and it is the case a test written only from the happy
-/// path would never construct.
+/// this module ever writes that — and because the release clears one bit of
+/// [`ControlHolds`] and cannot clear another. ⭐ **the second half is the
+/// poison**: a body wearing a STALE conversation marker — the exact thing a
+/// rewind leaves behind — alongside another claimant's live hold is the case
+/// where a marker-blind sweep would do damage, and it is the case a test written
+/// only from the happy path would never construct.
 #[test]
 fn a_conversation_hold_never_strips_another_claimants_control() {
     let (mut app, _, _) = talking_app();
 
     // Somebody else's held body: a death beat's, with no conversation marker.
+    // Held through its OWN claim, the way every authority holds a body now.
     let dying = body(&mut app, ae::Vec2::new(900.0, 900.0));
-    app.world_mut().entity_mut(dying).insert(ScriptedControl);
+    app.world_mut()
+        .entity_mut(dying)
+        .insert((ScriptedControl, ControlHolds::only(ControlHold::Sequence)));
 
     app.update();
     assert!(
@@ -698,14 +706,23 @@ fn a_conversation_hold_never_strips_another_claimants_control() {
 
     // ⛔ THE POISON: a stale conversation marker on that same body, which is
     // what a rewind past a hold leaves behind. The sweep MUST clear the marker
-    // it owns — and the override goes with it, because the pair is the hold.
-    // What it must not do is leave the marker sitting there for the next tick to
-    // reason about.
+    // it owns and release the bit it owns — and MUST leave the death beat's
+    // hold, and the override that projects it, exactly where they were.
     app.world_mut().entity_mut(dying).insert(HeldByConversation);
     app.update();
     assert!(
         app.world().get::<HeldByConversation>(dying).is_none(),
         "a stale claim is cleared rather than left to accumulate — the marker is \
          a projection, so anything the authority does not name loses it"
+    );
+    assert!(
+        app.world().get::<ScriptedControl>(dying).is_some(),
+        "clearing a STALE conversation marker took the death beat's hold with \
+         it — the sweep released a bit it never claimed"
+    );
+    assert_eq!(
+        app.world().get::<ControlHolds>(dying).copied(),
+        Some(ControlHolds::only(ControlHold::Sequence)),
+        "the death beat's claim did not survive somebody else's release"
     );
 }

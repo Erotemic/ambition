@@ -477,6 +477,7 @@ pub fn run_flag_sequence(
     mut commands: Commands,
     mut sequences: Query<&mut FlagSequence>,
     mut bodies: Query<&mut ae::BodyKinematics>,
+    mut holds: Query<&mut ambition_platformer2d::characters::brain::ControlHolds>,
 ) {
     let (Some(pole), Some(entity)) = (pole, subject.and_then(|s| s.0)) else {
         return;
@@ -493,13 +494,20 @@ pub fn run_flag_sequence(
     // engine's `ScriptedControl` blanks at the one point where it is observable,
     // and takes her out of the pickup pass while she is on the pole.
     if matches!(sequence.phase, FlagPhase::Idle) {
-        commands
-            .entity(entity)
-            .remove::<ambition_platformer2d::characters::brain::ScriptedControl>();
+        // ⛔ the POLE's hold and nobody else's: off the pole is not the same
+        // fact as free.
+        ambition_platformer2d::characters::brain::release_control_hold(
+            &mut commands,
+            entity,
+            holds.get_mut(entity).ok().as_deref_mut(),
+            ambition_platformer2d::characters::brain::ControlHold::Sequence,
+        );
     } else {
-        commands
-            .entity(entity)
-            .try_insert(ambition_platformer2d::characters::brain::ScriptedControl);
+        ambition_platformer2d::characters::brain::claim_control_hold(
+            &mut commands,
+            entity,
+            ambition_platformer2d::characters::brain::ControlHold::Sequence,
+        );
     }
 
     // Her LIVE half-height, so the slide plants the form she is actually wearing:

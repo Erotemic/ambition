@@ -43,7 +43,7 @@ use std::collections::BTreeMap;
 
 use bevy::prelude::*;
 
-use ambition_platformer2d::actors::character_runtime::{MatchSeat, seat_placement};
+use ambition_platformer2d::actors::character_runtime::{seat_placement, MatchSeat};
 use ambition_platformer2d::characters::actor::{BodyCombat, BodyHealth};
 use ambition_platformer2d::combat::targeting::MatchTeam;
 use ambition_platformer2d::engine_core as ae;
@@ -185,7 +185,7 @@ fn team_of(seat: usize, team: Option<&MatchTeam>) -> String {
 /// near-duplicate that drifts on the three-side case.
 ///
 /// What stays here is the ADAPTER: rounds are settled on health.
-use ambition_platformer2d::combat::stocks::{SidesOutcome as RoundResult, last_side_standing};
+use ambition_platformer2d::combat::stocks::{last_side_standing, SidesOutcome as RoundResult};
 
 fn round_result<'a>(
     rows: impl Iterator<Item = (usize, Option<&'a MatchTeam>, i32)>,
@@ -250,7 +250,9 @@ fn countdown_may_advance(active_match: bool) -> bool {
 pub fn settle_versus_round(
     time: Res<ambition_platformer2d::time::WorldTime>,
     roster: Option<Res<ambition_platformer2d::actors::character_runtime::MatchParticipantRoster>>,
-    geometry: Option<ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ae::RoomGeometry>>,
+    geometry: Option<
+        ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ae::RoomGeometry>,
+    >,
     // Whether every participant on the roster actually HAS a body yet.
     // Seating retries until they all do; the countdown must not run ahead of it.
     active_match: Option<Res<ambition_platformer2d::actors::character_runtime::ActiveMatch>>,
@@ -262,7 +264,11 @@ pub fn settle_versus_round(
     mut rounds: ResMut<ambition_platformer2d::platformer::lifecycle::ActiveRoundScope>,
     mut fighters: FighterQuery,
     mut reactions: Query<&mut BodyCombat, With<MatchSeat>>,
-    mut firing: Query<&mut ambition_platformer2d::projectiles::PlayerProjectileState, With<MatchSeat>>,
+    mut holds: Query<&mut ambition_platformer2d::characters::brain::ControlHolds>,
+    mut firing: Query<
+        &mut ambition_platformer2d::projectiles::PlayerProjectileState,
+        With<MatchSeat>,
+    >,
     mut scale: MessageWriter<ambition_platformer2d::actors::time::time_control::ClockScaleRequest>,
     mut snap: MessageWriter<ambition_platformer2d::actors::time::time_control::ClockResetRequest>,
 ) {
@@ -300,7 +306,11 @@ pub fn settle_versus_round(
             // longer takes it off), while at match start the fighters were
             // seated by the stage and have never had it. One arm, both cases,
             // and no dependence on which path arrived here.
-            take_the_controls(&mut commands, fighters.iter().map(|(entity, ..)| entity));
+            take_the_controls(
+                &mut commands,
+                fighters.iter().map(|(entity, ..)| entity),
+                ambition_platformer2d::characters::brain::ControlHold::Opening,
+            );
 
             if !everybody_is_here {
                 // Held, not paused: the phase keeps its full count so the round
@@ -327,9 +337,7 @@ pub fn settle_versus_round(
             rounds.begin();
             state.phase = MatchPhase::Fighting;
             for (entity, ..) in fighters.iter() {
-                commands
-                    .entity(entity)
-                    .try_remove::<ambition_platformer2d::characters::brain::ScriptedControl>();
+                hand_back_the_controls(&mut commands, entity, &mut holds);
             }
             // Whatever was mashed during the countdown does NOT carry into the
             // round.
@@ -403,7 +411,11 @@ pub fn settle_versus_round(
             // exactly that sequence. It gates the DECISION and leaves everything
             // physical alone, so a body already in the air still arcs, a move
             // already playing still finishes, and both do it decelerating.
-            take_the_controls(&mut commands, fighters.iter().map(|(entity, ..)| entity));
+            take_the_controls(
+                &mut commands,
+                fighters.iter().map(|(entity, ..)| entity),
+                ambition_platformer2d::characters::brain::ControlHold::Interlude,
+            );
             return;
         }
         MatchPhase::Ko {
@@ -495,23 +507,55 @@ pub fn settle_versus_round(
 ///
 /// Paired with the removal in [`begin_round`], and nowhere else: a marker that
 /// suspends control is only as good as the one place that takes it off.
-fn take_the_controls(commands: &mut Commands, fighters: impl Iterator<Item = Entity>) {
+fn take_the_controls(
+    commands: &mut Commands,
+    fighters: impl Iterator<Item = Entity>,
+    hold: ambition_platformer2d::characters::brain::ControlHold,
+) {
     for fighter in fighters {
-        commands
-            .entity(fighter)
-            .try_insert(ambition_platformer2d::characters::brain::ScriptedControl);
+        // ⭐ **which hold, said at the call site.** The countdown and the KO card
+        // are two different authorities that happen to want the same thing, and
+        // a capture can be holding one of these same fighters besides. Whoever
+        // releases first must not free a body another still holds, and that is
+        // arithmetic now rather than an argument about which features overlap.
+        ambition_platformer2d::characters::brain::claim_control_hold(commands, fighter, hold);
+    }
+}
+
+/// **GO: every ceremony hold this stage is responsible for ends here.**
+///
+/// ⛔⛔ **BOTH bits, and leaving one out froze the stage solid.** Two ceremonies
+/// converge on this instant: the countdown this stage runs, and the OPENING the
+/// ruleset declared with `opens_suspended`. The engine's own
+/// `release_the_opening_hold` deliberately declines the second — *"a ceremony
+/// this ruleset did not declare is not this system's to end"*, because a
+/// composition with `opening_countdown_ticks == 0` has named this stage's GO as
+/// the owner. So this is where it is owed. While this released only its own
+/// countdown, the ruleset's opening hold survived GO forever and the round went
+/// live with two fighters who could not move.
+fn hand_back_the_controls(
+    commands: &mut Commands,
+    fighter: Entity,
+    holds: &mut Query<&mut ambition_platformer2d::characters::brain::ControlHolds>,
+) {
+    use ambition_platformer2d::characters::brain::{release_control_hold, ControlHold};
+    let mut held = holds.get_mut(fighter).ok();
+    for hold in [ControlHold::Opening, ControlHold::Interlude] {
+        release_control_hold(commands, fighter, held.as_deref_mut(), hold);
     }
 }
 
 fn request_freeze(
     scale: &mut MessageWriter<ambition_platformer2d::actors::time::time_control::ClockScaleRequest>,
 ) {
-    scale.write(ambition_platformer2d::actors::time::time_control::ClockScaleRequest {
-        domain: ambition_platformer2d::time::ClockDomain::SimClock,
-        scale: 0.0,
-        requester: ambition_platformer2d::actors::time::time_control::ClockRequester::Scripted,
-        reason: "versus_ko_hold",
-    });
+    scale.write(
+        ambition_platformer2d::actors::time::time_control::ClockScaleRequest {
+            domain: ambition_platformer2d::time::ClockDomain::SimClock,
+            scale: 0.0,
+            requester: ambition_platformer2d::actors::time::time_control::ClockRequester::Scripted,
+            reason: "versus_ko_hold",
+        },
+    );
 }
 
 /// **Put the fighters back, and leave the last round behind with them.**
@@ -719,11 +763,13 @@ pub fn publish_versus_hud(
         // beside a simulation timer is two clocks for one fact.
         MatchPhase::Starting { ticks_remaining } => readouts.set(
             ANNOUNCE_HUD_SLOT,
-            ambition_platformer2d::presentation::HudReadout::bare(if *ticks_remaining > FIGHT_CALL_TICKS {
-                format!("ROUND {}", state.round)
-            } else {
-                "FIGHT".to_string()
-            }),
+            ambition_platformer2d::presentation::HudReadout::bare(
+                if *ticks_remaining > FIGHT_CALL_TICKS {
+                    format!("ROUND {}", state.round)
+                } else {
+                    "FIGHT".to_string()
+                },
+            ),
         ),
         MatchPhase::Fighting => readouts.clear_slot(ANNOUNCE_HUD_SLOT),
         MatchPhase::Ko { winner, .. } => readouts.set(
@@ -735,7 +781,9 @@ pub fn publish_versus_hud(
         ),
         MatchPhase::Won { winner, .. } => readouts.set(
             ANNOUNCE_HUD_SLOT,
-            ambition_platformer2d::presentation::HudReadout::bare(format!("{winner} WINS THE MATCH")),
+            ambition_platformer2d::presentation::HudReadout::bare(format!(
+                "{winner} WINS THE MATCH"
+            )),
         ),
     }
 }
@@ -815,18 +863,16 @@ mod tests {
     fn a_team_survives_while_one_partner_stands() {
         let blue = team("blue");
         let red = team("red");
-        assert!(
-            round_result(
-                [
-                    (0, Some(&blue), 0),
-                    (1, Some(&red), 40),
-                    (2, Some(&blue), 7),
-                    (3, Some(&red), 12),
-                ]
-                .into_iter()
-            )
-            .is_none()
-        );
+        assert!(round_result(
+            [
+                (0, Some(&blue), 0),
+                (1, Some(&red), 40),
+                (2, Some(&blue), 7),
+                (3, Some(&red), 12),
+            ]
+            .into_iter()
+        )
+        .is_none());
     }
 
     #[test]

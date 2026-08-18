@@ -2005,9 +2005,15 @@ fn a_respawning_fighter_is_briefly_untouchable_and_an_eliminated_one_is_not() {
         // needs anybody to act.
         let ids: Vec<Entity> = others.iter(world).collect();
         for other in ids {
-            world
-                .entity_mut(other)
-                .insert(ambition_platformer2d::characters::brain::ScriptedControl);
+            // Through a CLAIM, the way every authority holds a body: a bare
+            // marker is nobody's hold, and the next release would have nothing
+            // to clear.
+            world.entity_mut(other).insert((
+                ambition_platformer2d::characters::brain::ScriptedControl,
+                ambition_platformer2d::characters::brain::ControlHolds::only(
+                    ambition_platformer2d::characters::brain::ControlHold::Interlude,
+                ),
+            ));
         }
     }
 
@@ -4086,7 +4092,11 @@ fn a_pad_player_fighting_as(fighter: &str) -> (App, Entity, Entity) {
         let mut q = world.query::<(Entity, &MatchSeat)>();
         let mut rows: Vec<(usize, Entity)> = q.iter(world).map(|(e, s)| (s.0, e)).collect();
         rows.sort_by_key(|(seat, _)| *seat);
-        assert!(rows.len() >= 2, "a two-seat match seated {} bodies", rows.len());
+        assert!(
+            rows.len() >= 2,
+            "a two-seat match seated {} bodies",
+            rows.len()
+        );
         rows[1].1
     };
     (app, pad, body)

@@ -19,7 +19,9 @@
 
 use bevy::prelude::*;
 
-use ambition_characters::brain::ScriptedControl;
+use ambition_characters::brain::{
+    claim_control_hold, release_control_hold, ControlHold, ControlHolds, ScriptedControl,
+};
 
 use super::authority::ActiveConversation;
 
@@ -53,31 +55,36 @@ pub struct HeldByConversation;
 /// half-state self-repairing, in both directions, without knowing which half
 /// went missing or why.
 ///
-/// ⛔ **the removal is scoped by the marker on purpose.** `ScriptedControl` has
-/// five other claimants — the death beat, the flagpole, act clear, versus, and
-/// seating — and this system must never strip theirs. All five mark the body a
-/// PLAYER is driving, while a conversation marks the body being talked TO, so
-/// the two sets cannot overlap today;
-/// `a_conversation_hold_never_strips_another_claimants_control` pins that as an
-/// invariant rather than leaving it a coincidence that a later feature could
-/// quietly break.
+/// ⛔ **the removal is scoped by the marker AND by the claim.** `ScriptedControl`
+/// has other claimants — the death beat, the flagpole, act clear, versus,
+/// seating, and now a capture — and this system must never strip theirs. Once
+/// that was an argument ("all of those mark a body a PLAYER drives, a
+/// conversation marks the body talked TO, so the sets cannot overlap today");
+/// now it is arithmetic, because [`ControlHold::Conversation`] is one bit of a
+/// set and releasing it cannot clear another.
+/// `a_conversation_hold_never_strips_another_claimants_control` still pins it,
+/// and no longer depends on the two sets staying disjoint.
 pub fn project_conversation_hold(
     mut commands: Commands,
     conversation: Res<ActiveConversation>,
-    claimed: Query<Entity, With<HeldByConversation>>,
+    mut claimed: Query<(Entity, Option<&mut ControlHolds>), With<HeldByConversation>>,
     fully_held: Query<(), (With<HeldByConversation>, With<ScriptedControl>)>,
 ) {
     let holding = conversation.talker();
-    for entity in &claimed {
+    for (entity, holds) in &mut claimed {
         if Some(entity) == holding {
             continue;
         }
         // The conversation ended, or it moved to another body, or a rewind took
         // the authority back past this hold. All three mean the same thing here
         // and need no case analysis: this body is not held now.
-        commands
-            .entity(entity)
-            .try_remove::<(ScriptedControl, HeldByConversation)>();
+        commands.entity(entity).try_remove::<HeldByConversation>();
+        release_control_hold(
+            &mut commands,
+            entity,
+            holds.map(|holds| holds.into_inner()),
+            ControlHold::Conversation,
+        );
     }
     let Some(talker) = holding else {
         return;
@@ -89,8 +96,7 @@ pub fn project_conversation_hold(
     // already match the authority" rather than "did I already do this", a
     // half-applied hold falls through this and is repaired.
     if fully_held.get(talker).is_err() {
-        commands
-            .entity(talker)
-            .try_insert((ScriptedControl, HeldByConversation));
+        commands.entity(talker).try_insert(HeldByConversation);
+        claim_control_hold(&mut commands, talker, ControlHold::Conversation);
     }
 }

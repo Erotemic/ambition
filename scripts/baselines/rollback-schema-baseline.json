@@ -63,6 +63,7 @@
     "actor.combo_trace",
     "actor.config",
     "actor.control",
+    "actor.control_holds",
     "actor.death_interlude",
     "actor.disposition",
     "actor.dormancy_policy",
@@ -408,7 +409,7 @@
     "scope.room",
     "scope.session"
   ],
-  "stable_schema_name_count": 365,
+  "stable_schema_name_count": 366,
   "encoded_types": [
     "ambition_characters::actor::BodyHealth",
     "ambition_characters::actor::BodyWallet",

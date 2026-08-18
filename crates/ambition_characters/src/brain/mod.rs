@@ -414,14 +414,157 @@ pub struct ActorControl(pub crate::actor::control::ActorControlFrame);
 /// control frame is not a frozen body, and gravity will happily walk an
 /// undriven one out from under its pose.
 ///
-/// **One scripted sequence per body at a time.** Consumers remove this without
+/// ⛔⛔ **DERIVED, AND NO LONGER INSERTED OR REMOVED BY HAND.** Its presence is
+/// exactly "[`ControlHolds`] is not empty". An earlier draft of this note said
+/// *"one scripted sequence per body at a time — consumers remove this without
 /// checking who put it there, which is fine while a death beat, a flagpole
-/// slide, and an act clear are mutually exclusive on the controlled body — they
-/// are. A second concurrent sequence would need a claimant, the way the
-/// encounter layer's priority music tier does; do that rather than letting two
-/// owners race to remove each other's marker.
+/// slide, and an act clear are mutually exclusive; a second concurrent sequence
+/// would need a claimant, the way the encounter layer's priority music tier
+/// does"*. A capture IS that second concurrent sequence: it holds a body for as
+/// long as the grab lasts, during which a ruleset's KO freeze can legitimately
+/// claim the same body — and then the throw's release stripped the freeze off
+/// somebody else's fight. So the claimant exists now, and the prediction is
+/// spent rather than pending.
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct ScriptedControl;
+
+/// **Why a body's ordinary control is suppressed — one bit per authority.**
+///
+/// ⭐ **the reasons are GENRE-NEUTRAL on purpose.** A hold is a fact about
+/// bodies, not about a fighting game: a captured body, a body mid-cutscene and a
+/// body waiting out a countdown are the same fact to everything downstream, and
+/// naming the bits after their KIND of authority rather than after the feature
+/// that claims them is what keeps a platform fighter's vocabulary out of the
+/// generic character crate.
+///
+/// ⛔ **two authorities that can overlap need two bits.** Sharing one is the
+/// exact bug this type exists to prevent, rewritten one layer down: whoever
+/// released first would free a body the other still holds.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(u8)]
+pub enum ControlHold {
+    /// A scripted level beat drives the body: a death fall, a flagpole slide, a
+    /// goal brake, an act-clear.
+    Sequence = 1 << 0,
+    /// A conversation is holding its participants still.
+    Conversation = 1 << 1,
+    /// A temporary relationship owns the body — a capture, and later a carry.
+    Relationship = 1 << 2,
+    /// A ruleset's opening ceremony: the cast is on stage and nobody may act
+    /// yet.
+    Opening = 1 << 3,
+    /// A ruleset's break in the action: a KO card, a round end, a results
+    /// screen.
+    Interlude = 1 << 4,
+}
+
+/// The set of authorities currently suppressing this body's ordinary control.
+///
+/// ⭐ **the invariant, and the whole reason the type exists: a subsystem
+/// releases only the hold it owns.** [`release`](Self::release) clears one bit
+/// and cannot clear another, so the question *"is anybody else still holding
+/// this body"* is answered by the data rather than by each caller's memory of
+/// which features exist.
+///
+/// ⚠ **rollback state.** It decides [`ScriptedControl`], which is rewound, so a
+/// rewind that restored one and not the other would leave a body free by one
+/// account and held by the other — the half-state the conversation hold already
+/// documents. A `u8` is registered rather than a list of owner names so the
+/// snapshot is a value, not a set of pointers.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ControlHolds(u8);
+
+impl ControlHolds {
+    /// A body held by exactly one authority.
+    pub fn only(hold: ControlHold) -> Self {
+        Self(hold as u8)
+    }
+
+    /// Claim this hold. Idempotent: claiming twice is claiming once, because a
+    /// claim is a fact about an authority and not a counter that can leak.
+    pub fn claim(&mut self, hold: ControlHold) {
+        self.0 |= hold as u8;
+    }
+
+    /// Release this hold, and ONLY this hold.
+    pub fn release(&mut self, hold: ControlHold) {
+        self.0 &= !(hold as u8);
+    }
+
+    pub fn holds(&self, hold: ControlHold) -> bool {
+        self.0 & (hold as u8) != 0
+    }
+
+    /// Nobody is holding this body: ordinary control comes back.
+    pub fn is_empty(&self) -> bool {
+        self.0 == 0
+    }
+
+    /// The claim set as a value, for a rollback checksum projection.
+    ///
+    /// ⚠ **a presence-only probe would not do here.** Two peers can agree that
+    /// a body is held and disagree about BY WHOM, and the next release would
+    /// then free it on one machine and not the other — a desync that starts as
+    /// one fighter moving a frame earlier than the other.
+    pub fn bits(&self) -> u8 {
+        self.0
+    }
+}
+
+/// **Claim a control hold, whatever else already holds this body.**
+///
+/// The two writes are one operation on purpose: [`ScriptedControl`] is the
+/// projection every reader asks about, and a claim that set the bit without it
+/// would suppress nothing at all — which is precisely the bug the marker was
+/// introduced to end (a death beat that blanked a control frame in the wrong
+/// phase and stopped nothing).
+pub fn claim_control_hold(commands: &mut Commands, body: Entity, hold: ControlHold) {
+    commands
+        .entity(body)
+        .entry::<ControlHolds>()
+        .or_default()
+        .and_modify(move |mut holds| holds.claim(hold));
+    commands.entity(body).try_insert(ScriptedControl);
+}
+
+/// **Release a control hold, and ONLY that hold.**
+///
+/// Ordinary control comes back when the LAST authority lets go, so a body a
+/// conversation and a capture both held stays held until both release.
+///
+/// ⚠ **`holds: None` releases nothing, deliberately.** A caller whose query
+/// forgot [`ControlHolds`] leaves the body held rather than freeing it, and a
+/// body that will not move is a visible bug reported in one match. The failure
+/// this replaces was the silent one: a subsystem removing a marker it never
+/// claimed, so somebody else's hold vanished with no trace at either end.
+pub fn release_control_hold(
+    commands: &mut Commands,
+    body: Entity,
+    holds: Option<&mut ControlHolds>,
+    hold: ControlHold,
+) {
+    let Some(holds) = holds else {
+        return;
+    };
+    holds.release(hold);
+    if holds.is_empty() {
+        commands
+            .entity(body)
+            .try_remove::<(ControlHolds, ScriptedControl)>();
+    }
+}
+
+/// **Every hold on this body ends: it is back in play.**
+///
+/// ⛔ **for a RESET, never for a release.** A body that respawned or restarted
+/// is a body no authority can still be mid-sequence on, so clearing the whole
+/// set is the honest statement. Anything short of a restart releases its own
+/// hold through [`release_control_hold`] instead.
+pub fn clear_control_holds(commands: &mut Commands, body: Entity) {
+    commands
+        .entity(body)
+        .try_remove::<(ControlHolds, ScriptedControl)>();
+}
 
 /// Module-local Bevy plugin: registers the universal-brain
 /// message channel + counter resource. Use this in place of the

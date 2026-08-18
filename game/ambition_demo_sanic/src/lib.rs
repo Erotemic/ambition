@@ -2471,6 +2471,7 @@ fn take_the_controls_at_the_goal(
     mut dashes: bevy::prelude::Query<&mut ball_dash::BallDash>,
     mut models: bevy::prelude::Query<&mut ambition_platformer2d::actors::features::MotionModel>,
     mut kinematics: bevy::prelude::Query<&mut ae::BodyKinematics>,
+    mut holds: bevy::prelude::Query<&mut ambition_platformer2d::characters::brain::ControlHolds>,
 ) {
     let cleared = act
         .iter()
@@ -2479,9 +2480,15 @@ fn take_the_controls_at_the_goal(
         return;
     };
     if !cleared {
-        commands
-            .entity(entity)
-            .remove::<ambition_platformer2d::characters::brain::ScriptedControl>();
+        // ⛔ the act's OWN hold. Sanic can be held by something else at the same
+        // time, and a brake that ended is not a reason to hand him back to a
+        // system that is still driving him.
+        ambition_platformer2d::characters::brain::release_control_hold(
+            &mut commands,
+            entity,
+            holds.get_mut(entity).ok().as_deref_mut(),
+            ambition_platformer2d::characters::brain::ControlHold::Sequence,
+        );
         return;
     }
     // The course drives him now — the whole frame, not the three fields this
@@ -2489,9 +2496,11 @@ fn take_the_controls_at_the_goal(
     // `locomotion.y`, so zeroing it looked like a crouch RELEASE to
     // `capture_ball_dash_input`, and a spin dash charged on the approach fired
     // itself the instant he crossed the line. The brake launched him.
-    commands
-        .entity(entity)
-        .try_insert(ambition_platformer2d::characters::brain::ScriptedControl);
+    ambition_platformer2d::characters::brain::claim_control_hold(
+        &mut commands,
+        entity,
+        ambition_platformer2d::characters::brain::ControlHold::Sequence,
+    );
     // Blanking the frame stops him building any MORE charge, but a charge
     // already stored is spent on an edge, and the edge is exactly what the
     // blanking manufactures. Disarm it rather than trying to hide it.

@@ -360,7 +360,9 @@ pub fn vfx_spawn_messages(
             VfxMessage::Dust { pos, facing } => {
                 spawn_dust(&mut commands, spawn_scope, world, pos, facing)
             }
-            VfxMessage::Impact { pos } => spawn_impact(&mut commands, spawn_scope, world, pos),
+            VfxMessage::Impact { pos } => {
+                spawn_hit_marker(&mut commands, spawn_scope, world, assets.as_deref(), pos)
+            }
             VfxMessage::CoinPop { pos } => spawn_coin_pop(&mut commands, spawn_scope, world, pos),
             VfxMessage::Effect {
                 pos,
@@ -486,6 +488,105 @@ fn spawn_effect(
         spawn_impact(commands, Some(session_scope), world, pos);
         return;
     };
+    draw_effect_clip(
+        commands,
+        session_scope,
+        world,
+        pos,
+        effect,
+        asset,
+        slot,
+        scale,
+        pose,
+    );
+}
+
+/// **The generic hit marker: what an ordinary impact looks like.**
+///
+/// ⭐⭐ **`VfxMessage::Impact` is the most-drawn effect in the game** — every
+/// actor hit, projectile hit, item pickup and grapple bite writes one — and
+/// until now it drew [`spawn_impact`]'s bare yellow rectangle: a hard-edged
+/// untextured quad, 12 world units wide, on a stage where a fighter stands 46.
+/// That is what Jon photographed and reported as an *"untextured olive quad"*.
+///
+/// ⛔⛔ **the art was already shipped and nothing asked for it.** The engine's
+/// own `generic_action_fx` sheet carries `hit_soft`, `hit_hard`, `hit_metal` and
+/// `hit_energy`; the marker is simply a consumer that never joined — the same
+/// shape as the 189-rows-on-disk / 5-reachable-from-Rust finding that
+/// `ambition_sprite_sheet::fx` was built to close.
+///
+/// ⚠ **`hit_soft` for every impact, deliberately.** [`ambition_vfx::ImpactMaterial`]
+/// already distinguishes flesh / robot / metal, and the sheet already draws all
+/// three — but the material lives on the VICTIM's `HurtFeedback` and
+/// `VfxMessage::Impact` carries a position and nothing else, so joining those two
+/// vocabularies is a message change and a taste call, not part of giving the
+/// marker art. Recorded in D128 rather than guessed at here.
+pub const GENERIC_HIT_FX: FxId = FxId::from_static("hit_soft");
+
+/// **How big a generic hit draws**, as a multiple of [`FX_DEFAULT_WORLD_SIZE`].
+///
+/// ⛔ **MEASURED, not reasoned.** The first attempt read the sheet's
+/// `body_pixel_bbox` (48 of a 128px frame) and predicted that `0.9` would draw a
+/// 19-unit spark. Photographed, its solid core came out **51 x 56 world units**:
+/// the bbox describes ONE rect of the opening frame, and the clip's later frames
+/// fill the square. So the drawn size is the frame size, `0.9 x 56 = 50` — as
+/// tall as the 46-unit fighter being hit.
+///
+/// ⚠ **that is the size a move's own burst wants, and a contact spark is not
+/// one.** [`FX_DEFAULT_WORLD_SIZE`]'s doc says 56 sits just under a body on
+/// purpose, *"an effect the same size as the body reads as the body's own"* —
+/// true for a super, wrong for the tick that says a punch landed. `0.6` puts the
+/// spark at about 34 units, two-thirds of a fighter: unmistakable at the contact
+/// point without becoming the thing you look at.
+const GENERIC_HIT_FX_SCALE: f32 = 0.6;
+
+/// Draw the shipped hit art at `pos`, or fall back to the bare marker.
+///
+/// ⚠ the fallback is [`spawn_impact`] and NOT [`spawn_effect`]'s particle burst:
+/// a composition with no decoded sheets should look exactly as it did before,
+/// and a burst of 24 sparks per hit is not "exactly as before".
+fn spawn_hit_marker(
+    commands: &mut Commands,
+    session_scope: Option<SessionSpawnScope>,
+    world: &ae::World,
+    assets: Option<&ambition_sprite_sheet::game_assets::GameAssets>,
+    pos: ae::Vec2,
+) {
+    let Some(scope) = session_scope else {
+        return;
+    };
+    let Some((effect, asset, slot)) = resolve_drawable(assets, GENERIC_HIT_FX) else {
+        spawn_impact(commands, Some(scope), world, pos);
+        return;
+    };
+    draw_effect_clip(
+        commands,
+        scope,
+        world,
+        pos,
+        effect,
+        asset,
+        slot,
+        GENERIC_HIT_FX_SCALE,
+        ambition_vfx::FxPose::UPRIGHT,
+    );
+}
+
+/// **Spawn one resolved effect clip.** The half of [`spawn_effect`] that runs
+/// once the art is in hand, shared with [`spawn_hit_marker`] so the two cannot
+/// drift in how an effect is sized, posed, animated or scoped.
+#[allow(clippy::too_many_arguments)]
+fn draw_effect_clip(
+    commands: &mut Commands,
+    session_scope: SessionSpawnScope,
+    world: &ae::World,
+    pos: ae::Vec2,
+    effect: &'static AuthoredEffect,
+    asset: &ambition_sprite_sheet::character::CharacterSpriteAsset,
+    slot: usize,
+    scale: f32,
+    pose: ambition_vfx::FxPose,
+) {
     let scale = scale.max(0.1);
     let render_size = BVec2::splat(FX_DEFAULT_WORLD_SIZE * scale);
     // ⛔ NOT `build_character_sprite_with_render_size`: that opens on
@@ -1133,6 +1234,28 @@ pub fn update_blink_preview(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// **The generic hit marker names a row the art actually ships.**
+    ///
+    /// ⛔⛔ **its failure mode is silent and looks like nothing.** If `hit_soft`
+    /// is renamed, re-slotted, or dropped from `generic_action_fx`, the marker
+    /// does not panic and does not warn — [`spawn_hit_marker`] falls quietly back
+    /// to [`spawn_impact`]'s bare yellow rectangle, which is the exact defect
+    /// this joined art to (D128 defect 6). The only thing that would notice is
+    /// somebody photographing a match, which is how it was found the first time.
+    ///
+    /// ⚠ **the id is a one-way hash**, so this asks the index rather than
+    /// comparing strings: `authored_effect_for` answers only for a name the
+    /// shipped sheets carry.
+    #[test]
+    fn the_generic_hit_marker_names_a_shipped_row() {
+        let effect = authored_effect_for(GENERIC_HIT_FX).expect(
+            "`hit_soft` is not a row on any shipped FX sheet, so every impact in \
+             the game draws an untextured rectangle again",
+        );
+        assert_eq!(effect.name, "hit_soft");
+        assert_eq!(effect.sheet, "generic_action_fx");
+    }
 
     /// **Every shipped effect row is addressable by its hashed name, and the
     /// sound comes with it.**

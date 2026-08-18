@@ -5288,17 +5288,21 @@ underneath it.
 ```text
 ✔  seat-independent respawn placement           FIXED 2026-08-18 (defect 3)
 ✔  standalone smash-app asset composition       FIXED 2026-08-18
-◐  the residual presentation defects            5 FIXED + photographed · 6 NOT reproduced
-                                                7 not reproduced · 8 FIXED + verified live
+✔  the residual presentation defects            5 FIXED + photographed · 6 FIXED (it DID
+                                                reproduce; the 08-18 "not reproduced"
+                                                was a 40x40 scan window hunting a 19x19
+                                                artifact) · 7 was already fixed 08-16,
+                                                3h after it was reported · 8 FIXED + live
 ✔  same-character CPU symmetry — FIXED 2026-08-17, see below
 ⛔ NOT on this list: stock count, knockback, damage. Ruled. Do not retune them.
 ⛔ NOT on this list: another ladder run.
 ```
 
 ⚠ **"another capture is done" was true of the ACCEPTANCE question and NOT of the
-defects.** Two captures on 2026-08-18 confirmed defect 5 live, failed to
-reproduce defect 6, and verified defect 8's fix end to end — none of which
-reading the code could have settled. ⭐ **and the documented tap recipe still
+defects.** Captures on 2026-08-18 confirmed defect 5 live, verified defect 8's
+fix end to end, and — once the warmup landed on **360**, the tick the report
+actually names — caught defect 6 in the act. None of it was settleable by
+reading the code, and the two warmups sampled first (300, 420) settled nothing. ⭐ **and the documented tap recipe still
 works**, which the row flagged as the thing most likely to rot: the nine taps
 seat two CPUs and start a match unchanged.
 
@@ -5489,38 +5493,95 @@ after    185px, wrapped into a centred column over the speakers  (−65%)
                               wide one. ⭐ and the four outline children take the
                               SAME bound, or the shadow is four ghosts at four
                               offsets.
-6 untextured olive quad    ▢ **NOT REPRODUCED — three frames, BOTH rosters,
-                              2026-08-18.** Captured George Booul vs Pirate
-                              Admiral (warmup 300, 420) and then **Player Robot
-                              v3 vs Pirate Admiral**, the roster the report
-                              names. A systematic scan — every 40x40 window at
-                              20px stride, flagging any that is >95% one colour
-                              — finds **nothing but the two background hill
-                              tones** `(13,21,35)` and `(9,13,26)` in either
-                              match frame. No body-sized uniform quad exists.
-                              ⭐ the only green is fragments: 54x42 of
-                              `(126,205,154)` in one frame, a single 9x2 of
-                              `(66,108,87)` in the other — and they appear in a
-                              match WITHOUT George Booul, so they are not his.
-                              ⛔ **and the suspect the row named is wrong
-                              regardless**: that fallback is a FEATURE path
-                              whose whole colour table is hazard RED, actor
+6 untextured olive quad    ✔ **CLOSED 2026-08-18 — IT REPRODUCES, IT IS NOT
+                              WHAT THIS ROW SUSPECTED, AND THE FIX IS THAT ART
+                              THE ENGINE ALREADY SHIPS NOW GETS ASKED FOR.**
+                              Photographed at **warmup 360**, the exact tick the
+                              f360 observation names — a hard-edged untextured
+                              quad, `srgba(1.0, 1.0, 0.35, 0.82)`, spanning
+                              x 549..567 / y 392..410 with a ONE-PIXEL cliff on
+                              all four sides.
+
+```text
+                            tile pitch 25.5px over a 16-unit grid  =>  zoom 1.594x
+                            quad          19px  ->  11.9 units   spawn_impact splats 12.0
+                            largest VFX  107px  ->  67.1 units   FX_DEFAULT 56 x scale 1.20
+                            fighter body  73px  ->  45.8 units
+```
+
+                              ⛔⛔ **the cause is `spawn_impact`, and it is not a
+                              fallback firing** — `note_effect_miss` logged
+                              NOTHING for the whole match, so no authored effect
+                              failed to resolve. `VfxMessage::Impact` is the
+                              most-drawn effect in the game (every actor hit,
+                              projectile hit, pickup and grapple writes one) and
+                              it drew a bare rectangle by design.
+                              ⭐⭐ **the art was on disk the whole time**:
+                              `generic_action_fx` ships `hit_soft`, `hit_hard`,
+                              `hit_metal`, `hit_energy`. The marker was a
+                              consumer that never joined — the same shape as the
+                              189-rows-on-disk / 5-reachable finding
+                              `ambition_sprite_sheet::fx` was built to close.
+                              ⇒ `spawn_hit_marker` draws `hit_soft` at 0.9 x
+                              `FX_DEFAULT_WORLD_SIZE`; `spawn_impact`'s quad
+                              survives ONLY as the no-decoded-sheets fallback,
+                              so a headless composition looks exactly as before.
+                              ⚠ **and the row's own suspect was wrong**: the
+                              feature-colour fallback in `rendering/actors/mod.rs`
+                              has no olive in its table (hazard RED, actor
                               BLUE/red, breakable BROWN, chest AMBER, pickup
-                              MINT, switch RED — no olive — while the only
-                              `from_color` in `fx.rs` is a 3.5–5px grey-blue
-                              DUST particle.
-                              ⇒ **close it or re-report it with a frame.** It
-                              was real when seen; it is not there now, and two
-                              days of "suspect the effect path" was a hypothesis
-                              nobody had photographed.
-7 VFX authored against no  ▢ OPEN, and NOT reproduced either — 2026-08-18's
-  size reference              frames caught no wheel. The only large VFX in them
-                              is a **60x87** yellow ring around the Admiral at
-                              0%/2%, which is proportionate to a ~45px fighter
-                              and is plausibly the spawn/`Empowered` indicator
-                              rather than the wheel. ⇒ the ~250px measurement
-                              needs a frame DURING the attack; warmups 300 and
-                              420 do not land on one.
+                              MINT, switch RED) and never draws effects at all.
+
+                              ⛔⛔ **AND 2026-08-18's FIRST VERDICT — "NOT
+                              REPRODUCED, three frames, both rosters" — WAS AN
+                              INSTRUMENT ARTIFACT, published in `bd11b73a4`.**
+                              The scan flagged any **40x40** window that was >95%
+                              one colour. The artifact is **19x19**. It could not
+                              have filled one window at any position, so the
+                              measurement could only ever return nothing.
+                              ⇒ *a systematic scan is only as fine as its window,
+                              and "I scanned everything" says nothing about the
+                              things smaller than the probe.* The frames were
+                              right; three of them contained it; the sieve had
+                              holes bigger than the stone.
+                              ⚠ two warmups were also simply wrong: 300 and 420
+                              were sampled and **360, the tick the report names,
+                              was not.**
+                              ⇒ FOLLOW-UP, deliberately not taken here:
+                              `ImpactMaterial` (flesh / robot / metal) and the
+                              sheet's four hit rows are two vocabularies that
+                              already exist and are still unjoined. The material
+                              lives on the victim's `HurtFeedback` and
+                              `VfxMessage::Impact` carries only a position, so
+                              joining them is a message change plus a taste call
+                              — Jon's, not mine. Asked as **§18** in
+                              [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md),
+                              where the taste half is stated: `hit_hard` is a
+                              STRENGTH distinction, not a material one, so
+                              "material picks the row" explains only three of the
+                              four rows the sheet ships.
+7 VFX authored against no  ✔ **CLOSED 2026-08-18 — ALREADY FIXED ON
+  size reference              2026-08-16, THREE HOURS AFTER IT WAS REPORTED.**
+                              The f360 observation was committed at 08:09
+                              (`39dc7a39b`); `d6d5810b8` landed at 11:31 and its
+                              message names this exact defect: *"`let render_size
+                              = BVec2::splat(132.0 * scale)` — inline, and every
+                              effect in the project."* It is
+                              `FX_DEFAULT_WORLD_SIZE = 56.0` now, plus a per-move
+                              `Vfx { scale }`.
+                              ⭐ **and the arithmetic closes against a live
+                              frame.** At the measured 1.594x zoom the old 132
+                              units drew at **210px** (reported "~250"); the
+                              largest VFX in the new warmup-360 frame is
+                              **107px** — 56 units at the Admiral's authored
+                              scale 1.20 — around a 46-unit fighter. It no longer
+                              occludes the fighter or the stage.
+                              ⛔ **so this row sat ▢ OPEN for two days over
+                              landed work**, and 2026-08-18's "NOT reproduced
+                              either" was the fix working, read as an absence.
+                              ⇒ *before photographing a defect, `git log` the
+                              file it names — an observation older than the
+                              commit that fixed it is not evidence about today.*
 8 capture_scene prints no  ✔ CLOSED 2026-08-18, VERIFIED LIVE on a real
   pose for a 2-CPU match      two-CPU match: `seat 0 at (350.4803, 276.0000)` /
                               `seat 1 at (233.9185, 276.0000)`, where it printed

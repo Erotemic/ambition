@@ -41,7 +41,7 @@ investigation that led to the question. Same rule as
 [`README.md`](README.md#queue-contract); on 2026-08-17 this file was **739 lines
 for 9 open questions**, and the four answered ones held a third of it.
 
-## Open decisions — 8 (§1, §6, §7, §9, §10, §11, §12 and §13 are ANSWERED; §8 is DEFERRED)
+## Open decisions — 9 (§1, §6, §7, §9, §10, §11, §12 and §13 are ANSWERED; §8 is DEFERRED)
 
 ### 1. ✔ ANSWERED 2026-08-17 — a bolt hits what a sword hits (former D23)
 
@@ -377,6 +377,36 @@ should a NON-Door zone draw an unconditional label at all?
 
 ⇒ no longer urgent — nothing on screen is an id — so this is polish, recorded
 rather than guessed.
+
+### 18. Should a hit's ART know what it hit? (D128 defect 6's residue)
+
+The untextured quad you photographed is fixed: `VfxMessage::Impact` — the most
+drawn effect in the game, written by every actor hit, projectile hit, pickup and
+grapple — was a bare yellow rectangle, and it now draws the shipped `hit_soft`
+row at 0.6 x `FX_DEFAULT_WORLD_SIZE` (~33 world units against a 46-unit fighter).
+
+What that turned up is a question, not a defect: **two vocabularies already exist
+for this and have never been joined.**
+
+```text
+the engine ships     hit_soft   hit_hard   hit_metal   hit_energy     (generic_action_fx)
+the sim already has  Flesh      Robot      Metal                      (ImpactMaterial)
+```
+
+⛔ **I did not join them, deliberately**, for two reasons worth your ruling:
+
+```text
+PLUMBING   the material lives on the VICTIM's `HurtFeedback`, and
+           `VfxMessage::Impact` carries a position and nothing else — so this is
+           a message change touching ~10 emitters, not a lookup
+TASTE      `hit_hard` has no material at all; it reads as a STRENGTH distinction
+           (a jab vs a smash), which is the attack's fact, not the victim's.
+           So "material picks the row" only explains three of the four
+```
+
+⇒ one sentence settles it: **does a hit's art follow the body being hit, the
+strength of the blow, both, or neither?** ⚠ *"neither"* is a real answer — one
+spark for every hit is what fighting games mostly do, and it is what ships today.
 
 ### 6. ✔ ANSWERED 2026-08-17 — hitlag freezes the body that is in it (former D114)
 

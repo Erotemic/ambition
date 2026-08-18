@@ -1165,6 +1165,55 @@ none can drift from the other two — not authoring more heights.
 `ActorRenderSize` exists precisely so a hostile flip cannot re-apply
 `collision_scale` and balloon the sprite a second time.
 
+⛔⛔ **AND THAT NEXT SLICE IS WRONG — MEASURED AND PHOTOGRAPHED 2026-08-18, and
+the disproof is cheap enough that it should be read before anybody starts.**
+*"Moving those characters onto the published road"* cannot close the 2.46x,
+because **the snake is ALREADY on it and still measures 2.46x.**
+
+```text
+tag_mary_o_snakes   inserts SpritePosedBody          -> 2.46x
+tag_mary_o_ai_slop  did NOT; I added it and shot the room:
+                    drawn slop 48x55 px -> 48x54 px  -> UNCHANGED
+```
+
+⭐⭐ **the number is a FRAME-vs-BODY fact, and it was already measured, named and
+ratcheted** by `enemy_quad_matches_its_box` (`QUAD_OVERHANG_LIMIT = 2.47`) —
+which is where Jon's *"2.46x"* comes from. Its own doc states the mechanism:
+the snake's sheet publishes a body of **117 x 52 px inside a 128 x 128 frame**,
+and `PosedBodyGeometry::render` is *"the whole sheet frame"*. ⇒ **the quad is
+SQUARE while the animal is 2.25:1**, at every scale, on either road. ⛔ so no
+amount of re-wiring who publishes the size changes it; what changes it is
+drawing the body's SUB-RECT, which is the art-crop the row already records as
+tried-and-reverted for stretching the art.
+
+⇒ **the honest next step is the trim**, not a road change: the sheets already
+publish per-frame rects with `off`, so the quad can be the rect and the offset
+can place it — which is also why the earlier attempt stretched, having done the
+first half without the second.
+
+⚠ **AN OPEN THREAD, RECORDED BECAUSE IT IS NOT RECONCILED.** Two single-variable
+poisons of the same body disagree:
+
+```text
+AI_SLOP_BODY_WIDTH 28 -> 60      drawn slop 48x55 -> 48x55 px   ZERO change
+body.half_size     -> 4.0        drawn slop 48x54 -> 18x21 px   follows it
+```
+
+The drawing follows the box, and the constant that sets the box does not reach
+the drawing. Both were photographed at the same warmup on the same route. ⛔ do
+not build on either reading until that is explained.
+
+⛔⛔ **AND THE ONE-BRICK RESCALE HALVED THE SNAKE, WITH NOTHING SAYING SO.**
+`snake_body_width()` derives from `mary_o_body_width()`, so when she became one
+brick the snake followed her down: `world_per_pixel` 0.35 -> **0.182**,
+collision 41 x 18 -> **21.3 x 9.5**, which is **0.30 tiles tall**. ⭐ **the
+ratchet beside it could not notice**: it pins the quad/body RATIO, and a ratio
+is scale-invariant, so it read 2.46x before and after. ⇒ *a value derived from
+another character moves when that character does, and a ratio test is
+structurally blind to it.* The two docs that quoted the old sizes are corrected;
+whether a third-of-a-tile snake still reads as an enemy is a look-at-it call, and
+⛔ the constant to change, if any, is HERS, not the snake's.
+
 - ✔ **D164 — CLOSED 2026-08-18. Two top-level plans looked stranded and were
   already indexed; the audit had enumerated the wrong three files.**
 

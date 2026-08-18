@@ -427,11 +427,34 @@ pub fn snake_world_per_pixel() -> f32 {
 /// the sentence Jon's complaint actually makes.
 ///
 /// ⚠ **WIDTH, not height, and that is the whole point of restating it.** The
-/// snake is a 2.25:1 animal: at the scale this preserves it is **41 x 18** world
-/// against Mary-O's 48 TALL, so it is nearly as wide as she is tall and barely a
-/// third of her height. Every previous attempt scaled by a number that moved both
-/// dimensions together, which is why *"still way too big"* survived three of
-/// them — the offending dimension was never the one being reasoned about.
+/// snake is a 2.25:1 animal, so a scale that preserves its width fixes the only
+/// dimension a corridor cares about. Every previous attempt scaled by a number
+/// that moved both dimensions together, which is why *"still way too big"*
+/// survived three of them — the offending dimension was never the one being
+/// reasoned about.
+///
+/// ⛔⛔ **AND THE MEASUREMENT THAT USED TO SIT HERE — "41 x 18 world against
+/// Mary-O's 48 TALL" — WENT STALE THE DAY SHE BECAME ONE BRICK (2026-08-18).**
+/// This is derived from her width, she halved, and so did the snake, silently
+/// and everywhere at once. Measured through
+/// `enemy_quad_matches_its_box`:
+///
+/// ```text
+///            world_per_pixel   collision (world)   tiles tall
+/// was 08-06       0.35            41 x 18            0.56
+/// now 08-18       0.182           21.3 x 9.5         0.30
+/// ```
+///
+/// ⚠ **that is the derivation working, not breaking** — a snake occupies the
+/// corridor width she does, and she got narrower. But nobody chose "a third of
+/// a tile tall", and whether an enemy this flat still reads as an enemy is a
+/// look-at-it call. ⇒ **do not re-tune this constant to restore the old
+/// number**; the number to change, if any, is hers.
+///
+/// ⭐ **the reusable half: a value DERIVED from another character moves when
+/// that character does, and no test says so** — the ratchet beside this one
+/// pins the quad/body RATIO, which is scale-invariant and therefore silent
+/// about a halving.
 ///
 /// ⭐⭐ **AND IT IS DERIVED FROM MARY-O, not chosen** (2026-08-06). A snake
 /// occupies the same corridor width she does — which is what a Koopa does beside

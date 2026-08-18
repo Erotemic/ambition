@@ -32,9 +32,14 @@ const TILE: f32 = 32.0;
 ///
 /// That is Jon's *"the sprite might not match the box for the snake"*, exactly,
 /// and it is why turning the scale never fixed it: the knob scales
-/// both numbers together, so the DISAGREEMENT survives every value. At 0.35 the
-/// body is 41 x 18 world — a bit over a tile long and half a tile tall — while
-/// the quad is 45 x 45, nearly a tile and a half square.
+/// both numbers together, so the DISAGREEMENT survives every value.
+///
+/// ⚠ **the sizes this used to quote (41 x 18 body, 45 x 45 quad, at 0.35) are
+/// GONE, and the ratio is why this test did not notice.** The scale derives from
+/// Mary-O's width and she became one brick on 2026-08-18, so it is 0.182 now and
+/// the body is 21.3 x 9.5 — half of what this paragraph described. The overhang
+/// is 2.46x either way, because a ratio is scale-invariant. ⇒ read the numbers
+/// off the run, not off this comment.
 ///
 /// ⚠ **this asserts the RATIO, not a size.** How big a snake should be is a
 /// taste call for whoever is looking at the running game; that its picture and

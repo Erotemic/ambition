@@ -428,6 +428,31 @@ pub struct ActorControl(pub crate::actor::control::ActorControlFrame);
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct ScriptedControl;
 
+/// **How often a CPU captive presses**, in struggles per second.
+///
+/// ⭐ ONE cadence for every brain family. A captive's struggle is a fact about
+/// being held, not about which decision maker the body carries, and two brains
+/// with two rates would make a fighter's escape depend on its AI template.
+///
+/// ⚠ a person's cadence, deliberately — a body that pressed on every single
+/// tick would escape in a fraction of the time any human could, which is not a
+/// difficulty setting, it is a different mechanic.
+const STRUGGLE_PRESSES_PER_SECOND: f32 = 6.0;
+
+/// Does this tick carry a struggle press?
+///
+/// ⭐ **stateless, and that is the point.** The cadence is a function of how
+/// long the hold has lasted — a fact the relationship already keeps and rollback
+/// already restores — so a captive's mash needs no timer inside the brain, and a
+/// rewind cannot leave one out of step with the hold it belongs to.
+pub fn struggling_this_tick(captured_for: f32, dt: f32) -> bool {
+    if dt <= 0.0 {
+        return false;
+    }
+    let beat = |t: f32| (t.max(0.0) * STRUGGLE_PRESSES_PER_SECOND) as u32;
+    beat(captured_for) != beat(captured_for - dt)
+}
+
 /// **Why a body's ordinary control is suppressed — one bit per authority.**
 ///
 /// ⭐ **the reasons are GENRE-NEUTRAL on purpose.** A hold is a fact about

@@ -237,6 +237,24 @@ pub fn tick_fighter(
     // and presses every thought is still pressing at that rate.
     state.apm.elapsed_ticks = state.apm.elapsed_ticks.saturating_add(1);
 
+    // ⛔⛔ **A CAPTURE PRE-EMPTS THE WHOLE DECISION, AT BOTH ENDS — and this
+    // brain is the one that needed it.** The capture arms landed on the Smash
+    // brain first, and the smash ROSTER seats Fighters
+    // (`the_duelist_preset_is_a_fighter_brain`), so a CPU in an actual match had
+    // no capture behaviour at all: a held fighter ran its ordinary decision and
+    // asked to approach an opponent it could not walk toward, and a fighter
+    // holding one asked the same. The capability existed and had no adopter.
+    //
+    // ⚠ before the held frame is emitted and before the pending press matures:
+    // a press decided while free is stale the moment a relationship exists, and
+    // maturing it would spend an APM token on a button that cannot fire.
+    if let Some(frame) = capture_context_frame(snapshot) {
+        state.pending_press = None;
+        state.held = frame.clone();
+        *out = frame;
+        return;
+    }
+
     // EMIT the held intent first, so every tick produces the same frame the last
     // decision asked for. Edges are cleared below unless something arms them
     // this tick — a `melee_pressed` that stayed true would be a button held down
@@ -285,6 +303,52 @@ pub fn tick_fighter(
 
     state.held = frame.clone();
     *out = frame;
+}
+
+/// **What a fighter inside a capture presses** — `None` at neither end of one.
+///
+/// ⭐ **the same two fields a person's Attack button writes, and no capture API
+/// at all.** `trigger_moveset_moves` reads the RELATIONSHIP and turns a neutral
+/// press into a pummel and a forward press into a throw; a brain that reached
+/// for a capture-specific verb would be the CPU-only road this design exists
+/// without.
+///
+/// ⛔ **the captive is not silent and the captor is not idle**, which are the
+/// two failures this replaces. A held body struggles — that is its whole agency
+/// and the only thing it may ask for — and a holding body spends the hold rather
+/// than standing in it until the clock runs out.
+fn capture_context_frame(snapshot: &BrainSnapshot) -> Option<ActorControlFrame> {
+    if snapshot.captured {
+        let mut frame = ActorControlFrame::neutral();
+        // ⚠ **no APM token.** Mashing out of a grab is the one thing a person
+        // really does at machine speed, and spending the decision budget on it
+        // would make a fighter's escape compete with its next attack.
+        if crate::brain::struggling_this_tick(snapshot.captured_for, snapshot.dt) {
+            frame.melee_pressed = true;
+        }
+        return Some(frame);
+    }
+    if !snapshot.holding_captive {
+        return None;
+    }
+    let mut frame = ActorControlFrame::neutral();
+    frame.melee_pressed = true;
+    // Pummel once, then throw. ⚠ deliberately the simplest policy that proves
+    // the road: opponent percent, stage edge, kill potential and escape risk are
+    // all real inputs it does not read.
+    frame.attack_axis = if snapshot.pummels_landed >= 1 {
+        // ⛔ MIRRORED: `attack_dir_from_axis` reads `axis.x * facing`, so a bare
+        // `+x` is *forward* only for a right-facing body. See `aim_the_stick`.
+        let facing = if snapshot.actor_facing < 0.0 {
+            -1.0
+        } else {
+            1.0
+        };
+        ae::LocalAxes::new(TILT_DEFLECTION * facing, 0.0)
+    } else {
+        ae::LocalAxes::ZERO
+    };
+    Some(frame)
 }
 
 /// The decision tick: perceive, classify, generate, refine, translate.
@@ -682,7 +746,7 @@ struct DecisionSummary<'a, 'k> {
 /// swallow this deflection loses the CPU's tilts and keeps everything else; that
 /// is a coupling worth stating rather than a fact worth threading, because the
 /// same partial-deflection-means-tilt convention is what a human's stick obeys.
-const TILT_DEFLECTION: f32 = 0.65;
+pub(in crate::brain) const TILT_DEFLECTION: f32 = 0.65;
 
 /// **AIM THE ATTACK STICK** — the direction half of a chosen move, written at
 /// DECISION time and held until the next decision, the way a hand holds a stick.

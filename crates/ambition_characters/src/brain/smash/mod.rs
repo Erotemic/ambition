@@ -512,27 +512,6 @@ const SPRINT_CLOSE_FRACTION: f32 = 0.55;
 /// Tick the Smash brain pipeline. Pure function modulo `state`
 /// (which the difficulty stage mutates for its RNG advance + the
 /// mode stage mutates for hysteresis bookkeeping).
-/// **How often a CPU captive presses**, in struggles per second.
-///
-/// ⚠ a person's cadence, deliberately — a body that pressed on every single
-/// tick would escape in a fraction of the time any human could, which is not a
-/// difficulty setting, it is a different mechanic.
-const STRUGGLE_PRESSES_PER_SECOND: f32 = 6.0;
-
-/// Does this tick carry a struggle press?
-///
-/// ⭐ **stateless, and that is the point.** The cadence is a function of how
-/// long the hold has lasted — a fact the relationship already keeps and rollback
-/// already restores — so a captive's mash needs no timer inside the brain, and a
-/// rewind cannot leave one out of step with the hold it belongs to.
-fn struggling_this_tick(captured_for: f32, dt: f32) -> bool {
-    if dt <= 0.0 {
-        return false;
-    }
-    let beat = |t: f32| (t.max(0.0) * STRUGGLE_PRESSES_PER_SECOND) as u32;
-    beat(captured_for) != beat(captured_for - dt)
-}
-
 pub fn tick_smash(
     cfg: &SmashCfg,
     state: &mut SmashState,
@@ -565,7 +544,7 @@ pub fn tick_smash(
         // note that stood here said escape did not exist yet and that this would
         // be its arm when it did; it does, and this is.
         state.mode = BroadMode::Idle;
-        if struggling_this_tick(snapshot.captured_for, snapshot.dt) {
+        if super::struggling_this_tick(snapshot.captured_for, snapshot.dt) {
             emit_inputs(SpecificAction::CaptureStruggle, &obs, out);
         }
         return;

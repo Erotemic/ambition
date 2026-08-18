@@ -89,6 +89,78 @@ fn run(cfg: &FighterCfg, state: &mut FighterState, ticks: u32) -> Vec<ActorContr
     frames
 }
 
+/// **⛔⛔ THE BRAIN THE SMASH ROSTER ACTUALLY SEATS KNOWS IT IS IN A CAPTURE.**
+///
+/// The capture arms were written against the Smash brain, and the smash roster
+/// seats FIGHTERS (`the_duelist_preset_is_a_fighter_brain`) — so in a real match
+/// a held CPU ran its ordinary decision and asked to approach an opponent it
+/// could not walk toward, and a holding CPU did the same instead of spending
+/// the hold. The capability was real and had no adopter.
+///
+/// Three claims, and the third is the one a happy-path test would miss:
+///
+/// * a captive struggles (some ticks, not all — a machine-rate mash is a
+///   different mechanic);
+/// * a captive asks for nothing else, ever;
+/// * a captor pummels and then throws FORWARD — mirrored by its facing, because
+///   `attack_dir_from_axis` reads `axis.x * facing`, so a left-facing fighter
+///   that sent a bare `+x` was asking for a BACK throw it cannot perform.
+#[test]
+fn a_fighter_in_a_capture_struggles_or_spends_the_hold() {
+    let (cfg, mut state) = rig(immediate_profile());
+    let view = scene(300.0, 500.0);
+    let mut out = ActorControlFrame::neutral();
+
+    // 1. HELD.
+    let mut snapshot = BrainSnapshot::idle();
+    snapshot.captured = true;
+    let mut struggles = 0;
+    let ticks = 60;
+    for tick_index in 0..ticks {
+        snapshot.captured_for = tick_index as f32 * snapshot.dt;
+        tick_fighter(&cfg, &mut state, &snapshot, Some(&view), &mut out);
+        assert_eq!(
+            out.locomotion,
+            ae::LocalAxes::ZERO,
+            "a held fighter tried to walk"
+        );
+        assert!(
+            !out.jump_pressed && !out.grab_pressed,
+            "a held fighter acted"
+        );
+        if out.melee_pressed {
+            struggles += 1;
+        }
+    }
+    assert!(struggles > 0, "a captive never struggled");
+    assert!(
+        struggles < ticks,
+        "it mashed on every tick, which no person can do"
+    );
+
+    // 2. HOLDING, facing LEFT — the case the unmirrored stick got wrong.
+    for (pummels, expect_forward) in [(0u8, false), (1, true)] {
+        let (cfg, mut state) = rig(immediate_profile());
+        let mut snapshot = BrainSnapshot::idle();
+        snapshot.holding_captive = true;
+        snapshot.pummels_landed = pummels;
+        snapshot.actor_facing = -1.0;
+        tick_fighter(&cfg, &mut state, &snapshot, Some(&view), &mut out);
+        assert!(out.melee_pressed, "a captor did nothing with its captive");
+        let asked_forward = crate::actor::attack_gesture::attack_dir_from_axis(
+            out.attack_axis,
+            snapshot.actor_facing,
+            0.2,
+        ) == crate::actor::attack_gesture::AttackDir::Forward;
+        assert_eq!(
+            asked_forward, expect_forward,
+            "with {pummels} pummel(s) landed and the body facing LEFT, the press \
+             resolved to the wrong direction — a throw asked for as a bare `+x` \
+             becomes a BACK throw this fighter never authored"
+        );
+    }
+}
+
 /// **The brain emits every tick, not only on decision ticks.**
 ///
 /// The held intent is what a human's hand does between thoughts. A rig that

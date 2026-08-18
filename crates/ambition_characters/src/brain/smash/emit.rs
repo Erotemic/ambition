@@ -165,8 +165,24 @@ pub fn emit_inputs(
             // that reached for a capture-specific verb here would be the
             // CPU-only road this design exists without.
             out.melee_pressed = true;
+            // ⛔⛔ **MIRRORED BY FACING, and it was not.** `attack_axis` is a
+            // STICK — `attack_dir_from_axis` computes `axis.x * facing` — so a
+            // bare `+x` means *forward* only while the body faces right. A
+            // left-facing captor asking for a forward throw was asking for a
+            // BACK throw, which a fighter that authors no back throw simply
+            // cannot perform: it would have stood there holding its captive.
+            // The same double-mirror cost George his side special once already,
+            // and the note on `aim_the_stick` is where that is written down.
+            //
+            // ⚠ a PARTIAL deflection, for the second reason that note gives: a
+            // stick shoved to 1.0 reads as a flick, and a flick left armed turns
+            // the next ordinary attack into an accidental smash.
             out.attack_axis = if forward {
-                ae::LocalAxes::X
+                ae::LocalAxes::new(
+                    crate::brain::fighter::decision::TILT_DEFLECTION
+                        * if obs.self_facing < 0.0 { -1.0 } else { 1.0 },
+                    0.0,
+                )
             } else {
                 ae::LocalAxes::ZERO
             };

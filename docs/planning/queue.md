@@ -1536,7 +1536,9 @@ already keys by FILE ROOT (196 unique keys, no ambiguity), and
 looks up such a name, and switching would make this whole class impossible rather
 than reportable. ⛔ **not taken unilaterally**: it changes what a shared engine
 resource returns for 48 files, and the evidence above is what makes it a one-line
-ruling instead of an investigation.
+ruling instead of an investigation. Asked as **§19** in
+[`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md), with both
+options and their blast radius.
 ⚠ **the sandbag pair is the loudest if anything ever does resolve it**: a 128px
 sheet cropped on a 256px grid.
 

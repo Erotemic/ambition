@@ -41,7 +41,7 @@ investigation that led to the question. Same rule as
 [`README.md`](README.md#queue-contract); on 2026-08-17 this file was **739 lines
 for 9 open questions**, and the four answered ones held a third of it.
 
-## Open decisions — 9 (§1, §6, §7, §9, §10, §11, §12 and §13 are ANSWERED; §8 is DEFERRED)
+## Open decisions — 10 (§1, §6, §7, §9, §10, §11, §12 and §13 are ANSWERED; §8 is DEFERRED)
 
 ### 1. ✔ ANSWERED 2026-08-17 — a bolt hits what a sword hits (former D23)
 
@@ -407,6 +407,40 @@ TASTE      `hit_hard` has no material at all; it reads as a STRENGTH distinction
 ⇒ one sentence settles it: **does a hit's art follow the body being hit, the
 strength of the blow, both, or neither?** ⚠ *"neither"* is a real answer — one
 spark for every hit is what fighting games mostly do, and it is what ships today.
+
+### 19. Should the sheet registry key by TARGET or by FILE ROOT? (D162's residue)
+
+Nothing is visibly broken and this is not urgent — it is a one-line ruling that
+closes a whole class, and the measurement is already done.
+
+Two lookups exist for the same baked sheets, and they key differently:
+
+```text
+record_index()                  keys by FILE ROOT  — 196 unique keys, no ambiguity
+                                (used by posed_body_geometry + the animation road)
+SheetRegistry::from_baked_table keys by TARGET     — 5 keys claimed by 48 files
+```
+
+The 48 are sheets authored against a shared rig adapter: **robot 18, toon 16,
+goblin 9, sandbag 3, ninja 2.** For those five keys the target-keyed registry
+cannot answer *"give me sheet X"* — whichever manifest loads last wins, and three
+of them currently take the key away from a same-named character's own sheet
+(`robot_archivist` over `robot`, `goblin_brute_hammer` over `goblin`,
+`sandbag_armored_review` over `sandbag`).
+
+⭐ **it appears harmless today**: every consumer of the target-keyed resource
+(shrine, slash, projectile, boss) looks up a name where root == target, and the
+character-geometry road uses the file-root index and cannot collide.
+
+```text
+switch to file root   the 148 root==target sheets are unaffected; the 48 each get
+                      their own key; the class becomes impossible
+leave it              keep the reporter that now names the three, and retire a
+                      stale manifest per pair by hand as they appear
+```
+
+⇒ I did not take it: it changes what a shared engine resource returns for 48
+files, on inference rather than on a stated intent for what that key MEANS.
 
 ### 6. ✔ ANSWERED 2026-08-17 — hitlag freezes the body that is in it (former D114)
 

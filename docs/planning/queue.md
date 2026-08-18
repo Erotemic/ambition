@@ -31,6 +31,24 @@ Before starting a row, inspect HEAD and confirm the named gap still exists. When
 a row closes, remove its historical case file from this ledger, preserve useful
 history in the archive if needed, promote another verified item, and continue.
 
+⛔⛔ **A CLOSED ROW IS A RECEIPT, NOT A CASE FILE — and this file learned that
+the expensive way.** On 2026-08-17 **2,584 of its 7,025 lines were closed rows**,
+each carrying the full investigation that justified a fix nobody was going to
+revisit. The form a closed row takes, and the whole of it:
+
+> `✔ **D123 — what was wrong, in one sentence.** Fixed by `<commit>`: what the
+> fix was. Guarded by `<test>`. ⛔ <a standing prohibition, only if one exists>.`
+
+⭐ **the evidence lives in the commit message and in this file's own git
+history** — `git log -p docs/planning/queue.md` recovers every word of it. ⚠ the
+same rule applies INSIDE an open row: keep the current model at the top and
+delete the layers it supersedes, because a stale `⇒ NEXT` sentence under a
+correction is exactly how a later session re-does landed work. The narrow
+exception is a sentence that would otherwise be **rediscovered at cost** — a
+prohibition, an instructively wrong measurement, a design refused for cause —
+and that is one clause, never a section. Full rule in
+[`README.md`](README.md#queue-contract).
+
 D73 is closed and its working-memory documents are archived under
 [`../archive/planning-superseded/2026-08-13/`](../archive/planning-superseded/2026-08-13/).
 The successor strategy is
@@ -411,47 +429,21 @@ also names **HUD ownership and input routing**, untouched here.
 ⛔ **do not expand into networking**, and do not open an M3 on presentation. The
 deferred half is gated on a real product need for a second view.
 
-- ✔ **D126 — CLOSED 2026-08-14. Three items resolved, the fourth moved to D115.**
-
-⭐ **all three were the same shape wearing different clothes: something DECLARED a
-capability that nothing consumed, and in every case the honest answer was a
-deletion or a report rather than a wire.**
-
-1. **The resolver's block-order dependence was an INFEASIBLE-CONSTRAINT problem,
-   not an ordering one** — and the proposed "sort by penetration depth" fix was
-   rejected because a deterministic wrong answer turns the red test green while
-   concealing the physics. `resolve_axis_repair` now separates feasible contacts
-   (a legal interval, resolved order-independently) from infeasible ones
-   (`AxisConstraintConflict` on `FrameEvents`), and **nothing reads the conflict**:
-   damage, death, respawn and forced displacement are Ambition policy. ⭐ the
-   derivation collapsed cleanly — `strict_intersects` admits only non-zero
-   corrections, so claims in one direction are ALWAYS feasible and claims in both
-   are NEVER feasible. No clamp, no tie-break, no epsilon.
-2. **`step_kinematic` deleted** — 0 production callers, 26 test invocations all
-   inside its own test file, against a live kernel used from 31 files in 10
-   crates. It read as live because of 13 stale comment lines in 11 files.
-3. **`ActorControlFrame::drop_through` deleted** — no brain ever set it, and it
-   could not have been wired without forking a rule, because the gesture is
-   derived at the consumer and `InputState` carries no boolean for it.
-
-⇒ **item 4 moved to D115**, where it belongs: a moving platform cannot be authored
-one-way because `as_collision_block` hardcodes a blink kind. ⛔ it is **not a
-`bool` away** — `one_way_landing_from_previous_feet` compares a PREVIOUS feet
-coordinate against a CURRENT face, which is sound for static geometry and a MIXED
-FRAME for geometry that moves, so a rising elevator would steal a landing off a
-stale feet line. `MovingPlatformState` already carries `previous_aabb()` for
-exactly that hazard, and **that question must be answered before the field
-exists**. Cost: a field on `MovingPlatformSpec` and `MovingPlatformState` (5
-constructors), which is serde-derived rollback snapshot state ⇒ a schema
-re-baseline, plus a new LDtk `field_bool`; `MovingPlatformState` is referenced
-from 8 crates.
-
-⛔⛔ **one tooling footgun found here and worth keeping:**
-`scripts/rollback_codec_shape.py` skips any path containing `/.claude/`, so run
-from a worktree agent it sees **zero** codec files and `--record` would **BLANK
-the baseline** rather than fail. ⇒ **record baselines from the MAIN tree only.**
-
-Case file: [`../archive/planning-superseded/2026-08-14/d126-resolve-order-and-uncalled-capabilities.md`](../archive/planning-superseded/2026-08-14/d126-resolve-order-and-uncalled-capabilities.md).
+- ✔ **D126 — CLOSED 2026-08-14. Three capabilities were DECLARED and consumed by
+  nothing; the honest answer was a deletion or a report, never a wire.**
+  `resolve_axis_repair` separates feasible contacts from infeasible ones
+  (`AxisConstraintConflict` on `FrameEvents`, deliberately unread — damage, death
+  and respawn are Ambition policy); `step_kinematic` and
+  `ActorControlFrame::drop_through` deleted for zero production callers.
+  ⛔ the REJECTED fix is the part worth keeping: *"sort by penetration depth"*
+  turns the red test green while concealing the physics. Item 4 moved to D115 — a
+  one-way moving platform is **not a `bool` away**, because
+  `one_way_landing_from_previous_feet` compares a PREVIOUS feet coordinate against
+  a CURRENT face, so a rising elevator would steal a landing off a stale line.
+  ⛔⛔ tooling footgun: `scripts/rollback_codec_shape.py` skips any path containing
+  `/.claude/`, so from a worktree it sees ZERO codec files and `--record` blanks
+  the baseline — record baselines from the MAIN tree only.
+  Case file: [`../archive/planning-superseded/2026-08-14/d126-resolve-order-and-uncalled-capabilities.md`](../archive/planning-superseded/2026-08-14/d126-resolve-order-and-uncalled-capabilities.md).
 
 - ◐ **D146 — THE SMASH CONTROLLER, AND DASH LEAVING THE VOCABULARY. (Jon,
   2026-08-16, three asks in one message + one follow-up)**
@@ -973,136 +965,27 @@ none: it taught me, in one sitting, to reach for `entity delete` on a feature.
 ▢ teach `spawn_overlap` about `mounted_on`, and either resolve `LoadingZone`
 targets across worlds or suppress them with a written reason.
 
-- ✔ **D162 — CLOSED 2026-08-17, same day. Four boot warnings, all triaged; one
-  FIXED, one dismissed with evidence, one won't-fix with a reason, one moved to
-  D163 as content.**
+- ✔ **D162 — CLOSED 2026-08-17. Four standing boot warnings, all triaged.**
 
 ```text
-SheetRegistry "39 targets"     ✔ DISMISSED — 4 real collisions, all shared RIGS
-loading zone "did not fire"    ✔ FIXED (ad82531b7) — WARN only on a PRESSED door
-GgrsSchedule redundant edge    ✔ WON'T-FIX — both memberships are individually
-                                  correct and Bevy drops the shorter edge
-sanic_sandbox off-grid Y       → D163 (an LDtk content fix, one axis, half a tile)
+SheetRegistry "39 targets"   ✔ DISMISSED — 166 targets, 4 geometry collisions,
+                                every one a shared RIG; no character id collides
+loading zone "did not fire"  ✔ FIXED (`ad82531b7`) — WARN only on a PRESSED door,
+                                DEBUG otherwise. Verified 1 → 0 warnings, and the
+                                door still transitions under `--press f`
+GgrsSchedule redundant edge  ✔ WON'T-FIX — both memberships are individually
+                                correct and Bevy drops the shorter edge
+sanic_sandbox off-grid Y     → D163 — y=3000 is off by exactly half a tile, one axis
 ```
 
-⭐ **the row's thesis survived its own investigation**: the fix for the one that
-mattered was a level split, and the reason it was noise — a warning describing
-CORRECT behaviour — is exactly what the row was opened to name.
-
-⭐ **one is now DISMISSED WITH EVIDENCE, so it never needs investigating again:**
-
-```text
-SheetRegistry: 39 target(s) claimed twice with different frame geometry
-```
-
-⚠ it reads like an art-corruption alarm (*"the survivor crops with the wrong
-grid"*) and it is FINE. Counting the full-res tier offline: **166 targets, FOUR
-geometry collisions — `goblin`, `robot`, `sandbag`, `toon`, every one a shared
-RIG target**, which the code's own doc calls legitimate. **No character id
-collides.** The 39 counts CLAIMS, not targets: 17 characters share `toon`, 18
-share `robot`, 9 share `goblin`. ⭐ and the guard that would catch the real case,
-`report_shadowed_character_sheets`, is silent because there is nothing to say
-rather than because it is dead — the offline count agrees with its silence.
-
-✔ **AND THE OTHER THREE ARE NOW EXAMINED TOO — all four are triaged as of
-2026-08-17, which was this row's whole purpose:**
-
-```text
-1  the controlled body is TOUCHING loading zone `pirate_cove_entry` (Door) and
-   the transition did not fire … A `Door` needs the press
-2  GgrsSchedule … hierarchy contains redundant edge(s) — `apply_actor_contact_damage`
-   cannot be child of system set `WorldPrep`, longer path exists
-3  LDtk validation: level 'sanic_sandbox' world origin (9600, 3000) is not
-   aligned to 16px grid
-```
-
-⚠ **(1) is a diagnostic firing on an ORDINARY state — in SOME rooms.** The body
-spawns at the arrival point; where that point overlaps a `Door`, and a Door
-needs a press, "touching and not transitioning" is simply what a fresh spawn
-looks like. **Measured across four rooms rather than assumed:**
-
-```text
-goblin_cantina_lair  1 warning     pirate_cove       1 warning
-intro_wake_room      0             square_arena      0
-```
-
-⭐ so it is **room-dependent, not every boot** — my first note said "every boot"
-and that was wrong. It is still a WARN that fires for correct behaviour in half
-the rooms sampled, which is enough to teach people to skim the log.
-⭐⭐ **the reading is now DEMONSTRATED, not inferred (2026-08-17).** Driving the
-press against that very zone shows the warning fires first, and the door then
-works perfectly:
-
-```text
-WARN … TOUCHING `pirate_cove_entry` (Door) … interact buffered = false
-capture_scene: pressed KeyF (1 of 1)
-room-transition begin seq=1 pirate_cove -> central_hub_complex
-room-loaded central_hub_complex
-```
-
-⇒ the warning describes **a door nobody has pressed yet**, which is every frame
-a player stands in a doorway.
-
-✔ **FIXED 2026-08-17 (`ad82531b7`) — by a LEVEL SPLIT, not a filter.** A pressed
-door that does not move still WARNs; an unpressed one goes to DEBUG; every fact
-stays in the message either way. ⭐ **verified with the rebuilt driver, both
-directions**: `pirate_cove` with no press now prints **0** of these warnings
-(it printed 1 before), and `--press f` still transitions
-`pirate_cove -> central_hub_complex`. Noise gone, function preserved.
-
-⛔⛔ **and the first fix I wrote was wrong in a way worth keeping.** I filtered
-the message away whenever no press was buffered — which would have **silenced
-the instrument in the scenario that justified it**: this message exists because a
-failure *"sent an investigation into the key bindings"*, and a broken binding is
-exactly the case where the player pressed and `wants_interact` still reads false.
-⇒ **a value a diagnostic REPORTS is a bad value to gate it on**, because the
-reason it is printed is that it can be wrong.
-⚠ this also answered a maintainer report in passing — *"in ambition I can't use
-F to go through doors anymore"* does not reproduce on the keyboard preset.
-
-✔ **(2) IS RESOLVED AS WON'T-FIX, WITH THE REASON — traced 2026-08-17.** It is a
-redundancy that exists because both memberships are individually correct:
-
-```text
-features/mod.rs:646   apply_actor_contact_damage.in_set(WorldPrepSet::ContactDamage)
-                      …and the whole tuple carries .in_set(…::WorldPrep)
-schedule.rs:150       WorldPrepSet::ContactDamage.in_set(…::WorldPrep)
-```
-
-⇒ the system reaches `WorldPrep` two ways — directly via the tuple, and via its
-member set — so Bevy drops the shorter edge and says so. **Neither declaration is
-wrong**: the tuple-level one is what every other system in that tuple needs, and
-the per-system one is the consumer contract (*"a consumer can say 'before bodies
-move' without naming this function"*).
-
-⚠ **and `WorldPrepSet::Integrate` is nested identically** (`schedule.rs:140-144`)
-with `integrate_sim_bodies` in the same tuple, so the same redundancy exists
-there and Bevy names only one of them — the message is a sample, not a census.
-⛔ so "fix it" would mean restructuring a `.chain()`ed tuple to exclude two
-members from a blanket set, which risks reordering a load-bearing simulation
-phase to silence a line that ends *"built successfully, however"*. Not worth it.
-
-⚠ **(3) is ONE AXIS off by HALF A TILE, which is worth knowing before someone
-"fixes" both numbers:**
-
-```text
-x = 9600   / 16 = 600.0     aligned
-y = 3000   / 16 = 187.5     OFF BY 8 — exactly half a tile
-```
-
-⇒ only `sanic_sandbox`'s Y origin is wrong, and a half-tile world offset is the
-shape that puts collision and art out of register for a whole level rather than
-looking obviously broken. ⚠ `tools/ambition_ldtk_tools` is the only road that may
-edit a `.ldtk` — never re-serialise the JSON.
-
-⛔ **the row is about the LOG, not the four items.** Four standing warnings mean
-a new warning arrives into noise, which is the failure mode that matters.
-
-⭐ **but the scale is small, and saying so stops a pointless campaign**: the
-whole engine holds **34 plain `warn!` and 5 `warn_once!`**, and boot prints only
-four. ⇒ this is not an epidemic to sweep — it is a handful of individually wrong
-calls, and the fix is per-call judgement about whether the condition is ORDINARY
-(see item 1's level split), not a policy about warnings.
+⛔⛔ **the first fix was wrong in a way worth keeping**: it filtered the message
+away whenever no press was buffered, which would have silenced the instrument in
+the very scenario that justified it — a broken binding is exactly the case where
+the player pressed and `wants_interact` still reads false. ⇒ **a value a
+diagnostic REPORTS is a bad value to gate it on.**
+⭐ scale, so nobody opens a warning campaign: the whole engine holds 34 `warn!`
+and 5 `warn_once!`, and boot prints four. This is per-call judgement about
+whether the condition is ORDINARY, not a policy about warnings.
 
 - ▢ **D161 — A LOADING ZONE PRINTS ITS AUTHORING ID AT THE PLAYER, and the same
   frame shows the game already knows how to do it properly. (opened 2026-08-17,
@@ -1242,966 +1125,312 @@ operation that has silently nulled mount refs in this repo before.
 ⭐ **the deletion option is closed**: the hub wants signage, and *"only the
 authoring-language content is wrong"* is the general test for the next one found.
 
-- ✔ **D157 — CLOSED 2026-08-16. MARY-O HAD HER WHOLE SMASH MOVESET IN HER
-  PLATFORMER. The ability gate did not exist, and a test that reported it was
-  overruled. (Jon, PLAYING)**
+- ✔ **D157 — CLOSED 2026-08-16. Mary-O had her whole smash moveset in her own
+  platformer: `combat_actions` derived the attack slots from the MOVESET and the
+  `ActionSet` and never read the `AbilitySet`, so her `abilities: Some([RunJump])`
+  row bought nothing — twenty-three distinct swings reachable. Sanic was the
+  identical construction and the identical break.** Landed: `combat_actions` takes
+  the `AbilitySet` and ceilings the melee family with `abilities.attack`; the table
+  stays attached and the GATE is what changed. ⚠ Projectile is deliberately NOT
+  under it — a ranged verb is always an explicit authored grant, and folding it
+  under `attack` would mean the only way to arm Mary-O's fireball was to arm her
+  fists.
+  ⛔⛔ **a test caught this and was argued away.** `…peaceful_kit…` asserted
+  `moveset_len == 0`, went red at 17, and `3d3540546` rewrote it to AGREE with the
+  17, reasoning that *"what keeps that off his own speedway is the ABILITY, not the
+  table"* — a sentence that was an INTENT nothing implemented, written in four
+  places and executed in none. Guarded by `mary_o_at_home_can_only_run_and_jump`,
+  `the_run_button_throws_a_spark_only_while_she_wears_the_lantern` and
+  `the_demo_body_cannot_trigger_a_single_move_from_its_own_smash_table`, all seen
+  red on the pre-fix tree.
 
-Jon: *"So maryo seems to have gotten a bunch of moves from smash in her game, and
-its messing things up there. **She should only have the run and jump in her
-game.** And **the run should double as the fireball button when she has the
-lantern.**"*
+- ✔ **D156 — CLOSED 2026-08-16. The Patent Clerk faced backwards: his facing was
+  authored THREE times (`CharacterSpec.facing` → the rig's `features.facing` → the
+  SVG's `data-rig-facing`), all three said `west`, and nothing in Rust read any of
+  them.** `gravity_aware_flip_x` was exactly `facing < 0.0` with no per-character
+  term, so the engine assumed all ~800 baked sheets were drawn facing +x.
+  ⛔⛔ it was a FORK, not a missing feature — `animate_bosses` has XORed precisely
+  this term since the mockingbird. Landed `SheetRecord::authored_faces_left` and
+  lifted `data-rig-facing` out of a Noether-specific validator onto `CharacterSpec`
+  (`8c30de613`/`37ac258b6`, `fd4320071`; renderer `fac948b` → `9b445c5`).
+  ⚠ near-miss: `SpritePackCatalog::to_sheet_record` synthesizes a record from ATLAS
+  RECTS and cannot know which way pixels point, so each character would have been
+  right from his own sheet and backwards again from the pack; the pack now inherits
+  the base manifest's facing. ⚠ latent hazard: `facing: str = "west"` is the
+  DEFAULT on `CharacterSpec`, so *"the rig says west"* can mean **nobody set it**.
+  What protects the population is
+  `every_baked_sheet_is_drawn_pointing_where_its_body_faces`, which pins the
+  declaring set to exactly eight manifests.
+  ▢ **still open, small**: the portrait tier declares no facing and was never
+  checked (a question, not a known defect — both characters read correctly in
+  game); and two PRE-EXISTING rig-validator failures stand at HEAD — Carl's
+  canonical paint-slice order is out of order, and Noether's rig names
+  `head_base`/`head_features` where `validate_one` requires `head`/`torso`. Only
+  `validate` is red; the `build` path both regens use is fine.
 
-⭐⭐ **THE CAUSE: `combat_actions` never read the `AbilitySet`.** It derived the
-Attack / Special / Projectile slots from the MOVESET and the `ActionSet` alone —
-both of which answer *what the attack is*, never *may this body attack*. D144
-attached `mary_o_moveset()` to her three character definitions (correctly: the
-crossover grid wants those moves, and D146 ruled a character authors its fighter
-self), and from that hour her `abilities: Some([RunJump])` row bought nothing.
-Measured on the assembled demo: **twenty-three distinct swings** reachable across
-attack / smash / special / pogo. Sanic was the identical construction and the
-identical break (`spin_charge` and friends live on his own speedway).
+- ✔ **D158 — CLOSED 2026-08-17, then SUBSUMED BY D159. Two taunting CPUs printed
+  through each other because `stack_offset` was measured from each SPEAKER'S OWN
+  HEAD and the speakers were at different heights** — floor-to-air is exactly one
+  stack step, so every offset was distinct and every line was on top of another.
+  A platform fighter has somebody airborne constantly, so that is the ordinary
+  geometry, not a corner. ⚠ its whole bespoke stacking mechanism is DELETED: a
+  bubble is now a `WorldLabel` in the one ranked placement pass (D159).
+  ⛔ do not reintroduce a second system that places bubbles — two placement passes
+  that cannot see each other is how this bug happened, and each could truthfully
+  report *"no overlaps found"*.
 
-⛔⛔ **AND A TEST CAUGHT IT AND WAS ARGUED AWAY.** `persona_architecture::…peaceful_kit…`
-asserted `moveset_len == 0`, went red at 17, and `3d3540546` (D146 slice 4)
-rewrote it to assert exact equality with `sanic_moveset()` — i.e. to AGREE with
-the 17 — reasoning that *"what keeps that off his own speedway is the ABILITY,
-not the table"*. That sentence was an INTENT; nothing implemented it. Three
-source comments carried the same false claim (both demos' registration loops,
-both `smash_moveset` module docs) and are corrected in place.
-⇒ a hand-listed chain pins the FUNCTION, not the WIRING: the split
-was written down in four places and executed in none.
+- ✔ **D160 — CLOSED 2026-08-17 BY MAINTAINER RULING: the omission is deliberate.
+  The cheap unit tier is a REQUIRED PRE-PUSH check, not a per-turn gate — two
+  tiers on purpose.** Jon: *"keep the per-turn gate small … The workspace lib suite
+  remains a required pre-push/finalization check … 'Gate' should continue to mean
+  an executable gate."* Three tiers: `scripts/gate_suite.py` per turn, and it stays
+  cheap · `cargo test --workspace --lib` pre-push, where *required* is not *gated*
+  · feature-gated suites when you touch the subsystem.
+  ⛔⛔ **DO NOT ADD `--workspace --lib` TO `gate_suite.py`.**
+  ⛔⛔ **and this row was once closed on a false premise, which is why the ruling
+  reads as it does.** It claimed the sweep was *"added to the stated gate"*; what
+  landed was a PARAGRAPH IN `AGENTS.md`. ⇒ **two commands run in one turn is not
+  one command invoking the other**, and *"in the gate"* means a line in
+  `gate_suite.py` or a CI job and nothing else. ⭐ the rule that falls out: **when
+  you add a check, name the TIER that runs it** — a check with no named tier is
+  decoration. ⚠ the omission had hidden two suites red on `main` (repaired in
+  `ea5ca88df`), both guards that were CORRECT when written and became wrong when a
+  rule moved under them.
 
-Landed: `combat_actions` takes the `AbilitySet` and ceilings the melee family
-(Attack + Special) with `abilities.attack`. The table stays attached; the gate is
-what changed. ⚠ **Projectile is deliberately NOT under it** — `AbilitySet` has no
-ranged capability, a ranged verb is always an explicit authored grant
-(`ActionSet.ranged`, or an equipment row's), and folding it under `attack` would
-mean the only way to arm Mary-O's fireball was to arm her fists.
-`SMASH_FIGHTER_KIT` already grants `attack`, so the crossover grid is untouched
-(`smash_roster_movesets` + `smash_in_the_host`, 47/47).
+- ✔ **D159 — CLOSED 2026-08-17. A name plate printed through a taunt because a
+  speech bubble was a FOURTH label family that never joined the one placement
+  pass** — the nameplate pass and the bubble pass each truthfully reported *"no
+  overlaps found"* about a frame in which *"George Booul"* sat inside *"Either you
+  are on the stage or you are not."*
+  ⭐ **the fix was to JOIN, not to invent**, and `label_layout.rs` had already
+  written the diagnosis. `WorldLabelFamily` becomes `Signage · Fixture · Actor ·
+  Speech`, ranked LAST on the module's own test — *which family can move without
+  anything visibly jumping?* A plate is permanent furniture on a body the eye uses
+  to track who is who; a bubble is born in motion and gone in 2.2s. D158's
+  mechanism, its constants and `PendingSpeechBubble` go with it.
+  ⭐ two defects fell out of the same shape: a 160-unit POINT RADIUS gated stacking
+  for text that renders ~336 wide, and the pass's own displacement advanced in a
+  fixed 11px quantum, so a budget of *"six steps"* bought two lines of clearance —
+  both replaced by one honest `max_displacement_px`. Guarded by
+  `a_name_plate_and_a_speech_bubble_do_not_print_through_each_other` (seen RED,
+  both boxes at the same centre) and
+  `the_bubble_yields_to_the_name_plate_and_not_the_other_way_round`, which pins the
+  ranking ARGUMENT rather than describing it.
 
-⭐ **Part 2 was already built and is now guarded.** `fire_spark_on_run_press` +
-`sync_run_action_scheme` have implemented the classic one-button grammar since
-the beacon landed; what was missing was any proof it survives in the ASSEMBLED
-app (`power_loop` builds its body by hand and never sees the smash table). It
-does: the beacon grants the `ranged` verb, the worn identity becomes
-`mary_o_fire`, and the run press throws while the run hold still runs.
+- ✔ **D155 — CLOSED 2026-08-16. Nobody got launched, and it was TWO bugs on the
+  shared floor rather than the parameter tweak it looked like.** Probed live at
+  1427%: magnitude, the write to the body and DI were all HEALTHY, and two things
+  downstream of all three were wrong — each reproducing one half of the report.
+  **(1) every authored launch direction in the game was VERTICALLY INVERTED.**
+  `HitVolume::launch_dir` states `+y = gravity-down`, ~100 authored literals wrote
+  against it, and `knockback_velocity` negated `y` anyway to satisfy a doc comment
+  claiming the opposite — so every up-tilt, up-air and up-smash spiked its victim
+  into the floor and every down-air lifted them.
+  **(2) a launch big enough to TUMBLE was resolved as a LANDING on the tick it was
+  applied.** The launched body kept its stale resting contact into the same step's
+  `tick_knockdown`, which read `on_ground == true`, called that *touched down while
+  still tumbling*, and zeroed the velocity: a 3269 px/s launch moved **zero
+  pixels**. Fixed by clearing `ground.on_ground` when `launch_into_tumble` returns
+  true — gated on the TUMBLE answer, so every body with `tumble_speed: 0.0` (all of
+  Ambition) is byte-identical.
+  ⚠ why it hid: every floor-game test set `on_ground = false` before launching, so
+  the one situation a fighter is actually in when hit — standing on the stage — was
+  never stepped. ⭐ the scaling guard measures RISE, not displacement, because the
+  pre-fix build launched downward where the growth term still produced a big number
+  the floor absorbed. Guards in `hit_response::launch_direction_tests`,
+  `movement::tests::combat_actions` and `smash_in_the_host::launched`, each seen red
+  pre-fix. ⭐ nothing smash-side was touched: both fixes are in
+  `ambition_platformer2d_core`, so Ambition gets juggling from the same floor.
 
-Guards, both **seen red on the pre-fix tree** (verified by poisoning the ceiling
-and re-running): `ambition_demo_mary_o_app`'s
-`mary_o_at_home_can_only_run_and_jump` (sweeps every combat button × every aim
-and asserts nothing starts, then asserts the run and the jump still work) and
-`the_run_button_throws_a_spark_only_while_she_wears_the_lantern`; and
-`ambition_demo_sanic_app`'s
-`the_demo_body_cannot_trigger_a_single_move_from_its_own_smash_table` (which also
-proves the spin-dash TECHNIQUE keeps its Attack button while the repertoire
-behind it stays unreachable).
+- ✔ **D147–D154 — ALL EIGHT REVIEW FINDINGS CLOSED 2026-08-17.** (external
+  structural review, 2026-08-16, read against `2381e3a7e`.) ⭐ **6 of 6 reproduced
+  when probed**; D151 leaves one named residual, recorded on its own row below.
 
-- ✔ **D156 — CLOSED 2026-08-16. THE PATENT CLERK FACED BACKWARDS, AND SO DID
-  CARL. The facing was authored THREE TIMES and read ZERO. (Jon, PLAYING)**
+⚠⚠ **PROVENANCE, and it is the durable half of this row.** The reviewer states
+plainly that they *"couldn't independently run Cargo in this review environment"*
+and *"treated the commits' reported green suites as evidence rather than rerunning
+them."* ⇒ **every finding was a READING, not a measurement, and each was probed
+before being fixed.** A finding that cannot be made to fail is a finding about the
+reader, not the code — and two of these sharpened materially under the probe
+(D151's bridge turned out to be load-bearing; D147's coupling too).
 
-Jon: *"Patent clerk faces backwards. Something is interpreting his authored
-direction incorrectly. I thought we authored his facing in his metadata? Is that
-not being read correctly? Or is it not there?"* Then, after measurement:
-*"Patent clerk is facing west, add in that XML, fix his generator and regenerate
-him."* Confirmed in game afterwards: *"They both are currently facing the right
-way."*
-
-⭐⭐ **THE ANSWER: it WAS there, three layers deep, and nothing in Rust read any
-of it.** `CharacterSpec.facing` → the rig's `features.facing` → (Emmy only) the
-SVG's `data-rig-facing`. All three said `west` for the clerk and were ACCURATE.
-`gravity_aware_flip_x` was exactly `facing < 0.0` with no per-character term, so
-the engine assumed all ~800 baked sheets were drawn facing +x.
-⛔⛔ **and it was a FORK, not a missing feature.** `animate_bosses` has XORed
-precisely this term since the mockingbird; the CHARACTER path is the half that
-never got it — unifying a fork EXPOSES what it hid.
-
-Landed: `SheetRecord::authored_faces_left` (`#[serde(default)]`, emitted only
-when true), `flip_x = gravity_aware_flip_x(..) ^ spec.authored_faces_left()`,
-and `data-rig-facing` lifted out of `_validate_noether_view_contract` (which was
-Noether-specific BY NAME with a hardcoded `"east"`) onto `CharacterSpec` so every
-character declares its own. Commits `8c30de613`/`37ac258b6` (clerk),
-`fd4320071` (Carl); renderer submodule `fac948b` → `9b445c5`.
-
-⚠ **A GAP NEARLY SHIPPED: `SpritePackCatalog::to_sheet_record` synthesizes a
-record from ATLAS RECTS and cannot know which way pixels point.** Both characters
-are in the ultrapack at all four tiers, so each would have been correct from his
-own sheet and backwards again from the pack. `try_load_pack_spec_for_target` now
-inherits the base manifest's facing, for the same reason it already inherits
-`tuning`.
-
-⛔ **THE LATENT HAZARD THIS LEAVES — worth knowing before touching any rig.**
-`facing: str = "west"` is the DEFAULT on `CharacterSpec` and predates all of
-this; Emmy is the one who explicitly sets `"east"`. So a rig that declares
-nothing INHERITS west, and "the rig says west" can mean *nobody set it* rather
-than *the artist drew it that way*. It happened to be true for Carl (verified in
-game). ⭐ what actually protects the population is
-`every_baked_sheet_is_drawn_pointing_where_its_body_faces`, which asserts drawn
-direction against facing for the WHOLE baked population and pins the declaring
-set to exactly these eight manifests — a ninth cannot appear silently.
-
-▢ **still open, small**: the portrait tier declares no facing and was never
-checked (the agent was stopped mid-look). Portraits are separate art on a
-separate path and both characters read correctly in game, so this is a question,
-not a known defect.
-▢ **two PRE-EXISTING rig-validator failures**, confirmed at HEAD with
-byte-identical parts and unrelated to this: Carl's canonical paint-slice order is
-out of order, and Noether's rig names `head_base`/`head_features` where
-`validate_one` requires `head`/`torso`. The `build` path both regens use is fine;
-only `validate` is red.
-
-- ✔ **D158 — CLOSED 2026-08-17. TWO TAUNTING CPUs PRINTED THROUGH EACH
-  OTHER: stacking separated the OFFSETS and nothing separated the LINES.**
-
-Seen in the 1200-tick frame of a real two-CPU match: THREE taunt lines, two
-separated correctly (~45px) and a third printed straight THROUGH another
-bubble's text.
-
-⛔ **the same-frame hypothesis was REFUTED by probe.** Three arrivals in one
-frame already came out of `make_room_for_pending_speech_bubble` at `0 / 28 / 56`.
-The pending queue was never the problem.
-
-⭐ **`stack_offset` is measured from each SPEAKER'S OWN HEAD, and the two
-speakers were not at the same height.** Traced live out of the photographed
-match: taunts anchor at `y = 225.44` from the stage floor and at `y = 208.84`
-and `y = 196.62` from mid-air. Floor-to-air is 28.8 — one `_STACK_STEP` — so
-pushing the older line 28 up from a grounded speaker landed it 0.8 from an
-airborne speaker's untouched line. Every offset was distinct and every line was
-on top of another. A platform fighter has somebody airborne constantly, so this
-is the ordinary geometry, not a corner.
-
-⭐ **the fix: ONE column, swept once, in ELEVATION** (`restack_speech_bubbles`,
-`crates/ambition_render/src/fx.rs`). Live entities and this frame's arrivals are
-gathered into one list — the two near-identical make-room routines were a FORK,
-and each could clear every member of the other population and still collide.
-The column sorts by where the text lands (`target_stack_offset - pos.y`), the
-lowest line stays at its speaker's head, and every line above is lifted to clear
-the one beneath by a step. ⭐ **the arrival is a member, not a privileged
-newcomer** — it slots into the middle when that is where it belongs, which is
-what fixes the newcomer landing on a line already at the ceiling.
-
-✅ **the fifth bubble RETIRES the oldest line.** `_STACK_MAX` 84 / `_STACK_STEP`
-28 is now stated as `_STACK_DEPTH = 4` — the widest supported match — and the
-ceiling is measured from the column's own bottom rather than from anyone's head,
-so four fighters at four different heights all fit. A line squeezed past the top
-ends immediately (alpha is already zero at full age) instead of clamping onto
-its neighbour. `SPEECH_BUBBLE_PUSH_FADE_AFTER` is no longer a race being lost:
-it is now spent only when a line actually MOVED, and the retired line was within
-0.85s of dying anyway.
-
-Guards in `crates/ambition_render/src/fx.rs`, all three seen RED against the
-pre-fix algorithm: `speakers_at_different_heights_do_not_print_through_each_other`
-(11.4 apart), `a_live_line_and_a_new_line_share_one_column` (behavioural, through
-the real `vfx_spawn_messages`, 8.2px apart), and
-`a_four_fighter_free_for_all_fits_and_a_fifth_retires_the_oldest_line`
-(5 live lines where 4 fit). Re-captured with the D128 invocation at
-`--warmup 1200`: three simultaneous taunts, all legible. `cargo check
---workspace --all-targets`, `ambition_render` (129) and `app_it` (412) green.
-
-✔ **two SEPARATE overlaps the same capture shows, neither of them this bug —
-both CLOSED as D159 below.** (1) `SPEECH_BUBBLE_STACK_X_RANGE` was 160 while a
-taunt renders ~336 world units WIDE, so two lines 202 apart in x did not stack
-and DID overlap horizontally: the gate was a point radius and the thing that
-collides is a wide box. (2) a fighter's world NAME LABEL printed through the
-lowest bubble; the label and the bubble did not know about each other at all.
-⇒ **the column described above is gone.** A bubble is now a `WorldLabel` of family
-`Speech` and the one ranked placement pass places it against every other world
-label — which is where within-family spacing was already happening for the
-plates, so this whole mechanism was a duplicate of it.
-
-- ✔ **D160 — CLOSED 2026-08-17 BY MAINTAINER RULING, AND THE ANSWER IS THAT THE
-  OMISSION IS DELIBERATE. The cheap unit tier is a REQUIRED PRE-PUSH CHECK, not a
-  per-turn gate — and those are two different tiers on purpose.**
-
-⭐⭐ **Jon's ruling, verbatim:** *"keep the per-turn gate small. Close D160 as an
-intentional policy choice, not by redefining 'gate.' … The workspace lib suite
-remains a required pre-push/finalization check. … 'Gate' should continue to mean
-an executable gate; the pre-push checklist is a separate validation tier."*
-Full record in [`maintainer-decisions.md`](maintainer-decisions.md).
-
-⭐ **THE THREE TIERS, which is what this row actually produced:**
-
-```text
-per-turn EXECUTABLE gate   scripts/gate_suite.py → cargo test -p ambition_app
-                           --test app_it. Cheap, and it STAYS cheap.
-pre-push / finalization    cargo test --workspace --lib. REQUIRED — and
-                           "required" is not "gated". Stated in AGENTS.md.
-feature-gated suites       run when you touch the subsystem. ⛔ never wholesale.
-```
-
-⛔⛔ **DO NOT ADD `--workspace --lib` TO `gate_suite.py`.** Ruled against
-explicitly, and consistent with his 2026-08-08 *"bias towards running less
-tests… we will catch regressions eventually"*.
-
-⛔⛔ **AND THIS ROW WAS ONCE CLOSED ON A FALSE PREMISE — kept because the shape
-recurs.** It claimed the sweep was *"added to the stated gate"*, and
-`awaiting-maintainer-decision.md` §9 inherited it as *"the project gate now runs
-`cargo test --workspace --lib`"*. What actually landed (`4e92acd04`) was a
-PARAGRAPH IN `AGENTS.md`. ⇒ **two commands run in one turn is not one command
-invoking the other**, and *"in the gate"* means a line in `scripts/gate_suite.py`
-or a CI job and nothing else. ⭐ Jon's *"not by redefining 'gate'"* is the rule
-that falls out of it: **do not relabel a documented obligation AS a gate to make
-a ledger row true, and do not enlarge the gate to make one true either.**
-
-**What the omission hid — both landed on `main` in one session, both REPAIRED in
-`ea5ca88df`, and re-verified green in the 2026-08-17 handoff pass:**
-* `ambition_sim_view::control_prompt` — 3 tests, red since `b33525f58` (D157's
-  ability gate, three crates away). The fixture handed its body an attack MOVE
-  and never said it may attack, so every label it asserted came back `None`.
-  ⚠ found only because the D33 relocation agent happened to run that crate.
-* `ambition_app::app::versus_fighters` — **D151 step 2 retired the bridge that
-  D151 step 1 had just asserted**, one hour apart, and nothing re-ran the guard.
-⛔ neither is to be "fixed" by restoring the retired compatibility bridge; the
-new ability/composition semantics are the point.
-
-⚠ this is the same shape as D134 (the workspace-policy suite nobody ran) and
-D137 (the doc ratchet in no gate): **a suite nothing runs is a suite that goes
-red and stays red.** ⇒ ⭐ **and the ruling refines what that obligation is, rather
-than repealing it: when you add a check, name the TIER that runs it** — per-turn
-gate, pre-push, or touched-the-subsystem — **and a check with no named tier is
-decoration.** ⛔ what it does NOT license is answering "which tier?" with "the
-per-turn one" by default; that is the reflex this row's own false closure came
-from.
-⚠ **BOTH failures were guards that were CORRECT when written** and became wrong
-when a rule moved under them — so this is not "someone wrote a bad test", it is
-the cost of not re-running the cheap tier.
-
-- ✔ **D159 — CLOSED 2026-08-17. A NAME PLATE PRINTED THROUGH A TAUNT: the
-  speech bubble was a FOURTH FAMILY that never joined the one placement pass.**
-
-⭐⭐ **the fix was to JOIN, not to invent, and `label_layout.rs` had already
-written the diagnosis** — *"each family used to place itself … Neither could see
-the other … and **both passes would correctly report 'no overlaps found'** … it
-is the absence of a placement MODEL … every label — whoever spawns it —
-participates by carrying a [`WorldLabel`]"*. `WorldLabelFamily` was
-`Signage · Fixture · Actor`; a bubble carried no `WorldLabel` at all, so the
-nameplate pass and the bubble pass each truthfully reported no overlap about a
-frame in which *"George Booul"* sat inside *"Either you are on the stage or you
-are not."*
-
-⭐ **RANKED LAST — `Signage · Fixture · Actor · Speech` — on the module's own
-test**, which is *which family can move without anything visibly jumping?* A
-plate is permanent furniture on a body the eye is using to keep track of who is
-who; displacing it makes it hop up and back once per taunt. A bubble is BORN in
-motion (it rises through `SPEECH_BUBBLE_BASE_RISE` for its whole 2.2s) and is
-gone before the moment is over. There is no reading under which the plate is the
-better candidate to absorb the push. The argument is written at the variant.
-
-⚠ **D158's mechanism was SUBSUMED, not separate, and it is deleted.** The pass
-already spaces a family against ITSELF — that is how two nameplates avoid each
-other — so keeping `restack_speech_bubbles` would have left two systems placing
-bubbles, which is exactly how this bug happened. Gone with it:
-`speech_bubbles_should_stack`, `advance_speech_bubble_stack_offset`,
-`lift_to`/`retire`/`elevation`, `PendingSpeechBubble`, `stack_offset` /
-`target_stack_offset`, every `SPEECH_BUBBLE_STACK_*` constant, and
-`update_speech_bubble_outlines` (the pass paints outline children through
-`WorldLabel::outline_color`). `SpeechBubbleVisual` is now only the line's clock;
-`update_speech_bubbles` publishes an anchor and an opacity and writes NEITHER the
-transform nor the colour, because the pass is the single writer of both.
-
-✅ **half (1) fell out for free, as predicted: `SPEECH_BUBBLE_STACK_X_RANGE` is
-deleted.** It gated stacking on a 160-unit point radius while a taunt renders
-~336 wide, so two speakers 202 apart did not stack and did overlap. A pass that
-compares the measured BOXES has no radius to be wrong about.
-
-⭐ **and the pass's OWN arithmetic had the same defect, one level down.**
-Displacement advanced in a fixed 11px quantum, so clearing one ~22px line of text
-cost three steps and a budget of "six steps" bought two lines of clearance, not
-six — a four-fighter free-for-all lost a line. A label now lifts to EXACTLY clear
-the highest box in its way, and `step_px`/`max_steps` are replaced by one honest
-`max_displacement_px` (96.0, sized for four lines of world text in one cluster).
-Terminates in at most one pass per already-placed label, and the loop bound says
-so rather than trusting the float arithmetic.
-
-**Guards** (`crates/ambition_render/src/fx.rs`, all through the real systems and
-read off the `Transform`s the renderer would use):
-`a_name_plate_and_a_speech_bubble_do_not_print_through_each_other` — **seen RED
-on the pre-fix tree**, both boxes at `Vec2(-649.3, 224.56)`, exact same centre —
-and `the_bubble_yields_to_the_name_plate_and_not_the_other_way_round`, which pins
-the ranking argument rather than describing it. D158's three scenarios survive
-against the mechanism that now answers them, same measured anchors:
-`speakers_at_different_heights_do_not_print_through_each_other`,
-`a_live_line_and_a_line_born_this_frame_are_placed_together`,
-`a_four_fighter_free_for_all_fits_and_a_fifth_never_prints_through`.
-
-⭐ **RE-CAPTURED with D128's invocation at `--warmup 1200`** (`target/d159/match.png`,
-1280x720, 16 676 distinct colours — real pixels, not one of the three ways it
-renders nothing): **FOUR taunt lines stacked and every one legible, and BOTH
-name plates — "George Booul" and "Pirate Admiral" — clear of the column and of
-each other.** The frame D158 closed on had three lines with one printed through
-another and a plate inside a taunt; this one has four lines, two plates and no
-collision anywhere.
-
-✅ `cargo check -p ambition_app --all-targets`, `cargo test --workspace --lib`,
-`cargo test -p ambition_app --test app_it` (412) and `ambition_render --lib`
-(131) all green.
-
-- ✔ **D155 — CLOSED 2026-08-16. NOBODY GETS LAUNCHED: knockback did not scale
-  and an up-tilt did not send anyone up. TWO bugs, both on the shared floor.**
-
-Jon, verbatim: *"when a character is hit up, they actually get knocked up (or I
-guess attacks should have an authored launch direction), right now up tilts just
-keep the character on the ground. But being able to juggle is going to be
-important in smash and in ambition. Also in smash knockback is not really being
-applied well. Right now alice is at 1427% and Booul is hitting her, but she's not
-going anywhere. We need real knockback and DI. I thought we had it, maybe its
-just some parameter tweaks?"*
-
-⭐ **"I thought we had it" was right, and it was not a parameter tweak.** Probed
-live in the composed host at 1427%: the magnitude was HEALTHY
-(`LaunchSpeed(3269.4)` = `130 + 2.20 × 1427 / 1.0`, exact), the write to the body
-was HEALTHY (`pending_launch` carried it and `step_motion` drained it), and DI
-was HEALTHY (a CPU victim rotated the launch by `0.308` rad against the declared
-`SMASH_DI_MAX_ANGLE` of `0.31`, speed preserved). Two things downstream of all
-three were wrong, and each one alone reproduces one half of Jon's report.
-
-**BUG 1 — every authored launch direction in the game was VERTICALLY INVERTED.**
-`HitVolume::launch_dir`'s own contract says `(+x = facing, +y = gravity-down)`,
-all ~100 authored literals wrote against it (`(0,-1)` = up-launcher, `(0,1)` =
-spike), and `player_robot_moveset` already had a RUNNING test asserting the
-d-air's `y > 0` means down. `hit_response::knockback_velocity` negated `y` anyway
-— to satisfy a doc comment on its own `HitKnockback::launch_dir` that claimed the
-opposite. So every up-tilt, up-air and up-smash in the tree spiked its victim
-into the floor and every down-air lifted them. Fixed by deleting the negation:
-the authored vector IS the local launch, `n * speed`, with only `x` mirrored to
-point away from the source. The two disagreeing doc comments now state the
-authoring contract, and the two kernel tests that had encoded the inverted
-meaning were rewritten.
-
-**BUG 2 — a launch big enough to TUMBLE was resolved as a LANDING on the tick it
-was applied.** `accept_external_launch`'s axis-swept arm answered only half of
-the question its own doc poses — *"only the model knows whether a launch means
-LEAVE THE SURFACE or override the run"* — while the surface-momentum arm answers
-both. A launched body kept its stale resting contact into the same step's
-`tick_knockdown`, which read `on_ground == true`, called that *touched down while
-still tumbling*, and resolved it to a KNOCKDOWN: `kinematics.vel = ZERO` on the
-launch tick, prone for `KNOCKDOWN_TIME`. Measured: a standing fighter at 1427%
-took a `3269 px/s` launch and moved **zero pixels**. Fixed by clearing
-`ground.on_ground` when `launch_into_tumble` returns true — gated on the tumble
-answer, not on the launch's direction, so a shove that does not throw you leaves
-you planted and every body whose `tumble_speed` is `0.0` (all of Ambition) is
-byte-identical.
-
-⚠ **why it hid.** Every existing floor-game test set `on_ground = false` before
-launching, so the one situation a fighter is actually in when it gets hit —
-standing on the stage — was never stepped. And a hit UNDER the tumble threshold
-launched correctly the whole time, so only hits worth watching were deleted.
-
-**Guards, each verified RED on the pre-fix tree before landing:**
-`hit_response::launch_direction_tests::an_authored_up_launcher_rises_and_an_authored_spike_drives_down`
-and `::the_authored_vector_is_the_local_launch_under_every_gravity` (the spike
-half is the poison: an up-only test also passes on a resolver that drops the
-sign); `movement::tests::combat_actions::a_launch_that_tumbles_a_standing_body_throws_it_instead_of_knocking_it_down`;
-and behaviourally in the live host,
-`smash_in_the_host::launched::an_up_tilt_takes_a_grounded_fighter_off_the_floor`
-plus `::an_up_tilt_launches_much_further_at_a_high_percent` (3.9px of rise at 0%,
-361px at 1427%). The scaling guard measures RISE rather than displacement on
-purpose — the pre-fix build launched downward, where the growth term still
-produced a big number and the floor absorbed all of it, so a distance guard would
-have been satisfied by a victim shoved along the ground. DI is covered at the
-whole-launch seam by
-`hit_response::launch_direction_tests::opposite_held_directions_steer_one_launch_two_ways`.
-
-⭐ **nothing smash-side was touched.** Both fixes are in
-`ambition_platformer2d_core`; Ambition is a customer of the same floor and gets
-juggling for free, which is what Jon asked for (*"important in smash AND in
-ambition"*).
-
-- ◐ **D147–D154 — THE D140–D145 REVIEW FINDINGS. (external review, 2026-08-16,
-  read against the `2381e3a7e` snapshot)** — D147 and D148 CLOSED 2026-08-17;
-  both reproduced when probed.
-
-⚠⚠ **PROVENANCE, and it governs how to start each one.** These eight came from a
-STRUCTURAL SOURCE REVIEW. The reviewer states plainly that they *"couldn't
-independently run Cargo in this review environment"* and *"treated the commits'
-reported green suites as evidence rather than rerunning them."* So every finding
-below is a READING, not a measurement. ⛔ **Probe each one before fixing it** —
-the failing case is written into each row precisely so it can be run first. A
-finding that cannot be made to fail is a finding about the reader, not the code.
-
-Jon's disposition, verbatim: *"We also need to take care of the reviewer comments
-after this… probably want to document these in case we don't get to them in this
-session."* ⇒ **these queue BEHIND D146**, in the order below, which is the
-reviewer's own recommended order and not the severity order.
-
-⭐ the reviewer's reason for that order is worth keeping: the first three *"aren't
+⭐ the reviewer's own ordering argument, worth keeping: the first three *"aren't
 generic cleanup for its own sake: each one removes a piece of backend ceremony or
 hidden state that future agents would otherwise repeatedly have to understand."*
 
-**Explicitly NOT findings** — the reviewer looked and cleared these: the volume of
-new moveset lines (*"genuine fighter design… D146 should centralize repertoire
-ceremony, not homogenize moves"*), `MatchAbilities::levelled(SMASH_FIGHTER_KIT)`
-as policy (Jon's own ruling; only the `None` bridge below is at issue), the new
-camera work, and the smash submodule gitlinks (map/SFX/sprite all match their
-archived `main` heads; the music renderer being ahead is the known unrelated dirt).
-
-- ✔ **D147 — CLOSED 2026-08-17. GENERIC MATCH ACTIVATION KNEW THE STOCKS
-  RULESET'S PRIVATE LATCH. (review finding 1, HIGH, refactor)**
-
-D140 fixed the never-ending second match by inserting
-`StocksMatchSettled(false)` inside the GENERIC `activate_the_prepared_match`.
-It worked and the dependency pointed the wrong way: the generic activation road
-knew that one particular ruleset keeps a process-global boolean latch needing a
-reset, and installed the resource even where the ruleset was never composed —
-the comment written at the time conceded exactly that.
-
-⭐ **PROBED FIRST, and the coupling is LOAD-BEARING**: with that one line
-commented out, `a_second_match_on_the_same_stage_counts_in_and_ends` goes red on
-match two with zero winners announced. So this REPLACED it rather than deleting
-it.
-
-**Took the reviewer's stronger form.** `StocksMatchSettled` is not a timeless
-global — it is *the stocks outcome for match X*. It carries the `MatchInstance`
-it is about (the session, and the tick the cast was built on: the two facts that
-distinguish one activation from the next), so a new match reads as undecided BY
-CONSTRUCTION. Nobody retracts it, nothing is ordered against activation, and
-activation names no ruleset. The type moved with its meaning — out of
-`ambition_combat::stocks`, which owns the COUNT, into `features::stocks_match`
-beside `decide_stocks_match`, which owns the QUESTION and holds the latch's only
-two readers; the orphan rule carried the snapshot impl along, and the rollback
-registration now sits beside `ActiveMatch`, the receipt the verdict names.
-
-Guards: `the_previous_matchs_verdict_does_not_settle_this_one`,
-`a_verdict_from_another_session_does_not_settle_this_match`,
-`adopting_a_seat_topology_does_not_un_decide_the_match` (the last is why the key
-is the activation's two facts rather than the whole receipt — `seat_topology` is
-mutated on a LIVE match). D140's own guards stay green with no activation-side
-retraction left in the tree, which is the measurement that the keyed form
-carries its behaviour. `797aa480d`.
-
-- ✔ **D148 — CLOSED 2026-08-17. A TEAM VICTORY ANNOUNCED THE LAST SURVIVING
-  TEAMMATE INSTEAD OF THE TEAM. (review finding 2, HIGH, a real bug)**
-
-**REPRODUCED, and the guard was seen RED on today's tree.** The card states its
-own rule — a team keeps its own name, only a side of ONE is swapped for the
-fighter's — and then decided which by COUNTING THE BODIES standing on the
-winning side. `take_eliminated_fighters_out_of_play` despawns an eliminated
-fighter, so a two-person team that lost a member early has one body at victory.
-Measured at the app level through the real shell: a two-versus-two where Red's
-seat 1 was knocked out and despawned before Blue was wiped read
-`WINNER: Robot v3` against a side called `Red`.
-
-⭐ **body residency recovering match-participant identity**, the error this
-campaign keeps hitting. How many fighters a side HAS was frozen when the match
-was prepared; how many are STANDING is the match itself. `PreparedMatch::
-seats_on_side` is the frozen answer, named by the same `stocks::side_label` the
-outcome names sides with.
-
-Guard: `a_team_victory_names_the_team_and_not_its_last_survivor` (its non-vacuity
-half asserts seat 1 left play BEFORE the decision — without that it would pass on
-the broken code). The solo half of the rule stays asserted by the four-way and
-second-match guards, both of which expect a fighter's NAME, so a fix that always
-printed the side would go red there. `f0da10217`.
-
-⚠ **the guard was rewritten once, and why is worth keeping**: the first version
-let four CPUs fight between the scripted launches, and a hitlag change landing in
-another crate flipped the winner. A claim about the WORDING of a card must not
-depend on combat tuning — every elimination is now caused by the test on a fixed
-schedule.
-
-- ✔ **D149 — MOVE VFX BYPASSES `FxRequest`, SO FOURTEEN MOVESETS HAND-PAIR EVERY
-  SOUND. (review finding 3, MED-HIGH, refactor after D146) — LANDED 2026-08-17**
-
-⭐ **the reviewer calls this the most valuable post-D146 cleanup for making
-character authoring agent-friendly**, and it is the one that pays D144 back.
-
-The engine already has the abstraction: `FxRequest`, whose own doc says the
-simulation writes ONE request for an effect's visual *and paired sound* so the
-caller need not remember both, and `process_fx_requests` fans it out to
-`VfxMessage::Effect` + `effect_cue(effect)` → `SfxMessage`. But
-`dispatch_move_events` takes `MoveEventKind::Vfx` and writes `VfxMessage::Effect`
-DIRECTLY, going around the pairing. So every authored burst in the new tables is
-a manual `Vfx(x)` + `Sfx("vfx.…x.loop")` couple, and several characters now carry
-a test whose entire job is *"every VFX has somebody remembering to put an SFX
-beside it"* — infrastructure making content authors remember backend details.
-
-Wanted: the authored thing is a presentation effect (`effect`, `position`,
-`scale`) whose sound DEFAULTS to its companion, with `sound = override(…)` and
-`sound = silent` as the exceptions. The `.loop` cases are exactly why an override
-must exist; they are not a reason to hand-pair the normal ones fourteen times.
-⚠ this removes ceremony only — not one fighter mechanic changes.
-
-⭐⭐ **PROBED 2026-08-17. Accurate, and the size + the two blockers are measured.**
-
-**The site**: `dispatch_move_events` (`crates/ambition_combat/src/moveset/mod.rs:1450`)
-— the `MoveEventKind::Vfx` arm writes `ambition_vfx::VfxMessage::Effect { pos, fx,
-scale }` straight out, while `FxRequest` (`ambition_vfx/src/vfx.rs:299`) exists
-one module over and `process_fx_requests` (`ambition_render/src/fx.rs:190`) fans
-it to VFX + the effect's own paired cue.
-
-**THE SIZE — 145 authored `sfx(…)` calls across the fourteen tables split three
-ways, and only one third is ceremony:**
-
-| | count | disposition |
-|---|---|---|
-| `vfx.*` with no `.loop` — restates the default pairing | **74** | ▢ DELETABLE, this is the win |
-| `vfx.*.loop` — a looping variant of the art's own cue | 20 | ⭐ genuine OVERRIDE, must survive |
-| `player.*` / `enemy.*` / `pca.*` — independent sounds | 50 | ⚠ not paired with any vfx; untouched |
-
-⇒ so `sfx = default | override(…) | silent` is exactly the vocabulary the corpus
-needs, and the `.loop` rows are the proof the override arm is not speculative.
-
-⛔⛔ **TWO BLOCKERS — this is NOT a one-line swap.**
-1. **`FxRequest` carries no presentation source.** `dispatch_move_events` scopes
-   its SFX by `ev.presentation_source` (`sfx.write_from(...)` when scoped), and
-   `FxRequest` is `{ pos, fx, scale, sfx }`. Routing move VFX through it as-is
-   DROPS that scoping. `FxRequest` has to learn the source first — and a new
-   message channel owes three things, so check what else reads it.
-2. **`process_fx_requests` is installed by `ambition_platformer2d_host`
-   (`lib.rs:572`), not by the combat crate.** Any headless fixture that asserts
-   on `VfxMessage` after a move event would see nothing once the write becomes an
-   `FxRequest`. Inventory those fixtures before switching the arm.
-
-⭐⭐ **CLOSED 2026-08-17, and the half-landing in between was a live feel bug.**
-`1e2aa6337` switched the arm and left the 74 restatements standing, so for one
-session every burst in four tables played its sound TWICE — individually correct,
-jointly a doubled jab, and 412 app tests green throughout. The migration is
-complete now rather than reverted: the arm, the override channel and the table
-sweep are one change.
-
-- **the 74 were VERIFIED, not assumed.** Every authored `vfx.*` cue was compared
-  against `effect_cue(FxId::new(effect))` for the effect it sat beside — the
-  row's own `cue` field, read out of the baked FX manifests. **74 equalled it
-  exactly and 21 (not 20) were `<cue>.loop`; ZERO differed.** No override was
-  wearing a default's name.
-- **the override arm is `MoveEventKind::Vfx { sfx: Option<String> }`**, serde-
-  defaulted so every authored table stays valid, threaded to `FxRequest.sfx` via
-  `FxRequest::with_sfx`. Authoring says it once:
-  `vfx_cued(m, at_s, effect, at, scale, cue)`. ⚠ those 21 are not decoration —
-  ten shipped rows pack their sound ONLY as `vfx.<family>.<row>.loop` and ship no
-  plain row cue at all, so deleting them wholesale would have silenced a held
-  field.
-- **the guard is `a_paired_burst_is_heard_exactly_once`**
-  (`game/ambition_content/src/moveset_sound.rs`), and it was SEEN RED on the
-  shipped tables — *"carl_stargan's `jab` writes `vfx.carl_stargan.evidence_ping`
-  by hand at 0.05s, and the burst beside it already addresses that cue"*. It runs
-  the real `dispatch_move_events` + `process_fx_requests` over every table this
-  crate ships, one authored INSTANT at a time, and intersects what the bursts say
-  with what the hand-written events say — so "what a burst already addresses" is
-  answered by the engine, never by a table transcribed from it. Beside it:
-  `a_sustained_burst_keeps_its_looping_cue` (the 21) and
-  `a_moves_own_voice_is_not_ceremony` (the 50 independent grunts and chinks).
-- **three `every burst is heard` tests were RETIRED** (noether, oiler, carl),
-  each with a tombstone naming the guard above. Their whole job was checking that
-  a content author had remembered a backend detail, and they could only ever see
-  the MISSING half of the pair — never the doubled one.
-- **net −74 authored calls; the four tables lose ~95 lines of sound bookkeeping.**
-  No `MoveSpec` changed in timing, geometry, damage, launch or gates.
-
-⚠ **the measured residue, deliberately left.** Two moves — Alice's `side_channel`
-and the cellular automaton's `garden_growth` — throw the SAME effect at `±x` on
-the same frame, so each is now heard twice: two spatialised bursts, two
-spatialised sounds. That is a burst COUNT, not a restatement, and the guard says
-so in as many words. The `silent` arm of the `default | override | silent`
-vocabulary is what would answer it; it is not built, because two mirrored bursts
-making two mirrored sounds is not obviously wrong and nothing else in the corpus
-wants it. ⚠ and 83 previously-silent bursts across the other tables now make
-their row's sound — that is the point of the change, not a side effect.
-
-- ✔ **D150 — A PROJECTILE CHANGES ALLEGIANCE WHEN ITS FIRER DESPAWNS. (review
-  finding 4, EXISTING but newly urgent — a D145 follow-up, not a D145 defect) —
-  PROBED RED AND CLOSED 2026-08-17**
-
-Not introduced by D145; D145 touched this authority boundary and left the hole.
-Allegiance is reconstructed EVERY TICK by querying the firing `Entity`, and the
-code states the consequence as intended behaviour: if the firer despawned
-mid-flight the shot becomes indiscriminate environmental damage.
-
-In a four-fighter match that reads: fighter fires → loses their final stock →
-body despawns → next tick the owner lookup fails → **the shot in flight turns on
-everybody, including its own team.** A shot does not become neutral because the
-body that fired it stopped being resident.
-
-Wants stable combat attribution carried BY THE SHOT — who fired me, which side
-was I on — independent of owner-body lifetime, with reflection able to rewrite it
-deliberately. ⭐ this is the same occurrence-vs-entity distinction D125 is
-already working through. ⚠ do this before four-player/team matches are showcase
-material.
-
-⭐⭐ **REPRODUCED, then closed.** The probe is
-`a_shot_outlives_its_firer_without_changing_sides` — two bolts from one seated
-fighter, one aimed at a teammate and one at an opponent, the firer despawned
-between the first step and the rest. It failed on the line it exists for: *"the
-orphaned shot turned on its firer's own team."* Not a reading about the reader.
-
-⭐ **and the shot's PRESENTATION half already had the answer.**
-`inherit_projectile_presentation_sources` says it in as many words — *"the bolt
-is the emitter … it routinely outlives the body that fired it. So the source is
-STAMPED at spawn rather than looked up at impact"* — so the fix is that same
-stamp for the other question: `ProjectileAllegiance { faction, team }`, frozen
-onto the bolt the first tick it flies, authoritative from then on, registered
-rollback state (`projectile.allegiance`) because after a rewind past the firer's
-death there is nothing left to re-derive it from.
-
-⚠ two deliberate NOTs. The **grudge** is not frozen — a feud is something the
-firer holds now, not a side the shot launched on — and the **faction** stamped is
-the authored one, exactly what the owner lookup read, so this changes a LIFETIME
-and not a rule. The parry re-own now rewrites the stamp beside the owner handle
-(pinned in `reflect_re_owns_the_shot_to_the_parrier_and_reverses_velocity`);
-moving only the handle would have left a reflected bolt fighting for whoever
-fired it.
-
-⚠ the component lives in `…actor_monolith/src/projectile/allegiance.rs` and NOT
-in the model crate: `engine.ambition_projectiles-manifest-deny` forbids
-`ambition_combat` / `ambition_characters` there, so the two materializers cannot
-stamp it and the stepper freezes it on first sight instead. **The residue**: a
-firer who dies in the window between materialization and the bolt's first step
-leaves it unstamped forever. Closing that means stamping at birth, which means
-either an observer or moving the vocabulary — neither worth building for a
-one-tick coincidence, and named here rather than discovered.
-
-⚠ **two guards outside the per-turn gate caught real work, and both were right.**
-`engine.runtime-actor-projectile-centralized` rejected the rollback registration
-for naming `…actor_monolith::projectile::` directly — the runtime's one door onto
-that module is `projectile_schedule.rs`, so the registration goes through the
-re-export and the policy stands unedited. And a NEW rollback name reddens **two**
-baselines, not one: `scripts/baselines/rollback-schema-baseline.json` (the
-absence contract) and `game/ambition_app/tests/rollback_schema_baseline.txt`
-(inside `app_it`, the one a per-crate run never sees).
-
-- ✔ **D151 — CLOSED 2026-08-17. `MatchAbilities`' `None → permitted` BRIDGE MADE PERMISSION INTO A
-  GRANT. (review finding 5, MEDIUM, retire the bridge)**
-
-Not a new user-visible regression — the pre-D142 code had equivalent migration
-behaviour — but D142 promoted it into the new abstraction, where it is now the
-thing the API's own documentation invites you to rely on:
-
-```rust
-authored.unwrap_or(self.permitted).union(self.granted).intersect(self.permitted)
-```
-
-So `MatchAbilities::at_most(kit).apply(None)` MANUFACTURES the whole kit, despite
-`at_most` being documented as *"a ceiling only — grant nothing."* The tests
-knowingly preserve this as a migration bridge.
-
-⛔ **it gets worse in exactly the use the docs propose for fighter individuality**:
-`granted = basic kit`, `permitted = basic kit + wall jump`, meaning "the one
-character who authored a wall jump keeps it." An UNAUTHORED character takes the
-`None` arm and receives basic + wall jump — mere permission became a grant.
-
-Wanted: `None` means *no authored claim* (a baseline), never *the ruleset
-ceiling*. ⚠ **dovetails with D143** (the kit-less seat), and D144's now-explicit
-roster is what makes retiring it affordable.
-
-⭐⭐ **PROBED 2026-08-17, AND THE FINDING IS SHARPER THAN THE REVIEW'S: THE
-BRIDGE IS LOAD-BEARING RIGHT NOW. DO NOT DELETE IT.**
-
-* **One real `at_most` adopter**: `game/ambition_app/src/app/versus.rs:298`
-  (smash uses `levelled`). Its own comment states the intent —
-  *"a character keeps what it authored, minus what this duel forbids"*.
-* ⛔⛔ **and NEITHER of its two fighters authors any abilities.**
-  `versus_fighters::duelists()` builds `arena_duelist_long` and
-  `arena_duelist_close` with `with_sheet` / `with_health` / `with_action_set` /
-  `with_moveset` / `with_hurtboxes` / `with_voice` — and **no `with_abilities`**.
-  So `authored` is `None` for both, and the `None → permitted` arm is what hands
-  them their entire kit. **Retiring the bridge naively leaves both duelists with
-  NO abilities and breaks the mode outright.**
-* ⇒ the stage's stated intent and its actual behaviour already disagree: it says
-  a character keeps what it authored, and what these two actually get is the
-  ceiling, because they authored nothing.
-
-**THE SAFE ORDER, and it is the reviewer's own condition (*"as explicit
-character/body capability declarations become complete"*) made concrete:**
-1. ◐ **DONE, pending validation** — the two duelists author
-   `VERSUS_FIGHTER_KIT` (`game/ambition_app/src/app/versus_fighters.rs`), the
-   kit they were already receiving: `basic()` + `attack` + `fast_fall`, `reset`
-   and `interact` riding in from `basic()` exactly as they already did.
-   ⭐ **and `versus.rs`'s `at_most(…)` now REFERENCES that constant** instead of
-   restating the set inline, so the ceiling and the kit beneath it cannot drift
-   into disagreeing — restating it is how the stage became the only thing
-   dressing its own cast.
-   Guard: `what_the_duelists_author_is_exactly_what_the_bridge_was_handing_them`
-   asserts `apply(Some(kit)) == apply(None)` (so the step is provably neutral),
-   that the kit can actually fight (so the equality is not comparing two empty
-   sets), and that both fighters really carry it now.
-2. ✔ **DONE (`d21031fc4`)** — `apply` reads `authored.unwrap_or(AbilitySet::NONE)`.
-   An absent claim now gets exactly what the mode GRANTS, and a ceiling grants
-   nothing. ⭐ **`levelled` is untouched** (its `granted == permitted`, so the
-   smash stage's fourteen fighters are byte-identical); only `at_most` changed,
-   and its two fighters were dressed in step 1 for precisely this. Exactly ONE
-   test failed — the one that pinned the bridge — and it now pins the rule,
-   including the widened-ceiling case the bridge hid: a mode saying
-   `permitted ⊃ granted` to let ONE fighter keep a wall jump no longer hands it
-   to everybody who stayed silent.
-   ⚠ the line's own doc had named today's condition in advance: *"the day it is
-   unreachable this line is `unwrap_or(AbilitySet::NONE)`."*
-3. ▢ still open —
-   ⚠ it must NARROW the body's own kit rather than REPLACE it, which `apply`
-   cannot do today because it never receives that kit. That signature is the
-   real work, not the `unwrap_or`.
-3. ▢ then guard that no seated character anywhere relies on the bridge, so the
-   next unauthored fighter fails loudly instead of silently inheriting a ceiling.
-
-⚠ **`MatchBody::over` is the shape to copy** (D146 slice 1b): it takes the base
-the fighter brought as a PARAMETER and states only what the mode owns, so its
-`authored.unwrap_or(built)` supplies a real base to layer on rather than
-manufacturing a claim. That is why the body authority does not have this defect.
-
-- ✔ **D152 — EMPOWERMENT EXPIRY IS A PER-GAME SCHEDULING FOOTGUN. (review finding
-  6, move lifecycle ownership into the engine)** — CLOSED 2026-08-17.
-
-Predates the review; smash's respawn protection proved it real. Smash had to add
-`run_empowerments` to its own schedule or a two-second invulnerability becomes
-PERMANENT invulnerability. Mary-O and Sanic each independently remember to
-install the same system.
-
-The current justification is that games differ on whether they want
-`apply_contact_harm`. ⭐ **the reviewer accepts that and separates the two
-responsibilities**: contact-harm INTERPRETATION is a ruleset choice; ticking,
-expiry and releasing projected state are a domain INVARIANT. An author should be
-able to write `Empowered::for_seconds(…, 2.0)` without knowing there is a system
-elsewhere that must be scheduled or the duration is infinite.
-
-⭐ **PROBED 2026-08-17 — the reviewer's split holds, and the standing defence
-does not answer it.**
-* **`run_empowerments` is PURELY LIFECYCLE.** Its body ticks `remaining` against
-  `WorldTime::scaled_dt`, decides `live`, and releases; a `None` remaining is a
-  HELD empowerment with no clock. There is no game-specific policy inside it.
-* ⚠ **but the existing doc already declined an engine-owned installation, with
-  reasons** (`empowerment.rs`, the `EmpowermentProjectionPlugin` note): Sanic
-  installs `run_empowerments` in `GameplayEffects` and deliberately does NOT
-  install `apply_contact_harm` (`defeat_badniks` already owns destroy-on-touch,
-  and two authorities killing one badnik was the bug it avoided), while Mary-O
-  installs both in `FeatureInteraction` with contact harm ordered AFTER expiry.
-  It concludes *"what is engine-owned is the INVARIANT, not the order."*
-* ⇒ **both are right about different halves, and that is the actionable shape.**
-  The declined request was *one installation point for the whole feature*, which
-  would have taken away a real per-game choice. The reviewer asks for less: the
-  ENGINE installs EXPIRY in a named set; a game that wants `apply_contact_harm`
-  orders it against that set. Nothing about contact harm becomes mandatory, and
-  forgetting the lifecycle stops being possible.
-* ⛔ **five adopters today**, each having remembered: smash, sanic (×2 incl. its
-  tests), mary_o (×2 incl. `star.rs`). A sixth game that forgets gets permanent
-  invulnerability — which is exactly how smash's respawn protection surfaced it.
-
-⭐ **CLOSED 2026-08-17 — the engine installs the clock in `EmpowermentExpiry`;
-the ORDER is still each game's.** `EmpowermentProjectionPlugin` became
-`EmpowermentLifecyclePlugin` and now adds `run_empowerments.in_set(
-EmpowermentExpiry)` to the sim schedule beside the removal observer it already
-owned. All five hand-installations are gone. `apply_contact_harm` stayed
-optional and un-installed — Sanic still has none.
-
-⚠ **ONE LITERAL PLACEMENT COULD NOT BE PRESERVED, AND IT IS STRUCTURAL, NOT A
-SHORTCUT.** The five sat in THREE mutually exclusive phases — `CombatSet::Settle`
-⊂ `Combat` ⊂ `CoreSimulation` (smash), `FeatureInteraction` (mary_o),
-`GameplayEffects` (sanic) — and the hosted Ambition app builds all three plugins
-at once, each `run_empowerments` gated by its own `in_mode`. One shared set has
-one position, and per-game `configure_sets` re-placement is not the escape: three
-games nesting one set into three strictly ordered phases is a schedule cycle.
-⭐ **so the placement is `GameplayEffects`, the LAST of the three, which is what
-makes it ordering-PRESERVING rather than arbitrary.** Every grant site
-(`place_respawning_fighters`, `begin_star_power`, `sync_super_form_traits`) is at
-or before it, so a grant still gets its projection stamped on the frame it is
-made; and every consumer of what `run_empowerments` WRITES —
-`Invulnerability` — reads it from `CombatSet::Resolve` inside `CoreSimulation`,
-which precedes all three phases, so the grant→read latency is one frame from any
-of them. Nothing a body can observe moved.
-
-What each adopter says now:
-* **smash** — nothing. Its chain reads no grant, so it needs no edge; the note
-  it carried (*"probably an engine-side registration later"*) is what landed.
-* **sanic (lib)** — `EmpowermentExpiry.after(sync_super_form_traits)
-  .before(emit_sanic_skid_sfx)`, reproducing its exact chain slot. Still no
-  `apply_contact_harm`: `defeat_badniks` keeps destroy-on-touch.
-* **sanic (tests)** and **mary_o (`star.rs` tests)** — the plugin plus the same
-  one-line edge, instead of hand-adding the system.
-* **mary_o (lib)** — the two systems it deliberately ordered AFTER expiry
-  (`apply_contact_harm`, `play_star_music`) moved out of the `FeatureInteraction`
-  chain into `GameplayEffects.after(EmpowermentExpiry)`, so the intent is stated
-  rather than implied by adjacency. ⚠ costs nothing: the `HitEvent` contact harm
-  writes is consumed by `apply_feature_hit_events` in `CombatSet::Resolve`, which
-  precedes BOTH phases.
-
-Guard: `a_timed_empowerment_ends_in_a_composition_that_scheduled_nothing`
-(`features::empowerment::tests`) — an app whose ONLY empowerment statement is the
-plugin, polling `Empowered` to a 600-tick ceiling rather than counting updates.
-Seen RED with the plugin's `add_systems` stubbed out (*"it must be projecting its
-reason"*), along with four fixture tests, because the shared fixture now composes
-like a game instead of hand-adding `run_empowerments`.
-
-- ✔ **D153 — A MISSING REQUIRED SPRITE PAGE FAILS OPEN. (review finding 7, small)** — CLOSED 2026-08-17.
-
-In the hall-loading repair: `for index in asset.spec.used_pages()` now skips a
-page the realization does not have (`error!(…); continue;`), which correctly
-avoids waiting on sparse placeholder handles — that was the permanent-spinner fix
-and it should stay. But if a spec says page 12 is REQUIRED and the realization
-holds five slots, the sequence is now: log an error → omit the required page from
-the manifest → the barrier can report Ready → reveal the room with missing
-presentation.
-
-Wanted invariant, the inverse of the spinner fix: **a semantically required page
-that is absent fails PREPARATION explicitly** — a manifest construction failure or
-an explicit failed dependency, not log-and-continue.
-
-⭐ **PROBED 2026-08-17 — accurate, and the exact site is
-`add_character_asset` in `game/ambition_app/src/app/world_flow/room_transition_assets.rs:197`.**
-It builds the barrier's image manifest, and a `used_pages()` index with no slot
-in `asset.pages` logs and `continue`s, so the character is simply not waited on.
-⚠ **narrower than it reads, which is why it is still open and still small.**
-`pages` is built as `(0..page_count)` in
-`character_sprites/assets.rs:643`, so `pages.len() == page_count` always. The arm
-is reachable only when the SPEC's frame rects name a page beyond the realized
-count — a truncated or mismatched realization, not an ordinary sparse pack.
-⚠ `add_character_asset` returns `()`; making this a real failure means threading
-a `Result` (or a collected-errors sink) out through the manifest builder. That
-signature choice is the work — the `continue` is one line.
-
-⭐ **CLOSED 2026-08-17 — the failure travels IN the manifest, not out of the
-builder in a `Result`.** `RoomAssetManifest` gained `unresolved: Vec<String>`,
-filled by a `RoomManifestDraft` accumulator that replaces the bare
-`BTreeMap` every `add_*` helper threaded; `inspect_room_asset_manifest` counts
-each unresolved label as SETTLED-and-FAILED, so the existing
-`readiness.failed` → `LoadWorkState::Failed(retryable)` arm refuses the reveal
-and the source room stays authoritative. The shape argument, written at the
-field: the manifest is already the artifact that reaches both refusers (the
-transition contribute/poll pair and startup loading) AND the prefetch cache's
-equality key, so a truncated realization can no longer be promoted as equal to
-a healthy one; a `Result` would have to be caught at build time, stashed
-beside the manifest, and re-joined with it at exactly that decision site.
-⭐ **the arm widened by one honest case**: a `used_pages()` index whose slot
-EXISTS but holds a default handle is the same defect (required art, nothing to
-load), and it is the reachable one — every production realization builds
-`pages` as `0..page_count`.
-Guards (`ambition_app` lib, `room_transition_assets::tests`):
-`a_required_page_the_realization_lacks_refuses_the_room` (seen RED against a
-restored log-and-continue: `unresolved` was `[]`) and
-`an_unsampled_pack_page_is_neither_waited_on_nor_failed` — the regression guard
-for the permanent-spinner fix this sits inside, green under both behaviours by
-construction. Fixtures build real specs through `AuthoredSheets::insert_ron` →
-`try_load_spec_for_target_authored`, so neither passes vacuously.
-
-- ✔ **D154 — CLOSED 2026-08-17 (`97a5b76ea`). AUTHORED VFX WAS ONLY HALF BODY-LOCAL: POSITION WAS TRANSFORMED,
-  ORIENTATION IS NOT. (review finding 8, take with the next directional pass)**
-
-`d6d5810b8` gave `MoveEventKind::Vfx` an `at` and a `scale`, and correctly
-transforms `at` through committed facing and the body's gravity frame. But the
-message it produces is only `VfxMessage::Effect { pos, fx, scale }`, and the
-renderer builds `Transform::from_translation(…)` — no facing/mirror, no rotation,
-no body frame.
-
-So a left-facing fighter puts `air_slice` at the correct left-hand POSITION with
-the artwork still oriented as though facing right; sideways gravity has the
-analogous defect. Invisible for radial effects, visibly wrong for `air_slice`,
-`relative_velocity_arrows`, `paired_trajectory`, streaks, and any future
-sword/beam.
-
-Wanted: the presentation event carries a small semantic POSE — position,
-body-frame orientation, facing/mirror, scale — instead of accreting one isolated
-presentation field at a time. ⚠ not urgent, but **fix it before agents author
-hundreds more directional effects against the incomplete contract**, because the
-cost is in the content written against it, not in the field.
-
-⭐ **PROBED 2026-08-17 — accurate and unchanged.** `VfxMessage::Effect` in
-`crates/ambition_vfx/src/vfx.rs:237` is exactly `{ pos, fx, scale }`. No
-rotation, no mirror, no body frame. So the authored `at` is transformed into
-world space and the ARTWORK is not, and a left-facing fighter's `air_slice`
-lands in the right place pointing the wrong way.
-⚠ **the D156 facing work is the precedent to copy, not a duplicate of it.** That
-one taught the SHEET renderer which way its artwork was drawn
-(`authored_faces_left`, XORed into `flip_x`); this is the same question one
-layer over, for effect art that has no body to inherit a facing from. Whatever
-carries it should be a small semantic POSE on the event — position, body-frame
-orientation, mirror, scale — rather than a fourth isolated field.
-
-⭐⭐ **THE SHAPE IS ALREADY HALF-BUILT, and using it is the whole design.**
-`build_move_events` (`crates/ambition_combat/src/moveset/mod.rs:~603`) already
-derives the authored offset from exactly TWO authorities:
-
-```rust
-body_frame.to_world(ae::Vec2::new(at.0 * pb.facing, at.1))
-//  ^ the owner's AccelerationFrame        ^ the move's COMMITTED facing
-```
-
-⇒ **orientation must come from those same two, never a third.** A pose derived
-anywhere else can disagree with the position it decorates, which is the bug
-class this repo keeps paying for (a hand-kept reconstruction ledger: one more
-row is not a fix).
-
-**The route, end to end — no authored content changes at all:**
-1. `MoveEventMessage` (combat, `~line 180`) gains a POSE beside `world_offset`,
-   computed in the same expression: the mirror is `pb.facing < 0.0`, the angle is
-   the body frame's — `gravity_upright_angle` (`shared_tangle/src/gravity.rs:394`)
-   is what the SPRITE renderer already uses, so an effect and the body it hangs
-   off take one rule.
-2. `FxRequest` carries it (it already learned `source` and `sfx` this session).
-3. `VfxMessage::Effect` carries it — today it is exactly `{ pos, fx, scale }`.
-4. The renderer applies it: `sprite.flip_x` + a rotation, instead of
-   `Transform::from_translation` alone.
-
-⚠ **IDENTITY is the default**, so every non-move caller (hazards, breakables,
-projectiles, fireworks) is byte-identical and this cannot double or move
-anything — ⛔ unlike D149's swap, which added a side effect and needed the
-callers migrated in the same breath
-(routing a producer onto a pairing channel DOUBLE-FIRES — guard a COUNT, not a
-presence).
-⚠ **it IS a deliberate behaviour change for move effects**: a left-facing
-fighter's `air_slice` starts pointing left. Radial art is unaffected; nothing
-authored today can have compensated, because no mirror existed to compensate
-for.
+⛔ **explicitly NOT findings** — the reviewer looked and cleared these: the volume
+of new moveset lines (*"genuine fighter design"*), `levelled(SMASH_FIGHTER_KIT)`
+as policy (Jon's own ruling), the camera work, and the smash submodule gitlinks.
+
+- ✔ **D147 — CLOSED 2026-08-17 (`797aa480d`). Generic match activation knew the
+  stocks ruleset's private latch** — D140 had fixed a never-ending second match by
+  inserting `StocksMatchSettled(false)` inside the GENERIC activation road, which
+  installed the resource even where that ruleset was never composed.
+  ⭐ PROBED FIRST: the coupling was LOAD-BEARING (comment the line out and match
+  two ends with zero winners), so this REPLACED it rather than deleting it. The
+  latch is not a timeless global — it is *the stocks outcome for match X*, so it
+  now carries the `MatchInstance` it is about and a new match reads as undecided BY
+  CONSTRUCTION: nobody retracts it, nothing is ordered against activation, and
+  activation names no ruleset. Guarded by
+  `the_previous_matchs_verdict_does_not_settle_this_one`,
+  `a_verdict_from_another_session_does_not_settle_this_match` and
+  `adopting_a_seat_topology_does_not_un_decide_the_match` — the last is why the key
+  is the activation's two facts and not the whole receipt.
+
+- ✔ **D148 — CLOSED 2026-08-17 (`f0da10217`). A team victory announced the last
+  surviving teammate instead of the team**: the card's own rule says a team keeps
+  its name and only a side of ONE is swapped for the fighter, and it decided which
+  by COUNTING THE BODIES standing — but an eliminated fighter is despawned, so a
+  two-person team that lost a member early has one body at victory.
+  ⭐ body residency recovering match-participant identity, the error this campaign
+  keeps hitting: how many fighters a side HAS was frozen when the match was
+  prepared (`PreparedMatch::seats_on_side`); how many are STANDING is the match.
+  Guarded by `a_team_victory_names_the_team_and_not_its_last_survivor`, whose
+  non-vacuity half asserts seat 1 left play BEFORE the decision.
+  ⚠ the guard was rewritten once, and why is worth keeping: the first version let
+  four CPUs fight between scripted launches, and a hitlag change in another crate
+  flipped the winner. **A claim about the WORDING of a card must not depend on
+  combat tuning** — every elimination is now caused by the test on a fixed schedule.
+
+- ✔ **D149 — CLOSED 2026-08-17. Move VFX bypassed `FxRequest`, so fourteen
+  movesets hand-paired every sound.** `dispatch_move_events` wrote
+  `VfxMessage::Effect` directly, going around the one abstraction whose whole job
+  is *"write ONE request for an effect's visual and its paired sound"* — so several
+  characters carried a test whose entire job was checking that a content author had
+  remembered a backend detail.
+  ⭐ **the corpus decided the vocabulary**: of 145 authored `sfx(…)` calls, **74
+  merely restated the default pairing** (deleted), **21 were `.loop` overrides**
+  (kept — ten shipped rows pack their sound ONLY as the loop and would have gone
+  silent), and 50 were independent voices (untouched). ⇒ `default | override |
+  silent`, with the override arm proved non-speculative by the corpus itself.
+  ⚠ the 74 were VERIFIED, not assumed — each compared against
+  `effect_cue(FxId::new(effect))`; zero differed. Guarded by
+  `a_paired_burst_is_heard_exactly_once`, seen RED on the shipped tables, which
+  runs the real `dispatch_move_events` + `process_fx_requests` so *"what a burst
+  already addresses"* is answered by the engine and never by a transcribed table.
+  ⛔⛔ **the half-landing in between was a live feel bug**: `1e2aa6337` switched the
+  arm and left the 74 restatements standing, so for one session every burst played
+  its sound TWICE — individually correct, jointly a doubled jab, **and 412 app
+  tests stayed green throughout**.
+  ⚠ measured residue, deliberately left: two moves throw the same effect at `±x` on
+  one frame and are heard twice. That is a burst COUNT, not a restatement; the
+  `silent` arm would answer it and is not built for want of a customer.
+
+- ✔ **D150 — CLOSED 2026-08-17. A projectile changed allegiance when its firer
+  despawned.** Allegiance was reconstructed EVERY TICK by querying the firing
+  `Entity`, and the code stated the consequence as intended behaviour — so in a
+  match a fighter fires, loses their last stock, the body despawns, and next tick
+  the shot in flight turns on its own team. ⭐ the same occurrence-vs-entity
+  distinction D125 is working through.
+  ⭐ **the shot's PRESENTATION half already had the answer** —
+  `inherit_projectile_presentation_sources` says the bolt *"routinely outlives the
+  body that fired it, so the source is STAMPED at spawn rather than looked up at
+  impact."* Same stamp for allegiance: `ProjectileAllegiance { faction, team }`,
+  frozen on the first tick of flight, registered rollback state because after a
+  rewind past the firer's death there is nothing left to re-derive it from.
+  ⚠ two deliberate NOTs: the grudge is not frozen (a feud is something the firer
+  holds now), and the faction stamped is the authored one — this changes a LIFETIME,
+  not a rule. The parry re-own rewrites the stamp beside the owner handle.
+  ⚠ named residue: a firer who dies between materialization and the bolt's first
+  step leaves it unstamped forever; closing that means stamping at birth, which
+  means an observer or moving the vocabulary across a manifest-deny boundary —
+  not worth it for a one-tick coincidence.
+  ⛔ **a NEW rollback name reddens TWO baselines**: `scripts/baselines/
+  rollback-schema-baseline.json` and `game/ambition_app/tests/
+  rollback_schema_baseline.txt`, the second of which a per-crate run never sees.
+
+- ✔ **D151 — CLOSED 2026-08-17 (`d21031fc4`). `MatchAbilities`' `None → permitted`
+  bridge turned PERMISSION into a GRANT**, in exactly the use the docs proposed for
+  fighter individuality: with `permitted = kit + wall jump` to let the one
+  character who authored a wall jump keep it, every UNAUTHORED character took the
+  `None` arm and got it too.
+  ⛔⛔ **PROBED FIRST, and the bridge was LOAD-BEARING** — the one real `at_most`
+  adopter is the versus duel, and **neither duellist authored any abilities**, so
+  the bridge was handing them their entire kit. Deleting it naively would have left
+  both with nothing. Safe order: dress the cast first (`VERSUS_FIGHTER_KIT`, with
+  `at_most(…)` now REFERENCING that constant so the ceiling and the kit cannot
+  drift apart), then `apply` reads `authored.unwrap_or(AbilitySet::NONE)`. Exactly
+  one test failed — the one that pinned the bridge — and it now pins the rule.
+  ⭐ `levelled` is untouched (`granted == permitted`), so the smash stage's fourteen
+  fighters are byte-identical. ⚠ the line's own doc had named the condition in
+  advance: *"the day it is unreachable this line is `unwrap_or(AbilitySet::NONE)`."*
+  ▢ **still open**: a ceiling must NARROW the body's own kit rather than REPLACE
+  it, which `apply` cannot do because it never receives that kit — **that signature
+  is the real work**, not the `unwrap_or`. Then guard that no seated character
+  relies on the bridge, so the next unauthored fighter fails loudly.
+  ⚠ `MatchBody::over` is the shape to copy: it takes the base the fighter brought
+  as a PARAMETER, which is why the body authority never had this defect.
+
+- ✔ **D152 — CLOSED 2026-08-17. Empowerment expiry was a per-game scheduling
+  footgun**: a game had to install `run_empowerments` in its own schedule or a
+  two-second invulnerability became PERMANENT — five adopters had each remembered,
+  and smash's respawn protection is how it surfaced.
+  ⭐ **the split that unblocked it**: contact-harm INTERPRETATION is a ruleset
+  choice, but ticking and expiry are a domain INVARIANT. The engine installs the
+  clock in a named `EmpowermentExpiry` set; the ORDER stays each game's, and
+  `apply_contact_harm` stays optional and un-installed (Sanic still has none).
+  ⚠ **one literal placement could not be preserved, and it is structural**: the
+  five sat in THREE mutually exclusive phases, and one shared set has one position
+  — per-game re-placement would be a schedule cycle. It sits at `GameplayEffects`,
+  the LAST of the three, which makes it ordering-PRESERVING: every grant site is at
+  or before it, and every consumer of what it writes reads from a phase that
+  precedes all three. Nothing a body can observe moved.
+  Guarded by `a_timed_empowerment_ends_in_a_composition_that_scheduled_nothing` —
+  an app whose ONLY empowerment statement is the plugin, seen RED with the plugin's
+  `add_systems` stubbed out.
+
+- ✔ **D153 — CLOSED 2026-08-17. A missing required sprite page failed OPEN**: the
+  permanent-spinner fix made an absent page `error!(…); continue;`, so a spec that
+  required page 12 against a five-slot realization logged, omitted the page, let
+  the barrier report Ready, and revealed the room with missing presentation.
+  ⭐ **the failure travels IN the manifest, not out of the builder in a `Result`** —
+  `RoomAssetManifest` gained `unresolved: Vec<String>`, and readiness counts each
+  entry as SETTLED-and-FAILED so the reveal is refused and the source room stays
+  authoritative. The shape argument, written at the field: the manifest already
+  reaches both refusers AND is the prefetch cache's equality key, so a truncated
+  realization can no longer be promoted as equal to a healthy one.
+  ⭐ the arm widened by one honest case — a slot that EXISTS but holds a default
+  handle is the same defect, and it is the reachable one. Guarded by
+  `a_required_page_the_realization_lacks_refuses_the_room` (seen RED against a
+  restored log-and-continue) beside the regression guard for the spinner fix it
+  sits inside.
+
+- ✔ **D154 — CLOSED 2026-08-17 (`97a5b76ea`). Authored VFX was only half
+  body-local: the POSITION was transformed through committed facing and the body's
+  gravity frame, and the ARTWORK was drawn world-upright regardless** — so a
+  left-facing fighter's `air_slice` landed in the right place pointing right.
+  Invisible on radial art, visibly wrong on slices, streaks and arrows.
+  ⭐ **the pose comes out of the same expression as the offset, from the same two
+  authorities** (the owner's frame and the move's committed facing), because a pose
+  derived anywhere else can disagree with the position it decorates — one more row
+  in a hand-kept reconstruction ledger is not a fix. The angle is the one the
+  SPRITE renderer already stands a body up with, so a body and the effect hanging
+  off it cannot disagree about which way is up. `FxPose` rides the event, the
+  request and the message.
+  ⭐ **identity is the default and every emitter states it OUT LOUD** — eleven
+  construction sites had to answer, and a hazard saying upright is a fact rather
+  than an omission. ⚠ unlike D149's swap this adds a TRANSFORM rather than a side
+  effect, so it cannot double anything and needed no caller migration.
 
 - ✔ **D140 — CLOSED 2026-08-16. A second match never started and never ended:
-  "GO!" stayed up and nothing could win. (Jon, REPRODUCIBLE)**
-
-Jon, verbatim: *"sometimes in a 4 player cpu battle, when someone wins it ends I
-with 'Go'. Maybe that is a side effect of starting one match, and then doing
-another match? I thought we had tests for that. Probably worth strenthening
-them. When there is only 1 player alive or 1 team alive for team matches the
-time in the game should freeze with 'WINNER: <name>' to show the match is over,
-and not let players continue to play after the match ends. COnfirming a test.
-cpu vs cpu on a fresh match, got seat 2 wins. Running back and doing another cpu
-vs cpu after gets a 3 2 1 go, but the GO stays on the screen for the entire
-match, and the match does not end. I can quit to title and then do another match
-which does a 3, 2, 1, go, but again the go still appears on the screen, and the
-match does not end when there is only 1 player left. On a fresh start, with 4
-player cpu free for all, the 3, 2, 1, go happened, and the go disappaeared, and
-the game ended when someone won with the screen text confirmation. But then
-another cpu vs cpu the go issue appears again, so this is reproducible."*
-
-⭐ **the repro is exact and it is a SEQUENCE, which is why a test missed it**:
-match 1 is correct in every shape he tried (2-CPU and 4-CPU free-for-all), and
-every guard on this stage plays exactly one match. His own note — *"I thought we
-had tests for that"* — was the finding.
-
-**MEASURED, not reasoned** (`the_stage_kills::a_second_match_on_the_same_stage_counts_in_and_ends`,
-written red first). The card said this on match one:
-
-```text
-  match 1   3 . 2 . 1 . GO! . "seat 1 wins" . GO!      <- the ceremony took the card BACK
-  match 2   3 . 2 . 1 . GO! . (nothing, ever)          <- never decided
-```
-
-⇒ **TWO defects that met on one `if`**, both now fixed:
-
-1. **`StocksMatchSettled` could not be retracted between matches.** It was
-   cleared only by `decide_stocks_match` observing NO active match — *"a match
-   that went away un-decides itself"* — and this stage never removes the receipt
-   (the versus stage does; activation REPLACES it). So there is no sim tick
-   between two matches on which the receipt is absent, match two opened wearing
-   match one's verdict, and `decide_stocks_match` returned on its first line
-   forever. ⇒ **retracted by ACTIVATION now**, in the same command flush as the
-   receipt: a match that is starting has not been decided.
-2. **The announce card had two writers and no arbitration.** The GO! card holds
-   one beat past the release; a knockout inside that beat overwrote the victory
-   card on the next tick. The old guard protected the wrong half (*"do not CLEAR
-   the winner's card"*), which also meant that once (1) made the verdict
-   permanent, the clear was gated off forever and GO! sat on a live match. ⇒ the
-   ceremony now **stops talking the moment the match is decided**, and the clear
-   is unconditional.
-
-**And the product rule he stated is built**: the sim clock is requested to `0.0`
-while a match is settled and back to `1.0` while one is live and undecided
-(`stocks_match::state_the_matchs_pace`) — self-healing, because nothing else
-says "full speed" on a CPU-vs-CPU stage, and safe because the sink reduces a
-frame's requests by `min` so hitstop still wins. The winner is NAMED: the card
-reads `WINNER: Robot v3`, resolving the engine's SIDE ("seat 1") to the
-fighter's own `Name` when the side is a side of one, and keeping the team's name
-when a team won together (closes D128 item 4).
-
-**The guard is the sequence**: two matches in ONE app, asserting on each that it
-counts in `3-2-1-GO!`, that the ceremony does not have the last word, that
-exactly one winner is announced, and that no fighter travels more than 8px after
-the end. ⛔ a test that builds a fresh app per match cannot fail this, which is
-why the existing ones passed.
+  "GO!" stayed up and nothing could win. (Jon, REPRODUCIBLE)** ⭐ the repro is a
+  SEQUENCE, which is why every guard missed it — match ONE is correct in every
+  shape, and every guard on this stage played exactly one match. His own *"I
+  thought we had tests for that"* was the finding.
+  **TWO defects that met on one `if`.** (1) `StocksMatchSettled` could not be
+  RETRACTED between matches — it cleared only when `decide_stocks_match` observed
+  no active match, and this stage never removes the receipt, so match two opened
+  wearing match one's verdict. Retracted by ACTIVATION now: a match that is
+  starting has not been decided. (2) the announce card had two writers and no
+  arbitration — the GO! card holds one beat past the release and overwrote the
+  victory card; the old guard protected the wrong half (*"do not CLEAR the
+  winner's card"*), so once (1) made the verdict permanent, GO! sat on a live
+  match forever. The ceremony now stops talking the moment the match is decided.
+  ⭐ the product rule he stated is built: the sim clock is requested to `0.0` while
+  a match is settled and `1.0` while one is live — self-healing, and safe because
+  the sink reduces by `min` so hitstop still wins.
+  ⛔ **the guard is the SEQUENCE — two matches in ONE app.** A test that builds a
+  fresh app per match cannot fail this, which is why the existing ones passed.
 
 - ◐ **D143 — the stage's unarmed declaration does not reach the seat. NO LONGER
   REACHABLE FROM THE GRID (2026-08-16), and the plumbing gap stands. (found while
@@ -2255,357 +1484,118 @@ cast should be armed by the stage at all or be re-authored as fighters is Jon's
 says a thing and the body does not hear it — which is a defect under either
 answer.
 
-- ✔ **D144 — CLOSED 2026-08-16. Every selectable fighter has the full sixteen-press
-  smash kit. (Jon)**
-
-Jon, verbatim: *"Let's complete the kit for all characters, authoring new moves
-when we need to. 16 is the current target, but we will need to do more (trips,
-grabs, falls, techs, etc…). We can invent whatever special we want for oni and
-goblin. It doesn't have to be fancy we can use generic sfx / vfx, although I think
-oni has a bunch of sfx and vfx ready for it."*
-
-**Measured first, and the measurement moved twice.** The census resolves each
-press the way a body does (`move_for_directional_verb`, on the MERGED kit) rather
-than asking whether a verb key exists — `directional_verb_chain` FALLS BACK, so a
-missing forward tilt is not silence, it is the jab again.
-
-⛔ **and asking only ONE POSTURE invented a gap**: George Booul's down-B is a
-commanded plunge and is `airborne_only` by design, so probed standing it fell to
-his neutral-B and read as missing. He was 16/16 all along. A press is covered when
-SOME posture reaches a move of its own.
-
-```text
-                        before        after      what was written
-  robot v3               12/16        16/16      ftilt + side/up/down-B
-  george booul           16/16        16/16      (the census was wrong)
-  pirate admiral         15/16        16/16      ftilt
-  goblin                 11/16        16/16      ftilt + all four specials
-  shadow oni leader      11/16        16/16      ftilt + all four specials
-  perfect cellular auto   8/16        16/16      fifteen — it had one move
-  mary_o / sanic          0/16        16/16      sixteen each
-  npc_alice / npc_bob     0/16        16/16      sixteen each
-  oiler/noether/stargan/clerk        16/16       already complete
-```
-
-⭐⭐ **the up-B is the half that is not cosmetic.** The goblin, the Oni, the
-automaton, both protagonists and both Hall NPCs had NO special at all — on a
-platform fighter that is no way back to the stage. Every one of them has a
-recovery now.
-
-⚠ **`moveset_authoring` moved down to `ambition_characters`**, for the same
-reason `build_actor_moveset` did: it lived in `ambition_content`, so a character
-belonging to any other provider could not use it. Mary-O and Sanic are registered
-by their own demos, which do not depend on Ambition's content crate — the choice
-was a fourth copy of the helpers or one move. ⛔ `ambition_demo_smash` still
-carries its own fork (`crate::moveset`, with a `Feel` tag this one has no concept
-of); unifying it is its own change.
-
-⛔⛔ **AND IT CHANGES NOTHING IN MARY-O'S OR SANIC'S OWN GAMES.** Both author
-`abilities: Some([RunJump])`, which carries no `attack`: a move table is *what the
-swing IS* and the ability is *whether this body may swing at all*. Their sixteen
-moves are unreachable at home and reach a body the moment a stage GRANTS the verb
-(D142's `MatchAbilities::levelled`). That split is what makes "a classic
-platformer protagonist on a fighting grid" expressible rather than a
-contradiction. ⚠ Sanic's spin dash and transform stay TECHNIQUES and are not
-touched.
-
-⚠ **`hall_humanoids` emptied itself**, exactly as its own rule said it would
-(*"If one of them grows a moveset or a distinct build, it earns its own file that
-day"*): all four left within a week and what survives is the one fact they still
-share, the 210 px/s humanoid walk.
-
-⭐⭐ **AND A SPECIAL OWES AN ANSWER IN BOTH POSTURES** (Jon, later the same day):
-*"A down-b that has special airborne properties should also have an effect on
-ground. Think of bowser down b … Specials can have different effects in different
-contexts that should be ok, and makes for a richer smash game, although in most
-cases they shouldn't be context dependent."*
-
-⛔ **the mechanism was already in the engine and nothing had used it.**
-`directional_verb_chain` puts `special_air_down` ahead of `special_down` in the
-airborne chain, so a two-form move is AUTHORED, not engineered. What the rule
-found:
-
-```text
-  george booul, sanic     air-only down-B  -> pressed grounded, gave the NEUTRAL-B
-  nine others             ground-only down-B -> pressed airborne, same fallback
-  goblin, sanic, clerk    ground-only NEUTRAL-B -> pressed airborne, SILENT
-                          (`special` is the last candidate in the chain)
-```
-
-⇒ George gets the literal Bowser shape — a grounded arc, then the same plunge —
-Sanic gets a hop into his ball drop, nine fighters get an air form of their down-B,
-and the three neutral-Bs become `either_posture`. ⚠ the arcs are `ImpulseMode::Add`,
-not `Set`: `lift_speed` is derived from `Set` impulses, and written that way the
-hop told the recovery policy that a DOWN-B was a way home. George's own up-B poison
-caught it.
-
-**The census asks both postures now** and reports which one failed and what it got
-instead (`dspecial/air=nspecial`).
-
-⚠ **three guards changed with the population, and none was weakened**:
-Oiler's geyser control said *"the other seat has no way home"* — impossible once
-everybody has an up-B, so it now asserts both seats advertise one and they DIFFER;
-`the_grid_fighters_that_state_their_own_moves_only_grow`'s control arm asked to be
-checked before the silent column emptied and is flipped to assert it IS empty; and
-`the_grid_fighters_with_a_real_repertoire_only_grow` is DELETED by its own closing
-line (*"P3.24 is DONE — in which case delete it rather than leave it passing"*),
-its guard living on in the two above.
-
-⛔ **and one test was passing on a margin nobody had measured.**
-`a_respawning_fighter_is_briefly_untouchable` ran 300 `app.update()`s and called it
-five seconds; probed, the grant went 1.967s → 0.233s over those 300 updates, so the
-SIM advanced 1.73s. It failed because the app got heavier, not because respawn
-protection changed. It runs until the grant ends now, with a ceiling.
-
-**The census is a RATCHET now** — `report_the_smash_kit_every_selectable_fighter_has`
-fails on a fighter that drops below the full kit, and reads the target from
-`SMASH_KIT.len()` so trips/grabs/techs joining the vocabulary raises the bar by
-themselves rather than by editing a number.
+- ✔ **D144 — CLOSED 2026-08-16. Every selectable fighter now has the full
+  sixteen-press smash kit** (robot v3 12→16, goblin and the Oni 11→16, the
+  automaton 8→16, Mary-O, Sanic, Alice and Bob 0→16).
+  ⭐⭐ **the up-B is the half that is not cosmetic** — the goblin, the Oni, the
+  automaton, both protagonists and both Hall NPCs had NO special at all, which on a
+  platform fighter is no way back to the stage.
+  ⛔ **the census was wrong twice, and both errors are the lesson.** Asking whether
+  a verb KEY exists reads a fallback as coverage (`directional_verb_chain` falls
+  back, so a missing forward tilt is the jab again, not silence); and asking only
+  ONE POSTURE invented a gap — George Booul's down-B is `airborne_only` by design,
+  so probed standing it read as missing when he was 16/16 all along. **A press is
+  covered when SOME posture reaches a move of its own**, and the census asks both.
+  ⭐⭐ **a special owes an answer in BOTH postures** (Jon: *"a down-b that has
+  special airborne properties should also have an effect on ground — think Bowser"*),
+  and the mechanism was already in the engine with nothing using it:
+  `directional_verb_chain` puts `special_air_down` ahead of `special_down`, so a
+  two-form move is AUTHORED, not engineered. ⚠ the arcs are `ImpulseMode::Add`, not
+  `Set` — `lift_speed` is derived from `Set` impulses, so written that way a hop
+  told the recovery policy a DOWN-B was a way home. George's own up-B poison caught it.
+  ⛔⛔ **it changes nothing in Mary-O's or Sanic's own games**: a move table is *what
+  the swing IS*, the ability is *whether this body may swing at all*. That split is
+  what makes "a platformer protagonist on a fighting grid" expressible.
+  ⚠ `moveset_authoring` moved down to `ambition_characters` so a character from any
+  provider can use it; ⛔ `ambition_demo_smash` still carries its own fork.
+  ⭐ the census is a RATCHET (`report_the_smash_kit_every_selectable_fighter_has`),
+  reading its target from `SMASH_KIT.len()` so trips and grabs joining the
+  vocabulary raise the bar by themselves.
+  ⛔ and one test was passing on a margin nobody had measured:
+  `a_respawning_fighter_is_briefly_untouchable` called 300 `app.update()`s five
+  seconds; the sim had advanced 1.73s. It failed because the app got heavier.
 
 - ✔ **D145 — CLOSED 2026-08-16. No projectile could hit anybody on the smash
-  stage. (Jon, opportunistic)**
-
-Jon, verbatim: *"Another thing to note is that PCA's glider doesn't do any damage
-or hit anyone. Not the priority right now, but if you see the issue
-opportunistically fix it."*
-
-⛔⛔ **it was never about the glider.** Melee and projectiles asked different
-questions about who may be hit, and only one of them knew what a match is:
-
-```text
-  melee        targeting::team_allows_damage(attacker_team, victim_team)
-  projectile   damage_lands(firer_faction, victim_faction, ..)   <- no team, ever
-```
-
-**Measured on the shipped stage**: both seats come back `ActorFaction::Player`
-with teams `seat 1` and `seat 2` — which is correct, because a Hall NPC and a demo
-protagonist are not enemies of each other outside the match. So melee landed and
-every shot was spared as an ally. ⇒ **no projectile from any fighter could hit
-anybody**: not the glider, not the admiral's grapeshot, not Oiler's.
-
-⭐ **the fix is one call.** `damage_lands_between` — the team-aware sibling melee
-already used — existed, and `StrikeVictim` has carried the victim's `team` the
-whole time with the doc *"Outranks faction for 'may this land'"*. This loop was
-the one caller that never asked for it. Guarded by a fixture with the poison
-inside it: a body on the FIRER'S OWN team, overlapping the same shot, that must
-NOT be hit.
+  stage, and it was never about the glider Jon happened to notice.** Melee and
+  projectiles asked different questions about who may be hit, and only one knew
+  what a match is: melee used `team_allows_damage(attacker_team, victim_team)`
+  while the projectile loop used `damage_lands(firer_faction, victim_faction)` —
+  no team, ever. Both seats come back `ActorFaction::Player` (correct: a Hall NPC
+  and a demo protagonist are not enemies outside the match), so melee landed and
+  **every shot from every fighter was spared as an ally**.
+  ⭐ the fix is one call — `damage_lands_between` already existed and
+  `StrikeVictim` had carried the victim's `team` all along, documented *"outranks
+  faction for 'may this land'"*; this loop was the one caller that never asked.
+  Guarded by a fixture with the poison inside it: a body on the FIRER'S OWN team,
+  overlapping the same shot, that must not be hit.
 
 - ✔ **D142 — CLOSED 2026-08-16. A match could only ever TAKE verbs away, so no
-  stage could promise a fighter anything. (Jon)**
-
-Jon, verbatim: *"Sanic should never have fly, blink, or wall climb in any
-iteration. PCA needs double jump, fast fall, and dodge. In fact, in smash all
-characters should be sure they are granted the basic smash abilities, but we want
-to do this in an elegant way."*
-
-⭐ **the elegant way is that a match has TWO things to say, not one.**
-`MatchParticipantRoster::fighter_abilities` carried a single `AbilitySet` that
-was intersected, so a mode could forbid and never guarantee. It is a
-`MatchAbilities` now:
-
-```text
-  granted    every fighter HAS these, whatever its character authored
-  permitted  and no fighter has anything OUTSIDE these
-  effective = (authored ∪ granted) ∩ permitted
-```
-
-⇒ smash declares `MatchAbilities::levelled(SMASH_FIGHTER_KIT)` — granted ==
-permitted, one kit for everybody — and versus declares `at_most(..)`, which is
-exactly the lone mask it always was. The four-row bridge table in
-`effective_abilities` collapses to `rules.apply(authored)`, with the
-unauthored-character bridge expressed as a DEFAULT (`unwrap_or(permitted)`)
-rather than a branch.
-
-⭐⭐ **it makes a real tension EXPRESSIBLE instead of picking a winner.** Jon's
-older compositional ruling is pinned by a test — *"Forcing Puppy Slug into Smash
-gives you Puppy Slug … Jump → no jump if its body cannot jump"* — and today's is
-its opposite. Both are right about different modes: a match that MANUFACTURES
-capabilities is what made a slug jump like a humanoid, and a match that cannot
-GUARANTEE them is what sent the PCA onto a platform-fighter stage with no double
-jump. The two halves are now two tests (`a_match_cannot_grant_a_verb_the_
-character_does_not_have` for `at_most`, `a_levelling_match_hands_every_fighter_
-the_kit_it_declares` for `levelled`), and a stage picks in one word.
-⚠ **the cost, stated**: a Puppy Slug forced onto the smash grid now jumps.
-
-**What changed in play: one fighter.** Every other seat resolves to the same kit
-it had — the robot and the duelists author supersets of the stage's kit, and
-twelve of the fourteen author nothing. The PCA gains `double_jump`, `fast_fall`,
-`dodge`, `pogo`, `directional_primary` and `ledge_grab`, which is Jon's first
-sentence.
-
-⚠ **its own row is deliberately NOT patched.** An earlier pass authored
-`ledge_grab: true` onto the PCA to work around the mask; that is removed with the
-reason that justified it. A character does not carry verbs to compensate for a
-mode — whether the PCA should grab ledges in its OWN room is a separate call.
-
-**Sanic authors `[RunJump]` on BOTH iterations** (base and super), replacing an
-earlier `[SaneSubset]` that granted fly, fly_toggle, blink, precision_blink,
-wall_jump, wall_cling and wall_climb — three of the four verbs Jon named it
-against. The super form is SPEED (its momentum row), not a capability unlock.
-⛔ everything that makes the demo Sanic is elsewhere and stays there: the
-momentum model rides the loop, and spin dash and the transform are TECHNIQUES.
+  stage could promise a fighter anything** (Jon: *"in smash all characters should
+  be sure they are granted the basic smash abilities, but we want to do this in an
+  elegant way"*).
+  ⭐ **the elegant way is that a match has TWO things to say, not one** —
+  `MatchAbilities { granted, permitted }`, with `effective = (authored ∪ granted) ∩
+  permitted`. Smash declares `levelled(SMASH_FIGHTER_KIT)` (granted == permitted,
+  one kit for everybody); versus declares `at_most(..)`, the lone mask it always was.
+  ⭐⭐ **it makes a real tension EXPRESSIBLE instead of picking a winner.** Jon's
+  older ruling is pinned by a test (*"forcing Puppy Slug into Smash gives you Puppy
+  Slug — jump → no jump if its body cannot jump"*) and today's is its opposite:
+  a match that MANUFACTURES capabilities is what made a slug jump like a humanoid,
+  and a match that cannot GUARANTEE them is what sent the automaton onto a
+  platform-fighter stage with no double jump. Two modes, two tests, one word at the
+  stage. ⚠ the stated cost: a Puppy Slug forced onto the smash grid now jumps.
+  ⚠ **one fighter changed in play** — the automaton gains double jump, fast fall,
+  dodge, pogo and ledge grab. Its own row is deliberately NOT patched: a character
+  does not carry verbs to compensate for a mode. Sanic authors `[RunJump]` on both
+  iterations, replacing a `[SaneSubset]` that granted three of the four verbs Jon
+  named it against; his super form is SPEED, not a capability unlock.
 
 - ✔ **D141 — CLOSED 2026-08-16. One fighter on the smash grid could not grab a
-  ledge, and the ledge lived at home on two who should not have it. (Jon)**
-
-Jon, verbatim: *"ensure that every character in smash is authored with the ledge
-grab ability. Note: we need to make sure mary-o and sanic do NOT get this ability
-in their games."*
-
-**MEASURED across all fourteen** (`smash_roster_movesets::every_fighter_on_the_smash_grid_can_grab_a_ledge`):
-twelve author no kit and take the stage's set verbatim; two author one. Of those
-two, `player_robot_v3` says `ledge_grab: true` and the **Perfect Cellular
-Automaton did not** — its kit was written for the DUEL ARENA on
-`AbilitySet::basic()`, whose answer is `false`. `fighter_abilities` is an
-INTERSECTION, so the stage could not give it back: the one fighter on the grid
-whose sheet has ten ledge rows drawn for it was the one who could not use them.
-⇒ authored `ledge_grab: true` on the PCA.
-
-⚠ **the same read says its `double_jump`, `fast_fall` and `dodge` are still
-`basic()`'s answers** — a real recovery handicap on a platform fighter, left
-alone because that is a balance call about this character rather than part of
-the ask.
-
-⭐ **the two roads are what makes "in smash but not at home" expressible**, and
-they are easy to mistake for one:
-
-```text
-  its own game    catalog GRANT LIST     -> the session's avatar   (`session/setup`)
-  a smash seat    character DEFINITION ∩ the match's mask          (`prepared_match`)
-```
-
-Mary-O's row has said `abilities: Some([RunJump])` since her demo landed. **Sanic's
-authored nothing**, and a row that authors nothing falls through to
-`EditableAbilitySet::default()` — which is `sandbox_all` — so he was carrying
-ledge grab, swim, glide, dodge and a bubble shield around his own speedway, with
-his control gate resolving Attack and Utility onto spin dash and transform so
-nothing on screen said so. ⇒ his row authors `[SaneSubset]`, the engine's named
-baseline, which excludes those five BY NAME. ⛔ what a runner's kit should
-actually be (no double jump? no blink?) is still open and is not answered here.
-
-Both halves are guarded in one file, because each is one edit away from breaking
-the other.
+  ledge, and the ledge lived at home on two who should not have it.** Measured
+  across all fourteen: twelve author no kit and take the stage's set; of the two
+  that author one, the Perfect Cellular Automaton's was written for the DUEL ARENA
+  on `AbilitySet::basic()`, whose answer is `false` — and `fighter_abilities` was an
+  INTERSECTION, so the stage could not give it back. **The one fighter whose sheet
+  has ten ledge rows drawn for it was the one who could not use them.**
+  ⭐ **the two roads are what makes "in smash but not at home" expressible**, and
+  they are easy to mistake for one: a character's own game reads the catalog GRANT
+  LIST; a smash seat reads the character DEFINITION ∩ the match's mask.
+  ⛔ **a row that authors NOTHING falls through to `sandbox_all`** — Sanic was
+  carrying ledge grab, swim, glide, dodge and a bubble shield around his own
+  speedway, invisibly, because his control gate resolved Attack and Utility onto
+  spin dash and transform. His row now authors `[SaneSubset]`, which excludes those
+  five BY NAME. ⛔ what a runner's kit should actually be is still open.
 
 - ✔ **D138 — CLOSED 2026-08-17, CONFIRMED BY JON: *"Oiler fights in his new body
-  now."* The row below is the state BEFORE the fix and is kept for its
-  reasoning.** Verified against HEAD: `regen_sprites.sh` no longer lists `oiler`
-  in `review_cues` — the entry there is now an explicit ⛔ refusal (*"oiler is
-  NOT here any more — see `tackon_targets`. His body comes from the direct-SVG
-  rig; leaving the review cue in place would have this loop overwrite the rig's
-  sheet with the toon render on every full run"*), and `oiler` sits in
-  `tackon_targets` instead.
-  ⚠ **found while arming the 72h goal, and it is the reason that sweep exists**:
-  a stale ▢ row aims an autonomous run at work that is already done.
-
-Jon, verbatim: *"Oiler's sprite is still his python based one not his SVG based
-one. I would like to completely move the SVG one. Note the SVG is used as the
-portrait in smash, but not for the actual fight. Similar in ambition itself."*
-
-**Current state, read off HEAD.** `regen_sprites.sh` says the split out loud and
-on purpose — *"Oiler is the representative direct-SVG rig target. Render only its
-portrait product here so full regeneration does not replace the established
-gameplay sheet selected by the review config"* — so `portraits oiler` publishes
-`oiler_portraits.{png,ron}` from the rig while `oiler` sits in `review_cues`
-and keeps shipping the Python-drawn gameplay sheet. The rig itself is real and
-tested: `data/characters/oiler/oiler-multiview.svg`,
-`targets/characters/rigged/oiler`, `tests/test_oiler_svg_rig.py`.
-
-⭐ **and the swap is at the PUBLISHER, not in either game.** Both games reach the
-body through one filename: `character_catalog.ron` binds `npc_oiler` to
-`sprites/oiler_spritesheet.png` + `.ron`, and Smash's select screen reaches the
-portrait through `oiler_portraits.png`. So nothing in Rust chooses the Python
-art — `regen_sprites.sh` decides which renderer writes that one pair of files.
-⛔ therefore do not go looking for a game-side binding to flip; there isn't one,
-and Jon confirmed the old sprite is still live in HEAD (2026-08-16).
-
-⇒ **next executable action:** make the rigged target's FULL sheet the published
-gameplay sheet (`--target oiler` already claims a sheet+portrait bundle), take
-`oiler` out of `review_cues` so a full regen cannot restore the Python art, and
-delete the carve-out comment rather than editing around it. ⛔ the deletion is
-the proof here: two publishers for one character's body is the defect.
-
-⚠ **the three things that will bite, in order:** the rig's frame geometry is not
-the review target's, so `body_metrics`/`collision_scale` must be re-derived and
-not assumed; D129's clipped-frame report must be read for the new sheet before
-it ships; and the quality tiers (`sprites_0_5x/…`) are a separate published
-copy — a stale tier reads exactly like a character swap.
-
-**Falsifier (both games, because Jon named both):** a capture of Oiler in a Smash
-match and in Ambition draws the SVG body, not merely the SVG portrait — and the
-old Python sheet is gone from `$sprites_dir`, not shadowed.
-
-⛔⛔ **AND THE SHEET IS NOT THE LAST COPY — THE ULTRAPACK IS.** Found 2026-08-16
-while doing this: after the rig's sheet was installed over the toon one,
-`assets/sprite_packs/full/ultrapack.json` still carried `oiler` with
-`src: [102, 222]` — the TOON frame size. The four tier atlases are baked from
-whatever was in `$sprites_dir` when they were last packed, so a target whose
-sheet changed keeps drawing its old art until the packs are rebuilt. ⇒ **any
-sheet swap owes three regenerations, not one**: `--target <t>`, then
-`regen_visual_quality_variants.sh --target <t>`, then the four ultrapack tiers.
-⚠ this is very likely why Jon saw the old sprite after a regen that did replace
-the sheet.
-
-✔✔ **BOTH HALVES DONE 2026-08-16.** The body swap landed (`69eee645f`) and the
-kit followed (`bd6cbf775` + `95b45b6cc`): sixteen moves, eighteen of his
-twenty-three effects bound, the geyser as his Up-B. He is off `KNOWN_UNARMED`.
-⚠ what is left is a BALANCE pass with real eyes — he finished the observed match
-at 36% against George's 5% and lost, which is the design's direction but a
-bigger margin than intended.
-
-**SECOND HALF — Jon, 2026-08-16:** *"It might be the case that we have to author
-more oiler poses so he has a full smash moveset and can use some of his new
-sweet sfx and vfx. Especially oil geyser."* He is right that the poses are the
-gap, and the census already says so from the other side: `npc_oiler` is one of
-the eight fighters on `KNOWN_UNARMED` in `smash_roster_movesets.rs` — a
-`peaceful` preset, no melee at all. The rig publishes four rows (idle, walk,
-talk, interact), where George Booul's fighting sheet publishes nine and names
-them after his MOVES (`toggle_state`, `and_zap`, `not_fade`, `hit`, `death`,
-`taunt`). ⇒ the work is: authored moveset row → rig clip → sheet row →
-`FxId`/`SfxId` on the move. The effects are already rendered and waiting —
-`vfx.oiler.oil_geyser_{emerge,stream,impact}`, `wrench_strike`,
-`stabilizer_{spinup,lock}`, `pressure_vent` are in the SFX renderer's output and
-`oiler_vfx` is on the sprite roster. ⛔ do not start this before the body swap
-above is verified in a capture; a moveset on the wrong body is two problems.
-
-✔✔ **THE SECOND HALF LANDED 2026-08-16** (`3f7d265` in the sprite submodule,
-superproject commit below). Sixteen moves in
-`game/ambition_content/src/oiler_moveset.rs`, eight new side-view rig clips, and
-Oiler's row moved from `peaceful` to `striker_swipe`. **Both census ratchets
-moved in the same change and are green**: he left `KNOWN_UNARMED` (8 → 7) and
-joined `WITH_REPERTOIRE` (7 → 8) in `smash_roster_movesets.rs`. The Up-B IS the
-geyser — a commanded `Set` rise that stages `oil_geyser_emerge` (the tell, before
-the burst), `oil_geyser_stream` ×3 across the climb, and `oil_geyser_impact` at
-the crest; eighteen of his twenty-three rendered effects are now bound.
-
-⭐ **the architecture carried it with ONE new authoring primitive and no engine
-change** — `moveset_authoring::strike_tag`, because `strike` tags every volume
-`slash_arc` and a poke wants `slash_poke`. No character-ID branch anywhere.
-
-⛔⛔ **two traps found here, both silent, both now guarded:**
-**(1) a `MoveEventKind::Vfx` event plays NO SOUND.** ⚠⚠ **NO LONGER TRUE — D149
-fixed it, and this row is kept as history.** It was: the paired
-`vfx.<family>.<row>` cue is only looked up on the `FxRequest` path, so a move's
-`Vfx` wrote `VfxMessage::Effect` straight through and a perfectly correct effect
-name was a perfectly silent animation. The dispatcher asks for the pairing now;
-⛔ the remedy this row recommended — authoring every burst as a `Vfx`+`Sfx` PAIR —
-is now the DEFECT, because the second half plays the sound twice. See D149, and
-`a_paired_burst_is_heard_exactly_once`.
-**(2) four oiler cues pack with a `.loop` suffix the sprite row does not carry**
-(`vfx.oiler.oil_geyser_stream.loop`, `gate_calibration`, `invariant_loop`,
-`portal_leak`), so the mechanically derived cue for those four misses the bank
-outright. Nothing strips or adds it. Spelled out at the call site.
-
-⚠ **and the poses were the expensive half for a reason worth keeping.** Oiler's
-arms are 26.5px long from a shoulder 25.6px above the hanging wrist — already at
-near-full extension at rest. Every hand target picked by eye landed outside the
-reachable circle, the IK clamped it, and all eight "big" swings collapsed onto
-the same 45° pose. ⇒ **author arm poses as ANGLES on the reachable circle**
-(`_arm_envelope` reads the shoulder and bone lengths off the rig document), never
-as (x, y) guesses.
-
-**Remaining:** the sheet has one upward and one downward swing, so `tilt_up`/
-`smash_up` share `attack_up` and `tilt_down`/`smash_down`/`air_down` share
-`attack_down` — honest, and thinner than the table.
+  now."*** Both halves landed: the body swap (`69eee645f`) moved him off the
+  Python-drawn sheet onto the direct-SVG rig, and the kit followed (`bd6cbf775` +
+  `95b45b6cc`, sprite submodule `3f7d265`) — sixteen moves, eight new side-view rig
+  clips, eighteen of his twenty-three effects bound, and the **geyser as his Up-B**
+  (a commanded `Set` rise staging emerge → stream ×3 → impact). Both census
+  ratchets moved in the same change: off `KNOWN_UNARMED` (8→7), onto
+  `WITH_REPERTOIRE` (7→8).
+  ⭐ **the architecture carried it with ONE new authoring primitive and no engine
+  change** (`moveset_authoring::strike_tag`) and no character-ID branch anywhere.
+  ⛔⛔ **A SHEET SWAP OWES THREE REGENERATIONS, NOT ONE.** After the rig's sheet was
+  installed, `ultrapack.json` still carried Oiler at the TOON frame size — the tier
+  atlases are baked from whatever was in `$sprites_dir` when they were last packed,
+  so a target whose sheet changed keeps drawing its old art. Run `--target <t>`,
+  then `regen_visual_quality_variants.sh --target <t>`, then the four ultrapack
+  tiers. ⚠ this is very likely why a regen that DID replace the sheet still showed
+  the old sprite.
+  ⛔ **author arm poses as ANGLES on the reachable circle, never as (x, y)
+  guesses.** Oiler's arms are 26.5px long from a shoulder 25.6px above the hanging
+  wrist — already near full extension at rest — so every hand target picked by eye
+  landed outside the circle, the IK clamped it, and all eight "big" swings collapsed
+  onto the same 45° pose.
+  ⚠ **remaining, both small**: four cues pack with a `.loop` suffix the sprite row
+  does not carry, so the derived cue misses the bank; the sheet has one upward and
+  one downward swing, so tilt/smash share a row — honest, and thinner than the
+  table. And a BALANCE pass with real eyes: he lost the observed match 36% to 5%,
+  the design's direction but a bigger margin than intended.
+  ⚠ **why this row was stale for a day**: `regen_sprites.sh` still listed `oiler`
+  in `review_cues`, which would have overwritten the rig's sheet on every full run.
+  That entry is now an explicit ⛔ refusal pointing at `tackon_targets`.
 
 - ▢ **D125 — The systemic world substrate: what a thing IS, which occurrence it
   is, why it exists, and how long it lasts.**
@@ -4545,129 +3535,34 @@ the thing a row says is missing before working it.* Measurement record archived 
    specifically the name to avoid. ⇒ the residue is not a rename but **stale
    player-centric prose around the type**, which should be cleaned up in place.
 
-- ⏸ **D64 — Mary-O / LDtk authoring. RESTING as a successful ACCEPTANCE
-  BASELINE, not a running campaign (2026-08-15).**
-
-✔✔ **the end-to-end authoring acceptance landed.** A new level can now be
-created through LDtk **without adding ordinary Rust level registration**: new
-authored rooms need no Rust routing merely to exist, the demo shell reviews any
-authored room, room destinations are authored, warp tubes scope to the active
-room instead of hard-coding 1-1, one shared `ldtk_entity_contract.json` is
-consumed by both the Rust prover and the Python validator so validation refuses
-exactly what the real converter refuses, enemy facing has editor vocabulary, a
-ratchet guards against deleting authored levels, and the destructive one-shot
-world bootstrap is gone. That is an Engine 1.0 milestone.
-
-⛔ **do not keep adding Mary-O tooling because the lane existed.** The next LDtk
-improvement must come from **actual content-authoring friction**: author or
-revise a room, hit a real editor/semantic limitation, fix *that* generically.
-⛔ do not assign a worker to generic LDtk cleanup.
-
-Preserved architectural rules: `.ldtk` is authoritative spatial source · tools
-edit it additively and in place · destructive bootstrap regeneration must not
-return · Rust and Python validation must agree about what runtime conversion
-accepts · provider/game vocabulary stays discoverable · native editor
-fields/enums/entity references where practical · game-specific semantics stay
-provider-owned rather than growing a central engine taxonomy.
-
-Residue below is kept as evidence, not as dispatchable work.
-
-The multi-coin block pays the purse and, since 2026-08-14, draws the coin
-(`VfxMessage::CoinPop`). Do not reopen old restart or block reports without a
-reproduction. Product questions stay in
-[`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md).
-
-⛔⛔ **I FILED LIVES AS UNSTARTED AND IT HAD ALREADY LANDED (2026-08-14) — my
-error, and the exact rule this ledger states at the top.** `MaryOLevelState::lives`
-is signed, `spend_lives_on_death` decrements it off `ActorDiedMessage`, and all
-three death roads reach it (the hit resolver, `publish_kernel_reset_death` for a
-pit or hazard, `publish_timeout_death` for the clock). It landed in `52e34be60`
-with coverage at three scopes. ⭐ **I wrote the row from the `▢` in Jon's
-observations file without grepping HEAD** — a marker in a maintainer's file is a
-REPORT, not a measurement, and his file is explicitly one he edits at his own
-pace.
-
-⇒ what was actually wrong was **three doc claims that outlived the behaviour they
-described**: the field's own first line, the `spend_lives_on_death` block saying
-*"At zero lives the RUN is over: lives, score and clock return to their starting
-values"*, and a test NAMED `..._and_zero_lives_restarts_the_run` whose body
-asserts `lives == -1`. The code carried a ⛔ *"no floor and no reset"* note beside
-three sentences promising the opposite — i.e. promising the game-over that Jon's
-"for now" clause explicitly ruled out. Corrected in place; no behaviour touched.
-
-⇒ **the FIRE FLOWER question now has a DECISION PROCEDURE, landed 2026-08-14** —
-`a_grown_mary_o_bonks_a_question_block_and_wears_the_fire_flower`
-(`level_1_acceptance.rs`, DEFAULT feature set: `cargo test -p ambition_demo_mary_o_app`,
-36 → 37; the module is `#![cfg(not(feature = "input"))]` so `--features visible`
-compiles it out). ⭐ **every pre-measurement beat fails with a `HARNESS:` prefix,
-so an inconclusive run cannot be misread as "the level cannot".**
-
-⇒ **and the reading of Jon's report has sharpened.** 1-1 authors three ladder
-blocks, all defaulting to `Toward(Lantern)`, and a grown bonk pays the beacon. Two
-substantive reasons it FEELS unavailable even if the test passes: **the first
-`?`-block you meet can never pay it** — a small Mary-O is always paid the wand, so
-the beacon needs a SECOND block, and 1-1's second is past pit A and behind a warp
-pipe — and **the beacon is `ItemMotionPlan::still()`**, so it waits on top of the
-block instead of walking to you like the wand.
-
-⭐ **"you cannot bonk it from underneath standing still" is a jump-TECHNIQUE fact,
-not Jon's bug — but the adjacent fact IS the bug's shape.** From her authored law
-a standing jump raises her centre 144.8px and the underside sits 96px up, so
-bonking from beneath is comfortable. What a standing jump cannot do is get her ON
-TOP: the top face is 128px up, leaving 17px of margin and ~0.25s of hang, and
-`air_coast_decel: 0` means air acceleration alone crosses only ~12px horizontally.
-⇒ that is why `mount` (written for a 64px pipe rise) could never reach a `?`-block
-and why the earlier attempt stalled; the new `hop_onto` leaves the ground MOVING
-and cycles run-up length and side.
-
-⚠ **a latent fixture trap found beside it:** the existing `first_power_block()`
-matches by LOOK, and 1-1 has two `AlwaysQuasar` blocks wearing the same look — so
-it names x=192 only by converter emission order. The new helper asks CONTENTS
-instead. The old one is used only by an `#[ignore]`d run and was left alone.
-
-⛔ **THE MARY-O PRESENTATION GUARDS DO NOT RUN IN THE ORDINARY SUITE**, and that
-is the thing to fix before chasing another "it looks wrong" report. The
-`painted_blocks_still_change_their_art` module is `#![cfg(feature = "visible")]`:
-`cargo test -p ambition_demo_mary_o_app` runs 36 tests, `--features visible`
-runs 44. The eight it adds are the ones that assert what a block LOOKS like.
-
-⇒ measured 2026-08-14: the maintainer row *"a discovered hidden block still pays
-out invisibly"* is **stale** — `a_discovered_hidden_block_reveals_itself` passes
-at HEAD, asserting the struck block wears `SpentBlockTile`. It simply never ran,
-so nothing said so and nothing would have caught a regression either. Any
-Mary-O visual work should run the `visible` suite before and after; it takes a
-~5 minute cold build and is the only thing watching that surface.
-
-### The hole is not Mary-O's, it is the whole workspace's — measured 2026-08-14
-
-`scripts/feature_gated_tests.py` already answers this and nobody had run it
-against a decision: **24 crates hide 629 tests behind features.** Eight of them
-were run explicitly at HEAD and every one is GREEN, so this is a prospective
-hole, not a live bug:
-
-| crate | bare | with its features |
-|---|---|---|
-| `ambition_demo_mary_o_app` | 31 | 45 (`visible`, 9.7s) |
-| `ambition_demo_sanic_app` | 25 | 45 (`visible`, 4.9s) |
-| `ambition_touch_input` | 4 | 45 (`mobile_touch`) |
-| `ambition_audio` | 25 | 64 |
-| `ambition_portal2d_presentation` | 16 | 45 (`effect_view_cones`) |
-| `ambition_input` | 54 | 115 (`input`) |
-| `ambition_game_shell` | 45 | 70 (`basic_presentation`) |
-| `ambition_dialog` | 30 | 42 |
-
-⛔ **and there is no automatic runner for any of it.** `.github/workflows/test.yml`
-is `on: workflow_dispatch` only — disabled 2026-05-07 by Jon (*"no need to churn
-the servers with rust CIs until we have something we really need github action
-testing for"*) — and `scripts/gate_suite.py`, the per-turn suite, runs exactly
-`cargo test -p ambition_app --test app_it`, deliberately shrunk on Jon's own
-measurement (*"I want to bias towards running less tests"*).
-
-⇒ **so what runs is a maintainer decision, not an agent's**, and it is filed in
-[`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md) with the
-prices above rather than answered by quietly enlarging the gate he shrank. ⛔ do
-not add these to `gate_suite.py` without that answer; ⛔ do not add a CI job to a
-workflow that does not run and call the hole closed.
+- ⏸ **D64 — Mary-O / LDtk authoring. RESTING as a successful ACCEPTANCE BASELINE,
+  not a running campaign (2026-08-15).** A new level can be created through LDtk
+  **without adding ordinary Rust level registration**: authored rooms need no Rust
+  routing to exist, destinations and warp tubes are authored, one shared
+  `ldtk_entity_contract.json` makes the Rust prover and the Python validator refuse
+  exactly what the real converter refuses, and a ratchet guards the level roster.
+  That is an Engine 1.0 milestone.
+  ⛔ **do not keep adding Mary-O tooling because the lane existed.** The next LDtk
+  improvement must come from actual content-authoring friction: author a room, hit
+  a real limitation, fix *that* generically.
+  Preserved rules: `.ldtk` is the authoritative spatial source · tools edit it
+  additively and in place · destructive bootstrap regeneration must not return ·
+  Rust and Python validation must agree · game-specific semantics stay
+  provider-owned rather than growing a central engine taxonomy.
+  ⛔⛔ **I filed lives as unstarted and it had already landed** — I wrote the row
+  from a `▢` in Jon's observations file without grepping HEAD. **A marker in a
+  maintainer's file is a REPORT, not a measurement.** What was actually wrong was
+  three doc claims that outlived the behaviour they described.
+  ⛔ **the Mary-O presentation guards do not run in the ordinary suite**
+  (`#![cfg(feature = "visible")]`: 36 tests bare, 44 with it), which is why a
+  maintainer row about a hidden block read as unfixed when it had passed all along.
+  Run the `visible` suite before and after any Mary-O visual work.
+  ⚠ **and the hole is the whole workspace's, measured 2026-08-14**: 24 crates hide
+  **629 tests** behind features, and there is no automatic runner —
+  `.github/workflows/test.yml` is `workflow_dispatch` only and the per-turn gate is
+  one integration target, both deliberate. ⇒ what runs is a MAINTAINER decision;
+  ⛔ do not enlarge `gate_suite.py`, and ⛔ do not add a job to a workflow that does
+  not run and call the hole closed.
 
 ---
 
@@ -5067,347 +3962,127 @@ and the plan, not here:**
   rollback-registered, the phase is that switch integrated over time and was not,
   so a rewind left the integrator permanently ahead — and the consumer *refuses a
   room crossing*, so it is authoritative, not cosmetic. The waiver was a **true
-  sentence about the wrong half of a value**. Fix deleted `GatePortalConfig.phase`
-  and registered a `GatePortalPhases` resource **with a value projection**, because
-  a presence-only probe would have passed while reproducing the defect. Schema
-  **31**; baseline and absence contracts re-run and green. ⇒ full rationale at the
-  registration site in `rollback/mod.rs`; ⭐ the generalisable shape is *"a
-  registered input with an unregistered integral"*.
+  sentence about the wrong half of a value**. Fixed by deleting
+  `GatePortalConfig.phase` and registering a `GatePortalPhases` resource **with a
+  value projection**, because a presence-only probe would have passed while
+  reproducing the defect. Schema **31**. ⭐ the generalisable shape: *"a registered
+  input with an unregistered integral."*
 - ✔ **the `Brain` cursor's `_` arm — MOSTLY DISSOLVED.** Six brain families looked
   like they failed to rewind; `rollback_component_cursor` clone-snapshots the whole
-  component, so they rewind fine and what they lack is **desync DETECTION**. Real
-  but much smaller than reported.
+  component, so they rewind fine and what they lack is **desync DETECTION**.
+- ⭐ doctrine correction landed with these, because it was being misread: **a
+  central *authoritative* census that every new domain must edit is bad; a derived
+  *read-only* discovery index that domains contribute descriptors to is good and is
+  required.** ⛔⛔ do not sacrifice discoverability in the name of avoiding central
+  authority. Recorded in `simulation-authority-and-determinism.md` and
+  `inspection-diagnostics-and-workbench.md`.
 
-⇒ related, and deliberately NOT its own campaign: **A9** in
-[`engine/authoring-and-tools.md`](engine/authoring-and-tools.md) — the
-project-wide semantic dependency/reference graph (reverse references, structured
-unresolved-reference diagnostics, transactional rename planning). It is an
-extension of existing authoring/inspection tooling.
+- ✔ **D133 — CLOSED 2026-08-16. The durable save horizon: what the world remembers
+  about occurrences now survives closing the program.**
+  ⭐⭐ **the on-disk form IS the checkpoint's own description, serialized** — not a
+  fourth description of the same facts. `AmbitionGameSaveData` gained three
+  `#[serde(default)]` lists that are `AuthoredOccurrences`, `CustodyBaseline` and
+  `MintedItemBaseline` field for field (save version 3 → 4), **and that the file
+  needed no field the checkpoint slice had not already measured is the finding**.
+  ⭐⭐ **a load is a checkpoint RESUME** — adopt the ledger and the three baselines,
+  write one `ResetToCheckpoint`, and the road a death already takes rebuilds the
+  world. Two systems, no new reconstruction logic, still exactly one authority.
+  ⛔⛔ **a defect the fixture found that nothing else could have**: a session builds
+  its start room before any file is read, so `record_placed_ground_items`
+  republished the stale position over the loaded row — sending the object home and
+  resurrecting a terminal row. ⭐ the fix is an INVARIANT: an occurrence comes to
+  rest here only if its row says `InCustody` or already says `Placed` here, because
+  **an object cannot change rooms without being carried.** It refuses rather than
+  repairs, so it is not a second reconstruction authority.
+  ⚠ **schema 33 → 34 for a RENAME and nothing else**; ⭐ the save file is not
+  rollback state — the three values it serializes were already registered.
+  ▢ **still open after this**: a runtime mint NOT in a hand at save time (lying in
+  a room, in flight) is undescribed and lost, because the description remembers no
+  position; `Consumed` round-trips and still has no live producer;
+  `load_save_at_startup` is presentation-only, so a headless composition never
+  writes a file; and the body resumes at the shrine while the objects resume at the
+  autosave's instant.
 
-⇒ doctrine correction landed with this row, because it was being misread: **a
-central *authoritative* census that every new domain must edit is bad; a derived
-*read-only* discovery index that domains contribute descriptors to is good and is
-required.** Recorded in `simulation-authority-and-determinism.md` (at the goal
-statement that gets cited as the objection) and in
-`inspection-diagnostics-and-workbench.md` (which owns discovery). ⛔⛔ do not
-sacrifice discoverability in the name of avoiding central authority.
+- ▣ **D132 — HALF CLOSED 2026-08-16. The same item had two persistence authorities
+  and they had never been asked to agree.** ⭐⭐ **measured first, and the
+  prediction was wrong about which history breaks**: the save/load/mint/bank/die
+  scenario ends with the player holding it AND owning it, the count decremented at
+  no beat, and the second round-trip agreeing with the hand **by coincidence rather
+  than by rule** — but that history is not the defect.
+  ⛔ **the defect was next door: `OwnedItems` was not checkpoint state at all.** A
+  pressed pickup `grant`ed a catalog row beside taking custody, so one acquisition
+  left TWO records and only the object's rewound — acquire after the checkpoint,
+  die, and the menu equips a phantom whose throw mints a SECOND real weapon.
+  ⭐ **closed by DELETION**, both halves probe-falsified: the `grant` is gone (the
+  object is the record) and `OwnedItems::count` PROJECTS the equipped slot, so the
+  grid loses it exactly when the hand does. No schema change.
+  ⚠ **STILL OPEN, and the gate is named**: a quantity conferred by
+  `<<give_item>>`/shop/drop keeps its row through the mint, so it can still
+  manifest a second object. ⇒ `OwnedItems` must join the checkpoint baseline first,
+  and the mint spends the row in that same change.
+  `a_granted_quantity_survives_the_death_that_retracts_the_instance_minted_from_it`
+  is the poison against retracting the row at the reset instead.
+  ⭐ the seam, measured on D125: 5 of 6 catalog classes are counts forever and
+  their readers legitimately want a quantity; the whole problem is the **nine held
+  weapons/abilities that are an instance and a count at once**. ⛔ the answer is
+  NOT a row per object — already rejected — it is deciding which authority owns
+  those nine and making the other DERIVE.
+  ⚠ related and unclosed: a minted instance **not in a hand** at the commit is
+  still undescribed and still lost — exactly where *"a hand needs less than a
+  world"* stops paying, because it needs a position.
 
-- ✔ **D133 — THE DURABLE SAVE HORIZON. What the world remembers about occurrences
-  now survives closing the program. (opened and LANDED 2026-08-16)**
+- ✔ **D134 — CLOSED 2026-08-16. The workspace-policy suite was 12 violations red
+  and nothing ran it; it is 34/34 green.** ⭐ **the twelve were four different
+  things wearing one label**, and the count was the least informative fact:
+  one HAZARD (a `HashMap` the site already sorted before folding — fixed anyway, so
+  ordering is the TYPE's property rather than the next editor's discipline), two
+  REAL rule violations (`Option<&MotionModel>`, plus a second the rule could not
+  spell), two POLICY IMPRECISIONS (a pre-spawn seed and an off-sim scratch: neither
+  is an entity, so there is no authority to route through), one contract that had
+  OUTLIVED its subject, and seven that were **one wrong fact stated twice**.
+  ⭐⭐ **`runtime → ldtk` was never an upward dependency, and `cargo tree` settles
+  it in one line** — the ldtk crate's transitive closure contains zero occurrences
+  of the runtime or the monolith. Both rules changed, with the argument written into
+  their own `rationale` fields. ⚠ `bevy_ecs_ldtk` stays denied in both: the runtime
+  may compose the adapter, never the backend the adapter exists to contain —
+  poison-tested red to prove that half still has teeth.
+  ⭐ **the durable lesson, on its THIRD instance in the same file**: **deleting a
+  compatibility facade reddens a boundary policy, every time, and that policy is
+  the second file nobody remembers to edit.**
+  ⚠ one blind spot left standing deliberately: the movement rule matches
+  SPELLINGS, and `Option<&ae::MotionModel>` escapes it. Recorded in that policy's
+  rationale rather than widened into a crate this slice did not analyse.
 
-⭐⭐ **THE RESULT IN ONE SENTENCE: the on-disk form IS the checkpoint's own
-description, serialized — not a fourth description of the same facts.**
-`AmbitionGameSaveData` gained three `#[serde(default)]` lists that are
-`AuthoredOccurrences`, `CustodyBaseline` and `MintedItemBaseline` field for field
-(`CURRENT_SAVE_VERSION` 3 → 4). ⭐ **that the file needed no field the checkpoint
-slice had not already measured is the finding**: `identity + provenance +
-definition-REFERENCE` was derived from what a checkpoint owes a hand, and a save
-asks the same question and gets the same answer.
-
-⭐⭐ **AND A LOAD IS A CHECKPOINT RESUME.** The loader adopts the ledger, adopts
-the three baselines from the same file, and writes one `ResetToCheckpoint` —
-after which the road a death already takes rebuilds the world. ⇒ **two systems and
-no new reconstruction logic**, and there is still exactly one authority on what a
-room owes the world.
-
-| Falsifier | Verdict | Proof |
-|---|---|---|
-| A — an authored object carried to another room and dropped is lying there after a load, same `SimId`, home pedestal EMPTY | ✔ | `an_object_left_in_another_room_is_lying_there_after_a_load` — one file, loaded into BOTH rooms, plus a default-file control run |
-| B — a held weapon is still in the same hand after a load (D132's LOSS, closed) | ✔ | `a_weapon_in_your_hands_is_still_in_your_hands_after_a_load` — both halves of the forked relation, plus an empty-handed control |
-| C — a terminal row is not undone, and an untouched record is untouched | ✔ | `a_consumed_occurrence_is_not_resurrected_by_a_load_and_an_untouched_one_is_untouched` — the subject has NO live entity, so only the wrong implementation can act |
-
-⛔⛔ **A DEFECT THE FIXTURE FOUND THAT NOTHING ELSE COULD HAVE.** A session builds
-its start room before any file is read, so the instant the loaded ledger arrives
-the world holds an occurrence the file says is elsewhere — and
-`record_placed_ground_items` republished the stale position over the loaded row,
-sending the object home and resurrecting a terminal row. ⭐ **the fix is an
-INVARIANT**: an occurrence comes to rest here only if its row says `InCustody` or
-already says `Placed` here, because **an object cannot change rooms without being
-carried**. It refuses rather than repairs, so it is not a second reconstruction
-authority.
-
-⚠ **`GGRS_ROLLBACK_SCHEMA_VERSION` 33 → 34 for a RENAME and nothing else**:
-`resource.inventory_restored` → `resource.save_restored`, because the latch now
-means "the loaded save has been applied" and the occurrence leg reads it too.
-⭐⭐ **the save file is not rollback state** — the three values it serializes were
-already registered at v32/v33, which is the same sentence as "horizon 3 is a
-serialization of horizon 2". Also fixed: the durable leg was installed by the
-visible-binary-only presentation assembly, so **no headless composition saved or
-loaded anything**; `DurableSaveHorizonPlugin` owns it now.
-
-⚠ **STILL OPEN after this**: a runtime mint NOT in a hand at save time (lying in a
-room, in flight) is undescribed and lost — the description remembers no position;
-`Consumed` round-trips through the file and still has no live PRODUCER;
-`load_save_at_startup` is still presentation-only, so a headless composition
-mirrors into `AmbitionGameSave` and never writes a file; and the body resumes at
-the shrine while the objects resume at the autosave's instant.
-
-- ▣ **D132 — THE SAME ITEM HAS TWO PERSISTENCE AUTHORITIES AND THEY HAVE NEVER
-  BEEN ASKED TO AGREE. (opened 2026-08-16; MEASURED and HALF CLOSED 2026-08-16)**
-
-⚠⚠ ~~**A PLAYER-VISIBLE TRADE WENT WITH THIS SLICE: A HELD WEAPON CARRIED ACROSS
-A SAVE/LOAD IS NOW LOST RATHER THAN DUPLICATED.**~~ ✔✔ **THE LOSS IS CLOSED
-(D133, 2026-08-16).** The durable save describes custody now — as an OCCURRENCE
-(identity + whereabouts + the hand), never as a quantity — so the weapon comes
-back in the same hand, and the two populations stay disjoint so the duplication
-does not return by the new road.
-`a_weapon_in_your_hands_is_still_in_your_hands_after_a_load` is the proof, with a
-default-file control run so neither claim can pass by accident.
-
-⭐⭐ **MEASURED FIRST, and the prediction below was wrong about which history
-breaks.** `two_persistence_authorities_for_one_item.rs` drives the exact scenario
-this row asks for — save a count of 1, load, equip out of the count table, throw
-(which mints), pick up, bank at a shrine, die — and answers: the player ends up
-**holding it AND owning it**; the count is decremented **never, at any beat**;
-and the second save round-trip **agrees with the hand**, by coincidence rather
-than by rule. That history is not the defect.
-
-⛔ **THE DEFECT IS NEXT DOOR: `OwnedItems` is not checkpoint state at all.** The
-pressed pickup used to `grant` a catalog row beside taking custody, so ONE
-acquisition left TWO records and only the object's rewound. Acquire a weapon
-after the checkpoint, die, and the object goes back on its pedestal while the row
-stays — the menu then equips the phantom and the throw mints a SECOND real
-weapon, and the durable save writes the phantom to disk on the way past.
-
-⭐ **CLOSED BY DELETION, both halves probe-falsified.** The `grant` at the pickup
-is gone (the object is the record), and `OwnedItems::count` PROJECTS the equipped
-slot so the grid shows what the hand holds and loses it exactly when the hand
-does. `to_persisted` reads the stored quantity, never the projection. Restoring
-either half turns the fixture red. No schema change — no field moved.
-
-⚠ **STILL OPEN, and the gate is named**: a quantity conferred by
-`<<give_item>>`/shop/drop keeps its row through the mint, so it can still
-manifest a second object. Spending the row at the mint annihilates it on a death
-that retracts a post-checkpoint mint. ⇒ `OwnedItems` must join the checkpoint
-baseline first, and the mint spends the row in that same change.
-`a_granted_quantity_survives_the_death_that_retracts_the_instance_minted_from_it`
-is the poison against retracting the row at the reset instead.
-
-⚠ ~~**and the durable-save leg runs in NO headless composition**~~ ✔ **FIXED
-(D133, 2026-08-16).** `DurableSaveHorizonPlugin` in the runtime plugin group owns
-the latch and all four persist systems; the fixture steps a frame now instead of
-calling the shipped functions by hand.
-
-⇣ the original statement of the row, kept because its second half is the gate:
-
-⭐ **the durable-save frontier's first real problem, and it is not "write a file".**
-Two mechanisms already persist the player's possessions, by different keys, on
-different clocks, with no relationship between them:
-
-```text
-DURABLE SAVE      items/persist.rs mirrors OwnedItems (the 24-slot catalog) and
-(disk, on load)   BodyWallet into AmbitionGameSave, keyed by stable `dialog_id`
-                  -> restores a COUNT
-
-CHECKPOINT        MintedItemBaseline + CustodyBaseline capture at a shrine rest
-(memory, on death)-> restores an INSTANCE into a specific hand, keyed by SimId
-```
-
-⛔⛔ **and the same physical object crosses between them, by design.** The
-inventory menu equips straight out of the count table; throwing what it equipped
-mints an instance (`SimId::spawned`) — that is the production road D125's last
-slice was built on. So one gun sword can be a row in `OwnedItems` at the same
-time as an occurrence in the custody baseline.
-
-⇒ the failure this predicts, and it should be **written as a fixture before it is
-designed**: save with a count of 1, load, mint an instance of that same spec,
-bank it at a checkpoint, die. Does the player end up holding it **and** owning
-it? Is the count decremented once, twice, or never? ⚠ nobody knows, because no
-test has ever put both authorities in the same sentence.
-
-⭐ **this is the "one class wide" seam already measured on D125**: 5 of 6 catalog
-classes are counts forever and their readers legitimately want a quantity; the
-whole problem is the **nine held weapons/abilities that are an instance and a
-count at once**. ⛔ so the answer is NOT to give the count table a row per
-object — that was already rejected. It is to decide which authority owns those
-nine, and to make the other one *derive* rather than *store*.
-
-⚠ related and unclosed in the same area: a minted instance **not in a hand** at
-the commit — lying in a room, or in flight — is still undescribed and still lost.
-That is exactly where *"a hand needs less than a world"* stops paying: it needs a
-position, and position is the first thing the description would grow.
-
-- ✔ **D134 — CLOSED 2026-08-16. The suite is 34/34, zero violations; the gating
-  call is Jon's and is costed in `awaiting-maintainer-decision.md` item 13.**
-
-⭐ **the twelve were four different things wearing one label**, and the count was
-the least informative fact about them:
-
-```text
-1  hazard, not defect   gate_portal `phases` HashMap -> BTreeMap. The flagged
-                        site collect()s and immediately sort_by()s, so the hash
-                        order NEVER reached an observable. Fixed anyway, because
-                        the ordering should be the type's property rather than
-                        the next editor's discipline.
-2  REAL ADR 0024 §1     `Option<&MotionModel>` — and it was hiding a SECOND one
-                        the rule could not spell (`Option<&ae::MotionModel>` in
-                        `perception_body_for`, whose `None` arm read a missing
-                        component as `AxisSweptMotion::default()`).
-2  policy imprecision   a PRE-SPAWN `ActorClusterSeed` and an off-sim
-                        `BodyClusterScratch`. Neither is an entity; neither has a
-                        frame or an integrator, so there is no authority to route
-                        through. Both now state their initial state at
-                        construction (`place_at`, `with_velocity`).
-1  contract OUTLIVED    `player-fallback-update-documented` demanded a review
-   its subject          marker for a slot-ordered fallback `333c48376` deleted.
-                        DELETED, with a tombstone; its sibling on `save_sync.rs`
-                        still guards the one surviving fallback.
-7  the POLICY was       runtime -> ldtk. See below.
-   wrong
-```
-
-⭐⭐ **THE `runtime → ldtk` CLUSTER WAS NOT AN UPWARD DEPENDENCY, AND `cargo tree`
-SETTLES IT IN ONE LINE.** `ambition_platformer2d_ldtk`'s entire transitive closure
-contains **zero** occurrences of `ambition_platformer2d_runtime` or
-`ambition_platformer2d_actor_monolith`; its own dependencies are
-`asset_manager`, `entity_catalog`, `platformer2d_core`, `shared_tangle` and
-`platformer2d_world` — the same graph depth as `ambition_platformer2d_world`,
-which the runtime's allowlist has permitted all along. And the monolith, also
-allowed, has linked it directly the whole time. ⇒ **the edge is downward**, and
-`runtime-manifest-deny` + `runtime-source-no-upper` were stating one wrong fact
-twice. Both changed, with the argument written into their own `rationale` fields.
-⚠ `bevy_ecs_ldtk` stays denied in both: the runtime may compose the adapter, never
-the backend the adapter exists to contain — poison-tested red to prove that half
-still has teeth.
-
-⚠ **and the story is on its THIRD instance in the same file.** The allowlist
-already carries two comments saying a laundered edge became a declared one when a
-facade was deleted (`ambition_sprite_sheet`, `ambition_character_sprites`); this is
-the same event for the monolith's `ldtk_world` facade, deleted 2026-08-15. ⇒ the
-lesson is not about LDtk: **deleting a compatibility facade reddens a boundary
-policy, every time, and it is the second file nobody remembers to edit.**
-
-⚠ **the concern the deny row was groping at is real and is now D135**, separated
-from the manifest edge it could not express.
-
-⚠ **one blind spot left standing, deliberately and named**: the movement rule
-matches SPELLINGS, and `Option<&ae::MotionModel>` — `ae::` being the alias most of
-the workspace imports engine-core under — escapes it. One production site still
-uses it (`ambition_sim_view/src/combat_geometry_view.rs:152`, an observation
-read-model whose whole body-cluster group is optional). Widening the rule tonight
-would have reddened a crate this slice did not analyse; it is recorded in that
-policy's rationale.
-
-- ✔ **D137 — CLOSED 2026-08-17. The doc-link ratchet was RED, is now GREEN, and
-  is now RUN BY CI. (opened 2026-08-16)**
-
-⛔⛔ **CORRECTION 2026-08-17 — THE SECOND HALF WAS ALREADY DONE, AND I DID NOT
-CHECK.** This row said the ratchet was "in no gate". **It has been in CI all
-along**, with `--check`, in `format-and-clippy` — added by `ccf254ff2`, *"A
-number that may fall and must not rise"*. I added a duplicate step to
-`sandbox-headless-smoke`, then found the original while auditing my own work and
-removed the duplicate.
-
-⚠ **the tell was in my own output and I misread it**: the grep that listed
-invocations printed `.github/workflows/test.yml` TWICE, and I attributed both
-lines to the step I had just written instead of asking why there were two. ⇒
-**check the file as it was BEFORE the edit** (`git show <commit>~1:<path>`),
-which is the only reading that cannot be confused by your own change.
-
-⭐ **what WAS genuinely missing is now wired**: `cargo test -p
-ambition_workspace_policy` in `engine-tests` — verified absent from both the
-workflow and `run_tests.py` at the parent commit before adding it.
-
-⛔⛔ **AND THE FLAG IS THE WHOLE GATE — `--check` IS LOAD-BEARING.** Measured
-by poisoning the baseline (`ambition_combat` 13 → 5) and running both ways:
-
-```text
-python3 scripts/check_doc_link_ratchet.py            ⛔ prints "ROSE from 5", exit 0
-python3 scripts/check_doc_link_ratchet.py --check    ⛔ prints "ROSE from 5", exit 1
-```
-
-⭐ the enforcing arm is `if risen and args.check`; the bare command is
-**advisory by design**. A step wired with the obvious invocation would have been
-a gate that CANNOT FAIL — which is worse than no gate, because it reads as
-coverage. ⚠ this is why the local-gate measurement (338 s) answered NO and CI
-answered YES: the cost was never the only question.
-
-```text
-ambition_platformer2d_actor_monolith   131  ⛔ ROSE from 122
-ambition_characters                     51  ⛔ ROSE from 39
-```
-
-⭐ **RE-MEASURED 2026-08-17: still red, and it had crept further.**
-`ambition_characters` had reached **53** — this campaign added two more while
-renaming the smash brain's closing verb. Both repaired (`ed6bf307c`), so the
-crate is back to the 51 above:
-* a link through `movement::abilities::…`, which is a PRIVATE module — the
-  function is published by a `pub use` one level up, and the doc named the
-  definition rather than the address.
-* a bare `StateMachineCfg::Smash`, which is a REAL variant that simply is not in
-  scope where that doc sits. ⚠ worth knowing, because it reads as a deletion and
-  is not one: the ratchet cannot tell "this no longer exists" from "you did not
-  say where it lives", and only the first is rot.
-⚠ the remaining 51 vs 39 (and 131 vs 122) is the debt the row was opened for and
-is NOT repaired. Fixing what we broke is not the same as paying it down.
-
-⛔ **`python3 scripts/check_doc_link_ratchet.py --check` fails**, and like the
-workspace policy suite before it (D134), **nothing per-turn runs it** — the gate
-is `cargo check -p ambition_app --all-targets` + the app suite + Smash.
-
-✔✔ **THE RATCHET IS GREEN AS OF 2026-08-17 (`f7e34225d`)** — `ambition_characters`
-is back to its 39 baseline, so no crate has risen and `--check` exits 0 for the
-first time since this row was opened.
-
-⛔⛔ **AND THE LEDGER WAS ABOUT TO BE HANDED A 13-LINK IMPROVEMENT NOBODY
-EARNED.** The conversation carve (D33 step 2) took the monolith 122 → 109, and
-the script invited banking it. Those thirteen were not FIXED, they were RE-HOMED
-into a crate `CRATES` did not name. `ambition_conversation` is on the list now,
-which puts **11 still-broken links back on the books** and moves the honest total
-UP: 182 → **193**. ⇒ **a carve launders debt off any ledger keyed by crate name,
-and the ledger congratulates you for it** — the rule ("the destination joins in
-the same commit") is written into `CRATES` beside the entry.
-
-⛔⛔ **AND THE ROW'S REMAINING ASK — "put it in a gate" — IS ANSWERED NO, BY
-MEASUREMENT.**
-
-```text
-warm, nothing changed                     51 s
-after touching ONE crate                 338 s   (5.6 min)
-```
-
-`ambition_platformer2d_core` is upstream of the other four, so touching it
-invalidates all five doc builds — and a gate runs precisely AFTER edits, so 338 s
-is the honest number, not 51. Against a project gate that is already
-`cargo check -p ambition_app --all-targets` + a ~150 s app suite, this is not a
-per-turn check. ⭐ **the row's own prose predicted it** — *"a ratchet over the
-whole workspace is a slow check that nobody runs"* — and now it has the number.
-
-▢ **so the wanted shape is PRE-PUSH or CI, not per-turn.** ⚠ and note the cost
-GREW with the carve: five crates now, not four. Every future carve adds one.
-
-⭐⭐ **and this is very likely a debt THIS session created**, which is why it is
-opened rather than merely noticed. 2026-08-16 deleted or moved an unusual amount:
-`ExplosionKind` + three tables, `move_vfx_kind`, `explosion_anim`,
-`explosion_sfx`, `WorldManifest`, `LdtkHotReloadState`, `poll_ldtk_file_changes`,
-`InventoryRestored`, `DeathRules`'s `Resource` impl, `sync_hosted_sanic_wallet_shield`,
-the LDtk `manifest.rs` and `hot_reload.rs`. **Every deletion that leaves a
-`` [`Item`] `` reference behind makes one of these.**
-
-⇒ the ratchet's own message states the stake better than a summary can:
-
-> *A deletion that leaves its references behind turns a doc comment into a
-> description of a world that no longer exists — **which in this repository is
-> where the reasoning lives.***
-
-⚠ that is not decoration. This project keeps its ARGUMENTS in doc comments — why
-a thing is shaped as it is, what was tried, what must not be re-derived. A broken
-link is a citation into a deleted world, and the next reader cannot tell whether
-the claim survived the deletion.
-
-⇒ **the work**: `cargo doc -p <crate> --no-deps`, read the warnings, and for each
-one decide whether the reference should be **repointed** (the thing moved) or the
-**sentence rewritten** (the thing is gone and the claim needs restating). ⛔ do
-not bulk-delete the brackets — that converts a detectable break into an
-undetectable stale sentence, which is strictly worse.
-
-⭐ **one worker already showed the right discipline here**: it banked only its own
-crate's improvement (`ambition_combat` 17 → 13) rather than laundering the two
-rises with `--update`. ⇒ ⛔ **never run `--update` to clear someone else's rise.**
-
-⚠ **and the gating question is the same one D134 raised and left with Jon**
-(`awaiting-maintainer-decision.md` item 13). Do not answer it by adding a check;
-measure the cost and let him decide.
+- ✔ **D137 — CLOSED 2026-08-17 (`f7e34225d`). The doc-link ratchet was RED and is
+  GREEN — no crate has risen and `--check` exits 0 for the first time since the row
+  opened.**
+  ⛔⛔ **`--check` IS LOAD-BEARING, measured by poisoning the baseline**: the bare
+  command prints *"ROSE from 5"* and **exits 0**; only `--check` exits 1. A step
+  wired with the obvious invocation would have been a gate that CANNOT FAIL, which
+  is worse than no gate because it reads as coverage.
+  ⛔⛔ **and I published a false "it is missing" claim here.** The ratchet had been
+  in CI all along (`format-and-clippy`, `ccf254ff2`); I shipped a duplicate step and
+  then removed it. **The tell was in my own output** — the grep printed the workflow
+  file TWICE and I attributed both lines to the step I had just written. ⇒ **check
+  the file as it was BEFORE the edit** (`git show <commit>~1:<path>`). What was
+  genuinely missing and is now wired: `cargo test -p ambition_workspace_policy` in
+  `engine-tests`.
+  ⛔⛔ **a CARVE LAUNDERS DEBT off any ledger keyed by crate name, and the ledger
+  congratulates you for it.** The conversation carve took the monolith 122 → 109
+  and the script invited banking it — those thirteen were not fixed, they were
+  RE-HOMED into a crate the list did not name. Adding `ambition_conversation` put 11
+  still-broken links back on the books and moved the honest total 182 → **193**.
+  ⇒ the rule is written into `CRATES` beside the entry: **the destination joins in
+  the same commit.** ⛔ never run `--update` to clear someone else's rise.
+  ⭐ **per-turn gating is answered NO by measurement** — 51 s warm, **338 s after
+  touching one crate**, and a gate runs precisely after edits. Pre-push or CI, which
+  is where it now runs. ⚠ the cost grows with every carve.
+  ⚠ **the residual debt is NOT repaired** (193 broken links): fixing what a session
+  broke is not paying it down. ⛔ do not bulk-delete the brackets — that converts a
+  detectable break into an undetectable stale sentence. ⭐ the stake, in the
+  ratchet's own words: *"a deletion that leaves its references behind turns a doc
+  comment into a description of a world that no longer exists — which in this
+  repository is where the reasoning lives."*
 
 - ▢ **D136 — COMPOSITION BOUNDARIES ARE ASSUMED, NOT STATED — so whoever
   installs a thing first decides who pays for it. (PROMOTED from `tracks.md`
@@ -5632,527 +4307,112 @@ LDtk name. One of the three is now gone. **⛔ the lesson for the next instance 
 the measurement, not the move: run `cargo tree -i` for the crate you mean to
 evict BEFORE choosing which code to carve.**
 
-- ✔ **D135 — THE CANONICAL SESSION WORLD CARRIES AN AUTHORING-FORMAT-SPECIFIC
-  FIELD, AND FIVE GAMES FILL IT WITH `::default()`.
-  (opened 2026-08-16, split out of D134; DONE 2026-08-16 — read the ⇒ closure at
-  the end of this row, which chose shape (2) and struck two of the row's own
-  numbers)**
-
-`PlatformerSessionWorld` has `runtime_rooms: LdtkRuntimeIndex`, and
-`PreparedPlatformerSource` carries it through four public constructors. Sanic,
-Mary-O, Pocket, TwinTrack and Smash are RON-authored and every one of them
-constructs `LdtkRuntimeIndex::default()` for a world it will never install — the
-type's own `Default` doc says so out loud (*"the 'no LDtk world installed'
-index"*). ⇒ **a format adapter's type is a member of the engine's canonical
-session world**, which is the thing the deny row was pointing at before D134
-established that the manifest edge itself is legitimate.
-
-⭐ **it is smaller than it looks, and the measurement is why**: the struct's
-fields are all `std` (`String`, two `BTreeMap`s, two `u64`) plus a plain POD, and
-**exactly one method touches `bevy_ecs_ldtk`** — `level_set_for` returning
-`LevelSet`, called from exactly one place, inside the LDtk crate itself
-(`bevy_runtime/asset.rs`). The rollback domain needs only `Component + Clone` and
-`active_area() -> &str`.
-
-⇒ **the shape**: move the struct down to `ambition_platformer2d_world` (a shared
-dependency of ldtk, runtime, monolith, provider and content, so it is cycle-free —
-⛔ moving it UP into the runtime is not, since `monolith → ldtk` and
-`provider → ldtk` both exist), rename it for what it is (an active-area index, not
-an LDtk one), and leave `level_set_for` / `from_project` behind in the LDtk crate
-as free functions over the moved type. **The cost is the rename**: 58 `.rs`
-references across 15 crates, of which ~25 are `::default()` in demo/provider
-construction.
-
-⚠ **do not start this by moving the type.** Start by asking whether a RON-only
-game should carry the field at all — if the honest answer is "no", the fix is a
-different shape (the index becomes optional session state a format installs)
-and the rename is wasted work.
-
-⇒ ✔✔ **THE ANSWER WAS "NO", SHAPE (2) LANDED, AND THE MOVE+RENAME WAS NEVER
-STARTED — 2026-08-16.** The row's own warning was worth every line of it: the
-58-site rename would have been wasted work.
-
-⭐ **the measurement that decided it — who reads the field, on what road.** Ten
-readers, and only two are engine-side. **(a) FIVE are LDtk's own systems**
-(`sync_ldtk_level_set` plus the four `rebuild_ldtk_runtime_*_index`), all in
-`ambition_platformer2d_ldtk`, all reading it through a `SessionWorldRef`.
-**(b) the monolith's `SimulationSetup::ldtk_index` WAS DEAD** — borrowed,
-silenced with `let _ = ldtk_index;`, read by nothing, and its comment promised a
-"follow-up patch" that never came. It is the reason the field looked like
-something simulation setup needed. **(c) the provider's content digest** writes a
-`world.runtime-index` section that, for a RON game, is one `area\t<id>\t\t-` row
-per room — i.e. nothing. **(d) the rollback checksum** hashes `active_area()`,
-which mirrors `RoomSet::active_spec().id` that `root.room_set` already checksums.
-⇒ nothing engine-side needs an active-area index regardless of format. **And
-exactly ONE site in the workspace ever built a non-default index**
-(`from_project`, in `ambition_app`). Shape (1) was indicated by nothing.
-
-⇒ **what shipped**: `PreparedPlatformerSource` holds `Option<LdtkRuntimeIndex>`,
-private, `None` by default; `new` / `for_match` / `with_world` LOST the
-parameter; the LDtk road states its own installation with
-`.with_installed_ldtk_index(..)`; and `PlatformerSessionWorld` — the canonical
-bundle — no longer carries the field at all. The provider inserts the component
-onto the session root only when a format installed one, so a RON-authored root
-carries nothing for it.
-
-⭐ **and the deletion went further than the field, because the field was
-propping up three other things.** ⇥ `ambition_platformer2d_runtime::demo_fixture`
-re-exported `LdtkRuntimeIndex` **so RON demo shells could hand an empty index to
-a constructor that demanded one** — a fixture module laundering a format
-dependency into games that have none. Gone. ⇥ **three setup systems — Sanic's,
-Mary-O's and `ambition_app`'s — took a `SessionWorldRef<LdtkRuntimeIndex>`
-parameter purely to forward it to the dead monolith field.** Two of those are
-RON games *querying the session root for LDtk state in order to boot*; had the
-component simply been made absent without removing them, `Single` validation
-would have failed and neither demo would have started. Gone. ⇥ and
-`LdtkRuntimeSpinePlugin`'s six-system chain now carries
-`.run_if(ldtk_world_installed)`: every game composing the runtime plugin group
-used to run all six each sim tick, and in the five RON games they rebuilt against
-an empty index and found nothing, forever. **The optional field is what finally
-made that statable.**
-
-⛔ **two of this row's own numbers were wrong, struck here rather than quietly
-fixed.** ⊘ *"~25 `::default()` in demo/provider construction"* — it is **14**,
-and 4 of those were `#[cfg(test)]` fixtures inside the provider. The overcount
-came from a grep that swept `.claude/worktrees/` clones. ⊘ *"58 `.rs` references
-across 15 crates"* — the real workspace figure is 56, same cause. ⇒ the honest
-deletion is **14 `::default()` constructions, every one of them gone**, plus the
-dead monolith parameter, three system parameters, and the `demo_fixture`
-re-export. Five games and the provider's test fixtures no longer name
-`LdtkRuntimeIndex` at all; `ambition_platformer2d_provider/src/lifecycle.rs`
-names it **zero** times.
-
-⛔⛔ **`capability-footprint-may-not-grow` DID NOT MOVE, and the row asked the
-right question in asking.** Still **42 crates linked, 15 a movement-only game
-never asked for**, with `ambition_platformer2d_ldtk` still among the fifteen. ⇒
-**the footprint is dominated by the MONOLITH, not by the session world.** Seven
-production files under `ambition_platformer2d_actor_monolith/src` still need nine
-distinct symbols from that crate — `WorldManifest` (the asset catalog),
-`LdtkProject` + `LdtkLevel` + `field_string`/`field_f32` (encounter loading and
-gated lock walls), `ActiveLdtkProject` (encounter systems, the map menu),
-`LdtkHotReloadState` + `poll_ldtk_file_changes` (hot reload, settings) and
-`LdtkVocabulary`. `LdtkRuntimeIndex` was never what held that edge, so removing
-it could not have moved the counter. ⚠ **that is worth more than a moved number**:
-it says the next slice against this ratchet is a monolith carve — specifically
-the world-manifest/asset-catalog seam, which is the only one of the nine that is
-not obviously LDtk-shaped — and not another session-world tidy.
-
-⇒ **the guard**: `game/ambition_app/tests/a_ron_game_installs_no_ldtk_world.rs`,
-two tests that are one claim. ⛔ *"Sanic has no LDtk index"* is trivially
-satisfied by never inserting the component anywhere — which is what a bad
-implementation of this change looks like, and it would delete level streaming
-from the shipped game while turning the file green. So the absence is asserted
-only beside a POSITIVE observation that the LDtk-authored game installs a real,
-**non-empty** index (`active_area()` is the field `from_project` fills and
-`Default` leaves blank, so it separates an installation from the placeholder).
-Both host-driven. ⚠ **the negative fixture was CAUGHT not reaching its state**:
-written with `.start_at_launcher()` it never activated a session in 240 frames
-and said so rather than passing vacuously. Falsified by restoring the old
-behaviour (`insert(installed_ldtk_index.unwrap_or_default())`) — red, with
-`session-start experience=ambition_versus` / `room-loaded versus_arena` in the
-trace proving it reached a live session first — then restored and re-run green.
-
-⚠ **rollback schema stayed at 34 and needed no bump, verified rather than
-assumed**: the fingerprint is computed from the REGISTRATION list
-(`registry.rs::schema_dump`), no registration changed, and no coverage sweep
-fails on a registered component being ABSENT — every sweep runs
-entity→registry, so a registered type carried by nobody contributes no entity.
-(`inert_registrations` is the near miss and is also presence-driven.) The content
-digest is likewise unmoved: the section a `None` index writes is byte-identical
-to what an empty index wrote, which is why no fingerprint shifted.
-
-⚠ **one thing the D134 note got right and this row should not lose**: the fix did
-not touch a single manifest edge. The runtime still declares
-`ambition_platformer2d_ldtk`, correctly. A dependency-denylist row could not have
-stated this wart, and removing the wart did not move a dependency count — two
-instruments, two facts.
-
-**D134 as it was OPENED, kept for the record. ⛔ two of its claims did not
-survive contact and are struck below** — read the closure above first:
-
-- ⊘ *"a `std` hash container … is the exact defect ADR 0023 exists to forbid"* —
-  the site sorted before folding, so no observable ever saw the hash order. The
-  hazard was real; the defect was not.
-- ⊘ *"an upward dependency the policy denies twice over"* — `cargo tree` says the
-  ldtk crate sits BELOW the runtime and below the monolith. The policy was wrong,
-  not the manifest.
-- ⊘ *"NOTHING RUNS IT"* — `./run_tests.sh` does, via `cargo test --workspace`.
-  What no gate runs is the suite **on the turn that breaks it**.
-
-⛔⛔ **`cargo test -p ambition_workspace_policy` fails with 12 violations in the
-`engine` scope, and NOTHING RUNS IT.** The standing gate is
-`cargo check -p ambition_app --all-targets` + the app suite + Smash; this suite is
-in none of them. ⇒ a set of invariants each carrying an `owners` list, a
-`source_doc` and a written rationale has been failing unobserved. ⚠ pre-existing —
-none of them belongs to the work landed tonight.
-
-**The 12, by policy** (`tests/ambition_workspace_policy/policies/engine.toml`):
-
-```text
-engine.determinism                     (ADR 0023)
-  world/src/rooms/gate_portal.rs:199   iterates `phases`, a std hash container —
-                                       RandomState order differs BETWEEN RUNS
-engine.movement-model-is-never-optional (ADR 0024 §1)
-  features/ecs/actors/update.rs:237    names Option<&MotionModel>
-engine.player-fallback-update-documented
-  features/ecs/actors/update.rs        must contain AMBITION_REVIEW(determinism)
-engine.pose-writes-are-authority-only
-  features/ecs/actor_clusters.rs:686   seed.kin.pos = start;
-engine.velocity-writes-are-authority-only
-  characters/src/brain/fighter/recovery.rs:286   body.kinematics.vel = at.vel;
-engine.runtime-manifest-allow / -deny / runtime-source-no-upper   (7 sites)
-  runtime -> ambition_platformer2d_ldtk, a dependency the manifest both fails to
-  allow and explicitly denies, plus 5 source spellings of it
-```
-
-⭐⭐ **the determinism one is the reason this row is not merely housekeeping**: a
-`std` hash container iterated in `gate_portal` is the exact defect ADR 0023
-exists to forbid, and it differs **between runs of the same build** — which is
-what every rollback checksum and every replay claim in this repo assumes cannot
-happen. ⚠ the `runtime → ldtk` cluster is 7 of the 12 and is one architectural
-fact, not seven: an upward dependency the policy denies twice over.
-
-⇒ **two things are owed and they belong to DIFFERENT PEOPLE**: (a) fixing the
-violations is work, and this row owns it; (b) **whether the suite joins the goal
-guard is JON'S, and it is already logged** as item 13 of
-[`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md) — where a
-previous session deliberately declined to act, in these words: *"the guard's
-check list is yours, and adding a red check would stop every autonomous run until
-the twelve are cleared."*
-
-⛔⛔ **this row was opened without reading that file first, and the brief it
-produced told an agent to decide (b) and implement it.** That is answering a
-reserved question by dispatch, and the hazard is concrete rather than procedural:
-`.goal/active.json`'s check list is what keeps an autonomous run alive, so a red
-check added there **wedges every turn** until all twelve clear. Corrected
-mid-flight. ⇒ **promote the WORK from that file, never the DECISION**, and say in
-the row which half is which.
-
-⭐ that file also carries a **better diagnosis than this row first had**: the
-`engine.determinism` hit is a **false positive on correct code** — the site
-`collect`s and then **sorts** — so the honest fix is structural (make `phases` a
-`BTreeMap`, making ordered iteration a property of the TYPE rather than a
-discipline the next editor can drop), and *"a waiver would be the wrong answer
-here."*
-
-### ⭐⭐ SHAPE (b) IS FIXED, AND THE SCOPING MECHANISM ALREADY EXISTED — IN THE WRONG CRATE FOR IT (2026-08-16)
-
-**The question the row set was *"why does `DeathRules` not use
-`ExperienceScopeBuilder`?"* with three candidate answers. The measured answer is
-(2), and specifically:** the shell's scope builder **has adopters** — smash
-(`demo_smash/src/lib.rs:1660`) and versus (`app/versus.rs:1034`) both declare
-scopes, and a policy test already reads them all at once
-(`experience_scope_ownership.rs`) — so *"nobody adopted it"* is FALSE. It does
-not fit because it releases state a SESSION published on route DEPARTURE, and it
-has no entering half at all (*"entering is not an event anything has to catch"*).
-`DeathRules` was inserted in `Plugin::build` and lives for the process; releasing
-it on the first departure would delete it forever.
-
-⭐⭐ **AND THE RIGHT MECHANISM ALSO ALREADY EXISTED, ONE NOUN SHORT.**
-`ambition_platformer2d_runtime::mode_scope` **is** the demo-hosting seam: it
-scopes a hosted game's SYSTEMS (`in_mode` / `in_base_mode`) and its ENTITIES
-(`ModeScopedEntity`) to the rooms tagged with its mode, and **every one of
-Sanic's and Mary-O's systems is already gated through it**. It had no word for a
-RULE. ⇒ so three games each inserted a process-global instead, and the last
-`Plugin::build` won — which is not a missing mechanism, it is a mechanism with a
-missing third noun.
-
-⇒ **`DeathRules` stopped being a `Resource`.** A game declares into
-`DeclaredDeathRules` under the rooms it governs
-(`DeathRulesScope::{Mode(&str), UntaggedRooms, EveryRoom}` — the same three
-answers `<Demo>RulesPlugin` already gives when it decides how to gate its
-systems, selected by the SAME `hosted` constructor flag). `governing(mode)` is
-the one place *"whose rules apply here?"* is answered, and it is reached through
-one `SystemParam` (`GoverningDeathRules`) so a third beat cannot re-derive it.
-**A room no game claimed reads `DeathRules::default()` — `LevelReset::Never`,
-which is exactly what an arena wants.** A second declaration of one scope panics
-at build rather than picking a winner.
-
-⚠ **the mode tag was already universal and nobody had noticed**: smash, versus,
-twintrack, pocket, sanic and mary_o all tag their rooms; only Ambition's own are
-untagged. The fix needed no new identity.
-
-⛔ **the wallet-shield needed a DIFFERENT cure, and a smaller one.**
-`sync_hosted_sanic_wallet_shield` is not a global — it is a system whose
-POPULATION was every `PrimaryPlayer` in the process. It was inert only because
-`BodyWalletShield` has exactly one writer in the workspace (measured: this file).
-That claim is now written down and the loop states its population: a body is
-Sanic's business when it wears a Sanic persona or already carries a shield, and a
-George Booul on a Smash stage is neither. ⇒ **and the `hosted` fork on that
-system is DELETED** — two systems and a bool became one, because the standalone
-binary loads the same `mode: Some("sanic")` speedway the host does, so the
-constructor flag was answering a question the ROOM already answers.
-
-**Rollback: schema did NOT move (still 34).** `DeathRules` was never
-`require_rollback`-registered — it was a WAIVED row in `rollback_coverage.rs`,
-and the waiver moved to `DeclaredDeathRules` with its argument intact
-(`declare` is only reachable through `App`; a tick holds a `World`). ⚠ recorded
-with it: that argument would NOT survive a resolved-rules resource written each
-tick, which is why the resolution is a `SystemParam` that stores nothing.
-
-⇒ **WHAT A THIRD INSTANCE WOULD HAVE TO LOOK LIKE to justify a general
-mechanism** — because this slice deliberately did not build one. Not another
-resource: a resource is now cured by *"declare it into a collection keyed by the
-rooms you govern"*, which is a five-line pattern, not a framework. The instance
-that would justify one is **a game that must scope something the mode tag cannot
-express** — state belonging to a game while it is NOT in its own rooms (a
-crossover fighter carrying its home game's rules onto a foreign stage), or a
-scope whose boundary is a SEAT rather than a room. That is the day
-`ExperienceScope` and `mode_scope` have to become one vocabulary instead of two;
-today they are two because they scope two different lifetimes, and saying so is
-cheaper than merging them.
-
-⚠ **stale in the brief that opened this, for the record**: it said `DeathRules`
-is *"rollback-registered (`rollback_coverage.rs:987`)"*. Line 987 is the WAIVER
-list, not a registration — the distinction is what made the schema question a
-non-event.
-
-- ☑ **D131 — FIXED: NOTHING ACCRUED ON A CLOCK. FOUR FIGHTERS WERE BEING
-  DIVIDED BY 1, 1, 60 AND 100. (opened + closed 2026-08-16)**
-
-### ⭐⭐ THE ANSWER: THE DENOMINATOR, NOT THE NUMERATOR
-
-**`damage_percent()` is `accumulated / max`, and `max` was each character's
-HOME GAME's authored pool.** Reproduced headlessly through the shipped shell
-(4 CPU seats, `smash_gameplay`), logging every `HitEvent` with its source:
-
-```text
-mary_o             42 damage / max   1  = 4200%   <- Jon's exact number, ~same tick
-sanic               8 damage / max   1  =  800%
-player_robot_v3    11 damage / max  60  =   18%
-smash_george_booul  9 damage / max 100  =    9%
-```
-
-⇒ **every hit was `HitSource::Melee` from the other fighters.** The meter was
-honest and the division was correct. Mary-O and Sanic author `max_health: 1`
-because they are one-hit-kill platformer protagonists — true in their own games,
-and it makes one point of ordinary damage read as a full meter on a stocks stage.
-
-⛔⛔ **and the swap-to-P2 control was right and pointed at the wrong thing.** It
-proved the cause travels with the CHARACTER — and what travels with a character
-is its authored VITALS, not a system. **No demo system was involved.** The
-crossover hypothesis (a `SanicExperiencePlugin` / `MaryOExperiencePlugin` system
-damaging a foreign body) is **FALSIFIED**: measured in the same run, `players=0`,
-`outofplay=0`, zero `ActorDiedMessage`, zero `RoomReplayRequested`. What crossed
-the boundary was a NUMBER, not a rule.
-
-⚠ **the standalone-app experiment would have "confirmed" the false hypothesis.**
-`ambition_demo_smash_app` composes no Mary-O or Sanic provider, so
-`SmashRoster::assemble` drops both and its whole cast was stamped with the
-reference — the bug is structurally unreachable there, for a reason unrelated to
-which plugins are installed.
-
-### THE FIX — the MATCH declares what 100% means
-
-`MatchParticipantRoster::fighter_health_pool: Option<i32>` →
-`MatchRules::health_pool` → `MatchRules::pool_over(authored)`, applied at both
-seat sites in `prepared_match.rs` (spawned seed AND adopted `body.max_health`).
-`apply_smash_match_rules` declares `SMASH_PERCENT_REFERENCE`.
-
-⭐ **the tell it was half a decision:** a stocks match already overruled the
-character on *whether the pool kills* (`MatchRules::death_policy`) and left *how
-big the pool is* with the character. `pool_over` sits one function above
-`death_policy` for that reason.
-
-⛔ **DELETED: the per-character workaround.** `definition.vitals.max_health =
-Some(SMASH_PERCENT_REFERENCE)` on the three ids this demo registers (2026-07-31,
-the 14000% fix). It was right about the symptom and wrong about the owner — it
-could only ever reach three fighters and the roster is fourteen. Its guard test
-`each_duelist_authors_the_pool_its_percent_is_read_against` is replaced by
-`the_match_declares_the_pool_every_fighters_percent_is_read_against`.
-
-### ⚠ THE SECOND DEFECT WAS THE SAME INSTRUMENT, NOT A SECOND BUG
-
-**"Both fighters lose a stock at the same instant while one is at 0%"** — the KOs
-are 3 and 24 ticks apart in the trace, which at 60-frame sampling is one instant;
-and `spend_fighter_stocks` calls `health.reset()` on a fighter coming back, so a
-seat that just lost a stock reads **0% because it respawned**. Correct behaviour
-seen at capture resolution.
-
-### ⛔ WHAT THE HUNT FOUND ON THE WAY — a REAL crossover leak, measured INERT
-
-`MaryORulesPlugin::build` inserts `DeathRules::replay_level_after(3.2s)` as a
-GLOBAL resource with no gate (`demo_mary_o/src/lib.rs:1941`), Sanic inserts its
-own (`demo_sanic/src/lib.rs:1163`), and `shell_host.rs` installs Mary-O AFTER
-Sanic — so **every Smash match in the shipped host runs under Mary-O's death
-rules**, whose own doc says a versus arena wants `LevelReset::Never`. Measured
-inert today: an `Unbounded` fighter never writes `ActorDiedMessage` and a seat
-carries no `PlayerEntity`, so `open_death_interlude` never fires. ⇒ **not fixed
-here, and it is D136's second instance in a different shape** — the first was a
-DATA value authored under one game's rules, this is a global SINGLETON whose
-owner is whoever installed it last. Two shapes is what would justify a scoping
-mechanism; one would not have.
-⚠ same file, same shape, also ungated: `sync_hosted_sanic_wallet_shield`
-(`demo_sanic/src/lib.rs:1225`) runs every tick of a Smash match and its non-Sanic
-branch REMOVES `BodyWalletShield` from any `PrimaryPlayer`.
-
-### the original report, kept
-
-⛔⛔ **the Smash showcase is not currently a fight.** Sanic passes 200% before the
-`GO!` banner clears and 600% by six seconds; Mary-O reaches **4200% in six
-seconds** against a George Booul floating several body-widths off-stage with no
-contact at any point. Meanwhile `player_robot_v3` and `george_booul` read **0% in
-every single sample**.
-
-⭐⭐ **THE CONTROL IS WHAT MAKES THIS A DIAGNOSIS RATHER THAN A SIGHTING.** Swap
-Sanic to P2 and **the damage moves with him** — the identical 600% at frame 360,
-against a different opponent. ⇒ in one experiment this eliminates the seat, the
-opponent, the stage position and the matchup. **Percent advances per frame, per
-character, with the attacker uninvolved.**
-
-⚠ **and it splits the cast two-and-two**, which is a clue and not yet an answer:
-
-```text
-runs away    sanic, mary_o                 (each the star of its own demo)
-never hit    player_robot_v3, george_booul (native to Ambition / Smash)
-```
-
-⇒ crossover-vs-native is the obvious hypothesis and **two a side is too small to
-believe it** — widen the sample across the other eleven fighters before chasing
-it. ⛔ do not start from the characters; start from **whatever advances damage per
-frame** and ask what admits these two and not those two.
-
-⛔ **TWO LEADS ALREADY DEAD (2026-08-16) — do not re-run them:**
-
-1. ⛔⛔ **RETRACTED 2026-08-16 — I ELIMINATED THIS AGAINST THE WRONG PROCESS, AND
-   IT IS NOW THE LEADING HYPOTHESIS.** I checked that `ambition_demo_smash` and
-   `ambition_demo_smash_app` name neither `demo_sanic` nor `demo_mary_o` — true,
-   and irrelevant: **the measurement was taken through the SHELL**
-   (`capture_scene --route smash_gameplay`, i.e. `ambition_app`), and
-   `app/shell_host.rs` installs **`SanicExperiencePlugin` and
-   `MaryOExperiencePlugin`** outright. ⇒ both demos' systems WERE running in the
-   process where the damage was observed.
-
-   ⭐⭐ **and it explains the split exactly**: `SMASH_ROSTER`'s own comment calls
-   `mary_o` and `sanic` *"the other demos' protagonists — present only when a host
-   composes them"*, while `player_robot_v3` and `george_booul` belong to Ambition
-   and this demo. **The two that accrue damage are precisely the two whose
-   experience plugins are composed into that process.** ⇒ look for a system in
-   `SanicExperiencePlugin` / `MaryOExperiencePlugin` that damages its own
-   protagonist on a clock and does not check that it is in ITS OWN experience —
-   a hazard, a drown/lava timer, a form-loss rule.
-   ⚠ **and this predicts the standalone `ambition_demo_smash_app` would NOT show
-   it**, which is a cheap confirming experiment before touching any code.
-
-   ⚠ **two narrowings from a first pass, so the next one starts further along:**
-   - ⊘ **it is not an emitted HIT from either demo crate.** The only
-     `HitEvent` writer in both is `demo_mary_o/src/snake.rs` (an enemy's
-     contact), and neither crate emits anything per-frame at a protagonist.
-     ⇒ suspect a **direct write to the body's damage**, or a shared engine
-     system the demo plugin *configures* rather than one the demo owns.
-   - ⭐ **whatever it is keys on CHARACTER IDENTITY, not on the seat or on
-     "the player"** — that is what the swap-to-P2 control proves, and it is a
-     strong filter: look for a system whose query or lookup names
-     `SANIC_CHARACTER_ID` / the Mary-O equivalent, or reads `WornCharacter`,
-     rather than one that acts on `PrimaryPlayer` or `ControlledSubject`.
-2. ⊘ **"the two that accrue are the two whose sheets do not author a body."**
-   Falsified 4/4: `george_booul` is ALSO `authored_body: false` and takes **zero**
-   damage in every sample, while `player_robot_v3` is `true`. Body-geometry
-   provenance does not split the cast the way the damage does.
-
-⭐ **what the control does establish, and it narrows the search a lot**: the
-character that accrues is the VICTIM, and the opponent is uninvolved — so the
-source is **the character's own body or the stage**, not an attack resolving from
-the other side. Look for something that emits a hit, or writes damage, per frame
-at a body, and admits `sanic`/`mary_o` while refusing `player_robot_v3`/
-`george_booul`. ⚠ D128 records the shape of a near neighbour already fixed once:
-a swing broadcast a body-scanning volume that **came back around to its owner**.
-
-⚠ pair it with the second defect in the same match: **both fighters lose a stock
-at the same instant while one of them is at 0%.**
-
-⭐ reproducible now, which is the only reason any of this is visible — see D130
-for the nine-tap command; sampled at 240/300/360/420/600/900/1400/2400 frames.
-
-- ☑ **D130 — (b) FIXED: the instrument can now photograph a real match. (a) was
-  a MISDIAGNOSIS: there is no tofu. (opened + closed 2026-08-16 by LOOKING)**
-
-### (a) ⛔⛔ THERE IS NO TOFU. IT IS THE STAGE FLOOR.
-
-**The "two full lines of ~35 hollow boxes" are the Smash stage's TILES**, and
-the "blank grey rounded HUD chips above them" are **blurred rounded rectangles
-in the far parallax backdrop** — a distant lit cityscape. Neither is text.
-Photographed at 3x: each box has a bevelled top-left highlight and a dark border,
-i.e. a platform tile, not a `.notdef` glyph.
-
-⭐ **why it read as tofu**: `--route smash_gameplay` with no roster puts the
-camera at the default position with no subject to follow, so the stage's floor
-sits alone at the bottom-right of an empty frame with no fighter, no HUD text
-and no scale cue next to it. Two neat rows of ~35 identical squares in a corner
-of a blank screen is a very good impression of two lines of tofu.
-
-⇒ **`crates/ambition_render/src/hud/declared.rs`'s font fallback is INNOCENT.**
-In a real match every string renders correctly at 1280x720: `Sanic 200% · 3/3`,
-`Player Robot v3 0% · 3/3`, the `GO!` banner, both nameplates — including the
-`·` (U+00B7). ⛔ do not re-open this on the strength of the original report.
-
-### (b) ⭐ FIXED — `capture_scene` grew the step that carries a POSITION
-
-`--press touch:XxY` sends the pair of real `TouchInput` messages winit emits and
-lets Bevy's own `touch_screen_input_system` fold them, so the tool drives the
-PHONE road the product ships. Generic, not a `--smash-cpu` flag: any route that
-answers a finger gets it.
-
-⭐ **the cause, confirmed**: key taps are EDGES WITH NO POSITION. The tests seat
-a fighter with `SelectCursor::move_to(rect.center())` and THEN `tap(Enter)`; the
-tool's bare `Enter` fired wherever the cursor sat. The doc block claiming the
-two were "exactly" the same is corrected in place.
-
-⚠ **`the_arrows_alone_can_work_the_whole_screen` is NOT in conflict.** Arrows do
-work — the cursor starts on portrait 0 and snaps — `Down,Enter,Enter` was simply
-not a seating sequence (one Down lands on another portrait). Arrows are a maze
-here, not a wall.
-
-The working command is in `capture_scene`'s header and guarded by
-`smash_in_the_host::the_capture_tools_documented_taps_seat_two_cpus_on_two_fighters`,
-which drives the same literals through the real host.
-
-### ⭐⭐ AND THE MATCH, WATCHED — the percent runs away on its own
-
-Three CPU-vs-CPU matches, sampled by frame. All 1280x720, `--include-ui`.
-
-```text
-P1 vs P2                       frame  P1              P2
-Sanic      vs Player Robot v3   240   200%  3/3       0%  3/3   ("GO!" still up)
-                                300   500%  3/3       0%  3/3
-                                360   600%  3/3       0%  3/3
-                                420     0%  2/3       0%  2/3
-                                600     0%  1/3       0%  1/3
-                                900   400%  1/3       0%  1/3
-                               1400   (eliminated)    0%  1/3
-                               2400   back on select, all four slots reset
-Mary-O     vs George Booul      360  4200%  3/3       0%  3/3
-Player Robot v3 vs Sanic        360     0%  3/3     600%  3/3   ⭐ THE CONTROL
-```
-
-1. **⛔⛔ THE PERCENT IS NOT COMING FROM THE OPPONENT.** ⭐ **the seat swap is
-   the control**: move Sanic from P1 to P2 and the damage moves WITH HIM, and
-   he reads **600% at frame 360 in both runs — the identical number**, against
-   two different opponents doing two different things. In the Mary-O run the two
-   fighters are not even near each other (Mary-O on the platform's right edge,
-   George Booul floating off-stage several body-widths away) and Mary-O is at
-   **4200%** in six seconds. ⇒ this accrues on a CLOCK, per character, with no
-   opponent involvement.
-2. **⛔ AND IT SPLITS THE CAST IN HALF.** `player_robot_v3` and `george_booul`
-   read **0% in every sample of every match**; `sanic` and `mary_o` run away.
-   ⚠ that is the demo's own fighters versus the CROSSOVER cast, which is the
-   first thing to check — but two characters a side is a small sample, so widen
-   it before believing the split.
-3. **⛔ BOTH LOSE A STOCK AT THE SAME MOMENT, and one of them is at 0%.** In the
-   Sanic run 3/3 → 2/3 → 1/3 happens to BOTH between the same samples while the
-   robot has taken no damage at all. Then they diverge (Sanic is eliminated by
-   1400, the robot keeps its last stock), so it is not one shared counter — but
-   two simultaneous KOs where only one fighter was ever damaged wants explaining.
-
-⭐ what is RIGHT: the stage draws, the fighters draw at sane relative scale,
-both kits animate (the robot is mid-swing with a visible purple weapon at 900),
-the HUD is legible and correct, the match ENDS on its own and returns to a fully
-reset select screen. Nothing is missing; the fight itself is wrong.
-
-⇒ **this is D128's "does a watcher SEE the two kits behave differently" cashing
-in, and the answer is worse than 'no': half the cast is on fire from the first
-frame.** Next row is (1)+(2) together — start from whatever ticks percent
-without a hit.
+- ✔ **D135 — CLOSED 2026-08-16. The canonical session world carried an
+  authoring-format-specific field (`runtime_rooms: LdtkRuntimeIndex`) and five
+  RON-authored games filled it with `::default()` for a world they will never
+  install.**
+  ⭐⭐ **the row's own warning saved the work**: *"do not start this by moving the
+  type — ask first whether a RON-only game should carry the field at all."* The
+  answer was NO, so the 58-site move-and-rename was never started. Ten readers were
+  measured: five are LDtk's own systems, the monolith's was **DEAD** (borrowed,
+  silenced with `let _ =`, its promised follow-up never written), and the other two
+  duplicate facts already checksummed elsewhere. Exactly ONE site in the workspace
+  ever built a non-default index.
+  ⇒ the field became `Option<…>`, private, `None` by default, installed only by the
+  LDtk road — and **the deletion went further than the field, because the field was
+  propping up three other things**: a `demo_fixture` re-export that let RON shells
+  hand an empty index to a constructor demanding one (a fixture module laundering a
+  format dependency into games that have none); three setup systems, two of them
+  RON games *querying the session root for LDtk state in order to boot*; and six
+  systems that rebuilt against an empty index every sim tick in five games, now
+  `.run_if(ldtk_world_installed)`. **The optional field is what made that statable.**
+  ⛔ **two of this row's own numbers were wrong** — the grep swept
+  `.claude/worktrees/` clones, inflating 14 `::default()` sites to "~25" and 56
+  references to "58". ⇒ **an absence or population count taken with a repo-wide grep
+  must exclude worktree clones.**
+  ⛔⛔ **`capability-footprint-may-not-grow` DID NOT MOVE, and asking was right**:
+  still 42 crates linked, 15 a movement-only game never asked for. ⇒ **the footprint
+  is dominated by the MONOLITH, not the session world** — seven production files
+  still need nine symbols from the LDtk crate, so the next slice against that ratchet
+  is a monolith carve at the world-manifest/asset-catalog seam (D136 carries it).
+  ⭐ the guard is two tests that are one claim: *"a RON game has no LDtk index"* is
+  trivially satisfied by never inserting the component anywhere — which is what a
+  BAD implementation looks like and would delete level streaming while turning the
+  file green — so the absence is asserted only beside a positive observation that
+  the LDtk-authored game installs a real, **non-empty** index. ⚠ the negative
+  fixture was caught not reaching its state and said so rather than passing
+  vacuously.
+  ⚠ schema stayed at 34, verified rather than assumed: the fingerprint is computed
+  from the REGISTRATION list, and no sweep fails on a registered component being
+  ABSENT.
+
+- ✔ **DEATH RULES STOPPED BEING A PROCESS-GLOBAL `Resource` (2026-08-16)** — three
+  games each inserted one in `Plugin::build` and the last one won, so every Smash
+  match in the shipped host ran under Mary-O's death rules.
+  ⭐⭐ **the right mechanism already existed, ONE NOUN SHORT.** `mode_scope` scopes a
+  hosted game's SYSTEMS and its ENTITIES to the rooms tagged with its mode, and every
+  Sanic and Mary-O system already goes through it — it simply had no word for a RULE.
+  ⛔ the shell's `ExperienceScopeBuilder` does NOT fit and it is not for want of
+  adopters: it releases state on route DEPARTURE and has no entering half, so
+  `DeathRules` would be deleted forever on the first departure.
+  ⇒ a game declares into `DeclaredDeathRules` under the rooms it governs;
+  `governing(mode)` is the one place *"whose rules apply here?"* is answered, reached
+  through one `SystemParam` so a third beat cannot re-derive it. A room no game
+  claimed reads `LevelReset::Never`, which is exactly what an arena wants; a second
+  declaration of one scope panics at build rather than picking a winner. ⚠ the mode
+  tag was already universal — the fix needed no new identity.
+  ⭐ **what a THIRD instance would have to look like to justify a general
+  mechanism**, since this slice deliberately did not build one: not another resource
+  (that is now a five-line pattern), but **state belonging to a game while it is NOT
+  in its own rooms** — a crossover fighter carrying its home rules onto a foreign
+  stage — or a scope whose boundary is a SEAT rather than a room.
+  ⚠ the sibling was a smaller cure: `sync_hosted_sanic_wallet_shield` was not a
+  global but a system whose POPULATION was every `PrimaryPlayer` in the process. It
+  states its population now, and its `hosted` fork is deleted — the constructor flag
+  was answering a question the ROOM already answers.
+
+- ☑ **D131 — CLOSED 2026-08-16. Nothing accrued on a clock: four fighters were
+  being divided by 1, 1, 60 and 100.** `damage_percent()` is `accumulated / max`,
+  and `max` was each character's HOME GAME's authored pool — Mary-O and Sanic author
+  `max_health: 1` because they are one-hit-kill platformer protagonists, so one
+  point of ordinary damage read as **4200%**. The meter was honest and the division
+  was correct.
+  ⇒ **the MATCH declares what 100% means** (`MatchRules::pool_over(authored)`,
+  applied at both seat sites). ⭐ the tell it was half a decision: a stocks match
+  already overruled the character on *whether the pool kills* and left *how big it
+  is* with the character. ⛔ DELETED with it: the 2026-07-31 per-character
+  workaround that stamped the reference onto the three ids this demo registers —
+  right about the symptom, wrong about the owner, and it could never reach the other
+  eleven.
+  ⛔⛔ **the swap-to-P2 control was right and pointed at the wrong thing.** It proved
+  the cause travels with the CHARACTER — and what travels with a character is its
+  authored VITALS, not a system. The crossover-plugin hypothesis was FALSIFIED in
+  the same run (zero deaths, zero replays). **What crossed the boundary was a
+  NUMBER, not a rule.**
+  ⚠ **and the cheap confirming experiment would have "confirmed" the false
+  hypothesis**: the standalone smash app composes no Mary-O or Sanic provider, so
+  its whole cast was stamped with the reference and the bug is structurally
+  unreachable there — for a reason unrelated to which plugins are installed.
+  ⚠ the second reported defect was the same instrument, not a second bug: the KOs
+  are 3 and 24 ticks apart (one instant at 60-frame sampling) and a respawning
+  fighter reads 0% **because it respawned**.
+
+- ☑ **D130 — CLOSED 2026-08-16 BY LOOKING. (a) There is no tofu — it is the STAGE
+  FLOOR.** The "two lines of ~35 hollow boxes" are the stage's tiles and the "grey
+  HUD chips" are blurred rectangles in the parallax backdrop; photographed at 3x,
+  each box has a bevelled highlight and a dark border. ⭐ why it read as tofu:
+  `--route smash_gameplay` with no roster puts the camera at its default position
+  with no subject, so the floor sits alone in an empty frame with no scale cue.
+  ⛔ the HUD font fallback is INNOCENT — every string renders correctly in a real
+  match, including the `·`. Do not re-open on the strength of the original report.
+  **(b) FIXED — `capture_scene` grew the step that carries a POSITION.**
+  `--press touch:XxY` sends the pair of real `TouchInput` messages winit emits and
+  lets Bevy's own fold system handle them, so the tool drives the PHONE road the
+  product ships — generic, not a smash flag. ⭐ **the cause: key taps are EDGES WITH
+  NO POSITION**; the tests seat a fighter by moving the cursor and THEN tapping, and
+  the tool's bare `Enter` fired wherever the cursor sat. Guarded by
+  `the_capture_tools_documented_taps_seat_two_cpus_on_two_fighters`, which drives
+  the same literals through the real host.
 
 - ▢ **D129 — The sprite pipeline CUTS ART AT THE LOGICAL FRAME AND NOTHING NOTICES.
   (opened 2026-08-16 from a maintainer observation, measured the same day)**

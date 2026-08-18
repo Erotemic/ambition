@@ -35,7 +35,13 @@ against the row that claims to have moved it.**
 and the two files did not reference each other, so a settled decision kept
 reading there as an unfixed bug. Cross-links added for 1, 4 and 7.
 
-## Open decisions — 9 (§6 and §9 are ANSWERED and kept below as records)
+⛔ **A CLOSED ROW HERE IS A RECEIPT TOO.** An answered decision keeps Jon's
+ruling verbatim, the consequence, and any standing prohibition — not the
+investigation that led to the question. Same rule as
+[`README.md`](README.md#queue-contract); on 2026-08-17 this file was **739 lines
+for 9 open questions**, and the four answered ones held a third of it.
+
+## Open decisions — 9 (§6, §9, §12 and §13 are ANSWERED, kept below as records)
 
 ### 1. Projectile collision: authored hurt volume or coarse body box? (former D23)
 
@@ -219,65 +225,24 @@ question for you is priority: is CPU quality on the path to what Smash is for,
 or is it acceptable that CPUs are currently sparring partners that suicide?
 Detail in [`engine/fighter-brain.md`](engine/fighter-brain.md).
 
-### 6. ✔ ANSWERED 2026-08-17 — fighter-vs-fighter hit emphasis without the primary local seat (former D114). THE LANDED FIX STANDS; THE OLD PROHIBITION IS SUPERSEDED.
+### 6. ✔ ANSWERED 2026-08-17 — hitlag freezes the body that is in it (former D114)
 
-⭐⭐ **Jon's ruling, verbatim:** *"keep the landed fix and overrule the old
-prohibition. Close the decision. The older 'per-body zero-dt makes AI-vs-AI
-degenerate' judgement predates D155, when Smash launch/landing behavior was
-materially broken; the D128 record itself now treats those pre-D155 feel
-judgements as invalid. More importantly, **hitlag is a combat/body semantic, not
-something that should depend on whether a body happens to occupy the primary
-local-control road**. CPU-vs-CPU now has real exchanges, the match still
-terminates, and the later capture exercises corrected knockback. Keep sim_dt =
-0.0 during that body's hitlag. Mark the old prohibition superseded. **If hitlag
-later feels too sticky, tune its duration/shape rather than restoring a
-controlled-body/actor asymmetry.**"* ⇒ recorded in
-[`maintainer-decisions.md`](maintainer-decisions.md).
-
-⇒ **so what landed in `818218949` is now the intended behaviour**, on both roads:
-
-```rust
-let sim_dt = if combat.is_in_hitlag() { 0.0 } else { dt };
-```
-
-⛔⛔ **THE THREE OPTIONS THIS ROW USED TO OFFER ARE ALL VOID, and it is worth
-knowing why**: *no extra freeze* · *a proper-time treatment at the ADR 0011 seam*
-· *extend the global 0.125 beat to any seated-fighter hit*. **Every one preserved
-a per-road distinction**, and the ruling says the distinction itself was the
-defect. ⇒ **the only sanctioned future repair is hitlag's DURATION or SHAPE**;
-reintroducing a controlled-body/actor split is explicitly forbidden.
-
-⚠ **the superseded prohibition, kept because the lesson is about EVIDENCE, not
-about hitlag.** This row said a direct per-body zero-dt *"was already tried and
-made AI-vs-AI bouts degenerate, so **do not reintroduce that fix**"*, and
-[`engine/controlled-character-actor-kernel.md`](engine/controlled-character-actor-kernel.md)
-independently warned against deciding *"D114 by refactor"*. Two documents agreed
-— and both were **measured on a build where every authored launch direction was
-vertically inverted and a tumbling launch resolved as a landing** (D155), i.e.
-where nobody was ever knocked anywhere. ⇒ ⭐⭐ **a feel verdict inherits the build
-it was formed on. D155 invalidated every judgement that predates it, including
-the ones written as prohibitions.** ⚠ the process failure was still real and is
-not excused by the outcome: the commit consulted neither document, so the
-prohibition was *unseen rather than overruled*, and it took a maintainer to
-notice that its premise had expired.
-
-The third is the smallest Smash-oriented experiment; it has not been tried.
-
-⭐ **this decision gates TIME INTEGRATION, and nothing wider (narrowed
-2026-08-14).** The controlled and actor roads still have two body integrators, and
-unifying them means merging their limbs: hitlag-dt gating and ledge carry are the
-home road's, the flight limb is the actor road's. Whether the merged integrator
-freezes an actor body on its own hitstop IS this question. The same choice decides
-whether the three per-population calls to `decay_reaction_timers` can become one
-system, since the controlled site decays on `frame_dt` and the other two on sim
-`dt`. Answering it unblocks both; guessing it decides feel by refactor.
-
-⛔ **it does NOT block controlled/AI contract convergence, which was the reading
-for a day and was wrong.** The `ActorControl` producers converged on 2026-08-14
-without touching either integrator: one `tick_controlled_brains` translates
-participant control for any controlled body, and `tick_actor_brains` skips
-player-brained bodies. Control authority and time integration were separable, and
-the only thing that had joined them was the sentence that named them together.
+⭐⭐ **Jon, verbatim:** *"keep the landed fix and overrule the old prohibition …
+**hitlag is a combat/body semantic, not something that should depend on whether a
+body happens to occupy the primary local-control road** … Keep `sim_dt = 0.0`
+during that body's hitlag. Mark the old prohibition superseded. **If hitlag later
+feels too sticky, tune its duration/shape rather than restoring a
+controlled-body/actor asymmetry.**"* Recorded in
+[`maintainer-decisions.md`](maintainer-decisions.md); `818218949` is the code.
+⛔⛔ **the three options this row used to offer are VOID** — every one preserved a
+per-road distinction, and the distinction WAS the defect.
+⭐⭐ **the lesson is about EVIDENCE, not hitlag.** Two documents independently
+warned against this fix, and both were measured on a build where every authored
+launch direction was inverted and a tumbling launch resolved as a landing (D155)
+— i.e. where nobody was ever knocked anywhere. **A feel verdict inherits the
+build it was formed on**, and D155 invalidated every judgement that predates it.
+⚠ the process failure is not excused by the outcome: the commit consulted neither
+document, so the prohibition was *unseen rather than overruled*.
 
 ### 7. How long should a dropped held weapon persist? (former D50)
 
@@ -353,120 +318,39 @@ Choose one:
 goblin double-jump, can a crawler ledge-grab. The engine has no opinion and
 should not invent one.
 
-### 9. ✔ ANSWERED 2026-08-17 — what should the per-turn suite actually run? (asked 2026-08-14)
+### 9. ✔ ANSWERED 2026-08-17 — what the per-turn suite should run (asked 2026-08-14)
 
-⭐⭐ **Jon's ruling, verbatim:** *"keep the per-turn gate small. … gate_suite.py
-should remain the cheap executable per-turn gate; do not add cargo test
---workspace --lib to every turn. The workspace lib suite remains a required
+⭐⭐ **Jon, verbatim:** *"keep the per-turn gate small … do not add `cargo test
+--workspace --lib` to every turn. The workspace lib suite remains a required
 pre-push/finalization check. Likewise, **feature-gated suites should be run when
-the affected subsystem is touched, not wholesale every turn**. … So §9 is
-answered: the absence of --workspace --lib from the per-turn gate is deliberate."*
-⇒ recorded in [`maintainer-decisions.md`](maintainer-decisions.md); **this row is
-kept for its measurements, and it is no longer a question.**
+the affected subsystem is touched, not wholesale every turn**."*
 
 ```text
 per-turn EXECUTABLE gate   gate_suite.py → cargo test -p ambition_app --test
                            app_it. ⛔ DO NOT GROW IT.
-pre-push / finalization    cargo test --workspace --lib. Required.
+pre-push / finalization    cargo test --workspace --lib. Required ≠ gated.
 touched the subsystem      that crate's feature-gated suite. ⛔ never wholesale.
 ```
 
-⛔⛔ **AND THIS ROW HAD CARRIED A FALSE PREMISE FOR A DAY** — it said *"the project
-gate now runs `cargo test --workspace --lib`"*, inherited from D160's premature
-closure. It never did; what landed was a pre-push paragraph in `AGENTS.md`. ⇒ **a
-row's premise is worth re-checking against the tree, not against the row that
-claims to have moved it.**
+⛔⛔ **this row carried a FALSE PREMISE for a day** — *"the project gate now runs
+`cargo test --workspace --lib`"*, inherited from D160's premature closure. It
+never did; what landed was a pre-push paragraph in `AGENTS.md`. ⇒ **a row's
+premise is worth re-checking against the tree, not against the row that claims to
+have moved it.**
 
-⇒ **what the measurements below are now FOR**: they say which crate's
-feature-gated suite is worth running when you touch that crate — which is exactly
-the tier the ruling assigns them to. The delta is where the interesting tests
-live (`ambition_input` 54 → 115, `ambition_audio` 25 → 64,
-`ambition_touch_input` 4 → 45), so *"I ran `--workspace --lib`"* is not evidence
-about a crate whose real suite is ten times its bare one.
-
-⭐⭐ **AND HERE IS WHAT THE DELTA ACTUALLY HOLDS — a named consequence rather
-than a count (2026-08-17).** `game/ambition_demo_mary_o_app/tests/painted_blocks_still_change_their_art.rs`
-opens with `#![cfg(feature = "visible")]`, so **the whole file** is in the
-unwatched half. What it guards is a bug Jon reported and we fixed:
-
-```text
-a_question_block_in_the_painted_cavern_wears_its_own_art
-a_painted_block_nobody_dresses_keeps_its_flat_quad
-the_invisible_brick_triggers_from_below
-a_discovered_hidden_block_reveals_itself
-```
-
-⇒ the file exists because *"one line in `level_1_2()` opted every block in the
-cavern out of art updates, permanently"* — and **a regression of exactly that
-would not be caught by the gate today.** ⚠ Jon's observations file still carries
-open block-art items in the same area, so this is a live surface, not a settled
-one.
-
-⭐ that makes the decision concrete: the `visible` feature on the two demo apps
-is the highest-value single addition, because it is where the ART assertions
-live and art is what Jon reports.
-
-⛔⛔ **AND A THIRD INSTANCE LANDED THE SAME DAY, which is the sharpest argument
-this row will get.** `ambition_conversation` declares `default = []` and gates
-`pub mod dialog` behind `#[cfg(feature = "ui")]`. That module holds **both**
-authored-logic Yarn falsifiers — the condition half's, and the command half's
-written on 2026-08-17 to prove the no-central-registry claim:
-
-```text
-cargo test --workspace --lib                          ⇒ does NOT compile them
-cargo test -p ambition_conversation --features ui --lib  ⇒ 10 passed
-```
-
-⇒ **a falsifier written today, for the express purpose of making an
-architectural claim testable, is not run by the project gate.** ⭐ that is the
-whole of this row in one sentence, and it argues for the same shape as the
-Mary-O case: the feature that carries a crate's REAL suite (`ui` here, `visible`
-there) is what the second pass needs to name.
-
-`scripts/feature_gated_tests.py` says 24 crates hide 629 tests. Eight were run
-explicitly at HEAD:
-
-| crate | bare | with its features |
-|---|---|---|
-| `ambition_demo_mary_o_app` | 31 | 45 (`visible`, 9.7s) |
-| `ambition_demo_sanic_app` | 25 | 45 (`visible`, 4.9s) |
-| `ambition_touch_input` | 4 | 45 (`mobile_touch`) |
-| `ambition_audio` | 25 | 64 |
-| `ambition_portal2d_presentation` | 16 | 45 (`effect_view_cones`) |
-| `ambition_input` | 54 | 115 (`input`) |
-| `ambition_game_shell` | 45 | 70 (`basic_presentation`) |
-| `ambition_dialog` | 30 | 42 |
-
-The ones that matter most for the reports you actually file are the demo apps'
-`visible` guards: they are the only thing in the repo asserting what a block
-LOOKS like, and D64's row was opened because a *"a discovered hidden block pays
-out invisibly"* report turned out to be already-fixed-and-never-run.
-
-**Why this is yours and not mine.** Both runners are decisions you made:
-
-- `.github/workflows/test.yml` is `on: workflow_dispatch` — disabled 2026-05-07,
-  *"no need to churn the servers with rust CIs until we have something we really
-  need github action testing for."*
-- `scripts/gate_suite.py` runs only `cargo test -p ambition_app --test app_it`,
-  shrunk on your measurement — *"I want to bias towards running less tests to
-  balance out the agent urge to run more."*
-
-Quietly enlarging the gate you shrank would be disobeying that ruling while
-looking careful, so:
-
-- **Leave it as-is** — the guards run only when an agent is doing visual work and
-  remembers. That is today, and it is why the stale report survived.
-- **Add the two demo `visible` runs to the FULL path of `gate_suite.py`**
-  *(recommended)* — ~15s of test time, but a distinct build configuration from
-  the gate's, so the first run of a turn that touches source pays a compile. It
-  buys the only automated watch on presentation art.
-- **Re-enable CI for these** — costs you nothing per turn and catches things a
-  day later; needs the 2026-05-07 ruling revisited.
-- **Something narrower** — e.g. run them only when `game/ambition_demo_*` or
-  `crates/ambition_render` changed, which is the cheap targeted version and needs
-  a path rule in `gate_suite.py`.
-
----
+⭐ **what the third tier means in practice — 24 crates hide 629 tests**, and the
+delta is where the interesting ones live (`ambition_input` 54 → 115,
+`ambition_audio` 25 → 64, `ambition_touch_input` 4 → 45). So *"I ran `--workspace
+--lib`"* is not evidence about a crate whose real suite is ten times its bare one.
+**Two named consequences, both live surfaces:**
+* `demo_mary_o_app/tests/painted_blocks_still_change_their_art.rs` is
+  `#![cfg(feature = "visible")]` in its entirety — the only thing in the repo
+  asserting what a block LOOKS like, and it exists because one line opted every
+  block in a cavern out of art updates. ⇒ run `--features visible` before and
+  after any Mary-O visual work.
+* `ambition_conversation` gates `dialog` behind `ui`, which holds **both**
+  authored-logic Yarn falsifiers. `cargo test -p ambition_conversation --features
+  ui --lib` is the only command that compiles them.
 
 ### 10. Camera shake is measured in "px" and behaves as world units
 
@@ -559,159 +443,34 @@ of this seam is loud-wrong — and `MainCameraEntity` is a **seventh** process-g
 
 ### 12. ✔ CLOSED 2026-08-17 — the `ambition_map_assets` submodule pushes fine
 
-⭐ **verified from inside the VM rather than assumed**: the submodule's local
-HEAD is `4fb0c03`, `git ls-remote origin HEAD` answers with the same sha, and
-`origin/HEAD..HEAD` is empty. Nothing is stranded and a fresh clone resolves.
+⭐ verified from inside the VM rather than assumed: local HEAD and
+`git ls-remote origin HEAD` agree and `origin/HEAD..HEAD` is empty. Jon had
+provisioned the credential aliases; this row duplicated the outage closed
+2026-08-15 further down.
+⛔ **the consequence worth remembering**: a superproject gitlink can point at a
+commit that exists only in one working tree, and **nothing in the superproject's
+own green push says otherwise**. ⇒ never resolve a rejected submodule push by
+rolling the superproject pointer back — the pointer is the symptom, the
+credential is the cause.
 
-⇒ this row duplicates the credential outage closed on 2026-08-15 further down
-this file (*"five of five submodules answer `git ls-remote`, none is ahead of its
-`origin/main`"*) — Jon provisioned the aliases and this one was covered. It is
-kept, struck through, because the CONSEQUENCE it describes is the one worth
-remembering: a superproject gitlink can point at a commit that exists only in one
-working tree, and nothing in the superproject's own green push says otherwise.
+### 13. ✔ CLOSED 2026-08-17 — the workspace policy suite is green and CI watches it
 
-⚠ **the original text follows, for the failure mode.**
-
-⚠ **environment, not design — it needs your credentials, not a decision.**
-
-`game/ambition_map_assets` commit `73baab9` ("The two patrollers name their path
-instead of spelling it") is committed locally and **could not be pushed**. Its
-`origin` is a rewritten SSH host (`git@aivm-cred-git-…:Erotemic/ambition_map_assets.git`),
-and both that and the plain `https://github.com/Erotemic/ambition_map_assets.git`
-in `.gitmodules` fail with *"Please make sure you have the correct access rights"*.
-The superproject's own remote pushes fine.
-
-⇒ **consequence:** the superproject gitlink at `c28414a0d` and later points at a
-map-assets commit that exists **only in this working tree**. A fresh clone will
-not resolve it until that submodule commit is pushed. The two migrated worlds
-(`intro.ldtk`, `sandbox.ldtk`) are the content at risk.
-
-⛔ **I did not work around this** — a workaround here means either rewriting a
-remote or vendoring assets out of their submodule, and both are yours to decide.
-Everything else in that slice is pushed and green.
-
-### 13. ✔ MOSTLY CLOSED 2026-08-17 — the suite is green and CI now watches it
-
-⭐ **measured, not assumed**: `cargo test -p ambition_workspace_policy` is
-**34 passed / 0 failed**, `engine_policies` among them, and the five rules this
-row named are all still IN `engine.toml` (187 rules total) — so the twelve
-violations were FIXED rather than waived away.
-
-⭐⭐ **and item 1 was fixed the way this row asked for**, which is the part worth
-noting: the `gate_portal` determinism flag was a false positive on code that
-collected and then sorted, and the row said *"a waiver would be the wrong answer
-here — make `phases` a `BTreeMap` so ordered iteration is a property of the
-type."* It is now `BTreeMap<String, GatePortalPhase>`, and the file carries a
-comment guarding against a revert to `HashMap`.
-
-⭐ **the second half — "nothing watches it" — was still true this morning.** Not
-`run_tests.py`, not CI, not the goal guard. It now runs in CI's `engine-tests`
-job. That job rather than the headless one because the crate inspects the
-workspace as parsed manifests and source text and links no production crate (its
-own manifest: *"running the policy suite must not compile `ambition_app`"*), so
-it needs a toolchain and nothing else, and it costs ~5s.
-
-▢ **what is genuinely left for you** is only the original question this row
-asked — whether every one of the 187 rules deserves enforcement — and it is much
-cheaper to answer now that the answer costs nothing: they all pass.
-
-⚠ the original text follows.
-
-### 13. The workspace policy suite is red, and nothing watches it
-
-⚠ **measured 2026-08-15: `cargo test -p ambition_workspace_policy` reports 12
-violations in the `engine` scope**, and that suite is **not** among the goal
-guard's 13 checks. Three separate slices landed violations in one day and nothing
-caught them, which is why this is a decision rather than a bug report.
-
-The violations are not one problem. They sort into three kinds, and only you can
-say which deserve enforcement:
-
-1. ⭐ **a false positive on correct code.** `engine.determinism` flags
-   `gate_portal.rs:197` for iterating a std hash container — but that site
-   `collect`s and then **sorts**, which is deterministic. ⇒ the honest fix is
-   structural: make `phases` a `BTreeMap` so ordered iteration is a property of
-   the type rather than a discipline the next editor can drop. **A waiver would
-   be the wrong answer here.**
-2. **genuinely pre-existing debt** — `movement-model-is-never-optional`,
-   `player-fallback-update-documented`, `pose-writes-are-authority-only` all name
-   files untouched today.
-3. **boundary rules with real content** — `runtime-manifest-deny` and
-   `runtime-source-no-upper` say `ambition_platformer2d_runtime` must not name
-   `ambition_platformer2d_ldtk`. ⚠ **that edge predates today** (it is in the
-   manifest at the pre-merge commit), so the rule has been violated for a while.
-
-⇒ **the decision: should this suite join the goal guard?** ⛔ I did not add it —
-the guard's check list is yours, and adding a red check would stop every
-autonomous run until the twelve are cleared. The alternative is to treat the
-suite as advisory and fix the twelve on their own merits.
-
-#### ⭐ UPDATE 2026-08-16 (D134): the twelve are ZERO, so the objection above no longer applies
-
-**The reason not to add it was that it was RED.** It is not: `cargo test -p
-ambition_workspace_policy` is **34/34, 0 violations**. The decision is still
-yours — I did not touch `.goal/active.json` — but here is everything it costs,
-measured rather than estimated, so the call is cheap to make:
-
-```text
-what it costs      6.2 s / 9.7 s / 8.6 s wall, warm, three consecutive runs
-                   (the suite's own libtest line reports 5.2–9.9 s)
-what it REbuilds   nothing. `ambition_workspace_policy` links no production
-                   crate — it reads the repository as data — so an engine source
-                   edit does not invalidate its build. The cost above is
-                   essentially all runtime, on every turn, forever.
-against            check [4] `cargo test -p ambition_app --test app_it` = 158.6 s
-                   ⇒ adding it is a ~5% increase on the guard's dominant check
-```
-
-⚠ **and "nothing watches it" was half wrong, which changes the shape of the
-question.** `./run_tests.sh` DOES run it — the backbone job is
-`cargo test --workspace` and the suite is workspace member `tests/ambition_workspace_policy`
-(verified with `./run_tests.sh --list`). What it is absent from is the *per-turn*
-gate: the goal guard's 8 checks, `scripts/gate_suite.py` (which runs only
-`-p ambition_app --test app_it`), and AGENTS.md's stated gate. ⇒ the real question
-is not "is it checked at all" but **"is it checked on the turn that breaks it"** —
-and the answer today is no, which is how one facade deletion on 2026-08-15 turned
-into seven red sites nobody saw.
-
-⇒ **what I did instead, being non-blocking:** AGENTS.md's Verification section now
-names the suite and the three change-shapes that redden it, with the cost above.
-That is a documented pre-landing step, not a gate. If you want the gate, the line
-is:
-
-```json
-{"name": "the ADR-backed workspace policy suite is green", "cmd": "$HOME/.cargo/bin/cargo test -p ambition_workspace_policy --quiet"}
-```
-
-⭐ **the three kinds above, resolved** — and note that only ONE of the twelve was
-debt in the ordinary sense:
-
-1. ✔ **kind 1 was right, and it was the only assessment that needed re-checking.**
-   `phases` is a `BTreeMap` now (the site had moved to `:199`). The hash order
-   never reached an observable — the `collect` was immediately `sort_by`'d — so
-   this was a hazard removed, not a defect fixed. The test that guarded it was
-   itself weak (it would have stayed green through a revert to `HashMap`, because
-   only the checksum was asserted); it now asserts the CONTAINER's key order and
-   was poison-tested red against `HashMap`.
-2. ✔ **kind 2 split three ways rather than being three of a kind.**
-   `movement-model-is-never-optional` was a REAL ADR 0024 §1 violation and was
-   hiding a second one the rule could not spell (`Option<&ae::MotionModel>` in
-   `perception_body_for`, whose `None` arm read a missing component as
-   `AxisSweptMotion::default()`) — both non-optional now.
-   `player-fallback-update-documented` was **deleted**: `333c48376` deleted its
-   subject (the slot board and the `PlayerSlot` anchor) months before the rule
-   noticed. The two pose/velocity writes were **policy imprecision** — a pre-spawn
-   `ActorClusterSeed` and an off-sim `BodyClusterScratch`, neither of which has an
-   authority to route through — and both now say their state at construction.
-3. ✔ **kind 3 was the interesting one and it went the other way.** `cargo tree`
-   settles it: `ambition_platformer2d_ldtk`'s entire transitive closure contains
-   ZERO occurrences of `ambition_platformer2d_runtime` or
-   `ambition_platformer2d_actor_monolith`, and the monolith — long allowed — has
-   linked it directly all along. **The edge is downward, and the two rules were
-   stating one wrong fact twice.** They were changed, with the argument written
-   into their own rationale fields. ⚠ the concern they were groping at is real and
-   survives as **queue D135**: `PlatformerSessionWorld` carries a format-specific
-   `LdtkRuntimeIndex` field that five RON-only games fill with `::default()`.
+⭐ measured: `cargo test -p ambition_workspace_policy` is **34 passed / 0
+failed**, and the five rules this row named are all still IN `engine.toml` (187
+rules) — so the twelve violations were FIXED rather than waived away. It now runs
+in CI's `engine-tests` job (~5s; that job because the crate parses manifests and
+source text and links no production crate).
+⭐⭐ **item 1 was fixed the way the row asked**: the `gate_portal` determinism
+flag was a false positive on code that collected and then sorted, and the row
+said *"a waiver would be the wrong answer — make `phases` a `BTreeMap` so ordered
+iteration is a property of the TYPE."* It is, and the file guards against a
+revert.
+▢ **what is genuinely left for you** is the row's original question — whether all
+187 rules deserve enforcement — now much cheaper to answer, because they all pass.
+⛔ **the shape that made this expensive**: a suite nothing runs is a suite that
+goes red and stays red, and both failures were guards that were CORRECT when
+written and became wrong when a rule moved under them. ⇒ **when you add a check,
+name the TIER that runs it.**
 
 ## ✔ CLOSED 2026-08-15 — every submodule remote is reachable and current
 

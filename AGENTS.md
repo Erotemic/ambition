@@ -68,6 +68,16 @@ engineering memory under `dev/` and generated indexes under `.agent/`.
 `docs/current/` is retired; `docs/vision/` holds auxiliary notes only — direction
 lives in `docs/planning/`. `docs/archive/` is evidence, not authority.
 
+⛔ **A DONE ITEM IN A PLANNING DOC IS A RECEIPT, NOT A CASE FILE.** When you close
+a row, compress it in the same commit: what was wrong in one sentence, what fixed
+it, the commit, the guard, and any standing prohibition that would otherwise be
+rediscovered. The investigation belongs in the commit message and in git history,
+not in the live document — a reader who wants it runs `git log -p`. The same
+applies inside an OPEN row: keep the current model at the top and delete the
+layers it supersedes, because a stale `⇒ NEXT` sentence under a correction is how
+a later session re-does landed work. Full rule in
+`docs/planning/README.md#queue-contract`.
+
 ## Current architectural stance
 
 - Ambition is Bevy-native. Do not resurrect backend-neutral constraints unless a new ADR says so.

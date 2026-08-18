@@ -41,6 +41,23 @@ Two other files contain work an agent must not silently resolve by inference:
 
 - `▢` means an actionable open queue row and nothing else.
 - `✔` or another explicit closed verdict means the row is no longer work.
+- **A closed row is a receipt, not a case file.** Once a row closes, compress it
+  in the same commit to at most a few lines in this shape:
+
+  > `✔ **D123 — what was wrong, in one sentence.** Fixed by `<commit>`: what the
+  > fix was. Guarded by `<test or check>`. ⛔ <only a standing prohibition that
+  > would otherwise be rediscovered>.`
+
+  The evidence that justified the fix stays in the commit message and in git
+  history for this file; it does not stay here. A reader who wants the
+  investigation runs `git log -p`.
+- **The same rule applies inside an open row.** A row that has run for days
+  accumulates superseded layers, and a stale `⇒ NEXT` sentence is how a later
+  session re-does landed work. Keep the current model at the top; delete the
+  layers it supersedes rather than stacking a correction on them.
+- The exception, and it is narrow: keep a sentence that would otherwise be
+  **rediscovered at cost** — a prohibition, a measurement that was wrong in an
+  instructive way, or a design refused for cause. One clause, not a section.
 - Re-measure an old row against HEAD before implementing it; queue entries are
   claims about a changing repository.
 - When the currently enumerated rows are exhausted, replenish the queue from

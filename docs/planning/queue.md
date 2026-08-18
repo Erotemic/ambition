@@ -5009,6 +5009,23 @@ by the tool, again.
 and the LDtk rollback domain, which a game ADDS if it wants them. That is a
 declared offer, not an imposition.
 
+⇒ **THE INVERSION'S SURFACE, MEASURED 2026-08-18 so the next session starts from
+it rather than re-deriving it.** The encounter pair is TWO files and a small
+symbol set, not a sprawl:
+
+```text
+encounter/loading.rs   217 lines · &LdtkProject, &LdtkLevel, field_string, field_f32
+encounter/systems.rs   680 lines · ONE line — Option<Res<ActiveLdtkProject>> at :50,
+                                   under the comment that already names W4
+```
+
+⭐ **so the cost is not in the consumers — it is in the ROOM IR**, which has to
+carry what `loading.rs` reads out of entity fields today (a trigger's `id`, its
+`camera_zoom`, an entity's `brain` and `character_id`). ⇒ scope the slice as
+*"the IR emits encounter triggers"*, and the two readers follow almost for free.
+⚠ do not start it as a file move: relocation is exhausted (above), and every
+symbol left is genuinely LDtk-shaped.
+
 ⇒ **what still holds the edge, and the cost of each**, in the order they must
 fall (the last two cannot be cfg-gated cheaply — the code has to move):
 

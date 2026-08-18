@@ -22,11 +22,8 @@ use bevy::prelude::*;
 use ambition_platformer2d_core as ae;
 
 use crate::features::ecs::attack::engine_input_from_actor_control;
-use crate::features::FeatureEcsWorldOverlay;
 use crate::time::feel::Platformer2dFeelTuningMonolith;
 use ambition_characters::actor::BodyCombat;
-use ambition_platformer2d_world::collision::world_with_sandbox_solids;
-use ambition_platformer2d_world::platforms::MovingPlatformState;
 
 /// Movement→(reset/presentation) hand-off for a home/player body, written by the
 /// unified body integration phase (`integrate_sim_bodies` → [`integrate_home_body`])
@@ -118,35 +115,23 @@ pub fn integrate_home_body(
     out_of_play: bool,
     hurtbox: &mut ae::CenteredAabb,
     frame_out: &mut PlayerBodyFrameOutput,
-    moving_platforms: &[MovingPlatformState],
     motion_model: &mut crate::features::MotionModel,
     motion_frame: ae::MotionFrame,
     axis_tuning: ae::MovementTuning,
     feel: Platformer2dFeelTuningMonolith,
     frame_dt: f32,
     scaled_dt: f32,
-    feature_ecs_overlay: &FeatureEcsWorldOverlay,
 ) -> Option<ae::Vec2> {
     // ⭐ the BODY, so both roads read the same authority. The actor road used to
     // spell half of it (ledger D108); the signature no longer has a half to
     // spell.
     let input = engine_input_from_actor_control(actor_control, feel, combat, frame_dt);
-    // ⭐ one named rule, and as of 2026-08-17 BOTH roads ask it — the actor
-    // road's `integrate_body` takes the same branch off the same predicate
-    // (D114 closed). Until then only this road froze, so a hit between two
-    // actors stopped neither of them.
-    let sim_dt = if combat.is_in_hitlag() {
-        0.0
-    } else {
-        scaled_dt
-    };
-
-    // Live authored tuning refreshes only the active axis policy's parameters.
-    // The environmental acceleration frame is supplied separately and therefore
-    // cannot be frozen into, or reset with, movement-model configuration.
-    if let crate::features::MotionModel::AxisSwept(axis) = motion_model {
-        axis.params = axis_tuning.axis_swept_params();
-    }
+    // ⭐⭐ **the hitlag freeze and the tuning refresh are no longer SPELLED here.**
+    // Both roads used to write the same two steps beside their own
+    // `ae::step_motion` call, which is exactly how D114 happened: the freeze was
+    // a line one road had and the other did not. They are one call now —
+    // `ambition_characters::actor::step_body` — so a rule about how a body
+    // integrates cannot reach this road and miss the actor one.
 
     // ⭐ **the ledge-platform carry is GONE from here, and that is the point.** It
     // was the last thing in this function that only a home body could get: a
@@ -158,16 +143,17 @@ pub fn integrate_home_body(
     // It now runs inside `update_body_simulation_inner` for EVERY body, reading
     // the carrying solid's own `Block::velocity` straight off the collision world
     // this function already composites. See `ledge_grab::ledge_carry_for_frame`.
-    let collision_world = world_with_sandbox_solids(world, moving_platforms, feature_ecs_overlay);
-    let result = ae::step_motion(
+    let result = ambition_characters::actor::step_body(
         motion_model,
         clusters,
+        combat,
+        axis_tuning,
         ae::MotionStepContext {
-            world: &collision_world,
+            world,
             input,
             frame: motion_frame,
             facing_intent: actor_control.facing,
-            dt: sim_dt,
+            dt: scaled_dt,
         },
     );
 

@@ -366,33 +366,25 @@ impl<'a> ActorMut<'a> {
         // movement authority but preserves the attack verb. Applied after the
         // flight-axis override so a knocked flyer loses its steering too.
         crate::features::ecs::attack::apply_post_hit_input_gates(&mut input, feel, combat);
-        // Live authored tuning refreshes only the active policy's parameters —
-        // the frame is environmental and cannot ride along.
-        if let crate::features::MotionModel::AxisSwept(axis) = motion_model {
-            axis.params = authored_tuning
-                .map(|authored| authored.axis_swept_params())
-                .unwrap_or_else(|| tuning.axis_swept_params());
-        }
-        // ⭐ **THE SAME NAMED RULE THE AVATAR ROAD USES, and now both roads ask
-        // the body instead of one asking and one never asking** (ledger D114).
-        //
-        // Hitstop is armed on the victim AND the attacker, because a landed hit
-        // is one event. Only `integrate_player_body` read it, so a hit whose two
-        // parties were both actors froze NEITHER of them — which on a platform
-        // fighter is every CPU-versus-CPU exchange, and every seat past slot 0.
-        // The predicate was already factored out for exactly this call; taking
-        // it is a call rather than a re-derivation.
-        let sim_dt = if combat.is_in_hitlag() { 0.0 } else { dt };
+        // ⭐⭐ **the tuning refresh and the hitlag freeze are ONE CALL with the
+        // avatar road now** (D117). Both roads used to spell these two steps
+        // beside their own `ae::step_motion`, which is precisely how D114
+        // happened — the freeze was a line one road had and the other did not.
+        // What stays here is what legitimately differs: WHICH tuning this body
+        // moves under (its character's authored feel, else its config's).
+        let resolved_tuning = authored_tuning.unwrap_or(tuning);
         let mut clusters = self.clusters_mut();
-        let result = ae::step_motion(
+        let result = ambition_characters::actor::step_body(
             motion_model,
             &mut clusters,
+            combat,
+            resolved_tuning,
             ae::MotionStepContext {
                 world,
                 input,
                 frame: motion_frame,
                 facing_intent: frame.facing,
-                dt: sim_dt,
+                dt,
             },
         );
         drop(clusters);

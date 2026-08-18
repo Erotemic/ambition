@@ -29,7 +29,6 @@ struct Rig {
     hurtbox: ae::CenteredAabb,
     frame_out: PlayerBodyFrameOutput,
     world: ae::World,
-    overlay: FeatureEcsWorldOverlay,
 }
 
 fn rig(world: ae::World) -> Rig {
@@ -39,12 +38,15 @@ fn rig(world: ae::World) -> Rig {
         hurtbox: ae::CenteredAabb::new(world.spawn, ae::Vec2::splat(10.0)),
         frame_out: PlayerBodyFrameOutput::default(),
         world,
-        overlay: FeatureEcsWorldOverlay::default(),
     }
 }
 
 fn step(r: &mut Rig, frame: ActorControlFrame) -> Option<ae::Vec2> {
-    step_as(r, frame, ambition_characters::actor::Invulnerability::none())
+    step_as(
+        r,
+        frame,
+        ambition_characters::actor::Invulnerability::none(),
+    )
 }
 
 fn step_as(
@@ -64,14 +66,12 @@ fn step_as(
         false,
         &mut r.hurtbox,
         &mut r.frame_out,
-        &[],
         &mut r.model,
         ae::MotionFrame::from_direction(ae::Vec2::new(0.0, 1.0), ae::GRAVITY),
         ae::DEFAULT_TUNING,
         Platformer2dFeelTuningMonolith::default(),
         DT,
         DT,
-        &r.overlay,
     )
 }
 
@@ -265,8 +265,16 @@ fn spiked_world() -> ae::World {
         ae::Vec2::new(1200.0, 800.0),
         ae::Vec2::new(100.0, 500.0),
         vec![
-            ae::Block::solid("floor", ae::Vec2::new(0.0, 560.0), ae::Vec2::new(1200.0, 40.0)),
-            ae::Block::hazard("spikes", ae::Vec2::new(300.0, 520.0), ae::Vec2::new(200.0, 40.0)),
+            ae::Block::solid(
+                "floor",
+                ae::Vec2::new(0.0, 560.0),
+                ae::Vec2::new(1200.0, 40.0),
+            ),
+            ae::Block::hazard(
+                "spikes",
+                ae::Vec2::new(300.0, 520.0),
+                ae::Vec2::new(200.0, 40.0),
+            ),
         ],
     )
 }
@@ -314,7 +322,8 @@ fn a_body_that_cannot_be_hurt_runs_straight_over_a_hazard_tile() {
         set
     };
     assert_eq!(
-        run_into_the_spikes(empowered), None,
+        run_into_the_spikes(empowered),
+        None,
         "a body that cannot be hurt must run straight over them"
     );
 }

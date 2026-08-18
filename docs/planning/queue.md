@@ -323,7 +323,109 @@ as is folding the three per-population `decay_reaction_timers` calls into one
 
 ⭐ **what is already done, measured against HEAD**: control authority CONVERGED
 (one `tick_controlled_brains`), and `tick_actor_brains` reads as a sequence after
-three extractions. The integrator fork is the last structural item.
+three extractions.
+
+✔✔ **THE STEP ITSELF IS ONE SEAM NOW (2026-08-18).** Both roads reached
+`ae::step_motion` by writing the same two lines beside their own call — refresh
+the axis params from the resolved tuning, then zero `dt` if the body is in
+hitlag. **That is exactly how D114 happened**: the freeze was a line one road had
+and the other did not, so a hit between two AI bodies froze neither. Those two
+steps are now `ambition_characters::actor::step_body`, and neither road spells
+them.
+
+```text
+before   avatar/body_integration.rs   axis params · hitlag · ae::step_motion
+         features/enemies/integration axis params · hitlag · ae::step_motion
+after    both                         → actor::step_body(.., combat, tuning, ctx)
+```
+
+⭐ **it takes the BODY, not a `dt`.** A `dt` parameter is something a caller can
+compute wrongly, and one of them did for months; passing `&BodyCombat` means the
+rule is asked, not remembered.
+⭐ **placement was decided by reading the destination's contract, not by
+convenience** — `ambition_characters` says its job is *"the same brain +
+control-frame contract drives players, NPCs, enemies, and bosses"*, and
+`ae::step_motion` says *"model dispatch happens inside the trusted kernel, while
+body/controller identity remains outside"*. A body's hitlag IS body identity, so
+core cannot host it and the actor-behaviour crate should. ⛔ it deliberately did
+NOT land in the monolith — Jon's standing rule the day before: *"try not to dump
+things into it to make the problem worse."*
+⚠ guards are a PAIR and the pair is the point:
+`a_body_in_hitlag_does_not_travel_through_its_own_freeze` plus
+`and_the_same_body_travels_once_the_freeze_clears`, because a body that never
+moves passes the first for the wrong reason. Poison-verified — deleting the
+branch walks the frozen body **8.98px** and leaves the control green.
+
+✔✔ **AND THE HOME ROAD WAS REBUILDING THE COLLISION WORLD PER BODY.**
+`integrate_sim_bodies` composites `world_with_sandbox_solids` once per frame for
+the actor loop, and then the home road called it AGAIN, per body, from identical
+inputs — cloning the whole block list to rebuild a value that already existed a
+few lines up. Both roads take the one composited world now, and
+`integrate_home_body` loses three parameters. ⭐ the deeper win is not the clone:
+**two composite sites is two places for the moving platforms, gate solids, water
+and portal carves a body collides with to drift apart.**
+
+▢ **what remains of the fork**: `integrate_home_body` still exists as the home
+ORCHESTRATION (input build, the reset decision with its hazard/out-of-play gates,
+the `PlayerBodyFrameOutput` hand-off, the footprint publish), and
+`integrate_actor_body` has its own equivalents of the same three. ⚠ the two live
+in disjoint queries (`With`/`Without<PlayerEntity>`) with different cluster
+shapes, so they cannot share one Bevy loop — the question is whether the
+remaining orchestration is genuinely species-specific or is three more pairs of
+duplicated lines. ⛔ answer it by measuring each pair, not by deleting a function
+name to satisfy a checkbox. Measured so far:
+
+```text
+input build      DIFFERENT for cause — an actor projects its brain's
+                 velocity_target onto the frame through a flight limb; a home
+                 body's axes ARE the stick. ⚠ but see the possession question
+                 below, which nobody has asked yet
+reset decision   DIFFERENT for cause — home reports a `BodyReset` that authored
+                 `DeathRules` consume; the actor road gates on em.health.alive()
+footprint        ⛔ THE SAME RULE, SPELLED TWICE, and the actor copy's own
+                 comment calls it "the one universal `CenteredAabb` publish rule
+                 (AJ5.1)" while a second spelling sits in the home road
+```
+
+⛔⛔ **AND UNIFYING THE FOOTPRINT IS BLOCKED BY A STATED BOUNDARY, which is the
+finding rather than the blocker.** Both spellings call
+`collision_aabb`/`SimpleActorGeometry`, which live in
+`ambition_boss_encounter::attack_geometry` — a module whose own header says
+*"pure boss-attack volume math … distinct from the engine's collision system —
+this is boss-attack-specific geometry only."* ⇒ **the universal body-footprint
+publish is already reaching across a boundary that says it is boss-attack-only**,
+by both roads, today. Either that sentence is stale or those two items are
+mis-homed, and the answer decides where the shared publish goes. ⭐ this is D136's
+thesis arriving again: reading the destination's contract turned a plausible
+five-minute move into an obviously wrong one at zero cost.
+
+▢ **AND ONE THING THIS FOUND ON THE WAY, MEASURED RATHER THAN ASSERTED: a
+POSSESSED FLYER CANNOT REACH ITS OWN TOP SPEED.**
+
+A possessed body does **not** change roads — possession is brain transfer, so the
+body keeps `Without<PlayerEntity>` and stays on the ACTOR road with
+`Brain::Player` driving it. That road's flight limb OVERWRITES the input axes with
+the brain's `velocity_target` projected onto the frame and normalised by
+`flight_speed`:
+
+```text
+brain/player.rs:120   velocity_target = stick_local → world × max_run_speed
+integration.rs:~350   axes = (velocity_target → local) ÷ flight_speed
+                      flight_speed = max(chase_speed, max_run_speed, 1.0)
+⇒ a fully deflected stick reaches max_run_speed / flight_speed of the available
+  deflection — full only while chase_speed ≤ max_run_speed
+```
+
+⭐ **so steering WORKS** (the round trip is local → world → local, which is why
+nobody has reported it), and only the MAGNITUDE is wrong: a human possessing a
+body whose `chase_speed` exceeds its `max_run_speed` flies it at a fraction of
+what the same body does under AI. ⚠ **latent on the shipped cast** — only two
+catalog rows author `chase_speed` at all, and no flyer among them — so this is a
+model defect rather than a live one, and it should be fixed when the flight limb
+is next touched rather than chased now. ⭐ it is exactly the milestone's own
+sentence made concrete: *"the protagonist should be special because of current
+control assignment … not because generic simulation has a hidden coordinate
+system."* Here the hidden coordinate system belongs to the AI.
 
 ⛔ **do not manufacture another helper extraction to make the function shorter.**
 "Bevy accepts the signature" was never the goal, and neither is a line count. Take

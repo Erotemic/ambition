@@ -790,12 +790,26 @@ pub(crate) fn integrate_actor_body(
             }
         }
     }
-    // NOTE on hitstop: the resolver arms `combat.hitstop_timer` on every body,
-    // but an actor's sim dt is NOT frozen by it (tried; per-victim freezes in
-    // AI-vs-AI fights made duels degenerate — fighters spent whole bouts
-    // frozen). The player-involved hitstop beat stays the global-clock rule
-    // (`emit_player_time_intent_system`); a per-body proper-time beat is a
-    // future ProperTimeScale concern (ADR 0011 seam).
+    // ⭐ **HITSTOP: this body freezes on its own, and so does the one it hit.**
+    // The resolver arms `combat.hitstop_timer` on the victim AND the attacker,
+    // because a landed hit is one event, and `integrate_body` below spends it
+    // (`let sim_dt = if combat.is_in_hitlag() { 0.0 } else { dt }`) exactly as
+    // the home road does. One named predicate, asked on both roads.
+    //
+    // ⛔⛔ **this comment used to say the opposite — that an actor's sim dt is
+    // NOT frozen, because "per-victim freezes in AI-vs-AI fights made duels
+    // degenerate" — and it is SUPERSEDED, not merely out of date.** That
+    // measurement predates D155, on a build where every authored launch
+    // direction was inverted and a tumbling launch resolved as a landing, so
+    // nobody was ever knocked anywhere: a feel verdict inherits the build it
+    // was formed on. Jon ruled on it 2026-08-17 after seeing the fixed build —
+    // *"hitlag is a combat/body semantic, not something that should depend on
+    // whether a body happens to occupy the primary local-control road"* — and
+    // the per-road distinction WAS the defect the ruling removes.
+    //
+    // ⛔ so if hitlag ever feels too sticky, tune its DURATION or SHAPE.
+    // **Restoring a controlled-body/actor asymmetry here is forbidden**, and a
+    // comment recommending it is how the last one nearly got restored.
     let (frame, move_events) = em.update(
         feature_world,
         target_pos,
@@ -1154,9 +1168,17 @@ pub fn integrate_sim_bodies(
             .unwrap_or(editable_player_tuning);
         let mut clusters = cluster_item.as_clusters_mut();
         let player_motion_frame = resolved_frame.get();
+        // ⭐⭐ **the SAME composited world the actors integrate against**, built
+        // once per frame above rather than once per body here. This road used to
+        // call `world_with_sandbox_solids` itself, from identical inputs — the
+        // authored world, the platform set, the overlay — so every home body
+        // CLONED the whole block list to rebuild a value that already existed a
+        // few lines up. Two composite sites is also two places for the moving
+        // platforms, gate solids, water and portal carves a body collides with to
+        // drift apart (D117).
         let riding_up = crate::avatar::integrate_home_body(
             control.0,
-            &world.0,
+            &feature_world,
             &mut clusters,
             combat,
             health.map_or_else(ambition_characters::actor::Invulnerability::none, |h| {
@@ -1166,14 +1188,12 @@ pub fn integrate_sim_bodies(
             out_of_play,
             &mut hurtbox,
             &mut frame_out,
-            &platform_set.0,
             &mut motion_model,
             player_motion_frame,
             player_tuning,
             player_feel,
             frame_dt,
             scaled_dt,
-            &overlay,
         );
         *motion_facts = ambition_platformer2d_core::BodyMotionFacts::from_model(&motion_model);
         // Input-relative facts the model projection can't know: republished

@@ -40,11 +40,25 @@ completing its decomposition, and several of the properties that do hold were
 reached by DELETING what the milestone described rather than by building it.
 Check HEAD before starting the next slice.
 
-⚠ **the one thing this milestone still waits on is narrow**: merging
-`integrate_home_body` with `integrate_actor_body` needs the hit-emphasis/proper-time
-decision, because those two differ in hit-stop/time semantics. Control authority
-converged without it — do not let the feel decision be quoted as a blocker on
-anything but time integration.
+✔✔ **THE WAIT IS OVER, AND THE STEP IS ONE SEAM (2026-08-18).** This paragraph
+used to say the milestone was blocked on the hit-emphasis/proper-time decision
+because the two integrators differed in hit-stop semantics. Jon ruled it on
+2026-08-17 — a body freezes on its own hitstop, on both roads — and the merge
+followed: the axis-tuning refresh and the hitlag freeze are now
+`ambition_characters::actor::step_body`, and **neither road spells them**.
+
+⭐ **it takes the `&BodyCombat`, not a `dt`**, because a `dt` is something a
+caller can compute wrongly and one of them did for months. That is the whole
+lesson of D114 expressed as a signature.
+
+⚠ **what is left of the fork is the ORCHESTRATION around the step**, not the step:
+each road still builds its own input, decides its own reset, and publishes its own
+hurtbox. They live in disjoint queries (`With`/`Without<PlayerEntity>`) with
+different cluster shapes, so they cannot share one Bevy loop. ⛔ **measure whether
+each remaining pair is genuinely species-specific before merging it** — one pair
+already turned out not to be: the home road was re-compositing the whole collision
+world per body from the same inputs the actor loop had already used, so both now
+take the one composited world.
 
 - ✔ **generic crowd/combat arbitration.** No longer anchored on a primary
   player, because the slot board it anchored is gone: `assign_slots` filled it

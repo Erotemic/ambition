@@ -1563,6 +1563,33 @@ prints exactly ONE — where the old code would have printed ~150.
 ⭐ same shape as the doorway diagnostic: **a comment that states the intent is
 not enforcement of it**, and the fix is a threshold, not a filter.
 
+⭐⭐ **THE CURRENT FLAGSHIP BOOT INVENTORY, measured 2026-08-18 on
+`--route ambition_gameplay` after the above — SEVEN lines, and every one now has
+a verdict:**
+
+```text
+sanic_sandbox off-grid Y     ▢ D163 — blocked on §16 (who owns a level's position)
+GgrsSchedule redundant edge  ✔ WON'T-FIX — both memberships individually correct
+SheetRegistry robot/goblin/  ✔ CORRECT and newly VISIBLE — the three above; the
+  sandbag  (3 lines)            keying question is §19
+room has 38 neighbours       ✔ LEAVE IT — `warn_once!`, names its constant, and
+                                its author argued the case: *"a cap that quietly
+                                drops work reads as everything is prefetched"*
+npc_kernel_guide             ▢ NEW, and worth someone's attention
+```
+
+▢ **`NpcSpawn-0017` names `npc_kernel_guide`, which the composition has not
+registered**, so it *"falls back to its catalog row's body with a borrowed kit"* —
+and the message's own criterion says that is *"correct only for a BORROWED
+character in a partial composition."* ⛔ **`ambition_gameplay` is not a partial
+composition.** The character is authored into `hall_of_characters.ldtk` and
+`sandbox.ldtk`, has its own spritesheet, and the intro road resolves it by id.
+⇒ **a member of the room that exists to show the cast off is running on somebody
+else's kit.** ⚠ whether it should get an authored `CharacterDefinition` — and
+what kit — is a content call; ⚠ and check the D56 note first, which says the
+Kernel Guide *"leaves it blank so kernel→goblin keeps its visual gag"*, in case
+the borrow is the joke.
+
 - ◻ **D162's original triage of the other three stands (2026-08-17).**
 
 ```text

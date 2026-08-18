@@ -5,6 +5,93 @@ use super::*;
 use crate::avatar::components::PlayerSlot;
 use ambition_time::ProperTimeScale;
 
+/// **Every body's reaction timers decay on the SIM clock — discovered, not listed.**
+///
+/// ⛔⛔ **the controlled body was the odd one out and nothing could see it.** The
+/// actor and boss ticks passed `world_time.sim_dt()`; `input_timer_system` passed
+/// the raw frame delta, so a player's i-frames, hitstun, recoil lock, hitstop and
+/// landing lag would have been the one population that ignored bullet-time. It
+/// survived review because `ClockState::time_scale` has no production writer —
+/// `sim_dt == raw` in every shipping path, so no behavioural test could fail.
+///
+/// ⭐ **so the guard is on the CLOCK EACH CALL SITE NAMES**, and it finds the
+/// sites by walking the crate rather than naming them: a fourth population added
+/// later is covered the day it is written, which a hand-listed chain would not be.
+#[test]
+fn every_reaction_timer_decay_names_the_sim_clock() {
+    fn walk(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            return;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                walk(&path, out);
+            } else if path.extension().and_then(|e| e.to_str()) == Some("rs") {
+                out.push(path);
+            }
+        }
+    }
+
+    let src = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+    let mut files = Vec::new();
+    walk(&src, &mut files);
+
+    let mut sites = 0usize;
+    let mut wrong = Vec::new();
+    for path in &files {
+        let rel = path
+            .strip_prefix(&src)
+            .ok()
+            .and_then(|p| p.to_str())
+            .unwrap_or("<non-utf8>");
+        if rel.ends_with("tests.rs") || rel.contains("/tests/") {
+            continue;
+        }
+        let Ok(contents) = std::fs::read_to_string(path) else {
+            continue;
+        };
+        for (lineno, line) in contents.lines().enumerate() {
+            let trimmed = line.trim_start();
+            if trimmed.starts_with("//") || trimmed.starts_with("*") {
+                continue;
+            }
+            let Some(rest) = line.split_once(".decay_reaction_timers(") else {
+                continue;
+            };
+            sites += 1;
+            let arg = rest.1;
+            // The sim clock, however this site spells it: passed straight in as
+            // `world_time.sim_dt()`, or a local already bound from it.
+            //
+            // ⚠ **a bare `dt` is checked for PROVENANCE, not accepted on its
+            // name** — otherwise `let dt = time.delta_secs()` two lines up would
+            // satisfy this guard while reintroducing exactly the bug it exists
+            // to catch.
+            let names_sim_clock = arg.contains("sim_dt")
+                || (arg.starts_with("dt)") && contents.contains("let dt = world_time.sim_dt()"));
+            if !names_sim_clock {
+                wrong.push(format!(
+                    "{rel}:{}: decays on `{}`",
+                    lineno + 1,
+                    arg.trim_end_matches(");")
+                ));
+            }
+        }
+    }
+
+    assert!(
+        sites >= 3,
+        "expected at least the controlled/actor/boss decay sites; found {sites} —          the scan is broken, not the code"
+    );
+    assert!(
+        wrong.is_empty(),
+        "these reaction-timer decays do not name the sim clock, so their bodies \
+         would ignore bullet-time while every other body slowed:\n  {}",
+        wrong.join("\n  ")
+    );
+}
+
 #[test]
 fn proper_time_scale_default_is_one() {
     let pts = ProperTimeScale::default();
@@ -392,14 +479,23 @@ fn gameplay_systems_must_not_read_res_time_directly() {
             "app/input_systems.rs",
             "input buffer decay; ADR 0011 player-clock follow-up",
         ),
-        // Home/player body reaction + gesture + presentation-flash timers folded
-        // down from `ambition_app::app::sim_systems` (C4). They decay on the frame
-        // clock (presentation flash runs even while paused, by design; the reaction
-        // timers still compute their own scaled dt manually) — same ADR 0011
-        // player-clock follow-up as the app-tick path they moved out of.
+        // ⛔⛔ **THIS JUSTIFICATION WAS FALSE AND THAT IS THE LESSON.** It read
+        // *"the reaction timers still compute their own scaled dt manually"*,
+        // and the file contained no scaling of any kind — the controlled body's
+        // i-frames, hitstun, recoil lock, hitstop and landing lag decayed on the
+        // raw frame delta while the actor and boss populations used
+        // `world_time.sim_dt()`. A waiver that claims a protection the code does
+        // not have is worse than no waiver: it is precisely what stops the next
+        // reader from looking. Fixed 2026-08-18 (D117) — that call now takes
+        // `sim_dt()`, so the sentence below is true rather than aspirational.
+        //
+        // ⭐ what legitimately remains on the raw clock here: the DOUBLE-TAP
+        // gesture windows (a double-tap is a real-time act; slowing the world
+        // must not widen it) and the presentation flash, which is meant to run
+        // while paused.
         (
             "control/input_systems.rs",
-            "home-body reaction/gesture/flash timers moved from the app (C4); ADR 0011 follow-up",
+            "double-tap gesture windows + presentation flash are real-time by design;              reaction timers use WorldTime::sim_dt",
         ),
         // Hot reload polls disk in wall-clock cadence.
         (

@@ -342,6 +342,41 @@ after    both                         → actor::step_body(.., combat, tuning, c
 ⭐ **it takes the BODY, not a `dt`.** A `dt` parameter is something a caller can
 compute wrongly, and one of them did for months; passing `&BodyCombat` means the
 rule is asked, not remembered.
+
+✔✔ **AND THE THREE `decay_reaction_timers` CALLS NOW AGREE ON A CLOCK
+(2026-08-18) — which is what that fold actually was.** They iterate different
+populations in different phases, so merging the SYSTEMS would have been a god
+function; what they were forking on was the time domain:
+
+```text
+before   actor tick    world_time.sim_dt()   scaled — slows with bullet-time
+         boss tick     world_time.sim_dt()   scaled
+         controlled    time.delta_secs()     RAW — the one body that would not slow
+after    all three     the sim clock
+```
+
+⛔⛔ **AND ITS `Res<Time>` WAIVER CLAIMED THE OPPOSITE WAS ALREADY TRUE** —
+*"the reaction timers still compute their own scaled dt manually"* — while the
+file contained **no scaling of any kind**. ⇒ **a waiver that describes a
+protection the code does not have is worse than no waiver**, because it is
+exactly what stops the next reader from checking. The waiver now says what is
+true: the double-tap gesture windows are real-time by design (slowing the world
+must not widen a double-tap) and the reaction timers take `sim_dt`.
+
+⚠ **nothing changes today, and that is why it survived**: `ClockState::time_scale`
+has no production writer, so `sim_dt == raw` on every shipping path and no
+behavioural test could have failed. ⇒ guarded instead by
+`every_reaction_timer_decay_names_the_sim_clock`, which **walks the crate for
+call sites rather than listing them** — a fourth population is covered the day it
+is written — and checks a bare `dt` for PROVENANCE, since accepting it on its
+name would let `let dt = time.delta_secs()` back in. Falsified: reverting the one
+line fails it, naming file and line.
+
+⭐ **verified NOT a determinism defect on the way**, which was the first
+suspicion: `BodyCombat` is rollback-registered and this decay runs in the sim
+schedule, but production pins `TimeUpdateStrategy::ManualDuration` to the sim
+tick whenever rollback participants exist, so the raw delta was deterministic —
+wrong clock, not a desync.
 ⭐ **placement was decided by reading the destination's contract, not by
 convenience** — `ambition_characters` says its job is *"the same brain +
 control-frame contract drives players, NPCs, enemies, and bosses"*, and

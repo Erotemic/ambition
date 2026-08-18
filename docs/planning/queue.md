@@ -1510,10 +1510,33 @@ projectile_visuals.rs   sheets.get(<projectile target>)
 ```
 
 ⇒ **so: three real collisions, in a registry whose readers do not appear to
-resolve those three names.** ▢ what is left is (a) retire the stale manifest in
-each pair — a content call the registry cannot make — and (b) decide whether the
-target-keyed resource should key by file root like its static twin, which would
-make the whole class impossible rather than reportable.
+resolve those three names.** Checked: the boss road takes
+`behavior.sprite_target.unwrap_or(&behavior.id)`, and no boss id or sprite target
+is one of the five; the other three resolve `"shrine"`, a slash sheet and a
+projectile target.
+
+⭐⭐ **AND THE AMBIGUITY IS STRUCTURAL, NOT THREE STALE PAIRS — measured across
+all 196 baked sheets:**
+
+```text
+196  baked sheets
+ 52  whose file_root differs from their target (authored against a RIG adapter)
+  5  targets claimed by MORE THAN ONE file, between them 48 files:
+       robot 18 · toon 16 · goblin 9 · sandbag 3 · ninja 2
+```
+
+⇒ **the target-keyed registry cannot answer "give me sheet X" for any of those 48
+files** — which of them wins is load order. Its static twin `record_index()`
+already keys by FILE ROOT (196 unique keys, no ambiguity), and
+`from_baked_table_by_file_root` already exists.
+
+▢ **so what is left is (a) retire the stale manifest in each of the three pairs
+— a content call the registry cannot make — and (b) DECIDE THE KEYING**: for the
+148 sheets where root == target the two are identical, every current consumer
+looks up such a name, and switching would make this whole class impossible rather
+than reportable. ⛔ **not taken unilaterally**: it changes what a shared engine
+resource returns for 48 files, and the evidence above is what makes it a one-line
+ruling instead of an investigation.
 ⚠ **the sandbag pair is the loudest if anything ever does resolve it**: a 128px
 sheet cropped on a 256px grid.
 

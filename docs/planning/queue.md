@@ -5246,6 +5246,28 @@ and `goblin_cantina_chieftain` 35, `robot` 34, `robot_guardian` 33,
 `super_sanic` is cut, and the super skin is the same body with `spikes_up=True`.
 Spikes down, fine; spikes up, cut.
 
+✔✔ **AND SUPER SANIC — THE SHEET JON ACTUALLY REPORTED — IS FIXED 2026-08-18**
+(renderer `39d79a7`). The raised fan and the back blade are scaled by a named
+`SUPER_SPIKE_FIT`, swept against the pipeline's own criterion:
+
+```text
+x1.00   61 of 181 frames cut          x0.80    2 cut
+x0.85    4 of 181 cut                 x0.76    0 cut     <- shipped
+```
+
+⛔ **0.76 is the largest value measured that leaves every frame whole** — not a
+round number, and the count is 61 rather than this row's 54 because the sheets
+moved since, which is the build-time-observation point above making itself.
+⭐ **the control is asserted with the fix**: base `sanic` is 0 of 181 on the same
+canvas, so a later change that shrank every spike — or grew the frame for
+everybody — cannot pass the guard. Poison-verified at 1.0.
+⛔⛔ **and "just make the frame bigger" is refused with cause**: `auto_crop` is
+OFF for this sheet precisely so `ATTACK_HITBOXES` coordinates match draw space,
+so growing the frame or shifting the body silently moves every authored hitbox
+with respect to the drawing. ⇒ **for a sheet with authored hitboxes in draw
+space, the ART is the only thing that can give** — worth checking before
+proposing a canvas change for any of the other ~15 authoring sources.
+
 ⭐⭐ **and 23 sheets are far fewer than 23 CAUSES — they collapse by source
 YAML.** Eight of them (`robot`, `player_extended`, both player `*_review` sheets,
 `robot_caster`/`diver`/`miner`/`runner`) are all auto-emitted from

@@ -108,7 +108,6 @@ mod tests {
         advance_move_playback, dispatch_move_events, resolve_attack_gestures,
         trigger_moveset_moves, ActorMoveset, MoveEventMessage, MovePlayback,
     };
-    use ambition_platformer2d::entity_catalog::GRAB_VERB;
 
     /// The whole chain, in the order the plan's acceptance section states it.
     /// Every system is the production one; only the app around them is a
@@ -177,6 +176,28 @@ mod tests {
                         on_ground: true,
                         contact_initialized: true,
                     },
+                    // ⭐⭐ **A COMPLETE `CaptureParticipant`, at BOTH ends.**
+                    // Acquisition requires the body role the whole lifecycle
+                    // operates on, so half a body is refused — and this fixture
+                    // built its captor without combat state, which the
+                    // interruption rule then read as *"the captor despawned"*
+                    // and dissolved every hold on the tick it formed. The
+                    // architecture states the requirement now; the fixture
+                    // satisfies it because a fighter really does carry all of
+                    // this.
+                    ambition_platformer2d::characters::actor::BodyCombat::default(),
+                    ambition_platformer2d::characters::actor::BodyHealth::new(
+                        ambition_platformer2d::characters::actor::Health {
+                            current: 100,
+                            max: 100,
+                            invulnerable: Default::default(),
+                        },
+                    ),
+                    ambition_platformer2d::engine_core::BodyFlightState::default(),
+                    ambition_platformer2d::actors::features::ActorSurfaceState {
+                        surface_normal: ambition_platformer2d::engine_core::Vec2::new(0.0, -1.0),
+                        gravity_scale: 1.0,
+                    },
                     ambition_platformer2d::platformer::sim_id::SimId::placement(team),
                 ))
                 .id()
@@ -187,24 +208,11 @@ mod tests {
             ActorMoveset(crate::george_booul_moveset::george_booul_moveset()),
             ambition_platformer2d::characters::brain::ActorControl(ActorControlFrame::neutral()),
         ));
-        app.world_mut().entity_mut(victim).insert((
+        app.world_mut().entity_mut(victim).insert(
             // ⭐ SHIELDING, and it changes nothing — the third leg of the
             // triangle, asserted in the real chain rather than in isolation.
             ambition_platformer2d::engine_core::BodyShieldState::default(),
-            ambition_platformer2d::characters::actor::BodyHealth::new(
-                ambition_platformer2d::characters::actor::Health {
-                    current: 100,
-                    max: 100,
-                    invulnerable: Default::default(),
-                },
-            ),
-            ambition_platformer2d::characters::actor::BodyCombat::default(),
-            ambition_platformer2d::engine_core::BodyFlightState::default(),
-            ambition_platformer2d::actors::features::ActorSurfaceState {
-                surface_normal: ambition_platformer2d::engine_core::Vec2::new(0.0, -1.0),
-                gravity_scale: 1.0,
-            },
-        ));
+        );
         (captor, victim)
     }
 
@@ -263,30 +271,28 @@ mod tests {
     /// Attack          → pummel again; hold survives
     /// Forward+Attack  → throw; the authored release ends the hold exactly once
     /// ```
-    /// ⚠⚠ **IGNORED, AND THE REASON IS MEASURED RATHER THAN GUESSED.**
+    /// ⛔⛔ **IT WAS RED, AND THE FIRST DIAGNOSIS OF WHY WAS WRONG.**
     ///
-    /// Probed 2026-08-18, tick by tick. Everything up to acquisition works in
-    /// the real chain:
+    /// A tick-by-tick probe showed the grab reaching its own effect at exactly
+    /// the authored frame (t=0.167 against an authored 0.16) and the adapter
+    /// translating it — yet `CapturedBy` was never observed. That was read as
+    /// *"acquisition declines this fixture's victim"*. It did not: acquisition
+    /// SUCCEEDED, and `release_interrupted_captures`, later in the same chained
+    /// update, dissolved the hold before anything could see it — because this
+    /// fixture's captor carried no `BodyCombat`, and that rule asked
+    /// `combat.get(captor).is_err()` as though it meant *the captor is gone*.
     ///
-    /// ```text
-    /// tick 0..7   the grab plays, t climbs, no events      (the tell)
-    /// tick 8      t=0.167 → 1 MoveEvent, 1 CaptureAttemptRequested
-    /// tick 9..12  the sustain keeps firing across the window
-    /// tick 13     t=0.25, the window closes
-    /// held=false throughout
-    /// ```
+    /// ⭐ the lesson is in where the evidence pointed. Every observation was
+    /// accurate and the conclusion drawn from them was not: a state observed
+    /// only BETWEEN systems is invisible to a test that looks after the whole
+    /// update, so "never established" and "established and destroyed" produce
+    /// identical evidence at the only place anyone was looking.
     ///
-    /// ⇒ the authored timing reaches its own event at exactly the authored
-    /// frame, the adapter translates it, and `acquire_captures` then declines
-    /// this fixture's victim. So the open question is an ELIGIBILITY predicate
-    /// against a hand-built pair, not the chain — the unit guards on acquisition
-    /// pass against a fixture built in the monolith's own crate.
-    ///
-    /// ⛔ **left ignored rather than deleted or weakened.** The sequence is the
-    /// plan's acceptance criterion; a version that asserted only the part that
-    /// works would be the vacuous test this repo has been bitten by before.
+    /// The fix was the architecture, not this fixture: acquisition now requires
+    /// a `CaptureParticipant` of both ends, and existence is asked of the world
+    /// rather than inferred from a component. The fixture builds whole bodies
+    /// because a fighter is one.
     #[test]
-    #[ignore = "acquisition declines this fixture's victim; probe recorded in the doc above"]
     fn george_grabs_pummels_twice_and_throws() {
         let mut app = chain_app();
         let (captor, victim) = stage(&mut app);

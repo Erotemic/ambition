@@ -20,14 +20,49 @@ use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt as _;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
-/// Everything a body needs to be ALLOWED to start a capture.
+/// **What a body must BE to take part in a capture, at either end of it.**
+///
+/// ⛔⛔ **acquisition asks for what the whole LIFECYCLE needs, and this is that
+/// list.** A capture is not one moment. It is a hold, then pummels, then a throw
+/// or a release, and each beat reaches for different body state. While
+/// acquisition accepted a wider class of bodies than the later beats could
+/// operate on, a capture could be established that nothing downstream could
+/// complete — and the failure surfaced far from its cause, as a hold that
+/// appeared never to form. Stating the requirement once, and asking it at the
+/// one moment where refusing is still free, is what makes an established capture
+/// mean "every beat of this relationship can run".
+///
+/// ```text
+/// BodyKinematics      the hold anchor; a throw's impact point
+/// BodyGroundState     v1 eligibility (standing grabs), suspended by the hold
+/// BodyHealth          a pummel's damage; a throw's damage and percent scaling
+/// BodyCombat          the interruption rule at BOTH ends; a throw's hitstun
+/// BodyFlightState     the throw's launch reaction
+/// ActorSurfaceState   gravity suspended at acquisition, restored at release
+/// ```
+///
+/// ⚠ **it is deliberately not `CenteredAabb`.** The coarse box is victim-side
+/// geometry, already required by [`StrikeVictim`] where the overlap is asked; a
+/// captor needs none. This type is the BODY ROLE the relationship operates on,
+/// not everything either end happens to carry.
+#[derive(bevy::ecs::query::QueryData)]
+pub struct CaptureParticipant {
+    pub kin: &'static ae::BodyKinematics,
+    pub ground: &'static ambition_platformer2d_core::BodyGroundState,
+    pub health: &'static ambition_characters::actor::BodyHealth,
+    pub combat: &'static ambition_characters::actor::BodyCombat,
+    pub flight: &'static ae::BodyFlightState,
+    pub surface: &'static crate::features::ActorSurfaceState,
+}
+
+/// Everything a body needs to be ALLOWED to start a capture: the shared
+/// [`CaptureParticipant`] role, plus the allegiance facts only the captor's side
+/// of the hostility question reads.
 #[derive(bevy::ecs::query::QueryData)]
 pub struct CaptorView {
-    kin: &'static ae::BodyKinematics,
+    body: CaptureParticipant,
     faction: &'static crate::features::ActorFaction,
     team: Option<&'static ambition_combat::targeting::MatchTeam>,
-    health: Option<&'static ambition_characters::actor::BodyHealth>,
-    ground: Option<&'static ambition_platformer2d_core::BodyGroundState>,
     frame: Option<&'static ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
 }
 
@@ -38,6 +73,11 @@ pub struct CaptorView {
 /// A captor must be alive, grounded, holding nobody, and driving itself. A
 /// victim must be a different body, alive, grounded, held by nobody, driving
 /// itself, and someone this captor is allowed to damage.
+///
+/// ⭐ **and BOTH must be a [`CaptureParticipant`]** — a body the hold, the
+/// pummel, the throw and the release can all actually operate on. That is asked
+/// here, at the only moment where refusing costs nothing, rather than discovered
+/// three beats later by a step that finds half a body.
 ///
 /// ⚠ **`damage_lands_between`, the SAME relational rule a strike asks.** A grab
 /// that could take a teammate would be a different game; routing it through the
@@ -62,9 +102,11 @@ pub fn acquire_captures(
     captors: Query<CaptorView, Without<ambition_characters::brain::ScriptedControl>>,
     victims: Query<StrikeVictim, Without<ambition_characters::brain::ScriptedControl>>,
     captives: Query<(Entity, &CapturedBy)>,
-    grounded: Query<&ambition_platformer2d_core::BodyGroundState>,
+    // ⭐ **the ONE eligibility question, asked of the victim too.** Not a
+    // convenience join: a body the rest of the lifecycle could not operate on is
+    // refused here rather than captured and then stranded.
+    participants: Query<CaptureParticipant>,
     identities: Query<&SimId>,
-    surfaces: Query<&crate::features::ActorSurfaceState>,
     // **The captive's in-flight move, so capture can END it.** See the note at
     // the insertion below for why this is not optional.
     mut playbacks: Query<&mut ambition_combat::moveset::MovePlayback>,
@@ -75,10 +117,10 @@ pub fn acquire_captures(
         let Ok(captor) = captors.get(attempt.captor) else {
             continue;
         };
-        if ambition_combat::util::body_is_corpse(captor.health) {
+        if ambition_combat::util::body_is_corpse(Some(captor.body.health)) {
             continue;
         }
-        if !captor.ground.map(|g| g.on_ground).unwrap_or(false) {
+        if !captor.body.ground.on_ground {
             continue;
         }
         // ⚠ **a captor already holding somebody is not a captor twice.** This is
@@ -97,10 +139,10 @@ pub fn acquire_captures(
                 offset: (attempt.offset.x, attempt.offset.y),
                 half_extents: (attempt.half_extents.x, attempt.half_extents.y),
             },
-            captor.kin.facing,
+            captor.body.kin.facing,
             &body_frame,
         );
-        let reach_centre = captor.kin.pos + placed.world_offset;
+        let reach_centre = captor.body.kin.pos + placed.world_offset;
         let reach = ae::CenteredAabb::new(reach_centre, placed.half_extent).aabb();
 
         // ⚠ built ONCE, not asked per candidate: `captives` is the authority on
@@ -117,11 +159,14 @@ pub fn acquire_captures(
             if victim.is_corpse() || victim.is_intangible() {
                 continue;
             }
-            if !grounded
-                .get(victim.entity)
-                .map(|g| g.on_ground)
-                .unwrap_or(false)
-            {
+            // ⛔ the same role the captor had to satisfy. A body with no health,
+            // no combat state or no surface can be reached by a grab volume and
+            // still cannot be pummelled, thrown or released — so it is not a
+            // victim, it is a bystander.
+            let Ok(victim_body) = participants.get(victim.entity) else {
+                continue;
+            };
+            if !victim_body.ground.on_ground {
                 continue;
             }
             if already_held.contains(&victim.entity) {
@@ -196,9 +241,9 @@ pub fn acquire_captures(
             hold_offset_local: attempt.hold_offset,
             // ⚠ REMEMBERED, not assumed: a flying body's scale is not 1.0, and a
             // release that wrote a constant would land it on the floor.
-            prior_gravity_scale: surfaces
+            prior_gravity_scale: participants
                 .get(victim)
-                .map(|surface| surface.gravity_scale)
+                .map(|body| body.surface.gravity_scale)
                 .unwrap_or(1.0),
             pummels_landed: 0,
         });
@@ -210,6 +255,13 @@ mod tests {
     use super::*;
     use ambition_platformer2d_core::BodyShieldState;
 
+    /// A body standing on the floor that is a complete [`CaptureParticipant`].
+    ///
+    /// ⚠ **complete on purpose.** Acquisition requires the body role the whole
+    /// lifecycle needs, so a fixture that spawned half a body would be refused —
+    /// and a fixture that was refused for a reason the test did not name is how
+    /// the end-to-end acceptance came to be misdiagnosed. A test that wants an
+    /// INCOMPLETE body removes what it means to remove, by name.
     fn grounded_body(app: &mut App, id: &str, pos: ae::Vec2) -> Entity {
         app.world_mut()
             .spawn((
@@ -225,6 +277,14 @@ mod tests {
                     on_ground: true,
                     contact_initialized: true,
                 },
+                ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health {
+                    current: 100,
+                    max: 100,
+                    invulnerable: Default::default(),
+                }),
+                ambition_characters::actor::BodyCombat::default(),
+                ae::BodyFlightState::default(),
+                surface_state(1.0),
                 SimId::placement(id),
             ))
             .id()
@@ -458,6 +518,124 @@ mod tests {
             0.25,
             "gravity came back as a CONSTANT rather than as what this body had"
         );
+    }
+
+    /// **⛔⛔ AN EXISTING CAPTOR MISSING COMBAT STATE IS NOT A DESPAWNED ONE.**
+    ///
+    /// The invariant, not the fix. The interruption rule asked
+    /// `combat.get(captor).is_err()` and read the answer as *"the captor is
+    /// gone"*. A live captor that simply carried no `BodyCombat` therefore read
+    /// as despawned, and every hold it made was dissolved on the tick it formed
+    /// — a relationship that never survived long enough to be observed, which
+    /// looks precisely like acquisition refusing the victim. That misreading is
+    /// what kept the end-to-end acceptance red, and what got it diagnosed wrong.
+    ///
+    /// ⚠ **built by hand ON PURPOSE.** Acquisition now refuses such a captor
+    /// outright, so a grab press can no longer reach this state — which is
+    /// exactly why the guard must construct it. The rule is *existence is asked
+    /// of the world, never inferred from a component*, and it has to hold for
+    /// any hold however established: an escape, a scripted capture, a future
+    /// carry relationship.
+    #[test]
+    fn an_existing_captor_without_combat_state_is_not_a_despawned_one() {
+        let mut app = App::new();
+        app.add_systems(Update, release_interrupted_captures);
+        let captor = grounded_body(&mut app, "captor", ae::Vec2::ZERO);
+        let victim = grounded_body(&mut app, "victim", ae::Vec2::new(16.0, 0.0));
+        // The one difference from a healthy pair, stated rather than implied.
+        app.world_mut()
+            .entity_mut(captor)
+            .remove::<ambition_characters::actor::BodyCombat>();
+        app.world_mut().entity_mut(victim).insert(CapturedBy {
+            captor,
+            hold_offset_local: ae::Vec2::new(16.0, 0.0),
+            prior_gravity_scale: 1.0,
+            pummels_landed: 0,
+        });
+
+        app.update();
+
+        assert!(
+            app.world().get::<CapturedBy>(victim).is_some(),
+            "a captor that is alive but carries no combat state was read as \
+             DESPAWNED, and its hold was released underneath it"
+        );
+    }
+
+    /// **A captor that really is gone frees its captive.**
+    ///
+    /// The other direction of the same predicate, and the reason the guard above
+    /// is not vacuous: after teaching the rule to stop treating a missing
+    /// component as a missing entity, a rule that had stopped noticing genuinely
+    /// despawned captors would pass that guard just as happily — and leave every
+    /// captive of a KO'd fighter frozen in mid-air with gravity suspended.
+    #[test]
+    fn a_despawned_captor_frees_its_captive() {
+        let mut app = App::new();
+        app.add_systems(Update, release_interrupted_captures);
+        let captor = grounded_body(&mut app, "captor", ae::Vec2::ZERO);
+        let victim = grounded_body(&mut app, "victim", ae::Vec2::new(16.0, 0.0));
+        app.world_mut().entity_mut(victim).insert((
+            surface_state(0.0),
+            CapturedBy {
+                captor,
+                hold_offset_local: ae::Vec2::new(16.0, 0.0),
+                prior_gravity_scale: 0.75,
+                pummels_landed: 0,
+            },
+        ));
+        app.world_mut().entity_mut(captor).despawn();
+
+        app.update();
+
+        assert!(
+            app.world().get::<CapturedBy>(victim).is_none(),
+            "the captor is gone and the hold outlived it"
+        );
+        assert_eq!(
+            app.world()
+                .get::<crate::features::ActorSurfaceState>(victim)
+                .unwrap()
+                .gravity_scale,
+            0.75,
+            "freed by a despawn and still weightless — the release path was not \
+             the one that ran"
+        );
+    }
+
+    /// **⭐ A BODY THE REST OF THE LIFECYCLE COULD NOT OPERATE ON IS NOT
+    /// CAPTURED.**
+    ///
+    /// Acquisition used to accept a wider class of bodies than the hold, the
+    /// pummel, the throw and the release could act on, so a capture could be
+    /// established that no later beat could complete. Both ends are checked
+    /// because both ends are operated on: a captor is thrown FROM and can be
+    /// interrupted, a victim is anchored, damaged and launched.
+    #[test]
+    fn a_body_the_lifecycle_could_not_operate_on_is_never_captured() {
+        for (label, strip_captor) in [("captor", true), ("victim", false)] {
+            let mut app = capture_app();
+            let captor = grounded_body(&mut app, "captor", ae::Vec2::ZERO);
+            let victim = grounded_body(&mut app, "victim", ae::Vec2::new(16.0, 0.0));
+            app.world_mut()
+                .entity_mut(victim)
+                .insert(crate::features::ActorFaction::Player);
+            // Health, because a pummel and a throw both spend it, and a body
+            // without it is one no beat after the first could touch.
+            let stripped = if strip_captor { captor } else { victim };
+            app.world_mut()
+                .entity_mut(stripped)
+                .remove::<ambition_characters::actor::BodyHealth>();
+
+            app.world_mut().write_message(attempt(captor));
+            app.update();
+
+            assert!(
+                app.world().get::<CapturedBy>(victim).is_none(),
+                "a capture was established with a {label} the lifecycle cannot \
+                 operate on — it would be stranded on its first pummel"
+            );
+        }
     }
 
     /// **⛔ A PUMMEL DAMAGES ITS CAPTIVE AND DOES NOT BREAK THE HOLD.**
@@ -845,9 +1023,22 @@ pub fn release_capture(
 /// ⛔ **hitstop alone does NOT break it.** A pummel may deliberately produce a
 /// little hitstop while preserving the hold; breaking on that would make the
 /// mechanic destroy itself on its own second beat.
+///
+/// ⛔⛔ **EXISTENCE IS ASKED OF THE WORLD, NEVER INFERRED FROM A COMPONENT.**
+/// This read `combat.get(captor).is_err()` and called that "the captor is gone".
+/// It is not: it is "the captor has no combat state", and the two answers differ
+/// for every body that is alive without one. The consequence was that such a
+/// captor's hold was dissolved on the same tick it formed — acquisition
+/// succeeding and the relationship vanishing before anything could observe it,
+/// a symptom that reads exactly like acquisition refusing the victim, and which
+/// cost a misdiagnosis to find. `bodies` answers only the existence question,
+/// and answers nothing else.
 pub fn release_interrupted_captures(
     mut commands: Commands,
     captives: Query<(Entity, &CapturedBy)>,
+    // Existence, and nothing but existence: a despawned entity matches no
+    // query, which is precisely the fact wanted and the only one taken.
+    bodies: Query<Entity>,
     combat: Query<&ambition_characters::actor::BodyCombat>,
     mut surfaces: Query<&mut crate::features::ActorSurfaceState>,
 ) {
@@ -858,10 +1049,8 @@ pub fn release_interrupted_captures(
             .unwrap_or(false)
     };
     for (victim, held) in &captives {
-        // A captor that no longer exists cannot hold anything. Checked through
-        // the combat query rather than a marker: an entity that is gone answers
-        // no query, which is the fact wanted here.
-        let captor_gone = combat.get(held.captor).is_err();
+        // A captor that no longer exists cannot hold anything.
+        let captor_gone = bodies.get(held.captor).is_err();
         if !(captor_gone || reacted(victim) || reacted(held.captor)) {
             continue;
         }

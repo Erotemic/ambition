@@ -91,38 +91,23 @@ pub struct AuthoredSwitchCommand {
     pub line: String,
 }
 
-/// **Every `Switch` in `active_room_id` that authors an `on_activate`.**
+/// **Every `Switch` in `room` that authors an `on_activate`.**
+///
+/// ⚠ **it used to take an `LdtkProject` and an active-room id**, walking levels
+/// to find the one it wanted. A `Switch`'s command line is an ordinary room
+/// emission now (D136), so the ROOM is the filter and the id argument was the
+/// map format leaking into a signature — this file no longer names the LDtk
+/// crate.
 pub fn authored_switch_commands(
-    project: &ambition_platformer2d_ldtk::LdtkProject,
-    active_room_id: &str,
+    room: &ambition_platformer2d_world::rooms::RoomSpec,
 ) -> Vec<AuthoredSwitchCommand> {
-    let mut out = Vec::new();
-    for level in &project.levels {
-        if level.active_area() != active_room_id {
-            continue;
-        }
-        for entity in level.all_entity_instances() {
-            if entity.identifier != "Switch" {
-                continue;
-            }
-            let Some(switch_id) = ambition_platformer2d_ldtk::field_string(entity, "id") else {
-                continue;
-            };
-            let Some(line) = ambition_platformer2d_ldtk::field_string(entity, ON_ACTIVATE_FIELD)
-            else {
-                continue;
-            };
-            let line = line.trim();
-            if line.is_empty() {
-                continue;
-            }
-            out.push(AuthoredSwitchCommand {
-                switch_id: switch_id.trim().to_string(),
-                line: line.to_string(),
-            });
-        }
-    }
-    out
+    room.switch_commands
+        .iter()
+        .map(|command| AuthoredSwitchCommand {
+            switch_id: command.switch_id.trim().to_string(),
+            line: command.line.clone(),
+        })
+        .collect()
 }
 
 /// **The active room's prepared switch verbs.**
@@ -159,7 +144,6 @@ impl AuthoredSwitchCommands {
 /// silently does nothing, which is how an author spends an afternoon on a typo.
 pub fn prepare_authored_switch_commands(
     rooms: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<crate::rooms::RoomSet>,
-    project: Option<Res<ambition_platformer2d_ldtk::ActiveLdtkProject>>,
     catalog: Option<Res<CommandCatalog>>,
     mut prepared: ResMut<AuthoredSwitchCommands>,
 ) {
@@ -167,15 +151,19 @@ pub fn prepare_authored_switch_commands(
         return;
     };
     let active_room_id = rooms.active_spec().id.clone();
-    let project_changed = project.as_ref().is_some_and(|project| project.is_changed());
+    // ⚠ **the change signal moved with the data** (D136). It watched
+    // `ActiveLdtkProject::is_changed()`; the command lines come off the room set
+    // now, so that is what has to be watched — a hot reload that rebuilds rooms
+    // under an UNCHANGED room id would otherwise keep serving prepared calls
+    // from content that is no longer loaded, which is the case the old signal
+    // existed for.
+    let rooms_changed = rooms.is_changed();
     let stale = prepared.room.as_deref() != Some(active_room_id.as_str());
-    if !project_changed && !stale {
+    if !rooms_changed && !stale {
         return;
     }
 
-    let authored = project
-        .map(|project| authored_switch_commands(&project.0, &active_room_id))
-        .unwrap_or_default();
+    let authored = authored_switch_commands(rooms.active_spec());
     prepared.calls.clear();
     prepared.room = Some(active_room_id.clone());
     for AuthoredSwitchCommand { switch_id, line } in authored {

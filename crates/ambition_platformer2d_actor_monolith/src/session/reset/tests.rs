@@ -294,6 +294,7 @@ fn min_app() -> App {
         placements: Vec::new(),
         encounter_triggers: Vec::new(),
         lock_walls: Vec::new(),
+        switch_commands: Vec::new(),
     };
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
         app.world_mut(),

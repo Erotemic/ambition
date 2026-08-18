@@ -442,6 +442,7 @@ fn spec_with(meta: RoomMetadata, id: &str) -> RoomSpec {
         placements: Vec::new(),
         encounter_triggers: Vec::new(),
         lock_walls: Vec::new(),
+        switch_commands: Vec::new(),
     }
 }
 

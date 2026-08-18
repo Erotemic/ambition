@@ -5231,15 +5231,35 @@ the real pipeline is a fixture that was testing less than it looked.
 ⭐ poison-verified: dropping `gated_by` from the emission turns three of the five
 red.
 
-▢ **two holders left** — `world/mod.rs` and `world/authored_switch_commands.rs`.
-⛔⛔ **and the switch one is NOT the same price, which I nearly wrote here before
-checking.** It reads a `Switch` marker's `on_activate`, and `convert_switch`
-already emits — but through `InteractableSpec`, which is a variant of the CLOSED
-Tier-0 `PlacementSchema`. Widening that is an authored-schema change, not a free
-field, and it is the exact cost the encounter and lock-wall roads avoided by
-using typed families. ⇒ **decide where `on_activate` belongs before starting**:
-a typed family beside the others, or the schema with whatever a schema change
-owes.
+✔✔ **AND THE SWITCH COMMANDS FOLLOWED — 2 → 1, and the schema decision was
+taken rather than deferred.** `authored_switch_commands` read a `Switch`
+marker's `on_activate` off the project. `convert_switch` already emitted the
+switch — but through `InteractableSpec`, a variant of the CLOSED Tier-0
+`PlacementSchema`, so folding the line in would have put a
+fingerprint/replay schema event behind a load-time string that ONE consumer
+reads.
+⇒ **`SwitchCommandSpec` rides alongside as its own typed family**, the same
+answer the encounter and lock-wall roads took, for the same reason. ⭐ the
+placement record is untouched, so no schema is owed.
+⚠ the change signal moved with the data again (`ActiveLdtkProject::is_changed`
+→ the room set), and the third `swapping_the_project_alone_…` test became
+`swapping_the_room_set_alone_…`. Poison-verified: dropping the emission turns
+four red.
+
+✔✔ **AND THE LAST "HOLDER" IS A DOC COMMENT.** `world/mod.rs:6` says *"W3 moved
+it to `ambition_platformer2d_ldtk`"* in a `//!` line. ⇒ **no production module in
+the actor monolith names the LDtk crate any more** — 5 → 0 in one sitting,
+verified by grep over `src/` with tests and comments excluded.
+
+▢ **WHAT ACTUALLY HOLDS THE EDGE NOW IS THE FEATURE GRAPH, NOT A `use`.**
+`Cargo.toml` forwards four features into it (`portal`, `portal_ldtk`,
+`static_map`, `ldtk_runtime`) plus the tests, so the dependency cannot simply
+become a `dev-dependency`: feature forwarding requires a normal one. ⚠ **this is
+the same shape the row already recorded once** — *"cutting the monolith's edge
+alone was never going to move this number"* — and it is why the
+capability-footprint counter will not move until the dep is made `optional` and
+those four forwards are gated. ⇒ **that is the next slice, and it is a
+feature-graph change, not a reader migration**; the reader migrations are done.
 
 ⇒ **what still holds the edge, and the cost of each**, in the order they must
 fall (the last two cannot be cfg-gated cheaply — the code has to move):

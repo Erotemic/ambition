@@ -55,15 +55,28 @@ fn project_with_one_switch(on_activate: Option<&str>) -> LdtkProject {
                 c_wid: 80,
                 c_hei: 80,
                 grid_size: 16,
-                entity_instances: vec![LdtkEntityInstance {
-                    iid: "Switch-test-kernel".into(),
-                    identifier: "Switch".into(),
-                    pivot: vec![0.0, 0.0],
-                    px: [606, 736],
-                    width: 68,
-                    height: 24,
-                    field_instances: fields,
-                }],
+                entity_instances: vec![
+                    // ⚠ the converter refuses an area without one; the old
+                    // hand-walk never asked. See the sibling lock-wall fixture.
+                    LdtkEntityInstance {
+                        iid: "PlayerStart-test-symmetry".into(),
+                        identifier: "PlayerStart".into(),
+                        pivot: vec![0.0, 0.0],
+                        px: [96, 96],
+                        width: 16,
+                        height: 16,
+                        field_instances: Vec::new(),
+                    },
+                    LdtkEntityInstance {
+                        iid: "Switch-test-kernel".into(),
+                        identifier: "Switch".into(),
+                        pivot: vec![0.0, 0.0],
+                        px: [606, 736],
+                        width: 68,
+                        height: 24,
+                        field_instances: fields,
+                    },
+                ],
                 int_grid_csv: Vec::new(),
                 grid_tiles: Vec::new(),
             }],
@@ -71,10 +84,41 @@ fn project_with_one_switch(on_activate: Option<&str>) -> LdtkProject {
     }
 }
 
+/// The fixture project, CONVERTED — the road production takes.
+///
+/// ⭐ the fixture stays an `LdtkProject` on purpose: the command line comes off
+/// the room IR now (D136), and converting here means a `convert_switch` that
+/// stops emitting `on_activate` fails in these tests rather than at runtime.
+fn room_with_one_switch(
+    on_activate: Option<&str>,
+    room_id: &str,
+) -> ambition_platformer2d_world::rooms::RoomSpec {
+    project_with_one_switch(on_activate)
+        .to_room_set_with_entry(
+            "symmetry_room",
+            &ambition_platformer2d_ldtk::LdtkVocabulary::engine(),
+        )
+        .unwrap_or_else(|errors| panic!("fixture converts to rooms: {errors:?}"))
+        .rooms
+        .into_iter()
+        .find(|room| room.id == room_id)
+        .unwrap_or_else(|| {
+            ambition_platformer2d_world::rooms::RoomSpec::new(
+                room_id,
+                ambition_platformer2d_core::World::new(
+                    room_id,
+                    ambition_platformer2d_core::Vec2::new(1024.0, 768.0),
+                    ambition_platformer2d_core::Vec2::new(96.0, 96.0),
+                    Vec::new(),
+                ),
+            )
+        })
+}
+
 /// **The walk finds an authored switch verb.**
 #[test]
 fn an_authored_switch_verb_is_found_with_its_switch_id() {
-    let found = authored_switch_commands(&project_with_one_switch(Some(LINE)), "symmetry_room");
+    let found = authored_switch_commands(&room_with_one_switch(Some(LINE), "symmetry_room"));
     assert_eq!(
         found,
         vec![AuthoredSwitchCommand {
@@ -91,7 +135,7 @@ fn an_authored_switch_verb_is_found_with_its_switch_id() {
 /// working untouched.
 #[test]
 fn a_switch_with_no_authored_verb_is_left_to_its_other_consumers() {
-    assert!(authored_switch_commands(&project_with_one_switch(None), "symmetry_room").is_empty());
+    assert!(authored_switch_commands(&room_with_one_switch(None, "symmetry_room")).is_empty());
 }
 
 /// **Only the active room's switches.**
@@ -101,9 +145,7 @@ fn a_switch_with_no_authored_verb_is_left_to_its_other_consumers() {
 /// gets it for free: location comes with the placement.
 #[test]
 fn switches_in_another_room_are_not_found() {
-    assert!(
-        authored_switch_commands(&project_with_one_switch(Some(LINE)), "drain_alley").is_empty()
-    );
+    assert!(authored_switch_commands(&room_with_one_switch(Some(LINE), "drain_alley")).is_empty());
 }
 
 // ── the seam ────────────────────────────────────────────────────────────────
@@ -145,15 +187,7 @@ fn world_with_one_authored_switch(on_activate: Option<&str>) -> App {
         app.world_mut(),
         crate::rooms::RoomSet::from_parts(
             "symmetry_room",
-            vec![crate::rooms::RoomSpec::new(
-                "symmetry_room",
-                ambition_platformer2d_core::World::new(
-                    "symmetry_room",
-                    ambition_platformer2d_core::Vec2::new(1280.0, 1280.0),
-                    ambition_platformer2d_core::Vec2::ZERO,
-                    Vec::new(),
-                ),
-            )],
+            vec![room_with_one_switch(on_activate, "symmetry_room")],
             Vec::new(),
         ),
     );
@@ -277,13 +311,18 @@ fn an_argument_the_descriptor_does_not_declare_is_refused_when_the_room_is_read(
     assert!(rung(&app).is_empty());
 }
 
-/// **A REPLACED PROJECT INVALIDATES THE PREPARED CALLS.**
+/// **A REPLACED ROOM SET INVALIDATES THE PREPARED CALLS.**
 ///
 /// ⛔ carried across from the sibling system, which shipped without it once: a
-/// hot reload that swaps the LDtk project under an unchanged room id kept serving
-/// rules computed from the project that is no longer loaded.
+/// hot reload that swaps the authored source under an unchanged room id kept
+/// serving rules computed from content that is no longer loaded.
+///
+/// ⚠ **the watched input moved with the data** (D136) — it was
+/// `ActiveLdtkProject::is_changed()`, and the command lines come off the room
+/// set now. This is the test that says the signal followed rather than being
+/// dropped on the way.
 #[test]
-fn swapping_the_project_alone_invalidates_the_prepared_calls() {
+fn swapping_the_room_set_alone_invalidates_the_prepared_calls() {
     let mut app = world_with_one_authored_switch(Some(LINE));
     app.update();
     assert_eq!(app.world().resource::<AuthoredSwitchCommands>().len(), 1);
@@ -293,12 +332,22 @@ fn swapping_the_project_alone_invalidates_the_prepared_calls() {
     app.update();
     assert_eq!(app.world().resource::<AuthoredSwitchCommands>().len(), 1);
 
-    app.world_mut().resource_mut::<ActiveLdtkProject>().0.levels[0].layer_instances[0]
-        .entity_instances
-        .clear();
+    {
+        let mut rooms = app.world_mut().query_filtered::<
+            &mut crate::rooms::RoomSet,
+            bevy::prelude::With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>,
+        >();
+        let mut set = rooms
+            .iter_mut(app.world_mut())
+            .next()
+            .expect("the fixture installs a room set");
+        for room in &mut set.rooms {
+            room.switch_commands.clear();
+        }
+    }
     app.update();
     assert!(
         app.world().resource::<AuthoredSwitchCommands>().is_empty(),
-        "the prepared set must track the replaced project"
+        "the prepared set must track the replaced room set"
     );
 }

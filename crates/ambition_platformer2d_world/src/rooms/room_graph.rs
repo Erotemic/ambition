@@ -54,6 +54,8 @@ pub struct RoomSpec {
     pub encounter_triggers: Vec<crate::rooms::EncounterTriggerSpec>,
     /// Authored encounter lock walls in this room (at most one today).
     pub lock_walls: Vec<crate::rooms::EncounterLockWallSpec>,
+    /// Authored `Switch` command lines in this room. Most switches have none.
+    pub switch_commands: Vec<crate::rooms::SwitchCommandSpec>,
 }
 
 impl RoomSpec {
@@ -81,6 +83,7 @@ impl RoomSpec {
             placements: Vec::new(),
             encounter_triggers: Vec::new(),
             lock_walls: Vec::new(),
+            switch_commands: Vec::new(),
         }
     }
 }

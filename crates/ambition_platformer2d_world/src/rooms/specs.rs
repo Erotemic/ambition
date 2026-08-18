@@ -203,6 +203,26 @@ pub struct EncounterTriggerSpec {
     pub camera_zoom: Option<f32>,
 }
 
+/// **A `Switch`'s authored `on_activate` line**, in the room IR.
+///
+/// ⭐⭐ **a typed family and NOT a field on `InteractableSpec`, deliberately**
+/// (D136). The switch already emits an interactable — but `InteractableSpec` is
+/// a variant of the CLOSED Tier-0 `PlacementSchema`, whose kinds are *"an
+/// explicit compatibility contract [that] may only change with a
+/// fingerprint-schema bump"*. Widening it would put a netcode/replay schema
+/// event behind a load-time authored string that exactly one consumer reads.
+///
+/// ⚠ **most switches emit none.** `on_activate` is optional: a switch without
+/// one is driven by its `action`/`target_encounter` pair as before, and
+/// `authored_switch_commands` is the only reader.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct SwitchCommandSpec {
+    /// The switch's authored `id` — the key `SwitchActivation` joins on.
+    pub switch_id: String,
+    /// The authored command line, already trimmed and known non-empty.
+    pub line: String,
+}
+
 /// **An authored encounter's lock wall**, in the room IR. One per area at most.
 ///
 /// See [`EncounterTriggerSpec`] for why this lives here rather than being read

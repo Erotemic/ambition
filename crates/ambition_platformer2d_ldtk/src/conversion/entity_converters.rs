@@ -971,13 +971,35 @@ pub(super) fn convert_switch(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, St
     // SwitchActivation id. The entity.iid would default to something
     // like "Switch-4072"; that mismatch silently no-op'd switch state
     // updates and left the switch sprite stuck red.
+    // The authored switch id, kept before `id` moves into the record — it is the
+    // key `SwitchActivation` joins on, and what a command line is addressed to.
+    let id_for_command = id.clone();
     let mut record = ambition_platformer2d_world::placements::PlacementRecord::new(
         id,
         PlacementSchema::Interactable(interactable),
         aabb,
     );
     record.name = name;
-    Ok(RoomEmission::placement(record))
+    // ⭐ **the `on_activate` line rides alongside, as its own family** (D136).
+    // `authored_switch_commands` used to read it straight off the raw project;
+    // it reads the room now. ⛔ NOT folded into `InteractableSpec`: that type is
+    // a variant of the closed Tier-0 `PlacementSchema`, so widening it would put
+    // a schema event behind a load-time string that one consumer reads.
+    let switch_commands = field_string(entity, "on_activate")
+        .map(|line| line.trim().to_string())
+        .filter(|line| !line.is_empty())
+        .map(
+            |line| ambition_platformer2d_world::rooms::SwitchCommandSpec {
+                switch_id: id_for_command,
+                line,
+            },
+        )
+        .into_iter()
+        .collect();
+    Ok(RoomEmission {
+        switch_commands,
+        ..RoomEmission::placement(record)
+    })
 }
 
 /// **The winding oracle for `SurfaceRamp` (Q27).**

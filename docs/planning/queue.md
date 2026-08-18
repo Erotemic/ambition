@@ -1318,6 +1318,40 @@ every `spawn_overlap` warning the project was carrying was a rider on its mount.
 still warn, so the exemption keys on the reference rather than on the coincidence
 it exists to catch.
 
+⛔⛔ **AND A SECOND INSTRUMENT IN THE SAME TOOL WAS READING NOTHING AT ALL —
+found 2026-08-18 while chasing the off-grid `sanic_sandbox` origin.**
+`level diff-specs` is the CI-friendly check that an area spec's
+`world_x`/`world_y`/`px_wid`/`px_hei` still match the live LDtk. It loaded YAML
+only:
+
+```text
+--all globs *.yaml         22 files, and it SKIPS every one as "not an area spec"
+world_x in a .yaml spec     0 of 22
+world_x in a .ron  spec    53 of 59      ← every area spec is RON
+a .ron passed explicitly    crashes in the YAML scanner on the RON comment
+```
+
+⇒ **it reported success by finding nothing to check.** ✔ fixed: the loader reads
+RON through the tool's own `ron_parse`, and `--all` globs `.ron` and `.json` too.
+
+⚠ **and turning it on reveals real drift, so it is NOT wired into CI yet**: 52
+specs differ, 2 match, **78 coordinate mismatches** — some enormous
+(`volatile_cache` spec says `world_x = 72000`, live is `2048`). ⚠ 13 of the 52
+are specs describing levels in ANOTHER world file, which this command cannot see
+because it takes one `--ldtk`; those are a usage limit, not drift.
+
+▢ **the question underneath it is who OWNS a level's position** — the spec, or
+`world auto-layout` which arranges levels by their LoadingZone graph. The tool's
+own message says *"live LDtk wins"*, which suggests the specs' coordinates
+stopped being authoritative and nobody re-recorded them. ⛔ do not bulk-rewrite
+52 specs to silence it before that is answered.
+
+⭐ **the `sanic_sandbox` off-grid origin is NOT drift**, which is what sent me
+here: its spec declares `world_y: 3000` and the live level agrees. The half-tile
+offset is AUTHORED, in `specs/sanic_sandbox_area.ron`, and moving it means
+editing spec and level together — recorded rather than done, since one level in
+the entire project is off-grid and it is a sandbox test room.
+
 ✔ **AND THE 30 ERRORS ARE 0, 2026-08-18 — RESOLVED, NOT SUPPRESSED.** Both
 causes were the validator being handed less than the runtime has:
 

@@ -40,6 +40,27 @@ from ambition_ldtk_tools.ldtk.paths import default_sandbox_ldtk  # noqa: E402
 REPO_ROOT = Path(__file__).resolve().parents[4]
 
 
+def load_spec_file(path: Path) -> dict:
+    """Read an area spec, whatever it is written in.
+
+    ⛔⛔ **THIS ONLY READ YAML, AND EVERY AREA SPEC IS RON — so the CI-friendly
+    drift check compared NOTHING.** `--all` globbed `*.yaml`, found 22 files,
+    and skipped every one of them as *"not an area spec"*: 0 of 22 declare a
+    `world_x`, while **53 of 59 `.ron` specs do**. Handing it a `.ron`
+    explicitly did not report that either — it crashed inside the YAML scanner
+    on the RON comment syntax.
+
+    ⇒ a check that reports success because it found nothing to check is worse
+    than a missing one; this is the whole reason the command exists.
+    """
+
+    if path.suffix.lower() == ".ron":
+        from ambition_ldtk_tools import ron_parse
+
+        return ron_parse.load(path.read_text())
+    return load_yaml(path)
+
+
 def load_yaml(path: Path) -> dict:
     try:
         import yaml
@@ -116,7 +137,7 @@ def main(argv=None) -> int:
         "--all",
         action="store_true",
         help=(
-            "Diff every *.yaml spec under tools/ambition_ldtk_tools/specs/ "
+            "Diff every area spec under tools/ambition_ldtk_tools/specs/ "
             "(non-recursive). Convenient for a clean-state CI check."
         ),
     )
@@ -126,6 +147,8 @@ def main(argv=None) -> int:
     if args.all:
         spec_dir = REPO_ROOT / "tools" / "ambition_ldtk_tools" / "specs"
         spec_paths.extend(sorted(spec_dir.glob("*.yaml")))
+        spec_paths.extend(sorted(spec_dir.glob("*.ron")))
+        spec_paths.extend(sorted(spec_dir.glob("*.json")))
         spec_paths.extend(sorted(spec_dir.glob("*.yml")))
     if not spec_paths:
         parser.error("no specs to diff; pass spec paths or --all")
@@ -135,7 +158,7 @@ def main(argv=None) -> int:
 
     all_match = True
     for spec_path in spec_paths:
-        spec = load_yaml(spec_path)
+        spec = load_spec_file(spec_path)
         if spec is None:
             print(f"{spec_path}: empty or unreadable YAML")
             all_match = False

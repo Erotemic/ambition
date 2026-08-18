@@ -106,7 +106,7 @@ its frozen baseline.
 | Lane | Owner | Executable next action |
 |---|---|---|
 | **D127 — authored logic** | **unstaffed** | ⛔ M1 is complete and M2's prepared-call half LANDED (`7e7552c4b`); the `when … then` rule form is deliberately UNBUILT for want of a customer. ⇒ nothing here is dispatchable until a customer appears or M5 diagnostics are wanted — **do not re-open M1 or M2** |
-| **D128 — Smash CPU showcase** | unstaffed | ✔ **PACING IS ACCEPTED** (Jon, 2026-08-17: a 3-stock CPU match completing in under ~40s is *"if anything… brisk"*) ⇒ ⛔ do NOT retune stock count, knockback or damage, and do not re-capture to establish status. **What is left is ENGINEERING**, in this order: seat-independent respawn placement · standalone smash-app asset composition · the residual presentation defects in D128's ACTIVE TRUTH block |
+| **D128 — Smash CPU showcase** | unstaffed | ◐ **ENGINEERING IS DONE — every line closed by 2026-08-18.** Pacing ACCEPTED (Jon, 2026-08-17: under ~40s is *"if anything… brisk"*) ⇒ ⛔ do NOT retune stock count, knockback or damage. Respawn placement, standalone asset composition, CPU symmetry and all four presentation defects are ✔ — the last two were the bark width and the untextured impact quad, both photographed before and after. ⇒ **what remains is Jon watching one match**, not another capture. |
 
 ⭐ **the build lease is no longer exclusive, and the reason changed.** The old
 rule — *workers never run `cargo`* — rested on one shared target dir against a
@@ -5309,7 +5309,15 @@ already rejects it, which is the check discriminating correctly rather than
 counting edges. ⚠ the check should still report the profile it saw, not just a
 verdict.
 
-- ▢ **D128 — Can this engine carry a serious platform fighter through ORDINARY authoring? (product-pressure vertical slice, opened 2026-08-15; FIRST PROOF LANDED)**
+- ◐ **D128 — Can this engine carry a serious platform fighter through ORDINARY authoring? (product-pressure vertical slice, opened 2026-08-15; ⭐⭐ EVERY ENGINEERING LINE IS ✔ AS OF 2026-08-18 — what is left is Jon playing one match)**
+
+⭐⭐ **READ THIS BEFORE ANYTHING ELSE IN THE ROW: the executable list below is
+EMPTY.** Pacing was ruled, respawn placement and asset composition landed, CPU
+symmetry landed, and all four presentation defects are closed — 5 and 6 fixed and
+photographed, 7 was fixed three hours after it was reported, 8 verified live.
+⛔ **so do not open this row looking for work**; it stays ◐ only because its
+QUESTION is a product one and the answer is a person watching a match, not
+another capture.
 
 ⭐⭐⭐ **ACTIVE TRUTH — 2026-08-17, and it is the ONLY executable statement in this
 row. ⛔⛔ EVERYTHING BELOW IS EVIDENCE IN REVERSE-CHRONOLOGICAL LAYERS, AND EVERY

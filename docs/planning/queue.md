@@ -1193,8 +1193,33 @@ plan's open step is waiting for — ⚠ two mechanisms exist at different layers
 is an encounter, and that doc is the one saying a process-global switch is the
 wrong shape.
 
-- ▢ **D163 — THE LDtk VALIDATOR IS ALMOST ALL NOISE, AND ONE OF ITS WARNINGS
-  INVITES DESTROYING AUTHORED CONTENT. (opened 2026-08-17)**
+- ✔ **D163 — CLOSED 2026-08-18. The validator's errors are 0 and its loudest
+  warning no longer flags a designed relationship. (opened 2026-08-17)**
+
+```text
+                    was                              now
+error:              30, ALL false positives          0
+spawn_overlap       8, every one a rider on a mount  0 (mounts exempt; real overlaps still fire)
+missing_level_wall  portal_lab false + genre pits    5, all genre pits (a bottomless pit IS the design)
+editor.shape        8 entities unplaceable in 2      6, all `SurfaceRamp`, deliberately deferred
+```
+
+⛔ **the one thing left is a PRODUCT CALL, not a defect**: `SurfaceRamp` has a
+converter, a winding oracle and 0 placements in any world, so whether to invite
+authors into an unused capability is Jon's. It is now the ONLY thing that
+warning says, in every world, which is what makes it a signal.
+⚠ the `sanic_sandbox` off-grid origin is AUTHORED — its spec declares
+`world_y: 3000` and the live level agrees — so it is not drift; ▢ moving it means
+editing spec and level together, for one level in the whole project.
+▢ **and one question came out of this**: who owns a level's POSITION, the area
+spec or `world auto-layout` (§16 in
+[`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md)).
+
+⭐⭐ **THE LESSON THIS ROW EXISTED FOR, KEPT:** a validator whose errors are 100%
+noise teaches you to read a red exit as noise — and this one talked a session
+into reaching for `entity delete` on the shark-riding pirates. ⇒ **every finding
+below was a proxy question standing in for the real one**, which is the pattern
+rather than four coincidences.
 
 ⛔⛔ **I FILED THIS ROW WITH A HEADLINE THAT WAS WRONG, AND THE WRONG VERSION WAS
 ACTIONABLE — that is the finding worth keeping.** I reported *"two pirate-sky

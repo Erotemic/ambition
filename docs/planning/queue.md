@@ -2631,7 +2631,12 @@ is a product call, not a refactor.**
 
 ⇒ **remaining legs of the same question:** the two terminal cases —
 **destroyed permanently** ⇒ never recreate (needs a `Consumed` producer) and
-**intentionally resettable** ⇒ may recreate (already the default). Plus two
+**intentionally resettable** ⇒ may recreate (already the default).
+⭐ **verified 2026-08-18: still ZERO producers**, and the three notes that say so
+(`continuity.rs` twice, `rollback/domains/primitives.rs` once) are accurate — the
+one production mention is a match ARM that treats `Consumed` as terminal, not a
+write. ⇒ this leg is a FEATURE waiting on a product answer (what destroys
+something permanently?), not a defect. Plus two
 carried risks the author recorded: `SimId::placement(id)` is a **global**
 namespace whose uniqueness is only checked **per room**, so two rooms authoring
 one id would suppress both; and the ledger is not experience-scoped, so a

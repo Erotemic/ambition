@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v36
+ggrs-rollback-schema-v37
 actor.action_set	component-clone	ActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.active_combatant	component-canonical	ActiveCombatant	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.aggression	component-clone-cursor	ActorAggression	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
@@ -91,6 +91,7 @@ boss.encounter	component-clone-cursor	BossEncounter	bevy_ggrs clone snapshot + c
 boss.overrides	component-clone	BossOverrides	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 boss.pattern_timer	component-canonical	BossPatternTimer	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 boss.phase	component-canonical	BossPhase	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+capture.captured_by	component-clone	CapturedBy	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
 combat.capabilities	component-clone	CombatCapabilities	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 combat.hitbox	component-clone	Hitbox	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
 combat.hitbox_hits	component-clone	HitboxHits	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
@@ -239,6 +240,7 @@ limb.rig	component-clone	LimbRig	bevy_ggrs clone snapshot; keyed entity MAP rema
 limb.route_state	component-clone	LimbRouteState	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 map.actor_aggression	entity-mapping	ActorAggression	bevy_ggrs LoadWorld entity-reference remapping
 map.actor_target	entity-mapping	ActorTarget	bevy_ggrs LoadWorld entity-reference remapping
+map.captured_by	entity-mapping	CapturedBy	bevy_ggrs LoadWorld entity-reference remapping
 map.content.saddle_point_state	entity-mapping	SaddlePointState	bevy_ggrs LoadWorld entity-reference remapping
 map.encounter_participants	entity-mapping	EncounterParticipants	bevy_ggrs LoadWorld entity-reference remapping
 map.hitbox	entity-mapping	Hitbox	bevy_ggrs LoadWorld entity-reference remapping
@@ -269,6 +271,9 @@ message.body_teleported	message-clear	BodyTeleported	clear abandoned-future mess
 message.boss_phase_changed	message-clear	BossPhaseChanged	clear abandoned-future message buffer in LoadWorld::Mapping
 message.brain_command	message-clear	BrainCommand	clear abandoned-future message buffer in LoadWorld::Mapping
 message.camera_shake_request	message-clear	CameraShakeRequest	clear abandoned-future message buffer in LoadWorld::Mapping
+message.capture_attempt_requested	message-clear	CaptureAttemptRequested	clear abandoned-future message buffer in LoadWorld::Mapping
+message.capture_pummel_requested	message-clear	CapturePummelRequested	clear abandoned-future message buffer in LoadWorld::Mapping
+message.capture_throw_requested	message-clear	CaptureThrowRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.challenge_requested	message-clear	ChallengeRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.checkpoint_committed	message-clear	CheckpointCommitted	clear abandoned-future message buffer in LoadWorld::Mapping
 message.clear_portals	message-clear	ClearPortals	clear abandoned-future message buffer in LoadWorld::Mapping

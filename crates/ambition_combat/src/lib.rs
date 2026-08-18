@@ -8,6 +8,7 @@
 pub mod authored_volumes;
 pub mod banner;
 pub mod breakables;
+pub mod capture;
 #[cfg(feature = "causal")]
 pub mod causal;
 pub mod components;

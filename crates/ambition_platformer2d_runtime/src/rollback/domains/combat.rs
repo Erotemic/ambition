@@ -231,6 +231,35 @@ pub(in crate::rollback) fn register(app: &mut App) {
         "derived.resolved_combat_tuning",
         "refolded from DeclaredCombatRules over the world baseline every WorldPrep",
     );
+    // **CAPTURE: the relationship is state; the requests are not.**
+    //
+    // `CapturedBy` is authoritative sim state — a rewind past a grab must undo
+    // the grab, and a rewind past a THROW must put the captive back in the hold.
+    // Cloned rather than blob-encoded because it carries an `Entity`, which N3.1
+    // forbids in a blob; the `map_entities` pass below re-points that handle the
+    // way `RidingOn`'s does. Same shape, for the same reason: a component on the
+    // dependent body naming the other one.
+    app.rollback_component_clone_entity_ref::<ambition_combat::capture::CapturedBy>(
+        OWNER,
+        "capture.captured_by",
+        |held| held.captor,
+    );
+    app.rollback_map_entities::<ambition_combat::capture::CapturedBy>(OWNER, "map.captured_by");
+    // ⚠ the three capture REQUESTS are same-frame transients. A resimulated tick
+    // re-derives them from the authored timeline it is replaying, so a buffer
+    // that survived the rewind would apply a pummel twice.
+    app.clear_message_on_rollback::<ambition_combat::capture::CaptureAttemptRequested>(
+        OWNER,
+        "message.capture_attempt_requested",
+    );
+    app.clear_message_on_rollback::<ambition_combat::capture::CapturePummelRequested>(
+        OWNER,
+        "message.capture_pummel_requested",
+    );
+    app.clear_message_on_rollback::<ambition_combat::capture::CaptureThrowRequested>(
+        OWNER,
+        "message.capture_throw_requested",
+    );
     app.clear_message_on_rollback::<ambition_combat::hitbox::LandedBodyHit>(
         OWNER,
         "message.landed_body_hit",

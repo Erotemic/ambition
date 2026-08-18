@@ -1,12 +1,13 @@
 crates/ambition_boss_encounter/src/clusters.rs	4	28422666ea225fd2
-crates/ambition_characters/src/snapshot_impls.rs	236	33a30898fc8297f8
+crates/ambition_characters/src/snapshot_impls.rs	238	2b235a7324697e1c
 crates/ambition_combat/src/snapshot_impls.rs	80	60bf8335604ed249
-crates/ambition_cutscene/src/lib.rs	36	b2effac55562d960
+crates/ambition_cutscene/src/lib.rs	37	0212a76922f092a4
 crates/ambition_encounter/src/snapshot_impls.rs	35	bb87c343bf3d9ffd
 crates/ambition_platformer2d_actor_monolith/src/snapshot_impls.rs	115	12cfbe7953e6b020
 crates/ambition_platformer2d_core/src/motion_codec.rs	314	e97e77ba82ebd57e
 crates/ambition_platformer2d_core/src/snapshot.rs	17	075822b7876cabb6
-crates/ambition_platformer2d_core/src/snapshot_impls.rs	100	2901c12a3710953a
+crates/ambition_platformer2d_core/src/snapshot_impls.rs	102	98002346c3f2564b
+crates/ambition_platformer2d_runtime/src/rollback/registry.rs	0	da39a3ee5e6b4b0d
 crates/ambition_platformer2d_shared_tangle/src/lifecycle/round.rs	6	ebfd75dd6ce790b8
 crates/ambition_platformer2d_shared_tangle/src/snapshot_impls.rs	44	65472a019733d472
 crates/ambition_platformer2d_world/src/snapshot_impls.rs	2	f571bd2cf345bda8
@@ -17,4 +18,4 @@ crates/ambition_relativity2d/src/signals.rs	60	82a08f3f7b7d007a
 crates/ambition_relativity2d/src/targeting.rs	1	8e10b599960d4972
 crates/ambition_time/src/snapshot_impls.rs	10	3609def54fb97f73
 game/ambition_content/src/bosses/specials/rollback.rs	45	a3f48ac68c95bf78
-game/ambition_demo_twintrack/src/lib.rs	16	a65f5a30d3caddd9
+game/ambition_demo_twintrack/src/lib.rs	17	0cc0d2351e873b93

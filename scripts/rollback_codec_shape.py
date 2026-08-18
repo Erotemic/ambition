@@ -112,6 +112,30 @@ def shape_of(path: Path) -> tuple[int, str]:
     for match in re.finditer(r'\bsnapshot_pod!\s*\((.*?)\)\s*;', text, flags=re.S):
         body = re.sub(r'\s+', '', match.group(1))
         tokens.append(f'pod[{body}]')
+    # ⛔⛔ **AND AN ARRAY-DRIVEN CODEC HIDES THE SAME WAY A POD DID.**
+    #
+    # `for b in [f.a, f.b, …] { put_bool(out, b); }` calls ONE primitive however
+    # long the array is, and the decode side reads `[false; N]` in one loop. So a
+    # field added to the array changes the bytes a peer encodes and leaves the
+    # primitive SEQUENCE byte-identical — measured 2026-08-18 on
+    # `ActorControlFrame`, which went 19 flags to 20 with the file's hash
+    # unmoved at `b54dbef425527998` both sides.
+    #
+    # ⭐ this is the same hole `snapshot_pod!` was already patched for, in the
+    # comment right above: *"otherwise a POD component could gain a field with no
+    # primitive call anywhere and read as unchanged."* One construct had been
+    # noticed and the other had not.
+    #
+    # ⚠ the COUNT, never the names — a renamed field is not a wire change, and a
+    # guard that fired on renames is the false positive this file's own docs say
+    # gets a checker turned off.
+    for match in re.finditer(r'\bfor\s+\w+\s+in\s*\[([^\[\]]*?)\]\s*\{', text, flags=re.S):
+        body = match.group(1).strip().rstrip(',')
+        if not body:
+            continue
+        tokens.append(f'arr[{len(body.split(",")) }]')
+    for match in re.finditer(r'\[\s*(?:false|true|0u8|0i32|0f32|0\.0)\s*;\s*(\d+)\s*\]', text):
+        tokens.append(f'fixed[{match.group(1)}]')
     digest = hashlib.sha1('\n'.join(tokens).encode('utf8')).hexdigest()[:16]
     return len(tokens), digest
 

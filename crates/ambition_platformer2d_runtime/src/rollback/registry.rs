@@ -308,7 +308,25 @@ use super::{
 /// the baseline watches the registered SET and the key was still there. **A
 /// payload change under a stable key is invisible to it by construction**, which
 /// is why the codec-shape tracker is a separate instrument.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 36;
+/// ⚠ **v37 (2026-08-18): TWO codecs each gained one encoded `bool`** as the
+/// capture verb entered the vocabulary — `AbilitySet::grab` and
+/// `ActorControlFrame::grab_pressed`. Both are ordinary field additions, so an
+/// old peer and a new one disagree about every snapshot from the first frame.
+///
+/// ⛔⛔ **and only ONE of the two was caught, which is the part worth recording.**
+/// `AbilitySet` encodes with a `put_bool` per field, so its primitive sequence
+/// moved and `rollback_codec_shape.py` said so. `ActorControlFrame` encodes its
+/// flags through `for b in [f.a, f.b, …] { put_bool(out, b); }` — ONE primitive
+/// call however long the array is — so it went from 19 flags to 20 with the
+/// file's hash unmoved at `b54dbef425527998` on both sides. The wire changed and
+/// the instrument that exists to notice could not.
+///
+/// ⭐ the checker now folds the array's ELEMENT COUNT into its hash, the same
+/// patch `snapshot_pod!` had already been given in that file for the identical
+/// reason — one construct had been noticed and the other had not. Re-recording
+/// it also moved `ambition_cutscene` and `ambition_demo_twintrack`, which is the
+/// instrument CHANGING and NOT a wire change in either: neither file was edited.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 37;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

@@ -731,6 +731,11 @@ pub fn emmy_noether_moveset() -> MovesetContract {
         neutral_special: NeutralSpecial::Authored(n_b),
         side_special: side_b,
         up_special: up_b,
+        // ⚠ **no capture kit yet** — the relationship architecture is being
+        // proven on two fighters first (see `SmashCaptureRepertoire`). This is
+        // the transitional `None`, and it means exactly one thing: no Grab slot,
+        // no grab verbs, nothing about this fighter lying about having one.
+        capture: None,
         down_special: DownSpecial::ByPosture {
             grounded: down_b,
             airborne: air_down_b,

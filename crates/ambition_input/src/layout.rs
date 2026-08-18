@@ -69,6 +69,18 @@ use crate::Platformer2dInputActionMonolith;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PadSlot {
     pub button: GamepadButton,
+    /// What this layout puts on the button — or `None` for a button it CLAIMS
+    /// and leaves empty.
+    ///
+    /// ⚠ the `None` is load-bearing, not a placeholder: [`BindingLayout::apply`]
+    /// clears every claimed button's gameplay bindings first and only then binds
+    /// the ones with an action, so a blank slot is how a layout TAKES A BUTTON
+    /// AWAY from the base preset without giving it a new verb. The Smash layout
+    /// used it to keep Projectile off North while North was reserved for a grab
+    /// that did not exist yet; that reservation was redeemed 2026-08-18 and no
+    /// layout blanks a button today. The capability stays because the next one
+    /// that needs it is one line, and the alternative — binding something the
+    /// layout does not want — is the failure this expresses.
     pub action: Option<Platformer2dInputActionMonolith>,
 }
 
@@ -76,13 +88,6 @@ const fn slot(button: GamepadButton, action: Platformer2dInputActionMonolith) ->
     PadSlot {
         button,
         action: Some(action),
-    }
-}
-
-const fn blank(button: GamepadButton) -> PadSlot {
-    PadSlot {
-        button,
-        action: None,
     }
 }
 

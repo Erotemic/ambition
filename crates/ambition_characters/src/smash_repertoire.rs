@@ -146,6 +146,22 @@ pub struct SmashRepertoire {
     pub up_special: MoveSpec,
     /// `special_down`, and possibly `special_air_down`. See [`DownSpecial`].
     pub down_special: DownSpecial,
+    /// **The capture kit — grab, pummel, throws.** See
+    /// [`SmashCaptureRepertoire`](crate::smash_capture::SmashCaptureRepertoire).
+    ///
+    /// ⚠ `Option` DURING THE MIGRATION, and it is the one slot on this struct
+    /// that is. Every other field is required precisely so a missing one is a
+    /// compile error in the fighter's own file — that is this type's whole
+    /// argument. This field suspends that argument on purpose: the relationship
+    /// architecture is being proven on two fighters first, and forcing the other
+    /// twelve to invent grab geometry against a shape that is still moving would
+    /// author the wrong values confidently.
+    ///
+    /// ⇒ **when the roster is migrated, delete the `Option`** and the compiler
+    /// resumes doing what it does for the other sixteen slots. A fighter with
+    /// `None` simply has no capture verbs, and the action scheme gives it no Grab
+    /// slot, so nothing about it lies.
+    pub capture: Option<crate::smash_capture::SmashCaptureRepertoire>,
 }
 
 impl SmashRepertoire {
@@ -179,6 +195,7 @@ impl SmashRepertoire {
             side_special,
             up_special,
             down_special,
+            capture,
         } = self;
 
         let mut bound: Vec<(&'static str, MoveSpec, MoveGates)> = vec![
@@ -205,6 +222,15 @@ impl SmashRepertoire {
             DownSpecial::ByPosture { grounded, airborne } => {
                 bound.push(("special_down", grounded, GROUNDED));
                 bound.push(("special_air_down", airborne, AIRBORNE));
+            }
+        }
+
+        // Capture moves are GROUNDED for v1 — aerial and command grabs are named
+        // future techniques, and a capture that answered an airborne press would
+        // be one of them by accident.
+        if let Some(capture) = capture {
+            for (verb, spec) in capture.bound() {
+                bound.push((verb, spec, GROUNDED));
             }
         }
 
@@ -269,6 +295,7 @@ mod tests {
             neutral_special,
             side_special: spec("sspecial"),
             up_special: spec("uspecial"),
+            capture: None,
             down_special,
         }
     }

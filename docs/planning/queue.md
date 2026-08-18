@@ -5459,7 +5459,23 @@ their status, and do not re-run the capture or the ladder rig to get it:**
 5 barks draw as a          ◐ the OVERLAP half closed via D158→D159 (a bubble is
   screen-wide caption         a `WorldLabel` in the one ranked placement pass);
                             the SCALE/placement half is unverified since.
-6 untextured olive quad    ▢ OPEN, unverified since 2026-08-16.
+6 untextured olive quad    ▢ OPEN — but NARROWED 2026-08-18 by reading the
+                              suspect. The fallback the row names
+                              (`actors/mod.rs` ~598) is a FEATURE path, and its
+                              colour is `feature_color(kind, ..)`, whose whole
+                              table is: hazard RED, actor BLUE (or red when
+                              fighting), breakable BROWN `(0.62,0.42,0.24)`,
+                              chest AMBER `(1.0,0.74,0.22)`, pickup MINT, switch
+                              RED. ⇒ **two candidates, not "an effect path"**:
+                              breakable's brown is what "olive" most plausibly
+                              is from a screenshot, chest's amber second.
+                              ⛔ and the effect path is the LEAST likely — the
+                              only `from_color` in `fx.rs` is a 3.5–5px grey-blue
+                              DUST particle, nothing body-sized.
+                              ⇒ **settle it by SAMPLING, not describing**: read
+                              the quad's RGB out of the capture and compare
+                              against those six constants. A colour named by eye
+                              is what made this an open question for two days.
 7 VFX authored against no  ▢ OPEN — the Admiral's wheel is ~250px vs a ~45px
   size reference              fighter.
 8 capture_scene prints no  ✔ CLOSED 2026-08-18 — it now reports the SEATED

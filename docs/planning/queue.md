@@ -1235,14 +1235,24 @@ missing_level_wall GENRE-DEPENDENT — fires on mary_o_1_1 and sanic_speedway
                    where a bottomless pit is the design
 ```
 
-▢ **the two that survive scrutiny:**
-1. **`portal_lab`'s bottom EDGE is open** — no `Solid` on it and no `EdgeExit`.
-   Real for an AMBITION room, where falling out is not a mechanic.
-   ⚠ **but "the player can leave the world" is NOT demonstrated**: driven
-   headlessly, the body rests at `(92, 872)` at 20 ticks and is still there at
-   120, so it does not fall from spawn. The gap is at the level BOUNDARY, and
-   whether a player can reach it depends on layout nobody has walked. ⇒ worth
-   fixing as a boundary, not reportable as a fall.
+▢ **the two that survived scrutiny — and the first one did not survive a second
+look:**
+1. ✔ **`portal_lab`'s bottom edge was a FALSE POSITIVE, and the headless probe
+   had already said so.** The room is walled on three sides and reported open at
+   the bottom because `missing_level_wall` probes only the OUTERMOST cell row —
+   while portal_lab's **full-width floor sits five rows above the boundary**,
+   with unreachable empty margin below it. That is why the body rested at
+   `(92, 872)` and never fell: ⭐ *"it does not fall from spawn"* was the
+   answer, not a caveat.
+
+   ✔ fixed by asking the real question for that side: a floor blocks a fall
+   **wherever it is**. ⚠ **only the BOTTOM gets this** — the same idea on
+   left/right (a full-height solid column) is much NOISIER, measured at **46
+   open sides instead of 6**, because a corridor's side wall legitimately has a
+   doorway gap. A floor is continuous by nature; a wall is not.
+   ⭐ both terms observed: `portal_lab` stops warning, `mary_o_1_1` and
+   `mary_o_1_3` still do — and those are the genre-dependent bottomless pits
+   this row already excused.
 2. **`SurfaceRamp` has no editor definition**, so a supported engine entity
    cannot be PLACED by an author. ⭐ **verified both ways**: the converter is real
    (`conversion/entity_converters.rs`, 5 sites, plus a winding oracle), and

@@ -289,7 +289,25 @@ def loading_zone_support_issues(project: dict[str, Any]) -> list[Issue]:
             if side == "top":
                 return any(csv[x] == 1 for x in range(c_wid))
             if side == "bottom":
-                return any(csv[(c_hei - 1) * c_wid + x] == 1 for x in range(c_wid))
+                if any(csv[(c_hei - 1) * c_wid + x] == 1 for x in range(c_wid)):
+                    return True
+                # ⭐⭐ **A FLOOR STOPS A FALL WHEREVER IT IS, not only on the
+                # outermost row.** `portal_lab` is walled on three sides and
+                # reported open at the bottom — because its full-width floor
+                # sits FIVE rows above the level boundary, with empty margin
+                # below it that nothing can reach. Driven headlessly the body
+                # rests and never falls, which is what said the warning was
+                # wrong rather than the room.
+                #
+                # ⚠ **only the BOTTOM gets this.** The same idea on left/right
+                # (a full-height column of solid) is the wrong test and much
+                # NOISIER — measured: it opens 46 sides instead of 6, because a
+                # corridor's side wall legitimately has a doorway gap in it.
+                # ⇒ a floor is continuous by nature; a wall is not.
+                return any(
+                    all(csv[row * c_wid + x] == 1 for x in range(c_wid))
+                    for row in range(c_hei)
+                )
             return False
 
         sides = (

@@ -330,7 +330,11 @@ impl SmashCaptureRepertoire {
     /// Every capture move is GROUNDED for v1: aerial and command grabs are named
     /// future techniques, and a grab that answered an airborne press would be one
     /// of them by accident.
-    pub(crate) fn bound(self) -> Vec<(&'static str, MoveSpec)> {
+    /// ⭐ **public because a contract assembled BY HAND still needs the one
+    /// verb mapping.** `SmashRepertoire::into_contract` is the usual road, and a
+    /// table that builds its `MovesetContract` directly would otherwise copy the
+    /// verb names — the copy that drifts the day one is renamed.
+    pub fn bound(self) -> Vec<(&'static str, MoveSpec)> {
         let Self {
             grab,
             pummel,

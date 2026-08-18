@@ -578,6 +578,66 @@ pub fn fighter_moveset() -> MovesetContract {
     d_air.autocancel_after_s = Some(0.40);
     moves.push(d_air);
 
+    // ⭐⭐ **A GRAB, BECAUSE EVERY FIGHTER IN THE GENRE HAS ONE.**
+    //
+    // ⛔ measured 2026-08-18, and it is why this exists: a CPU-versus-CPU match
+    // on the default roster produced ZERO grabs in sixty seconds, and the cause
+    // was not the AI, the eligibility rules or the acquisition — it was that the
+    // two fighters standing on the stage had no grab to press. Only George
+    // authored one, and the default seats are the STAND-INS. A rock-paper-
+    // scissors triangle with one leg on one character is not the game.
+    //
+    // ⚠ a middleweight's numbers, deliberately between the two fighters that
+    // already author one: slower than the admiral's `0.07` snatch, faster than
+    // George's `0.16` commitment, and its throw sits below both a smash and his.
+    let capture = ambition_platformer2d::characters::smash_capture::SmashCaptureRepertoire {
+        grab: ambition_platformer2d::characters::smash_capture::author_standing_grab(
+            ambition_platformer2d::characters::smash_capture::grab_shell(
+                "grab", "grab", 0.12, 0.05, 0.24,
+            ),
+            ambition_platformer2d::characters::smash_capture::CaptureAttemptParams {
+                offset: (20.0, 0.0),
+                half_extents: (22.0, 14.0),
+                hold_offset: (18.0, -2.0),
+            },
+        ),
+        pummel: ambition_platformer2d::characters::smash_capture::author_pummel(
+            ambition_platformer2d::characters::smash_capture::capture_beat(
+                "pummel", "attack", 0.18,
+            ),
+            0.09,
+            ambition_platformer2d::characters::smash_capture::CapturePummelParams { damage: 3 },
+        ),
+        forward_throw: ambition_platformer2d::characters::smash_capture::author_throw(
+            ambition_platformer2d::characters::smash_capture::capture_beat(
+                "throw_forward",
+                "attack",
+                0.28,
+            ),
+            0.16,
+            ambition_platformer2d::characters::smash_capture::CaptureThrowParams {
+                damage: 9,
+                knockback: 120.0,
+                knockback_growth: 2.1,
+                launch_dir: (0.9, -0.5),
+            },
+        ),
+        // A press for a throw this table does not author finds nothing, rather
+        // than a pummel wearing a throw's name.
+        back_throw: None,
+        up_throw: None,
+        down_throw: None,
+    };
+    let capture_verbs: Vec<(String, String)> = capture
+        .bound()
+        .into_iter()
+        .map(|(verb, spec)| {
+            let binding = (verb.to_string(), spec.id.clone());
+            moves.push(spec);
+            binding
+        })
+        .collect();
+
     let verbs = [
         ("attack", "jab"),
         ("attack_up", "tilt_up"),
@@ -593,6 +653,7 @@ pub fn fighter_moveset() -> MovesetContract {
     ]
     .into_iter()
     .map(|(verb, id)| (verb.to_string(), id.to_string()))
+    .chain(capture_verbs)
     .collect();
 
     MovesetContract { verbs, moves }

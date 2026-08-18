@@ -394,9 +394,10 @@ fn the_kit_prices_a_grab_from_the_capture_its_own_move_authors() {
         "the grab's reach is not the rect its own capture attempt sustains"
     );
     assert_eq!(
-        grab.frames.max_damage, 11,
-        "the grab is priced at zero, so catching somebody is worth nothing — \
-         what it is worth is the throw this fighter authored to follow it"
+        grab.frames.max_damage, 0,
+        "a grab was priced as if it DEALT damage. It deals none; what it is \
+         worth is that the opponent is held, and the generic scorer has no term \
+         for that — see the note on `capture_candidate`, and the match this cost"
     );
     assert!(
         grab.frames.ignores_guard,
@@ -409,53 +410,71 @@ fn the_kit_prices_a_grab_from_the_capture_its_own_move_authors() {
     );
 }
 
-/// **⭐⭐ THE THIRD LEG OF THE TRIANGLE, IN THE PLANNER.**
+/// **⭐ A GUARD-IGNORING MOVE BEATS A BLOCKABLE ONE AGAINST A RAISED SHIELD.**
 ///
-/// Attack beats grab, grab beats shield, shield beats attack. Measured through
-/// the real option scorer and the real rollout, with the fighter's read of its
-/// opponent as the only thing that changes:
+/// The generic half of the triangle, at the layer that owns it: the ROLLOUT is
+/// where a shield zeroes a swing, so it is where `ignores_guard` has to be
+/// visible. Two candidates identical in every other respect, and the fighter's
+/// READ of its opponent as the only thing that changes.
 ///
-/// ```text
-/// reads SHIELD   → grab   (the one answer a guard has no answer to)
-/// reads ATTACK   → jab    (14 damage now beats a throw's 11 later)
-/// ```
-///
-/// ⚠⚠ **THREE THINGS ABOUT THIS FIXTURE ARE LOAD-BEARING, and each was measured
-/// wrong first.**
-///
-/// * **the gap is one BOTH moves reach.** At 30px the jab's shadow whiffs
-///   (reach 28) and the grab wins for a reason that has nothing to do with
-///   guards — a fixture that read as "the CPU answers a shield" while measuring
-///   "the CPU uses the move that reaches".
-/// * **the jab out-damages the throw.** With a 5-damage jab against an
-///   11-damage throw the grab wins everywhere, which is a property of the
-///   fixture and not of the scorer. George's real kit has moves above his
-///   throw, so this is the genre's own arrangement.
-/// * **the shield lives in the ROLLOUT, not in the option score.** The option
-///   features are identical for a guarding and an open opponent by design, so
-///   an assertion at that layer cannot see this at all.
+/// ⛔⛔ **this deliberately does NOT claim "the CPU grabs a shielding
+/// opponent", and the difference is a measured match.** A grab deals no damage,
+/// so against a guard a blockable attack and a capture are both worth zero and
+/// the fit breaks the tie — the CPU picks the attack. Pricing the grab at its
+/// throw's damage made it prefer the grab and ALSO made it grab from 110px in
+/// every exchange (`capture_probe`, 2026-08-18: nine attempts, none inside the
+/// 42px it reaches, zero holds). What is missing is not a number: it is that
+/// "how valuable is holding somebody" is platform-fighter policy, and this
+/// scorer is shared by every actor in every game the engine runs. Queue D166.
 #[test]
-fn a_read_that_says_guard_is_answered_with_the_grab_and_otherwise_is_not() {
+fn a_guard_ignoring_move_is_what_answers_a_raised_shield() {
+    use ambition_characters::actor::attack_gesture::AttackDir;
     use ambition_characters::brain::fighter::habit::{Choice, HabitModel};
-    use ambition_characters::brain::fighter::options::generate_options;
+    use ambition_characters::brain::fighter::options::{
+        generate_options, AttackBinding, AttackCandidate, AttackVerb,
+    };
     use ambition_characters::brain::fighter::rollout::{refine_by_rollout, ShadowTuning};
     use ambition_characters::brain::fighter::situation::classify;
     use ambition_characters::brain::fighter::FighterBrainProfile;
 
-    // Close enough that BOTH the jab and the grab reach. See the doc.
+    // Close enough that both reach. At range the shadow's whiff decides instead,
+    // which is a different question with the same answer shape — measured, and
+    // the reason this gap is stated rather than picked.
     const GAP: f32 = 20.0;
-    let moveset = ActorMoveset(jab_and_grab());
-    let kit = attack_kit_of(Some(&moveset), true, Some(&fighter_brain()));
+    let blockable = strike_hitting_for("blockable", 22.0, 10);
+    let mut unblockable_frames = strike_hitting_for("unblockable", 22.0, 10).frame_data();
+    unblockable_frames.ignores_guard = true;
+    let kit = vec![
+        AttackCandidate {
+            move_id: "blockable".to_string(),
+            frames: blockable.frame_data(),
+            binding: AttackBinding {
+                verb: AttackVerb::Basic,
+                direction: AttackDir::Neutral,
+            },
+        },
+        AttackCandidate {
+            move_id: "unblockable".to_string(),
+            frames: unblockable_frames,
+            binding: AttackBinding {
+                verb: AttackVerb::Grab,
+                direction: AttackDir::Neutral,
+            },
+        },
+    ];
     let profile = FighterBrainProfile::for_level(8);
 
-    for (read, expected) in [(Choice::Shield, "grab"), (Choice::Attack, "jab")] {
+    for (read, expected) in [
+        (Choice::Shield, "unblockable"),
+        (Choice::Attack, "blockable"),
+    ] {
         let mut delayed = ambition_characters::perception::DelayedPerception::default();
         delayed.observe(scene_guarding(GAP, read == Choice::Shield));
         let perceived = delayed.perceive().expect("the fixture published a view");
         let situation = classify(perceived);
         let options = generate_options(perceived, situation, &kit, &profile.utility_weights);
-        // What this fighter has learned its opponent does here. The shadow's
-        // foe acts on it, which is the only way a guard ever exists to answer.
+        // What this fighter has learned its opponent does here. The shadow's foe
+        // acts on it, which is the only way a raised guard exists to answer.
         let mut habits = HabitModel::default();
         for _ in 0..20 {
             habits.observe(situation, read);
@@ -475,26 +494,27 @@ fn a_read_that_says_guard_is_answered_with_the_grab_and_otherwise_is_not() {
         assert_eq!(
             refined.move_id.as_deref(),
             Some(expected),
-            "reading {read:?} from its opponent, the fighter chose \
-             {:?} rather than {expected}",
+            "reading {read:?} from its opponent, the fighter chose {:?}",
             refined.move_id
         );
     }
 }
 
-/// The grab the CPU chose is the grab the BODY plays — the same seam
-/// `the_scored_move_is_the_move_the_body_plays` pins for an attack, asked of the
-/// button that had no path at all until now.
+/// **A Grab EDGE plays the authored grab** — the same seam
+/// `the_fighter_plays_the_move_it_scored_not_the_neutral_one` pins for an
+/// attack, asked of the button that had no path onto a body at all until now.
+///
+/// ⚠ the edge is written by hand rather than driven out of the brain, and that
+/// is the honest shape: whether the fighter CHOOSES a grab is the scorer's
+/// question and is measured above; whether a chosen grab reaches the body is
+/// this one, and mixing them would leave both unpinned when either moved.
 #[test]
-fn the_chosen_grab_is_the_move_the_body_plays() {
-    let moveset = ActorMoveset(jab_and_grab());
-    let kit = attack_kit_of(Some(&moveset), true, Some(&fighter_brain()));
-    let mut brain = fighter_brain();
-    let frame = frame_when_the_fighter_attacks(&mut brain, kit, &scene_guarding(30.0, true));
-    assert!(frame.grab_pressed, "the fixture did not reach a grab press");
+fn a_grab_edge_plays_the_authored_grab() {
+    let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+    frame.grab_pressed = true;
     assert_eq!(
         move_played_for_moveset(frame, jab_and_grab()),
         "grab",
-        "the CPU pressed Grab and the body swung something else"
+        "a Grab press reached a body that authors one and it swung something else"
     );
 }

@@ -1565,19 +1565,29 @@ pub(super) fn attack_kit_of(
 /// 44px" would be a CPU that stops working the day George is retuned, and a
 /// second fighter would need a second constant.
 ///
-/// Three things the ordinary derivation cannot supply, because a grab lands no
-/// hit volume and `frame_data` reads volumes:
+/// Two things the ordinary derivation cannot supply, because a grab lands no hit
+/// volume and `frame_data` reads volumes:
 ///
 /// ```text
 /// coverage / reach   the capture ATTEMPT's rect — where this grab can catch
-/// max_damage         the FORWARD THROW's damage — what catching is worth
 /// ignores_guard      true; the shield is not the answer to a grab
 /// ```
 ///
-/// ⚠ **a fighter with no authored grab yields nothing**, and its kit is exactly
-/// what it was. A fighter with a grab and no forward throw yields a grab worth
-/// zero damage, which prices honestly: catching somebody it cannot throw is not
-/// worth much.
+/// ⛔⛔ **AND A THIRD THAT WAS TRIED AND IS WRONG: pricing the grab at its
+/// FOLLOW-UP THROW's damage.** It reads as obviously right — what is catching
+/// somebody worth, if not the throw? — and it made the CPU grab from 110px in
+/// every exchange of a measured match (2026-08-18, `capture_probe`): the rollout
+/// saw a 9-damage option against a 3-damage jab, predicted the gap closing, and
+/// picked the grab every time. Nine attempts, none inside the 42px it reaches,
+/// zero holds.
+///
+/// A grab deals NO DAMAGE, and `max_damage` is what this move does on contact.
+/// What a capture is really worth is that the opponent is HELD — a fact the
+/// generic option scorer has no term for and should not grow one for: "how
+/// valuable is a hold" is platform-fighter policy (the throw it sets up, the
+/// escape risk, the percent, the stage position), and this is a scorer shared by
+/// every actor in every game the engine runs. ⇒ **the honest number here is
+/// zero, and the missing one is the fighter capability's** (queue D166).
 fn capture_candidate(
     moveset: &crate::combat::moveset::ActorMoveset,
     grounded: bool,
@@ -1586,9 +1596,7 @@ fn capture_candidate(
     use ambition_characters::brain::fighter::options::{
         AttackBinding, AttackCandidate, AttackVerb,
     };
-    use ambition_characters::smash_capture::{
-        CaptureAttemptParams, CaptureThrowParams, CAPTURE_ATTEMPT, CAPTURE_THROW,
-    };
+    use ambition_characters::smash_capture::{CaptureAttemptParams, CAPTURE_ATTEMPT};
 
     let spec = moveset.0.move_for_directional_verb(
         ambition_entity_catalog::GRAB_VERB,
@@ -1603,23 +1611,6 @@ fn capture_candidate(
         .filter_map(|window| window.sustain_effect.as_ref())
         .find(|effect| effect.key == CAPTURE_ATTEMPT)
         .and_then(|effect| effect.params.hydrate().ok())?;
-    // The throw fires at an INSTANT, so it rides the event list.
-    let throw_damage = moveset
-        .0
-        .move_for_verb(ambition_entity_catalog::CAPTURE_THROW_FORWARD_VERB)
-        .and_then(|throw| {
-            throw.events.iter().find_map(|event| {
-                let ambition_entity_catalog::MoveEventKind::Effect(effect) = &event.kind else {
-                    return None;
-                };
-                (effect.key == CAPTURE_THROW)
-                    .then(|| effect.params.hydrate::<CaptureThrowParams>().ok())
-                    .flatten()
-            })
-        })
-        .map(|throw: CaptureThrowParams| throw.damage)
-        .unwrap_or(0);
-
     let mut frames = spec.frame_data();
     frames.coverage = Some(ambition_entity_catalog::MoveCoverage {
         min: (
@@ -1632,7 +1623,9 @@ fn capture_candidate(
         ),
     });
     frames.reach = attempt.offset.0 + attempt.half_extents.0;
-    frames.max_damage = throw_damage;
+    // ⛔ `max_damage` is left where `frame_data` put it — zero, because a grab
+    // lands no volume. See the doc: pricing it at the throw's damage is the
+    // measured mistake, not the missing feature.
     frames.ignores_guard = true;
     Some(AttackCandidate {
         move_id: spec.id.clone(),

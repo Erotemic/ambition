@@ -5194,6 +5194,53 @@ Smash preparation  produces runtime MoveSpecs / fighter data
 ⇒ **the generic engine should not need to know Smash move-slot taxonomy** — and
 until a facet seam exists, it does, which is the whole content of this row.
 
+⭐⭐ **THE CUSTOMER ARRIVED, AND IT NAMED THE SEAM PRECISELY (2026-08-18, the
+grab campaign).** Capture was built to Jon's plan, landed end to end, and then
+put enough load on the transitional generic structures to show exactly where the
+line is. Five concrete pressures, each measured rather than argued:
+
+```text
+BrainSnapshot.captured_for        a capture_* field on the GENERIC snapshot
+SpecificAction::CaptureStruggle   a capture verb in the generic action enum
+sample_capture_escape             a reader placed specially at BOTH blanking
+                                  sites, because no single seam exposes
+                                  participant input AND actor-brain output
+capture_candidate                 Smash effect KEYS read inside the actor
+                                  monolith's option-kit builder
+CapturedBy.pummels_landed         platform-fighter state on a generic relation
+```
+
+⛔⛔ **and the sharpest evidence is a number the generic scorer CANNOT produce.**
+The fighter option scorer prices a move by what it does on CONTACT. A grab does
+nothing on contact — its worth is that the opponent is HELD, which depends on
+the throw it sets up, the escape risk, the captive's percent and the stage. That
+value was briefly modelled as *"the grab is worth its forward throw's damage"*,
+and `capture_probe` measured what it bought: the CPU grabbed from **110px with a
+42px reach**, nine attempts in sixty seconds, **none of them inside its own
+range, zero holds**. The number was reverted to the honest zero.
+
+⇒ so the missing piece is not a weight or a feature — it is that **"how valuable
+is holding somebody" is platform-fighter policy living in a scorer shared by
+every actor in every game the engine runs.** That is the customer this row was
+waiting for, and it is what the capability should own:
+
+```text
+generic engine        semantic control transport · body facts · perception
+                      · control-hold machinery · temporary relationship and
+                      body-constraint primitives · damage / launch
+platform fighter      fighter action vocabulary · SmashRepertoire · capture
+                      eligibility · pummel / throw / escape rules · what a
+                      HOLD is worth to a decision
+character package     grab geometry and timing · pummel · throws · weight ·
+                      hit/hurt geometry · presentation bindings
+```
+
+⚠ **the stopping rule the grab work was held to, worth keeping**: *if a fact
+would make no sense in a radically different game that merely has actors and
+temporary relationships, it does not belong in the generic actor/character
+layer.* The five pressures above each fail it, and each was recorded rather than
+deepened once that was clear.
+
 ✔✔ **AND ONE OF THE REVIEW'S ASKS WAS ALREADY DONE — measured before touching
 it.** *"Move authoring has historically duplicated `Vfx(...)` and matching
 `Sfx(...)` events … converge on one semantic authored effect request with default

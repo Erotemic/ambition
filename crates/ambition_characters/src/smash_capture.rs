@@ -216,12 +216,16 @@ pub struct SmashCaptureRepertoire {
 /// action scheme's directional-verb matcher to light the Grab slot up for a
 /// fighter that authored only throws.
 pub mod verbs {
-    pub const GRAB: &str = "grab";
-    pub const PUMMEL: &str = "capture_pummel";
-    pub const THROW_FORWARD: &str = "capture_throw_forward";
-    pub const THROW_BACK: &str = "capture_throw_back";
-    pub const THROW_UP: &str = "capture_throw_up";
-    pub const THROW_DOWN: &str = "capture_throw_down";
+    //! ⚠ **re-exports, not a second definition.** The strings live beside
+    //! `ATTACK_VERB` and `SMASH_VERB` in `ambition_entity_catalog` because the
+    //! move SELECTOR has to resolve them and that crate is the one both the
+    //! selector and this authoring module can see. Spelling them again here
+    //! would be two places for a typo to become a press that does nothing.
+    pub use ambition_entity_catalog::{
+        CAPTURE_PUMMEL_VERB as PUMMEL, CAPTURE_THROW_BACK_VERB as THROW_BACK,
+        CAPTURE_THROW_DOWN_VERB as THROW_DOWN, CAPTURE_THROW_FORWARD_VERB as THROW_FORWARD,
+        CAPTURE_THROW_UP_VERB as THROW_UP, GRAB_VERB as GRAB,
+    };
 }
 
 impl SmashCaptureRepertoire {

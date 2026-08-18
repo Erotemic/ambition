@@ -54,6 +54,11 @@ use ambition_time::WorldTime;
 // able to name the verb its moveset binds without reaching up into this crate.
 // Re-exported so every `moveset::ATTACK_VERB`-style path is unchanged.
 pub use ambition_entity_catalog::{ATTACK_VERB, RANGED_VERB, SMASH_VERB, SPECIAL_VERB};
+// The capture verbs, on the same road for the same reason.
+pub use ambition_entity_catalog::{
+    CAPTURE_PUMMEL_VERB, CAPTURE_THROW_BACK_VERB, CAPTURE_THROW_DOWN_VERB,
+    CAPTURE_THROW_FORWARD_VERB, CAPTURE_THROW_UP_VERB, GRAB_VERB,
+};
 
 // ⭐ **THE GENERIC BUILDER VOCABULARY MOVED DOWN; THE PINS STAYED** (campaign
 // P1.7, 2026-08-12). These three ids are what the builders themselves author
@@ -298,6 +303,37 @@ impl bevy::ecs::entity::MapEntities for MovePlayback {
             *entity = entity_mapper.get_mapped(*entity);
         }
     }
+}
+
+/// **Despawn a playback's live strike volumes.** The half of teardown shared by
+/// ending a move and by REPLACING one — a move-into-move cancel drops the old
+/// volumes and then overwrites the playback, so it wants this half alone.
+pub fn despawn_live_boxes(commands: &mut bevy::prelude::Commands, playback: &mut MovePlayback) {
+    for (_, entity) in playback.live_boxes.drain(..) {
+        commands.entity(entity).despawn();
+    }
+}
+
+/// **End a move: its volumes stop existing and the body stops playing it.**
+///
+/// ⭐ **there were FOUR hand-copies of this**, and one of them carried the
+/// comment *"Tear down exactly as natural completion does (the ONE teardown
+/// path)"* — a claim the code made true by duplication, which is the same thing
+/// as not being true. Capture needs a fifth caller (a body that gets grabbed
+/// mid-swing must not keep a live hitbox), and a fifth copy is where a divergence
+/// becomes likely rather than possible.
+///
+/// ⛔ **this is a consolidation, not an action-state framework.** It does what
+/// the four copies did and nothing else; a body's move ending has no other
+/// meaning today, and inventing one here would be building the abstraction
+/// nobody has asked for.
+pub fn cancel_move_playback(
+    commands: &mut bevy::prelude::Commands,
+    owner: bevy::prelude::Entity,
+    playback: &mut MovePlayback,
+) {
+    despawn_live_boxes(commands, playback);
+    commands.entity(owner).remove::<MovePlayback>();
 }
 
 impl MovePlayback {
@@ -962,10 +998,7 @@ pub fn advance_move_playback(
         }
 
         if pb.finished() {
-            for (_, entity) in pb.live_boxes.drain(..) {
-                commands.entity(entity).despawn();
-            }
-            commands.entity(owner).remove::<MovePlayback>();
+            cancel_move_playback(&mut commands, owner, pb);
         }
     }
 }
@@ -1018,10 +1051,7 @@ pub fn resolve_aerial_landings(
         combat.landing_lag_timer = combat.landing_lag_timer.max(lag.max(0.0));
         // The move is OVER — its remaining windows do not survive the landing,
         // which is what makes the lag a cost rather than a delay.
-        for (_, entity) in playback.live_boxes.drain(..) {
-            commands.entity(entity).despawn();
-        }
-        commands.entity(owner).remove::<MovePlayback>();
+        cancel_move_playback(&mut commands, owner, &mut playback);
     }
 }
 
@@ -1218,6 +1248,10 @@ pub fn trigger_moveset_moves(
         // ([`held_weapon_attack_move`]); every other verb is untouched.
         Option<&crate::held_items::HeldItem>,
     )>,
+    // **WHO IS HOLDING SOMEBODY.** The inverse of `CapturedBy`, and the reason
+    // there is no mirrored `Capturing` component to read instead: one authority,
+    // scanned. At most one captive per captor and a handful per stage.
+    captives: Query<(Entity, &crate::capture::CapturedBy)>,
     // ⛔ **WHO WROTE THIS BODY'S VELOCITY.** A move's `start_impulse` is a
     // velocity write outside the integrator, and the causal log reported what
     // the velocity WAS and never who set it — which cost six rebuild-and-print
@@ -1246,7 +1280,57 @@ pub fn trigger_moveset_moves(
         // OWNED rather than borrowed from the contract, because a held weapon's
         // swing is not IN the wearer's contract — it belongs to the thing in the
         // hand, and both answers have to have the same type to be arbitrated.
-        let (spec, verb_names): (Option<MoveSpec>, &[&str]) = if frame.special_pressed {
+        // **CAPTURE CONTEXT COMES FIRST, and it REPLACES the ordinary menu
+        // rather than adding to it.**
+        //
+        // A body holding somebody is not a body with an extra option; it is in a
+        // different action context. Falling through to the ordinary chain would
+        // let a captor throw a projectile or start a smash while a captive hangs
+        // off it, and every one of those would then need its own "unless holding"
+        // clause — the rule spread across a dozen sites instead of stated once.
+        //
+        // ⛔ **`AttackStrength` is deliberately ignored in here.** Holding
+        // somebody must not turn a forward throw into a "smash throw": the
+        // charge grammar belongs to the strike vocabulary, and a throw's payoff
+        // is authored on its own timeline.
+        //
+        // ⚠ **an unauthored throw resolves to NOTHING, on purpose.** It does not
+        // fall back to the pummel. A player who presses up+attack and gets a
+        // pummel has been told this fighter has a bad up-throw; a player who gets
+        // nothing has been told it has none, and the second is true.
+        let holding_captive = crate::capture::captive_of(entity, &captives).is_some();
+        let (spec, verb_names): (Option<MoveSpec>, &[&str]) = if holding_captive {
+            match gesture.pressed.map(|intent| intent.direction) {
+                Some(AttackDir::Neutral) => (
+                    moveset.0.move_for_verb(CAPTURE_PUMMEL_VERB).cloned(),
+                    &[CAPTURE_PUMMEL_VERB][..],
+                ),
+                Some(AttackDir::Forward) => (
+                    moveset.0.move_for_verb(CAPTURE_THROW_FORWARD_VERB).cloned(),
+                    &[CAPTURE_THROW_FORWARD_VERB][..],
+                ),
+                Some(AttackDir::Back) => (
+                    moveset.0.move_for_verb(CAPTURE_THROW_BACK_VERB).cloned(),
+                    &[CAPTURE_THROW_BACK_VERB][..],
+                ),
+                Some(AttackDir::Up) => (
+                    moveset.0.move_for_verb(CAPTURE_THROW_UP_VERB).cloned(),
+                    &[CAPTURE_THROW_UP_VERB][..],
+                ),
+                Some(AttackDir::Down) => (
+                    moveset.0.move_for_verb(CAPTURE_THROW_DOWN_VERB).cloned(),
+                    &[CAPTURE_THROW_DOWN_VERB][..],
+                ),
+                None => (None, &[][..]),
+            }
+        } else if frame.grab_pressed {
+            // A free body's grab. The move's own Active window carries the
+            // capture attempt; this only starts the move.
+            (
+                moveset.0.move_for_verb(GRAB_VERB).cloned(),
+                &[GRAB_VERB][..],
+            )
+        } else if frame.special_pressed {
             let dir = attack_dir_from_axis(frame.attack_axis, kin.facing);
             (
                 moveset
@@ -1329,10 +1413,7 @@ pub fn trigger_moveset_moves(
             };
             if let Some(name) = loco {
                 if pb.spec.cancel_permits(pb.t, pb.landed_hit, &[name]) {
-                    for (_, e) in pb.live_boxes.drain(..) {
-                        commands.entity(e).despawn();
-                    }
-                    commands.entity(entity).remove::<MovePlayback>();
+                    cancel_move_playback(&mut commands, entity, &mut pb);
                     continue;
                 }
             }
@@ -1345,11 +1426,12 @@ pub fn trigger_moveset_moves(
             if !pb.spec.cancel_permits(pb.t, pb.landed_hit, &names) {
                 continue;
             }
-            // Tear down exactly as natural completion does (the ONE teardown
-            // path), then replace the playback — insert overwrites.
-            for (_, e) in pb.live_boxes.drain(..) {
-                commands.entity(e).despawn();
-            }
+            // Tear down exactly as natural completion does — LITERALLY the same
+            // function now, rather than the same lines retyped — then replace the
+            // playback, since insert overwrites. Only the volume half: removing
+            // the component here and re-inserting it below would be two writes
+            // where one will do.
+            despawn_live_boxes(&mut commands, &mut pb);
             if let Some((ix, iy)) = spec.start_impulse {
                 let local = ae::Vec2::new(ix * kin.facing, iy);
                 let world_impulse = body_frame.to_world(local);
@@ -1518,12 +1600,13 @@ pub fn dispatch_move_events(
                 // own row's sound, which is a real thing to say. An authored
                 // `sfx: None` means *say what the art says* — and that is what
                 // 74 of those 145 calls were laboriously spelling out.
-                let mut request = ambition_vfx::FxRequest::new(pos, ambition_vfx::FxId::new(effect))
-                    .with_scale(*scale)
-                    .from_source(ev.presentation_source.clone())
-                    // ⭐ the pose derived beside the OFFSET, so the artwork and
-                    // the place it lands cannot disagree about facing (D154).
-                    .with_pose(ev.world_pose);
+                let mut request =
+                    ambition_vfx::FxRequest::new(pos, ambition_vfx::FxId::new(effect))
+                        .with_scale(*scale)
+                        .from_source(ev.presentation_source.clone())
+                        // ⭐ the pose derived beside the OFFSET, so the artwork and
+                        // the place it lands cannot disagree about facing (D154).
+                        .with_pose(ev.world_pose);
                 if let Some(cue) = sfx {
                     request = request.with_sfx(SfxId::new(cue));
                 }

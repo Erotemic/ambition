@@ -1486,6 +1486,30 @@ pub const RANGED_VERB: &str = "ranged";
 /// a body only has a real special when its moveset authors a matching
 /// directional verb or the base verb.
 pub const SPECIAL_VERB: &str = "special";
+/// **The capture verbs.** The grab that establishes a hold, and the moves a
+/// captor selects while one exists.
+///
+/// ⚠ **they sit beside [`SMASH_VERB`] because they are the same kind of thing
+/// and it is worth being honest about what that kind is.** This crate holds the
+/// verb NAMES a press can resolve to; content holds what each one DOES. `smash`
+/// was already platform-fighter taxonomy living here, so a throw is not a new
+/// concession — but it does make the pile of it bigger.
+///
+/// ⇒ **the restitch point is the first character-owned `smash.fighter` facet**
+/// (queue D166). When a Smash capability owns its own schema, these move with
+/// it and the generic catalog stops naming a throw. Until then one definition
+/// here beats the same strings copied into a selector and an authoring module.
+pub const GRAB_VERB: &str = "grab";
+/// Neutral Attack inside a capture. Repeatable; the hold survives it.
+pub const CAPTURE_PUMMEL_VERB: &str = "capture_pummel";
+/// Forward Attack inside a capture. Ends the hold at its authored release.
+pub const CAPTURE_THROW_FORWARD_VERB: &str = "capture_throw_forward";
+/// Back Attack inside a capture.
+pub const CAPTURE_THROW_BACK_VERB: &str = "capture_throw_back";
+/// Up Attack inside a capture.
+pub const CAPTURE_THROW_UP_VERB: &str = "capture_throw_up";
+/// Down Attack inside a capture.
+pub const CAPTURE_THROW_DOWN_VERB: &str = "capture_throw_down";
 
 /// Moveset contract: the entity's moves plus which input verb activates
 /// which move. `moves` is the composition surface — re-binding an existing

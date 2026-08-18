@@ -2883,8 +2883,7 @@ fn an_authored_effect_is_mirrored_by_the_facing_its_offset_already_used() {
     // ⛔ non-vacuity: the identity must really be identity, or the assertions
     // above are comparing a pose against a pose that means nothing.
     assert!(
-        !ambition_vfx::FxPose::UPRIGHT.mirror
-            && ambition_vfx::FxPose::UPRIGHT.angle == 0.0,
+        !ambition_vfx::FxPose::UPRIGHT.mirror && ambition_vfx::FxPose::UPRIGHT.angle == 0.0,
         "UPRIGHT is not the identity, so every emitter that never had an \
          opinion just acquired one"
     );
@@ -2896,5 +2895,155 @@ fn an_authored_effect_is_mirrored_by_the_facing_its_offset_already_used() {
         (rolled.angle - std::f32::consts::FRAC_PI_2).abs() < 1e-6,
         "the frame's rotation did not survive into the pose, so an effect stays \
          world-upright under a gravity flip while its owner does not"
+    );
+}
+
+// ─── capture context ─────────────────────────────────────────────────────────
+
+/// The four capture moves plus an ordinary jab and special, so a test can ask
+/// which one a press reached.
+fn capture_context_moveset() -> MovesetContract {
+    MovesetContract {
+        verbs: std::collections::BTreeMap::from([
+            (ATTACK_VERB.to_string(), "jab".to_string()),
+            (SPECIAL_VERB.to_string(), "neutral_special".to_string()),
+            (GRAB_VERB.to_string(), "grab".to_string()),
+            (CAPTURE_PUMMEL_VERB.to_string(), "pummel".to_string()),
+            (CAPTURE_THROW_FORWARD_VERB.to_string(), "fthrow".to_string()),
+        ]),
+        moves: vec![
+            gesture_test_move("jab"),
+            gesture_test_move("neutral_special"),
+            gesture_test_move("grab"),
+            gesture_test_move("pummel"),
+            gesture_test_move("fthrow"),
+        ],
+    }
+}
+
+/// Build an app with the trigger chain, a captor carrying `frame`, and — when
+/// `held` — a captive already in that captor's hold. Returns the captor.
+fn capture_context_app(
+    frame: ambition_characters::actor::control::ActorControlFrame,
+    held: bool,
+) -> (App, Entity) {
+    let mut app = App::new();
+    app.add_message::<MoveEventMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.init_resource::<WorldTime>();
+    app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
+    app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
+    app.add_systems(
+        Update,
+        (resolve_attack_gestures, trigger_moveset_moves).chain(),
+    );
+    let captor = app
+        .world_mut()
+        .spawn((
+            ae::BodyKinematics {
+                facing: 1.0,
+                ..Default::default()
+            },
+            ActorFaction::Enemy,
+            ActorMoveset(capture_context_moveset()),
+            ActorControl(frame),
+        ))
+        .id();
+    if held {
+        app.world_mut().spawn(crate::capture::CapturedBy {
+            captor,
+            hold_offset_local: ae::Vec2::new(16.0, 0.0),
+            prior_gravity_scale: 1.0,
+            pummels_landed: 0,
+        });
+    }
+    app.update();
+    (app, captor)
+}
+
+fn played(app: &App, body: Entity) -> Option<String> {
+    app.world()
+        .get::<MovePlayback>(body)
+        .map(|pb| pb.spec.id.clone())
+}
+
+/// **A FREE BODY'S GRAB PRESS STARTS ITS GRAB.**
+#[test]
+fn a_free_body_pressing_grab_plays_its_grab_move() {
+    let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+    frame.grab_pressed = true;
+    let (app, captor) = capture_context_app(frame, false);
+    assert_eq!(played(&app, captor).as_deref(), Some("grab"));
+}
+
+/// **HOLDING SOMEBODY, NEUTRAL ATTACK IS A PUMMEL AND NOT A JAB.**
+///
+/// The same press that swings a jab when free must reach the pummel when a
+/// captive is held — that is the whole content of "capture is a context".
+#[test]
+fn a_captor_pressing_attack_pummels_rather_than_jabbing() {
+    let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+    frame.melee_pressed = true;
+    let (held_app, captor) = capture_context_app(frame.clone(), true);
+    assert_eq!(played(&held_app, captor).as_deref(), Some("pummel"));
+
+    let (free_app, free) = capture_context_app(frame, false);
+    assert_eq!(
+        played(&free_app, free).as_deref(),
+        Some("jab"),
+        "the fixture is wrong: this press must reach the jab when nobody is held, \
+         or the test above proves nothing about the context"
+    );
+}
+
+/// **FORWARD + ATTACK IS THE THROW.**
+#[test]
+fn a_captor_pressing_forward_attack_throws() {
+    let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+    frame.melee_pressed = true;
+    frame.attack_axis = ae::LocalAxes::X;
+    let (app, captor) = capture_context_app(frame, true);
+    assert_eq!(played(&app, captor).as_deref(), Some("fthrow"));
+}
+
+/// **AN UNAUTHORED THROW DOES NOTHING — IT DOES NOT BECOME A PUMMEL.**
+///
+/// This fighter has no up-throw. A player who presses up+attack and gets a
+/// pummel has been told the fighter has a bad up-throw; getting nothing tells
+/// them it has none, which is the truth. A silent substitution is how a roster
+/// grows moves nobody authored.
+#[test]
+fn an_unauthored_throw_direction_plays_nothing_at_all() {
+    let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+    frame.melee_pressed = true;
+    frame.attack_axis = ae::LocalAxes::new(0.0, -1.0);
+    let (app, captor) = capture_context_app(frame, true);
+    assert_eq!(
+        played(&app, captor),
+        None,
+        "an up press with no authored up-throw reached a move anyway"
+    );
+}
+
+/// **CAPTURE CONTEXT REPLACES THE MENU — a special press finds nothing.**
+///
+/// If it fell through, every ordinary verb would need its own "unless holding"
+/// clause and a captor could fire a projectile with somebody in its hands.
+#[test]
+fn a_captor_cannot_reach_its_ordinary_special() {
+    let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+    frame.special_pressed = true;
+    let (app, captor) = capture_context_app(frame.clone(), true);
+    assert_eq!(
+        played(&app, captor),
+        None,
+        "a body holding a captive reached its ordinary special"
+    );
+
+    let (free_app, free) = capture_context_app(frame, false);
+    assert_eq!(
+        played(&free_app, free).as_deref(),
+        Some("neutral_special"),
+        "the fixture is wrong: this press must reach the special when free"
     );
 }

@@ -5278,15 +5278,13 @@ player-visible bug in its own noise.** The rest, untriaged and recorded so they
 are visible rather than discovered again:
 
 ```text
-✔  test_svg_parts_cache          FIXED — and it was NOT the environment gap its
-                                 message claimed; see below
-2  test_robot_slash_hitboxes     numbers drifted under the assertions (154 >= 156)
-2  test_character_notes          freeform notes do not round-trip
-✔  test_actor_contract           FIXED — the CHECK was wrong twice, not the
-                                 content; see below
-1  test_geometry_gui             a drag lands 5 units off
-1  test_rig_codegen_and_scale    generated vs rigdoc render disagree
-1  test_portrait_product         hunny_horror publishes the wrong clip set
+✔  test_svg_parts_cache      x2   the message named a dependency that was INSTALLED
+✔  test_actor_contract       x1   a dead exemption plus a proxy question
+✔  test_character_notes      x2   written for a schema that changed under them
+✔  test_robot_slash_hitboxes x2   froze one build of the art as the requirement
+✔  test_geometry_gui         x1   held a reference the drag handler REPLACES
+✔  test_portrait_product     x1   froze which clips a boss draws from
+▢  test_rig_codegen_and_scale x1  ⭐ THE ONE REAL ONE — see below
 ```
 
 ⛔ **do not bulk-fix these**; each is a different question, and two of them are
@@ -5329,6 +5327,32 @@ constant would parse the rig document at IMPORT time for every discovery.
 for a NEW reason that looked exactly like the old one. **A guessed attribute
 fails as silence.** Poison-verified. Suite **7 failed / 620 passed** (renderer
 `24b10cb`).
+
+✔✔ **ALL OF THEM TRIAGED 2026-08-18 — 11 → 1, and TEN WERE BAD TESTS.** Every
+repair is in the renderer's history with its evidence; the pattern is the row's
+real product: **on this list, read what the check computes before believing what
+it reports.** Two named a dependency that was installed, two froze one build of
+the art, one froze a boss's clip list, two were written for a schema that changed
+under them, and one held a reference to a dict the code deliberately REPLACES —
+that last read as *"dragging a polygon moves it by (0,0)"*, which is the
+expensive kind of red, because it accuses the code.
+
+▢ **AND THE SURVIVOR IS GENUINE, LEFT RED ON PURPOSE.**
+`test_generated_matches_rigdoc_render` compares the rig document's own renderer
+with the module generated from it, and they disagree on every clip:
+
+```text
+alpha delta       max 11, >2 on 355 px, >8 on 8 px   (the tolerance is 2)
+visible delta     max 19.8/255 on 137 px, mean 0.32
+alpha bbox        rigdoc 39x78 vs codegen 43x82 — a 2px fringe all round
+NOT a translation every 1px shift makes the match WORSE
+```
+
+⇒ composited, the two pictures are indistinguishable; the disagreement is a
+sub-pixel rasterization difference. ⛔ **do not "fix" it by re-basing the
+assertion on a visible-difference metric** — that turns the light green and
+hides the fact that two roads which are supposed to emit one picture no longer
+do. What is unknown is what introduced it.
 
 ⭐⭐ **and 23 sheets are far fewer than 23 CAUSES — they collapse by source
 YAML.** Eight of them (`robot`, `player_extended`, both player `*_review` sheets,

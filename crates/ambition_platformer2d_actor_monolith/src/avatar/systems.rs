@@ -141,6 +141,12 @@ pub fn tick_controlled_brains(
         // Brain::Player's translation deterministic: same input +
         // same body snapshot → same ActorControlFrame.
         let snapshot = BrainSnapshot {
+            // A possessed body's brain drives a body a person is steering; it is
+            // never in a capture on this road, and saying so beats inheriting a
+            // default nobody chose.
+            captured: false,
+            holding_captive: false,
+            pummels_landed: 0,
             // The avatar's own body; the fighter brain is not on this path,
             // but the field is the snapshot's and every builder fills it.
             subject: None,

@@ -109,6 +109,11 @@ pub fn tick_actor_brains(
     sim_clock: Res<crate::features::GameplayElapsed>,
     // Peers, projectiles and hostility: what a body can perceive this tick.
     perceived: crate::features::ecs::perception::PerceivedWorld,
+    // **Capture, as a fact this phase reads and hands on.** The brain never
+    // touches `CapturedBy` — a pure decision reaching into the ECS is what the
+    // perception layer exists to prevent — so the relationship is resolved HERE,
+    // where the queries live, and travels as three plain values.
+    captives: Query<(bevy::prelude::Entity, &ambition_combat::capture::CapturedBy)>,
     // **The log, lent to whichever worker thread this tick lands on.**
     //
     // A brain publishes through `ambition_causal::record`, which writes to a
@@ -554,6 +559,19 @@ pub fn tick_actor_brains(
                         // locomotion facts, and "none of them true" is the
                         // honest reading of that.
                         &motion_facts.copied().unwrap_or_default(),
+                        {
+                            let captured = captives
+                                .iter()
+                                .any(|(entity, _)| entity == this_actor_entity);
+                            let hold = captives
+                                .iter()
+                                .find(|(_, held)| held.captor == this_actor_entity);
+                            (
+                                captured,
+                                hold.is_some(),
+                                hold.map(|(_, held)| held.pummels_landed).unwrap_or(0),
+                            )
+                        },
                     );
                     // §A7 PERCEPTION POLICY: how this body learns where its foe is — a
                     // typed, per-body [`Perception`], defaulting to `Omniscient` (the
@@ -613,6 +631,19 @@ pub fn tick_actor_brains(
                             self_peer,
                             aggression,
                             motion_model,
+                            {
+                                let captured = captives
+                                    .iter()
+                                    .any(|(entity, _)| entity == this_actor_entity);
+                                let hold = captives
+                                    .iter()
+                                    .find(|(_, held)| held.captor == this_actor_entity);
+                                (
+                                    captured,
+                                    hold.is_some(),
+                                    hold.map(|(_, held)| held.pummels_landed).unwrap_or(0),
+                                )
+                            },
                         ),
                         &view_peers,
                         perceived.projectiles(),
@@ -1543,6 +1574,7 @@ pub(super) fn attack_kit_of(
 /// backend reads from; `crowding` is only consulted by the Smash
 /// brain, but always populating it keeps the snapshot uniform across
 /// state-machine variants.
+#[allow(clippy::too_many_arguments)]
 fn build_enemy_brain_snapshot(
     em: &super::super::actor_clusters::ActorMut<'_>,
     target_pos: ae::Vec2,
@@ -1559,6 +1591,12 @@ fn build_enemy_brain_snapshot(
     // **What is TRUE of this body's locomotion**, published by the movement
     // kernel — see `turns_at_walls` below for why this replaced a tuning read.
     motion_facts: &ambition_platformer2d_core::BodyMotionFacts,
+    // `(captured, holding, pummels)` — resolved by the caller, which holds the
+    // capture query. Threaded rather than looked up so the brain layer keeps its
+    // property of reading no ECS. ⚠ LAST on purpose: inserting it mid-list
+    // silently shifted two positional arguments into the wrong slots and the
+    // compiler reported it as a type error three parameters away.
+    capture: (bool, bool, u8),
 ) -> ambition_characters::brain::BrainSnapshot {
     ambition_characters::brain::BrainSnapshot {
         actor_pos: em.kin.pos,
@@ -1607,6 +1645,9 @@ fn build_enemy_brain_snapshot(
         // integrator's flight-limb predicate (`fly_enabled && abilities.fly`).
         actor_aerial: em.surface.gravity_scale <= 0.001 || em.flight.fly_enabled,
         alive: em.health.alive(),
+        captured: capture.0,
+        holding_captive: capture.1,
+        pummels_landed: capture.2,
         target_pos,
         // Real target liveness (was hardcoded `true`): a fighter whose foe is dead
         // perceives it and the Smash brain demotes to Idle instead of swinging at a

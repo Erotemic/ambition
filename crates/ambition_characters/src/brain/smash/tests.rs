@@ -1013,3 +1013,79 @@ fn airborne_shielding_is_a_policy_the_game_states() {
          air — the rule is still the brain's rather than the game's"
     );
 }
+
+// ─── capture context ─────────────────────────────────────────────────────────
+
+fn snap_holding(pummels: u8) -> BrainSnapshot {
+    let mut s = snap_with_target_at_x(40.0);
+    s.holding_captive = true;
+    s.pummels_landed = pummels;
+    s
+}
+
+fn tick(snap: &BrainSnapshot) -> crate::actor::control::ActorControlFrame {
+    let cfg = crisp_duelist();
+    let mut state = SmashState::default();
+    let actions = ActionSet::peaceful();
+    let mut frame = crate::actor::control::ActorControlFrame::neutral();
+    tick_smash(&cfg, &mut state, &actions, snap, None, &mut frame);
+    frame
+}
+
+/// **⭐ A CPU HOLDING SOMEBODY PUMMELS, THEN THROWS — through the ORDINARY
+/// attack press.**
+///
+/// The whole architectural claim of the CPU half, as one assertion pair. What
+/// reaches the body is `melee_pressed` plus a direction: the same two fields a
+/// person's Attack button writes. `trigger_moveset_moves` turns them into a
+/// pummel or a throw by reading the SAME relationship the human's press is read
+/// against.
+///
+/// ⛔ if this ever needs a capture-specific field to pass, a CPU-only road has
+/// appeared and the two halves have stopped being one.
+#[test]
+fn a_holding_cpu_asks_for_a_pummel_then_a_throw_with_the_ordinary_attack() {
+    let first = tick(&snap_holding(0));
+    assert!(
+        first.melee_pressed,
+        "a captor asked for nothing at all — it will hold a body forever"
+    );
+    assert_eq!(
+        first.attack_axis.x, 0.0,
+        "the first press was directional, so the CPU throws before it pummels"
+    );
+
+    let after = tick(&snap_holding(1));
+    assert!(after.melee_pressed);
+    assert!(
+        after.attack_axis.x > 0.0,
+        "a pummel had landed and the CPU pummelled again — the hold never ends"
+    );
+}
+
+/// **A CAPTOR DOES NOT ASK FOR ANOTHER GRAB, AND DOES NOT WALK.**
+///
+/// The body-side restriction would strip these anyway; asking for them is still
+/// a brain describing an action it cannot have, which is how a decision log
+/// stops being readable.
+#[test]
+fn a_holding_cpu_neither_walks_nor_grabs_again() {
+    let frame = tick(&snap_holding(0));
+    assert!(!frame.grab_pressed, "a captor asked for a second capture");
+    assert_eq!(frame.locomotion, ae::LocalAxes::ZERO, "a captor walked off");
+    assert!(!frame.jump_pressed && !frame.special_pressed);
+}
+
+/// **A CAPTIVE ASKS FOR NOTHING.**
+///
+/// Escape does not exist yet, so there is genuinely nothing to request — and a
+/// brain thrashing here would read as a bug rather than as a body that cannot
+/// move. ⭐ when escape lands, this is the test that changes.
+#[test]
+fn a_captured_cpu_makes_no_requests_at_all() {
+    let mut snap = snap_with_target_at_x(40.0);
+    snap.captured = true;
+    let frame = tick(&snap);
+    assert!(!frame.melee_pressed && !frame.grab_pressed && !frame.jump_pressed);
+    assert_eq!(frame.locomotion, ae::LocalAxes::ZERO);
+}

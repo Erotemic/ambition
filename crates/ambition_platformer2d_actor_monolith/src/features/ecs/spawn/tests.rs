@@ -484,6 +484,9 @@ fn a_body_forced_hostile_swings_when_its_kit_can() {
     };
 
     let snapshot = ambition_characters::brain::BrainSnapshot {
+        captured: false,
+        holding_captive: false,
+        pummels_landed: 0,
         // A fixture body: unattributed facts are the honest answer here.
         subject: None,
         actor_pos: ae::Vec2::ZERO,

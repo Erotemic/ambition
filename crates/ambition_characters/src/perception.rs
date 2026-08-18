@@ -360,6 +360,20 @@ pub struct SelfView {
     pub damage_taken: i32,
     /// Self's max health. `0` = unknown.
     pub health_max: i32,
+    /// **Somebody is holding this body.** Its ordinary options are gone; what it
+    /// can do about that is escape, which does not exist yet.
+    ///
+    /// ⛔ **a READ MODEL, not the authority.** `CapturedBy` is the relationship
+    /// and it lives in combat; a brain that queried it directly would be a
+    /// second reader of ECS state from inside a pure decision, which is the
+    /// thing this whole perception layer exists to prevent.
+    pub captured: bool,
+    /// **This body is holding somebody.** Its ordinary options are gone too, and
+    /// the ones it has instead are the capture context: pummel, or throw.
+    pub holding_captive: bool,
+    /// How many pummels have landed on the hold this body owns. `0` when it
+    /// holds nobody. The capture policy's whole input today.
+    pub pummels_landed: u8,
 }
 
 impl SelfView {

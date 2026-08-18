@@ -38,6 +38,12 @@ use ambition_platformer2d_core as ae;
 /// remained were test fixtures.
 #[derive(Clone, Debug)]
 pub struct BrainSnapshot {
+    /// **The capture relationship, as three plain facts.** Resolved by the phase
+    /// that holds the queries and handed down; a brain never reaches for
+    /// `CapturedBy` itself. `pummels_landed` is `0` unless `holding_captive`.
+    pub captured: bool,
+    pub holding_captive: bool,
+    pub pummels_landed: u8,
     /// Actor's current world position (px).
     pub actor_pos: ae::Vec2,
     /// Actor's current velocity (px/s).
@@ -234,6 +240,9 @@ impl BrainSnapshot {
     /// the fields that matter for the test.
     pub fn idle() -> Self {
         Self {
+            captured: false,
+            holding_captive: false,
+            pummels_landed: 0,
             actor_pos: ae::Vec2::ZERO,
             actor_vel: ae::Vec2::ZERO,
             actor_facing: 1.0,

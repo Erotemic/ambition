@@ -28,6 +28,12 @@ pub struct ObservationFrame {
     /// `velocity_target` instead of grounded locomotion + jump.
     pub self_aerial: bool,
     pub self_alive: bool,
+    /// Somebody is holding this fighter. Its ordinary options are gone.
+    pub self_captured: bool,
+    /// This fighter is holding somebody — the capture context.
+    pub self_holding_captive: bool,
+    /// Pummels landed on the hold this fighter owns; `0` when it holds nobody.
+    pub self_pummels_landed: u8,
     /// Mid-air jumps the actor has left until next landing. Reads
     /// straight off `BrainSnapshot.air_jumps_remaining`. The action
     /// stage uses this to decide whether `SpecificAction::Jump`
@@ -237,6 +243,9 @@ pub fn observe(snap: &BrainSnapshot) -> ObservationFrame {
         self_on_ground: snap.actor_on_ground,
         self_aerial: snap.actor_aerial,
         self_alive: snap.alive,
+        self_captured: snap.captured,
+        self_holding_captive: snap.holding_captive,
+        self_pummels_landed: snap.pummels_landed,
         self_air_jumps_remaining: snap.air_jumps_remaining,
         self_attacking,
         attack_cooldown_remaining: snap.attack_cooldown_remaining,

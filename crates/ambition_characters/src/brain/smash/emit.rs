@@ -153,6 +153,25 @@ pub fn emit_inputs(
             out.shield_held = true;
             out.locomotion = ae::LocalAxes::ZERO;
         }
+        SpecificAction::Grab => {
+            // One press, one attempt. The authored grab move owns how long the
+            // attempt stays live, so there is nothing to hold here.
+            out.grab_pressed = true;
+            out.locomotion = ae::LocalAxes::ZERO;
+        }
+        SpecificAction::CaptureAttack { forward } => {
+            // ⭐ the ORDINARY attack press. `trigger_moveset_moves` reads the
+            // capture context and turns it into a pummel or a throw; a brain
+            // that reached for a capture-specific verb here would be the
+            // CPU-only road this design exists without.
+            out.melee_pressed = true;
+            out.attack_axis = if forward {
+                ae::LocalAxes::X
+            } else {
+                ae::LocalAxes::ZERO
+            };
+            out.locomotion = ae::LocalAxes::ZERO;
+        }
         SpecificAction::Dodge { .. } => {
             // ⚠ **still reserved, but the REASON changed** (D146). There is no
             // dodge bit on `ActorControlFrame`; a dodge reaches a body through

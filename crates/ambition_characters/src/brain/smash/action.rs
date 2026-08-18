@@ -83,6 +83,22 @@ pub enum SpecificAction {
     /// `shield_held` directly beside this variant, so the guard had two producers
     /// and the semantic action had none. It commits THIS now.
     Shield,
+    /// **Reach out and catch somebody** — the brain's own way of asking for the
+    /// same thing a person's Grab button asks for.
+    ///
+    /// ⭐ it writes `grab_pressed` and nothing else. There is deliberately no
+    /// `cpu_wants_grab` beside it and no capture API a brain can call: a CPU
+    /// requests a grab the way a human does, and everything downstream —
+    /// eligibility, arbitration, the relationship — reads one answer.
+    Grab,
+    /// **Act on the body already held**: neutral is a pummel, forward is a
+    /// throw. Carries no capture reference, because the relationship decides
+    /// who: this is only the press and its direction.
+    ///
+    /// ⚠ the same `melee_pressed` a free fighter's jab uses. What makes it a
+    /// pummel is the CONTEXT, resolved by `trigger_moveset_moves` — which is
+    /// exactly the property that keeps a CPU and a human on one road.
+    CaptureAttack { forward: bool },
     /// Spot/air dodge in `dir`. Reserved.
     Dodge { dir: ae::Vec2 },
 }

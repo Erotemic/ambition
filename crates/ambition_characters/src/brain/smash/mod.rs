@@ -525,6 +525,42 @@ pub fn tick_smash(
         state.mode = BroadMode::Idle;
         return;
     }
+    // ── Capture context ─────────────────────────────────────────────────────
+    //
+    // ⭐ **BEFORE everything, and it RETURNS.** A fighter in a capture — at
+    // either end — is not a fighter with extra options; the ordinary decision
+    // does not apply and running it would ask "should I approach?" of a body
+    // that cannot walk.
+    //
+    // ⛔ **and the whole point is what these arms emit: nothing capture-shaped.**
+    // `SpecificAction::CaptureAttack` writes the ordinary `melee_pressed` and an
+    // attack direction — the same two fields a person's Attack button writes —
+    // and `trigger_moveset_moves` turns them into a pummel or a throw by reading
+    // the SAME relationship. There is no capture API a brain can call, which is
+    // what keeps a CPU and a human on one road rather than two that agree today.
+    let obs = observe(snapshot);
+    if snapshot.captured {
+        // Held. Escape does not exist yet, so there is genuinely nothing to ask
+        // for — and a brain that thrashed here would look like a bug rather than
+        // like a body that cannot move. ⭐ when escape lands, THIS is its arm.
+        state.mode = BroadMode::Idle;
+        return;
+    }
+    if snapshot.holding_captive {
+        // ⚠ deliberately the simplest policy that proves the road: pummel once,
+        // then throw. It is not grab AI — opponent percent, stage edge, kill
+        // potential and escape risk are all real inputs it does not read. What it
+        // proves is that a CPU reaches a pummel and a throw through the ordinary
+        // control surface, which is the thing that would be expensive to retrofit.
+        emit_inputs(
+            SpecificAction::CaptureAttack {
+                forward: snapshot.pummels_landed >= 1,
+            },
+            &obs,
+            out,
+        );
+        return;
+    }
     // Advance the dwell accumulator before any mode-flip check.
     state.mode_dwell_s += snapshot.dt;
     // Tick the brain-side cadences down (clamped at 0) before this

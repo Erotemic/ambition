@@ -86,6 +86,9 @@ fn tick_peaceful(
     gravity: ae::Vec2,
 ) {
     let snapshot = ambition_characters::brain::BrainSnapshot {
+        captured: false,
+        holding_captive: false,
+        pummels_landed: 0,
         // A fixture body: unattributed facts are the honest answer here.
         subject: None,
         actor_pos: seed.kin.pos,

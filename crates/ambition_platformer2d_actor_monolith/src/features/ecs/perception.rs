@@ -99,6 +99,13 @@ pub struct PerceptionBody {
     /// The smash-percent axis (CM1) and its denominator.
     pub damage_taken: i32,
     pub health_max: i32,
+    /// **The capture relationship, as a fact rather than a component.** Read off
+    /// `CapturedBy` by the system that holds the queries and handed to the brain
+    /// — the same shape `grudge` beside it takes, and for the same reason: a
+    /// pure decision must not reach into the ECS to ask.
+    pub captured: bool,
+    pub holding_captive: bool,
+    pub pummels_landed: u8,
     /// This viewer's per-entity GRUDGE, if any (`ActorAggression.grudge`). A grudge
     /// makes ONE exact body a foe even when it shares the viewer's faction — the
     /// mechanism behind two same-faction NPCs dueling. Carried here so
@@ -434,6 +441,9 @@ pub fn build_world_view(
         invulnerable: body.invulnerable,
         damage_taken: body.damage_taken,
         health_max: body.health_max,
+        captured: body.captured,
+        holding_captive: body.holding_captive,
+        pummels_landed: body.pummels_landed,
     };
 
     // The stage is NOT viewport-clipped: a fighter can see the blastzones. It is
@@ -571,6 +581,12 @@ pub(crate) fn perception_body_for(
     // `engine.movement-model-is-never-optional` because that rule matches the
     // spelling `Option<&MotionModel>`, not `Option<&ae::MotionModel>`.
     motion_model: &ae::MotionModel,
+    // **The capture relationship, resolved by the caller.** `(captured,
+    // holding, pummels)`. Passed rather than queried for the reason the whole
+    // signature is passed: this function reads authorities the caller already
+    // holds, and a lookup here would be a second reader of a relationship the
+    // combat layer owns.
+    capture: (bool, bool, u8),
 ) -> PerceptionBody {
     // ⚠ the fallback below reads a PRESENT non-axis model (a crawler has no
     // air-dodge window, so "no window open, no endlag" is the honest answer for
@@ -587,7 +603,11 @@ pub(crate) fn perception_body_for(
         body.dash,
         axis_motion.params,
     );
+    let (captured, holding_captive, pummels_landed) = capture;
     PerceptionBody {
+        captured,
+        holding_captive,
+        pummels_landed,
         pos: body.kin.pos,
         vel: body.kin.vel,
         facing: body.kin.facing,

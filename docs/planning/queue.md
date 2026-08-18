@@ -5286,13 +5286,21 @@ underneath it.
 ⇒ **so what is left in this row is ENGINEERING, not acceptance:**
 
 ```text
-1  seat-independent respawn placement           (defect 3 below)
-2  standalone smash-app asset composition       (no PlatformerAssetsPlugin)
-3  the residual presentation defects            (5-8 below)
+✔  seat-independent respawn placement           FIXED 2026-08-18 (defect 3)
+✔  standalone smash-app asset composition       FIXED 2026-08-18
+◐  the residual presentation defects            5 CONFIRMED live · 6 NOT reproduced
+                                                7 open · 8 FIXED + verified live
 ✔  same-character CPU symmetry — FIXED 2026-08-17, see below
 ⛔ NOT on this list: stock count, knockback, damage. Ruled. Do not retune them.
-⛔ NOT on this list: another capture or another ladder run. Both are done.
+⛔ NOT on this list: another ladder run.
 ```
+
+⚠ **"another capture is done" was true of the ACCEPTANCE question and NOT of the
+defects.** Two captures on 2026-08-18 confirmed defect 5 live, failed to
+reproduce defect 6, and verified defect 8's fix end to end — none of which
+reading the code could have settled. ⭐ **and the documented tap recipe still
+works**, which the row flagged as the thing most likely to rot: the nine taps
+seat two CPUs and start a match unchanged.
 
 ✔✔ **CPU SYMMETRY: TWO CPUs WEARING ONE CHARACTER WERE THE SAME MIND, AND THAT IS
 FIXED (2026-08-17). Emmy Ethereal now AUTHORS the old behaviour as her own
@@ -5458,28 +5466,46 @@ their status, and do not re-run the capture or the ladder rig to get it:**
                             `WINNER: Robot v3`, and a team keeps its team name.
 5 barks draw as a          ◐ the OVERLAP half closed via D158→D159 (a bubble is
   screen-wide caption         a `WorldLabel` in the one ranked placement pass);
-                            the SCALE/placement half is unverified since.
-6 untextured olive quad    ▢ OPEN — but NARROWED 2026-08-18 by reading the
-                              suspect. The fallback the row names
-                              (`actors/mod.rs` ~598) is a FEATURE path, and its
-                              colour is `feature_color(kind, ..)`, whose whole
-                              table is: hazard RED, actor BLUE (or red when
-                              fighting), breakable BROWN `(0.62,0.42,0.24)`,
-                              chest AMBER `(1.0,0.74,0.22)`, pickup MINT, switch
-                              RED. ⇒ **two candidates, not "an effect path"**:
-                              breakable's brown is what "olive" most plausibly
-                              is from a screenshot, chest's amber second.
-                              ⛔ and the effect path is the LEAST likely — the
-                              only `from_color` in `fx.rs` is a 3.5–5px grey-blue
-                              DUST particle, nothing body-sized.
-                              ⇒ **settle it by SAMPLING, not describing**: read
-                              the quad's RGB out of the capture and compare
-                              against those six constants. A colour named by eye
-                              is what made this an open question for two days.
+                              the SCALE/placement half is **CONFIRMED STILL LIVE,
+                              2026-08-18**, by a fresh capture: three bark lines
+                              stacked across the middle of a 1280x720 stage
+                              — *"Belay that, ye barnacle!"* twice around
+                              *"Either you are on the stage or you are not."* —
+                              spanning ~530px each and sitting directly over the
+                              play area while both fighters stand below them.
+                              ⇒ scale + placement, as the row said; the bubbles
+                              no longer OVERLAP each other, they overlap the
+                              GAME.
+6 untextured olive quad    ▢ **NOT REPRODUCED 2026-08-18 — two fresh captures,
+                              and the roster is the difference.** The report is
+                              *"beside Player Robot v3"*; the documented tap
+                              recipe seats **George Booul vs the Pirate
+                              Admiral**, and at warmup 300 and 420 there is no
+                              body-sized uniform quad at all — frame 300 holds
+                              2,910 non-blue non-grey pixels in the WHOLE image,
+                              861 of them the salmon HUD text.
+                              ⭐ the only untextured-looking thing is a 54x42
+                              cluster of green squares at `(126,205,154)` beside
+                              George — which matches NO `feature_color` constant
+                              (nearest is pickup MINT at distance 64) and reads
+                              as the Boolean ghost's own authored effect.
+                              ⛔ **and the suspect the row named is wrong
+                              regardless**: that fallback is a FEATURE path whose
+                              whole colour table is hazard RED, actor BLUE/red,
+                              breakable BROWN, chest AMBER, pickup MINT, switch
+                              RED — no olive — while the only `from_color` in
+                              `fx.rs` is a 3.5–5px grey-blue DUST particle.
+                              ⇒ **reproduce it on the ROBOT v3 roster or close
+                              it**; it may already have been fixed since
+                              2026-08-16, and two days of "suspect the effect
+                              path" was a hypothesis nobody had photographed.
 7 VFX authored against no  ▢ OPEN — the Admiral's wheel is ~250px vs a ~45px
   size reference              fighter.
-8 capture_scene prints no  ✔ CLOSED 2026-08-18 — it now reports the SEATED
-  pose for a 2-CPU match      bodies when nobody is driving, one line per seat,
+8 capture_scene prints no  ✔ CLOSED 2026-08-18, VERIFIED LIVE on a real
+  pose for a 2-CPU match      two-CPU match: `seat 0 at (350.4803, 276.0000)` /
+                              `seat 1 at (233.9185, 276.0000)`, where it printed
+                              NOTHING before. It reports the SEATED
+                              bodies when nobody is driving, one line per seat,
                               sorted by SEAT rather than by query order (Bevy
                               iterates by archetype, so an unsorted list would
                               make two captures of one match differ because the

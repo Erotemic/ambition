@@ -74,6 +74,35 @@ and cashed in at 3am, and every spend prints its reason and increments
 guard cannot check intent — it makes the act visible instead, which is the same
 bargain the rest of this file makes.
 
+## Holding indefinitely (`--hold` / `--unhold`) — when one turn is not enough
+
+⭐ **added 2026-08-18, because the one-shot was the wrong shape for working on
+something together.** `--pause` buys exactly one turn, so a conversation — Jon
+and the agent iterating on Mary-O's art, a render and a reaction per exchange —
+costs a re-arm every single turn. Jon: *"if we need to implement a real pause
+option for the goal script, then do it."*
+
+    python3 scripts/goal_guard.py --hold "we're working on the art"
+    python3 scripts/goal_guard.py --unhold
+
+A hold is NOT spent by reading it. Every Stop while held skips the checks and
+hands the turn back, until a human lifts it. Three properties keep that from
+being a hole:
+
+* ⭐ **the deadline still runs.** A held goal releases on `deadline_utc` /
+  `max_run_hours` exactly as an unheld one does. Holding buys quiet, not
+  immortality, and a run held past its deadline simply ends.
+* ⭐ **it is loud on every turn, not just the first.** Each Stop prints that the
+  goal is held, for how long, and how to lift it — so unlike a silent hold it
+  cannot be forgotten, and the age in the message is the nag.
+* ⭐ **a new session is told before it reads the open items.** `--inject`
+  announces the hold and returns, instead of listing work that would read as
+  pressure to resume something the human deliberately stopped.
+
+⛔ **this one is a HUMAN's instrument, more than `--pause` is.** A one-shot armed
+unasked costs a turn; a hold armed unasked costs the run. Nothing here can
+prevent that — what it does is make it impossible to hide.
+
 ## Giving a live run more time (`--extend`)
 
     python3 scripts/goal_guard.py --extend 48h      # 2d, 90m, or 2026-08-20T20:15Z
@@ -1063,6 +1092,38 @@ def write_state(root: Path, state: dict) -> None:
         pass
 
 
+def current_hold(root: Path) -> dict | None:
+    """The SUSTAINED pause, if one is in force.
+
+    Unlike [`take_pause`] this is not spent by reading it: a hold stays until a
+    human lifts it with `--unhold`. That is the whole difference, and it is the
+    difference Jon asked for — a one-shot pause has to be re-armed every turn,
+    which makes working through a problem together cost a re-arm per exchange.
+
+    ⚠ **it does not expire, and the deadline is what stops that being a hole.**
+    A held goal still releases on `deadline_utc` / `max_run_hours` exactly as an
+    unheld one does; holding buys quiet, not immortality.
+    """
+    state = load_json(state_path(root)) or {}
+    hold = state.get("hold")
+    return hold if isinstance(hold, dict) else None
+
+
+def hold_age_text(hold: dict) -> str:
+    """How long this hold has been in force, for the message that says so."""
+    started = hold.get("held_at")
+    try:
+        began = _dt.datetime.fromisoformat(started) if started else None
+    except (TypeError, ValueError):
+        began = None
+    if began is None:
+        return ""
+    mins = (now_utc() - began).total_seconds() / 60.0
+    if mins < 90:
+        return f" (held {mins:.0f}m)"
+    return f" (held {mins / 60.0:.1f}h)"
+
+
 def take_pause(root: Path) -> dict | None:
     """Spend a pending one-shot pause, if there is a live one.
 
@@ -1191,6 +1252,29 @@ def mode_stop(root: Path, hook_input: dict) -> int:
     # minutes), count a block, or advance the stall counter toward a release
     # somebody else's work would be judged by.
     if not session_owns_goal(root, hook_input, claim=True):
+        return 0
+
+    # A SUSTAINED pause the human asked for. Checked before everything else for
+    # the same reason the one-shot is: the point is to hand the turn back now.
+    # ⚠ it is deliberately LOUD — every single Stop says the goal is held, names
+    # the reason and says how to lift it, so a hold cannot be quietly forgotten
+    # the way a silent one would be.
+    hold = current_hold(root)
+    if hold is not None:
+        note = hold.get("reason") or ""
+        emit(
+            {
+                "systemMessage": (
+                    "Goal guard: ON HOLD at the human's request"
+                    + hold_age_text(hold)
+                    + (f" — {note}" if note else "")
+                    + ". The goal is STILL ARMED and was not checked; it stays "
+                    "held until somebody runs `python3 scripts/goal_guard.py "
+                    "--unhold`. Its deadline still releases it on time. Goal: "
+                    + goal.get("goal", "")
+                )
+            }
+        )
         return 0
 
     # A pause the human asked for, spent BEFORE the checks run: the point is to
@@ -1373,6 +1457,27 @@ def mode_inject(root: Path, hook_input: dict) -> int:
         return 0
 
     state = load_json(state_path(root)) or {}
+    # ⚠ a HELD goal must say so at session start, or a fresh session reads the
+    # open items as pressure and starts working on something the human paused.
+    held = state.get("hold")
+    if isinstance(held, dict):
+        note = held.get("reason") or ""
+        emit(
+            {
+                "systemMessage": (
+                    "GOAL ON HOLD"
+                    + hold_age_text(held)
+                    + (f" — {note}" if note else "")
+                    + ". It is still armed and its deadline still runs, but no "
+                    "turn will be blocked until somebody runs `python3 "
+                    "scripts/goal_guard.py --unhold`. ⛔ do NOT resume the goal's "
+                    "work on your own; the human paused it deliberately. Goal: "
+                    + goal.get("goal", "")
+                )
+            }
+        )
+        return 0
+
     last_open = state.get("last_open")
     if isinstance(last_open, list) and last_open:
         lines = [
@@ -1506,6 +1611,65 @@ def mode_pause(root: Path, reason: str) -> int:
     print(
         f"one-shot pause armed — THIS turn may end; the goal blocks again at the "
         f"end of the next turn. Expires {expires.isoformat()} if unused."
+    )
+    return 0
+
+
+def mode_hold(root: Path, reason: str) -> int:
+    """Hold the goal until a human lifts it — the SUSTAINED sibling of `--pause`.
+
+    ⭐ **why this exists.** `--pause` is a one-shot: it buys exactly one turn and
+    has to be re-armed for the next. That is right for *"finish up and wait"*, and
+    wrong for *"stop, we are going to work on this together"* — which is what Jon
+    asked for while iterating on Mary-O's art, where a re-arm per exchange is
+    noise in the middle of a conversation.
+
+    ⚠ **it does not expire, and that is safe for one reason only: the DEADLINE
+    still runs.** A held goal releases on `deadline_utc` / `max_run_hours`
+    exactly as an unheld one does. Holding buys quiet, not immortality, and a run
+    that is held past its deadline simply ends.
+
+    ⛔ **this is a HUMAN's instrument.** The one-shot pause is self-limiting, so an
+    agent arming it unasked costs a turn; a hold armed unasked would cost the run.
+    Nothing in this file can stop that (see the module docstring) — what it does
+    instead is make it impossible to hide: every Stop while held prints that it is
+    held, for how long, and why, into the transcript the human reads.
+    """
+    if not load_json(active_path(root)):
+        print("no goal armed — nothing to hold")
+        return 0
+    state = load_json(state_path(root)) or {}
+    if state.get("hold"):
+        print("already on hold — `--unhold` lifts it")
+        return 0
+    state["hold"] = {
+        "held_at": now_utc().isoformat(),
+        "reason": reason.strip(),
+    }
+    state["holds"] = as_int(state.get("holds"), 0) + 1
+    write_state(root, state)
+    print(
+        "goal HELD — every turn may now end until `--unhold`. The goal stays "
+        "armed and its deadline still releases it on time."
+        + (f" Reason: {reason.strip()}" if reason.strip() else "")
+    )
+    return 0
+
+
+def mode_unhold(root: Path) -> int:
+    """Lift a `--hold`; the next Stop checks the goal normally again."""
+    state = load_json(state_path(root)) or {}
+    hold = state.get("hold")
+    if not hold:
+        print("not on hold — nothing to lift")
+        return 0
+    state.pop("hold", None)
+    state["last_unhold_at"] = now_utc().isoformat()
+    write_state(root, state)
+    print(
+        "hold lifted"
+        + (hold_age_text(hold) if isinstance(hold, dict) else "")
+        + " — the goal blocks again at the end of this turn."
     )
     return 0
 
@@ -1663,6 +1827,15 @@ def mode_status(root: Path) -> int:
         print("no goal armed")
         return 0
     print(f"goal: {goal.get('goal', '')}")
+    held = current_hold(root)
+    if held is not None:
+        note = held.get("reason") or ""
+        print(
+            "⏸ ON HOLD"
+            + hold_age_text(held)
+            + (f" — {note}" if note else "")
+            + "   (`--unhold` lifts it; the deadline still releases the goal)"
+        )
     owner = owner_session(root)
     print(
         f"owner session: {owner}"
@@ -1833,12 +2006,33 @@ def main() -> int:
             "blocks again at the end of the next turn. Only when asked."
         ),
     )
+    parser.add_argument(
+        "--hold",
+        nargs="?",
+        const="",
+        metavar="REASON",
+        help=(
+            "hold the goal until --unhold: every turn may end, the goal stays "
+            "armed, and its deadline still releases it. For working on something "
+            "together, where a one-shot --pause would need re-arming every turn. "
+            "Only when the human asks."
+        ),
+    )
+    parser.add_argument(
+        "--unhold",
+        action="store_true",
+        help="lift a --hold; the goal blocks normally again",
+    )
     args = parser.parse_args()
 
     root = repo_root()
 
     if args.extend is not None:
         return mode_extend(root, args.extend)
+    if args.hold is not None:
+        return mode_hold(root, args.hold)
+    if args.unhold:
+        return mode_unhold(root)
     if args.pause is not None:
         return mode_pause(root, args.pause)
     if args.own:

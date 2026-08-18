@@ -3848,6 +3848,83 @@ make `items` a genuine candidate the moment Wave G opens.
  Prefer boundaries that improve capability closure, compile isolation,
 public API shape or change amplification.
 
+⭐⭐ **THE `audio`+`music` CANDIDATE IS MEASURED, 2026-08-18 — AND IT NEEDS NO NEW
+CRATE, because the destination already exists and its contract ACCEPTS it.**
+
+```text
+1,842 lines   972 production, 870 tests
+    3         outward `use crate::` statements to the rest of the monolith
+    1         of those is a GENUINE edge — and it is test-only
+```
+
+The three, chased to their definitions rather than counted:
+
+```text
+crate::rooms::RoomMusicRequest             → ambition_platformer2d_world   RE-EXPORT, below
+crate::assets::game_assets::GameAssetConfig → ambition_sprite_sheet        RE-EXPORT, below (test)
+crate::session::data::{MusicRegistry,…}    → ambition_audio               RE-EXPORT, below
+crate::session::data::{fixture_*_registry} → session/data.rs:51,57        ⚠ REAL, pub(crate), TEST
+```
+
+⇒ **one real edge, `pub(crate)`, and only tests use it** — so the carve's actual
+cost is finding a home for two fixture builders, not untangling a dependency.
+
+⭐⭐ **AND THE DESTINATION IS `ambition_audio`, WHICH ALREADY OWNS THE PARTS.**
+It opens *"Content-free audio data/runtime layer"* and already ships `library`,
+`render`, `music`, `mix`, `web_unlock` plus three Bevy plugins. The monolith's
+`audio/plugin.rs` (422 lines) is largely a COMPOSITION of that crate: it installs
+three `ambition_audio` plugins and initialises eight `ambition_audio` resources.
+Monolith-specific state is four items — `RadioStationState`, `AudioEnvironment`,
+`DefaultMusicStarted`, `MusicIntent`. ⇒ same shape as the `boss_encounter`
+relocation: an existing owner, no new crate, no new hop.
+
+⛔⛔ **AND A STALE DOC COMMENT NEARLY REFUSED THE CARVE FOR THE WRONG REASON.**
+`music/mod.rs` describes itself as carrying *"authored goblin cue data"*. Under
+the read-the-destination's-contract rule that reads as an instant refusal —
+content-free crate, authored content, done. ⚠ **it is not true any more.**
+Grepping the two modules for named game content finds ZERO string ids naming a
+track, boss, room, or character; the only tuning value is one
+`LARGE_BRUTE_DELAY_SECONDS = 3.5`. The goblin cue left long ago and lives at
+`game/ambition_content/src/music.rs` (`FIRST_GOBLIN_CUE_ID`,
+`MOB_LAB_ENCOUNTER_ID`). ⇒ **the destination's contract must be read against the
+CODE's present content, not the source module's description of itself** — a
+stale self-description is a refusal the code no longer earns, which is the
+inverse of the failure this row usually catalogues and costs just as much.
+
+⛔⛔ **AND THE `use crate::` COUNT DID NOT PRICE THE MOVE — the EXTERNAL crate
+deps did, and they split the candidate in two.** Three outward intra-crate edges
+looked like a free relocation. What actually costs is what each module imports
+from OTHER crates, because those become the destination's new dependencies:
+
+```text
+audio/environment.rs   bevy · bevy_kira_audio · ambition_audio::library        ← nothing else
+audio/plugin.rs        + ambition_platformer2d_shared_tangle · ambition_dev_tools
+music/intent.rs        + ambition_encounter · ambition_platformer2d_world
+```
+
+⇒ **moving the whole 1,842 lines would make `ambition_audio` — today a leaf on
+`ambition_sfx`, bevy, bevy_kira_audio, ron, serde — depend on `ambition_encounter`
+and `ambition_platformer2d_world`.** No cycle (checked: none of the five names
+`ambition_audio` back), but a foundation acquiring mid-level dependencies is the
+carve making the graph worse, which is exactly what Jon's *"try not to dump
+things into it"* rules out.
+
+⭐ **so the shippable slice is `audio/environment.rs` ALONE** — 238 production +
+181 test lines, realtime channel-attenuation DSP whose only outside import is
+`ambition_audio::library::{amplitude_to_decibels, MusicChannel, SfxChannel}`.
+It already reaches INTO the destination for every type it uses; moving it adds
+the destination not one new dependency. `plugin.rs` and `music/` stay until
+someone wants a music-direction crate ABOVE `ambition_encounter`.
+
+⭐ **the transferable half: an intra-crate `use crate::` census answers "what
+would break", and the EXTERNAL import census answers "what would the destination
+inherit".** Only the second one prices a crate boundary, and this candidate looks
+free by the first measure and expensive by the second.
+
+⚠ still not measured: whether `ambition_audio` can carry the monolith's
+`audio`/`web_audio` persona features (it has `kira`), and the five-lockfile /
+contracts-job bill every crate-boundary change here has paid.
+
 ⭐⭐ **MEASURED 2026-08-15, and the headline is a REFUTATION worth more than the
 carve it refused.** `conversation` is the strongest candidate by every import
 measure — **1,836 lines, zero edges out, zero edges in** — and its own header
@@ -5036,6 +5113,44 @@ D33   the conversation carve (in flight) is this row in its Cargo form: a
       module with zero outward imports that was nonetheless pinned — first by
       the SCHEDULE (fixed in step 1.5), now by nothing.
 ```
+
+⭐⭐ **AND THE MONOLITH'S OWN `ldtk_runtime` FEATURE WAS A FICTION — measured
+2026-08-18, which is the sharpest instance this row has.**
+
+`bevy_ecs_ldtk` and `bevy_asset_loader` are declared OPTIONAL in
+`ambition_platformer2d_actor_monolith`'s manifest and gated behind
+`ldtk_runtime`. Exactly one module named both UNCONDITIONALLY, so:
+
+```text
+cargo check -p ambition_platformer2d_actor_monolith --no-default-features
+  → 4 errors, ALL FOUR in src/assets/loading.rs
+```
+
+⇒ **turning the feature off did not yield a smaller crate; it yielded a crate
+that would not compile.** The manifest stated a boundary and the code did not
+honour it — this row's title with the two halves in one crate instead of two.
+
+⭐ **and the module was reachable only because a dead parameter kept it alive.**
+`SimulationSetup` carried `sandbox_data_asset`, `sandbox_asset_collection` and
+`asset_server` purely to clone two handles into `_`-prefixed locals that dropped
+on the next line. That keeps NOTHING loaded — the resources holding those handles
+are what keep the assets alive, and they outlive the call by construction. Five
+of the seven call sites already passed `None, None`. Deleting the three params
+took the provider's only `AssetServer` dependency and its only mention of the
+LDtk asset type with them, and `#[cfg(feature = "ldtk_runtime")] pub mod loading`
+then compiled clean.
+
+⚠ **the footprint ratchet did NOT move** (44 linked / 17 unwanted, unchanged) and
+saying otherwise would be the easy overclaim here: no Cargo edge changed, because
+the optional dep was already declared optional. What changed is that the
+declaration is now TRUE. The ratchet measures the sentinel's closure; it cannot
+see a feature that is unusable, which is why this instance needed a build to find
+rather than a manifest read.
+
+⭐ guarded by a `run_tests.py` job that runs that exact build — the CONDITION, not
+a grep proxy for it. ⚠ it sits in the exhaustive plan with the other
+feature-variant jobs (a distinct feature set is a distinct dependency graph), so
+it catches this on Jon's periodic sweep, not on every backbone run.
 
 ⇒ **the pattern across all three is that the boundary is discovered by whoever
 trips over it**, which is the row's title restated. ⭐ **D152 is the template**:

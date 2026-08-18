@@ -5,7 +5,6 @@ use bevy::prelude::*;
 use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 
 use ambition_platformer2d::actors::assets::game_assets as actor_game_assets;
-use ambition_platformer2d::actors::assets::loading;
 use ambition_platformer2d::actors::rooms;
 use ambition_platformer2d::actors::session::{data, setup};
 use ambition_platformer2d::dev_tools::dev_tools::EditableAbilitySet;
@@ -78,9 +77,6 @@ pub(super) fn setup_simulation_system(
     mut commands: Commands,
     world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<rooms::RoomSet>,
-    sandbox_data_asset: Option<Res<data::Platformer2dGameplayDefaultsHandle>>,
-    sandbox_asset_collection: Option<Res<loading::Platformer2dStartupAssets>>,
-    asset_server: Res<AssetServer>,
     active_tuning: Res<ambition_platformer2d::engine_core::ActiveMovementTuning>,
     editable_abilities: Res<EditableAbilitySet>,
     initial_body: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
@@ -123,9 +119,6 @@ pub(super) fn setup_simulation_system(
                 ),
             boss_catalog: &boss_catalog,
             default_character_id: ambition_content::character_catalog::PLAYABLE_ROSTER[0],
-            sandbox_data_asset: sandbox_data_asset.as_deref(),
-            sandbox_asset_collection: sandbox_asset_collection.as_deref(),
-            asset_server: &asset_server,
         },
     );
     platform_set.0 =

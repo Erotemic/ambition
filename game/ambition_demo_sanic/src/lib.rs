@@ -1086,7 +1086,6 @@ fn sanic_setup(
     initial_body: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
         ambition_platformer2d::runtime::demo_fixture::InitialBodyPolicy,
     >,
-    asset_server: bevy::prelude::Res<bevy::asset::AssetServer>,
     character_catalog: bevy::prelude::Res<
         ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog,
     >,
@@ -1130,9 +1129,6 @@ fn sanic_setup(
                 ),
             boss_catalog: &boss_catalog,
             default_character_id: SANIC_CHARACTER_ID,
-            sandbox_data_asset: None,
-            sandbox_asset_collection: None,
-            asset_server: &asset_server,
         },
     );
 }

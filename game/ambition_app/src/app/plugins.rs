@@ -5,6 +5,14 @@
 // the wrong half of the pair. Found 2026-08-03 by running the web check, which
 // only the exhaustive plan runs — the same way this target sat broken for four
 // days once before.
+//
+// ⭐ **AND SINCE 2026-08-18 THE MODULE ITSELF IS BEHIND `ldtk_runtime`** (the
+// monolith's, not this crate's), because it holds a typed LDtk handle. That is
+// safe here for a reason worth stating rather than re-deriving: `ldtk_map` on
+// the line below is ALREADY unconditional, so this file has never been able to
+// compile without an LDtk runtime. The two imports stand or fall together, and
+// the warning above still applies to both — gate the USES and the IMPORT as one
+// pair, or neither.
 use ambition_platformer2d::actors::assets::loading;
 use ambition_platformer2d::actors::rooms;
 use ambition_platformer2d::actors::time::feel::Platformer2dFeelTuningMonolith;

@@ -1149,7 +1149,6 @@ pub struct PlatformerSessionBuilder<'w, 's> {
     commands: Commands<'w, 's>,
     editable_abilities: Res<'w, ambition_dev_tools::dev_tools::EditableAbilitySet>,
     tuning: Res<'w, ambition_platformer2d_core::ActiveMovementTuning>,
-    asset_server: Res<'w, AssetServer>,
     character_catalog: Res<'w, ambition_characters::actor::character_catalog::CharacterCatalog>,
     /// The prepared cast, when this composition registered one. Activation builds
     /// the player's BODY, and a prepared character states what a body physically
@@ -1171,15 +1170,6 @@ pub struct PlatformerSessionBuilder<'w, 's> {
         Res<'w, ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry>,
     construction_recipes:
         Res<'w, ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry>,
-    sandbox_data_asset: Option<
-        Res<
-            'w,
-            ambition_platformer2d_actor_monolith::session::data::Platformer2dGameplayDefaultsHandle,
-        >,
-    >,
-    sandbox_asset_collection: Option<
-        Res<'w, ambition_platformer2d_actor_monolith::assets::loading::Platformer2dStartupAssets>,
-    >,
     moving_platforms: ResMut<'w, ambition_platformer2d_world::collision::MovingPlatformSet>,
     active_session: ResMut<'w, ActiveGameplaySession>,
 }
@@ -1260,9 +1250,6 @@ impl PlatformerSessionBuilder<'_, '_> {
                     ),
                 boss_catalog: &self.boss_catalog,
                 default_character_id,
-                sandbox_data_asset: self.sandbox_data_asset.as_deref(),
-                sandbox_asset_collection: self.sandbox_asset_collection.as_deref(),
-                asset_server: &self.asset_server,
             },
         );
 

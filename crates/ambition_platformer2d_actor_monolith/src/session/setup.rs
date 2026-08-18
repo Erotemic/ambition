@@ -17,10 +17,8 @@
 use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
-use crate::assets::loading::Platformer2dStartupAssets;
 use crate::platformer_runtime::lifecycle::PlayerVisual;
 use crate::rooms::RoomSet;
-use crate::session::data::Platformer2dGameplayDefaultsHandle;
 use ambition_dev_tools::dev_tools::EditableAbilitySet;
 use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_platformer2d_core::RoomGeometry;
@@ -87,9 +85,6 @@ pub struct SimulationSetup<'a> {
     pub boss_catalog: &'a ambition_boss_encounter::BossCatalog,
     /// Provider-selected default used only when `StartingCharacter` is empty.
     pub default_character_id: &'a str,
-    pub sandbox_data_asset: Option<&'a Platformer2dGameplayDefaultsHandle>,
-    pub sandbox_asset_collection: Option<&'a Platformer2dStartupAssets>,
-    pub asset_server: &'a AssetServer,
 }
 
 /// Spawn simulation-only entities and resources.
@@ -98,7 +93,6 @@ pub struct SimulationSetup<'a> {
 /// adapter) can attach presentation components without re-querying.
 ///
 /// This includes:
-/// * pre-fetching sandbox/LDtk asset handles to keep the asset server alive
 /// * logging room layout warnings
 /// * spawning the `LdtkWorldBundle` so `bevy_ecs_ldtk` can own LDtk entity
 ///   lifecycle and the runtime-spine systems have something to query
@@ -128,18 +122,8 @@ pub fn simulation_world(
         construction,
         boss_catalog,
         default_character_id,
-        sandbox_data_asset,
-        sandbox_asset_collection,
-        asset_server,
     } = params;
 
-    if let Some(handle) = sandbox_data_asset {
-        let _asset_handle_for_async_reload = handle.0.clone();
-    }
-    if let Some(collection) = sandbox_asset_collection {
-        let _loaded_sandbox_data_handle = collection.sandbox_data.clone();
-        let _loaded_ldtk_project_handle = collection.ldtk_project.clone();
-    }
     for warning in room_set.layout_warnings() {
         bevy::log::debug!(target: "ambition_platformer2d::room_layout", "{warning}");
     }
@@ -148,12 +132,17 @@ pub fn simulation_world(
     // typed `LdtkProject` handle requires `LdtkPlugin` to be registered.
     // Headless builds skip LdtkPlugin (its tile pipeline needs RenderApp),
     // so this function must not assume the LDtk asset type is available.
-    // ⭐ `ldtk_index` is GONE (2026-08-16). It was borrowed here, silenced with
-    // `let _ =`, and read by nothing — a dead parameter that nonetheless made
-    // the LDtk index look like something simulation setup needed, which is part
-    // of why it stayed a mandatory member of the canonical session world for so
-    // long. Suppress the remaining unused binding until `asset_server` follows.
-    let _ = asset_server;
+    // ⭐ AND SIMULATION SETUP NO LONGER TOUCHES ASSETS AT ALL (2026-08-18).
+    // `ldtk_index` went first (2026-08-16), then `sandbox_data_asset`,
+    // `sandbox_asset_collection` and `asset_server` followed as this comment
+    // predicted they would. All four were borrowed here and read by nothing:
+    // the two collections were cloned into `_`-prefixed locals that dropped on
+    // the next line, which keeps NOTHING alive — the resources holding those
+    // handles are what keep the assets loaded, and they outlive this call by
+    // construction. The cost of the superstition was structural, not runtime:
+    // it made an LDtk asset handle look like something a headless simulation
+    // needed, and it kept an `AssetServer` in the provider's system params for
+    // the sole purpose of handing it to a `let _ =`.
 
     // The session's content generation, published for the commit boundary:
     // every later room transaction (transition, reset, reconstruction) must be

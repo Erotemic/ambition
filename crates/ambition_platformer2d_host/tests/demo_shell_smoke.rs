@@ -116,7 +116,6 @@ fn fixture_setup(
     construction_recipes: Res<
         ambition_platformer2d_runtime::demo_fixture::ActorConstructionRegistry,
     >,
-    asset_server: Res<AssetServer>,
 ) {
     ambition_platformer2d_runtime::demo_fixture::simulation_world(
         &mut commands,
@@ -141,9 +140,6 @@ fn fixture_setup(
                 ),
             boss_catalog: &boss_catalog,
             default_character_id: "player",
-            sandbox_data_asset: None,
-            sandbox_asset_collection: None,
-            asset_server: &asset_server,
         },
     );
 }

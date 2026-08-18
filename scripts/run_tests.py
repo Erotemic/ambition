@@ -534,6 +534,29 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
                                    "--features", ",".join(extra)]))
             union_features.extend(f"{name}/{f}" for f in extra)
 
+    # ⭐⭐ **AN OPTIONAL DEPENDENCY THAT CANNOT BE TURNED OFF IS A FICTION.**
+    #
+    # `ambition_platformer2d_actor_monolith` declares `bevy_ecs_ldtk` and
+    # `bevy_asset_loader` OPTIONAL, gated behind `ldtk_runtime` — and until
+    # 2026-08-18 exactly one module (`assets/loading.rs`) named both
+    # UNCONDITIONALLY. So turning the feature off did not produce a smaller
+    # crate; it produced a crate that would not compile, and had not compiled
+    # that way for long enough that nobody knew. The manifest stated a boundary
+    # the code did not honour, which is D136's thesis in one file.
+    #
+    # ⚠ this guards the CONDITION, not a proxy for it: the boundary IS "the
+    # crate builds without the feature", so the check is that build. A grep for
+    # unconditional `bevy_ecs_ldtk` would pass the day someone reaches for a
+    # different LDtk-shaped type through a re-export.
+    #
+    # `check`, not `build` — the claim is about the dependency graph resolving
+    # and the code type-checking without LDtk, and neither needs codegen.
+    if everything and (not only or "ambition_platformer2d_actor_monolith" in only):
+        check_jobs.append(Job(
+            "the monolith's LDtk feature is REALLY optional (--no-default-features)",
+            [CARGO, "check", "-p", "ambition_platformer2d_actor_monolith",
+             "--no-default-features"]))
+
     # ⛔ **THE CAUSAL INSTRUMENT AGAINST THE REAL APP.** `ambition_app` is in
     # SKIP_FEATURE_JOB, and that set's own rule says adding a
     # `#[cfg(feature = ...)]` test to a skipped crate must remove the skip in the

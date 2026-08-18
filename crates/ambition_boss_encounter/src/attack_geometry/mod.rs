@@ -1,4 +1,20 @@
-//! Pure boss-attack volume math (no ECS, no mutation).
+//! Pure attack/body volume math (no ECS, no mutation).
+//!
+//! ⛔⛔ **THIS HEADER USED TO SAY "boss-attack-specific geometry only" AND THAT
+//! WAS FALSE — measured 2026-08-18, and it had already misdirected one move.**
+//! [`collision_aabb`] and [`SimpleActorGeometry`] have **no boss caller in
+//! production at all**: their three call sites are the home body's footprint
+//! publish, the actor body's footprint publish, and the debug overlay. The
+//! sentence read like a stated boundary refusing a shared body helper, which is
+//! exactly the kind of contract this repository trusts — so it has to be true.
+//!
+//! ⚠ **the honest shape, so the next reader does not re-derive it**:
+//! [`CombatGeometry`] is UNIVERSAL body geometry with two implementors, one of
+//! which ([`BossVolumeContext`]) is the boss-specific one. The universal half
+//! wants to live below this crate, beside the other body vocabulary — but
+//! `ActorSpriteMetrics` and `AnimationSelection` are boss-crate types the trait
+//! names, so moving it is a carve rather than a file move, and it is filed as
+//! one (queue D117/D33) rather than half-done here.
 //!
 //! Free functions that derive world-space AABBs for a boss's active strike,
 //! telegraph, damageable hurtbox, and body-contact zone, then resolve the
@@ -9,7 +25,7 @@
 //! `volumes_for_profile`'s hardcoded geometry per `BossAttackProfile`.
 //! Submodules: `aabb` (pixel-rect -> world-AABB derivation), `frame`
 //! (animation-frame sampling). Distinct from the engine's collision system —
-//! this is boss-attack-specific geometry only.
+//! this is authored attack/body volume math, not world collision.
 
 use ambition_platformer2d_core as ae;
 
@@ -170,6 +186,40 @@ pub trait CombatGeometry {
 /// An actor's collision AABB — its combat-size body box oriented to its
 /// reference frame and shifted by any off-center `combat_offset`. The single
 /// way to ask "where is this actor's body" across player / NPC / enemy / boss.
+/// **THE body-footprint publish** — write a body's oriented collision box into
+/// the [`ae::CenteredAabb`] every consumer reads (the debug overlay, hurtbox
+/// resolution, target volumes).
+///
+/// ⛔⛔ **there used to be two spellings of this, and one of them called itself
+/// "the one universal `CenteredAabb` publish rule (AJ5.1)" while the other sat
+/// in the home road.** Same four inputs, same call, same two assignments; the
+/// only real difference was that the actor road allowed a coarse `footprint`
+/// override for a boss's composite envelope, which is a parameter rather than a
+/// species. Two spellings of a rule that names itself universal is the shape
+/// D114 was, one layer over.
+///
+/// `footprint` is the body's collision size, or a boss's render envelope where
+/// one is carried. `frame_down` is the body's reference-frame down — gravity at
+/// its position, or a clung surface normal for a wall-walker — so a
+/// sideways-gravity body's box lies along the wall.
+pub fn publish_body_footprint(
+    out: &mut ae::CenteredAabb,
+    pos: ae::Vec2,
+    footprint: ae::Vec2,
+    facing: f32,
+    frame_down: ae::Vec2,
+) {
+    use ae::AabbExt;
+    let body = collision_aabb(&SimpleActorGeometry {
+        pos,
+        size: footprint,
+        facing,
+        frame_down,
+    });
+    out.center = body.center();
+    out.half_size = body.half_size();
+}
+
 pub fn collision_aabb(g: &impl CombatGeometry) -> ae::Aabb {
     let half = ae::AccelerationFrame::new(g.frame_down()).to_world_half(g.combat_size() * 0.5);
     ae::Aabb::new(g.body_pos() + g.combat_offset(), half)

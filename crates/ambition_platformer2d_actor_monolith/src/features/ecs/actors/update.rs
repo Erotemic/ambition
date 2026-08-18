@@ -927,14 +927,13 @@ pub(crate) fn integrate_actor_body(
     // publish rule (AJ5.1); it replaces the boss's old bespoke render-sized
     // publish, so the same `to_world_half(size*0.5)` box comes out either way.
     let footprint = envelope.unwrap_or(em.kin.size);
-    let body = crate::features::collision_aabb(&crate::features::SimpleActorGeometry {
-        pos: em.kin.pos,
-        size: footprint,
-        facing: em.kin.facing,
-        frame_down: down,
-    });
-    aabb.center = body.center();
-    aabb.half_size = body.half_size();
+    ambition_boss_encounter::attack_geometry::publish_body_footprint(
+        aabb,
+        em.kin.pos,
+        footprint,
+        em.kin.facing,
+        down,
+    );
     // Publish the post-integration frame (identical to the brain frame except a
     // shark-crash zeroes it) so `emit_brain_action_messages` — which runs after
     // WorldPrep — sees the same frame the old fused loop did.

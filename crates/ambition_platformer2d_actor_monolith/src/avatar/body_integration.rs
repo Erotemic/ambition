@@ -231,15 +231,15 @@ pub fn integrate_home_body(
         events: result.events,
     };
 
-    use ambition_platformer2d_core::AabbExt;
-    let body = crate::features::collision_aabb(&crate::features::SimpleActorGeometry {
-        pos: clusters.kinematics.pos,
-        size: clusters.kinematics.size,
-        facing: clusters.kinematics.facing,
-        frame_down: -result.surface_normal,
-    });
-    hurtbox.center = body.center();
-    hurtbox.half_size = body.half_size();
+    // ⭐ the ONE footprint publish, shared with the actor road (D117). A home
+    // body's collision box IS its footprint, so it passes no envelope.
+    ambition_boss_encounter::attack_geometry::publish_body_footprint(
+        hurtbox,
+        clusters.kinematics.pos,
+        clusters.kinematics.size,
+        clusters.kinematics.facing,
+        -result.surface_normal,
+    );
 
     // The ridden-surface presentation fact: a momentum rider plants its feet on
     // the ground under it, so the caller publishes this tick's outward support

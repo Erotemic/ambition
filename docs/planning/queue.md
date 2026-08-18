@@ -365,39 +365,67 @@ few lines up. Both roads take the one composited world now, and
 **two composite sites is two places for the moving platforms, gate solids, water
 and portal carves a body collides with to drift apart.**
 
-▢ **what remains of the fork**: `integrate_home_body` still exists as the home
-ORCHESTRATION (input build, the reset decision with its hazard/out-of-play gates,
-the `PlayerBodyFrameOutput` hand-off, the footprint publish), and
-`integrate_actor_body` has its own equivalents of the same three. ⚠ the two live
-in disjoint queries (`With`/`Without<PlayerEntity>`) with different cluster
-shapes, so they cannot share one Bevy loop — the question is whether the
-remaining orchestration is genuinely species-specific or is three more pairs of
-duplicated lines. ⛔ answer it by measuring each pair, not by deleting a function
-name to satisfy a checkbox. Measured so far:
+⭐⭐ **AND THE ANSWER TO "SHOULD THE TWO INTEGRATORS BECOME ONE FUNCTION?" IS
+NO — MEASURED, NOT ASSUMED.** All four pairs were compared:
 
 ```text
-input build      DIFFERENT for cause — an actor projects its brain's
-                 velocity_target onto the frame through a flight limb; a home
-                 body's axes ARE the stick. ⚠ but see the possession question
-                 below, which nobody has asked yet
-reset decision   DIFFERENT for cause — home reports a `BodyReset` that authored
-                 `DeathRules` consume; the actor road gates on em.health.alive()
-footprint        ⛔ THE SAME RULE, SPELLED TWICE, and the actor copy's own
-                 comment calls it "the one universal `CenteredAabb` publish rule
-                 (AJ5.1)" while a second spelling sits in the home road
+the step         ✔ MERGED — actor::step_body, one seam, both roads
+footprint        ✔ MERGED — publish_body_footprint, one rule, both roads
+input build      DIFFERENT FOR CAUSE — an actor is steered by its brain's
+                 velocity_target projected through a flight limb; a home body's
+                 axes ARE the stick
+reset decision   DIFFERENT FOR CAUSE — home reports a `BodyReset { cause, origin }`
+                 that authored `DeathRules` consume; the actor road ticks a
+                 RespawnPolicy::InPlace timer and revives itself. Two different
+                 questions wearing one word
 ```
 
-⛔⛔ **AND UNIFYING THE FOOTPRINT IS BLOCKED BY A STATED BOUNDARY, which is the
-finding rather than the blocker.** Both spellings call
-`collision_aabb`/`SimpleActorGeometry`, which live in
-`ambition_boss_encounter::attack_geometry` — a module whose own header says
-*"pure boss-attack volume math … distinct from the engine's collision system —
-this is boss-attack-specific geometry only."* ⇒ **the universal body-footprint
-publish is already reaching across a boundary that says it is boss-attack-only**,
-by both roads, today. Either that sentence is stale or those two items are
-mis-homed, and the answer decides where the shared publish goes. ⭐ this is D136's
-thesis arriving again: reading the destination's contract turned a plausible
-five-minute move into an obviously wrong one at zero cost.
+⇒ **fusing the last two would build exactly the god function this milestone
+forbids** (*"no replacement god `ActorContext`/service bag"*) — an
+`Option`-per-species parameter list whose body is two `if`s. ⛔ so
+`integrate_home_body` STAYS, and the deletion of that name was the wrong target:
+the two roads live in disjoint queries (`With`/`Without<PlayerEntity>`) with
+different cluster shapes and cannot share one Bevy loop anyway.
+
+⭐⭐ **THE PROPERTY THAT ACTUALLY MATTERS IS TRUE NOW, AND IT IS CHECKABLE:
+production has ZERO direct `ae::step_motion` calls.** Every body — home, actor,
+seated fighter, boss — reaches the movement kernel through `step_body`; the only
+two remaining spellings in the monolith are both inside `#[cfg(test)]` helpers.
+That is what *"controlled and AI bodies use the same body/control contracts"*
+means operationally, and unlike a function name it cannot be satisfied by a
+rename.
+
+✔✔ **THE FOOTPRINT IS ONE RULE NOW, AND THE BOUNDARY THAT REFUSED IT WAS
+STATING A FALSEHOOD.** `publish_body_footprint` is the single publish; both roads
+call it, and the actor road's coarse-envelope override became a PARAMETER rather
+than a species.
+
+⛔⛔ **the refusal is the part worth keeping.** `attack_geometry`'s header said
+*"this is boss-attack-specific geometry only"*, which reads exactly like the
+stated contracts D136 celebrates — and it turned a correct move into an
+obviously-wrong one at zero cost. Except it was FALSE, measured:
+
+```text
+collision_aabb / SimpleActorGeometry — production call sites
+  home body footprint publish        avatar/body_integration.rs
+  actor body footprint publish       features/ecs/actors/update.rs
+  the debug overlay                  game/ambition_app/src/dev/…/gizmos.rs
+  boss callers                       ZERO
+```
+
+⇒ ⭐⭐ **a stated boundary is only worth what its accuracy is worth.** This one
+was load-bearing in the wrong direction: it would have sent a later reader to
+duplicate a helper rather than share it. The header now says what the module
+actually holds, and records the measurement so nobody re-derives it.
+
+▢ **THE CARVE IT IMPLIES IS REFUSED FOR NOW, WITH CAUSE AND A SIZE.** The
+universal half of `attack_geometry` wants to live below the boss crate beside the
+other body vocabulary — but `CombatGeometry` names `ActorSpriteMetrics` and
+`AnimationSelection`, both boss-crate types, and the edge runs
+`boss_encounter → characters`, so `ambition_characters` cannot reach any of it.
+⇒ moving the trait means moving three things, not one: a D33-shaped slice, not a
+file move. ⭐ **unifying the publish first makes that carve strictly smaller** —
+one call site to move instead of two.
 
 ▢ **AND ONE THING THIS FOUND ON THE WAY, MEASURED RATHER THAN ASSERTED: a
 POSSESSED FLYER CANNOT REACH ITS OWN TOP SPEED.**

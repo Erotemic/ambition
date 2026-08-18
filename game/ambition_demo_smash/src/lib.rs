@@ -696,6 +696,11 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 // The pummel lands BEFORE the pose sync below, so the damage and
                 // the frame the captive is drawn in belong to the same tick.
                 ambition_platformer2d::actors::features::ecs::capture::apply_capture_pummels,
+                // The throw releases and launches in one step. AFTER the pummel
+                // so a tick carrying both resolves in authored order, and BEFORE
+                // the pose sync so a thrown body is not snapped back into a hold
+                // it has just left.
+                ambition_platformer2d::actors::features::ecs::capture::apply_capture_throws,
                 ambition_platformer2d::actors::features::ecs::capture::constrain_captive_bodies,
             )
                 .chain()

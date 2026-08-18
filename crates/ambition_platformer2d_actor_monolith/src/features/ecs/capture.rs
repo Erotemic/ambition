@@ -532,6 +532,121 @@ mod tests {
         );
     }
 
+    fn throw_app() -> (App, Entity, Entity) {
+        let mut app = App::new();
+        app.add_message::<ambition_combat::capture::CaptureThrowRequested>();
+        app.add_systems(Update, apply_capture_throws);
+        let captor = grounded_body(&mut app, "captor", ae::Vec2::ZERO);
+        let victim = grounded_body(&mut app, "victim", ae::Vec2::new(16.0, 0.0));
+        app.world_mut().entity_mut(victim).insert((
+            ae::BodyFlightState::default(),
+            ambition_characters::actor::BodyCombat::default(),
+            ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health {
+                current: 100,
+                max: 100,
+                invulnerable: Default::default(),
+            }),
+            surface_state(0.0),
+            ambition_characters::brain::ScriptedControl,
+            CapturedBy {
+                captor,
+                hold_offset_local: ae::Vec2::new(16.0, 0.0),
+                prior_gravity_scale: 1.0,
+                pummels_landed: 2,
+            },
+        ));
+        (app, captor, victim)
+    }
+
+    fn throw(captor: Entity, growth: f32) -> ambition_combat::capture::CaptureThrowRequested {
+        ambition_combat::capture::CaptureThrowRequested {
+            captor,
+            damage: 9,
+            knockback: 100.0,
+            knockback_growth: growth,
+            launch_dir: ae::Vec2::new(1.0, -1.0),
+        }
+    }
+
+    /// **A THROW ENDS THE HOLD, HURTS, AND LAUNCHES — in that order.**
+    ///
+    /// All three at once because the order is the mechanic: the damage has to
+    /// land before the launch reads the meter, and the release has to land
+    /// before the launch arms hitstun (or the interruption rule would do the
+    /// releasing a tick later, by accident, through a different path).
+    #[test]
+    fn a_throw_releases_damages_and_launches_its_captive() {
+        let (mut app, captor, victim) = throw_app();
+        app.world_mut().write_message(throw(captor, 0.0));
+        app.update();
+
+        assert!(
+            app.world().get::<CapturedBy>(victim).is_none(),
+            "the captive is still held after its own throw"
+        );
+        assert!(
+            app.world()
+                .get::<ambition_characters::brain::ScriptedControl>(victim)
+                .is_none(),
+            "thrown and still unable to move"
+        );
+        assert_eq!(
+            app.world()
+                .get::<crate::features::ActorSurfaceState>(victim)
+                .unwrap()
+                .gravity_scale,
+            1.0,
+            "a thrown body kept the suspended gravity of its hold"
+        );
+        assert_eq!(
+            app.world()
+                .get::<ambition_characters::actor::BodyHealth>(victim)
+                .unwrap()
+                .damage_taken(),
+            9
+        );
+        let vel = app.world().get::<ae::BodyKinematics>(victim).unwrap().vel;
+        assert!(
+            vel.length() > 1.0,
+            "the throw did not launch anybody: {vel:?}"
+        );
+        assert!(
+            vel.x > 0.0,
+            "the throw sent its victim BEHIND the captor, which is a forward \
+             throw pointing the wrong way: {vel:?}"
+        );
+    }
+
+    /// **A THROW GETS THE PERCENT SCALING EVERY OTHER LAUNCHER GETS.**
+    ///
+    /// The proof that this rides the shared knockback law rather than a second
+    /// launch engine: the same throw on a hurt body sends it farther. If throws
+    /// ever grow their own velocity path, the two numbers become equal and this
+    /// goes red.
+    #[test]
+    fn a_throw_launches_a_damaged_body_farther() {
+        let launch_at = |accumulated: i32| {
+            let (mut app, captor, victim) = throw_app();
+            app.world_mut()
+                .get_mut::<ambition_characters::actor::BodyHealth>(victim)
+                .unwrap()
+                .damage(accumulated);
+            app.world_mut().write_message(throw(captor, 4.0));
+            app.update();
+            app.world()
+                .get::<ae::BodyKinematics>(victim)
+                .unwrap()
+                .vel
+                .length()
+        };
+        let fresh = launch_at(0);
+        let hurt = launch_at(80);
+        assert!(
+            hurt > fresh * 1.2,
+            "percent scaling did not reach the throw: fresh {fresh}, hurt {hurt}"
+        );
+    }
+
     /// **A CAPTOR ALREADY HOLDING SOMEBODY TAKES NOBODY ELSE.**
     ///
     /// Half of the "one captor, one captive" invariant. Without it a grab whose
@@ -795,5 +910,109 @@ pub fn apply_capture_pummels(
         // Saturating: a hold long enough to overflow a u8 has other problems,
         // and wrapping to zero would tell a CPU policy the hold just started.
         held.pummels_landed = held.pummels_landed.saturating_add(1);
+    }
+}
+
+/// **A throw's authored release frame: the hold ends and the body leaves.**
+///
+/// Order is the whole content of this function, and it is the order the plan
+/// states because each step depends on the last:
+///
+/// ```text
+/// damage        the meter rises BEFORE the launch reads it, so a throw's own
+///               damage counts toward how far its own throw sends you
+/// release       the relationship, the control projection and gravity, together
+/// launch        an ORDINARY hit reaction on a body that is now ordinary
+/// ```
+///
+/// ⭐ **the launch is not "throw velocity".** It is
+/// [`scaled_knockback`](ambition_combat::util::scaled_knockback) folded onto the
+/// same [`HitKnockback`] every authored launcher builds, handed to the same
+/// reaction road. So a throw inherits weight, percent scaling, DI, arbitrary
+/// gravity, carried momentum, hitstun and hitstop — none of which it would get
+/// from a second launch engine, and all of which a platform fighter's throws are
+/// expected to have.
+///
+/// ⛔ **release BEFORE launch, not after.** The launch arms hitstun, and hitstun
+/// is what `release_interrupted_captures` reads: launching first would leave the
+/// interruption rule to do the releasing on the following tick, which is a
+/// different code path reaching the same state by accident — and one frame late.
+pub fn apply_capture_throws(
+    mut commands: Commands,
+    mut requests: MessageReader<ambition_combat::capture::CaptureThrowRequested>,
+    captors: Query<&ae::BodyKinematics, Without<CapturedBy>>,
+    mut captives: Query<(
+        Entity,
+        &CapturedBy,
+        &mut ae::BodyKinematics,
+        &mut ae::BodyFlightState,
+        &mut ambition_characters::actor::BodyCombat,
+        &mut ambition_characters::actor::BodyHealth,
+        &mut crate::features::ActorSurfaceState,
+        Option<&ambition_combat::components::CombatTuning>,
+    )>,
+    gravity: Query<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
+    feel: Option<Res<crate::time::feel::Platformer2dFeelTuningMonolith>>,
+) {
+    let feel = feel.map(|f| *f).unwrap_or_default();
+    for request in requests.read() {
+        let Some((victim, held, mut kin, mut flight, mut combat, mut health, mut surface, tuning)) =
+            captives
+                .iter_mut()
+                .find(|(_, held, ..)| held.captor == request.captor)
+        else {
+            continue;
+        };
+        let Ok(captor_kin) = captors.get(request.captor) else {
+            continue;
+        };
+
+        // 1. Damage first: the meter this throw adds counts toward its own
+        //    launch, which is what makes a throw at high percent a kill move.
+        health.damage(request.damage);
+
+        // 2. The hold ends. Through the ONE release, so gravity and the control
+        //    projection come back with it.
+        let held = *held;
+        release_capture(&mut commands, victim, &held, Some(&mut surface));
+
+        // 3. An ordinary launch on a body that is now ordinary.
+        let weight = tuning.map(|t| t.weight).unwrap_or(1.0);
+        let magnitude = ambition_combat::util::scaled_knockback(
+            request.knockback,
+            request.knockback_growth,
+            health.damage_taken(),
+            weight,
+        );
+        let knockback = ae::hit_response::HitKnockback {
+            // The captor's facing decides which way "forward" points, exactly as
+            // it does for the hold anchor — a throw follows the hands.
+            dir: captor_kin.facing,
+            magnitude: ae::hit_response::HitKnockbackMagnitude::LaunchSpeed(magnitude),
+            source_pos: captor_kin.pos,
+            impact_pos: kin.pos,
+            launch_dir: Some(request.launch_dir),
+        };
+        let gravity_dir = gravity
+            .get(victim)
+            .map(|frame| frame.down())
+            .unwrap_or(ae::DEFAULT_GRAVITY_DIR);
+        let pos = kin.pos;
+        let facing = kin.facing;
+        crate::features::ecs::damage_apply::apply_body_hit_reaction(
+            &mut kin.vel,
+            &mut flight,
+            &mut combat,
+            pos,
+            facing,
+            gravity_dir,
+            false,
+            Some(&knockback),
+            // ⚠ no DI on a throw's release frame: the captive had no control to
+            // hold. Smash DI on throws is a real mechanic and it belongs with
+            // the escape work, where a captive's restricted input channel exists.
+            ae::Vec2::ZERO,
+            feel,
+        );
     }
 }

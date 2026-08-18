@@ -606,6 +606,99 @@ fn a_shot_orphaned_before_its_first_step_does_not_turn_on_its_team() {
     );
 }
 
+/// **A SHOT STAMPED AT BIRTH KEEPS ITS AIM THROUGH ITS FIRER'S ELIMINATION.**
+///
+/// The positive term for
+/// [`a_shot_orphaned_before_its_first_step_does_not_turn_on_its_team`], and the
+/// reason `stamp_new_projectile_allegiance` exists. That test pins the SAFE
+/// behaviour when nothing stamped the bolt; this one pins that the production
+/// schedule stamps it, so the safe fallback is never reached.
+///
+/// ⭐ **the modelled tick is the one that made the second stamp placement
+/// necessary.** A player bolt materializes at the end of `CombatSet::Materialize`
+/// and is stamped there; its firer is eliminated later in the SAME tick, in
+/// `CombatSet::Settle`; the bolt first STEPS next tick, with no firer left. So
+/// the bolt is deliberately never stepped while its owner lives — which is what
+/// `run_system_once` models here, and what a plain `app.update()` cannot: an
+/// update would step the bolt with the firer still resident and the stepper's own
+/// first-sight stamp would take the fact, hiding whether this system did.
+#[test]
+fn a_shot_stamped_at_birth_survives_its_firers_elimination() {
+    use ambition_combat::targeting::MatchTeam;
+    use bevy::ecs::system::RunSystemOnce as _;
+
+    let mut app = arena_projectile_app(crate::features::FactionRelations::default());
+
+    let firer = app
+        .world_mut()
+        .spawn((
+            crate::features::ActorFaction::Player,
+            MatchTeam::new("seat 1"),
+        ))
+        .id();
+    let teammate_pos = ae::Vec2::new(300.0, 100.0);
+    let opponent_pos = ae::Vec2::new(300.0, 300.0);
+    let teammate = app
+        .world_mut()
+        .spawn((
+            crate::features::FeatureSimEntity,
+            crate::features::FeatureId::new("same_team_fighter"),
+            crate::features::CenteredAabb::new(teammate_pos, ae::Vec2::new(16.0, 24.0)),
+            crate::features::ActorFaction::Player,
+            MatchTeam::new("seat 1"),
+        ))
+        .id();
+    let opponent = app
+        .world_mut()
+        .spawn((
+            crate::features::FeatureSimEntity,
+            crate::features::FeatureId::new("seat_two_fighter"),
+            crate::features::CenteredAabb::new(opponent_pos, ae::Vec2::new(16.0, 24.0)),
+            crate::features::ActorFaction::Player,
+            MatchTeam::new("seat 2"),
+        ))
+        .id();
+
+    spawn_owned_glider(&mut app, teammate_pos - ae::Vec2::new(150.0, 0.0), firer);
+    spawn_owned_glider(&mut app, opponent_pos - ae::Vec2::new(150.0, 0.0), firer);
+
+    // `Materialize`: the bolts exist and take their side. No step yet.
+    app.world_mut()
+        .run_system_once(crate::projectile::stamp_new_projectile_allegiance)
+        .expect("the stamping system runs");
+
+    // `Settle`, same tick: the final stock is spent and the body leaves play.
+    app.world_mut().despawn(firer);
+
+    let mut live_projectiles = app
+        .world_mut()
+        .query_filtered::<Entity, With<crate::projectile::LiveProjectile>>();
+    for _ in 0..240 {
+        if live_projectiles.iter(app.world()).next().is_none() {
+            break;
+        }
+        app.update();
+    }
+
+    let cap = app.world().resource::<CapturedHits>();
+    let hit = |who: Entity| {
+        cap.0.iter().any(|e| {
+            matches!(e.source, HitSource::Projectile)
+                && e.target == crate::features::HitTarget::Body(who)
+        })
+    };
+    assert!(
+        hit(opponent),
+        "a bolt stamped at birth went inert after its firer left — the stamp did \
+         not survive the elimination, so the shot stopped being that fighter's attack"
+    );
+    assert!(
+        !hit(teammate),
+        "the stamped bolt hit its firer's own teammate, which is the other way to \
+         get this wrong: it took a side and then ignored it"
+    );
+}
+
 /// A shot owned by `firer`, overlapping `pos`. Like
 /// [`spawn_overlapping_enemy_glider`] but the OWNER is the caller's, because
 /// what is under test is a fact about the owner (its team).

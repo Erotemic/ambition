@@ -10,7 +10,8 @@
 //! steppers are split.
 
 pub use ambition_platformer2d_actor_monolith::projectile::{
-    charge_projectile_input, step_projectiles, ProjectileAllegiance, ProjectileStepSet,
+    charge_projectile_input, stamp_new_projectile_allegiance, step_projectiles,
+    ProjectileAllegiance, ProjectileStepSet,
 };
 pub use ambition_projectiles::apply_player_spawn_projectile_messages;
 pub use ambition_projectiles::collision_world::ProjectileCollisionWorld;

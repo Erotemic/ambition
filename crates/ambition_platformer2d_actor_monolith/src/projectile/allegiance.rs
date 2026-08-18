@@ -1,6 +1,6 @@
 //! **Which side a shot is on — a fact the SHOT carries.**
 
-use bevy::prelude::Component;
+use bevy::prelude::{Commands, Component, Entity, Query, Without};
 
 use ambition_characters::actor::ActorFaction;
 use ambition_combat::targeting::MatchTeam;
@@ -93,5 +93,70 @@ impl ProjectileAllegiance {
     /// The team, in the borrowed shape `damage_lands_between` takes.
     pub fn team(&self) -> Option<&MatchTeam> {
         self.team.as_ref()
+    }
+}
+
+/// **Freeze a new shot's side BEFORE anything steps it.**
+///
+/// The stamp used to be taken lazily, on the projectile's first step inside
+/// `step_projectiles`. That left exactly one window in which a bolt exists and
+/// its side has not been frozen — and a firer who is eliminated inside that
+/// window takes the answer with them, because the stepper's owner query wants a
+/// non-optional `&ActorFaction` and there is no longer a body to read. The shot
+/// then re-asks and re-fails every tick for the rest of its life.
+///
+/// It is installed TWICE, once after each materializer:
+///
+/// ```text
+/// apply_enemy_projectile_effects           enemy bolts materialize
+/// stamp_new_projectile_allegiance          ← 1
+/// step_projectiles
+/// charge_projectile_input
+/// apply_player_spawn_projectile_messages   player bolts materialize
+/// stamp_new_projectile_allegiance          ← 2
+/// ```
+///
+/// ⛔⛔ **the second is not redundant, and the reasoning that says it is has a
+/// specific hole.** It looks unnecessary because a player bolt materializes after
+/// the step and so first ticks NEXT frame, by which time placement 1 has run.
+/// That is true about STEPPING and false about the WINDOW: the window is bounded
+/// by the firer's DESPAWN, not by the bolt's first step.
+/// `take_eliminated_fighters_out_of_play` runs in `CombatSet::Settle`, and this
+/// whole chain is in `CombatSet::Materialize` — which is EARLIER in the same
+/// tick. So a fighter eliminated on the tick they fire loses the body after the
+/// bolt exists and before placement 1 ever sees it.
+///
+/// ⛔ this cannot live in `ambition_projectiles` beside the two materializers,
+/// the way the presentation source does: that crate depends on neither
+/// `ambition_combat` nor `ambition_characters`, so it cannot name `ActorFaction`
+/// or `MatchTeam` to stamp them.
+///
+/// ⚠ `Without<ProjectileAllegiance>` rather than `Added<ProjectileOwner>`, for
+/// the reason `inherit_projectile_presentation_sources` gives: bevy_ggrs
+/// destroys and recreates rollback entities, so an `Added` filter fires again on
+/// every restored frame while the change-detection tick it reads is not the
+/// sim's. Filtering on the component's ABSENCE is idempotent under any number of
+/// loads, and it is what makes this safe to leave beside the stepper's own
+/// first-sight stamp, which stays as the backstop for any path that mints a
+/// projectile outside this chain (the parry re-own writes its own).
+///
+/// ⚠ a firer with no `ActorFaction` leaves the bolt unstamped, which is correct:
+/// an environmental emitter has no side, and the stepper reads an unstamped bolt
+/// with no NAMED owner as the indiscriminate volley it is.
+pub fn stamp_new_projectile_allegiance(
+    mut commands: Commands,
+    unstamped: Query<
+        (Entity, &ambition_projectiles::ProjectileOwner),
+        Without<ProjectileAllegiance>,
+    >,
+    firers: Query<(&ActorFaction, Option<&MatchTeam>)>,
+) {
+    for (projectile, owner) in &unstamped {
+        if let Ok((faction, team)) = firers.get(owner.0) {
+            commands.entity(projectile).insert(ProjectileAllegiance {
+                faction: *faction,
+                team: team.cloned(),
+            });
+        }
     }
 }

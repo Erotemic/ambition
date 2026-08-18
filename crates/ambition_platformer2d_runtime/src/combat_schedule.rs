@@ -230,6 +230,27 @@ impl Plugin for CombatSchedulePlugin {
                 // BEFORE the step below, so a body spawned this tick advances
                 // one step this frame — identical to the old direct push.
                 crate::projectile_schedule::apply_enemy_projectile_effects.run_if(gameplay_allowed),
+                // ⭐ **WHOSE SHOT THIS IS, FROZEN BEFORE ANYTHING STEPS IT.**
+                // The stamp used to be taken lazily on a bolt's first step, which
+                // left a window where it existed unstamped — and a firer
+                // eliminated inside that window took the answer with them, so the
+                // shot spent its life re-asking a body that was gone.
+                //
+                // ⛔⛔ **TWICE, and the second one is not redundant.** The first
+                // draft put this here alone, reasoning that a player bolt
+                // materializes after the step below and so first ticks next frame,
+                // when this has already run. That is true about STEPPING and false
+                // about the window: `take_eliminated_fighters_out_of_play` runs in
+                // `CombatSet::Settle`, and `Materialize` is BEFORE `Settle` — so a
+                // player bolt fired on the tick its owner is eliminated materializes
+                // at the end of this chain, loses its firer later in the same tick,
+                // and reaches this system next frame with nothing to read. The
+                // window is bounded by the DESPAWN, not by the step.
+                //
+                // ⛔ not `run_if(gameplay_allowed)` — a bolt that materialized
+                // before a pause must not lose its side by being skipped, and
+                // stamping is not gameplay progress.
+                crate::projectile_schedule::stamp_new_projectile_allegiance,
                 // Unified projectile step (player + enemy, faction-routed). Runs
                 // AFTER the enemy spawn consumer (so an enemy body spawned this
                 // tick advances one step this frame) and BEFORE the player input +
@@ -243,6 +264,11 @@ impl Plugin for CombatSchedulePlugin {
                 // Phase 3b player-pool spawn consumer: materializes player-fired
                 // bodies AFTER the step, so the new body first ticks next frame.
                 crate::projectile_schedule::apply_player_spawn_projectile_messages,
+                // The second stamp: the player bolt that just materialized takes
+                // its side HERE, inside `Materialize`, rather than next frame —
+                // because its firer can be eliminated later this same tick, in
+                // `Settle`. See the note beside the first placement.
+                crate::projectile_schedule::stamp_new_projectile_allegiance,
             )
                 .chain()
                 .in_set(CombatSet::Materialize),

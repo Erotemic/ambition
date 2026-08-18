@@ -24,7 +24,7 @@ pub use ambition_projectiles::*;
 /// projectile model content-free is the same boundary that puts this component
 /// beside the stepper that reads it.
 mod allegiance;
-pub use allegiance::ProjectileAllegiance;
+pub use allegiance::{stamp_new_projectile_allegiance, ProjectileAllegiance};
 
 pub mod systems;
 pub use systems::{charge_projectile_input, step_projectiles, ProjectileStepSet};

@@ -1983,10 +1983,10 @@ as policy (Jon's own ruling), the camera work, and the smash submodule gitlinks.
   one frame and are heard twice. That is a burst COUNT, not a restatement; the
   `silent` arm would answer it and is not built for want of a customer.
 
-- ◐ **D150 — the projectile's allegiance stamp landed 2026-08-17; a 2026-08-18
-  AUDIT found the same defect surviving in the one tick the stamp cannot cover,
-  fixed, and the REST of it named. A projectile changed allegiance when its firer
-  despawned.**
+- ✔ **D150 — CLOSED 2026-08-18. The stamp landed 2026-08-17; an audit that day
+  found the same defect surviving in the tick before the stamp existed, and the
+  stamp now happens at the projectile's BIRTH. A projectile changed allegiance
+  when its firer despawned.**
 
 ⭐⭐ **RE-OPENED AND RE-CLOSED THE SAME DAY, on the review's ask to audit every
 attack authorization still recomputed from the resident firer.** Four reads:
@@ -2017,18 +2017,41 @@ indiscriminate, *"the firer is gone, so there is no feud"* became *"hit everyone
 including the bodies the feud existed to spare"* — a narrowing turning into the
 broadest permission there is.
 
-▢ **what is still open, and it is the honest residue.** The stamp is taken on the
-first STEP, not at birth, because both materializers live in `ambition_projectiles`
-— a crate that depends on neither `ambition_combat` nor `ambition_characters` and
-so cannot name `ActorFaction` or `MatchTeam`. The presentation half hit this exact
-wall and named the answer in as many words: *"attribution belongs where the entity
-is born"*, fixed by having the materializers stamp it themselves. ⇒ the same fix
-here needs the side to travel as DATA in the spawn request (the monolith builds
-those requests and knows the firer's side), or the combat vocabulary to move down.
-Until then the window is closed DEFENSIVELY, not correctly: a named-but-unresolved
-owner leaves the shot INERT rather than indiscriminate. ⚠ the guard asserts only
-that safety property on purpose — asserting "hits the opponent" would pin the
-limitation, and asserting "hits nobody" would go red the day someone fixes it.
+✔✔ **AND THE WINDOW IS NOW CLOSED PROPERLY, same day.** The defensive fix above
+made an orphaned shot INERT rather than a hazard, which is safe and is not the
+same as knowing whose attack it is. `stamp_new_projectile_allegiance` takes the
+side where the entity is BORN — the conclusion the presentation half reached in
+as many words (*"attribution belongs where the entity is born"*).
+
+⛔ **it could not go where the presentation stamp went.** That one lives in the
+two materializers themselves; those are in `ambition_projectiles`, which depends
+on neither `ambition_combat` nor `ambition_characters` and so cannot name
+`ActorFaction` or `MatchTeam`. So this is a monolith-side system installed into
+the combat chain instead.
+
+⛔⛔ **TWICE, and the reasoning that says once is enough has a specific hole.**
+The first draft put it only before `step_projectiles`, reasoning that a player
+bolt materializes after that step and first ticks next frame, when the stamp has
+already run. True about STEPPING, false about the WINDOW:
+
+```text
+CombatSet::Materialize   apply_player_spawn_projectile_messages   bolt exists
+CombatSet::Settle        take_eliminated_fighters_out_of_play     firer despawns
+        ← same tick, and Materialize is EARLIER than Settle
+next tick                stamp → step                            nothing to read
+```
+
+⇒ **the window is bounded by the firer's DESPAWN, not by the bolt's first step.**
+A fighter eliminated on the tick they fire loses the body after the bolt exists
+and before a single pre-step placement ever sees it. Second placement added right
+after the player materializer, still inside `Materialize`.
+
+⭐ **both directions pinned.** `a_shot_stamped_at_birth_survives_its_firers_elimination`
+models exactly that tick with `run_system_once` — a plain `app.update()` cannot,
+because it would step the bolt while the firer still lives and the stepper's own
+first-sight stamp would take the fact, hiding whether the new system did anything.
+Neutering the stamper turns it red; the safety guard beside it stays as the
+negative term.
 
   **The original row, unchanged:** Allegiance was reconstructed EVERY TICK by querying the firing
   `Entity`, and the code stated the consequence as intended behaviour — so in a

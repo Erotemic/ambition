@@ -327,9 +327,14 @@ substrate had overtaken the two fronts printed above it:
    thing it scopes, not whether it exists.** Systems and entities were covered;
    rules were not, and nothing said so.
 
-   ⛔ **the standing number, and it has not moved**:
-   `capability-footprint-may-not-grow` still reads **42 crates linked, 15 a
-   movement-only game never asked for**. ⛔⛔ **and D135's answer for WHY was
+   ⛔ **the standing number, and it has not moved DOWN**:
+   `capability-footprint-may-not-grow` reads **44 crates linked, 17 a
+   movement-only game never asked for** (measured 2026-08-18). ⚠ it said 42/15
+   here until then — the ratchet forbids GROWTH and the closure grew by two
+   inside its own rule while this page kept quoting the older pair. ⇒ **re-read
+   the contract's own output before quoting it**; a number copied into prose is
+   a snapshot, and this one is printed by `check_absence_contracts.py` on every
+   run. ⛔⛔ **and D135's answer for WHY was
    incomplete in a way that cost a slice**: it named the monolith, and
    `cargo tree -i ambition_platformer2d_ldtk` in the sentinel's own workspace
    names **four** holders — the facade itself (unconditionally),

@@ -194,10 +194,13 @@ The overall direction is intentional, but several high-level choices remain open
 **Three of these were RULED on 2026-08-17** and are recorded in
 [`../maintainer-decisions.md`](../maintainer-decisions.md) rather than left here:
 
-- **the instance-ID/persistence model** — the OCCURRENCE owns, and inventory is a
-  **set with a count**, not a count, with uniqueness deciding whether a stack's
-  members need distinct identities (Morrowind-style). ⛔ the general form is
-  deliberately not built yet.
+- **the instance-ID/persistence model** — Morrowind-style: an item in the WORLD is
+  an **occurrence with identity**; an inventory is a **dict, `key → count`**. ⛔ not
+  *"a set of occurrences"* — twenty arrows are ONE entry with count 20, and only a
+  **unique** item needs a key of its own, so a stack never needs N identities.
+  Crossing the boundary is the rule to design: a pickup MERGES into an entry, a
+  drop MINTS an occurrence, and a unique item's identity survives the round trip.
+  ⛔ the general form is deliberately not built yet.
 - **capability progression, body versus participant** — it **splits by what the
   verb IS**: physical verbs are body-owned because they are facts about anatomy;
   knowledge, keys and theorems are participant-owned because they are facts about

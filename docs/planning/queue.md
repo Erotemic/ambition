@@ -4105,11 +4105,26 @@ and the plan, not here:**
   ✔✔ **THE OWNERSHIP QUESTION IS RULED, 2026-08-17.** Jon, verbatim: *"eventually
   we are going to switch to a Morrowind style inventory, so the occurrence is the
   owner, but inventory likely isn't a count it's a set with a count. I suppose it
-  will depend on it the item is unique or not."*
-  ⇒ **the OCCURRENCE owns**, and the ruling reframes the other five classes as
-  well: the destination is not *"occurrence for nine, count for the rest"* but ONE
-  representation — **a set of occurrences that REPORTS a count** — with UNIQUENESS
-  deciding whether a stack's members need distinct identities.
+  will depend on it the item is unique or not."* — and, correcting my reading:
+  *"and when I say set with count I mean dict."*
+  ⛔⛔ **I FIRST WROTE THIS AS "A SET OF OCCURRENCES THAT REPORTS A COUNT" AND
+  THAT IS WRONG.** A dict is `key → count`:
+
+```text
+world       an item is an OCCURRENCE with identity   (held, dropped, placed)
+inventory   a DICT entry, key → count                20 arrows = ONE entry
+unique      its own key, count 1, identity PRESERVED across the boundary
+```
+
+  ⇒ **twenty arrows are one entry with count 20, not twenty occurrences**, so a
+  stack never needs N identities and the occurrence model only mints for things
+  that are actually distinct. ⭐ **that is a large simplification over what this
+  row said an hour ago**, and it is the reason to get the reading right rather
+  than paraphrase it.
+  ⇒ **the rule to design is the CROSSING**: a pickup MERGES into an entry, a drop
+  MINTS an occurrence, and a unique item's identity must survive the round trip
+  intact — which is exactly the *"minted instance not in a hand"* case that
+  Jon's dropped-weapon ruling already made a prerequisite.
   ⛔ **do not build the general set-with-count today.** *"Eventually"* and
   *"likely"* are his words: the direction is settled, the schedule and the exact
   stacking rule are not. The executable slice stays the gate above, chosen because

@@ -195,11 +195,13 @@ The overall direction is intentional, but several high-level choices remain open
 [`../maintainer-decisions.md`](../maintainer-decisions.md) rather than left here:
 
 - **the instance-ID/persistence model** — Morrowind-style: an item in the WORLD is
-  an **occurrence with identity**; an inventory is a **dict, `key → count`**. ⛔ not
-  *"a set of occurrences"* — twenty arrows are ONE entry with count 20, and only a
-  **unique** item needs a key of its own, so a stack never needs N identities.
-  Crossing the boundary is the rule to design: a pickup MERGES into an entry, a
-  drop MINTS an occurrence, and a unique item's identity survives the round trip.
+  an **occurrence with identity**; an inventory **entry carries a count, and the
+  count is usually 1**. The shape is uniform — twenty arrows are ONE entry with
+  count 20, and uniqueness decides whether two entries may MERGE rather than how
+  either is stored. ⛔ *"dict"* was vocabulary for that shape, **not** a mandate for
+  a particular container; the Rust representation is the implementer's call.
+  Crossing the boundary is the rule to design: a pickup merges or adds, a drop
+  MINTS an occurrence, and a unique item's identity survives the round trip.
   ⛔ the general form is deliberately not built yet.
 - **capability progression, body versus participant** — it **splits by what the
   verb IS**: physical verbs are body-owned because they are facts about anatomy;

@@ -4107,24 +4107,36 @@ and the plan, not here:**
   owner, but inventory likely isn't a count it's a set with a count. I suppose it
   will depend on it the item is unique or not."* — and, correcting my reading:
   *"and when I say set with count I mean dict."*
-  ⛔⛔ **I FIRST WROTE THIS AS "A SET OF OCCURRENCES THAT REPORTS A COUNT" AND
-  THAT IS WRONG.** A dict is `key → count`:
+  ⇒ then, narrowing it twice more: *"when I say set with count I mean dict"* and
+  *"ie each item if has a count. for most items it will be a count of 1. note this
+  could also be a collection of structs. whatever datastruct makes sense. I'm a
+  python guy not a rust guy."*
 
 ```text
 world       an item is an OCCURRENCE with identity   (held, dropped, placed)
-inventory   a DICT entry, key → count                20 arrows = ONE entry
-unique      its own key, count 1, identity PRESERVED across the boundary
+inventory   an ENTRY carrying a COUNT                and the count is usually 1
 ```
 
-  ⇒ **twenty arrows are one entry with count 20, not twenty occurrences**, so a
-  stack never needs N identities and the occurrence model only mints for things
-  that are actually distinct. ⭐ **that is a large simplification over what this
-  row said an hour ago**, and it is the reason to get the reading right rather
-  than paraphrase it.
-  ⇒ **the rule to design is the CROSSING**: a pickup MERGES into an entry, a drop
-  MINTS an occurrence, and a unique item's identity must survive the round trip
-  intact — which is exactly the *"minted instance not in a hand"* case that
+  ⭐⭐ **THE SHAPE IS UNIFORM.** An entry is `(item, count)`; most counts are 1;
+  twenty arrows are ONE entry with count 20. There is **not** a unique-item
+  representation and a separate stack representation — **uniqueness decides
+  whether two entries may MERGE, not how either is stored.**
+  ⛔⛔ **"dict" is PYTHON VOCABULARY FOR THE SHAPE, not a mandate for `HashMap`.**
+  He said *"whatever datastruct makes sense"* and named himself a Python guy, so
+  the Rust representation — map, `Vec` of structs, arena — is the implementer's
+  call and choosing one is not overruling him.
+  ⚠ **I got this wrong twice before it settled**: first as *"a set of OCCURRENCES
+  that reports a count"* (no — 20 arrows are one entry, not 20 identities), then
+  as a two-branch unique-vs-stackable model (no — one shape, count usually 1).
+  ⭐ each correction made the occurrence model SMALLER, which is the tell that the
+  paraphrase was adding structure the ruling did not ask for.
+  ⇒ **the rule to design is the CROSSING**: a pickup merges into an entry or adds
+  one, a drop MINTS an occurrence, and a unique item's identity survives the round
+  trip intact — which is exactly the *"minted instance not in a hand"* case that
   Jon's dropped-weapon ruling already made a prerequisite.
+  ▢ **the one genuinely open sub-question**: what makes two entries MERGEABLE —
+  an authored uniqueness flag on the definition, or emergent distinguishing state
+  (enchanted, named, partly spent). ⛔ do not answer it by inference.
   ⛔ **do not build the general set-with-count today.** *"Eventually"* and
   *"likely"* are his words: the direction is settled, the schedule and the exact
   stacking rule are not. The executable slice stays the gate above, chosen because

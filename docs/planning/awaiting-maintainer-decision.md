@@ -264,8 +264,22 @@ MEASURED: small dips +0.50 to +1.00 units under its own idle foot line, grown
 renderer's clipping warning on those frames is just the canvas noticing (the
 small form has zero headroom, so any dip is also amputated). ⚠ pre-existing on
 the grown form — its walk frames came through the rig refactor byte-identical.
-⇒ the fix is the walk pose's leg reach, which changes an animation you have
-seen, so it is listed rather than done.
+⭐ **the cause is three authored numbers, not a mystery** — `SHORT_POSES["walk"]`
+and its tall twin:
+
+```text
+walk#0  leg_back_dy  = 1.0   the trailing leg is pushed DOWN a unit
+walk#2  leg_front_dy = 1.0   mirrored, same push
+walk#1  bob          = 0.4   and `foot_y = 30.2 + bob`, so the DIP moves her FEET
+```
+
+⇒ the stride's extension is being spelled as a downward translation, and the
+mid-stride dip lowers the contact point instead of the body above it. Both read
+fine in isolation; both put the foot under the floor.
+
+⇒ **listed rather than done, because it changes an animation you have seen** —
+and because the honest fix for the dip needs a pose field that lowers the TORSO
+without moving `foot_y`, which does not exist yet. Say the word and it is small.
 
 ⇒ closing (b) means either raising her crown ~6 px — which moves the 40/40/20
 head/body/legs split you specified — or accepting the 6 px. The test bounds it at

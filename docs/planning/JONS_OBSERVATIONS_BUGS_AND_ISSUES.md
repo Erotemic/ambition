@@ -79,7 +79,7 @@
 * JON (2026-08-08 STILL OPEN) The snake and AI slop are still way too big visually, and the sprite might not match the box for the snake.
 
   ◐ Their collision bodies are the right size in world units now (snake 1.00x Mary-O's width, slop 1.09x), and what is left is that the drawn quad is 2.46x the body inside it.
-  * ⊙ Decide the quad-from-bbox route — it also fixes the Hall's size spread and deletes `collision_scale` for any sheet that authors a body.
+  * ✔ DECIDED 2026-08-17: shared unit FIRST, quad-from-bbox revisited after. Every `collision_scale` will multiply one shared reference unit instead of its own sheet's frame size, so the numbers become comparable; `collision_scale` is NOT deleted in this slice.
   * Sizing the quad from the bbox without also cropping the drawn region was tried and reverted: it stretches the art badly.
   * It needs four coupled sites, not the three the design doc names — there are two render-size publishers, and fixing one leaves both of the characters you complained about untouched.
 
@@ -90,7 +90,7 @@
   * ✔ The invisible-payout half is fixed too — `a_discovered_hidden_block_reveals_itself` passes at HEAD; it had never run, because Mary-O's eight art assertions are behind `--features visible`.
 
 * The pirates in the cover are horribly miss-sized. The heavies need to get a little smaller (this should probably be something done in data by the sprite renderer, not in code) and the other pirates need to probably scale up 2x, They are as tall as the player robot who is supposed to be chibi
-  * ⊙ Same root as the snake/AI-slop item above, and blocked on the same call: the drawn quad does not derive from the body, so per-character `collision_scale` tunes a BOX while you are looking at ART. That item's own note says deciding the quad-from-bbox route *"also fixes the Hall's size spread"*, which is this complaint.
+  * ▢ Same root as the snake/AI-slop item above and unblocked by the same ruling (shared unit first): the drawn quad does not derive from the body, so per-character `collision_scale` tunes a BOX while you are looking at ART. These three reports are the shared unit's customers — if it does not settle them, the bbox route comes back with evidence.
   * ⚠ the numbers confirm they are not comparable: heavies 1.95, other pirates 1.60, `robot` 2.10 — the robot's is the LARGEST, yet he reads chibi, because each scale multiplies its OWN sheet's frame size rather than a shared unit.
 
 

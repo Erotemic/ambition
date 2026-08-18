@@ -41,7 +41,7 @@ investigation that led to the question. Same rule as
 [`README.md`](README.md#queue-contract); on 2026-08-17 this file was **739 lines
 for 9 open questions**, and the four answered ones held a third of it.
 
-## Open decisions — 9 (§6, §9, §12 and §13 are ANSWERED, kept below as records)
+## Open decisions — 8 (§6, §9, §11, §12 and §13 are ANSWERED, kept below as records)
 
 ### 1. Projectile collision: authored hurt volume or coarse body box? (former D23)
 
@@ -399,7 +399,7 @@ units. One of the two is wrong and I cannot tell which from the code.
 ⚠ **I did not change it.** The zoom range in the shipped game is narrow enough
 that nobody has reported it, and picking silently would be choosing a feel.
 
-### 11. Two views need per-view world-space entities, or a policy that picks one
+### 11. ✔ ANSWERED 2026-08-17 — split-screen layout is ADAPTIVE WITH HYSTERESIS
 
 ⭐⭐ **TWO THIRDS OF THIS WAS TAKEN AND EXECUTED ON 2026-08-15 — the row reads as
 fully open and is not (reconciled 2026-08-17).** The stated engineering default
@@ -440,10 +440,24 @@ is not the blocker. Per-view *correctness* needs one of:
   distinct viewports), and the three systems refuse loudly at two cameras. Return
   when a product need for split-screen actually arrives.
 
-⇒ **the engineering default, taken unless you say otherwise: duplicate per
-view**, because it is the only option that does not have to be undone. ⚠ what is
-genuinely yours is not this fork but the LAYOUT POLICY above it — shared, fixed
-split, or adaptive-with-hysteresis — and no agent should invent that enum.
+⭐⭐ **RULED 2026-08-17: adaptive with hysteresis** — one shared framing while
+participants are close, splitting into viewports as they separate, with hysteresis
+so it cannot flap at the boundary. Recorded in
+[`maintainer-decisions.md`](maintainer-decisions.md).
+⇒ **and that settles the engineering fork under it by implication.** A layout that
+can split at ANY MOMENT cannot be served by one set of world-space entities, so
+**duplicate per view** is the only surviving option and *pick one view* is dead.
+`parallax.rs` must gain a view concept: it has none today, `.single()`s the main
+camera, and builds its viewport from `WINDOW_W`/`WINDOW_H` rather than from the
+camera it draws for.
+⚠ **the distance threshold and the hysteresis band are FEEL values Jon has not
+named** — measure them against a real two-player session rather than picking
+constants.
+⛔ **adaptive layout promotes the silent-wrong fallback into a real defect**: with
+several cameras, label layout and nameplates fall back to a **world-origin** focus
+(`Vec2::ZERO`) instead of declining to draw, and under this policy several cameras
+is the ordinary case rather than the exception. ⚠ `MainCameraEntity` is a SEVENTH
+process-global *"the main camera"* resource that this layout has to answer for.
 
 ⚠ two related shapes found while landing M2's first half, both left alone: with
 several cameras, label layout and nameplates fall back to a **world-origin**

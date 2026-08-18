@@ -2465,9 +2465,18 @@ gives the destination new dependents, so the crate BELOW gets more expensive to
 edit even as the monolith gets cheaper — the inverse of the laundering trap, and
 the reason a per-crate ledger cannot score this row on its own.
 
-▢ **so the re-freeze is blocked on a judgement, not on more measurement**: is
-`encounter` gaining 17 dependents an acceptable price for the monolith losing
-10,890 lines? ⭐ that is answerable now and was not this morning.
+✔✔ **ANSWERED 2026-08-17, AND THE ANSWER REFUSES THE QUESTION'S PREMISE.** Jon,
+verbatim: *"like count is a proxy, decompose as it makes sense. try not to dump
+things into it to make the problem worse."*
+⇒ ⛔⛔ **the compile ratchet is an INSTRUMENT, NOT A TARGET.** Do not schedule a
+carve to move a number, and do not re-freeze to make a tool quiet. The 17
+dependents were never the real question — carve where OWNERSHIP says so, and if
+the number happens to fall, good.
+⭐ **the operative half is the second clause, and it is a STANDING rule that
+binds every other row in this ledger, not just D33: new work does not land in
+`ambition_platformer2d_actor_monolith` because that is where its neighbours
+already are.** A feature whose owner is elsewhere goes to its owner even when the
+monolith is the cheaper edit. That is what stops this row needing to exist again.
 
 ⛔⛔ **THE ROW'S SCOREBOARD SAID DECOMPOSITION WAS LOSING GROUND — and it was,
 for eight days. ⭐ RESOLVED THE SAME DAY; the arc is below.** The
@@ -4017,10 +4026,23 @@ and the plan, not here:**
   ⭐ **closed by DELETION**, both halves probe-falsified: the `grant` is gone (the
   object is the record) and `OwnedItems::count` PROJECTS the equipped slot, so the
   grid loses it exactly when the hand does. No schema change.
-  ⚠ **STILL OPEN, and the gate is named**: a quantity conferred by
+  ▢ **STILL OPEN, and the gate is named**: a quantity conferred by
   `<<give_item>>`/shop/drop keeps its row through the mint, so it can still
   manifest a second object. ⇒ `OwnedItems` must join the checkpoint baseline first,
   and the mint spends the row in that same change.
+  ✔✔ **THE OWNERSHIP QUESTION IS RULED, 2026-08-17.** Jon, verbatim: *"eventually
+  we are going to switch to a Morrowind style inventory, so the occurrence is the
+  owner, but inventory likely isn't a count it's a set with a count. I suppose it
+  will depend on it the item is unique or not."*
+  ⇒ **the OCCURRENCE owns**, and the ruling reframes the other five classes as
+  well: the destination is not *"occurrence for nine, count for the rest"* but ONE
+  representation — **a set of occurrences that REPORTS a count** — with UNIQUENESS
+  deciding whether a stack's members need distinct identities.
+  ⛔ **do not build the general set-with-count today.** *"Eventually"* and
+  *"likely"* are his words: the direction is settled, the schedule and the exact
+  stacking rule are not. The executable slice stays the gate above, chosen because
+  it is the step that is right under either shape — and because it is the one that
+  stops a granted row manifesting a second object today.
   `a_granted_quantity_survives_the_death_that_retracts_the_instance_minted_from_it`
   is the poison against retracting the row at the reset instead.
   ⭐ the seam, measured on D125: 5 of 6 catalog classes are counts forever and

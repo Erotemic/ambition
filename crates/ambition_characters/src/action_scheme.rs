@@ -246,6 +246,24 @@ pub fn resolve_control_slots(
             // the kernel's `resolve_shield` decides the rest. A held item keeps the
             // verb alive exactly as it does on Attack, because shield+attack is the
             // universal throw gesture.
+            // **Grab is stripped when the slot is absent, and never re-routed.**
+            // A body whose scheme has no Grab slot must not be able to attempt a
+            // capture, which is what makes `AbilitySet::grab` a real permission
+            // rather than a label — the same shape as Attack and Shield above.
+            //
+            // ⛔ no `ActionGate::Technique` arm, deliberately. Every other combat
+            // slot can host a content technique on its press; a capture is not a
+            // technique the press invokes, it is an authored MOVE whose active
+            // window may establish a relationship. Routing the edge to a
+            // technique id here would give the same button two meanings and let
+            // content silently replace the capture with something that is not
+            // one. When a customer wants a technique on this slot, it arrives
+            // with the case that needs it.
+            ControlSlot::Grab => {
+                if gate.is_none() && !holds_item {
+                    control.grab_pressed = false;
+                }
+            }
             ControlSlot::Shield => match gate.as_ref() {
                 Some(ActionGate::Technique(id)) => {
                     edges.set(
@@ -464,6 +482,24 @@ fn combat_actions(
         ControlSlot::Special,
         ids::SPECIAL,
     );
+    // **Grab needs BOTH the permission and the authored move.**
+    //
+    // ⭐ the AND is what makes the roster migration incremental. Granting
+    // `SMASH_FIGHTER_KIT` turns `abilities.grab` on for all fourteen fighters at
+    // once; without the second term that would advertise a Grab button on every
+    // one of them and every press would find no move to play. With it, a fighter
+    // gets the slot on the day it authors a grab and not before.
+    //
+    // ⛔ **`has_verb`, not `has_directional_verb`.** A grab has no directional
+    // family: the four throws are not `grab_forward`/`grab_up`, they are separate
+    // capture-context moves selected by the ATTACK press while a captive is held.
+    // Accepting a prefix here would let an unrelated `grab_bag` verb light the
+    // slot up.
+    push(
+        abilities.grab && has_verb(ids::GRAB),
+        ControlSlot::Grab,
+        ids::GRAB,
+    );
     out
 }
 
@@ -534,6 +570,7 @@ mod tests {
         a.blink = false;
         a.fly = false;
         a.shield = false;
+        a.grab = false;
         f(&mut a);
         a
     }
@@ -567,6 +604,73 @@ mod tests {
 
     fn slots(scheme: &ActionSchemeContract) -> Vec<ControlSlot> {
         scheme.iter().map(|a| a.slot).collect()
+    }
+
+    /// **THE GRAB SLOT NEEDS BOTH HALVES, AND EITHER ONE ALONE IS NOTHING.**
+    ///
+    /// This is the invariant the roster migration rests on. `SMASH_FIGHTER_KIT`
+    /// turns `abilities.grab` on for all fourteen fighters in one line; if the
+    /// permission alone lit the slot, every one of them would advertise a Grab
+    /// button and every press would find no move to play. And if the authored
+    /// verb alone lit it, a character that authors a crossover grab would gain
+    /// one in its OWN game — the exact defect D146 slice 4 had to undo for the
+    /// melee table (Jon, playing: *"maryo seems to have gotten a bunch of moves
+    /// from smash in her game"*).
+    ///
+    /// ⇒ four cases, because a two-term AND has four and only asserting the
+    /// true one would pass with `||` written in the code.
+    #[test]
+    fn the_grab_slot_needs_the_permission_and_the_authored_move() {
+        let with_grab = moveset(&["attack", "grab"]);
+        let without = moveset(&["attack"]);
+
+        let permitted = abilities(|a| {
+            a.attack = true;
+            a.grab = true;
+        });
+        let unpermitted = abilities(|a| a.attack = true);
+
+        assert!(
+            derive_action_scheme(&permitted, Some(&with_grab), None, &[])
+                .has_slot(ControlSlot::Grab),
+            "a body granted the verb AND authoring the move has no Grab slot"
+        );
+        assert!(
+            !derive_action_scheme(&permitted, Some(&without), None, &[])
+                .has_slot(ControlSlot::Grab),
+            "the fighter KIT alone invented a grab for a character that authored \
+             none — every fighter would advertise a button with no move behind it"
+        );
+        assert!(
+            !derive_action_scheme(&unpermitted, Some(&with_grab), None, &[])
+                .has_slot(ControlSlot::Grab),
+            "an authored grab table armed itself without the ruleset granting the \
+             verb — that is a crossover move leaking into a character's home game"
+        );
+        assert!(
+            !derive_action_scheme(&unpermitted, Some(&without), None, &[])
+                .has_slot(ControlSlot::Grab),
+            "neither half present and the slot appeared anyway"
+        );
+    }
+
+    /// **A BODY WITH NO GRAB SLOT CANNOT ATTEMPT ONE.**
+    ///
+    /// The permission above is only real if the resolver strips the edge. A
+    /// scheme is advisory to a HUD; `resolve_control_slots` is what makes it
+    /// binding on the body, and a grab that survived slot resolution would let
+    /// any brain or pad reach a capture the character was never granted.
+    #[test]
+    fn slot_resolution_strips_a_grab_the_scheme_does_not_carry() {
+        let mut control = ActorControlFrame::default();
+        control.grab_pressed = true;
+        let scheme = one_slot_scheme(ControlSlot::Attack, Some(ActionGate::Move("attack".into())));
+        let mut edges = ResolvedTechniqueEdges::default();
+        resolve_control_slots(&scheme, &mut control, &mut edges, false);
+        assert!(
+            !control.grab_pressed,
+            "the capture edge survived a scheme with no Grab slot"
+        );
     }
 
     #[test]

@@ -62,6 +62,16 @@ pub enum Platformer2dInputActionMonolith {
     /// remap of the shield would have gone quiet with no symptom. It is migrated
     /// on load by `ControlSettings::clamp_all`; see `RENAMED_ACTIONS` there.
     Shield,
+    /// **GRAB — press to attempt a capture.** Starts an authored grab move; if
+    /// that move's active window acquires a body, the two enter a capture
+    /// relationship the grab move itself does not own and does not end.
+    ///
+    /// ⛔ **an independent action, not a variant of [`Self::Attack`]**, for the
+    /// same reason Shield is not a variant of Special: a grab beats a guard that
+    /// stops an attack, and it establishes something that outlives the press.
+    /// Binding it onto the attack button would make "may this body grab" and
+    /// "may this body swing" the same permission.
+    Grab,
     Interact,
     Modifier,
     Utility,
@@ -155,6 +165,7 @@ impl Platformer2dInputActionMonolith {
             | Self::Blink
             | Self::Special
             | Self::Shield
+            | Self::Grab
             | Self::Interact
             | Self::Modifier
             | Self::Utility

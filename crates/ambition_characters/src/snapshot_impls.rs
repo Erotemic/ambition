@@ -631,6 +631,11 @@ impl SnapshotState for crate::brain::ActorControl {
             // lost it would diverge from the one it is replacing.
             f.modifier_held,
             f.modifier_pressed,
+            // The capture EDGE. An edge is rollback state exactly like a level:
+            // a resimulated tick that lost the press would not attempt the grab
+            // the original tick attempted, and the two histories diverge at the
+            // relationship rather than at a pixel.
+            f.grab_pressed,
         ] {
             put_bool(out, b);
         }
@@ -659,7 +664,7 @@ impl SnapshotState for crate::brain::ActorControl {
             None
         };
         let attack_axis = ae::LocalAxes::from_vec(r.vec2()?);
-        let mut flags = [false; 19];
+        let mut flags = [false; 20];
         for f in flags.iter_mut() {
             *f = r.bool()?;
         }
@@ -692,6 +697,7 @@ impl SnapshotState for crate::brain::ActorControl {
             blink_released: flags[16],
             modifier_held: flags[17],
             modifier_pressed: flags[18],
+            grab_pressed: flags[19],
             blink_quick_dir: ae::WorldVec2(r.vec2()?),
             blink_aim_step: ae::WorldVec2(r.vec2()?),
             aim: ae::LocalAxes::from_vec(r.vec2()?),

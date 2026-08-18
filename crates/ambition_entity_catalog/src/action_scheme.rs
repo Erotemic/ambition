@@ -72,6 +72,21 @@ pub enum ControlSlot {
     /// Sanic's transformation), so naming either for one occupant would be the
     /// same mistake pointing the other way.
     Shield,
+    /// **Grab slot — the capture verb.** Pressing it starts an authored grab
+    /// move; if that move's active window acquires a body, the two enter a
+    /// CAPTURE RELATIONSHIP that outlives the move which made it.
+    ///
+    /// ⛔ **it is not a flavour of [`Self::Attack`], and the difference is
+    /// structural rather than cosmetic.** An attack resolves as spatial overlap →
+    /// damage → knockback → done; the relationship ends inside the same move. A
+    /// grab establishes a relationship that PERSISTS: later authored moves
+    /// (pummel, throw) target the already-captured counterpart instead of
+    /// reacquiring anybody through collision, and only a throw's authored release
+    /// frame ends it. A shield stops the first and does not stop the second.
+    ///
+    /// ⇒ that is why capture cannot ride the hit path, and why this is its own
+    /// slot rather than a directional variant of the melee one.
+    Grab,
     /// Modifier slot — a slot whose SUSTAIN is the point. Content binds a
     /// technique to holding it (a locomotion mode, a stance) and may bind a
     /// momentary action to its press edge. The engine reserves the position and
@@ -84,12 +99,13 @@ pub enum ControlSlot {
 /// The canonical presentation order of the gameplay slots. Iterating this
 /// gives a deterministic scheme ordering independent of insertion order or
 /// any map hashing (query-order discipline).
-pub const CANONICAL_SLOT_ORDER: [ControlSlot; 10] = [
+pub const CANONICAL_SLOT_ORDER: [ControlSlot; 11] = [
     ControlSlot::Jump,
     ControlSlot::Modifier,
     ControlSlot::Attack,
     ControlSlot::Special,
     ControlSlot::Projectile,
+    ControlSlot::Grab,
     ControlSlot::Dash,
     ControlSlot::Blink,
     ControlSlot::Interact,
@@ -131,6 +147,9 @@ pub mod ids {
     pub const ATTACK: &str = "attack";
     pub const SPECIAL: &str = "special";
     pub const RANGED: &str = "ranged";
+    /// The capture verb. A moveset authors it like any other move; what makes it
+    /// a grab is the capture effect its active window sustains, not this string.
+    pub const GRAB: &str = "grab";
 }
 
 /// Opaque handle to a presentation visual (icon/glyph) for an action. No icon

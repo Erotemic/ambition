@@ -126,6 +126,11 @@ pub fn read_gameplay_control_frame_with_settings(
         projectile_held: actions.pressed(&Platformer2dInputActionMonolith::Projectile),
         projectile_released: actions.just_released(&Platformer2dInputActionMonolith::Projectile),
         shield_held: actions.pressed(&Platformer2dInputActionMonolith::Shield),
+        // ⚠ `just_pressed`, not `pressed`: the grab is an ATTEMPT, and the
+        // authored grab move owns how long that attempt stays active. Reading
+        // the level here would re-attempt every tick a player leans on the
+        // button, which deletes the cost of whiffing one.
+        grab_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Grab),
         modifier_held,
         modifier_pressed,
         aim_x: aim_x_raw,

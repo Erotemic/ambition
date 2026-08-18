@@ -40,6 +40,10 @@ pub enum TouchActionButton {
     Projectile,
     FlyToggle,
     Shield,
+    /// **Capture attempt.** Availability-gated like Special: a scheme with no
+    /// Grab slot draws no button, so only a body that has been granted the verb
+    /// AND authored a grab shows one.
+    Grab,
     /// Sustained-technique slot. Held, not tapped — content decides what
     /// sustaining it does (a locomotion mode, a stance).
     Modifier,
@@ -131,7 +135,7 @@ pub fn movement_joystick_layout() -> TouchJoystickLayout {
 /// Canonical lower-right action layout used by both the rendered UI and
 /// raw multitouch hit testing. Keep all positions here so spacing fixes
 /// cannot drift between the visible overlay and the Android touch path.
-pub fn touch_action_layout() -> [TouchActionSpec; 10] {
+pub fn touch_action_layout() -> [TouchActionSpec; 11] {
     // Authored at the original 1.0-scale layout; `scaled` multiplies
     // through TOUCH_SCALE / TOUCH_FONT_SCALE so a single knob shrinks
     // the entire HUD without disturbing the diamond shape.
@@ -198,6 +202,13 @@ pub fn touch_action_layout() -> [TouchActionSpec; 10] {
         ),
         // Face band.
         scaled(TouchActionButton::Attack, "Attack", 30.0, 158.0, 70.0, 14.0),
+        // ⭐ **the face band had a real hole, and this is the measured fit.**
+        // Authored-space clearance to its nearest neighbour is 22.0px (Interact
+        // above, Attack and Dash beside it) — WIDER than the arrangement's own
+        // tightest existing pair at 14.0 (Fly/Interact and Run/Jump), so adding
+        // it does not touch the minimum this layout was retuned to protect.
+        // Slightly smaller than its neighbours (58 vs 70) to keep that true.
+        scaled(TouchActionButton::Grab, "Grab", 125.0, 158.0, 58.0, 12.0),
         scaled(TouchActionButton::Dash, "Dash", 210.0, 158.0, 70.0, 14.0),
         // Primary band — the pair.
         scaled(TouchActionButton::Modifier, "Run", 82.0, 240.0, 66.0, 14.0),

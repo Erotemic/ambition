@@ -109,7 +109,7 @@ pub enum BindingLayout {
 /// | South (A) | Attack | Jump | Jump moves to East |
 /// | East (B)  | Jump   | Blink | **Blink loses its pad button.** A teleport is not a fighting-game verb; its keyboard binding is untouched. |
 /// | West (X)  | Special | Attack | Attack moves to South |
-/// | North (Y) | *(nothing)* | Projectile | **RESERVED FOR GRAB, which does not exist yet.** Projectile loses its pad button rather than sitting on the grab button. |
+/// | North (Y) | **Grab** | Projectile | **The reservation is redeemed (2026-08-18).** Projectile lost its pad button rather than sitting on the grab button, and the button sat blank until the grab it was held for existed. |
 /// | LeftTrigger (LB) | Shield | Utility | **Utility (fly toggle) loses its pad button.** |
 /// | LeftTrigger2 (LT) | Shield | Modifier | **Modifier loses its pad button.** A fighting game reads walk off the analog stick. |
 ///
@@ -135,7 +135,12 @@ const SMASH_PAD: &[PadSlot] = &[
         GamepadButton::West,
         Platformer2dInputActionMonolith::Special,
     ),
-    blank(GamepadButton::North),
+    // ⭐ **the reservation, redeemed.** This was `blank(North)` with a comment
+    // saying it was held for a grab that did not exist. Leaving a pad button
+    // empty for months is a real cost, and it was the right call: the
+    // alternative was Projectile sitting here and then being taken away from
+    // players' fingers the day capture landed.
+    slot(GamepadButton::North, Platformer2dInputActionMonolith::Grab),
     slot(
         GamepadButton::LeftTrigger,
         Platformer2dInputActionMonolith::Shield,
@@ -340,7 +345,10 @@ mod tests {
                 GamepadButton::West,
                 vec![Platformer2dInputActionMonolith::Special],
             ),
-            (GamepadButton::North, vec![]),
+            (
+                GamepadButton::North,
+                vec![Platformer2dInputActionMonolith::Grab],
+            ),
             (
                 GamepadButton::LeftTrigger,
                 vec![Platformer2dInputActionMonolith::Shield],

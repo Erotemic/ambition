@@ -312,6 +312,12 @@ pub static ENGINE_ACTIONS: &[SemanticActionDef] = &[
         "Hold to raise a guard, release to drop it",
     ),
     engine(
+        "grab",
+        ActionControlKind::Button,
+        GAMEPLAY,
+        "Press to catch hold of another body",
+    ),
+    engine(
         "interact",
         ActionControlKind::Button,
         GAMEPLAY,

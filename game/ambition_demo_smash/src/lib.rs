@@ -413,6 +413,11 @@ pub const SMASH_FIGHTER_KIT: ambition_platformer2d::engine_core::AbilitySet =
         pogo: true,
         directional_primary: true,
         shield: true,
+        // **The capture verb.** Granting it here does NOT invent a grab: the
+        // action scheme wants `abilities.grab` AND an authored `"grab"` move, so
+        // a fighter joins the mechanic on the day its table does and the other
+        // thirteen are unchanged until theirs do.
+        grab: true,
         dodge: true,
         ledge_grab: true,
         ..ambition_platformer2d::engine_core::AbilitySet::NONE

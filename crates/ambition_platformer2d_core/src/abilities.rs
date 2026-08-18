@@ -118,6 +118,28 @@ pub struct AbilitySet {
     /// (projectile reflection, counter stun).
     #[serde(default)]
     pub shield: bool,
+    /// **May this body CAPTURE another one.** The grab verb: a body that has it
+    /// can establish a capture relationship, hold a captive across several of
+    /// its own moves, and end the hold with a throw.
+    ///
+    /// ⛔ **deliberately NOT folded under [`Self::attack`].** A grab is not a
+    /// kind of slash: it beats a shield rather than being stopped by one, it
+    /// selects a counterpart instead of damaging everything it overlaps, and it
+    /// outlives the move that started it. Gating it on the melee flag would mean
+    /// the only way to give a character a grab was to arm its fists, and the only
+    /// way to take the grab away was to disarm them — the same conflation D146
+    /// had to undo for the shield.
+    ///
+    /// ⚠ the flag alone is not a grab. `derive_action_scheme` exposes the slot
+    /// only when this is set AND the body's moveset authors a `"grab"` verb, so
+    /// granting a fighter kit cannot invent a grab for a character that has never
+    /// authored one.
+    ///
+    /// ⚠ **not [`Self::ledge_grab`]**, thirty lines up in this same struct.
+    /// That one is a body catching a LEDGE — traversal geometry. This one is a
+    /// body catching another BODY. They share an English word and nothing else.
+    #[serde(default)]
+    pub grab: bool,
     /// **World interaction: talk, open, read.** Resolved against nearby
     /// interactables at press time, so this flag is only "does this body have the
     /// verb at all" — the world half was always handled downstream.
@@ -202,6 +224,7 @@ impl AbilitySet {
             glide: false,
             dodge: false,
             shield: false,
+            grab: false,
             interact: true,
         }
     }
@@ -236,6 +259,7 @@ impl AbilitySet {
             glide: true,
             dodge: true,
             shield: true,
+            grab: true,
             interact: true,
         }
     }
@@ -277,6 +301,7 @@ impl AbilitySet {
             glide: false,
             dodge: false,
             shield: false,
+            grab: false,
             interact: true,
         }
     }
@@ -316,6 +341,7 @@ impl AbilitySet {
         glide: false,
         dodge: false,
         shield: false,
+        grab: false,
         interact: false,
     };
 
@@ -358,6 +384,7 @@ impl AbilitySet {
             glide: self.glide || other.glide,
             dodge: self.dodge || other.dodge,
             shield: self.shield || other.shield,
+            grab: self.grab || other.grab,
             interact: self.interact || other.interact,
         }
     }
@@ -402,6 +429,7 @@ impl AbilitySet {
             glide: self.glide && mask.glide,
             dodge: self.dodge && mask.dodge,
             shield: self.shield && mask.shield,
+            grab: self.grab && mask.grab,
             interact: self.interact && mask.interact,
         }
     }

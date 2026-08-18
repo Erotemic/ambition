@@ -219,7 +219,7 @@ impl Buttonlike for TouchStickDirection {
     }
 }
 
-pub(crate) const ALL_TOUCH_BUTTONS: [TouchActionButton; 12] = [
+pub(crate) const ALL_TOUCH_BUTTONS: [TouchActionButton; 13] = [
     TouchActionButton::Jump,
     TouchActionButton::Attack,
     TouchActionButton::Special,
@@ -229,6 +229,7 @@ pub(crate) const ALL_TOUCH_BUTTONS: [TouchActionButton; 12] = [
     TouchActionButton::Projectile,
     TouchActionButton::FlyToggle,
     TouchActionButton::Shield,
+    TouchActionButton::Grab,
     TouchActionButton::Modifier,
     TouchActionButton::Start,
     TouchActionButton::Reset,
@@ -245,6 +246,7 @@ fn touch_button_state(state: &MobileTouchState, action: TouchActionButton) -> To
         TouchActionButton::Projectile => state.0.projectile,
         TouchActionButton::FlyToggle => state.0.fly_toggle,
         TouchActionButton::Shield => state.0.shield,
+        TouchActionButton::Grab => state.0.grab,
         TouchActionButton::Modifier => state.0.modifier,
         TouchActionButton::Start => state.0.start,
         TouchActionButton::Reset => state.0.reset,
@@ -263,6 +265,7 @@ fn set_touch_button(world: &mut World, action: TouchActionButton, held: bool) {
         TouchActionButton::Projectile => &mut state.0.projectile,
         TouchActionButton::FlyToggle => &mut state.0.fly_toggle,
         TouchActionButton::Shield => &mut state.0.shield,
+        TouchActionButton::Grab => &mut state.0.grab,
         TouchActionButton::Modifier => &mut state.0.modifier,
         TouchActionButton::Start => &mut state.0.start,
         TouchActionButton::Reset => &mut state.0.reset,
@@ -299,6 +302,11 @@ pub fn touch_bindings() -> Vec<(
         // keyboard/gamepad bindings feed.
         (A::Utility, TouchVirtualButton(B::FlyToggle)),
         (A::Shield, TouchVirtualButton(B::Shield)),
+        // The overlay's Grab button sends the same Grab action the Smash pad's
+        // North button and every keyboard preset's grab key send. The guard
+        // below (`every_button_the_overlay_can_draw_can_also_be_pressed`) is
+        // what caught this line missing the first time it was written.
+        (A::Grab, TouchVirtualButton(B::Grab)),
         // ⛔ **`Modifier` was MISSING here until 2026-08-04, and the button was
         // drawn the whole time.** `touch_button_slot` maps it to
         // `ControlSlot::Modifier`, so a scheme carrying that slot made the button

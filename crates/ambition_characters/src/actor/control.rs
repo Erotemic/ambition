@@ -277,6 +277,13 @@ pub struct ActorControlFrame {
     /// bubble shield up keep this true; release triggers shield-
     /// down behavior in the integration.
     pub shield_held: bool,
+    /// **Rising edge: this body wants to CAPTURE somebody this tick.**
+    ///
+    /// ⭐ the human's Grab button and a CPU's decision write this SAME field.
+    /// There is deliberately no `cpu_wants_grab` beside it — the whole point of
+    /// the semantic control surface is that a brain asks for a grab the way a
+    /// person does, and everything downstream reads one answer.
+    pub grab_pressed: bool,
     /// Rising edge: brain wants to use its special / signature move.
     /// What this resolves to is per-entity (ActionSet), so the same
     /// `special_pressed=true` from a player brain and a possessed
@@ -460,6 +467,7 @@ impl ActorControlFrame {
             || self.interact_pressed
             || self.shield_held
             || self.special_pressed
+            || self.grab_pressed
     }
 
     /// Clear all rising- and falling-edge flags without touching sustains. Used
@@ -502,6 +510,7 @@ impl ActorControlFrame {
         self.blink_pressed = false;
         self.blink_released = false;
         self.modifier_pressed = false;
+        self.grab_pressed = false;
     }
 }
 

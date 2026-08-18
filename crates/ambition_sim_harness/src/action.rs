@@ -155,6 +155,11 @@ impl From<AgentAction> for ControlFrame {
             projectile_held: a.projectile_held,
             projectile_released: a.projectile_released,
             shield_held: false,
+            // ⚠ false like `shield_held` beside it, and for the same reason: the
+            // RL action space does not carry this verb yet. Adding it means
+            // widening `AgentAction` and retraining against a larger space, which
+            // is a decision about the harness rather than a line in a converter.
+            grab_pressed: false,
             modifier_held: a.modifier_held,
             modifier_pressed: a.modifier,
             aim_x: a.aim_x,

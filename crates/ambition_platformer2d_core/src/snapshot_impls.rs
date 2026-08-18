@@ -44,6 +44,7 @@ impl SnapshotState for crate::AbilitySet {
         put_bool(out, self.glide);
         put_bool(out, self.dodge);
         put_bool(out, self.shield);
+        put_bool(out, self.grab);
         put_bool(out, self.interact);
     }
 
@@ -76,6 +77,7 @@ impl SnapshotState for crate::AbilitySet {
             glide: r.bool()?,
             dodge: r.bool()?,
             shield: r.bool()?,
+            grab: r.bool()?,
             interact: r.bool()?,
         })
     }

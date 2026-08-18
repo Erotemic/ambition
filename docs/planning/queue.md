@@ -5231,9 +5231,15 @@ the real pipeline is a fixture that was testing less than it looked.
 ⭐ poison-verified: dropping `gated_by` from the emission turns three of the five
 red.
 
-▢ **two holders left** — `world/mod.rs` and `world/authored_switch_commands.rs`,
-the latter the same shape again (a `Switch` marker's `on_activate` field, read off
-the project while `convert_switch` already emits the switch).
+▢ **two holders left** — `world/mod.rs` and `world/authored_switch_commands.rs`.
+⛔⛔ **and the switch one is NOT the same price, which I nearly wrote here before
+checking.** It reads a `Switch` marker's `on_activate`, and `convert_switch`
+already emits — but through `InteractableSpec`, which is a variant of the CLOSED
+Tier-0 `PlacementSchema`. Widening that is an authored-schema change, not a free
+field, and it is the exact cost the encounter and lock-wall roads avoided by
+using typed families. ⇒ **decide where `on_activate` belongs before starting**:
+a typed family beside the others, or the schema with whatever a schema change
+owes.
 
 ⇒ **what still holds the edge, and the cost of each**, in the order they must
 fall (the last two cannot be cfg-gated cheaply — the code has to move):

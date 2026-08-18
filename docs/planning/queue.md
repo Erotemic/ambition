@@ -2637,6 +2637,25 @@ namespace whose uniqueness is only checked **per room**, so two rooms authoring
 one id would suppress both; and the ledger is not experience-scoped, so a
 suppressed row can survive into a new session.
 
+✔ **THE FIRST OF THOSE IS GUARDED NOW (2026-08-18), while it is still free.**
+`validate.placement_id_collision` warns when one authored `id` names things in
+two rooms. ⭐ **green on every shipped world, which is exactly why it was worth
+adding today** — measured: twelve entity kinds carry an `id`, and the ONLY
+cross-room reuse is `LoadingZone` (`return_door` in 7 rooms, `east_exit` in 3,
+`west_exit` in 2), every one deliberate because a zone's `target_zone` resolves
+within its `target_room`. Nothing else collides, so the guard costs nothing until
+it earns its keep.
+
+⛔⛔ **and the collision is REACHABLE, not hypothetical**: `authored_logic/
+prepared.rs` turns an authored `placement:<id>` argument into
+`SimId::placement(..)`, and that is production. No authored content names one
+yet — so the day the first rule says `placement:return_door` it would mean seven
+zones, and this now says so first. ⚠ four tests pin it, because a guard that is
+green on all real data is otherwise indistinguishable from one that cannot fire.
+⚠ per FILE: a cross-WORLD collision is possible in principle (measured 0), and
+checking it would need every world loaded at once, which this validator does not
+do.
+
 ⇒ the hazard that started this leg, recorded on `ItemCustody`:
 carrying an **authored** placement out of its room and back yields the carried
 object **and a freshly authored copy with the same `SimId::placement(..)`**. It

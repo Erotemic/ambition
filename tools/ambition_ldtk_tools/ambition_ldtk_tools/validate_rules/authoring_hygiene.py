@@ -69,6 +69,7 @@ def authoring_hygiene_issues(project: dict[str, Any]) -> list[Issue]:
     issues.extend(debug_label_overlap_issues(project))
     issues.extend(spawn_overlap_issues(project))
     issues.extend(loading_zone_support_issues(project))
+    issues.extend(placement_id_collision_issues(project))
     return issues
 
 
@@ -108,6 +109,72 @@ def debug_label_overlap_issues(project: dict[str, Any]) -> list[Issue]:
                             data={"a": ai, "b": bi},
                         )
                     )
+    return issues
+
+
+#: `LoadingZone` ids are ROOM-SCOPED by design and reused on purpose —
+#: `return_door` names the way back in seven different rooms, and a zone's
+#: `target_zone` is resolved WITHIN its `target_room`, so the room disambiguates.
+#: Every other kind's id can become a `SimId::placement(..)`, which is GLOBAL.
+ROOM_SCOPED_ID_KINDS = {"LoadingZone"}
+
+
+def placement_id_collision_issues(project: dict[str, Any]) -> list[Issue]:
+    """Warn when one authored `id` names things in two different rooms.
+
+    ⛔⛔ **`SimId::placement(id)` IS A GLOBAL NAMESPACE AND NOTHING CHECKS IT
+    ACROSS ROOMS** — recorded as a carried risk on ledger D125: *"two rooms
+    authoring one id would suppress both"*. An authored rule reaches that
+    namespace through `placement:<id>` (`authored_logic/prepared.rs`), so the
+    day somebody writes `placement:return_door` it names seven zones at once.
+
+    ⭐ **green today, which is the point of adding it now.** Measured across the
+    shipped worlds: twelve entity kinds carry an `id`, and the only cross-room
+    reuse is `LoadingZone` — `return_door` (7 rooms), `east_exit` (3),
+    `west_exit` (2) — every one of them deliberate. Nothing else collides, so
+    this costs nothing until it earns its keep.
+
+    ⚠ **per FILE, not per project.** The ledger is not world-scoped, so a
+    cross-WORLD collision is possible in principle; measured 0 today, and
+    checking it here would need every world loaded at once, which this validator
+    does not do. Recorded rather than silently half-covered.
+    """
+
+    issues: list[Issue] = []
+    rooms_by_id: dict[tuple[str, str], list[str]] = defaultdict(list)
+    for level in project.get("levels") or []:
+        level_id = level.get("identifier", "<unknown>")
+        for layer in level.get("layerInstances") or []:
+            for entity in layer.get("entityInstances") or []:
+                kind = entity.get("__identifier")
+                if kind in ROOM_SCOPED_ID_KINDS:
+                    continue
+                value = field_value(entity.get("fieldInstances"), "id")
+                if not isinstance(value, str) or not value:
+                    continue
+                rooms = rooms_by_id[(str(kind), value)]
+                if level_id not in rooms:
+                    rooms.append(level_id)
+
+    for (kind, value), rooms in sorted(rooms_by_id.items()):
+        if len(rooms) < 2:
+            continue
+        issues.append(
+            Issue(
+                severity="warning",
+                code="validate.placement_id_collision",
+                message=(
+                    f"{kind} id {value!r} is authored in {len(rooms)} rooms "
+                    f"({', '.join(sorted(rooms))}); `SimId::placement` is a GLOBAL "
+                    "namespace, so an authored rule naming `placement:"
+                    f"{value}` would mean all of them"
+                ),
+                level=rooms[0],
+                layer=None,
+                fix_hint="Give each one a distinct id, or scope it by room the way a LoadingZone is.",
+                data={"kind": kind, "id": value, "rooms": sorted(rooms)},
+            )
+        )
     return issues
 
 

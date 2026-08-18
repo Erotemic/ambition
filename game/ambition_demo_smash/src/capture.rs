@@ -42,9 +42,13 @@ pub fn translate_smash_capture_effects(
         let ActionRequest::Special { spec, params } = &message.request else {
             continue;
         };
-        let SpecialActionSpec::Special(key) = spec else {
-            continue;
-        };
+        // ⚠ **irrefutable today, and destructured anyway.** `SpecialActionSpec`
+        // has exactly one variant since the per-boss variants collapsed onto the
+        // keyed effect seam. Naming it means the day a second variant arrives,
+        // this becomes a compile error at the one place that has to decide
+        // whether the new kind can carry a capture — rather than a silent
+        // fall-through that stops recognising grabs.
+        let SpecialActionSpec::Special(key) = spec;
         match key.as_str() {
             CAPTURE_ATTEMPT => {
                 // ⚠ a params typo is a STARTUP error, not a silent default: the

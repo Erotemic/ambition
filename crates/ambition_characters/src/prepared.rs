@@ -818,6 +818,33 @@ fn runtime_verb_vocabulary() -> Vec<String> {
             }
         }
     }
+    // ⭐ **THE CAPTURE FAMILY, and it is FLAT rather than directional.**
+    //
+    // The comment above says this is the one place a fifth base has to teach —
+    // this is that. But capture does not go through `directional_verb_chain`,
+    // and the reason is a real difference rather than an exemption: a throw is
+    // not `grab_forward`. It is selected by the ATTACK press while a capture
+    // relationship exists, so the direction is read in a context the grab press
+    // has already left. Running these through the chain would invent
+    // `grab_up_air` and friends, and would let a fighter that authored only
+    // throws light up its Grab slot through the directional matcher.
+    //
+    // ⛔ registering them here is not optional bookkeeping: `prepare_character`
+    // reports an unresolved verb and PUBLISHES ANYWAY, so an unregistered
+    // capture verb is a move authored onto a button the runtime says does not
+    // exist — visible only in the binding report until somebody presses it.
+    vocabulary.extend(
+        [
+            ambition_entity_catalog::GRAB_VERB,
+            ambition_entity_catalog::CAPTURE_PUMMEL_VERB,
+            ambition_entity_catalog::CAPTURE_THROW_FORWARD_VERB,
+            ambition_entity_catalog::CAPTURE_THROW_BACK_VERB,
+            ambition_entity_catalog::CAPTURE_THROW_UP_VERB,
+            ambition_entity_catalog::CAPTURE_THROW_DOWN_VERB,
+        ]
+        .into_iter()
+        .map(str::to_owned),
+    );
     vocabulary.sort();
     vocabulary.dedup();
     vocabulary
@@ -1104,51 +1131,51 @@ fn finalize_character(
                 action_set: set,
             }
         }
-            // ⭐ **AN ID THE CATALOG DOES NOT KNOW, or no catalog at all** — the
-            // two states that remain now that no row can select the host kit by
-            // name. Both mean the same thing to a body: nobody authored a kit, so
-            // build one from what this body can do.
-            // ⚠ **AND THE ONE CONTRADICTION THE PLAN SAID DID NOT EXIST.**
-            //
-            // A character can reach this arm — authoring no action set, so the
-            // HOST builds one from the body — and still bring its own timelines;
-            // `authored_moveset` exists precisely for that. If that
-            // moveset declares the `ranged` verb, the same press is owned twice:
-            // by the legacy charge-projectile path this kit installs, and by the
-            // moveset's ranged verb. That is the exact double-ownership
-            // `RangedExecution::ChargedProjectile` exists to prevent, arriving through
-            // the one door it does not watch.
-            //
-            // The finalization plan recorded that there was no contradictory
-            // authored HostCode configuration to reject, and that a validator
-            // would therefore be a test of itself. There is one (GPT 5.6,
-            // 2026-07-29).
-            //
-            // Decided HERE and not in `prepare_character`'s binding ledger,
-            // because deciding this needs the CATALOG and the catalog is
-            // deliberately not in scope until finalization — the Phase A split.
-            //
-            // ⚠ **and REPORTING it was not enough**, which is the second half of
-            // the same finding. A diagnostic left the contradictory kit intact and
-            // published it, so runtime still installed both owners and the log line
-            // was a description of a bug rather than a fix for one. Invalid
-            // ownership must not reach a body at all (GPT 5.6, second pass).
-            _ => PreparedKit::Unauthored {
-                authored_moveset: moveset.map(|mut moveset| {
-                    let revoked = revoke_host_owned_ranged(&mut moveset);
-                    if !revoked.is_empty() {
-                        bevy::log::error!(
-                            "character `{id}` authored NO action set — so the host builds its \
+        // ⭐ **AN ID THE CATALOG DOES NOT KNOW, or no catalog at all** — the
+        // two states that remain now that no row can select the host kit by
+        // name. Both mean the same thing to a body: nobody authored a kit, so
+        // build one from what this body can do.
+        // ⚠ **AND THE ONE CONTRADICTION THE PLAN SAID DID NOT EXIST.**
+        //
+        // A character can reach this arm — authoring no action set, so the
+        // HOST builds one from the body — and still bring its own timelines;
+        // `authored_moveset` exists precisely for that. If that
+        // moveset declares the `ranged` verb, the same press is owned twice:
+        // by the legacy charge-projectile path this kit installs, and by the
+        // moveset's ranged verb. That is the exact double-ownership
+        // `RangedExecution::ChargedProjectile` exists to prevent, arriving through
+        // the one door it does not watch.
+        //
+        // The finalization plan recorded that there was no contradictory
+        // authored HostCode configuration to reject, and that a validator
+        // would therefore be a test of itself. There is one (GPT 5.6,
+        // 2026-07-29).
+        //
+        // Decided HERE and not in `prepare_character`'s binding ledger,
+        // because deciding this needs the CATALOG and the catalog is
+        // deliberately not in scope until finalization — the Phase A split.
+        //
+        // ⚠ **and REPORTING it was not enough**, which is the second half of
+        // the same finding. A diagnostic left the contradictory kit intact and
+        // published it, so runtime still installed both owners and the log line
+        // was a description of a bug rather than a fix for one. Invalid
+        // ownership must not reach a body at all (GPT 5.6, second pass).
+        _ => PreparedKit::Unauthored {
+            authored_moveset: moveset.map(|mut moveset| {
+                let revoked = revoke_host_owned_ranged(&mut moveset);
+                if !revoked.is_empty() {
+                    bevy::log::error!(
+                        "character `{id}` authored NO action set — so the host builds its \
                              kit from the body — AND authored the ranged verb(s) {revoked:?}. \
                              That host kit owns the ranged press through its \
                              charge-projectile path, so one press would have fired both; those \
                              verb bindings are DROPPED and the charge path keeps the press. To own \
                              the verb from content instead, author an action set — that makes the \
                              character `Authored`, and its moveset owns ranged outright"
-                        );
-                    }
-                    moveset
-                }),
+                    );
+                }
+                moveset
+            }),
         },
     };
 

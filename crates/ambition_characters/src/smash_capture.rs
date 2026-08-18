@@ -38,6 +38,23 @@
 //! The helpers below own both, so a fighter authors VALUES and the strings stay
 //! in one module — which is also what makes these movesets relocatable into a
 //! character package later without rewriting every fighter.
+//!
+//! ## ⚠ On startup validation, which does NOT exist here
+//!
+//! `ambition_entity_catalog::ParamSchemaRegistry` is the documented road for
+//! *"a param typo fails at startup, not mid-fight"*. **It has no production
+//! installer** — measured 2026-08-18: the type, one unit test, and zero callers
+//! of `validate` anywhere in the tree. So registering a check for these keys
+//! would register it with nobody.
+//!
+//! ⭐ **and it costs this road nothing, because a fighter never writes params by
+//! hand.** `author_standing_grab(spec, CaptureAttemptParams { … })` takes a
+//! typed struct, so a misspelled or missing field is a COMPILE error in the
+//! fighter's own file — strictly earlier than startup. The registry matters for
+//! hand-written RON, which no capture move uses.
+//!
+//! ⇒ if a capture param ever becomes authorable as loose RON, wiring the
+//! registry is a precondition of that change rather than a follow-up to it.
 
 use ambition_entity_catalog::{EffectRef, MoveSpec, ParamValue, VolumeShape};
 use serde::{Deserialize, Serialize};
@@ -120,6 +137,85 @@ pub struct CaptureThrowParams {
     /// Launch direction, body-local: `+x` = the captor's facing, `+y` =
     /// gravity-down. Same contract as [`CaptureAttemptParams::volume`].
     pub launch_dir: (f32, f32),
+}
+
+/// **The three-window shell a grab needs**, so a fighter authors TIMINGS rather
+/// than a window list.
+///
+/// ⭐ it lives here rather than in either game because both providers need the
+/// identical shape and because [`author_standing_grab`] REFUSES a move with no
+/// Active window — a module that enforces a shape should be able to hand you
+/// one. A fighter still owns every number.
+///
+/// ⚠ no hit volume, ever. A grab's Active window carries a capture ATTEMPT, and
+/// a volume beside it would make the same frames both grab and hit.
+pub fn grab_shell(id: &str, clip: &str, startup_s: f32, active_s: f32, recover_s: f32) -> MoveSpec {
+    let active_end = startup_s + active_s;
+    MoveSpec {
+        id: id.to_string(),
+        clip: ambition_entity_catalog::ClipBinding {
+            clip: clip.to_string(),
+            fallbacks: vec!["attack".to_string(), "idle".to_string()],
+        },
+        duration_s: active_end + recover_s,
+        windows: vec![
+            window(ambition_entity_catalog::WindowTag::Startup, 0.0, startup_s),
+            window(
+                ambition_entity_catalog::WindowTag::Active,
+                startup_s,
+                active_end,
+            ),
+            window(
+                ambition_entity_catalog::WindowTag::Recovery,
+                active_end,
+                active_end + recover_s,
+            ),
+        ],
+        events: Vec::new(),
+        gates: Default::default(),
+        start_impulse: None,
+        smash_charge_mult: 1.0,
+        landing_lag_s: None,
+        autocancel_after_s: None,
+    }
+}
+
+/// **The shell a pummel or a throw needs**: a timeline and nothing else.
+///
+/// Neither reaches for anybody — the target is already established — so neither
+/// has an Active window or a volume. What each has is an INSTANT, attached by
+/// [`author_pummel`] or [`author_throw`].
+pub fn capture_beat(id: &str, clip: &str, duration_s: f32) -> MoveSpec {
+    MoveSpec {
+        id: id.to_string(),
+        clip: ambition_entity_catalog::ClipBinding {
+            clip: clip.to_string(),
+            fallbacks: vec!["attack".to_string(), "idle".to_string()],
+        },
+        duration_s,
+        windows: Vec::new(),
+        events: Vec::new(),
+        gates: Default::default(),
+        start_impulse: None,
+        smash_charge_mult: 1.0,
+        landing_lag_s: None,
+        autocancel_after_s: None,
+    }
+}
+
+fn window(
+    tag: ambition_entity_catalog::WindowTag,
+    start_s: f32,
+    end_s: f32,
+) -> ambition_entity_catalog::MoveWindow {
+    ambition_entity_catalog::MoveWindow {
+        start_s,
+        end_s,
+        tag,
+        volumes: Vec::new(),
+        motion_scale: 1.0,
+        sustain_effect: None,
+    }
 }
 
 /// Attach a grab attempt to `spec`'s ACTIVE window(s).

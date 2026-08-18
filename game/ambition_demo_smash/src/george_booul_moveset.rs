@@ -37,6 +37,10 @@
 //! for exactly that reason: heavier than it on every smash, faster nowhere, and
 //! carrying a startup GAP the shared table does not have.
 
+use ambition_platformer2d::characters::smash_capture::{
+    author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
+    CaptureAttemptParams, CapturePummelParams, CaptureThrowParams, SmashCaptureRepertoire,
+};
 use ambition_platformer2d::characters::smash_repertoire::{
     DownSpecial, NeutralSpecial, SmashRepertoire,
 };
@@ -553,6 +557,59 @@ pub fn george_booul_moveset() -> MovesetContract {
     let ground_down_b = committed_tail(ground_down_b, 0.86, 0.10);
     let ground_down_b = feel(ground_down_b, Feel::Dive);
 
+    // ── The hold ────────────────────────────────────────────────────────────
+    //
+    // ⭐ **the excluded middle, applied to a grab.** George's table has three
+    // fast options and eight slow ones and nothing in between; his grab belongs
+    // with the eight. `0.16` of startup is slower than every grab in the genre
+    // and slower than his own jab by more than three times, and the `0.30` of
+    // recovery means a whiffed grab is the worst thing he can do — which is the
+    // point. A body with no medium answer should not have a safe grab either.
+    //
+    // ⭐ **it was authored at `0.14` and HIS OWN LAW refused it**: the
+    // `debug_assert` at the bottom of this function fired with *"a George move
+    // landed between the pokes and the commitments"*, because `0.14` sits inside
+    // the `(0.08, 0.15)` gap that IS this character. The number moved to the
+    // commitment side rather than the gap moving, which is the whole reason that
+    // assertion is written where the moves are.
+    //
+    // ⚠ the reach is LONG and SHALLOW (`26` forward, `13` tall against his own
+    // 24-tall body): he is the heaviest fighter on the grid and he reaches, he
+    // does not lunge. The hold sits at `20` forward — out at arm's length, where
+    // a logician holds something he is examining.
+    let grab = author_standing_grab(
+        grab_shell("george_grab", "grab", 0.16, 0.06, 0.30),
+        CaptureAttemptParams {
+            offset: (18.0, 0.0),
+            half_extents: (26.0, 13.0),
+            hold_offset: (20.0, -2.0),
+        },
+    );
+    // ⚠ **a SLOW pummel that hurts.** `0.24` is a long beat — most of the genre
+    // pummels twice in that time — and `4` is nearly a jab. George trades rate
+    // for weight here exactly as he does everywhere else, and the tempo is what
+    // makes the trade legible rather than the number.
+    let pummel = author_pummel(
+        capture_beat("george_pummel", "attack", 0.24),
+        0.11,
+        CapturePummelParams { damage: 4 },
+    );
+    // ⚠ **the release is LATE in the move** (`0.20` of a `0.34` timeline), which
+    // is what makes the wind-up readable and the throw punishable if it is
+    // predicted. The launch is nearly flat (`-0.35` of vertical against `1.0`
+    // forward): George throws ACROSS the stage rather than up, so his throw is a
+    // stage-control tool and not a combo starter — the heavy body's version.
+    let forward_throw = author_throw(
+        capture_beat("george_fthrow", "attack", 0.34),
+        0.20,
+        CaptureThrowParams {
+            damage: 11,
+            knockback: 138.0,
+            knockback_growth: 1.9,
+            launch_dir: (1.0, -0.35),
+        },
+    );
+
     let repertoire = SmashRepertoire {
         jab,
         forward_tilt: f_tilt,
@@ -569,11 +626,17 @@ pub fn george_booul_moveset() -> MovesetContract {
         neutral_special: NeutralSpecial::Authored(bivalence),
         side_special: side_b,
         up_special: up_b,
-        // ⚠ **no capture kit yet** — the relationship architecture is being
-        // proven on two fighters first (see `SmashCaptureRepertoire`). This is
-        // the transitional `None`, and it means exactly one thing: no Grab slot,
-        // no grab verbs, nothing about this fighter lying about having one.
-        capture: None,
+        // ⭐ **the first fighter to author one.** Back throw, up throw and down
+        // throw stay `None`: this fighter has a forward throw and says so, and a
+        // press for one he does not have finds nothing rather than a pummel.
+        capture: Some(SmashCaptureRepertoire {
+            grab,
+            pummel,
+            forward_throw,
+            back_throw: None,
+            up_throw: None,
+            down_throw: None,
+        }),
         down_special: DownSpecial::ByPosture {
             grounded: ground_down_b,
             airborne: down_b,
@@ -618,12 +681,24 @@ mod tests {
             .clone()
     }
 
-    fn startup(m: &MoveSpec) -> f32 {
+    /// The tell before a move becomes dangerous — `None` for a move that has no
+    /// dangerous moment to lead into.
+    ///
+    /// ⚠ **it was an `.expect("a strike has an active window")` and the capture
+    /// beats broke it**, correctly. A pummel and a throw have NO Active window
+    /// by design: they reach for nobody, because the target was selected when
+    /// the capture was established. The law below is about the tell, and a move
+    /// that cannot miss has none.
+    ///
+    /// ⛔ the exemption is NOT open-ended — see the assertion below, which pins
+    /// exactly which moves take it. A strike that lost its Active window would
+    /// otherwise slip out of the law silently, which is the failure this shape
+    /// invites if the `None` is just filtered away.
+    fn startup(m: &MoveSpec) -> Option<f32> {
         m.windows
             .iter()
             .find(|w| matches!(w.tag, WindowTag::Active))
-            .expect("a strike has an active window")
-            .start_s
+            .map(|w| w.start_s)
     }
 
     fn damage(m: &MoveSpec) -> i32 {
@@ -656,8 +731,28 @@ mod tests {
     #[test]
     fn no_move_lives_between_the_pokes_and_the_commitments() {
         let george = george_booul_moveset();
+
+        // ⛔ **WHO IS EXEMPT, BY NAME.** Two moves have no tell, and they are the
+        // capture beats — a pummel and a throw that reach for nobody. Pinning
+        // the list means a STRIKE that lost its Active window fails here instead
+        // of quietly leaving the law it is supposed to obey. ⭐ the grab is NOT
+        // on it: a grab reaches, so a grab has a tell, and it obeys the band
+        // like everything else (it was authored at `0.14` and this caught it).
+        let mut telless: Vec<&str> = george
+            .moves
+            .iter()
+            .filter(|m| startup(m).is_none())
+            .map(|m| m.id.as_str())
+            .collect();
+        telless.sort_unstable();
+        assert_eq!(
+            telless,
+            vec!["george_fthrow", "george_pummel"],
+            "the set of moves with no Active window changed"
+        );
+
         for m in &george.moves {
-            let s = startup(m);
+            let Some(s) = startup(m) else { continue };
             assert!(
                 s <= POKE_MAX_STARTUP_S || s >= COMMIT_MIN_STARTUP_S,
                 "`{}` starts at {s}s, inside the band this fighter does not have \
@@ -669,10 +764,36 @@ mod tests {
         // ⭐ and the two halves are separated by PAYOFF, not only by timing —
         // otherwise "slow" would just mean "slow", and the disjunction would be
         // about the clock rather than about the decision.
+        //
+        // ⛔⛔ **the payoff is measured in DAMAGE, so a move whose payoff is not
+        // damage is not a subject of this claim.** The grab has a tell — it
+        // reaches, so it obeyed the band above — and deals ZERO, because what it
+        // buys is a hold. Left in, it becomes the "softest commitment" at 0 and
+        // the law reads as broken by the one move that is keeping it.
+        //
+        // ⚠ pinned by name for the same reason the tell exemption is: a SMASH
+        // that lost its volumes would otherwise quietly become the softest
+        // commitment and take the assertion down with it, or worse, satisfy it.
+        let mut payless: Vec<&str> = george
+            .moves
+            .iter()
+            .filter(|m| startup(m).is_some() && damage(m) == 0)
+            .map(|m| m.id.as_str())
+            .collect();
+        payless.sort_unstable();
+        assert_eq!(
+            payless,
+            vec!["george_grab"],
+            "the set of moves that reach and deal no damage changed"
+        );
+
         let (pokes, commits): (Vec<_>, Vec<_>) = george
             .moves
             .iter()
-            .partition(|m| startup(m) <= POKE_MAX_STARTUP_S);
+            // A move with no tell is neither a poke nor a commitment, and a move
+            // with no damage payoff is not what this claim measures.
+            .filter(|m| startup(m).is_some() && damage(m) > 0)
+            .partition(|m| startup(m).unwrap_or_default() <= POKE_MAX_STARTUP_S);
         let hardest_poke = pokes.iter().map(|m| damage(m)).max().expect("pokes exist");
         let softest_commit = commits
             .iter()
@@ -691,8 +812,7 @@ mod tests {
         let shared = crate::moveset::fighter_moveset();
         assert!(
             shared.moves.iter().any(|m| {
-                let s = startup(m);
-                s > POKE_MAX_STARTUP_S && s < COMMIT_MIN_STARTUP_S
+                startup(m).is_some_and(|s| s > POKE_MAX_STARTUP_S && s < COMMIT_MIN_STARTUP_S)
             }),
             "the shared repertoire is supposed to HAVE a middle; if it does not, \
              this whole test is asserting a property of the threshold rather \
@@ -712,12 +832,13 @@ mod tests {
         let shared = crate::moveset::fighter_moveset();
         for id in ["smash_forward", "smash_up", "smash_down"] {
             let (g, s) = (find(&george, id), find(&shared, id));
-            assert!(
-                startup(&g) > startup(&s),
-                "`{id}`: the heavy commits longer ({} vs {})",
-                startup(&g),
-                startup(&s)
+            // ⚠ `expect`, not a filter: these three ARE strikes, and a smash
+            // that lost its Active window is a defect rather than an exemption.
+            let (gs, ss) = (
+                startup(&g).expect("a smash has an active window"),
+                startup(&s).expect("a smash has an active window"),
             );
+            assert!(gs > ss, "`{id}`: the heavy commits longer ({gs} vs {ss})");
             assert!(
                 damage(&g) > damage(&s),
                 "`{id}`: and is paid for it ({} vs {})",
@@ -740,12 +861,16 @@ mod tests {
                 continue;
             };
             compared += 1;
+            // Both sides are shared-table moves, so both are strikes; a `None`
+            // here means one lost its Active window and should say so loudly.
+            let (gs, ss) = (
+                startup(m).expect("a shared-table move has an active window"),
+                startup(s).expect("a shared-table move has an active window"),
+            );
             assert!(
-                startup(m) >= startup(s),
-                "`{}` is quicker than the shared table's ({} vs {})",
-                m.id,
-                startup(m),
-                startup(s)
+                gs >= ss,
+                "`{}` is quicker than the shared table's ({gs} vs {ss})",
+                m.id
             );
         }
         assert!(

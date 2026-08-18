@@ -52,6 +52,10 @@
 //! move list would give one press two owners, which is the exact double-ownership
 //! `RangedExecution` exists to prevent.
 
+use ambition_characters::smash_capture::{
+    author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
+    CaptureAttemptParams, CapturePummelParams, CaptureThrowParams, SmashCaptureRepertoire,
+};
 use ambition_characters::smash_repertoire::{DownSpecial, NeutralSpecial, SmashRepertoire};
 use ambition_platformer2d::entity_catalog::{ImpulseMode, MovesetContract};
 
@@ -458,6 +462,54 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
     let f_tilt = sfx(f_tilt, 0.10, "enemy.pirate.cutlass_swing");
     let f_tilt = on_contact(f_tilt, "player.hit");
 
+    // ── The boarding grapple ────────────────────────────────────────────────
+    //
+    // ⭐ **the deliberate opposite of George's**, and the pair is the point: two
+    // fighters authored through two different providers, sharing no numbers.
+    //
+    // The admiral carries a cutlass and boards ships. His grab is FAST (`0.07`
+    // startup, half of George's `0.14`) and SHORT (`19` of reach against
+    // George's `26`) — you have to be on top of somebody to board them, and once
+    // you have decided to, it happens. Recovery `0.20` against George's `0.30`:
+    // whiffing costs him a third less, because his grab is a scramble tool and
+    // George's is a commitment.
+    //
+    // ⚠ the hold sits CLOSE and LOW (`13` forward, `+3` down): hauled in against
+    // the chest, not held out at arm's length.
+    let grab = author_standing_grab(
+        grab_shell("pirate_grab", "grab", 0.07, 0.05, 0.20),
+        CaptureAttemptParams {
+            offset: (12.0, 1.0),
+            half_extents: (19.0, 16.0),
+            hold_offset: (13.0, 3.0),
+        },
+    );
+    // A FAST, LIGHT pummel — `0.13` and `2`, against George's `0.24` and `4`.
+    // Nearly twice the rate for half the damage: the same damage per second by
+    // arithmetic and a completely different thing to play against, because every
+    // beat is a chance for the hold to break.
+    let pummel = author_pummel(
+        capture_beat("pirate_pummel", "attack", 0.13),
+        0.06,
+        CapturePummelParams { damage: 2 },
+    );
+    // ⚠ **an UPWARD throw wearing the forward slot**, and that is a character
+    // fact rather than a mistake. George throws flat and across for stage
+    // control; the admiral heaves a body up and slightly forward (`0.55` lateral
+    // against `-1.0` vertical) so it lands in front of him and he keeps swinging.
+    // Less knockback than George's (`104` against `138`) and more growth (`2.4`
+    // against `1.9`): weak early, frightening late.
+    let forward_throw = author_throw(
+        capture_beat("pirate_fthrow", "attack", 0.26),
+        0.14,
+        CaptureThrowParams {
+            damage: 8,
+            knockback: 104.0,
+            knockback_growth: 2.4,
+            launch_dir: (0.55, -1.0),
+        },
+    );
+
     SmashRepertoire {
         jab,
         forward_tilt: f_tilt,
@@ -474,11 +526,17 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
         neutral_special: NeutralSpecial::Authored(neutral_b),
         side_special: side_b,
         up_special: up_b,
-        // ⚠ **no capture kit yet** — the relationship architecture is being
-        // proven on two fighters first (see `SmashCaptureRepertoire`). This is
-        // the transitional `None`, and it means exactly one thing: no Grab slot,
-        // no grab verbs, nothing about this fighter lying about having one.
-        capture: None,
+        // ⭐ **the second fighter to author one, and through a DIFFERENT
+        // provider** — this crate, not the smash demo. That is the falsifier:
+        // the capture vocabulary is not quietly tied to one game-owned file.
+        capture: Some(SmashCaptureRepertoire {
+            grab,
+            pummel,
+            forward_throw,
+            back_throw: None,
+            up_throw: None,
+            down_throw: None,
+        }),
         down_special: DownSpecial::OneForm(down_b),
     }
     .into_contract()

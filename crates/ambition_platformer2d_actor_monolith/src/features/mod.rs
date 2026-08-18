@@ -169,12 +169,12 @@ pub use ecs::{
     EncounterMobSeed, FactionRelations, FeatureEcsWorldOverlay, FeatureSimEntity,
     FeatureWorldOverlaySet, FriendlyFire, HazardFeature, HazardTickSet, HeldItem, Hitbox,
     HitboxAnchor, HitboxHits, HitboxKnockback, HitboxLifetime, Limb, LimbIntents, LimbRig,
-    LimbRouteState, LimbSlot, Mass, MountClass, MountDeathImpact,
-    MountRiderLinkEnforced, MountSlot, Mountable, Mounted, MountedBrainCache, MountedSize,
-    OccurrenceContinuity, PendingChallenge, PickupArt, PickupCollect, PickupCollectLock,
-    PickupMagnetize, RidingOn, RoomContentStagingError, RoomContentStagingRegistrationError,
-    RoomContentStagingRegistry, RoomFeatureConstructionError, RoomFeatureConstructionPlan,
-    RoomFeatureConstructionReceipt, SpawnActorKind, SpawnActorRequest, CHALLENGE_GRACE_S,
+    LimbRouteState, LimbSlot, Mass, MountClass, MountDeathImpact, MountRiderLinkEnforced,
+    MountSlot, Mountable, Mounted, MountedBrainCache, MountedSize, OccurrenceContinuity,
+    PendingChallenge, PickupArt, PickupCollect, PickupCollectLock, PickupMagnetize, RidingOn,
+    RoomContentStagingError, RoomContentStagingRegistrationError, RoomContentStagingRegistry,
+    RoomFeatureConstructionError, RoomFeatureConstructionPlan, RoomFeatureConstructionReceipt,
+    SpawnActorKind, SpawnActorRequest, CHALLENGE_GRACE_S,
 };
 pub use ecs::{AxisSweptMotion, MomentumMotion, MotionModel};
 pub use enemies::{
@@ -623,6 +623,17 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // Before `steer_mount_from_rider` deliberately: a scripted rider
                 // must not steer its mount either.
                 crate::avatar::blank_scripted_control_frames,
+                // **A CAPTOR IS RESTRICTED HERE, for the same reason the line
+                // above blanks a scripted body here and not a phase earlier.**
+                // Actor brains write `ActorControl` in this phase, so a gate
+                // placed before them restricts a frame that is about to be
+                // overwritten. Immediately after the blanking so the two control
+                // gates are adjacent and read as the pair they are.
+                //
+                // ⛔ a captor is NOT blanked — it keeps its attack press and
+                // direction, which is how a pummel and a throw are chosen. See
+                // `restrict_captor_control`.
+                crate::features::ecs::capture::restrict_captor_control,
                 // ADR 0020: a mount with a rider defers its locomotion to the
                 // rider's brain (the orbit lives on the rider). Runs after the
                 // brain tick (rider control frame fresh) and before the body
@@ -643,6 +654,12 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // land" without naming this function.
                 integrate_sim_bodies.in_set(crate::schedule::WorldPrepSet::Integrate),
                 sync_actor_read_model,
+                // **THE CAPTIVE IS PUT BACK AFTER IT MOVED**, exactly as
+                // `sync_riders_to_mounts` describes for a rider: integration has
+                // just advanced it under its own velocity, and the hold is an
+                // external constraint that wins. After `sync_actor_read_model`
+                // so the coarse-box mirror this writes is the last word.
+                crate::features::ecs::capture::constrain_captive_bodies,
                 apply_actor_contact_damage.in_set(crate::schedule::WorldPrepSet::ContactDamage),
             )
                 .chain()

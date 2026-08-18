@@ -688,9 +688,24 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             (
                 crate::capture::translate_smash_capture_effects,
                 ambition_platformer2d::actors::features::ecs::capture::acquire_captures,
+                // ⭐ **and posed the SAME tick it is caught.** The pose sync also
+                // runs in `WorldPrep`, which is EARLIER in the tick than this —
+                // so without this second call a body grabbed now would hang where
+                // it stood until the next frame, one visible frame of a captive
+                // standing free inside somebody's grab animation.
+                ambition_platformer2d::actors::features::ecs::capture::constrain_captive_bodies,
             )
                 .chain()
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Materialize),
+        );
+        // **A capture ends in `Settle`, where post-damage bookkeeping belongs.**
+        // Hitstun and the recoil lock are written by damage resolution in
+        // `Resolve`, so a release that ran earlier would read last tick's answer
+        // and let a grab survive by one frame the hit that should have broken it.
+        app.add_systems(
+            sim,
+            ambition_platformer2d::actors::features::ecs::capture::release_interrupted_captures
+                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle),
         );
         // AFTER the engine's own `CombatSet::Settle` work: the stock is spent
         // there, and placing a body before it has been spent would put the

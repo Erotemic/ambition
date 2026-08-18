@@ -28,8 +28,7 @@ use bevy::prelude::{
 };
 
 use ambition_entity_catalog::{
-    AttackDir, ImpulseMode, MoveEventKind, MoveSpec, MoveWindow, MovesetContract, VolumeShape,
-    WindowTag,
+    AttackDir, ImpulseMode, MoveEventKind, MoveSpec, MoveWindow, MovesetContract, WindowTag,
 };
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
@@ -302,6 +301,58 @@ impl bevy::ecs::entity::MapEntities for MovePlayback {
         for (_, entity) in &mut self.live_boxes {
             *entity = entity_mapper.get_mapped(*entity);
         }
+    }
+}
+
+/// A body-local authored volume, placed into the world around its owner.
+///
+/// `world_offset` is relative to the body's position; `half_extent` is the
+/// axis-aligned bound after the frame rotation. `shape` is `Some` only when the
+/// volume is not a plain rectangle.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PlacedBodyVolume {
+    pub world_offset: ae::Vec2,
+    pub half_extent: ae::Vec2,
+    pub shape: Option<ae::VolumeShape>,
+}
+
+/// **Place a body-local authored volume: mirror by facing, then rotate into the
+/// body's gravity frame.**
+///
+/// The `+x = committed facing, +y = gravity-down` contract every authored
+/// `HitVolume` states, applied once. Strike volumes and CAPTURE volumes both go
+/// through it.
+///
+/// ⛔ **extracted rather than copied, and the bug that motivates it is specific**:
+/// two roads computing this independently drift into *"the attack box rotates
+/// with gravity and the grab box does not"*, which is invisible in every upright
+/// test and wrong in exactly the rooms this engine exists to support.
+pub fn place_body_local_volume(
+    shape: &ambition_entity_catalog::VolumeShape,
+    facing: f32,
+    body_frame: &ae::AccelerationFrame,
+) -> PlacedBodyVolume {
+    let (local, half_extent, shape) = match shape {
+        ambition_entity_catalog::VolumeShape::Rect {
+            offset,
+            half_extents,
+        } => (
+            ae::Vec2::new(offset.0 * facing, offset.1),
+            ae::Vec2::new(half_extents.0, half_extents.1),
+            None,
+        ),
+        ambition_entity_catalog::VolumeShape::Circle { offset, radius } => (
+            ae::Vec2::new(offset.0 * facing, offset.1),
+            ae::Vec2::splat(*radius),
+            Some(ae::VolumeShape::circle(*radius)),
+        ),
+    };
+    PlacedBodyVolume {
+        world_offset: body_frame.to_world(local),
+        // Axis-aligned extents rotate with the frame too (a circle's splat is
+        // rotation-invariant, so this is uniform).
+        half_extent: body_frame.to_world_half(half_extent),
+        shape,
     }
 }
 
@@ -832,27 +883,27 @@ pub fn advance_move_playback(
                                 let c = b.center();
                                 (ae::Vec2::new(c.x * pb.facing, c.y), b.half_size(), None)
                             }
-                            None => match volume.shape {
-                                VolumeShape::Rect {
-                                    offset,
-                                    half_extents,
-                                } => (
-                                    ae::Vec2::new(offset.0 * pb.facing, offset.1),
-                                    ae::Vec2::new(half_extents.0, half_extents.1),
-                                    None,
-                                ),
-                                VolumeShape::Circle { offset, radius } => (
-                                    ae::Vec2::new(offset.0 * pb.facing, offset.1),
-                                    ae::Vec2::splat(radius),
-                                    Some(ae::VolumeShape::circle(radius)),
-                                ),
-                            },
+                            // ⭐ the plain authored shape goes through the SHARED
+                            // placement (see `place_body_local_volume`), which is
+                            // the same call a capture attempt makes — so a grab
+                            // box and an attack box cannot disagree about gravity.
+                            None => {
+                                let placed =
+                                    place_body_local_volume(&volume.shape, pb.facing, &body_frame);
+                                (placed.world_offset, placed.half_extent, placed.shape)
+                            }
                         };
-                        let local_offset = body_frame.to_world(local);
-                        // Axis-aligned extents rotate with the frame too (a
-                        // circle's splat is rotation-invariant, so this is
-                        // uniform).
-                        let half_extent = body_frame.to_world_half(half_extent);
+                        // The two authored-manifest arms above are still placed
+                        // here: a convex hull anchors at the body and a resolved
+                        // bbox has already been mirrored, so neither takes the
+                        // body-local road.
+                        let (local_offset, half_extent) = match &manifest {
+                            Some(_) => (
+                                body_frame.to_world(local),
+                                body_frame.to_world_half(half_extent),
+                            ),
+                            None => (local, half_extent),
+                        };
                         let hb = Hitbox {
                             // CM8: the authored strike sound rides the volume onto
                             // the spawned box, so it reaches the victim-side

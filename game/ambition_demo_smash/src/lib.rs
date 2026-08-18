@@ -40,6 +40,7 @@ use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::Vec2;
 use ambition_platformer2d::world::rooms::RoomSpec;
 
+pub mod capture;
 pub mod george_booul_moveset;
 pub mod moveset;
 pub mod select;

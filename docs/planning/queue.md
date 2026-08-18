@@ -1409,13 +1409,22 @@ manufactures prose the author never wrote, and `wake_to_raid` has no good
 rendering. ⚠ and drawing nothing when the name looks like an id is a REGRESSION
 for the doors that legitimately want a label; the answer is to author them.
 
-✔✔ **AUTHORED 2026-08-18 — every player-facing world is clean; 130 → 102, and
-all 102 that remain are `sandbox.ldtk`.** The 28 in `intro`, `hall_of_characters`
-and `you_have_to_cut_the_rope` now follow the convention the sandbox's own author
-already used 21 times: **`"to <destination>"`, named from the zone's own
+✔✔ **AUTHORED 2026-08-18 — 130 → 73, and every room a player meets early is
+clean.** The 28 in `intro`, `hall_of_characters` and `you_have_to_cut_the_rope`,
+then 29 more in the hub, now follow the convention each level's own author
+already used: **the destination, spelled as words, from the zone's own
 `target_room`** — an authored fact, not the id with its underscores removed.
-⭐ sandbox keeps its ids deliberately: it is a developer level, where a
-diagnostic name is the useful one.
+⭐ per LEVEL, not one house style: `central_hub_main` says *"to scroll lab"*, its
+basement says *"hazards"*, and the new names match whichever they are joining.
+
+⛔⛔ **AND I FIRST WROTE OFF THE REMAINING 102 AS "a developer sandbox where a
+diagnostic id is defensible" — WRONG, AND CHECKABLE IN ONE QUERY.** `sandbox.ldtk`
+holds `central_hub_complex`, which the world manifest names as `entry_room`. So
+17 of them were in the game's FIRST ROOM and 12 more in the level below it, both
+already carrying authored prose alongside — a player's opening screen showed
+*"to scroll lab"* next to `military_tower_door`, which is Jon's report exactly.
+⇒ **a file's NAME is not its audience.** The 73 that remain are spread across 46
+peripheral test rooms, at most ten in any one.
 
 ✔ **the ratchet is `scripts/check_zone_name_ratchet.py`** (baseline
 `dev/zone_name_ratchet_baseline.json`), PER WORLD so the sandbox's 102 cannot

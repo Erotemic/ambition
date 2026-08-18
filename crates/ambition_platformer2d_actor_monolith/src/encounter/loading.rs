@@ -11,8 +11,6 @@ use ambition_persistence::save_data::PersistedEncounterState;
 #[cfg(test)]
 use std::collections::HashMap;
 
-use ambition_platformer2d_ldtk::LdtkProject;
-
 use ambition_encounter::{EncounterMobSpec, EncounterSpec, EncounterWaveSpec, LockWallSpec};
 
 /// Test fixture: the lib's own loader tests read content's authoritative
@@ -46,59 +44,55 @@ fn authored_encounter_waves(
     None
 }
 
-/// Read all `EncounterTrigger` + `LockWall` markers in the active
-/// LDtk project, build matching `EncounterSpec`s, and register them.
+/// Read every room's authored `EncounterTrigger` + `LockWall` and build matching
+/// `EncounterSpec`s.
+///
+/// ⭐⭐ **this used to take an `LdtkProject`, and that was the whole reason the
+/// actor monolith needed the LDtk crate** (D136). The two markers are ordinary
+/// emissions on the room IR now, so the loader reads what every other authored
+/// family reads and the map format stops leaking into the encounter road.
 ///
 /// Runs once after startup (or after a hot reload). An encounter whose trigger
-/// id has an authored entry in the content-installed wave book (see
-/// [`install_encounter_waves`]) gets that multi-wave timeline — the spawn
-/// cadence (delays between/within waves) is data in `encounters/*.ron`, not
-/// LDtk JSON. Any other encounter falls back to one wave assembled from its
-/// LDtk `EnemySpawn` markers. The loader names no specific encounter.
-pub fn load_encounter_specs_from_ldtk(
-    project: &LdtkProject,
+/// id has an authored entry in the content-installed wave book gets that
+/// multi-wave timeline — the spawn cadence is data in `encounters/*.ron`, not in
+/// the map. Any other encounter falls back to one wave assembled from the room's
+/// own `EnemySpawn` placements. The loader names no specific encounter.
+pub fn load_encounter_specs_from_rooms(
+    rooms: &[ambition_platformer2d_world::rooms::RoomSpec],
     save: &ambition_persistence::save_data::AmbitionGameSaveData,
     // ⭐ **the App's book, passed in.** This used to be read out of a
     // process-global, which made a loader that looks pure depend on install
     // order — see `EncounterWaveBook`. `None` is a composition with no authored
-    // encounters, which falls back to the level's own spawn markers exactly as
+    // encounters, which falls back to the room's own spawn markers exactly as
     // an unrecognised trigger id always did.
     waves: Option<&ambition_encounter::EncounterWaveBook>,
 ) -> Vec<(String, EncounterSpec, PersistedEncounterState)> {
     let mut out = Vec::new();
-    for level in &project.levels {
-        let area_id = level.active_area();
-        let Some(trigger) = level
-            .all_entity_instances()
-            .find(|e| e.identifier == "EncounterTrigger")
-        else {
+    for room in rooms {
+        let Some(trigger) = room.encounter_triggers.first() else {
             continue;
         };
-        let trigger_id = ambition_platformer2d_ldtk::field_string(trigger, "id")
-            .filter(|s| !s.is_empty())
-            .unwrap_or_else(|| area_id.clone());
-        let camera_zoom =
-            ambition_platformer2d_ldtk::field_f32(trigger, "camera_zoom").unwrap_or(1.2);
-        let trigger_min = [trigger.px[0] as f32, trigger.px[1] as f32];
-        let trigger_size = [trigger.width as f32, trigger.height as f32];
+        // An unset `id` means "name it after the area", which is a fact the room
+        // has and the IR deliberately does not.
+        let trigger_id = if trigger.id.trim().is_empty() {
+            room.id.clone()
+        } else {
+            trigger.id.trim().to_string()
+        };
+        let camera_zoom = trigger.camera_zoom.unwrap_or(1.2);
+        let trigger_min = [trigger.min.x, trigger.min.y];
+        let trigger_size = [trigger.size.x, trigger.size.y];
 
-        // Pick up the LockWall marker (one per area, optional).
-        let lock_wall = level
-            .all_entity_instances()
-            .find(|e| e.identifier == "LockWall")
-            .map(|e| LockWallSpec {
-                min: [e.px[0] as f32, e.px[1] as f32],
-                size: [e.width as f32, e.height as f32],
-            });
+        // The lock wall marker (one per area, optional).
+        let lock_wall = room.lock_walls.first().map(|wall| LockWallSpec {
+            min: [wall.min.x, wall.min.y],
+            size: [wall.size.x, wall.size.y],
+        });
 
-        // Authored waves come from the content-installed wave book (keyed by
-        // trigger id); any encounter without an authored timeline falls back to
-        // one wave assembled from its LDtk EnemySpawn markers. The engine names
-        // no specific encounter.
         let authored = authored_encounter_waves(waves, &trigger_id);
         let waves = authored
             .clone()
-            .unwrap_or_else(|| fallback_waves_from_enemy_spawns(level));
+            .unwrap_or_else(|| fallback_waves_from_enemy_spawns(room));
 
         let spec = EncounterSpec {
             id: trigger_id.clone(),
@@ -124,33 +118,46 @@ pub fn load_encounter_specs_from_ldtk(
     out
 }
 
+/// **The mob `kind` string for an authored brain** — the inverse of the map
+/// reader's `parse_enemy_brain`.
+///
+/// ⚠ **`Passive` has two pre-images and this collapses them.** The map reader
+/// turns an EMPTY `brain` field into `Passive`, and the literal `"Passive"` into
+/// `Passive` too; the old project-reading fallback distinguished them, defaulting
+/// an empty field to `"medium_striker"`. ⭐ **measured before choosing: every
+/// encounter area in the shipped worlds contains ZERO `EnemySpawn` markers** —
+/// all three authored encounters (`goblin_encounter` and the two lock-wall-only
+/// areas) drive from the wave book — so this path has no authored content and no
+/// behaviour moves either way. ⇒ the exact inverse is the honest choice, and
+/// promoting an unauthored marker to a striker is the behaviour to justify, not
+/// this one.
+fn wave_mob_kind(brain: &ambition_entity_catalog::placements::CharacterBrain) -> String {
+    use ambition_entity_catalog::placements::CharacterBrain;
+    match brain {
+        CharacterBrain::Custom(kind) => kind.clone(),
+        CharacterBrain::Guard { leash_radius } => format!("Guard:{leash_radius}"),
+        CharacterBrain::Patrol { .. } => "Patrol".to_string(),
+        CharacterBrain::Passive => "Passive".to_string(),
+    }
+}
+
 fn fallback_waves_from_enemy_spawns(
-    level: &ambition_platformer2d_ldtk::LdtkLevel,
+    room: &ambition_platformer2d_world::rooms::RoomSpec,
 ) -> Vec<EncounterWaveSpec> {
     let mut wave_mobs = Vec::new();
-    for entity in level.all_entity_instances() {
-        if entity.identifier != "EnemySpawn" {
-            continue;
-        }
-        let kind = ambition_platformer2d_ldtk::field_string(entity, "brain")
-            .unwrap_or_else(|| "medium_striker".into());
-        let mut mob = EncounterMobSpec::new(
-            kind,
-            [
-                entity.px[0] as f32 + entity.width as f32 * 0.5,
-                entity.px[1] as f32 + entity.height as f32 * 0.5,
-            ],
-        );
-        // ⭐ **the marker's own art identity, when it authors one.** This is the
-        // SAME `character_id` field `convert_enemy_spawn` reads for a placed
-        // enemy — a marker-derived wave mob is the same body reached by a
-        // different road, so it must not be the one path left wearing its
-        // instance id. A marker without the field keeps today's behaviour.
-        if let Some(character) = ambition_platformer2d_ldtk::field_string(entity, "character_id")
-            .map(|character| character.trim().to_string())
-            .filter(|character| !character.is_empty())
-        {
-            mob = mob.with_character(character);
+    for spawn in &room.enemy_spawns {
+        // The project reader computed `px + size * 0.5`; the IR's authored
+        // footprint is min/max, so the same point is the midpoint of the two.
+        let centre = (spawn.aabb.min + spawn.aabb.max) * 0.5;
+        let mut mob =
+            EncounterMobSpec::new(wave_mob_kind(&spawn.payload.brain), [centre.x, centre.y]);
+        // ⭐ **the marker's own art identity.** A marker-derived wave mob is the
+        // same body reached by a different road, so it must not be the one path
+        // left wearing its instance id. The IR REQUIRES `character_id`, so
+        // unlike the project reader there is no absent case to fall back from.
+        let character = spawn.payload.character_id.as_str().trim();
+        if !character.is_empty() {
+            mob = mob.with_character(character.to_string());
         }
         wave_mobs.push(mob);
     }

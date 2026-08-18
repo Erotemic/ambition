@@ -334,9 +334,22 @@ fn validate_quest_conditions(
         ambition_encounter::content_schema::lowered_encounter_waves(crate::pack::prepared())
             .cloned()
             .map(ambition_encounter::EncounterWaveBook);
+    // ⭐ **the validator converts, because the loader no longer speaks LDtk**
+    // (D136). Holding an `LdtkProject` is legitimate HERE — validating the map is
+    // this function's job — but asking the encounter loader to read one was the
+    // edge that kept the map format in the actor monolith. A conversion failure
+    // is reported by `validate_ldtk_room_links` already, so this stays quiet
+    // rather than duplicating that diagnosis.
+    let rooms = project
+        .to_room_set(
+            &crate::worlds::world_manifest(),
+            &ambition_platformer2d_ldtk::LdtkVocabulary::engine(),
+        )
+        .map(|set| set.rooms)
+        .unwrap_or_default();
     let loaded_encounters =
-        ambition_platformer2d_actor_monolith::encounter::load_encounter_specs_from_ldtk(
-            project,
+        ambition_platformer2d_actor_monolith::encounter::load_encounter_specs_from_rooms(
+            &rooms,
             &ambition_persistence::save_data::AmbitionGameSaveData::default(),
             waves.as_ref(),
         );

@@ -176,6 +176,45 @@ pub struct ShrineSpec {
     pub half_extent: ae::Vec2,
 }
 
+/// **An authored encounter's trigger volume**, in the room IR.
+///
+/// ⭐⭐ **this exists so an encounter can be read off a ROOM instead of off an
+/// `LdtkProject`** (D136). `EncounterTrigger` and `LockWall` were the two
+/// markers the converter deliberately dropped — *"read by their own consumers
+/// off the raw `LdtkProject`; they never join the emission stream"* — and that
+/// sentence is why five production files still need the LDtk crate, which is
+/// what stands between the workspace and its capability-footprint number.
+///
+/// ⚠ **the IR type and `ambition_encounter`'s domain type are deliberately
+/// separate, and that is layering rather than a fork.** The world crate is
+/// below the encounter crate and must not learn what an encounter IS; it
+/// carries WHERE one was authored, and the loader converts. The conversion is
+/// stated at both ends so a reader meets the pair on purpose.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct EncounterTriggerSpec {
+    /// The authored `id` field, or empty when the author left it blank — the
+    /// loader falls back to the area id, which is a fact only it knows.
+    pub id: String,
+    /// World-space minimum corner of the trigger volume.
+    pub min: ae::Vec2,
+    /// World-space size of the trigger volume.
+    pub size: ae::Vec2,
+    /// Authored camera zoom for the encounter, defaulted by the loader.
+    pub camera_zoom: Option<f32>,
+}
+
+/// **An authored encounter's lock wall**, in the room IR. One per area at most.
+///
+/// See [`EncounterTriggerSpec`] for why this lives here rather than being read
+/// off the project, and for why it is not `ambition_encounter::LockWallSpec`.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct EncounterLockWallSpec {
+    /// World-space minimum corner of the wall.
+    pub min: ae::Vec2,
+    /// World-space size of the wall.
+    pub size: ae::Vec2,
+}
+
 /// LDtk-authored localized-gravity zone (a [`crate::physics::GravityZone`]).
 /// `oscillate_amplitude > 0` also attaches a [`crate::physics::OscillatingZone`]
 /// so the column slides horizontally. The authored-placement home for the debug

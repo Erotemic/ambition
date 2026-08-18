@@ -22,7 +22,7 @@ mod lock_walls;
 mod switches;
 mod systems;
 
-pub use loading::load_encounter_specs_from_ldtk;
+pub use loading::load_encounter_specs_from_rooms;
 pub use lock_walls::contribute_encounter_lock_walls;
 pub use switches::{
     rebuild_encounter_switch_index, EncounterSwitchIndex, SwitchActivated, SwitchActivationQueue,

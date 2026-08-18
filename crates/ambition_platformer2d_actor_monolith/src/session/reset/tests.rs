@@ -292,6 +292,8 @@ fn min_app() -> App {
         debug_labels: Vec::new(),
         mount_links: Vec::new(),
         placements: Vec::new(),
+        encounter_triggers: Vec::new(),
+        lock_walls: Vec::new(),
     };
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
         app.world_mut(),

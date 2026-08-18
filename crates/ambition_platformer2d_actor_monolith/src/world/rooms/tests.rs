@@ -440,6 +440,8 @@ fn spec_with(meta: RoomMetadata, id: &str) -> RoomSpec {
         debug_labels: Vec::new(),
         mount_links: Vec::new(),
         placements: Vec::new(),
+        encounter_triggers: Vec::new(),
+        lock_walls: Vec::new(),
     }
 }
 

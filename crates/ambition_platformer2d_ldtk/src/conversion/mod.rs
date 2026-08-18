@@ -188,6 +188,11 @@ impl LdtkProject {
         let mut chains: Vec<ae::SurfaceChain> = Vec::new();
         let mut placements: Vec<ambition_platformer2d_world::placements::PlacementRecord> =
             Vec::new();
+        let mut encounter_triggers: Vec<
+            ambition_platformer2d_world::rooms::EncounterTriggerSpec,
+        > = Vec::new();
+        let mut lock_walls: Vec<ambition_platformer2d_world::rooms::EncounterLockWallSpec> =
+            Vec::new();
         let mut metadata = ambition_platformer2d_world::rooms::RoomMetadata::default();
         // Indexed BEFORE any conversion: a `path_ref` may name a path authored
         // later in the file, or in a sibling level of the same active area.
@@ -238,6 +243,8 @@ impl LdtkProject {
                         mount_links.extend(emission.mount_links);
                         chains.extend(emission.chains);
                         placements.extend(emission.placements);
+                        encounter_triggers.extend(emission.encounter_triggers);
+                        lock_walls.extend(emission.lock_walls);
                     }
                     // ⭐ **name the LEVEL.** An iid is not something an author can
                     // search for; the level is what they open to fix it, and
@@ -341,6 +348,8 @@ impl LdtkProject {
             debug_labels,
             mount_links,
             placements,
+            encounter_triggers,
+            lock_walls,
         })
     }
 
@@ -425,6 +434,14 @@ pub struct RoomEmission {
     /// may DUAL-emit (its legacy typed family + the record); records are
     /// inert until an interpreter is registered for their kind.
     pub placements: Vec<ambition_platformer2d_world::placements::PlacementRecord>,
+    /// An authored encounter's trigger volume. At most one per area; most
+    /// entities emit zero. See
+    /// [`ambition_platformer2d_world::rooms::EncounterTriggerSpec`] for why
+    /// these now join the emission stream instead of being read off the raw
+    /// project (D136).
+    pub encounter_triggers: Vec<ambition_platformer2d_world::rooms::EncounterTriggerSpec>,
+    /// An authored encounter's lock wall. At most one per area.
+    pub lock_walls: Vec<ambition_platformer2d_world::rooms::EncounterLockWallSpec>,
     pub ignored: bool,
 }
 
@@ -849,11 +866,11 @@ fn standard_converters() -> &'static BTreeMap<&'static str, LdtkEntityConverter>
         map.insert("MovingPlatform", convert_moving_platform);
         map.insert("CameraZone", convert_camera_zone);
         map.insert("Switch", convert_switch);
-        // Read by their own consumers off the raw LdtkProject; they never
-        // join the emission stream.
-        for identifier in ["StitchedBoundary", "EncounterTrigger", "LockWall"] {
-            map.insert(identifier, convert_consumed_elsewhere);
-        }
+        map.insert("EncounterTrigger", convert_encounter_trigger);
+        map.insert("LockWall", convert_lock_wall);
+        // Read by its own consumer off the raw LdtkProject; it never joins the
+        // emission stream.
+        map.insert("StitchedBoundary", convert_consumed_elsewhere);
         map
     })
 }

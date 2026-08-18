@@ -340,14 +340,33 @@ fn to_persisted_collapses_active_to_untouched() {
     );
 }
 
-// ── LDtk loader ────────────────────────────────────────────────
+// ── Encounter loader ───────────────────────────────────────────
+//
+// ⭐⭐ **these drive the WHOLE new road, deliberately.** The loader reads rooms
+// now (D136), and a test that handed it a hand-built `RoomSpec` would prove the
+// loader and skip the part that actually moved: `EncounterTrigger` and
+// `LockWall` becoming emissions. So they still load the shipped sandbox world
+// and CONVERT it, which means a converter that stopped emitting a trigger fails
+// here rather than at runtime.
+
+/// The shipped sandbox world, converted through the real room pipeline.
+fn sandbox_rooms() -> Vec<ambition_platformer2d_world::rooms::RoomSpec> {
+    let manifest = test_world_manifest();
+    let project = LdtkProject::load_default_for_dev(&manifest).expect("sandbox LDtk should load");
+    project
+        .to_room_set(
+            &manifest,
+            &ambition_platformer2d_ldtk::LdtkVocabulary::engine(),
+        )
+        .unwrap_or_else(|errors| panic!("sandbox converts to rooms: {errors:?}"))
+        .rooms
+}
 
 #[test]
 fn load_encounter_specs_picks_up_goblin_encounter() {
-    let manifest = test_world_manifest();
-    let project = LdtkProject::load_default_for_dev(&manifest).expect("sandbox LDtk should load");
+    let rooms = sandbox_rooms();
     let save = ambition_persistence::save_data::AmbitionGameSaveData::default();
-    let entries = load_encounter_specs_from_ldtk(&project, &save, None);
+    let entries = load_encounter_specs_from_rooms(&rooms, &save, None);
     let goblin_encounter = entries
         .iter()
         .find(|(id, _, _)| id == "goblin_encounter")
@@ -359,11 +378,10 @@ fn load_encounter_specs_picks_up_goblin_encounter() {
 
 #[test]
 fn load_encounter_specs_respects_persisted_cleared() {
-    let manifest = test_world_manifest();
-    let project = LdtkProject::load_default_for_dev(&manifest).expect("sandbox LDtk should load");
+    let rooms = sandbox_rooms();
     let mut save = ambition_persistence::save_data::AmbitionGameSaveData::default();
     save.set_encounter("goblin_encounter", PersistedEncounterState::Cleared);
-    let entries = load_encounter_specs_from_ldtk(&project, &save, None);
+    let entries = load_encounter_specs_from_rooms(&rooms, &save, None);
     let (_, _, state) = entries
         .iter()
         .find(|(id, _, _)| id == "goblin_encounter")
@@ -419,10 +437,9 @@ fn ldtk_switch_runtime_id_matches_activation_payload() {
 
 #[test]
 fn goblin_encounter_loaded_spec_has_three_waves_lockwall_and_intro() {
-    let manifest = test_world_manifest();
-    let project = LdtkProject::load_default_for_dev(&manifest).expect("sandbox LDtk should load");
+    let rooms = sandbox_rooms();
     let save = ambition_persistence::save_data::AmbitionGameSaveData::default();
-    let entries = load_encounter_specs_from_ldtk(&project, &save, None);
+    let entries = load_encounter_specs_from_rooms(&rooms, &save, None);
     let (_, spec, _) = entries
         .iter()
         .find(|(id, _, _)| id == "goblin_encounter")

@@ -28,7 +28,7 @@ use ambition_encounter::{
     EncounterView, EncounterWaves, WAVES_EXHAUSTED_SIGNAL,
 };
 
-use super::{load_encounter_specs_from_ldtk, EncounterSwitchIndex, SwitchActivationQueue};
+use super::{load_encounter_specs_from_rooms, EncounterSwitchIndex, SwitchActivationQueue};
 
 /// Bevy startup system: load encounter specs from the embedded LDtk
 /// project, spawn one encounter entity per spec carrying the generic
@@ -44,10 +44,16 @@ pub fn populate_encounter_registry(
     mut commands: ambition_platformer2d_shared_tangle::lifecycle::SessionCommands,
     mut registry: ResMut<EncounterRegistry>,
     save: Res<ambition_persistence::save::AmbitionGameSave>,
-    // Optional: a RON-only app (demo shell, generated rooms) installs no
-    // LDtk project — that's an empty encounter set, not an error. (W4 will
-    // route encounter loading through RoomEmission instead of the project.)
-    project: Option<Res<ambition_platformer2d_ldtk::ActiveLdtkProject>>,
+    // ⭐⭐ **W4, and it is done**: encounters come off the ROOM IR now, not off
+    // an `LdtkProject`. `EncounterTrigger` and `LockWall` are ordinary emissions
+    // like every other authored family, which is what took the LDtk crate out of
+    // this file (D136).
+    //
+    // ⚠ Optional because a composition may have no rooms installed — a headless
+    // fixture, a shell at a non-gameplay route.
+    rooms: Option<
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<crate::rooms::RoomSet>,
+    >,
     // ⭐ **the App's authored wave book.** Optional for the same reason the
     // project is: a composition with no authored encounters is an empty set, not
     // an error. It used to be read out of a process-global inside the loader,
@@ -65,11 +71,19 @@ pub fn populate_encounter_registry(
     let Some(scope) = commands.spawn_scope() else {
         return;
     };
-    let Some(project) = project else {
-        registry.specs_loaded = true;
+    // ⛔⛔ **this used to LATCH `specs_loaded` when the project was absent, and
+    // that must not carry over.** `ActiveLdtkProject` is a resource inserted at
+    // asset load; the room set is a component on the SESSION ROOT, installed by
+    // the same lifecycle event that gives this system its spawn scope — so
+    // "absent" here can mean "one tick early" in a way it could not before, and
+    // latching on it would lose every encounter in the run. Returning without
+    // latching costs one `Option` test per tick and cannot.
+    // ⚠ nothing outside this system reads `EncounterRegistry::specs_loaded`
+    // (checked), so never latching in a room-less composition is inert.
+    let Some(rooms) = rooms else {
         return;
     };
-    let entries = load_encounter_specs_from_ldtk(&project.0, save.data(), waves.as_deref());
+    let entries = load_encounter_specs_from_rooms(&rooms.rooms, save.data(), waves.as_deref());
     let count = entries.len();
     for (id, spec, persisted) in entries {
         let mut lifecycle = EncounterLifecycle::with_intro(spec.intro_seconds);
@@ -110,7 +124,7 @@ pub fn populate_encounter_registry(
     // `populate_boss_encounter_registry` + the catalog sprite census.
     bevy::log::info!(
         target: "ambition_platformer2d::encounter",
-        "encounter registry: {count} encounter entit(ies) spawned from LDtk",
+        "encounter registry: {count} encounter entit(ies) spawned from the room set",
     );
 }
 

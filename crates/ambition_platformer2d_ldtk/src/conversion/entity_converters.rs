@@ -24,10 +24,55 @@ pub(super) fn convert_surface(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, S
     Ok(RoomEmission::from_compiled(compiled))
 }
 
-/// `StitchedBoundary` / `EncounterTrigger` / `LockWall` are read by their own
-/// consumers off the raw `LdtkProject` and never join the emission stream.
+/// `StitchedBoundary` is read by its own consumer off the raw `LdtkProject` and
+/// never joins the emission stream.
+///
+/// ⚠ **`EncounterTrigger` and `LockWall` used to be here too, and that sentence
+/// is what kept the LDtk crate in five production files** (D136). They emit now;
+/// see [`convert_encounter_trigger`].
 pub(super) fn convert_consumed_elsewhere(_ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
     Ok(RoomEmission::ignored())
+}
+
+/// **An encounter's trigger volume, into the room IR.**
+///
+/// ⭐⭐ **this is the inversion**: the encounter loader read `EncounterTrigger`
+/// straight off the `LdtkProject`, which is why it — and therefore the actor
+/// monolith — needed the LDtk crate at all. The marker joins the emission stream
+/// like every other authored family now, and the loader reads rooms.
+///
+/// ⭐ **and the coordinates get MORE correct on the way, not less.** The old
+/// reader used `entity.px` raw, which is LEVEL-local; this uses `ctx.min`, which
+/// has the active-area offset applied. Measured across the shipped worlds, every
+/// area carrying an encounter marker is a SINGLE level (`alice_relay`,
+/// `gate_stack_lower`, `goblin_encounter`), so that offset is zero and today's
+/// behaviour is unchanged — but a multi-level encounter area would have placed
+/// its trigger wrong under the old reader and will not under this one.
+pub(super) fn convert_encounter_trigger(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
+    let (entity, _name, min, size) = ctx.parts();
+    Ok(RoomEmission {
+        encounter_triggers: vec![
+            ambition_platformer2d_world::rooms::EncounterTriggerSpec {
+                // Empty is meaningful: the loader falls back to the AREA id,
+                // which is a fact the IR does not have.
+                id: field_string(entity, "id").unwrap_or_default(),
+                min,
+                size,
+                camera_zoom: field_f32(entity, "camera_zoom"),
+            },
+        ],
+        ..RoomEmission::default()
+    })
+}
+
+/// **An encounter's lock wall, into the room IR.** See
+/// [`convert_encounter_trigger`] for why this stopped being read off the project.
+pub(super) fn convert_lock_wall(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
+    let (_entity, _name, min, size) = ctx.parts();
+    Ok(RoomEmission {
+        lock_walls: vec![ambition_platformer2d_world::rooms::EncounterLockWallSpec { min, size }],
+        ..RoomEmission::default()
+    })
 }
 
 pub(super) fn convert_loading_zone(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {

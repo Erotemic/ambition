@@ -48,6 +48,12 @@ pub struct RoomSpec {
     /// Converters dual-emit into this alongside their legacy typed family
     /// until W-queue step 3's lowering interpreters take over spawning.
     pub placements: Vec<crate::placements::PlacementRecord>,
+    /// Authored encounter trigger volumes in this room (at most one today).
+    /// Carried so `load_encounter_specs` can read a ROOM rather than an
+    /// `LdtkProject` — see [`crate::rooms::EncounterTriggerSpec`].
+    pub encounter_triggers: Vec<crate::rooms::EncounterTriggerSpec>,
+    /// Authored encounter lock walls in this room (at most one today).
+    pub lock_walls: Vec<crate::rooms::EncounterLockWallSpec>,
 }
 
 impl RoomSpec {
@@ -73,6 +79,8 @@ impl RoomSpec {
             debug_labels: Vec::new(),
             mount_links: Vec::new(),
             placements: Vec::new(),
+            encounter_triggers: Vec::new(),
+            lock_walls: Vec::new(),
         }
     }
 }

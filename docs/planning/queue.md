@@ -5155,6 +5155,59 @@ carry what `loading.rs` reads out of entity fields today (a trigger's `id`, its
 ⚠ do not start it as a file move: relocation is exhausted (above), and every
 symbol left is genuinely LDtk-shaped.
 
+✔✔ **AND IT LANDED 2026-08-18 — THE ENCOUNTER PAIR IS OFF LDtk.** `EncounterTrigger`
+and `LockWall` were the two markers the converter deliberately DROPPED
+(*"read by their own consumers off the raw `LdtkProject`; they never join the
+emission stream"*) — that sentence was the dependency. They emit now, and
+`load_encounter_specs_from_rooms` reads a `&[RoomSpec]`.
+
+```text
+holders in the monolith   5 -> 3   encounter/loading.rs and encounter/systems.rs
+                                   no longer name the LDtk crate at all
+remaining                          world/mod.rs · world/gated_lock_walls.rs
+                                   world/authored_switch_commands.rs
+```
+
+⭐ **the placements channel was NOT the road, and the reason is worth keeping**:
+`PlacementSchema` is a CLOSED Tier-0 schema whose `PlacementKind::stable_id` is
+*"an explicit compatibility contract [that] may only change with a
+fingerprint-schema bump"* — so riding it would have cost a netcode/replay schema
+event for a load-time fact. `RoomSpec` feeds no fingerprint (checked), so typed
+families are free.
+
+⭐ **three things got MORE correct on the way, each measured before it was
+relied on:**
+
+```text
+coordinates   the old reader used entity.px RAW (level-local); the IR applies the
+              active-area offset. Every encounter area in the shipped worlds is a
+              SINGLE level, so that offset is zero and nothing moved — but a
+              multi-level area would have been placed wrong before
+duplicate ids two levels sharing an area, each with a trigger, produced TWO specs
+              under ONE id; a room yields one
+readiness     the old code LATCHED `specs_loaded` when the project was absent.
+              The room set is a SESSION-ROOT component installed by the same event
+              that grants the spawn scope, so absence can now mean "one tick
+              early" — latching on it would lose every encounter in the run. It
+              returns without latching, and nothing outside that system reads the
+              flag (checked)
+```
+
+⚠ **the brain vocabulary is the one place the two roads disagreed**, and the
+population decided it: the project reader defaulted an ABSENT `brain` to
+`"medium_striker"` while the IR defaults it to `Passive`. **Measured: zero
+`EnemySpawn` markers exist in any encounter area** — all authored encounters
+drive from the wave book — so the fallback has no content and the exact inverse
+was taken instead of preserving a default nothing exercises.
+
+✔ **verified live against a pre-change baseline**: the boot census read
+`1 encounter entit(ies)` before and reads `1` after. ⚠ and the census line said
+*"from LDtk"*, which had become false — corrected in the same commit.
+⭐ **poison-verified**: making the trigger converter emit nothing turns all three
+loader tests red, and those tests drive the REAL road (shipped world → converter
+→ rooms → loader) rather than a hand-built `RoomSpec`, so a converter that stops
+emitting fails there instead of at runtime.
+
 ⇒ **what still holds the edge, and the cost of each**, in the order they must
 fall (the last two cannot be cfg-gated cheaply — the code has to move):
 

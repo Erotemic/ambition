@@ -106,7 +106,10 @@ grown torso (~62 px).
 the identical-width rule. The alternative is widening the short form's ART to
 ~68 px, and her width is exactly what you tuned by eye, so it is your call.
 
-**b. Her one-brick box has 6 px of empty air above her hat.** The box top is set
+**b. Her one-brick box has 6 px of empty air above her hat.** (Her world size
+is settled: `SMALL_FORM_HEIGHT = T`, one tile small and two grown, whole suite
+green — the "level-wide rescale" this was blocked on was a unit error, not
+content. This is only about the 6 px inside her own sheet.) The box top is set
 by the height contract (small is one brick, grown is two, so short height ×2 =
 grown height exactly), not measured off the art. MEASURED: grown form 0 px of
 headroom, fire form −14 px (its flame frills clear the box on purpose), short

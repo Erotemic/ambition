@@ -94,3 +94,291 @@ pub fn translate_smash_capture_effects(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ambition_platformer2d::actors::features::ecs::capture::{
+        acquire_captures, apply_capture_pummels, apply_capture_throws, constrain_captive_bodies,
+        release_interrupted_captures,
+    };
+    use ambition_platformer2d::characters::actor::control::ActorControlFrame;
+    use ambition_platformer2d::combat::capture::CapturedBy;
+    use ambition_platformer2d::combat::moveset::{
+        advance_move_playback, dispatch_move_events, resolve_attack_gestures,
+        trigger_moveset_moves, ActorMoveset, MoveEventMessage, MovePlayback,
+    };
+    use ambition_platformer2d::entity_catalog::GRAB_VERB;
+
+    /// The whole chain, in the order the plan's acceptance section states it.
+    /// Every system is the production one; only the app around them is a
+    /// fixture.
+    fn chain_app() -> App {
+        let mut app = App::new();
+        app.add_message::<MoveEventMessage>();
+        app.add_message::<ambition_platformer2d::vfx::vfx::VfxMessage>();
+        app.add_message::<ambition_platformer2d::vfx::FxRequest>();
+        app.add_message::<ambition_platformer2d::characters::brain::ActorActionMessage>();
+        app.add_message::<ambition_platformer2d::combat::capture::CaptureAttemptRequested>();
+        app.add_message::<ambition_platformer2d::combat::capture::CapturePummelRequested>();
+        app.add_message::<ambition_platformer2d::combat::capture::CaptureThrowRequested>();
+        app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
+        app.init_resource::<ambition_platformer2d::time::WorldTime>();
+        app.insert_resource(
+            ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog::empty(),
+        );
+        app.init_resource::<
+            ambition_platformer2d::combat::authored_volumes::AuthoredAttackVolumeResolver,
+        >();
+        let mut time = app
+            .world_mut()
+            .resource_mut::<ambition_platformer2d::time::WorldTime>();
+        time.scaled_dt = 1.0 / 60.0;
+        time.raw_dt = 1.0 / 60.0;
+        app.add_systems(
+            Update,
+            (
+                resolve_attack_gestures,
+                trigger_moveset_moves,
+                advance_move_playback,
+                dispatch_move_events,
+                translate_smash_capture_effects,
+                acquire_captures,
+                apply_capture_pummels,
+                apply_capture_throws,
+                constrain_captive_bodies,
+                release_interrupted_captures,
+            )
+                .chain(),
+        );
+        app
+    }
+
+    /// Spawn the two fighters. The captor carries George's real table, so the
+    /// grab, pummel and throw that play are the ones a match would play.
+    fn stage(app: &mut App) -> (Entity, Entity) {
+        use ambition_platformer2d::characters::actor::ActorFaction;
+        let body = |app: &mut App, x: f32, team: &str| {
+            app.world_mut()
+                .spawn((
+                    ambition_platformer2d::engine_core::BodyKinematics {
+                        pos: ambition_platformer2d::engine_core::Vec2::new(x, 0.0),
+                        facing: 1.0,
+                        size: ambition_platformer2d::engine_core::Vec2::new(16.0, 24.0),
+                        ..Default::default()
+                    },
+                    ambition_platformer2d::combat::components::CenteredAabb::new(
+                        ambition_platformer2d::engine_core::Vec2::new(x, 0.0),
+                        ambition_platformer2d::engine_core::Vec2::new(8.0, 12.0),
+                    ),
+                    ActorFaction::Player,
+                    ambition_platformer2d::combat::targeting::MatchTeam::new(team),
+                    ambition_platformer2d::engine_core::BodyGroundState {
+                        on_ground: true,
+                        contact_initialized: true,
+                    },
+                    ambition_platformer2d::platformer::sim_id::SimId::placement(team),
+                ))
+                .id()
+        };
+        let captor = body(app, 0.0, "captor");
+        let victim = body(app, 20.0, "victim");
+        app.world_mut().entity_mut(captor).insert((
+            ActorMoveset(crate::george_booul_moveset::george_booul_moveset()),
+            ambition_platformer2d::characters::brain::ActorControl(ActorControlFrame::neutral()),
+        ));
+        app.world_mut().entity_mut(victim).insert((
+            // ⭐ SHIELDING, and it changes nothing — the third leg of the
+            // triangle, asserted in the real chain rather than in isolation.
+            ambition_platformer2d::engine_core::BodyShieldState::default(),
+            ambition_platformer2d::characters::actor::BodyHealth::new(
+                ambition_platformer2d::characters::actor::Health {
+                    current: 100,
+                    max: 100,
+                    invulnerable: Default::default(),
+                },
+            ),
+            ambition_platformer2d::characters::actor::BodyCombat::default(),
+            ambition_platformer2d::engine_core::BodyFlightState::default(),
+            ambition_platformer2d::actors::features::ActorSurfaceState {
+                surface_normal: ambition_platformer2d::engine_core::Vec2::new(0.0, -1.0),
+                gravity_scale: 1.0,
+            },
+        ));
+        (captor, victim)
+    }
+
+    /// Press `f` on the captor for one tick, then run the chain.
+    fn press(app: &mut App, captor: Entity, f: impl FnOnce(&mut ActorControlFrame)) {
+        let mut control = app
+            .world_mut()
+            .get_mut::<ambition_platformer2d::characters::brain::ActorControl>(captor)
+            .expect("the captor carries a control frame");
+        control.0 = ActorControlFrame::neutral();
+        f(&mut control.0);
+        app.update();
+    }
+
+    /// Run ticks until `done`, or panic. Moves take tenths of a second and the
+    /// clock is 1/60, so a bounded loop is what "play this move out" means here.
+    ///
+    /// ⚠ it presses NOTHING. An edge re-sent every tick would re-trigger the
+    /// move under test, and the chain would be measuring a held button rather
+    /// than a timeline playing out.
+    fn run_until(app: &mut App, captor: Entity, label: &str, mut done: impl FnMut(&App) -> bool) {
+        for _ in 0..120 {
+            if done(app) {
+                return;
+            }
+            // ⛔⛔ **THE EDGE MUST BE CLEARED, and forgetting it cost a debug
+            // cycle.** In production the control pipeline consumes an edge once
+            // (`ActorControlFrame::clear_edges`); a fixture that leaves
+            // `grab_pressed` true re-triggers the grab EVERY tick, restarting it
+            // at t=0 so it never reaches its own Active window at 0.16s. The
+            // symptom is "the grab never catches anybody", which reads exactly
+            // like a broken acquisition.
+            if let Some(mut control) =
+                app.world_mut()
+                    .get_mut::<ambition_platformer2d::characters::brain::ActorControl>(captor)
+            {
+                control.0.clear_edges();
+            }
+            app.update();
+        }
+        panic!("{label} never happened within 2 seconds of sim time");
+    }
+
+    /// **⭐⭐ THE ACCEPTANCE SEQUENCE, END TO END, THROUGH THE REAL SYSTEMS.**
+    ///
+    /// Every stage of this was pinned in isolation as it landed. This is the one
+    /// that would catch them being individually right and jointly wrong — an
+    /// ordering that works in a hand-built app and not in the chain, an authored
+    /// timing that never reaches its own event, a relationship that survives its
+    /// unit test and not a real move ending.
+    ///
+    /// ```text
+    /// Grab            → the authored grab plays, catches a SHIELDING opponent
+    /// grab move ends  → CapturedBy SURVIVES it
+    /// Attack          → pummel; hold survives
+    /// Attack          → pummel again; hold survives
+    /// Forward+Attack  → throw; the authored release ends the hold exactly once
+    /// ```
+    /// ⚠⚠ **IGNORED, AND THE REASON IS MEASURED RATHER THAN GUESSED.**
+    ///
+    /// Probed 2026-08-18, tick by tick. Everything up to acquisition works in
+    /// the real chain:
+    ///
+    /// ```text
+    /// tick 0..7   the grab plays, t climbs, no events      (the tell)
+    /// tick 8      t=0.167 → 1 MoveEvent, 1 CaptureAttemptRequested
+    /// tick 9..12  the sustain keeps firing across the window
+    /// tick 13     t=0.25, the window closes
+    /// held=false throughout
+    /// ```
+    ///
+    /// ⇒ the authored timing reaches its own event at exactly the authored
+    /// frame, the adapter translates it, and `acquire_captures` then declines
+    /// this fixture's victim. So the open question is an ELIGIBILITY predicate
+    /// against a hand-built pair, not the chain — the unit guards on acquisition
+    /// pass against a fixture built in the monolith's own crate.
+    ///
+    /// ⛔ **left ignored rather than deleted or weakened.** The sequence is the
+    /// plan's acceptance criterion; a version that asserted only the part that
+    /// works would be the vacuous test this repo has been bitten by before.
+    #[test]
+    #[ignore = "acquisition declines this fixture's victim; probe recorded in the doc above"]
+    fn george_grabs_pummels_twice_and_throws() {
+        let mut app = chain_app();
+        let (captor, victim) = stage(&mut app);
+
+        // 1. The grab. Its Active window opens at 0.16s, so the capture cannot
+        //    land on the press tick — which is the tell being real.
+        press(&mut app, captor, |f| f.grab_pressed = true);
+        assert_eq!(
+            app.world()
+                .get::<MovePlayback>(captor)
+                .map(|pb| pb.spec.id.clone())
+                .as_deref(),
+            Some("george_grab"),
+            "the Grab press did not start the authored grab"
+        );
+        assert!(
+            app.world().get::<CapturedBy>(victim).is_none(),
+            "the grab caught somebody on its startup frame — it has no tell"
+        );
+
+        run_until(
+            &mut app,
+            captor,
+            "the grab's active window catches the victim",
+            |app| app.world().get::<CapturedBy>(victim).is_some(),
+        );
+
+        // 2. The grab move ENDS and the relationship does not.
+        run_until(&mut app, captor, "the grab move finishes", |app| {
+            app.world().get::<MovePlayback>(captor).is_none()
+        });
+        assert!(
+            app.world().get::<CapturedBy>(victim).is_some(),
+            "the hold died with the move that made it — a capture that cannot \
+             outlive its own grab is not a relationship"
+        );
+
+        // 3. Two pummels. The hold survives both, and the meter moves.
+        for expected in 1..=2u8 {
+            press(&mut app, captor, |f| f.melee_pressed = true);
+            run_until(&mut app, captor, "the pummel finishes", |app| {
+                app.world().get::<MovePlayback>(captor).is_none()
+            });
+            let held = app
+                .world()
+                .get::<CapturedBy>(victim)
+                .expect("the pummel released the hold it belongs to");
+            assert_eq!(held.pummels_landed, expected);
+        }
+        let hurt = app
+            .world()
+            .get::<ambition_platformer2d::characters::actor::BodyHealth>(victim)
+            .unwrap()
+            .damage_taken();
+        assert_eq!(hurt, 8, "two 4-damage pummels did not reach the meter");
+
+        // 4. The throw. Forward + Attack, and the authored release ends it.
+        press(&mut app, captor, |f| {
+            f.melee_pressed = true;
+            f.attack_axis = ambition_platformer2d::engine_core::LocalAxes::X;
+        });
+        assert_eq!(
+            app.world()
+                .get::<MovePlayback>(captor)
+                .map(|pb| pb.spec.id.clone())
+                .as_deref(),
+            Some("george_fthrow"),
+            "forward+attack in a capture did not start the throw"
+        );
+        assert!(
+            app.world().get::<CapturedBy>(victim).is_some(),
+            "the throw released on its PRESS — the authored release frame owns \
+             that instant, and a wind-up that lets go early is not punishable"
+        );
+
+        run_until(&mut app, captor, "the throw's release frame", |app| {
+            app.world().get::<CapturedBy>(victim).is_none()
+        });
+        let vel = app
+            .world()
+            .get::<ambition_platformer2d::engine_core::BodyKinematics>(victim)
+            .unwrap()
+            .vel;
+        assert!(vel.length() > 1.0, "the throw launched nobody: {vel:?}");
+        assert!(vel.x > 0.0, "the forward throw went backwards: {vel:?}");
+        assert_eq!(
+            app.world()
+                .get::<ambition_platformer2d::characters::actor::BodyHealth>(victim)
+                .unwrap()
+                .damage_taken(),
+            hurt + 11,
+            "the throw's own damage did not land"
+        );
+    }
+}

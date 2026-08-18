@@ -2656,6 +2656,33 @@ green on all real data is otherwise indistinguishable from one that cannot fire.
 checking it would need every world loaded at once, which this validator does not
 do.
 
+▢ **THE SECOND CARRIED RISK IS STRUCTURALLY CONFIRMED (2026-08-18) AND NOT YET
+FIXED, because the fix is a boundary question rather than a line.**
+`AuthoredOccurrences` and `OccurrenceBaseline` are plain global `Resource`s
+(`init_resource` in `items/pickup` and `checkpoint_horizon`), and **no experience
+scope names either**: the shell's scopes release `MatchParticipantRoster`,
+`DeclaredCombatRules`, `PreparedMatch` and a handful of smash-local values, and
+nothing else. ⇒ a suppression written in one experience is still there in the
+next.
+
+⭐ **`ExperienceScopeBuilder::resetting` is the right KIND** — *"put back to its
+default. Never a removal, so it makes no ownership claim"* — which is exactly the
+semantics wanted: a new session starts with a clean ledger, and no game is
+claiming to own the resource.
+
+⛔⛔ **but WHERE it is declared is the whole question, and the wrong answer is an
+exemption list.** Scopes are authored per experience by each game, so adding
+`.resetting::<AuthoredOccurrences>()` to the two that exist today makes the third
+game's omission a silent bug — the shape D152 already solved once and D136
+catalogues: **the ENGINE owns the invariant, the composition owns the order.**
+There is no engine-side hook to contribute a release to every scope; that seam is
+the work.
+
+⚠ **what is NOT yet measured is whether it is observable.** Within a session
+`restore_occurrence_baseline` resets the ledger on `ResetToCheckpoint`; whether
+an experience change emits one is what would settle it. ⇒ a two-experience
+headless run that consumes an occurrence, leaves, returns, and asks the ledger.
+
 ⇒ the hazard that started this leg, recorded on `ItemCustody`:
 carrying an **authored** placement out of its room and back yields the carried
 object **and a freshly authored copy with the same `SimId::placement(..)`**. It

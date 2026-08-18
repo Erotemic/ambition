@@ -1049,6 +1049,31 @@ states its height.** `Vitals::canonical_height` (world pixels, 16 to a tile) plu
 spelling the division. ⭐ **no behaviour changed**: 48 / body_px.y is exactly what
 it computed before, which is the point of a slice that introduces a unit.
 
+✔ **MARY-O'S ART NOW SCALES FROM A RIG, LANDED 2026-08-18** (renderer submodule
+`2813531`) — the half that had to happen in the sheets before one declared height
+can drive them. Her parts hung off the GROWN form's absolute offsets, so
+re-proportioning the short form to one brick broke them one at a time: seven
+"X doesn't follow the body" defects, each visible only in a render. `FormRig`
+states where parts belong as fractions of the form's own authored size, solved
+from the approved grown form — which stays **byte-identical** through the change,
+verified frame by frame against a control render. The front/death pose was the
+last drawing still on absolute offsets, which is why it was the one Jon reported
+unfixed.
+
+⛔⛔ **the correctness argument is WHICH INPUT OWNS WHAT, and two wrong splits
+both rendered fine at a glance.** The pose owns placement (it already carries
+crouch, lean and bob); the form owns the proportions the fractions multiply.
+Deriving the hip from the form alone silently dropped crouch — 14,780 pixels
+moved on the approved form — and scaling x by the crouch-widened width moved
+every skid and crouch frame. Neither was visible without differencing renders.
+
+⚠ **two things this forced are WAITING ON JON**, recorded as §14 in
+[`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md): the shared
+collision width went 64 → 56 px (one width for every form and "narrower than the
+drawing" are together decided by the narrowest form), and her one-brick box has
+6 px of headroom above her hat because the box top comes from the height contract
+rather than the art.
+
 ⭐⭐ **AND THE UNIT WAS ALREADY THERE, WHICH MAKES THE RULING CHEAPER THAN IT
 LOOKED.** `DEFAULT_PLAYER_BODY_HEIGHT` is 48 world pixels — exactly three tiles at
 `defaultGridSize: 16` — and the field's own doc calls them *"world pixels"*. So

@@ -41,7 +41,7 @@ investigation that led to the question. Same rule as
 [`README.md`](README.md#queue-contract); on 2026-08-17 this file was **739 lines
 for 9 open questions**, and the four answered ones held a third of it.
 
-## Open decisions — 4 (§1, §6, §7, §9, §10, §11, §12 and §13 are ANSWERED; §8 is DEFERRED)
+## Open decisions — 5 (§1, §6, §7, §9, §10, §11, §12 and §13 are ANSWERED; §8 is DEFERRED)
 
 ### 1. ✔ ANSWERED 2026-08-17 — a bolt hits what a sword hits (former D23)
 
@@ -88,6 +88,34 @@ Choose one:
   geometry laws intentionally distinct.
 
 This is feel, not missing engineering evidence.
+
+### 14. Two things the one-brick rescale forced, both wanting your eye
+
+Both fell out of the rig refactor and are recorded rather than guessed at,
+because each trades against something you tuned by looking at her.
+
+**a. The shared collision width went 64 px → 56 px.** Your ruling is one width
+for every form (*"we keep the width of collision the same for big and small"*),
+and the sheet's own guard wants the box narrower than the drawing so she never
+collides on her hat or her sleeves. Those two together are decided by the
+NARROWEST form, and the one-brick short form's whole drawing is **60 px** wide —
+so the old 64 collided on empty air beside her. 56 clears her and still hugs the
+grown torso (~62 px).
+
+⚠ **the cost is that the grown form's box narrowed too**, which is the price of
+the identical-width rule. The alternative is widening the short form's ART to
+~68 px, and her width is exactly what you tuned by eye, so it is your call.
+
+**b. Her one-brick box has 6 px of empty air above her hat.** The box top is set
+by the height contract (small is one brick, grown is two, so short height ×2 =
+grown height exactly), not measured off the art. MEASURED: grown form 0 px of
+headroom, fire form −14 px (its flame frills clear the box on purpose), short
+form **+6 px**. So she is drawn very slightly shorter than one brick and will
+bump a ceiling with the air over her head.
+
+⇒ closing it means either raising her crown ~6 px — which moves the 40/40/20
+head/body/legs split you specified — or accepting the 6 px. The test bounds it at
+8 px so it cannot quietly grow while you decide.
 
 ### 2. Advance the measurement-submodule pointer?
 

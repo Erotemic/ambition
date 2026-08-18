@@ -559,19 +559,10 @@ pub fn tick_actor_brains(
                         // locomotion facts, and "none of them true" is the
                         // honest reading of that.
                         &motion_facts.copied().unwrap_or_default(),
-                        {
-                            let captured = captives
-                                .iter()
-                                .any(|(entity, _)| entity == this_actor_entity);
-                            let hold = captives
-                                .iter()
-                                .find(|(_, held)| held.captor == this_actor_entity);
-                            (
-                                captured,
-                                hold.is_some(),
-                                hold.map(|(_, held)| held.pummels_landed).unwrap_or(0),
-                            )
-                        },
+                        crate::features::ecs::capture::CaptureFacts::resolve(
+                            this_actor_entity,
+                            &captives,
+                        ),
                     );
                     // §A7 PERCEPTION POLICY: how this body learns where its foe is — a
                     // typed, per-body [`Perception`], defaulting to `Omniscient` (the
@@ -631,19 +622,10 @@ pub fn tick_actor_brains(
                             self_peer,
                             aggression,
                             motion_model,
-                            {
-                                let captured = captives
-                                    .iter()
-                                    .any(|(entity, _)| entity == this_actor_entity);
-                                let hold = captives
-                                    .iter()
-                                    .find(|(_, held)| held.captor == this_actor_entity);
-                                (
-                                    captured,
-                                    hold.is_some(),
-                                    hold.map(|(_, held)| held.pummels_landed).unwrap_or(0),
-                                )
-                            },
+                            crate::features::ecs::capture::CaptureFacts::resolve(
+                                this_actor_entity,
+                                &captives,
+                            ),
                         ),
                         &view_peers,
                         perceived.projectiles(),
@@ -1591,12 +1573,13 @@ fn build_enemy_brain_snapshot(
     // **What is TRUE of this body's locomotion**, published by the movement
     // kernel — see `turns_at_walls` below for why this replaced a tuning read.
     motion_facts: &ambition_platformer2d_core::BodyMotionFacts,
-    // `(captured, holding, pummels)` — resolved by the caller, which holds the
-    // capture query. Threaded rather than looked up so the brain layer keeps its
-    // property of reading no ECS. ⚠ LAST on purpose: inserting it mid-list
-    // silently shifted two positional arguments into the wrong slots and the
-    // compiler reported it as a type error three parameters away.
-    capture: (bool, bool, u8),
+    // The capture relationship, resolved by the caller — which holds the capture
+    // query. Threaded rather than looked up so the brain layer keeps its
+    // property of reading no ECS. ⚠ LAST on purpose, and a STRUCT for the same
+    // reason: inserting a term mid-list silently shifted two positional
+    // arguments into the wrong slots and the compiler reported it as a type
+    // error three parameters away.
+    capture: crate::features::ecs::capture::CaptureFacts,
 ) -> ambition_characters::brain::BrainSnapshot {
     ambition_characters::brain::BrainSnapshot {
         actor_pos: em.kin.pos,
@@ -1645,9 +1628,10 @@ fn build_enemy_brain_snapshot(
         // integrator's flight-limb predicate (`fly_enabled && abilities.fly`).
         actor_aerial: em.surface.gravity_scale <= 0.001 || em.flight.fly_enabled,
         alive: em.health.alive(),
-        captured: capture.0,
-        holding_captive: capture.1,
-        pummels_landed: capture.2,
+        captured: capture.captured,
+        captured_for: capture.captured_for,
+        holding_captive: capture.holding_captive,
+        pummels_landed: capture.pummels_landed,
         target_pos,
         // Real target liveness (was hardcoded `true`): a fighter whose foe is dead
         // perceives it and the Smash brain demotes to Idle instead of swinging at a

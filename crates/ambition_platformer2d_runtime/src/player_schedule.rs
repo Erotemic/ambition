@@ -267,6 +267,13 @@ impl Plugin for PlayerSchedulePlugin {
                 // That position is the only one where blanking is observable,
                 // which is why the sequences that blanked from their own phase
                 // suppressed nothing.
+                // **A CAPTIVE'S STRUGGLE, read while the frame is still the
+                // person's.** Human input is blanked on the line below, so this
+                // is the only position where a held player's mash exists at all.
+                // Its twin sits before the WorldPrep blanking, where an actor
+                // brain's frame is the live one — the same reason the blanking
+                // itself is in two places.
+                ambition_platformer2d_actor_monolith::features::ecs::capture::sample_capture_escape,
                 ambition_platformer2d_actor_monolith::avatar::blank_scripted_control_frames,
                 // ActionSet gates the generic resolver, but the body shield,
                 // slash/recoil, and charge-projectile paths still read raw control.
@@ -399,7 +406,9 @@ impl Plugin for PlayerSchedulePlugin {
         // Every respawn in the workspace announces itself through the derived
         // `BodyRestarted`, so returning a body to play needs no line at any of
         // the call sites that bring one back.
-        app.add_observer(ambition_platformer2d_actor_monolith::session::death::clear_out_of_play_on_restart);
+        app.add_observer(
+            ambition_platformer2d_actor_monolith::session::death::clear_out_of_play_on_restart,
+        );
 
         // ── PresentationSync: presentation timer decay ─────────────────────
         //

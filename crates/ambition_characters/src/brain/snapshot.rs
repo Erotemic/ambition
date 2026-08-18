@@ -42,6 +42,11 @@ pub struct BrainSnapshot {
     /// that holds the queries and handed down; a brain never reaches for
     /// `CapturedBy` itself. `pummels_landed` is `0` unless `holding_captive`.
     pub captured: bool,
+    /// **How long this body has been held**, in scaled seconds; `0.0` when
+    /// free. A brain's only handle on the hold's progress — and the reason a
+    /// captive's struggle can have a CADENCE without the brain keeping a timer
+    /// of its own, which would be one more thing a rewind has to restore.
+    pub captured_for: f32,
     pub holding_captive: bool,
     pub pummels_landed: u8,
     /// Actor's current world position (px).
@@ -241,6 +246,7 @@ impl BrainSnapshot {
     pub fn idle() -> Self {
         Self {
             captured: false,
+            captured_for: 0.0,
             holding_captive: false,
             pummels_landed: 0,
             actor_pos: ae::Vec2::ZERO,

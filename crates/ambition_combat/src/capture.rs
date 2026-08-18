@@ -71,6 +71,25 @@ pub struct CapturedBy {
     /// the CPU's capture policy (pummel, then throw) and diagnostics; it is on
     /// the relationship because it is a fact ABOUT the hold and dies with it.
     pub pummels_landed: u8,
+    /// **How long this hold has lasted**, in the same scaled seconds a move
+    /// timeline advances in — so a capture does not age during hitstop.
+    ///
+    /// ⛔⛔ **a capture with no clock is UNBOUNDED, and that is a gameplay bug
+    /// rather than a missing feature.** Nothing in the relationship ends it on
+    /// its own: a throw is a choice its captor may never make, and an
+    /// interruption is a third party's. Without an age, a fighter who grabs and
+    /// then does nothing holds a body for the rest of the match.
+    pub held_for: f32,
+    /// **What the captive's OWN input has contributed toward getting out**, as
+    /// a fraction of one escape.
+    ///
+    /// ⭐ **the shape matters more than the number.** A captive is not a body
+    /// whose input ceased to exist — it is a body whose input reaches a
+    /// restricted channel, and this is that channel's accumulator. Direction
+    /// -based escape, faster escapes at low percent and pummels lengthening a
+    /// hold are all later policies that write here; none of them need the
+    /// relationship reshaped.
+    pub escape_progress: f32,
 }
 
 impl bevy::ecs::entity::MapEntities for CapturedBy {
@@ -170,6 +189,8 @@ mod tests {
                 hold_offset_local: ae::Vec2::new(16.0, -2.0),
                 prior_gravity_scale: 1.0,
                 pummels_landed: 0,
+                held_for: 0.0,
+                escape_progress: 0.0,
             })
             .id();
 
@@ -214,6 +235,8 @@ mod tests {
             hold_offset_local: ae::Vec2::new(16.0, -2.0),
             prior_gravity_scale: 0.0,
             pummels_landed: 2,
+            held_for: 0.0,
+            escape_progress: 0.0,
         };
         held.map_entities(&mut ToFixed(after));
         assert_eq!(

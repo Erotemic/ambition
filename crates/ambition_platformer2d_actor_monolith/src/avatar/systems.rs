@@ -145,6 +145,7 @@ pub fn tick_controlled_brains(
             // never in a capture on this road, and saying so beats inheriting a
             // default nobody chose.
             captured: false,
+            captured_for: 0.0,
             holding_captive: false,
             pummels_landed: 0,
             // The avatar's own body; the fighter brain is not on this path,

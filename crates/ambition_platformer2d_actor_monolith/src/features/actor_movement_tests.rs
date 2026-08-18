@@ -87,6 +87,7 @@ fn tick_peaceful(
 ) {
     let snapshot = ambition_characters::brain::BrainSnapshot {
         captured: false,
+        captured_for: 0.0,
         holding_captive: false,
         pummels_landed: 0,
         // A fixture body: unattributed facts are the honest answer here.

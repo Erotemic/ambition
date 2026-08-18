@@ -2955,6 +2955,8 @@ fn capture_context_app(
             hold_offset_local: ae::Vec2::new(16.0, 0.0),
             prior_gravity_scale: 1.0,
             pummels_landed: 0,
+            held_for: 0.0,
+            escape_progress: 0.0,
         });
     }
     app.update();

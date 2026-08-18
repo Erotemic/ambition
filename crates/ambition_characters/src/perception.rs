@@ -368,6 +368,8 @@ pub struct SelfView {
     /// second reader of ECS state from inside a pure decision, which is the
     /// thing this whole perception layer exists to prevent.
     pub captured: bool,
+    /// How long it has been held, in scaled seconds. `0.0` when free.
+    pub captured_for: f32,
     /// **This body is holding somebody.** Its ordinary options are gone too, and
     /// the ones it has instead are the capture context: pummel, or throw.
     pub holding_captive: bool,

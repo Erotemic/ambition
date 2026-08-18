@@ -1076,16 +1076,44 @@ fn a_holding_cpu_neither_walks_nor_grabs_again() {
     assert!(!frame.jump_pressed && !frame.special_pressed);
 }
 
-/// **A CAPTIVE ASKS FOR NOTHING.**
+/// **A CAPTIVE STRUGGLES, AND ASKS FOR NOTHING ELSE.**
 ///
-/// Escape does not exist yet, so there is genuinely nothing to request — and a
-/// brain thrashing here would read as a bug rather than as a body that cannot
-/// move. ⭐ when escape lands, this is the test that changes.
+/// ⭐ **the test the old note promised.** It used to assert that a held CPU
+/// requested nothing at all, "because escape does not exist yet". It does now,
+/// and a captive that still asked for nothing would be a body choosing to be
+/// held — which is what made a human's grab last as long as they felt like.
+///
+/// Two claims, and the second is why this is not just "it presses":
+///
+/// * a struggle is an ORDINARY attack press, so it reaches the hold through the
+///   same channel a person's mash does;
+/// * it is not every tick, and a captive still cannot walk or jump.
 #[test]
-fn a_captured_cpu_makes_no_requests_at_all() {
+fn a_captured_cpu_struggles_at_a_human_cadence_and_does_nothing_else() {
     let mut snap = snap_with_target_at_x(40.0);
     snap.captured = true;
-    let frame = tick(&snap);
-    assert!(!frame.melee_pressed && !frame.grab_pressed && !frame.jump_pressed);
-    assert_eq!(frame.locomotion, ae::LocalAxes::ZERO);
+    let mut presses = 0;
+    let ticks = 60;
+    for tick_index in 0..ticks {
+        snap.captured_for = tick_index as f32 * snap.dt;
+        let frame = tick(&snap);
+        assert!(
+            !frame.grab_pressed && !frame.jump_pressed,
+            "a held body asked for something it cannot possibly do"
+        );
+        assert_eq!(frame.locomotion, ae::LocalAxes::ZERO, "a captive walked");
+        if frame.melee_pressed {
+            presses += 1;
+        }
+    }
+    assert!(
+        presses > 0,
+        "a captured CPU pressed nothing across a whole second — it is choosing \
+         to stay in somebody's grip"
+    );
+    assert!(
+        presses < ticks,
+        "it pressed on every tick, which no person can do — a mash at machine \
+         cadence is a different mechanic, not a harder difficulty"
+    );
 }

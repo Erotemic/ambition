@@ -104,6 +104,8 @@ pub struct PerceptionBody {
     /// — the same shape `grudge` beside it takes, and for the same reason: a
     /// pure decision must not reach into the ECS to ask.
     pub captured: bool,
+    /// How long it has been held, in scaled seconds. `0.0` when free.
+    pub captured_for: f32,
     pub holding_captive: bool,
     pub pummels_landed: u8,
     /// This viewer's per-entity GRUDGE, if any (`ActorAggression.grudge`). A grudge
@@ -442,6 +444,7 @@ pub fn build_world_view(
         damage_taken: body.damage_taken,
         health_max: body.health_max,
         captured: body.captured,
+        captured_for: body.captured_for,
         holding_captive: body.holding_captive,
         pummels_landed: body.pummels_landed,
     };
@@ -581,12 +584,11 @@ pub(crate) fn perception_body_for(
     // `engine.movement-model-is-never-optional` because that rule matches the
     // spelling `Option<&MotionModel>`, not `Option<&ae::MotionModel>`.
     motion_model: &ae::MotionModel,
-    // **The capture relationship, resolved by the caller.** `(captured,
-    // holding, pummels)`. Passed rather than queried for the reason the whole
-    // signature is passed: this function reads authorities the caller already
-    // holds, and a lookup here would be a second reader of a relationship the
-    // combat layer owns.
-    capture: (bool, bool, u8),
+    // **The capture relationship, resolved by the caller.** Passed rather than
+    // queried for the reason the whole signature is passed: this function reads
+    // authorities the caller already holds, and a lookup here would be a second
+    // reader of a relationship the combat layer owns.
+    capture: crate::features::ecs::capture::CaptureFacts,
 ) -> PerceptionBody {
     // ⚠ the fallback below reads a PRESENT non-axis model (a crawler has no
     // air-dodge window, so "no window open, no endlag" is the honest answer for
@@ -603,11 +605,11 @@ pub(crate) fn perception_body_for(
         body.dash,
         axis_motion.params,
     );
-    let (captured, holding_captive, pummels_landed) = capture;
     PerceptionBody {
-        captured,
-        holding_captive,
-        pummels_landed,
+        captured: capture.captured,
+        captured_for: capture.captured_for,
+        holding_captive: capture.holding_captive,
+        pummels_landed: capture.pummels_landed,
         pos: body.kin.pos,
         vel: body.kin.vel,
         facing: body.kin.facing,

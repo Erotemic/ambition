@@ -8,6 +8,7 @@ use super::*;
 fn body(pos: ae::Vec2, faction: ActorFaction) -> PerceptionBody {
     PerceptionBody {
         captured: false,
+        captured_for: 0.0,
         holding_captive: false,
         pummels_landed: 0,
         pos,

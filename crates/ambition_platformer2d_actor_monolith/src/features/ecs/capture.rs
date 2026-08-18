@@ -249,7 +249,140 @@ pub fn acquire_captures(
                 .map(|body| body.surface.gravity_scale)
                 .unwrap_or(1.0),
             pummels_landed: 0,
+            held_for: 0.0,
+            escape_progress: 0.0,
         });
+    }
+}
+
+/// **What a brain is told about this body's place in a capture.**
+///
+/// ⛔ **a struct rather than the `(bool, bool, u8)` it replaces, and the tuple's
+/// own comment is the argument**: *"inserting it mid-list silently shifted two
+/// positional arguments into the wrong slots and the compiler reported it as a
+/// type error three parameters away"*. Giving a brain the hold's AGE would have
+/// been that edit a second time.
+///
+/// ⭐ it also deletes the two byte-identical inline resolutions that stood at
+/// the snapshot's two call sites.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct CaptureFacts {
+    /// This body is held by somebody.
+    pub captured: bool,
+    /// How long it has been held, in scaled seconds. `0.0` when free.
+    pub captured_for: f32,
+    /// This body is holding somebody.
+    pub holding_captive: bool,
+    /// Pummels landed on the hold this body OWNS; `0` unless `holding_captive`.
+    pub pummels_landed: u8,
+}
+
+impl CaptureFacts {
+    /// Read both ends of the relationship out of the one table that records it.
+    pub fn resolve(body: Entity, captives: &Query<(Entity, &CapturedBy)>) -> Self {
+        let held = captives.iter().find(|(entity, _)| *entity == body);
+        let holding = captives.iter().find(|(_, held)| held.captor == body);
+        Self {
+            captured: held.is_some(),
+            captured_for: held.map(|(_, held)| held.held_for).unwrap_or(0.0),
+            holding_captive: holding.is_some(),
+            pummels_landed: holding.map(|(_, held)| held.pummels_landed).unwrap_or(0),
+        }
+    }
+}
+
+/// **A hold's ceiling, in scaled seconds.**
+///
+/// ⚠ **a provisional number whose job is to make "forever" impossible**, not to
+/// tune the mechanic. The genre's real answer is a function of the captive's
+/// percent and of how much its captor has pummelled; both are escape POLICY and
+/// belong with the fighter capability's rules when those land. What must not
+/// wait for them is boundedness: until this existed, a fighter who grabbed
+/// somebody and then pressed nothing held that body for the rest of the match.
+pub const CAPTURE_HOLD_LIMIT_SECONDS: f32 = 4.0;
+
+/// What one press of the CAPTIVE's own contributes toward one escape.
+///
+/// At this value a person mashing at a human cadence gets out in appreciably
+/// less than [`CAPTURE_HOLD_LIMIT_SECONDS`], which is the only property v1
+/// claims: struggling is better than not struggling.
+pub const CAPTURE_ESCAPE_PER_PRESS: f32 = 0.05;
+
+/// **The captive's restricted channel: a mash reaches the hold, and nothing
+/// else does.**
+///
+/// ⭐⭐ **placed where the frame is still LIVE, and that placement IS the
+/// design.** A captive carries `ScriptedControl`, and blanking is what makes
+/// that marker mean something — so a reader placed after the blanking samples
+/// zeros and would conclude that captives never struggle. This runs immediately
+/// before each blanking, which is why it is scheduled TWICE: human input is
+/// blanked in `PlayerInputSet::ControlGate`, and an actor brain writes its frame
+/// a whole phase later in `WorldPrep`, so there is no single position where both
+/// are observable. The blanking pair has exactly this shape for exactly this
+/// reason, and neither placement double-counts the other: whichever writer is
+/// live for a body, the other position sees the zeros the first blanking left.
+///
+/// ⛔ **it reads the frame and writes nothing back to it.** The captive still
+/// cannot walk, jump or attack — the press is credited to an escape and then
+/// blanked exactly as before. That is what a restricted context means here: the
+/// input exists, and there is precisely one thing it can do.
+///
+/// ⚠ **one credit per tick, not one per button.** Otherwise a chord of six
+/// buttons would be six presses, and escape would reward a control-scheme trick
+/// rather than a mash.
+pub fn sample_capture_escape(
+    mut captives: Query<(&mut CapturedBy, &ambition_characters::brain::ActorControl)>,
+) {
+    for (mut held, control) in &mut captives {
+        let frame = &control.0;
+        // Any action press. Asking for one specific button would be a
+        // control-scheme decision this has no reason to make, and a captive
+        // mashing the "wrong" one would look like a broken mechanic.
+        let pressed = frame.melee_pressed
+            || frame.jump_pressed
+            || frame.dash_pressed
+            || frame.special_pressed
+            || frame.grab_pressed
+            || frame.projectile_pressed;
+        if pressed {
+            held.escape_progress += CAPTURE_ESCAPE_PER_PRESS;
+        }
+    }
+}
+
+/// **A hold ages, and ends when its clock runs out or its captive gets out.**
+///
+/// The third and fourth ways a capture can end, beside the throw and the
+/// interruption — and like both of those, through the ONE
+/// [`release_capture`], so gravity, the relationship and the control claim come
+/// back together however the hold ended.
+///
+/// ⚠ **scaled seconds, so a hold does not age during hitstop.** A pummel's own
+/// freeze frames would otherwise buy the captor time it did not earn.
+pub fn tick_capture_holds(
+    mut commands: Commands,
+    time: Res<ambition_time::WorldTime>,
+    mut captives: Query<(
+        Entity,
+        &mut CapturedBy,
+        Option<&mut crate::features::ActorSurfaceState>,
+        Option<&mut ambition_characters::brain::ControlHolds>,
+    )>,
+) {
+    let dt = time.scaled_dt;
+    for (victim, mut held, surface, holds) in &mut captives {
+        held.held_for += dt;
+        if held.escape_progress < 1.0 && held.held_for < CAPTURE_HOLD_LIMIT_SECONDS {
+            continue;
+        }
+        let ended = *held;
+        release_capture(
+            &mut commands,
+            victim,
+            &ended,
+            surface.map(|surface| surface.into_inner()),
+            holds.map(|holds| holds.into_inner()),
+        );
     }
 }
 
@@ -388,6 +521,8 @@ mod tests {
             hold_offset_local: ae::Vec2::new(20.0, -4.0),
             prior_gravity_scale: 1.0,
             pummels_landed: 0,
+            held_for: 0.0,
+            escape_progress: 0.0,
         });
         app.update();
         let kin = app.world().get::<ae::BodyKinematics>(victim).unwrap();
@@ -445,6 +580,8 @@ mod tests {
             hold_offset_local: ae::Vec2::new(16.0, 0.0),
             prior_gravity_scale: 1.0,
             pummels_landed: 0,
+            held_for: 0.0,
+            escape_progress: 0.0,
         });
         app.update();
         let held = &app
@@ -486,6 +623,8 @@ mod tests {
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
                 prior_gravity_scale: 0.25,
                 pummels_landed: 1,
+                held_for: 0.0,
+                escape_progress: 0.0,
             },
             ambition_characters::brain::ScriptedControl,
             // The hold as a CLAIM: a bare marker is nobody's, and the release
@@ -559,6 +698,8 @@ mod tests {
             hold_offset_local: ae::Vec2::new(16.0, 0.0),
             prior_gravity_scale: 1.0,
             pummels_landed: 0,
+            held_for: 0.0,
+            escape_progress: 0.0,
         });
 
         app.update();
@@ -590,6 +731,8 @@ mod tests {
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
                 prior_gravity_scale: 0.75,
                 pummels_landed: 0,
+                held_for: 0.0,
+                escape_progress: 0.0,
             },
         ));
         app.world_mut().entity_mut(captor).despawn();
@@ -608,6 +751,94 @@ mod tests {
             0.75,
             "freed by a despawn and still weightless — the release path was not \
              the one that ran"
+        );
+    }
+
+    /// **⛔⛔ NOBODY IS HELD FOREVER, AND STRUGGLING BEATS NOT STRUGGLING.**
+    ///
+    /// Before this, a capture ended only by a throw its captor chose or a hit
+    /// somebody else landed — so a player who grabbed an opponent and then
+    /// pressed nothing at all held that body for the rest of the match, and the
+    /// captive AI, having no escape to reach for, correctly did nothing about
+    /// it. An unbounded relationship is a gameplay bug rather than a missing
+    /// feature.
+    ///
+    /// ⭐ **the two halves are one test on purpose.** A hold that ended on its
+    /// clock but ignored the captive would pass a mash test that only asserted
+    /// "it ends"; a hold that freed anybody who touched a button would pass a
+    /// timeout test that only asserted "it ends". Measuring BOTH escapes against
+    /// each other is what pins that the captive's input did the work.
+    #[test]
+    fn a_hold_ends_on_its_own_clock_and_sooner_when_the_captive_struggles() {
+        let mut ticks_to_free = Vec::new();
+        for struggling in [false, true] {
+            let mut app = App::new();
+            let mut time = ambition_time::WorldTime::default();
+            time.scaled_dt = 1.0 / 60.0;
+            time.raw_dt = 1.0 / 60.0;
+            app.insert_resource(time);
+            app.add_systems(Update, (sample_capture_escape, tick_capture_holds).chain());
+            let captor = grounded_body(&mut app, "captor", ae::Vec2::ZERO);
+            let victim = grounded_body(&mut app, "victim", ae::Vec2::new(16.0, 0.0));
+            app.world_mut().entity_mut(victim).insert((
+                ambition_characters::brain::ScriptedControl,
+                ambition_characters::brain::ControlHolds::only(
+                    ambition_characters::brain::ControlHold::Relationship,
+                ),
+                ambition_characters::brain::ActorControl(
+                    ambition_characters::actor::control::ActorControlFrame::neutral(),
+                ),
+                CapturedBy {
+                    captor,
+                    hold_offset_local: ae::Vec2::new(16.0, 0.0),
+                    prior_gravity_scale: 1.0,
+                    pummels_landed: 0,
+                    held_for: 0.0,
+                    escape_progress: 0.0,
+                },
+            ));
+
+            let mut ticks = 0;
+            while app.world().get::<CapturedBy>(victim).is_some() {
+                if struggling {
+                    // A press this tick. In production the pipeline consumes an
+                    // edge once; here the sampler is the only reader, so writing
+                    // it fresh each tick IS the mash.
+                    app.world_mut()
+                        .get_mut::<ambition_characters::brain::ActorControl>(victim)
+                        .unwrap()
+                        .0
+                        .melee_pressed = true;
+                }
+                app.update();
+                ticks += 1;
+                assert!(
+                    ticks < 60 * 30,
+                    "thirty seconds in and the hold has not ended — a capture \
+                     with no clock is a body taken out of the match"
+                );
+            }
+            assert!(
+                app.world()
+                    .get::<ambition_characters::brain::ScriptedControl>(victim)
+                    .is_none(),
+                "freed and still unable to move: the release did not go through \
+                 the one that gives the control claim back"
+            );
+            ticks_to_free.push(ticks);
+        }
+        let [waited, struggled] = ticks_to_free[..] else {
+            unreachable!()
+        };
+        assert!(
+            struggled < waited,
+            "mashing did not shorten the hold at all ({struggled} ticks vs \
+             {waited}) — the captive's input never reached the relationship, \
+             which is the whole claim the restricted channel makes"
+        );
+        assert!(
+            waited <= (CAPTURE_HOLD_LIMIT_SECONDS * 60.0).ceil() as i32 + 1,
+            "the hold outlived its own stated ceiling"
         );
     }
 
@@ -645,6 +876,8 @@ mod tests {
                     hold_offset_local: ae::Vec2::new(16.0, 0.0),
                     prior_gravity_scale: 1.0,
                     pummels_landed: 0,
+                    held_for: 0.0,
+                    escape_progress: 0.0,
                 },
             ));
             // The interruption: the captor is hit.
@@ -746,6 +979,8 @@ mod tests {
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
                 prior_gravity_scale: 1.0,
                 pummels_landed: 0,
+                held_for: 0.0,
+                escape_progress: 0.0,
             },
         ));
 
@@ -809,6 +1044,8 @@ mod tests {
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
                 prior_gravity_scale: 1.0,
                 pummels_landed: 2,
+                held_for: 0.0,
+                escape_progress: 0.0,
             },
         ));
         (app, captor, victim)
@@ -925,6 +1162,8 @@ mod tests {
             hold_offset_local: ae::Vec2::new(18.0, 0.0),
             prior_gravity_scale: 1.0,
             pummels_landed: 0,
+            held_for: 0.0,
+            escape_progress: 0.0,
         });
         app.world_mut().write_message(attempt(captor));
         app.update();

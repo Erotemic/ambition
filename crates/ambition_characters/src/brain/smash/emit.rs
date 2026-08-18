@@ -172,6 +172,12 @@ pub fn emit_inputs(
             };
             out.locomotion = ae::LocalAxes::ZERO;
         }
+        SpecificAction::CaptureStruggle => {
+            // The same press a person mashes. A captive cannot walk, so there
+            // is no locomotion to state beyond neutral.
+            out.melee_pressed = true;
+            out.locomotion = ae::LocalAxes::ZERO;
+        }
         SpecificAction::Dodge { .. } => {
             // ⚠ **still reserved, but the REASON changed** (D146). There is no
             // dodge bit on `ActorControlFrame`; a dodge reaches a body through

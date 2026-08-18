@@ -99,6 +99,16 @@ pub enum SpecificAction {
     /// pummel is the CONTEXT, resolved by `trigger_moveset_moves` — which is
     /// exactly the property that keeps a CPU and a human on one road.
     CaptureAttack { forward: bool },
+    /// **Struggle out of somebody's grip** — the captive's half of a capture,
+    /// and the only thing a held body can ask for.
+    ///
+    /// ⭐ it writes an ordinary attack press, exactly as a person mashing
+    /// buttons would. Nothing downstream reads it as an attack: a captive's
+    /// frame is blanked before the combat phase sees it, and the one reader
+    /// placed before that blanking credits the press to the hold's escape. So a
+    /// CPU struggles through the same channel a person struggles through, and
+    /// there is no `cpu_escape_progress` anywhere.
+    CaptureStruggle,
     /// Spot/air dodge in `dir`. Reserved.
     Dodge { dir: ae::Vec2 },
 }

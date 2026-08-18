@@ -2190,7 +2190,7 @@
             tags: ["mathematician", "peaceful"],
         barks: (
             idle: ["I dreamt the formulae; I merely wrote them down.", "The partitions grow faster than anyone expects."],
-            hall: ["I dreamt the answer. Proof can have it after breakfast.", "1729 has two doors and excellent secrets.", "The noodles were infinite. The bowl was not."],
+            hall: ["I dreamt the answer. Proof can have it after breakfast.", "1729 has two doors and excellent secrets.", "The noodles were infinite. The bowl was not.", "You owe me an egg."],
         ),
         hall_dialogue_id: Some("hall_npc_ramen_nujan"),
         ),
@@ -2690,6 +2690,11 @@
                 "There are many patent clerks.",
                 "Not required in this field.",
             ],
+        barks: (
+            idle: ["Stamped. Provisionally.", "You are moving. The furniture disagrees, and was not consulted."],
+            hall: ["A pedestal is a very strong claim about being at rest.", "Everyone here has filed as stationary. Remarkably, they are all correct.", "Please do not lean on the exhibit. It is load-bearing in the legal sense.", "Your file is mostly assumptions. Well organised, though."],
+        ),
+        hall_dialogue_id: Some("hall_special_patent_clerk"),
         ),
         "npc_carl_stargan": (
             display_name: "Carl Stargan",

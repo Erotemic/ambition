@@ -58,6 +58,43 @@ the grab from 110px every time.
 ⇒ **a grab deals no damage.** `max_damage` is what a move does on CONTACT, and
 the honest number is zero. Reverted; the long-range grabs went with it.
 
+## And then: does the live game support a grab AT ALL?
+
+The CPU's press TIMING is a policy question. Whether a hold can form in the real
+app is not, and the two only separate by taking the timing out of the AI's hands
+— `capture_probe --force` presses Grab on the tick a person would (inside grab
+range, presser not already committed, facing the other).
+
+⛔⛔ **the first two attempts at that measured nothing, and both were the same
+clobber one layer apart.**
+
+```text
+write the frame after app.update()      567 presses, 3 attempts
+                                        the brain rewrites ActorControl each tick
+a system `.before(CombatSet::Trigger)`  567 presses, 3 attempts
+                                        `.before(C)` orders NOTHING against the
+                                        other systems that also run before C —
+                                        the brain ran after it and won the race
+`.after(WorldPrep).before(Trigger)`     ✅
+```
+
+⭐ **and then it worked, in the real app, first run:**
+
+```text
+holds established     14
+time spent held       29.2s (48.7% of the match)
+pummels landed        2
+ended by throw/hit    14      (escapes 0, timeouts 0 — the captors throw fast)
+```
+
+⇒ **the mechanic is live.** Acquisition, the hold, the pose, the pummel, the
+throw and the release all work on real seated fighters in the real game. What is
+missing is only *when a CPU decides to press Grab* — fighter capture policy,
+which is the capability's to own.
+
+⚠ 48.7% held is a STRESS number, not gameplay: the probe mashes Grab on every
+eligible tick. It is reported as what it is.
+
 ## What this exposed, which is worth more than the fix
 
 The value of a grab is that the opponent is **held** — and that depends on the
@@ -82,6 +119,10 @@ that row was waiting for.
    Pricing the grab at its throw made the CPU grab exclusively at ranges it
    could not reach — the opposite of the mechanic — and every unit test stayed
    green.
-5. ⭐ **When the honest number is zero, take the zero.** The missing value is a
+5. ⛔⛔ **`.before(X)` is not "late".** A system ordered only before a set races
+   every other system that is also before it. Twice in one afternoon that raced
+   the actor brain's own frame write and lost, and both times the symptom was
+   "the game refuses a grab".
+6. ⭐ **When the honest number is zero, take the zero.** The missing value is a
    capability's to express, and inventing it in the generic layer would have
    bought a plausible number and a wrong game.

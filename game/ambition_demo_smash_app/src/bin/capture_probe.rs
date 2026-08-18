@@ -42,6 +42,51 @@ use ambition_platformer2d::combat::capture::{CaptureAttemptRequested, CapturedBy
 #[derive(bevy::prelude::Resource, Default)]
 struct AttemptsSeen(u32);
 
+/// **Press Grab FOR them, on the tick a person would.**
+///
+/// ⛔⛔ **it has to be a SYSTEM in the sim schedule, and writing the frame from
+/// outside `app.update()` measures nothing** — the fighter brain writes
+/// `ActorControl` every tick, so a press stamped after the update is overwritten
+/// before anything reads it. That mistake reported 567 presses and 3 attempts,
+/// which reads exactly like the game refusing a grab.
+#[derive(bevy::prelude::Resource, Default)]
+struct Forced(u32);
+
+fn force_a_grab_in_range(
+    mut forced: bevy::prelude::ResMut<Forced>,
+    mut bodies: bevy::prelude::Query<(
+        bevy::prelude::Entity,
+        &ambition_platformer2d::engine_core::BodyKinematics,
+        &mut ambition_platformer2d::characters::brain::ActorControl,
+        Option<&ambition_platformer2d::combat::moveset::MovePlayback>,
+    )>,
+) {
+    let mut rows: Vec<(bevy::prelude::Entity, f32, f32, bool)> = bodies
+        .iter()
+        .map(|(entity, kin, _, playback)| (entity, kin.pos.x, kin.facing, playback.is_some()))
+        .collect();
+    if rows.len() != 2 {
+        return;
+    }
+    rows.sort_by_key(|(entity, ..)| *entity);
+    let gap = (rows[0].1 - rows[1].1).abs();
+    if gap > 30.0 {
+        return;
+    }
+    for index in 0..2 {
+        let (entity, x, facing, busy) = rows[index];
+        let toward = (rows[1 - index].1 - x).signum();
+        if busy || facing.signum() != toward {
+            continue;
+        }
+        if let Ok((_, _, mut control, _)) = bodies.get_mut(entity) {
+            control.0.grab_pressed = true;
+            forced.0 += 1;
+        }
+        return;
+    }
+}
+
 fn count_attempts(
     mut attempts: bevy::prelude::MessageReader<CaptureAttemptRequested>,
     mut seen: bevy::prelude::ResMut<AttemptsSeen>,
@@ -50,15 +95,40 @@ fn count_attempts(
 }
 
 fn main() {
+    use bevy::prelude::IntoScheduleConfigs as _;
     let seconds: f32 = std::env::args()
         .nth(1)
         .and_then(|arg| arg.parse().ok())
         .unwrap_or(60.0);
     let ticks = (seconds * 60.0) as u32;
+    // ⭐ **`--force`: press Grab FOR them, when a person would.** The CPU's own
+    // timing is a policy question; whether the live game can produce a hold at
+    // all is not, and the two are only separable by taking the timing out of the
+    // AI's hands. Presses on the tick the two are inside grab range and the
+    // presser is not already committed to a move — which is exactly the moment a
+    // player picks.
+    let force = std::env::args().any(|arg| arg == "--force");
 
     let mut app = ambition_demo_smash_app::build_demo_app();
     app.init_resource::<AttemptsSeen>();
     app.add_systems(bevy::prelude::Update, count_attempts);
+    app.init_resource::<Forced>();
+    if force {
+        let sim =
+            ambition_platformer2d::platformer::schedule::SimScheduleExt::sim_schedule(&mut app);
+        app.add_systems(
+            sim,
+            // ⛔⛔ **AFTER the brain, not merely before combat.** `.before(C)`
+            // orders nothing against the systems that also run before C, so a
+            // press stamped here raced the actor brain's own `*out = frame` and
+            // lost — the second time the same clobber ate this experiment.
+            force_a_grab_in_range
+                .after(
+                    ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep,
+                )
+                .before(ambition_platformer2d::platformer::schedule::CombatSet::Trigger),
+        );
+    }
     for _ in 0..30 {
         app.update();
     }
@@ -300,6 +370,10 @@ fn main() {
         tally.timed_out
     );
     println!("[capture_probe]   Grab pressed          {grab_presses} tick(s)");
+    println!(
+        "[capture_probe]   Grab FORCED           {} tick(s)",
+        app.world().resource::<Forced>().0
+    );
     println!(
         "[capture_probe]   closest approach      {closest:.0}px; inside a grab's \
          42px on {ticks_in_grab_range} tick(s) ({:.1}% of the match)",

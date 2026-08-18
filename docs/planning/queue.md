@@ -1983,8 +1983,54 @@ as policy (Jon's own ruling), the camera work, and the smash submodule gitlinks.
   one frame and are heard twice. That is a burst COUNT, not a restatement; the
   `silent` arm would answer it and is not built for want of a customer.
 
-- ✔ **D150 — CLOSED 2026-08-17. A projectile changed allegiance when its firer
-  despawned.** Allegiance was reconstructed EVERY TICK by querying the firing
+- ◐ **D150 — the projectile's allegiance stamp landed 2026-08-17; a 2026-08-18
+  AUDIT found the same defect surviving in the one tick the stamp cannot cover,
+  fixed, and the REST of it named. A projectile changed allegiance when its firer
+  despawned.**
+
+⭐⭐ **RE-OPENED AND RE-CLOSED THE SAME DAY, on the review's ask to audit every
+attack authorization still recomputed from the resident firer.** Four reads:
+
+```text
+faction + team   STAMPED (D150)                                   ✔
+grudge           live read off the owner        AUDITED, KEPT — see below
+`victim == owner_entity`  self-hit guard        healed handle, fine
+`attacker: owner_entity`  KO credit             open, and D148's neighbour
+```
+
+⛔⛔ **and the fifth thing, which was a live bug**: `indiscriminate` was
+`allegiance.is_none()`, while the comment beside it said *"a bolt that never had
+a living owner"*. Those are different sentences. `owner_combat` wants a
+non-optional `&ActorFaction`, so a NAMED owner that is merely gone comes back
+`Err` — and on the shot's FIRST step that also means no stamp is taken, so the
+bolt re-asks and re-fails every tick for the rest of its life. **A named firer
+who vanished before the stamp got promoted to environmental hazard, permanently.**
+⇒ `indiscriminate` now requires that no owner was ever NAMED. Demonstrated, not
+argued: with the old predicate the new guard fails with the orphaned shot having
+hit its firer's own teammate.
+
+⭐ **the grudge was KEPT as a live read, and the reasoning is now on the type.**
+`dissolve_settled_grudges` already ends a feud on a HEALTH rule that has nothing
+to do with residency, so reading it off a living owner is right. ⚠ it was only
+defensible once the line above stopped inverting: while a missing owner meant
+indiscriminate, *"the firer is gone, so there is no feud"* became *"hit everyone,
+including the bodies the feud existed to spare"* — a narrowing turning into the
+broadest permission there is.
+
+▢ **what is still open, and it is the honest residue.** The stamp is taken on the
+first STEP, not at birth, because both materializers live in `ambition_projectiles`
+— a crate that depends on neither `ambition_combat` nor `ambition_characters` and
+so cannot name `ActorFaction` or `MatchTeam`. The presentation half hit this exact
+wall and named the answer in as many words: *"attribution belongs where the entity
+is born"*, fixed by having the materializers stamp it themselves. ⇒ the same fix
+here needs the side to travel as DATA in the spawn request (the monolith builds
+those requests and knows the firer's side), or the combat vocabulary to move down.
+Until then the window is closed DEFENSIVELY, not correctly: a named-but-unresolved
+owner leaves the shot INERT rather than indiscriminate. ⚠ the guard asserts only
+that safety property on purpose — asserting "hits the opponent" would pin the
+limitation, and asserting "hits nobody" would go red the day someone fixes it.
+
+  **The original row, unchanged:** Allegiance was reconstructed EVERY TICK by querying the firing
   `Entity`, and the code stated the consequence as intended behaviour — so in a
   match a fighter fires, loses their last stock, the body despawns, and next tick
   the shot in flight turns on its own team. ⭐ the same occurrence-vs-entity
@@ -5059,6 +5105,92 @@ inventory   an ENTRY carrying a COUNT                and the count is usually 1
   ratchet's own words: *"a deletion that leaves its references behind turns a doc
   comment into a description of a world that no longer exists — which in this
   repository is where the reasoning lives."*
+
+- ▢ **D166 — THE CHARACTER-AUTHORING BOUNDARY IS CHOSEN BUT NOT YET LOAD-BEARING.
+  (from the 2026-08-18 GPT review; the boundary itself is now WRITTEN DOWN)**
+
+`tools/ambition_sprite2d_renderer` is the character-authoring submodule under a
+stale name, and as of `7a28709` its README says so in one block at the top:
+**it owns character-specific authored MATERIAL and VALUES; this repository owns
+the schema, preparation and runtime meaning those values conform to.** The test
+for where something belongs is *"is this a VALUE an author chose, or a RULE the
+engine enforces?"* ⛔ no rename and no second submodule until the seam is real.
+
+⭐⭐ **AND THE SEAM THE REVIEW ASKS FOR ALREADY EXISTS — measured, not assumed.**
+`ambition_characters::prepared` (2,168 lines) is exactly the pipeline the review
+draws, and its own header draws it the same way:
+
+```text
+CharacterDefinition          authored, decomposable, may reference
+      │ prepare_character              validates + flattens
+      ▼
+PreparedCharacterOverrides   PARTIAL — `None` still means "ask the catalog"
+      │ Plugin::finish                 folds the catalog in, ONCE, transactionally
+      ▼
+PreparedCharacterDefinition  COMPLETE, immutable, no inheritance left
+```
+
+⇒ **so the work is not to establish a seam; it is to find what BYPASSES one that
+is already built.** Stating it the other way round would have produced a second
+half-built pipeline beside a good one.
+
+⭐ **the review's named anti-pattern is ALREADY ABSENT, checked from three
+angles** — post-registration reach-in mutation of a character definition:
+
+```text
+get_mut::<CharacterDefinition> / .definition_mut / catalog get_mut   0 hits
+ResMut<CharacterCatalog | PreparedCharacter* | CharacterDefinition>  0 hits
+&mut CharacterDefinition | &mut PreparedCharacterDefinition          0 hits
+```
+
+⇒ **games already consume prepared data.** The immutability the review asks for
+is enforced by the type, not by convention, so that half of the ask is done.
+
+▢ **what is genuinely open, then:** a fighter's `SmashRepertoire` is authored as
+a game-side Rust literal — `george_booul_moveset.rs:556`,
+`ambition_demo_sanic/src/smash_moveset.rs:415`,
+`pirate_admiral_moveset.rs:461` — rather than as an authored character-package
+facet. That is the "scattered game-side Rust constants" the review means, and it
+is the one that matters because it is where the next character's values will go.
+
+⚠ **`SmashRepertoire` lives in generic `ambition_characters` and its vocabulary
+is not generic** (`ForwardSmash`, `NeutralAir`, posture-sensitive Down-B).
+⛔⛔ **do NOT move it for purity.** It is a good abstraction with provisional
+ownership; the restitch point is the first real character-owned `smash.fighter`
+facet, and moving it before that costs a migration and buys nothing. The
+intended direction, recorded rather than built:
+
+```text
+Smash capability   defines SmashFighterFacet / SmashRepertoire semantics
+        ↑
+character package  authors George/Alice/… values
+        ↓
+Smash preparation  produces runtime MoveSpecs / fighter data
+```
+
+⇒ **the generic engine should not need to know Smash move-slot taxonomy** — and
+until a facet seam exists, it does, which is the whole content of this row.
+
+✔✔ **AND ONE OF THE REVIEW'S ASKS WAS ALREADY DONE — measured before touching
+it.** *"Move authoring has historically duplicated `Vfx(...)` and matching
+`Sfx(...)` events … converge on one semantic authored effect request with default
+companion sound, while preserving explicit override and explicit silence."*
+
+```text
+MoveEvent::Vfx / MoveEvent::Sfx spelled in game/          0 files
+                                (the one hit is prepared.rs DERIVING the cue
+                                 inventory, which is the seam working)
+MoveEventKind::Vfx / ::Sfx authored                       15 / 11
+```
+
+⇒ **D149 already made a `Vfx` event carry its companion sound**, so the surviving
+`Sfx` events are the explicit standalone/override half the review asks to
+preserve, not leftover pairing boilerplate. ⭐ and the doubling risk the
+convergence CREATED is guarded by `ambition_content::moveset_sound` — an oracle
+built from the two real systems (`dispatch_move_events` + `process_fx_requests`)
+rather than a data test, whose one claim is that an authored burst is heard
+EXACTLY ONCE. ⛔ nothing to converge here; re-doing it would re-introduce the
+doubled jab that guard exists to catch.
 
 - ▢ **D136 — COMPOSITION BOUNDARIES ARE ASSUMED, NOT STATED — so whoever
   installs a thing first decides who pays for it. (PROMOTED from `tracks.md`

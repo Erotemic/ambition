@@ -1,6 +1,6 @@
 # HEAD orientation
 
-**Snapshot:** `8d183a68b` (2026-08-16 local project date).
+**Snapshot:** `712e2e3dc` (2026-08-18 local project date).
 
 ⚠ **this SHA goes stale within hours during an active run** — it names the tree
 these paragraphs were measured against, not the tree you have. ⭐ **if it
@@ -338,7 +338,18 @@ substrate had overtaken the two fronts printed above it:
    its symbols. D136 (2026-08-16) moved `WorldManifest` down to
    `ambition_platformer2d_world`, deleted the provider's dead edge and made the
    facade's optional again; the number did not move, because the monolith and
-   the runtime still name the backend unconditionally. ⇒ **a slice claiming this
+   the runtime still named the backend unconditionally.
+
+   ⭐ **RE-MEASURED 2026-08-18 and the monolith is off it.** `cargo tree -i` in
+   the sentinel now names **two** direct holders — the monolith and the runtime —
+   and the monolith's production code names `ambition_platformer2d_ldtk` ZERO
+   times (three runtime readers inverted onto the room IR on 08-17/18; the one
+   file that still greps is a comment saying the backend is not there). Its
+   remaining `bevy_ecs_ldtk` surface is one module, now behind `ldtk_runtime`,
+   and the crate builds with `--no-default-features` for the first time.
+   ⚠ **the FOOTPRINT number still did not move** (44 linked / 17 unwanted): the
+   dep was already declared optional, so no Cargo edge changed — what changed is
+   that the declaration became true. ⇒ the runtime is the remaining holder. ⇒ **a slice claiming this
    front must run `cargo tree -i` for the crate it means to evict BEFORE picking
    what to carve**, and must say what it did to the number or why the number is
    dominated by something it did not touch.

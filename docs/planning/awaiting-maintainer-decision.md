@@ -442,6 +442,34 @@ leave it              keep the reporter that now names the three, and retire a
 ⇒ I did not take it: it changes what a shared engine resource returns for 48
 files, on inference rather than on a stated intent for what that key MEANS.
 
+⭐⭐ **AND THE 2026-08-18 REVIEW SUPPLIES THE MISSING INTENT — read this before
+ruling, because it reframes the question from plumbing to identity.** Its words:
+*"Renderer target names, sheet/file roots, generated asset IDs, and canonical
+`CharacterId` are different namespaces. Do not let a sprite-renderer target
+string accidentally become the durable identity of a character package.
+Character identity should remain stable and semantic; renderer targets/products
+are implementation/presentation identities associated with it."*
+
+```text
+CharacterId        semantic, durable, the character package's name
+renderer target    an authoring/presentation choice — which generator drew it
+sheet file root    a PRODUCT — one published page
+generated asset id a build artifact's name
+```
+
+⇒ **on that reading the two options stop being symmetric.** Keying a shared
+engine resource by TARGET is precisely letting a renderer-side string act as the
+durable identity of a thing the engine looks up — and the 48 collisions are that
+mistake becoming visible, since a shared rig adapter is an authoring detail that
+48 different characters happen to share. Keying by FILE ROOT names a product,
+which is what the registry actually serves.
+
+⚠ **still not taken, and now for a better-stated reason**: the review argues the
+PRINCIPLE, and the ruling also decides what `SheetRegistry` is FOR — a
+product lookup or a character lookup. If it is meant to be a character lookup, the
+right fix is neither key but a `CharacterId`, and that is a bigger change than
+either row above.
+
 ### 6. ✔ ANSWERED 2026-08-17 — hitlag freezes the body that is in it (former D114)
 
 ⭐⭐ **Jon, verbatim:** *"keep the landed fix and overrule the old prohibition …

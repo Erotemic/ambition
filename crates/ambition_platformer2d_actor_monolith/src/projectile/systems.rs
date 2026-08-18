@@ -609,16 +609,56 @@ pub fn step_projectiles(
         // The firer's personal grudge — the per-entity damage override (a duelist's
         // shot lands on the rival it feuds with even at the same faction).
         //
-        // ⚠ deliberately NOT frozen onto the shot beside the allegiance: a grudge
-        // is a feud the firer holds *now*, not a side the shot was launched on,
-        // and a body that no longer exists is not feuding with anybody.
+        // ⚠ deliberately NOT frozen onto the shot beside the allegiance, and the
+        // reasoning was AUDITED 2026-08-18 rather than inherited. A grudge is a
+        // feud the firer holds *now*, not a side the shot was launched on, and
+        // `dissolve_settled_grudges` already gives it a semantic end (either body
+        // reaching zero health) that has nothing to do with residency. So the
+        // live read is the right read.
+        //
+        // ⛔ **but it was only defensible once the line below stopped inverting.**
+        // A missing owner made the shot INDISCRIMINATE, so "the firer is gone, so
+        // there is no feud" silently became "the firer is gone, so hit everyone
+        // including the people the feud was meant to spare" — the grudge's
+        // narrowing turned into the broadest possible permission. With
+        // `indiscriminate` now requiring that no owner was ever NAMED, losing the
+        // grudge costs the shot one same-faction target and nothing else, which
+        // is what dropping a feud should cost.
+        //
+        // ⇒ **not stamped, on purpose, and that is a DECISION with a condition
+        // attached**: it holds while the grudge's own lifecycle is health-keyed.
+        // If a grudge ever becomes something a body can hold past death, or the
+        // launch itself starts meaning "I aimed this AT you", the durable form
+        // belongs on the shot — as the target's `SimId`, never an `Entity`
+        // (N3.1 forbids entity handles in rollback blobs; see
+        // `heal_projectile_owners` for the healed-handle pattern that costs).
         let firer_grudge: Option<Entity> = owner_combat_data
             .and_then(|(_, agg, _)| agg)
             .and_then(|a| a.grudge);
-        // No allegiance at all ⇒ a bolt that never had a living owner: a truly
-        // ownerless volley, environmental damage that hurts every body it
-        // overlaps, friend or foe.
-        let indiscriminate = allegiance.is_none();
+        // A truly ownerless volley — environmental damage that hurts every body
+        // it overlaps, friend or foe, because there is no one to be friendly to.
+        //
+        // ⛔⛔ **THIS USED TO READ `allegiance.is_none()` ALONE, and that is a
+        // different question wearing the same words.** The comment says "never
+        // had an owner"; the expression said "the owner lookup came back empty",
+        // and those diverge exactly when it matters. `owner_combat` requires a
+        // non-optional `&ActorFaction`, so it returns `Err` for a NAMED owner
+        // that is merely gone — or alive but factionless — and on the shot's
+        // FIRST step that also means no stamp is taken, so the bolt stays
+        // unstamped and re-asks (and re-fails) every tick for the rest of its
+        // life. A named firer that could not be resolved was therefore promoted
+        // to environmental hazard: hostile to its own team, permanently. That is
+        // the D150 failure surviving inside the one window D150's stamp does not
+        // cover — the tick before the stamp exists.
+        //
+        // ⇒ **an owner NAMED is the disqualifier, not an owner RESOLVED.**
+        // `ProjectileOwner` is healed across a rewind from durable provenance,
+        // so its presence is the stable fact here; what it points at may be
+        // absent for a tick without changing whether this shot was somebody's.
+        // A named-but-unresolved shot goes INERT rather than indiscriminate,
+        // which is the safe direction: failing to damage is recoverable, hitting
+        // your own team because a lookup missed is not.
+        let indiscriminate = allegiance.is_none() && owner_entity.is_none();
 
         // Tick + lifetime. A dead lasersword detonates; everything else logs an
         // Expired trace event.

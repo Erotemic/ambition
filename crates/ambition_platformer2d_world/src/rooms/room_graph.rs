@@ -32,9 +32,27 @@ pub struct RoomSpec {
     /// LDtk-authored localized-gravity zones. See [`GravityZoneSpec`].
     pub gravity_zones: Vec<GravityZoneSpec>,
 
-    // All authored entity families (hazards, interactables, pickups, chests,
-    // breakables, portals) lower through the single `placements` channel
-    // (fable audit F9.2 arc exit) -- there are no typed per-family Vecs.
+    // Six authored entity families -- hazards, interactables, pickups, chests,
+    // breakables, portals -- lower through the single `placements` channel
+    // (fable audit F9.2 arc exit), and adding a seventh of THAT kind is one
+    // `PlacementSchema` variant plus one lowering interpreter, with no edit
+    // here.
+    //
+    // ⛔ **this comment used to end "there are no typed per-family Vecs" and
+    // that was already wrong when written** (`enemy_spawns`, `boss_spawns`,
+    // `debug_labels`, `mount_links` are right below it) and is more wrong now:
+    // `encounter_triggers`, `lock_walls` and `switch_commands` joined on
+    // 2026-08-17/18 when three runtime readers were inverted off the LDtk
+    // project onto the room IR. The F9.2 claim was true of the SIX families it
+    // was about; as a claim about the struct it never held.
+    //
+    // ⚠ **so watch the count.** Each new independent domain family that needs a
+    // central edit HERE is evidence for a different shape: a small room core
+    // plus domain-owned prepared room facets, the way character facets are
+    // heading. Three arrivals in two days is a signal, not yet a verdict --
+    // deliberately NOT replaced with a dynamic registry today, because the
+    // three arrivals were one migration and not three independent demands.
+    // Keep this boundary cheap to restitch and count the next one.
     pub enemy_spawns: Vec<Authored<crate::rooms::EnemySpawnSpec>>,
     pub boss_spawns: Vec<Authored<ambition_entity_catalog::placements::BossBrain>>,
     pub debug_labels: Vec<Authored<crate::debug_label::DebugLabel>>,

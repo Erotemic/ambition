@@ -527,6 +527,85 @@ fn a_shot_outlives_its_firer_without_changing_sides() {
     );
 }
 
+/// **A SHOT ORPHANED BEFORE ITS FIRST STEP DOES NOT BECOME A HAZARD.**
+///
+/// The sibling of [`a_shot_outlives_its_firer_without_changing_sides`], for the
+/// one window that test cannot reach. D150's stamp is taken on the projectile's
+/// FIRST STEP, so there is exactly one tick where a bolt exists and the fact has
+/// not been frozen yet. A fighter who fires and is eliminated inside that tick
+/// leaves a shot with a named owner, no stamp, and no way to take one — the
+/// owner query wants a non-optional `&ActorFaction` and the body is gone.
+///
+/// ⛔ **that shot used to be promoted to ENVIRONMENTAL HAZARD, permanently.**
+/// `indiscriminate` was `allegiance.is_none()`, and an unstamped bolt re-asks
+/// (and re-fails) every tick for the rest of its life, so it hit its own team
+/// for as long as it flew. The comment beside it said "never had a living
+/// owner"; the expression said "the lookup came back empty". This test is the
+/// difference between those two sentences.
+///
+/// ⚠ **it asserts SAFETY only, deliberately.** The shot currently hits nobody,
+/// which is the safe direction but not the right answer — the right answer is
+/// that attribution is stamped where the entity is BORN, the conclusion
+/// `inherit_projectile_presentation_sources` already reached for the
+/// presentation half. Asserting "hits the opponent" here would pin the
+/// limitation; asserting "hits nobody" would go red the day someone fixes it
+/// properly. So this pins only the part that must never regress.
+#[test]
+fn a_shot_orphaned_before_its_first_step_does_not_turn_on_its_team() {
+    use ambition_combat::targeting::MatchTeam;
+
+    let mut app = arena_projectile_app(crate::features::FactionRelations::default());
+
+    let firer = app
+        .world_mut()
+        .spawn((
+            crate::features::ActorFaction::Player,
+            MatchTeam::new("seat 1"),
+        ))
+        .id();
+    let teammate_pos = ae::Vec2::new(300.0, 100.0);
+    let teammate = app
+        .world_mut()
+        .spawn((
+            crate::features::FeatureSimEntity,
+            crate::features::FeatureId::new("same_team_fighter"),
+            crate::features::CenteredAabb::new(teammate_pos, ae::Vec2::new(16.0, 24.0)),
+            crate::features::ActorFaction::Player,
+            MatchTeam::new("seat 1"),
+        ))
+        .id();
+
+    // In flight toward the teammate, and the firer is taken out of play BEFORE
+    // any tick runs — so the bolt is stepped for the first time with its owner
+    // already gone. That is the window D150's own test cannot enter: it despawns
+    // the firer only after a first update has frozen the stamp.
+    spawn_owned_glider(&mut app, teammate_pos - ae::Vec2::new(150.0, 0.0), firer);
+    app.world_mut().despawn(firer);
+
+    let mut live_projectiles = app
+        .world_mut()
+        .query_filtered::<Entity, With<crate::projectile::LiveProjectile>>();
+    for _ in 0..240 {
+        if live_projectiles.iter(app.world()).next().is_none() {
+            break;
+        }
+        app.update();
+    }
+
+    let cap = app.world().resource::<CapturedHits>();
+    let hit_teammate = cap.0.iter().any(|e| {
+        matches!(e.source, HitSource::Projectile)
+            && e.target == crate::features::HitTarget::Body(teammate)
+    });
+    assert!(
+        !hit_teammate,
+        "a shot orphaned before its stamp was taken hit its firer's own teammate \
+         — `indiscriminate` read a failed owner LOOKUP as 'this bolt never had an \
+         owner', so a named firer going missing promoted the shot to environmental \
+         damage instead of leaving it that fighter's attack"
+    );
+}
+
 /// A shot owned by `firer`, overlapping `pos`. Like
 /// [`spawn_overlapping_enemy_glider`] but the OWNER is the caller's, because
 /// what is under test is a fact about the owner (its team).
@@ -721,7 +800,15 @@ fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
     );
 
     // Stand-in for the firing boss/enemy entity.
-    let attacker = app.world_mut().spawn_empty().id();
+    //
+    // ⛔ **it was `spawn_empty()`, and that made this test pass for the wrong
+    // reason.** A firer with no `ActorFaction` fails the owner lookup, and an
+    // unresolved owner used to mean INDISCRIMINATE — so the shot landed on the
+    // player as environmental damage, by the one road a real enemy bolt never
+    // travels. The assertion below is about ATTRIBUTION, and it was reading a
+    // hit produced by a hazard rather than by an enemy. A stand-in for an enemy
+    // has to be hostile to something, or it is standing in for a falling rock.
+    let attacker = app.world_mut().spawn(ActorFaction::Enemy).id();
 
     // A vulnerable player (no parry / dodge / invuln) at the shot's origin.
     let player_pos = ae::Vec2::new(200.0, 200.0);

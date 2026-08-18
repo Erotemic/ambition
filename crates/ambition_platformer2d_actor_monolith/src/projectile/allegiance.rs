@@ -33,13 +33,46 @@ use ambition_combat::targeting::MatchTeam;
 ///   attacker, and the two that ARE the shot's side. Frozen, so a reflect can
 ///   REWRITE them deliberately (that is what a parry does) rather than having
 ///   them evaporate.
-/// * **Not the grudge.** A grudge is a live feud the firer holds *now*, not a
-///   side the shot was launched on; a body that no longer exists is not feuding
-///   with anyone. The stepper still reads it off a living owner.
+/// * **Not the grudge — AUDITED 2026-08-18 and kept.** A grudge is a live feud
+///   the firer holds *now*, not a side the shot was launched on, and
+///   [`dissolve_settled_grudges`](ambition_combat::targeting::dissolve_settled_grudges)
+///   already ends it on a health rule that has nothing to do with residency. So
+///   the stepper reads it off a living owner on purpose.
+///   ⛔ **that was only defensible after the stepper stopped inverting it.**
+///   While a missing owner meant INDISCRIMINATE, "the firer is gone, so there is
+///   no feud" became "hit everyone, including the bodies the feud existed to
+///   spare" — a narrowing turning into the broadest permission there is.
+///   ⚠ the decision carries a condition: it holds while a grudge dies with its
+///   holder. If one ever outlives a body, or a launch starts meaning *"I aimed
+///   this AT you"*, the durable form belongs here — as the target's `SimId`,
+///   never an `Entity` (N3.1 forbids entity handles in rollback blobs; see
+///   `heal_projectile_owners` for what the healed-handle pattern costs).
 /// * **Not the owner entity.** [`ProjectileOwner`](ambition_projectiles::ProjectileOwner)
 ///   already carries "who fired me" and is already remapped across a rewind. This
 ///   answers the other half — *which side was I on* — which an entity handle to a
 ///   despawned body cannot.
+///
+/// # ⚠ The stamp has a WINDOW, and it is still open
+///
+/// This is frozen on the projectile's FIRST STEP, not at its birth, because the
+/// two materializers live in `ambition_projectiles` — a crate that depends on
+/// neither `ambition_combat` nor `ambition_characters`, so it cannot name
+/// `ActorFaction` or `MatchTeam` to stamp them. A bolt whose firer vanishes
+/// inside that one tick can never take a stamp.
+///
+/// ⭐ **the presentation half hit this exact wall and named the answer**:
+/// `inherit_projectile_presentation_sources` says a pre-step system *"was not
+/// enough and could not be"* and that *"attribution belongs where the entity is
+/// born"* — it was fixed by having both materializers stamp it themselves, which
+/// worked because a presentation source is a type they can already see.
+///
+/// ⇒ **the same fix here needs the side to travel as DATA in the spawn request**
+/// (the monolith builds those requests and knows the firer's side), or the
+/// combat vocabulary to move down. Until then the window is closed defensively
+/// rather than correctly: a named-but-unresolved owner leaves the shot INERT
+/// instead of indiscriminate, which is safe but is not the same as knowing whose
+/// attack it is. Pinned by
+/// `a_shot_orphaned_before_its_first_step_does_not_turn_on_its_team`.
 ///
 /// ⚠ the faction is the firer's AUTHORED one, not `effective_faction`, because
 /// that is exactly what the owner lookup read. Whether a possessed body's shot

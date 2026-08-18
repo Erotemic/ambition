@@ -60,15 +60,18 @@ fn target_dir() -> PathBuf {
 /// the ratchet was pinning the reader's blind spot rather than the authors'
 /// cleverness. `carl_runga` and `martin_cutta` left for the same reason.
 ///
-/// ⚠ **IF THIS SAYS 8 AND NAMES `mary_o_v2_svg_poc`, THE HAND-CHECK IS ALREADY
-/// DONE — 2026-08-18.** That target is an uncommitted proof of concept living in
-/// the renderer worktree, and its own module docstring states what it is: *"this
-/// target intentionally coexists with `mary_o_v2`… so the editable SVG + rigid
-/// bone workflow can be judged without changing game-facing Mary-O output"*. Its
-/// character is `mary_o_v2`, which HAS a row. ⇒ raise this to 8 **in the same
-/// commit that lands the POC**, or leave both out; raising it while the POC is
-/// still untracked turns CI red, because a fresh checkout has seven.
-const COMPUTED_ID_TARGETS: usize = 7;
+/// ⭐ **7 → 8 on 2026-08-18, and the hand-check the ratchet exists to force was
+/// done before the number moved.** The eighth is `mary_o_v2_svg_poc`, whose own
+/// module docstring says what it is: *"this target intentionally coexists with
+/// `mary_o_v2`… so the editable SVG + rigid bone workflow can be judged without
+/// changing game-facing Mary-O output"*. Its character IS `mary_o_v2`, which has
+/// a row — so it needs no row of its own, and it is in this count rather than in
+/// `WAIVED` only because the scan cannot read an id it never spells.
+///
+/// ⛔ the number and the submodule pointer move TOGETHER. Raising it while the
+/// POC is untracked turns CI red (a fresh checkout has seven); landing the POC
+/// without raising it turns CI red the other way.
+const COMPUTED_ID_TARGETS: usize = 8;
 
 /// Every `character_id` VALUE spelled out in one target's source, in file order.
 ///

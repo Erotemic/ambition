@@ -5884,12 +5884,27 @@ to the walk beats should look like.
 her standing line is a property of the form and moves with per-form scale, so
 "below the frame" would have been a proxy for "below the floor". Poison-verified.
 
-▢ **what is still cut on her, and it is NOT a pose**: the small form's idle
-already reaches `32.33u` in a `32u` frame, so a sliver of flat sole is lost on
-every frame of that form — while the GROWN form lands at `31.67u`, a unit of
-headroom. The two forms disagree about where a sole goes by 0.67u, which is a
-per-form scale rounding in the placement, and it is the one thing left between
-her and a clean bottom edge. `grow`/`shrink` (both sheets) and `death#0` (top)
+▢ **what is still cut on her, and it is NOT a pose** — measured 2026-08-18, and
+it is THREE numbers that should be one. At 6px per authored unit on a 192px
+published frame:
+
+```text
+                    drawn sole    authored collision_bottom_px    foot socket
+small (one brick)     194 px               190 px                   176 px
+grown (two bricks)    190 px               192 px                   176 px
+```
+
+⇒ the small form's sole is 2px BELOW its own frame (the sliver that is cut on
+every frame of that sheet) and 4px below its collision box; the grown form's is
+2px ABOVE its box; and both forms' `foot_r`/`foot_l` sockets are the same
+hardcoded `output_px(88.0)`, 14–18px above where either foot actually is. Three
+authorings of "where her feet are" that agree with each other nowhere.
+
+⛔ **not fixed here on purpose.** Every repair moves where she STANDS, and that
+is the decision D165 records Jon making by eye ("small Mary-O is one brick,
+grown is two"). The measurement is the part that was missing; which of the three
+numbers is the authority is his call, and the sockets are the one no form
+currently derives. `grow`/`shrink` (both sheets) and `death#0` (top)
 are separate frames with their own reasons.
 
 ⛔⛔ **AND THE FIRST TWO CRITERIA WERE BOTH WRONG — including the one this row

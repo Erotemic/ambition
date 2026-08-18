@@ -41,7 +41,7 @@ investigation that led to the question. Same rule as
 [`README.md`](README.md#queue-contract); on 2026-08-17 this file was **739 lines
 for 9 open questions**, and the four answered ones held a third of it.
 
-## Open decisions — 6 (§1, §6, §7, §9, §10, §11, §12 and §13 are ANSWERED; §8 is DEFERRED)
+## Open decisions — 7 (§1, §6, §7, §9, §10, §11, §12 and §13 are ANSWERED; §8 is DEFERRED)
 
 ### 1. ✔ ANSWERED 2026-08-17 — a bolt hits what a sword hits (former D23)
 
@@ -315,6 +315,31 @@ the framed one     the fighter the camera is following owns it
 
 ⇒ recorded rather than guessed. If you have no view, "nobody's" is the one that
 cannot regress the 0.0-forever failure, because it never asks.
+
+### 16. Who owns a level's POSITION — its area spec, or the layout tool?
+
+`level diff-specs` exists to catch an area spec drifting from its live level. It
+was reading none of its subjects (YAML-only loader, every area spec is RON), and
+fixing that turns it on: **52 specs differ, 2 match, 78 coordinate mismatches**,
+some very large — `volatile_cache`'s spec says `world_x = 72000`, the live level
+is at `2048`.
+
+⚠ that is almost certainly not 52 broken levels. `world auto-layout` arranges
+Free-layout levels by their LoadingZone graph, and the tool's own message says
+*"live LDtk wins"* — so the specs' coordinates look like initial placements that
+stopped being authoritative and nobody re-recorded.
+
+```text
+specs own position    re-record the live values into 52 specs; drift is then real
+layout owns position  drop world_x/world_y from area specs; the graph decides
+                      placement and the spec stops claiming something it lost
+```
+
+⇒ **the check is fixed but deliberately NOT in CI**, because bulk-rewriting 52
+specs to silence it would answer this by accident. ⛔ 13 of the 52 are a
+different thing — specs for levels in another world file, which the command
+cannot see because it takes one `--ldtk`; that is a usage limit, worth a second
+flag whichever way you rule.
 
 ### 6. ✔ ANSWERED 2026-08-17 — hitlag freezes the body that is in it (former D114)
 

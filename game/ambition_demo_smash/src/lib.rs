@@ -662,8 +662,36 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // idempotent.
         app.add_message::<ambition_platformer2d::actor::FighterStockSpent>();
         app.add_message::<ambition_platformer2d::actor::StocksMatchDecided>();
+        // The capture request channels. The ADAPTER below writes them and the
+        // body runtime reads them, so this plugin owns them the same way it owns
+        // the two above.
+        app.add_message::<ambition_platformer2d::combat::capture::CaptureAttemptRequested>();
+        app.add_message::<ambition_platformer2d::combat::capture::CapturePummelRequested>();
+        app.add_message::<ambition_platformer2d::combat::capture::CaptureThrowRequested>();
 
         let sim = ambition_platformer2d::platformer::schedule::SimScheduleExt::sim_schedule(app);
+        // **THE CAPTURE LOOP, in the order the facts become available.**
+        //
+        // `dispatch_move_events` turns a live grab window into an authored
+        // `Effect` during `CombatSet::Playback`; the adapter recognises the key
+        // and writes a typed request; acquisition turns that into a relationship.
+        // Chained so a grab that goes active this tick catches this tick — the
+        // alternative is a frame of latency on every grab, which in a fighting
+        // game is a mechanic change rather than a rounding error.
+        //
+        // ⚠ **`Materialize`, beside the projectile spawns**, because that set's
+        // own doc says what it is for: *"a thing must EXIST before it can hit
+        // anything"*. A capture relationship is exactly such a thing — the
+        // pummel and throw that target it are moves that come later.
+        app.add_systems(
+            sim,
+            (
+                crate::capture::translate_smash_capture_effects,
+                ambition_platformer2d::actors::features::ecs::capture::acquire_captures,
+            )
+                .chain()
+                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Materialize),
+        );
         // AFTER the engine's own `CombatSet::Settle` work: the stock is spent
         // there, and placing a body before it has been spent would put the
         // fighter back on the stage for a knockout that had not been counted.

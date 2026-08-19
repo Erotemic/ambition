@@ -190,9 +190,38 @@ grid) reach **169 damage against a pool of 100** in sixty seconds, spending 575
 ticks each in hitstun. Pinned by `app_it::smash_cpus_damage_each_other`, which
 states its units in the assertion message so this cannot be misread again.
 
-⚠ **what SURVIVES the retraction is the self-KO half**, and it is a different
-claim with different evidence: the `rollout_depth` A/B (depth 0 survives, depth
-12 self-KOs at 21.8s) never used this column. That question is still open.
+⛔⛔ **AND THE SELF-KO HALF IS STALE TOO — RE-MEASURED THE SAME DAY AT FIFTEEN
+SEEDS, AND IT POINTS THE OTHER WAY.** `ladder_probe --seeds 15` (one fighter,
+opponent cannot attack, so every loss is a self-KO):
+
+```text
+level  first self-KO              stocks lost
+    1  23.2s [17.7-46.3] +1 never      3
+    3  16.3s [12.0-45.3] +8 never      1
+    5  21.7s [16.0-46.5] +7 never      1
+    6  16.3s [14.5-27.1] +2 never      2
+    9  none in 60s                     0
+  9/d0  none in 60s                    0
+ 9/d12  none in 60s                    0     ⭐ the A/B is FLAT
+```
+
+⇒ **the `rollout_depth` diagnosis is falsified by its own instrument**: depth 0
+and depth 12 both survive the clock with zero self-KOs, so *"a twelve-tick search
+is choosing to leave the stage"* no longer holds. And the row's other sentence —
+*"the upper half of the ladder is the half that self-destructs"* — is now exactly
+backwards: **level 9 never self-KOs and every rung below it does.**
+Self-preservation now improves with the rung, which is the direction a difficulty
+ladder is supposed to run.
+
+⚠ **three seeds would have said something else**, as this rig's own header warns:
+at the default 3, level 3 and level 9 both showed *no self-KO* and level 5 showed
+one. Fifteen is the number that answers.
+
+▢ **what is genuinely left for you is one design question, much smaller than the
+row it came from**: a level-1 CPU loses all three stocks to itself inside a
+minute. That may be exactly right for the easiest rung — a bad opponent should
+be bad — or it may read as broken rather than easy. That is taste, not
+engineering.
 
 ⛔ the paragraph below is kept as the historical record of the claim, not as
 evidence. Original text, 2026-08-14:

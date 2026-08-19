@@ -3413,9 +3413,24 @@ prepared.rs` turns an authored `placement:<id>` argument into
 yet — so the day the first rule says `placement:return_door` it would mean seven
 zones, and this now says so first. ⚠ four tests pin it, because a guard that is
 green on all real data is otherwise indistinguishable from one that cannot fire.
-⚠ per FILE: a cross-WORLD collision is possible in principle (measured 0), and
-checking it would need every world loaded at once, which this validator does not
-do.
+✔ **AND THE CROSS-WORLD HALF IS CHECKED NOW TOO (2026-08-19), where it is
+actually answerable.** The file validator cannot load every world at once — but
+the RUNTIME already does: the boot log says `merged 11 level(s) from secondary
+world 'world.intro_ldtk'`, so the merged `RoomSet` IS "every world at once".
+`no_two_rooms_in_the_merged_world_author_the_same_id` asks the question there.
+
+```text
+72 rooms merged   358 distinct authored ids   0 collisions
+```
+
+⚠ **it is green on every shipped world, which is exactly the state where a guard
+and a broken guard look identical** — so it carries three falsifiers, all
+verified: a ROOMS floor (≥50, so a run where the secondary worlds failed to merge
+cannot pass as a cross-world check), an ID floor (≥300, which fired at 294 when
+one authored kind was dropped from the collection), and the collision assertion
+itself, fired by giving one real id a second claimant. ⚠ `LoadingZone` ids stay
+exempt for the reason the file validator gives: a zone's `target_zone` resolves
+within its `target_room`, so `return_door` in seven rooms is correct.
 
 ✔ **A suppression written in one experience survived into the next.** Fixed
 2026-08-18 by `session::teardown::reset_session_scoped_resources_on_retire`

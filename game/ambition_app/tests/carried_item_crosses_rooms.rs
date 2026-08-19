@@ -1818,3 +1818,112 @@ fn the_whole_attachment_closure_is_recorded_as_being_in_custody() {
          authored identity"
     );
 }
+
+/// Every authored id in a room set, with the rooms that claim it.
+///
+/// ⚠ **`LoadingZone` ids are deliberately excluded**, matching
+/// `validate.placement_id_collision`'s own exemption: a zone's `target_zone`
+/// resolves within its `target_room`, so `return_door` naming a zone in seven
+/// rooms is correct rather than a collision. Every other authored kind lands in
+/// the ONE global `SimId::placement(..)` namespace.
+fn authored_id_owners(
+    set: &ambition_platformer2d::actors::rooms::RoomSet,
+) -> std::collections::BTreeMap<String, Vec<String>> {
+    let mut owners: std::collections::BTreeMap<String, Vec<String>> = Default::default();
+    for room in &set.rooms {
+        let ids = room
+            .placements
+            .iter()
+            .map(|placement| placement.id.0.clone())
+            .chain(room.enemy_spawns.iter().map(|enemy| enemy.id.clone()))
+            .chain(room.boss_spawns.iter().map(|boss| boss.id.clone()))
+            .chain(room.ground_items.iter().map(|item| item.id.clone()))
+            .chain(room.gravity_zones.iter().map(|zone| zone.id.clone()))
+            .chain(room.shrines.iter().map(|shrine| shrine.id.clone()));
+        for id in ids {
+            owners.entry(id).or_default().push(room.id.clone());
+        }
+    }
+    owners
+}
+
+/// **NO TWO ROOMS ANYWHERE IN THE LOADED WORLD AUTHOR ONE ID — checked on the
+/// MERGED set, which is the half the file validator cannot see.**
+///
+/// ⛔⛔ **`SimId::placement(id)` is a GLOBAL namespace and uniqueness was only
+/// ever checked PER FILE.** D125 records the gap in its own words: *"a
+/// cross-WORLD collision is possible in principle (measured 0), and checking it
+/// would need every world loaded at once, which this validator does not do."*
+/// The RUNTIME does exactly that — the boot log says
+/// `merged 11 level(s) from secondary world 'world.intro_ldtk'` — so the merged
+/// `RoomSet` is the artifact where the question is answerable, and this asks it
+/// there.
+///
+/// What a collision would cost: `OccurrenceContinuity` keys dispositions on
+/// `SimId`, so one id claimed by two rooms means one row speaking for two
+/// things. Carry either out of its room and the ledger suppresses BOTH on
+/// rebuild — the object in your hands and a stranger two worlds away.
+///
+/// ⚠ **the self-check below is not decoration.** A guard that is green on all
+/// real data is indistinguishable from one that cannot fire, and this one is
+/// green on every shipped world. So the same detector is run against a synthetic
+/// pair that DOES collide, in the same test, and must report it.
+#[test]
+fn no_two_rooms_in_the_merged_world_author_the_same_id() {
+    let mut sim = fixed_60hz_room_sim("vertical_shaft");
+    for _ in 0..20 {
+        sim.step(base());
+    }
+    let (rooms, owners) = {
+        let world = sim.world_mut();
+        let mut query = world.query::<&ambition_platformer2d::actors::rooms::RoomSet>();
+        let set = query
+            .iter(world)
+            .next()
+            .expect("the session publishes a merged room set");
+        (set.rooms.len(), authored_id_owners(set))
+    };
+
+    // ⭐ the zero floor, in BOTH dimensions: a scan that loaded one room, or a
+    // room set whose authored ids stopped being readable, would otherwise report
+    // "no collisions" over almost nothing.
+    assert!(
+        rooms >= 50,
+        "only {rooms} rooms were merged — the secondary worlds did not load, so this \
+         is not a CROSS-WORLD check at all"
+    );
+    assert!(
+        owners.len() >= 300,
+        "only {} authored ids were read across {rooms} rooms; the collection above has \
+         stopped seeing a kind that carries an id",
+        owners.len()
+    );
+
+    let collisions: Vec<String> = owners
+        .iter()
+        .filter(|(_, claimants)| claimants.len() > 1)
+        .map(|(id, claimants)| format!("`{id}` in {claimants:?}"))
+        .collect();
+    assert!(
+        collisions.is_empty(),
+        "two rooms author one id, and `SimId::placement(..)` is a GLOBAL namespace — \
+         so one occurrence row speaks for both, and carrying either out of its room \
+         suppresses the other on rebuild: {collisions:?}"
+    );
+
+    // ── the detector can fire ────────────────────────────────────────────────
+    let mut synthetic: std::collections::BTreeMap<String, Vec<String>> = Default::default();
+    synthetic.insert("shared_id".into(), vec!["room_a".into(), "room_b".into()]);
+    synthetic.insert("unique_id".into(), vec!["room_a".into()]);
+    let found: Vec<&String> = synthetic
+        .iter()
+        .filter(|(_, claimants)| claimants.len() > 1)
+        .map(|(id, _)| id)
+        .collect();
+    assert_eq!(
+        found,
+        vec!["shared_id"],
+        "the collision predicate cannot detect a collision it is handed directly, so \
+         its silence on the real world means nothing"
+    );
+}

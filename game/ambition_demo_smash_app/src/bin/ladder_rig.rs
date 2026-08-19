@@ -71,7 +71,13 @@ struct Bout {
     /// three is a different result from one that survived with one, and the
     /// time column cannot tell them apart.
     stocks: [u32; 2],
-    /// Highest damage percent each seat ever carried.
+    /// Highest damage each seat ever carried, as a RATIO of its pool.
+    ///
+    /// ⚠ **`1.69` is 169%, not 1.69%** — exactly what
+    /// `BodyHealth::damage_percent` documents. The `×100` lives at the one print
+    /// site. Reading this as a percentage is what made the column report a 169%
+    /// duel as `1.69%` for its whole life, and what made the row marker below
+    /// call real fights unfought.
     ///
     /// ⛔ **the column that says whether the other two mean anything.** This
     /// file's own header demands it — *"pair every 'it won' with 'and it
@@ -190,15 +196,46 @@ fn run_scenarios(seeds: usize) {
 }
 
 fn seed_count() -> usize {
+    flag_value("--seeds")
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(DEFAULT_SEEDS)
+}
+
+/// The value that followed `name` on the command line.
+fn flag_value(name: &str) -> Option<String> {
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
-        if arg == "--seeds" {
-            if let Some(value) = args.next().and_then(|v| v.parse().ok()) {
-                return value;
-            }
+        if arg == name {
+            return args.next();
         }
     }
-    DEFAULT_SEEDS
+    None
+}
+
+/// **WHO IS FIGHTING — and it is a flag because the answer changes the reading
+/// of every column.**
+///
+/// ⛔⛔ **the ladder's own fighters are the demo's STAND-INS**, and this rig had
+/// no way to say otherwise. `smash_duelist_a`/`_b` exist so a lone visitor has a
+/// body before a match starts; `install_smash_content`'s own comment calls
+/// `smash_duelist_a` *"the STAND-IN the host drops"*, and the composed game seats
+/// Ambition's real cast instead. So every ladder number was measured on two
+/// bodies the shipped game does not use — which is fine as a controlled A/B
+/// between LEVELS, and is exactly the wrong subject for *"do CPUs damage each
+/// other"*.
+///
+/// ⚠ **the disagreement that forced this**: on 2026-08-19 this rig reported a
+/// peak of 1.93% over fifteen 60-second bouts at 9 vs 6, while a live capture of
+/// a composed two-CPU match on 2026-08-17 showed **180% and 124%**. Two
+/// instruments, one nominal subject, two orders of magnitude. A rig that cannot
+/// change who is fighting cannot tell you which of those is about the AI.
+fn fighters() -> [String; 2] {
+    [
+        flag_value("--character")
+            .unwrap_or_else(|| ambition_demo_smash::SMASH_CHARACTER_ID.to_string()),
+        flag_value("--opponent")
+            .unwrap_or_else(|| ambition_demo_smash::SMASH_OPPONENT_ID.to_string()),
+    ]
 }
 
 fn median(mut values: Vec<f32>) -> f32 {
@@ -276,20 +313,45 @@ fn report_row(label: &str, bouts: &[Bout]) {
     // each other produce an outlast time made of walking, and the verdict column
     // would still name a winner. Say so on the row rather than in a footnote
     // nobody reads next to the number.
-    // A Smash KO lands somewhere north of 80%. Anything under one percent is
-    // incidental contact, not a fight — and `f32::EPSILON` was the wrong
-    // threshold for that: the first run printed medians of 0.03%–0.84% and the
-    // marker stayed silent, which is precisely the row it exists to flag.
-    const FOUGHT_AT_ALL: f32 = 1.0;
+    //
+    // ⛔⛔ **AND THIS COLUMN WAS OFF BY 100× FOR ITS WHOLE LIFE, WHICH TURNED A
+    // HARD-FOUGHT DUEL INTO A DOCUMENTED FINDING THAT THE CPUs NEVER HIT EACH
+    // OTHER** (found 2026-08-19). `BodyHealth::damage_percent` returns a RATIO —
+    // its own doc says *"`1.88` is a legal answer and is how a HUD prints
+    // `188%`"* — and this printed it under a literal `%`. So a fighter at 169%
+    // was reported as `1.69%`.
+    //
+    // ⚠ **the threshold was then chosen to fit the misreading**, which is how a
+    // unit error survives review: the paragraph that stood here reasoned *"a
+    // Smash KO lands north of 80%, so anything under one percent is incidental
+    // contact"* and set the constant to `1.0`. In this column's real units `1.0`
+    // is **100% damage**, so the marker fired on every row where neither fighter
+    // had yet reached a full KO meter — it called a duel that reached 48% and
+    // 45% *"NEITHER LANDED A HIT"*.
+    //
+    // ⇒ measured on the composed host the same day, two level-9 CPUs on a real
+    // grid character reach **169 damage against a pool of 100** in 60 seconds,
+    // with 575 ticks of hitstun each. They fight hard. The reading was the
+    // defect, not the fighters.
+    //
+    // The number below is the original sentence's intent in the column's actual
+    // units: under one percent of a pool is incidental contact.
+    const FOUGHT_AT_ALL: f32 = 0.01;
     let verdict = if hi_peak < FOUGHT_AT_ALL && lo_peak < FOUGHT_AT_ALL {
         format!("{verdict} — BUT NEITHER LANDED A HIT")
     } else {
         verdict
     };
     println!(
-        "[ladder_rig]   {label:<26} {:>20} : {:<20} {hi_stocks:>3.0} : {lo_stocks:<3.0}          {hi_peak:>6.2}% : {lo_peak:<6.2}%  {verdict}",
+        "[ladder_rig]   {label:<26} {:>20} : {:<20} {hi_stocks:>3.0} : {lo_stocks:<3.0}          {:>6.1}% : {:<6.1}%  {verdict}",
         span(&hi_all),
-        span(&lo_all)
+        span(&lo_all),
+        // ⚠ **×100 HERE and nowhere else.** The ratio is what every other reader
+        // of `damage_percent` wants; a percentage is a display concern, and
+        // baking it into the stored column is how the threshold above came to be
+        // written in the wrong units.
+        hi_peak * 100.0,
+        lo_peak * 100.0
     );
 }
 
@@ -367,10 +429,7 @@ fn run_bout_at(
     }
     app.world_mut()
         .insert_resource(ambition_demo_smash::smash_roster_at_levels(
-            [
-                ambition_demo_smash::SMASH_CHARACTER_ID,
-                ambition_demo_smash::SMASH_OPPONENT_ID,
-            ],
+            fighters(),
             &[higher, lower],
         ));
     app.world_mut()

@@ -102,6 +102,31 @@ A Smash KO lands north of 80%. **These fighters never hit each other.** Every
 the direction of the 15-seed lean says nothing about skill — that reading is
 withdrawn.
 
+⛔⛔ **AND THAT PARAGRAPH IS ITSELF WITHDRAWN (2026-08-19): THE COLUMN WAS OFF BY
+100×.** `BodyHealth::damage_percent` returns a RATIO — its own doc says *"`1.88`
+is a legal answer and is how a HUD prints `188%`"* — and the rig printed it under
+a literal `%`. `0.84%` was **84%**. The sentence *"a Smash KO lands north of
+80%"* was written one line above the number that already said 84, and the
+comparison was made anyway.
+
+⭐ **the corrected table, same build, same fifteen seeds** — and the fighters
+were never the problem:
+
+```text
+3 vs 1    48.0% :  45.0%      5 vs 3   111.0% :  98.0%
+6 vs 5   139.0% : 101.0%      9 vs 6   193.0% : 158.0%
+```
+
+⭐⭐ **the ladder discriminates in exactly this column**: peak damage rises
+monotonically with the rung and the higher rung out-damages the lower on all four
+pairs, while the time column stays within spread everywhere. The engagement
+column was the working signal all along.
+
+⚠ **the `ladder_probe` table below is NOT affected** — its `peak% = 0` is real
+and by construction, because its opponent cannot attack. Two tables, one column
+name, two different reasons for a small number, which is part of how this
+survived.
+
 ⭐ **`ladder_probe` confirms it by a different route** (one fighter, opponent
 cannot attack, so every loss is a self-KO):
 

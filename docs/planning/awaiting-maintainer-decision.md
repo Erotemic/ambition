@@ -160,11 +160,48 @@ host instead of changing Mary-O's proven replay path.
 
 ### 5. Smash CPUs walk off the stage at every difficulty — is this news? (measured 2026-08-14)
 
-Not a decision so much as a finding you should see before it gets designed
-around. Two independent rigs agree: a Smash duelist loses all three stocks to
-ITSELF, at 0% damage, at every authored rung. In a real duel neither fighter
-exceeds 0.84% peak damage — they never hit each other; the "outlast" numbers the
-ladder rig reports are measuring who walked off later.
+⛔⛔ **THE HEADLINE EVIDENCE BELOW WAS A UNIT ERROR AND IS RETRACTED (2026-08-19).
+The CPUs fight hard, and they always did.** `0.84%` was **84%**.
+`BodyHealth::damage_percent` returns a RATIO — its own doc says *"`1.88` is a
+legal answer and is how a HUD prints `188%`"* — and `ladder_rig` printed it under
+a literal `%`, so every reading of that column was a hundredth of the truth. The
+rig's *"BUT NEITHER LANDED A HIT"* marker was then given a threshold picked to
+fit the misreading (`1.0`, which in the column's real units is a full 100% KO
+meter), so it fired on genuine duels.
+
+⭐ **the corrected table, same build, same fifteen seeds:**
+
+```text
+3 vs 1     48.0% :  45.0%     (was 0.48% : 0.45% — "NEITHER LANDED A HIT")
+5 vs 3    111.0% :  98.0%
+6 vs 5    139.0% : 101.0%
+9 vs 6    193.0% : 158.0%
+```
+
+⭐⭐ **and the ladder DISCRIMINATES in the column nobody could read**: peak damage
+rises monotonically with the rung, and the higher rung out-damages the lower on
+all four pairs — while the time column stays within spread on every row. The
+instrument had a working signal the whole time and it was being printed at 1%
+scale.
+
+✔ **confirmed independently in the shipped composition**, not just the demo app:
+two level-9 CPUs on `npc_pirate_admiral` (a character a player can pick off the
+grid) reach **169 damage against a pool of 100** in sixty seconds, spending 575
+ticks each in hitstun. Pinned by `app_it::smash_cpus_damage_each_other`, which
+states its units in the assertion message so this cannot be misread again.
+
+⚠ **what SURVIVES the retraction is the self-KO half**, and it is a different
+claim with different evidence: the `rollout_depth` A/B (depth 0 survives, depth
+12 self-KOs at 21.8s) never used this column. That question is still open.
+
+⛔ the paragraph below is kept as the historical record of the claim, not as
+evidence. Original text, 2026-08-14:
+
+> Not a decision so much as a finding you should see before it gets designed
+> around. Two independent rigs agree: a Smash duelist loses all three stocks to
+> ITSELF, at 0% damage, at every authored rung. In a real duel neither fighter
+> exceeds 0.84% peak damage — they never hit each other; the "outlast" numbers the
+> ladder rig reports are measuring who walked off later.
 
 The clean A/B, same level-9 profile with only `rollout_depth` varied: **depth 0
 survives 47.8s, depth 12 survives 7.4s.** The L3 rollout is enabled

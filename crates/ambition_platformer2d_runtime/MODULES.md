@@ -12,22 +12,23 @@
 | [`content_identity`](src/content_identity.rs) | Immutable prepared-content identity shared by preparation, activation, snapshots, and transactional hot reload. |
 | [`durable_save_horizon`](src/durable_save_horizon.rs) | **Wiring the DURABLE save horizon into every composition, not just the visible one.** |
 | [`external_effects`](src/external_effects.rs) | Holding external effects at the confirmed-frame boundary. |
+| [`input_drive`](src/input_drive.rs) | Backend-neutral authored input delivery for simulation drivers. |
 | [`input_stream`](src/input_stream.rs) | **Input-stream capture** (netcode N0.2) — the one place a session's input is recorded. |
 | [`ldtk_world`](src/ldtk_world.rs) | **The LDtk world's runtime install — offered by the engine, accepted by a game that HAS an LDtk world.** |
-| [`lifecycle_commit`](src/lifecycle_commit.rs) | Confirmed-frame lifecycle commit (Track B, Piece 2). |
 | [`mode_scope`](src/mode_scope.rs) | The demo-hosting seam (decomposition D-C, vision §5): **scoped game modes**. |
 | [`player_schedule`](src/player_schedule.rs) | The per-frame PLAYER schedule wiring (E5 step 5) — the engine-generic player-frame lifecycle every platformer built on this engine runs, headless or windowed: time control → input → controlled-subject resolution → brains → body mode → possession → hit events → presentation write-back. |
 | [`portal_schedule`](src/portal_schedule.rs) | Portal simulation assembly (E5 step 5, behind the `portal` feature): [`ambition_portal2d::PortalPlugin`] plus the schedule placement for portal's internal sets — each mapped to its sandbox phase, cross-set ordering edge, and gameplay run condition. |
 | [`progression_schedule`](src/progression_schedule.rs) | Progression-phase schedule plugin. |
 | [`projectile_schedule`](src/projectile_schedule.rs) | Projectile schedule seams owned by the runtime composition tier. |
-| [`rollback`](src/rollback/mod.rs) | Backend-neutral rollback schema composition. Concrete GGRS hosting lives in `ambition_platformer2d_rollback_ggrs`. |
+| [`rollback`](src/rollback/mod.rs) | Backend-neutral rollback schema composition. |
 | [`room_schedule`](src/room_schedule.rs) | The engine half of the room-transition phase (E5 step 5): detection emits `RoomTransitionRequested`; the feature-side `reset_ecs_room_features` system tears down per-room ECS state. |
 | [`room_transition`](src/room_transition/mod.rs) | Ordinary room transitions, end to end — the ENGINE's copy. |
 | [`sandbox_reset`](src/sandbox_reset.rs) | The sandbox reset authority and its room-replay consumer. |
 | [`session_world`](src/session_world.rs) | Prepared platformer definitions and canonical live session components. |
 | [`sim_core_resources`](src/sim_core_resources.rs) | The engine-generic simulation messages + resource defaults (E5 step 6). |
+| [`sim_identity`](src/sim_identity.rs) | Backend-neutral stable simulation identity maintenance. |
 
-_20 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_21 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

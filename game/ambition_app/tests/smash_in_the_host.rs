@@ -4193,6 +4193,86 @@ fn on_the_smash_pad_x_fires_the_fighters_authored_special() {
     );
 }
 
+/// **Y ON THE PAD STARTS THE FIGHTER'S AUTHORED GRAB.**
+///
+/// ⭐⭐ **THE WHOLE CAPTURE SUITE STARTS DOWNSTREAM OF THIS PRESS, and that is
+/// why Jon's report exists.** Every grab test in the repository writes
+/// `grab_pressed` straight onto a body's `ActorControl` —
+/// `ambition_demo_smash::capture`'s chain test, `capture_probe`, the scored-move
+/// tests. Every one of them begins AFTER the input layer, so the stretch a real
+/// button has to travel — `InputMap` → `ControlFrame` → the seat → the action
+/// scheme's `ControlSlot::Grab` → the body — was covered by nothing at all. Jon,
+/// 2026-08-18: *"grab doesn't work on george when I press the button that says
+/// grab, at least I don't see anything happen."*
+///
+/// ⛔ **a passing capture chain is not evidence about this**, which is the
+/// general form worth keeping: a hand-driven chain pins the FUNCTION and says
+/// nothing about the WIRING.
+///
+/// ⚠ **non-vacuity is asserted twice, because either half could make this pass
+/// for the wrong reason.** The fighter has to author a grab at all (otherwise
+/// pressing Y correctly does nothing), and the pad has to bind Y to Grab
+/// (otherwise this measures some other button's verb).
+#[test]
+fn on_the_smash_pad_y_starts_the_fighters_authored_grab() {
+    use ambition_platformer2d::combat::moveset::ActorMoveset;
+
+    let (mut app, pad, body) = a_pad_player_fighting_as(OTHER_PREPARED_FIGHTER);
+
+    // Non-vacuity 1: this fighter answers the grab verb.
+    let grab_id = app
+        .world()
+        .get::<ActorMoveset>(body)
+        .and_then(|moveset| {
+            moveset
+                .0
+                .move_for_verb(ambition_platformer2d::entity_catalog::GRAB_VERB)
+                .map(|spec| spec.id.clone())
+        })
+        .expect(
+            "this fighter authors no grab, so pressing Y could not prove anything              about reaching one",
+        );
+
+    // Non-vacuity 2: Y is where the smash layout puts Grab.
+    {
+        use ambition_platformer2d::input::{
+            ActionBindings, PhysicalControl, Platformer2dInputActionMonolith,
+        };
+        use leafwing_input_manager::prelude::InputMap;
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<
+            &InputMap<Platformer2dInputActionMonolith>,
+            With<ambition_platformer2d::input::InputParticipant>,
+        >();
+        let bound: Vec<PhysicalControl> = q
+            .iter(world)
+            .next()
+            .map(|map| {
+                ActionBindings::from_map(map)
+                    .controls(&Platformer2dInputActionMonolith::Grab)
+                    .iter()
+                    .filter(|control| matches!(control, PhysicalControl::Button(_)))
+                    .cloned()
+                    .collect()
+            })
+            .unwrap_or_default();
+        assert_eq!(
+            bound,
+            vec![PhysicalControl::Button(GamepadButton::North)],
+            "inside a smash match Grab has to be on Y, or the press below is              about some other button"
+        );
+    }
+
+    let fired = move_started_while_holding(&mut app, pad, body, GamepadButton::North);
+    let fired = fired.expect(
+        "pressing Y on the pad started NO move. The fighter authors a grab and          the pad binds Y to Grab, so the break is between them — the seat's          control frame, or the action scheme's Grab slot, which STRIPS          `grab_pressed` when the slot is absent",
+    );
+    assert_eq!(
+        fired, grab_id,
+        "pressing Y played `{fired}` rather than this fighter's grab `{grab_id}`"
+    );
+}
+
 /// **THE LEFT TRIGGER SHIELDS, THROUGH THE SEMANTIC SHIELD ACTION.**
 ///
 /// Jon: *"left trigger is shield"*. Slice 2 made Shield a real participant

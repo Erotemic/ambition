@@ -168,10 +168,25 @@ pub fn tick_player_brain_from_control(
     // unless a specific mode opts in.
     out.body_contact_damage_enabled = false;
 
-    // Dash, interact, shield, special.
+    // Dash, interact, shield, grab, special.
     out.dash_pressed = c.dash_pressed;
     out.interact_pressed = c.interact_pressed;
     out.shield_held = c.shield_held;
+    // ⛔⛔ **THE LINE THAT WAS NOT HERE, AND THE WHOLE CAPTURE MECHANIC WAS
+    // UNREACHABLE BY A HUMAN BECAUSE OF IT** (Jon, 2026-08-18: *"grab doesn't
+    // work on george when I press the button that says grab, at least I don't
+    // see anything happen"*). Everything else existed: the pad bound Y to Grab,
+    // the seat's `ControlFrame.grab_pressed` was set, the body had
+    // `AbilitySet::grab` and a `ControlSlot::Grab`, George authored the move —
+    // and this brain, the ONE seam a human's frame crosses to reach a body,
+    // never copied the field.
+    //
+    // ⚠ **`ActorControl::grab_pressed`'s own doc asserted the opposite**: *"the
+    // human's Grab button and a CPU's decision write this SAME field. There is
+    // deliberately no `cpu_wants_grab` beside it."* The design was right and the
+    // carry list simply never learned it, so the comment described an intent the
+    // code did not implement — and a CPU could grab while a person could not.
+    out.grab_pressed = c.grab_pressed;
     // No dedicated "special" input today — `blink_pressed` is the
     // Special now has its OWN dedicated input slot (`Platformer2dInputActionMonolith::Special` →
     // `ControlFrame.special_pressed`), retiring the old

@@ -529,14 +529,14 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
         // ⭐ **the second fighter to author one, and through a DIFFERENT
         // provider** — this crate, not the smash demo. That is the falsifier:
         // the capture vocabulary is not quietly tied to one game-owned file.
-        capture: Some(SmashCaptureRepertoire {
+        capture: SmashCaptureRepertoire {
             grab,
             pummel,
             forward_throw,
             back_throw: None,
             up_throw: None,
             down_throw: None,
-        }),
+        },
         down_special: DownSpecial::OneForm(down_b),
     }
     .into_contract()

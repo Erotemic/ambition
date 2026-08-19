@@ -157,19 +157,18 @@ pub struct SmashRepertoire {
     /// **The capture kit — grab, pummel, throws.** See
     /// [`SmashCaptureRepertoire`](crate::smash_capture::SmashCaptureRepertoire).
     ///
-    /// ⚠ `Option` DURING THE MIGRATION, and it is the one slot on this struct
-    /// that is. Every other field is required precisely so a missing one is a
-    /// compile error in the fighter's own file — that is this type's whole
-    /// argument. This field suspends that argument on purpose: the relationship
-    /// architecture is being proven on two fighters first, and forcing the other
-    /// twelve to invent grab geometry against a shape that is still moving would
-    /// author the wrong values confidently.
+    /// ✔ **REQUIRED, as of 2026-08-19 — the migration is over and the `Option`
+    /// is gone.** It was the one optional slot on this struct, suspending the
+    /// type's whole argument (a missing field is a compile error in the
+    /// fighter's own file) while the relationship architecture was proven on two
+    /// fighters. All fourteen author one now, so the compiler resumes doing here
+    /// what it does for the other sixteen slots.
     ///
-    /// ⇒ **when the roster is migrated, delete the `Option`** and the compiler
-    /// resumes doing what it does for the other sixteen slots. A fighter with
-    /// `None` simply has no capture verbs, and the action scheme gives it no Grab
-    /// slot, so nothing about it lies.
-    pub capture: Option<crate::smash_capture::SmashCaptureRepertoire>,
+    /// ⭐ **this replaces a grep.** A goal check read the movesets looking for
+    /// `capture: Some`, which is the kind of guard that answers a question the
+    /// compiler can answer better: a new fighter that forgets a grab no longer
+    /// ships and gets noticed, it does not build.
+    pub capture: crate::smash_capture::SmashCaptureRepertoire,
 }
 
 impl SmashRepertoire {
@@ -236,7 +235,7 @@ impl SmashRepertoire {
         // Capture moves are GROUNDED for v1 — aerial and command grabs are named
         // future techniques, and a capture that answered an airborne press would
         // be one of them by accident.
-        if let Some(capture) = capture {
+        {
             for (verb, spec) in capture.bound() {
                 bound.push((verb, spec, GROUNDED));
             }
@@ -303,7 +302,38 @@ mod tests {
             neutral_special,
             side_special: spec("sspecial"),
             up_special: spec("uspecial"),
-            capture: None,
+            // ⚠ a real kit, because the slot is required now. The fixture's
+            // job is to exercise the VERB TABLE, so the smallest catchable grab
+            // that reaches `bound()` is the honest fixture — not a placeholder
+            // that would make the capture verbs untested here.
+            capture: crate::smash_capture::SmashCaptureRepertoire {
+                grab: crate::smash_capture::author_standing_grab(
+                    crate::smash_capture::grab_shell("grab", "attack", 0.07, 0.05, 0.2),
+                    crate::smash_capture::CaptureAttemptParams {
+                        offset: (12.0, 1.0),
+                        half_extents: (18.0, 15.0),
+                        hold_offset: (13.0, 3.0),
+                    },
+                ),
+                pummel: crate::smash_capture::author_pummel(
+                    crate::smash_capture::capture_beat("pummel", "attack", 0.18),
+                    0.08,
+                    crate::smash_capture::CapturePummelParams { damage: 3 },
+                ),
+                forward_throw: crate::smash_capture::author_throw(
+                    crate::smash_capture::capture_beat("fthrow", "attack", 0.26),
+                    0.14,
+                    crate::smash_capture::CaptureThrowParams {
+                        damage: 8,
+                        knockback: 120.0,
+                        knockback_growth: 2.0,
+                        launch_dir: (0.85, -0.55),
+                    },
+                ),
+                back_throw: None,
+                up_throw: None,
+                down_throw: None,
+            },
             down_special,
         }
     }
@@ -428,7 +458,12 @@ mod tests {
         )
         .into_contract();
         assert!(!set.verbs.contains_key("special"));
-        assert_eq!(set.verbs.len(), 15);
+        // ⚠ **18, not 15, since 2026-08-19** — and the delta is the point rather
+        // than a retune: `capture` stopped being `Option` when every fighter
+        // gained a grab, so this fixture is now a fighter WITH one and binds the
+        // three capture verbs beside its sixteen ordinary slots. The claim above
+        // is untouched: abstaining from the neutral special still binds nothing.
+        assert_eq!(set.verbs.len(), 18);
     }
 
     /// **Two slots cannot share a move id.** The one integrity defect this shape

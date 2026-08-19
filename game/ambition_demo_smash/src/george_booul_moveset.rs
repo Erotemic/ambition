@@ -591,7 +591,7 @@ pub fn george_booul_moveset() -> MovesetContract {
         // author it as CONTENT. Back throw, up throw and down throw stay unauthored
         // in his facet: this fighter has a forward throw and says so, and a press
         // for one he does not have finds nothing rather than a pummel.
-        capture: Some(capture),
+        capture,
         down_special: DownSpecial::ByPosture {
             grounded: ground_down_b,
             airborne: down_b,

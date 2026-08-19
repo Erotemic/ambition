@@ -608,7 +608,7 @@ pub fn oiler_moveset() -> MovesetContract {
         //
         // ⚠ the VALUES are per character on purpose. A roster whose grabs are
         // twelve copies of one number set is one grab wearing twelve names.
-        capture: Some(SmashCaptureRepertoire {
+        capture: SmashCaptureRepertoire {
             grab,
             pummel,
             forward_throw,
@@ -619,7 +619,7 @@ pub fn oiler_moveset() -> MovesetContract {
             back_throw: None,
             up_throw: None,
             down_throw: None,
-        }),
+        },
         down_special: DownSpecial::OneForm(down_b),
     }
     .into_contract();

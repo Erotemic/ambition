@@ -457,7 +457,7 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
         //
         // ⚠ the VALUES are per character on purpose. A roster whose grabs are
         // twelve copies of one number set is one grab wearing twelve names.
-        capture: Some(SmashCaptureRepertoire {
+        capture: SmashCaptureRepertoire {
             grab,
             pummel,
             forward_throw,
@@ -468,7 +468,7 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
             back_throw: None,
             up_throw: None,
             down_throw: None,
-        }),
+        },
         down_special: DownSpecial::ByPosture {
             grounded: down_b,
             airborne: air_down_b,

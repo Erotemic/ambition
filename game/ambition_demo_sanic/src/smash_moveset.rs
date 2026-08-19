@@ -467,7 +467,7 @@ pub fn sanic_moveset() -> MovesetContract {
         // roster have a grab.** The transitional `None` is gone: capture was
         // proven on George and the Pirate Admiral, and the point of proving it
         // was to stop being the only two.
-        capture: Some(SmashCaptureRepertoire {
+        capture: SmashCaptureRepertoire {
             grab,
             pummel,
             forward_throw,
@@ -477,7 +477,7 @@ pub fn sanic_moveset() -> MovesetContract {
             back_throw: None,
             up_throw: None,
             down_throw: None,
-        }),
+        },
         down_special: DownSpecial::ByPosture {
             grounded: ground_down_b,
             airborne: down_b,

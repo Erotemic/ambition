@@ -277,11 +277,23 @@ impl RoomTransitionApplication<'_, '_> {
             .unwrap_or(ae::Vec2::new(0.0, 1.0));
         let tuning = self.tuning.0;
         let feel = *self.feel;
-        // A body carrying home-only presentation state is the primary player,
-        // which is not room-scoped and so is never in the outgoing roster. Any
-        // OTHER body is, and must be exempted from the despawn so it rides along.
-        let is_home_body = self.bodies.presentation.contains(subject);
-        let carry_body = (!is_home_body).then_some(subject);
+        // **THE BODY GOING THROUGH THE DOOR IS NOT RETIRED WITH THE ROOM IT IS
+        // LEAVING.** Stated about the SUBJECT, which is the only thing that
+        // matters here, rather than about what kind of body it is.
+        //
+        // ⛔ this used to ask `presentation.contains(subject)` — *"does it carry
+        // home-only blink-camera state?"* — as a proxy for *"is this the primary
+        // player, which is not room-scoped and therefore not in the outgoing
+        // roster anyway?"*. The proxy bought nothing and could only ever lose:
+        // when it answered correctly the exemption was a no-op, and the one way
+        // it could answer WRONG is by calling a room-scoped body a home body,
+        // which despawns the thing mid-transition. ⇒ an unconditional exemption
+        // is strictly safer, because `retire_outgoing` skips an entity that is
+        // not in its roster and exempting an absent entity is already a no-op.
+        //
+        // ⭐ and it removes a player-centrism: the transition no longer has an
+        // opinion about which body is the protagonist.
+        let carry_body = Some(subject);
 
         // ── MUTATION ─────────────────────────────────────────────────────────
         // Nothing below may fail.

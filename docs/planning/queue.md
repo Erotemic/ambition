@@ -2743,13 +2743,15 @@ one expressible:**
    object that is correctly saved and restored"** — an unmarked entity merely
    survives this session's four boundaries. The durable-persistence system is
    still undesigned, and reading the deletion of the fake markers as "persistence
-   is handled" would be the exact error those markers caused in the first place. ⚠ plus one concrete player-centrism smell in
-   `room_transition/commit.rs`: whether a transiting body survives the room change
-   is inferred from `!self.bodies.presentation.contains(subject)` — *"does it
-   carry home-only presentation state"* — which is either a no-op or catastrophic
-   (if that proxy ever fails, the player is despawned mid-transition). Collapsing
-   it to `Some(subject)` is strictly safer; the `presentation` query itself must
-   stay, since the blink camera also uses it.
+   is handled" would be the exact error those markers caused in the first place. ✔ **the player-centrism smell in
+   `room_transition/commit.rs` is gone (2026-08-19)** — whether a transiting body
+   survived the room change was inferred from
+   `!self.bodies.presentation.contains(subject)`, *"does it carry home-only
+   presentation state"*, a proxy that bought nothing and could only lose: correct,
+   it was a no-op; wrong, it despawns a room-scoped body mid-transition. Now an
+   unconditional `Some(subject)`, which is safe because `retire_outgoing` already
+   skips an entity absent from its roster. The `presentation` query stays for the
+   blink camera.
 
    ⛔ authored identity does NOT imply world uniqueness — "there is normally one
    Fia" is content policy, not the meaning of a definition id. ⛔ **do not invent

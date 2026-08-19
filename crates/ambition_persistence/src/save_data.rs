@@ -267,8 +267,15 @@ impl PersistedCustody {
 /// would then be silently overridden by every save written before it.
 ///
 /// ⚠ **no position**, because the rows that reach here are the ones a hand was
-/// holding: the hand supplies the place. A minted instance lying on a floor when
-/// the save is written is still undescribed — see the module note on
+/// holding: the hand supplies the place.
+///
+/// ⭐ **a minted instance lying on a floor IS described too, as of 2026-08-19**,
+/// and it still needs no position of its own: an
+/// `OccurrenceWhereabouts::Placed { room, at }` row already records where a
+/// resting occurrence lies, and the room build rebuilds it there from this
+/// description. ⚠ this doc previously said such an instance was "still
+/// undescribed", which was true and whose stated REASON — that the description
+/// remembers no position — was not. See the module note on
 /// `session::durable_horizon`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PersistedMintedItem {

@@ -74,9 +74,18 @@
 //!
 //! # ⚠ WHAT THIS STILL DOES NOT COVER
 //!
-//! * a runtime mint that is NOT in a hand — lying in a loaded room, or in flight —
-//!   is still undescribed and still lost, because [`MintedItemDescription`]
-//!   remembers no position and nothing in the world remembers one for it;
+//! * ✔ **a runtime mint NOT in a hand is COVERED as of 2026-08-19**, and the
+//!   reason this list gave was wrong twice over. It said the mint "remembers no
+//!   position" — it does not need to: an `OccurrenceWhereabouts::Placed { room,
+//!   at }` row records exactly where a resting occurrence lies, written for every
+//!   in-world item. What actually lost it was `live_minted_descriptions`
+//!   refusing anything `InWorld`, so the world knew WHERE and had no way to make
+//!   it again. The describer no longer filters, and the room build settles the
+//!   reinstatement debt from the checkpoint's description.
+//!   ⚠ **in FLIGHT is still not covered, and that half is by design**: the
+//!   ledger tracks only occurrences it already `remembers` — things somebody
+//!   CARRIED — and `record_placed_ground_items` refuses to become the universal
+//!   instance registry that tracking everything would require;
 //! * `OwnedItems` is a QUANTITY table persisted by the sibling leg in
 //!   `items::persist`, and the two do not coordinate (D132's surviving half);
 //! * `OccurrenceWhereabouts::Consumed` round-trips through the file and has no

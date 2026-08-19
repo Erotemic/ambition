@@ -5234,6 +5234,40 @@ inventory   an ENTRY carrying a COUNT                and the count is usually 1
   comment into a description of a world that no longer exists — which in this
   repository is where the reasoning lives."*
 
+✔✔ **D166's FIRST THREE SLICES LANDED 2026-08-19, in the 2026-08-19 GPT
+review's own order.**
+
+```text
+1  action LEGALITY vs UTILITY   `ActionLegality` filters the option list; a
+   (the review's item 1)        press the body cannot consume is not offered.
+                               capture_probe: 54 presses/33 wasted -> 9/0,
+                               holds 1 -> 2.
+2  what a HOLD is worth         `capture_value` prices a capture from the
+                               OPPONENT — guard, percent, hitstun, airborne —
+                               never from a constant. The reverted
+                               throw-damage pricing is pinned by a test.
+3  capture RELATION vs POLICY   pummels/hold-age/escape left `CapturedBy` for
+   (the review's item 3)        `SmashHoldState`; protocol 38 -> 39.
+4  George SELECTS, not owns     his facet moved to the character-authoring
+   (the review's item 2)        submodule; the demo's pack points at it.
+5  every fighter has a grab     12 of 14 had `capture: None`; now none do.
+```
+
+⛔⛔ **the review's one prohibition is NOT satisfied and is deliberately still
+open**: *"I would specifically avoid adding things like `Features { grab_value:
+... }` to the generic scorer. That just moves the smell into a struct."* A
+`capture_value` feature WAS added to `brain/fighter`'s `Features` and it
+measurably works — but `brain/fighter` is not yet a platform-fighter CRATE, so
+the review's point stands and that feature is what the carve has to relocate.
+⇒ **the carve is the remaining half of D166**, and the review withdraws the old
+hold on it: *"I no longer think 'do not carve yet' should be treated as
+indefinitely binding… the carve has now been earned."*
+
+⚠ **and one number in that review is superseded**: it says the CPU spent 36.5%
+of a match in grab range *"without one free-body Grab press"*. True on the tree
+it read; as of `15a2c1b8e` the CPU throws grabs from free bodies and lands
+holds, pummels and throws. Its architectural conclusion is unaffected.
+
 - ▢ **D166 — THE CHARACTER-AUTHORING BOUNDARY IS CHOSEN BUT NOT YET LOAD-BEARING.
   (from the 2026-08-18 GPT review; the boundary itself is now WRITTEN DOWN)**
 

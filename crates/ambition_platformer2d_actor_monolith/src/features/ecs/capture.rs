@@ -542,11 +542,15 @@ mod tests {
         app.world_mut()
             .entity_mut(victim)
             .insert(surface_state(1.0));
-        app.world_mut().entity_mut(victim).insert(CapturedBy {
+        // ⚠ a hold is TWO components: the relation, and this ruleset's half.
+        app.world_mut().entity_mut(victim).insert((
+            CapturedBy {
             captor,
             hold_offset_local: ae::Vec2::new(20.0, -4.0),
             prior_gravity_scale: 1.0,
-        });
+            },
+            ambition_characters::smash_capture::SmashHoldState::default(),
+        ));
         app.update();
         let kin = app.world().get::<ae::BodyKinematics>(victim).unwrap();
         assert_eq!(
@@ -598,11 +602,15 @@ mod tests {
         app.world_mut()
             .entity_mut(captor)
             .insert(ambition_characters::brain::ActorControl(frame));
-        app.world_mut().entity_mut(victim).insert(CapturedBy {
+        // ⚠ a hold is TWO components: the relation, and this ruleset's half.
+        app.world_mut().entity_mut(victim).insert((
+            CapturedBy {
             captor,
             hold_offset_local: ae::Vec2::new(16.0, 0.0),
             prior_gravity_scale: 1.0,
-        });
+            },
+            ambition_characters::smash_capture::SmashHoldState::default(),
+        ));
         app.update();
         let held = &app
             .world()
@@ -710,11 +718,15 @@ mod tests {
         app.world_mut()
             .entity_mut(captor)
             .remove::<ambition_characters::actor::BodyCombat>();
-        app.world_mut().entity_mut(victim).insert(CapturedBy {
+        // ⚠ a hold is TWO components: the relation, and this ruleset's half.
+        app.world_mut().entity_mut(victim).insert((
+            CapturedBy {
             captor,
             hold_offset_local: ae::Vec2::new(16.0, 0.0),
             prior_gravity_scale: 1.0,
-        });
+            },
+            ambition_characters::smash_capture::SmashHoldState::default(),
+        ));
 
         app.update();
 
@@ -745,6 +757,9 @@ mod tests {
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
                 prior_gravity_scale: 0.75,
             },
+            // ⚠ the ruleset's half of the hold: without it there is no
+            // clock and nothing to mash out of.
+            ambition_characters::smash_capture::SmashHoldState::default(),
         ));
         app.world_mut().entity_mut(captor).despawn();
 
@@ -804,6 +819,9 @@ mod tests {
                     hold_offset_local: ae::Vec2::new(16.0, 0.0),
                     prior_gravity_scale: 1.0,
                 },
+                // ⚠ the ruleset's half of the hold: without it there is no
+                // clock and nothing to mash out of.
+                ambition_characters::smash_capture::SmashHoldState::default(),
             ));
 
             let mut ticks = 0;
@@ -884,6 +902,9 @@ mod tests {
                     hold_offset_local: ae::Vec2::new(16.0, 0.0),
                     prior_gravity_scale: 1.0,
                 },
+                // ⚠ the ruleset's half of the hold: without it there is no
+                // clock and nothing to mash out of.
+                ambition_characters::smash_capture::SmashHoldState::default(),
             ));
             // The interruption: the captor is hit.
             app.world_mut()
@@ -984,6 +1005,9 @@ mod tests {
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
                 prior_gravity_scale: 1.0,
             },
+            // ⚠ the ruleset's half of the hold: without it there is no
+            // clock and nothing to mash out of.
+            ambition_characters::smash_capture::SmashHoldState::default(),
         ));
 
         for _ in 0..2 {
@@ -1050,6 +1074,9 @@ mod tests {
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
                 prior_gravity_scale: 1.0,
             },
+            // ⚠ the ruleset's half of the hold: without it there is no
+            // clock and nothing to mash out of.
+            ambition_characters::smash_capture::SmashHoldState::default(),
         ));
         (app, captor, victim)
     }
@@ -1160,11 +1187,15 @@ mod tests {
                 .entity_mut(body)
                 .insert(crate::features::ActorFaction::Player);
         }
-        app.world_mut().entity_mut(first).insert(CapturedBy {
+        // ⚠ a hold is TWO components: the relation, and this ruleset's half.
+        app.world_mut().entity_mut(first).insert((
+            CapturedBy {
             captor,
             hold_offset_local: ae::Vec2::new(18.0, 0.0),
             prior_gravity_scale: 1.0,
-        });
+            },
+            ambition_characters::smash_capture::SmashHoldState::default(),
+        ));
         app.world_mut().write_message(attempt(captor));
         app.update();
         assert!(

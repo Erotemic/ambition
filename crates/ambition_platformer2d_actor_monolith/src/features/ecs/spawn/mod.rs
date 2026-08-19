@@ -90,16 +90,14 @@ impl std::error::Error for RoomFeatureConstructionError {}
 pub struct RoomFeatureConstructionPlan {
     room: crate::rooms::RoomSpec,
     content_requests: Vec<super::spawn_actors::SpawnActorRequest>,
-    /// The three planned origin families (Phase 3): authored ground items and
-    /// provider-staged actors, planned here; summoned minions plan the same way
-    /// at the moment they are summoned. Everything else in this room is still
-    /// constructed by the family-specific loops in [`Self::spawn`], which
-    /// Phase 4 migrates.
+    /// The complete actor-domain construction plan for authoritative room
+    /// contents. Authored items, staged actors, placements, static families,
+    /// enemies, bosses and derived giant limbs all enter through this plan;
+    /// summoned minions use the same planner at the moment they are summoned.
     construction: crate::construction::ActorConstructionPlan,
     /// The frozen catalogs this plan reads — character catalog, hostile roster,
-    /// boss profiles. THE copy: the recipes read it through
-    /// `ConstructionExecCtx`, and the family-specific loops in [`Self::spawn`]
-    /// read it directly, so a cached plan holds one of each rather than a pair.
+    /// boss profiles. THE copy: recipes read it through `ConstructionExecCtx`,
+    /// so a cached plan carries one coherent service snapshot into execution.
     construction_services: crate::construction::ActorConstructionServices,
     expected_authoritative_ids: BTreeSet<String>,
     /// What this room POINTS AT and did not find. Empty for a clean room.
@@ -358,10 +356,9 @@ impl RoomFeatureConstructionPlan {
         let binding_report = bindings.sweep(room);
         binding_report.log(&format!("room `{}` construction", room.id));
         // Authored-id uniqueness across every family, checked in the RAW authored
-        // namespace while the outgoing room is still whole. This stays separate
-        // from the plan-derived roster built below: several families (placements,
-        // bosses, non-giant enemies) are not plan rows yet, so their ids are only
-        // knowable from the `RoomSpec` here.
+        // namespace while the outgoing room is still whole. The plan also checks
+        // final `SimId` uniqueness; this earlier pass keeps duplicate diagnostics
+        // in the author's source vocabulary before records expand into derived rows.
         let authored_ids = room
             .placements
             .iter()
@@ -670,10 +667,9 @@ impl RoomFeatureConstructionPlan {
     /// Rebuild one authored authoritative root through the exact interpreter
     /// and catalogs frozen by this plan.
     ///
-    /// For the planned families this is [`ConstructionPlan::construct_one`] —
-    /// the SAME recipe ordinary construction runs, which is the property Phase 3
-    /// exists to buy. The remaining families still take the family-specific
-    /// branches below; Phase 4 migrates them.
+    /// This is [`ConstructionPlan::construct_one`] through the same frozen recipe
+    /// ordinary room construction uses. Every authored authoritative family is a
+    /// plan row now, so there is no family-specific reconstruction fallback.
     pub fn respawn_authoritative_entity(
         &self,
         commands: &mut Commands,

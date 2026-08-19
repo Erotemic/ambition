@@ -1,9 +1,10 @@
 # Immutable content / transactional construction — remaining work
 
-> **Verified against `cecd01ca` (2026-08-13).** Prepared content, structured
+> **Verified against `7eea4f27` (2026-08-18).** Prepared content, structured
 > diagnostics, explicit provenance, the construction registry/plan, migrated room
-> construction families, rollback-envelope coverage, and the first external
-> consumer slice are implemented. The 2,400-line campaign record is archived at
+> construction families, removal of the legacy construction exemption,
+> rollback-envelope coverage, and the first external consumer slice are
+> implemented. The 2,400-line campaign record is archived at
 > [`../../archive/planning-superseded/2026-08-13/engine/immutable-content-and-transactional-construction.md`](../../archive/planning-superseded/2026-08-13/engine/immutable-content-and-transactional-construction.md).
 
 ## Remaining construction work

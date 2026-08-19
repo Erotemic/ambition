@@ -2,8 +2,9 @@
 
 ## Status
 
-**Accepted; implemented for three origin families** (2026-07-22; revised twice
-the same day after two rounds of external review. The second round found four of
+**Accepted; construction-family migration complete** (2026-07-22; migration
+completed 2026-08-18; revised twice the same day after two rounds of external
+review. The second round found four of
 the first round's five repairs incomplete and one — permitting a subset to cut a
 relation's target — actively wrong. The Decision section below describes the
 mechanism as it now stands, not as either round intended it.) Completes
@@ -149,23 +150,19 @@ executor now calls `spawn_empty`, stamps identity and provenance onto the result
 and hands the recipe a [`ConstructionRoot`] it cannot forge. Freshness is
 structural, so there is no check left to get wrong.
 
-⚠ **This does NOT amount to enforced plan-to-world roster parity, and must not
-be described as if it did.** A recipe still receives raw `Commands` and the root
-`Entity`, so it can despawn that root, overwrite or remove its `SimId`, mutate
-unrelated entities, or spawn additional entities that acquire authoritative
-identities of their own. The giant staged-actor path already does the last of
-these: `spawn_enemy_with_faction_into` creates two hand limbs that mint their own
-`SimId::spawned` and have no plan rows. `ConstructionRoot` prevents a recipe
-NOMINATING a pre-existing entity as a row's root; it is not a capability that
-confines what a recipe may otherwise do, and pretending otherwise while raw
-`Commands` remain in scope would be a worse lie than the one it replaced.
+⚠ **This still does NOT make plan-to-world roster parity a type-level
+property.** A recipe receives raw `Commands` and the root `Entity`, so a broken
+recipe can despawn that root, overwrite or remove its `SimId`, mutate unrelated
+entities, or invent another authoritative identity. `ConstructionRoot` prevents
+a recipe NOMINATING a pre-existing entity as a row's root; it is not a capability
+that confines what a recipe may otherwise do.
 
-Two staged answers. **The near-term one is now live**: `verify_committed_roster`
-runs at the real room-construction boundary, reads the authoritative scope from
-the world rather than from a caller-supplied list, and withholds `RoomLoaded`
-when it finds a fatal violation. The structural one is still Phase-4 work —
-migrating every authoritative entity a recipe creates internally into an explicit
-plan row, giant limbs first.
+The production migration has nevertheless crossed its deletion gate: every
+authoritative room-construction family, including giant hand limbs, is an
+explicit plan row. `verify_committed_roster` remains the enforcement backstop at
+the real room boundary and withholds `RoomLoaded` for any violation. The former
+`LegacyConstructionRoot`/known-family exemption and `Unmigrated` severity class
+were deleted rather than kept as an empty compatibility path.
 
 Three vocabulary terms keep these apart, and are used consistently throughout:
 
@@ -173,7 +170,7 @@ Three vocabulary terms keep these apart, and are used consistently throughout:
 |---|---|---|
 | **executor invariant** | the executor allocates each nominal planned root and freezes its constructor | held, mechanically |
 | **verification invariant** | the production boundary detects missing, duplicate, replaced, corrupted, or unexpected authoritative roots and incorrect relationships | held, as a detector |
-| **future structural invariant** | every authoritative root is an explicit plan row; recipes may create only explicitly non-authoritative helpers | NOT held — Phase 4 |
+| **production roster invariant** | every authoritative root produced by room construction is an explicit plan row; helpers are explicitly non-authoritative | held by the migrated production families and verified at commit |
 
 **A domain supplies what core cannot know** — `ConstructionDomain::Parameters`
 (what a row carries) and `Services` (the frozen catalogs its recipes read).
@@ -181,11 +178,14 @@ Recipes never downcast, and a plan cannot be committed against the wrong domain.
 
 ## Consequences
 
-Three families are migrated (an authored `GroundItemSpec`, a provider-staged
-`SpawnActorRequest`, an `Effect::Summon` minion) — one per origin kind, as the
-campaign specifies. The three silent skips above are now preflight failures, and
-a summoned minion takes `SimId::spawned` under its summoner, so two summons
-reusing one authored id no longer collide.
+The original three representative families (an authored `GroundItemSpec`, a
+provider-staged `SpawnActorRequest`, and an `Effect::Summon` minion) proved the
+three origin kinds. The migration then moved authored placements, static room
+families, every enemy and boss, and derived giant limbs onto the same planner.
+There is no room-construction family-specific authoritative spawn loop left, and
+there is no legacy exemption at the verifier. The three original silent skips
+are preflight failures, and a summoned minion takes `SimId::spawned` under its
+summoner, so two summons reusing one authored id no longer collide.
 
 Provider-staged actors stopped being deferred. They were written as
 `SpawnActorRequest` messages and applied a system later; they are plan rows
@@ -212,9 +212,10 @@ rather than given a parentless dynamic id. Every body carrying a `FeatureId` is
 identified at the head of the tick, so this cannot arise for authored content;
 reaching it means the emitter is outside the identity migration.
 
-Most of a room is still built by family-specific loops. That is Phase 4's
-migration order, not an oversight: a partial sweep would have forked families
-rather than moved them.
+Authoritative room construction no longer has family-specific spawn loops.
+Family migrations landed by moving each family completely — plan row and recipe
+in, old authoritative loop out — so the planner is the one room-construction
+road rather than a second road beside the old one.
 
 ## Alternatives considered
 
@@ -308,9 +309,9 @@ a state where the two disagree with nothing to say which wins.
 - **Take authoritative counters while planning; write them back on commit.** Any
   spawn site that advances snapshot-registered state before its plan is validated
   has mutated on the failure path, whatever its error branch claims.
-- When migrating a family in Phase 4, delete its family-specific spawn loop in
-  the same commit that adds its recipe. A family that is planned *and* looped is
-  a duplicate spawn, not a transition state.
+- A new authoritative room-construction family enters through the planner from
+  its first implementation. Reintroducing a family-specific authoritative spawn
+  loop would create a second construction road, not a transition state.
 - **The actor construction domain is CLOSED.** `ActorConstructionParams` is a
   closed enum and `ConstructionDomain::dispatch` is a closed exhaustive match, so
   a provider cannot add an executable recipe — only *metadata*. The registry

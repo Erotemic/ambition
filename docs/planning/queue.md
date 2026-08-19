@@ -2416,6 +2416,12 @@ portal_leak       -> vfx.oiler.portal_leak         packed .loop only   no move e
   fall back to `{cue}.loop` when the plain id is unshipped removes the trap
   entirely, and would retrigger the loop on each of those same re-strikes — the
   doubled-burst class `moveset_sound` exists to catch.
+  ✔ **DECIDED 2026-08-19 — JON PICKED (c), LEAVE IT RECORDED.** Neither guard is
+  built and neither fallback lands; a cue whose name does not follow the
+  `{cue}.loop` convention still falls through silently and that stays a known
+  footgun. ⭐ consistent with his standing rule that **an exemption list is a TODO
+  list** — option (a) would have created exactly one. ⛔ this is decided, not
+  deferred: do not propose the guard again unprompted.
   ⚠ the existing guard is the INVERSE of the gap: it checks bursts that already
   carry an override, never one that should and does not; the sheet has one upward and
   one downward swing, so tilt/smash share a row — honest, and thinner than the

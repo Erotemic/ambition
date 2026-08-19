@@ -1927,3 +1927,225 @@ fn no_two_rooms_in_the_merged_world_author_the_same_id() {
          its silence on the real world means nothing"
     );
 }
+
+/// **Letting go of a driven body in a room that is not its own hands you back a
+/// body IN THAT ROOM, and leaves one of the actor.**
+///
+/// ⭐ **written to catch a defect that turned out not to exist, and kept because
+/// what it measures is load-bearing and nothing else measures it.** The worry
+/// was that possession's travel story ends badly: you possess an actor, walk IT
+/// through a door, and let go over there. Two things could go wrong and neither
+/// does. Your own avatar is session-scoped, so the door does not retire it —
+/// but it also does not come along, and mid-possession it really is sitting at
+/// the PREVIOUS room's coordinates (measured: the driven body at `(970, 386)`
+/// in `central_hub_complex` while the avatar was still at `(807, 1207)`, some
+/// 820 units away in `vertical_shaft`). Letting go puts it on the body it let
+/// go of, wherever that body is. That reposition is the whole assertion below.
+///
+/// ⚠ **the reposition is MEASURED here, not traced to the system that performs
+/// it.** `release_possession` writes no position — it is documented as touching
+/// no scope, because possession is brain transfer — so something downstream of
+/// the release does this, and the two candidates behave differently: a fetch
+/// follows the body, an out-of-bounds rescue goes to the room's spawn. The
+/// displaced release below is what tells them apart, and it says FETCH. Do not
+/// turn that into a claim about a named system without following it.
+///
+/// ⛔ **the stale position is asserted too, and that is the point.** "The avatar
+/// is near the released body" is satisfied by an avatar that was never
+/// anywhere else, so the distance it TRAVELLED is checked as well; a release
+/// that stopped repositioning would leave it 820 units away in a room that is
+/// no longer loaded, and only the second term would notice.
+///
+/// ⛔ **it deliberately does not assert which room the ACTOR ends up in.**
+/// Residency is "scoped to whatever room is active", not to a named one, so a
+/// released actor becomes an ordinary resident of the room it was let go in and
+/// is retired when that room unloads, after which its authored record speaks for
+/// it again. Pinning a room would pin that policy. What must hold under either
+/// policy is that the world ends up with ONE of it: zero means being let go away
+/// from home lost the actor, two means its authoring room re-authored it beside
+/// a copy that was still alive.
+#[test]
+fn an_actor_released_in_a_foreign_room_leaves_one_of_it_and_a_body_to_drive() {
+    use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
+    use ambition_platformer2d::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
+    use ambition_platformer2d::characters::brain::Brain;
+
+    const HOME: &str = "vertical_shaft";
+    const AWAY: &str = "central_hub_complex";
+
+    let mut sim = fixed_60hz_room_sim(HOME);
+    for _ in 0..20 {
+        sim.step(base());
+    }
+    let (actor, id) = {
+        let world = sim.world_mut();
+        let mut q = world.query::<(Entity, &SimId, &Brain, &BodyKinematics)>();
+        q.iter(world)
+            .find(|(_, id, _, _)| id.as_str().starts_with("placement:EnemySpawn"))
+            .map(|(e, id, _, _)| (e, id.clone()))
+            .expect("'vertical_shaft' authors an enemy with a placement identity")
+    };
+    assert_eq!(
+        occurrences(&mut sim, &id).len(),
+        1,
+        "setup: exactly one occurrence of the authored actor before anything happens"
+    );
+
+    let avatar = {
+        let world = sim.world_mut();
+        let mut q = world.query_filtered::<Entity, PrimaryPlayerOnly>();
+        q.single(world)
+            .expect("setup: one player body to begin with")
+    };
+
+    let mut possessed = false;
+    for i in 0..900 {
+        if let Some(here) = sim
+            .world()
+            .get::<BodyKinematics>(actor)
+            .map(|k| (k.pos.x, k.pos.y))
+        {
+            sim.teleport_player(here);
+        }
+        sim.step(AgentAction {
+            move_y: 1.0,
+            interact: i == 0,
+            interact_held: true,
+            ..base()
+        });
+        if sim.world_mut().resource::<PossessionState>().possessed == Some(actor) {
+            possessed = true;
+            break;
+        }
+    }
+    assert!(
+        possessed,
+        "setup: holding Down+Interact on the authored actor never possessed it, so \
+         nothing below is about a driven body"
+    );
+    assert_ne!(
+        avatar, actor,
+        "setup: the body being driven IS the body possession started from, so there \
+         is no vacated avatar and the question below is not being asked"
+    );
+
+    let before = sim.observation().active_room.clone();
+    let door = door_to(&mut sim, AWAY);
+    let centre = door.aabb.center();
+    place_body(&mut sim, actor, (centre.x, centre.y));
+    let mut arrived = None;
+    for _ in 0..90 {
+        let room = sim
+            .step(AgentAction {
+                interact: true,
+                interact_held: true,
+                ..base()
+            })
+            .active_room;
+        if room != before {
+            arrived = Some(room);
+            break;
+        }
+    }
+    assert_eq!(
+        arrived.as_deref(),
+        Some(AWAY),
+        "setup: the driven body never left '{before}', so nothing below is about a \
+         release in a FOREIGN room"
+    );
+    assert!(
+        sim.world().get_entity(actor).is_ok(),
+        "setup: the driven body did not survive the door, so the release below would \
+         be about nothing"
+    );
+
+    // A rising edge needs a low frame first: the crossing above held interact.
+    for _ in 0..4 {
+        sim.step(base());
+    }
+
+    let pos_of = |sim: &Platformer2dSimHarness, e: Entity| {
+        sim.world()
+            .get::<BodyKinematics>(e)
+            .map(|k| k.pos)
+            .expect("a live body has kinematics")
+    };
+    // ⭐ **let go somewhere the arrival point is NOT, and this is load-bearing.**
+    // Released at the door you come through, "your avatar is fetched to the body
+    // you let go of" and "your avatar is reset to the room's spawn" put you in
+    // the same place, and the assertions below cannot tell them apart. Measured
+    // both ways: released here at x=1500 the avatar arrives at x=1500, so it
+    // follows the BODY. Move this back to the arrival point and the test stops
+    // discriminating.
+    place_body(&mut sim, actor, (1500.0, 386.0));
+    for _ in 0..4 {
+        sim.step(base());
+    }
+    let stranded = pos_of(&sim, avatar);
+    let let_go_at = pos_of(&sim, actor);
+    assert!(
+        stranded.distance(let_go_at) > 200.0,
+        "setup: the avatar is already standing on the driven body ({stranded:?} vs \
+         {let_go_at:?}), so the reposition asserted below would be a no-op and this \
+         test would pass without release doing anything"
+    );
+
+    sim.step(AgentAction {
+        move_y: 1.0,
+        interact: true,
+        interact_held: true,
+        ..base()
+    });
+    assert_eq!(
+        sim.world_mut().resource::<PossessionState>().possessed,
+        None,
+        "setup: a fresh Down+Interact did not release the body, so the assertions \
+         below are still about a POSSESSED actor"
+    );
+
+    // Let the release settle: the restore runs through the ordinary control seam.
+    for _ in 0..10 {
+        sim.step(base());
+    }
+
+    assert!(
+        sim.world().get_entity(avatar).is_ok(),
+        "letting go in '{AWAY}' destroyed the body control was being handed back to"
+    );
+    let recovered = pos_of(&sim, avatar);
+    assert!(
+        recovered.distance(let_go_at) < 96.0,
+        "after letting go in '{AWAY}' the player's body is at {recovered:?}, nowhere \
+         near the body it let go of at {let_go_at:?}. Your avatar does not travel \
+         with a possessed body — it stays at the PREVIOUS room's coordinates \
+         ({stranded:?}) — so release is the only thing that brings it to you, and \
+         without it control returns to a body standing in a room that is no longer \
+         loaded"
+    );
+    assert!(
+        recovered.distance(stranded) > 200.0,
+        "the avatar never moved from where it was stranded ({stranded:?}), so the \
+         assertion above passed on an avatar that happened to already be near the \
+         driven body rather than on a release that fetched it"
+    );
+
+    // Cycle the room the actor was let go in, which is what retires it and lets
+    // its authoring room speak for it again.
+    let back = walk_through_the_door_to(&mut sim, HOME);
+    assert_eq!(
+        back, HOME,
+        "setup: never got back to '{HOME}', so the occurrence count below is not \
+         about a completed cycle"
+    );
+
+    let after = occurrences(&mut sim, &id);
+    assert_eq!(
+        after.len(),
+        1,
+        "after being let go in '{AWAY}' and a full room cycle the world holds {} \
+         occurrences of '{}'. Zero means being released away from home lost the \
+         actor; two means '{HOME}' re-authored it beside a copy that was still alive",
+        after.len(),
+        id.as_str()
+    );
+}

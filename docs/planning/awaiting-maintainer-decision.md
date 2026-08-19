@@ -41,7 +41,7 @@ investigation that led to the question. Same rule as
 [`README.md`](README.md#queue-contract); on 2026-08-17 this file was **739 lines
 for 9 open questions**, and the four answered ones held a third of it.
 
-## Open decisions — 11 (§1, §6, §7, §9, §10, §11, §12 and §13 are ANSWERED; §8 is DEFERRED)
+## Open decisions — 12 (§1, §6, §7, §9, §10, §11, §12 and §13 are ANSWERED; §8 is DEFERRED)
 
 ### 1. ✔ ANSWERED 2026-08-17 — a bolt hits what a sword hits (former D23)
 
@@ -890,6 +890,69 @@ instead is that the unspendable case is now LOUD: a `Custom` payload reaching th
 grant warns with the id and says nobody was awarded it, so this stops being
 invisible. ⛔ the silent `_ => {}` that swallowed it is what let eight shipped
 bosses drop empty treasure without a single line of evidence.
+
+### 21. ▢ NEW 2026-08-19 — separating control authority from AI policy breaks a FROZEN wire format
+
+**The question: may `Brain` lose its `Player(PlayerSlot)` variant, given that
+doing so changes the rollback wire format the absence contract freezes?**
+
+The 2026-08-19 review calls this the next major actor-monolith seam:
+`Brain::Player(PlayerSlot)` combines two different ideas — *which participant
+drives this body* and *which brain backend this body uses* — so possession
+transfers an AI-backend variant in order to transfer control authority. The
+review explicitly REJECTS the `Brain::Capability(BrainId)` + registered-dispatch
+direction (a dynamic executable service locator) and asks for a typed
+decomposition instead.
+
+**The evidence, measured rather than estimated.** `Brain::Player` has ~115
+references; **85 of them are comments**. The real code surface is about thirty
+sites, and most are the enum's own methods:
+
+```text
+brain/mod.rs          9   the enum's own dispatch/label/compare methods
+possession.rs         3   inserts Brain::Player(PRIMARY) — the control TRANSFER
+dormancy.rs           4   "is this a participant-driven body"
+causal.rs             6   test fixtures
+avatar/bundles.rs     1   the home avatar spawns with it
+prepared_match.rs     1   ControlAuthority::LocalInput -> Brain::Player
+opening.rs, acting.rs 2   "which slot drives this body" (already asked once each)
+input_adapter.rs      1
+```
+
+⭐ **and the concept is already half-named**: `character_runtime::ControlAuthority`
+exists, with a `LocalInput { source, channel }` variant that is lowered INTO
+`Brain::Player`. The carve would make that lowering unnecessary rather than
+introduce a new idea. `Brain` would then hold a single variant
+(`StateMachine(StateMachineCfg)`), which is the review's "AI policy/state remains
+a domain-owned typed component" reached by deletion.
+
+**⛔ WHY THIS IS A DECISION AND NOT A TASK.** `Brain` is encoded in the rollback
+snapshot, and `rollback-wire-format-is-frozen` (363 stable names, 118 encoded
+types) is an absence contract that currently HOLDS. Removing a variant changes
+that format. The options:
+
+```text
+A  take the break     one migration, the contract's baseline is re-frozen in the
+                      same commit, and every peer/save from before it is
+                      incompatible. Cleanest end state.
+B  additive first     add the control-authority component, leave Brain::Player in
+                      place reading it, migrate consumers, delete the variant in a
+                      later break. Two flag days instead of one, and a window
+                      where two things answer "who drives this".
+C  not now            the seam stays named and unbuilt until a netplay/save
+                      compatibility break is happening anyway for other reasons.
+```
+
+⚠ **I am not choosing.** Every option is defensible and the cost lands on save/
+peer compatibility, which is yours to spend. ⛔ option B is the one that looks
+safest and is not: a window where possession can be expressed two ways is exactly
+the state the `ScriptedControl`/`ControlHolds` breach came from — a derived fact
+and its source disagreeing, resolved by whoever writes next.
+
+⭐ **what is already done in this direction, and needs no decision**:
+`crate::control::ActingParticipant` asks "which seat drives this body" once, for
+both interaction systems, by reading the brain — so the answer already has ONE
+call site to change when the fact moves off `Brain`.
 
 ## ✔ CLOSED 2026-08-15 — every submodule remote is reachable and current
 

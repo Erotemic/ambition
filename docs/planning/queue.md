@@ -5282,6 +5282,23 @@ appears in a `fighter::` grep, but it is a DOC reference in `hit_response.rs`.
 The floor does not depend on the fighter brain, which is the one edge that would
 have made the carve impossible rather than merely expensive.
 
+⭐⭐ **AND THE TWO REMAINING EDGES ARE ONE EDGE, which halves the estimate.**
+`attack_kit` looks like an independent problem — the generic `BrainSnapshot`
+carrying `Vec<fighter::options::AttackCandidate>` — but the only thing that
+reads it is `tick_fighter`, and the only caller of `tick_fighter` is
+`StateMachineCfg::Fighter`'s arm. So the kit does not need a home of its own: it
+travels with the fighter brain the moment that variant stops being a variant of
+a shared enum. ⇒ **there is ONE blocker — a brain-registration seam** — and
+`snapshot.rs` falls out of it rather than needing its own design.
+
+⛔ **which is also why the carve is not a rename.** `StateMachineCfg` is a
+closed enum in the generic brain; a capability cannot add an arm to it from
+outside. The seam has to let a capability REGISTER a brain, and that is a
+decision with reach across every brain in the game — the reason the review said
+to make the boundary load-bearing FIRST and let the crate follow only *"if the
+clean dependency result"* justifies it. Two edges is close to clean; one seam is
+what stands between here and a capability crate.
+
 ⇒ **the ratchet is `the-generic-brain-does-not-grow-new-platform-fighter-edges`**
 (`scripts/check_absence_contracts.py`), which pins those three and refuses a
 fourth. ⛔ growing that exclude list IS the review; shrinking it is the work, and

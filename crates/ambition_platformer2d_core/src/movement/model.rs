@@ -99,6 +99,13 @@ pub struct AxisManeuverState {
     pub pre_wall_vel_age: f32,
     /// Buffered MOVEMENT actions (jump/burst/blink press windows). Combat
     /// buffers (attack/pogo/projectile) stay on the shared BodyActionBuffer.
+    ///
+    /// ⚠ **that second sentence describes WHERE they would live, not that they
+    /// exist.** `BodyActionBuffer` is declared and rollback-registered and
+    /// nothing writes it (measured 2026-08-19) — so the movement buffers here
+    /// are real and their combat counterparts are not. Reading this line as a
+    /// statement that combat input leniency ships is the mistake it caused
+    /// once; see `BodyActionBuffer`'s own doc.
     pub buffer_jump: f32,
     /// The BURST press window — one buffer for the one button that dodge and
     /// dash share (see [`crate::movement::abilities::BurstManeuver`]). ⛔ it was

@@ -725,6 +725,25 @@ impl Default for BodyOffense {
 /// ECS-owned COMBAT action buffer (attack / pogo / projectile press windows).
 /// The MOVEMENT buffers (jump / dash / blink) are axis-policy maneuver state
 /// ([`crate::movement::AxisManeuverState::buffer_jump`] and siblings).
+///
+/// ⛔⛔ **DECLARED BUT UNFED — NOTHING IN PRODUCTION WRITES THIS, AND NOTHING
+/// CALLS [`Self::tick`].** Measured 2026-08-19: zero production writes, zero
+/// production field reads, zero `tick` callers. The three windows are always
+/// `0.0` on every live body, so an early press is dropped exactly as if the
+/// buffer did not exist.
+///
+/// ⚠ **the absence is the surprising fact, which is why it is stated here.**
+/// This is a registered rollback row carried in all three baselines
+/// (`body.action_buffer`, canonical codec), and `AxisManeuverState`'s own doc
+/// names `BodyActionBuffer` as the combat counterpart to its movement buffers —
+/// so every signal a reader has says this is live machinery. It is a reserved
+/// slot with a schema, not a feature.
+///
+/// ⭐ **kept deliberately.** Jon ruled on 2026-08-19 to document rather than
+/// retire it: the combat input buffer it was declared for is still wanted, and
+/// retiring the row costs three baseline re-records to buy nothing while that
+/// is true. ⇒ do not "fix" this by deleting it, and do not read its presence as
+/// evidence that combat input leniency exists.
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct BodyActionBuffer {
     pub attack: f32,

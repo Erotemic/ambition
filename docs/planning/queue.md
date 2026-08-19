@@ -5127,6 +5127,36 @@ and the plan, not here:**
    hand supplies where the object is."                      rebuild at the origin
 ```
 
+  ✔ **1 IS FIXED (2026-08-19).** `live_minted_descriptions` no longer filters on
+  custody, so a dropped mint is described; the staleness test beside it kept its
+  claim and had its fixture corrected (it dropped an item to mean "gone", which
+  only worked because of this bug).
+  ▢ **2 AND 3 REMAIN, and the implementation is specified rather than guessed —
+  read this before opening the file.** `restore_custody_to_checkpoint` needs
+  `AuthoredOccurrences` as a parameter (it does not take it today) and a SECOND
+  loop beside the custody one:
+
+```text
+for each ledger row  Placed { room, at }
+    where room == the ACTIVE room's id           (a row for an unloaded room is
+                                                  not this restore's business)
+      and the occurrence is NOT live             (absent, not merely unheld)
+      and `minted.description_of(id)` is Some    (authored ones are rebuilt by
+                                                  the room build + suppression)
+    spawn_room_in_session with the occurrence's OWN SimId + SpawnOrigin,
+    `GroundItem { pos: at, .. }` and `ItemCustody::InWorld`
+```
+
+  ⛔⛔ **the three conditions are the safety, not ceremony.** Drop any one and a
+  death duplicates every dropped object in the room — which is the exact class
+  D133 already shipped once and only an end-to-end fixture caught (*"a session
+  builds its start room before any file is read, so `record_placed_ground_items`
+  republished the stale position over the loaded row"*).
+  ⚠ **the falsifier this needs is end-to-end and does not exist yet**: mint an
+  item, DROP it, die, and assert it is back at the position it fell — with the
+  poison being that removing the new loop leaves ZERO, and removing the
+  active-room condition leaves TWO. Until that runs, 2 and 3 are not done however
+  green the unit tests are.
   ⇒ **1 and 3 are exact complements and that is the shape of the fix**: an
   in-custody mint is DESCRIBED but unplaced (the hand supplies where); an
   in-world mint is PLACED but undescribed. Each half already exists; neither

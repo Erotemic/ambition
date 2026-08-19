@@ -72,7 +72,7 @@ use ambition_platformer2d_core as ae;
 use crate::actor::attack_gesture::AttackDir;
 
 use super::situation::{is_punishable, Situation};
-use crate::perception::Perceived;
+use crate::perception::{BodyPhase, Perceived, PerceivedActor};
 
 /// One movement verb the body can attempt. Derived from `SelfView`'s capability
 /// mask — the body-enforced floor (invariant I3), so the brain can only propose
@@ -137,6 +137,19 @@ pub struct Features {
     /// when the move plausibly lands. Zero across the board in neutral, so the
     /// original four features decide there (FB6a).
     pub expected_payoff: f32,
+    /// `0..=1`. **What HOLDING this opponent is worth right now** — zero for
+    /// every move that is not a capture. See [`capture_value`].
+    ///
+    /// ⛔⛔ **it is a feature of its own rather than a value routed through
+    /// [`Self::expected_payoff`], and the reason is a trap found before it was
+    /// written.** `expected_payoff` is `power * frame_advantage.max(0.0)`, and
+    /// `frame_advantage` is measured against `is_punishable(foe)` — which is
+    /// `AttackStartup | AttackRecovery | Hitstun` and *not* `Shielding`. A
+    /// shielding opponent therefore reports zero commitment, every startup is a
+    /// gamble, `frame_advantage` clamps to `-1`, and the gate multiplies by
+    /// zero. Routing a hold's worth through that gate would have deleted it in
+    /// exactly the situation a grab exists to answer.
+    pub capture_value: f32,
 }
 
 impl Features {
@@ -146,6 +159,7 @@ impl Features {
             + self.kill_potential * w.kill_potential
             + self.stage_risk * w.stage_risk
             + self.expected_payoff * w.expected_payoff
+            + self.capture_value * w.capture_value
     }
 }
 
@@ -160,6 +174,22 @@ pub struct UtilityWeights {
     pub stage_risk: f32,
     /// Prices a move's POWER on a plausible landing (FB6a). Positive.
     pub expected_payoff: f32,
+    /// Prices what a HOLD is worth (D166's policy half). Positive.
+    ///
+    /// ⚠ **`serde(default)` because the authored profiles are RON-in-Rust
+    /// literals** (`brain_builders.rs`, the fighter content schema's tests) that
+    /// spell all five of the older weights and cannot spell this one. Without a
+    /// default they would fail to parse; with it they keep their meaning and
+    /// take the tuned value. ⛔ that is also the hazard — a literal that MEANT
+    /// to zero this reads identically to one that never heard of it, so a
+    /// profile which wants no grabs must say so.
+    #[serde(default = "default_capture_value_weight")]
+    pub capture_value: f32,
+}
+
+/// The `capture_value` weight an authored profile gets when it does not name one.
+fn default_capture_value_weight() -> f32 {
+    UtilityWeights::v1().capture_value
 }
 
 impl UtilityWeights {
@@ -173,6 +203,12 @@ impl UtilityWeights {
             kill_potential: 0.4,
             stage_risk: -0.8,
             expected_payoff: 0.5,
+            // ⚠ **a v1 starting value like its neighbours, not a tuned one.**
+            // Sized deliberately BELOW `reach_fit`'s 1.0 so that no amount of
+            // hold value can buy a grab thrown from outside its own reach —
+            // which is the exact failure the reverted "a grab is worth its
+            // forward throw's damage" experiment produced.
+            capture_value: 0.5,
         }
     }
 }
@@ -452,6 +488,7 @@ pub fn generate_options(
     let mut attacks: Vec<AttackOption> = kit
         .iter()
         .map(|c| {
+            use super::options::AttackVerb;
             let fa = frame_advantage(c.frames.startup_s, their_commitment);
             let power = if kit_max_damage > 0 {
                 c.frames.max_damage as f32 / kit_max_damage as f32
@@ -464,6 +501,13 @@ pub fn generate_options(
                 kill_potential: foe.damage_frac(),
                 stage_risk,
                 expected_payoff: power * fa.max(0.0),
+                // Only a capture asks this question, and `capture_value` answers
+                // zero for everything else — stated at the call site so the
+                // feature cannot quietly start pricing ordinary swings.
+                capture_value: match c.binding.verb {
+                    AttackVerb::Grab => capture_value(foe),
+                    AttackVerb::Basic | AttackVerb::Smash | AttackVerb::Special => 0.0,
+                },
             };
             AttackOption {
                 move_id: c.move_id.clone(),
@@ -583,6 +627,91 @@ pub fn reach_fit(reach: f32, gap: f32) -> f32 {
     let miss = (gap - reach).abs();
     (1.0 - miss / (reach * REACH_TOLERANCE)).clamp(0.0, 1.0)
 }
+
+/// **WHAT A HOLD IS WORTH — the platform-fighter policy term the damage road
+/// cannot express (D166's open half, ruled 2026-08-19).**
+///
+/// A capture deals NO DAMAGE. `max_damage` is what a move does on contact, so a
+/// grab's power is honestly zero and `expected_payoff` is honestly zero with it.
+/// What a capture actually buys is that the opponent is HELD, and that is worth
+/// a different amount on different ticks — which is why it is a function of the
+/// opponent rather than a constant on the move.
+///
+/// ⛔⛔ **THE MEASURED MISTAKE THIS REPLACES: pricing the grab at its FOLLOW-UP
+/// THROW's damage.** It reads as obviously right — what is catching somebody
+/// worth, if not the throw? — and `capture_probe` measured what it bought on
+/// 2026-08-18: the CPU grabbed from **110px with a 42px reach**, nine attempts
+/// in sixty seconds, none of them inside its own range, zero holds. It was
+/// reverted to the honest zero.
+///
+/// ⇒ **the fault was not the size of the number, it was that the number was
+/// UNCONDITIONAL.** A constant payoff makes a grab the best answer to every
+/// situation including the ones it cannot reach. Every term below is zero or
+/// small unless a specific fact about the opponent is true right now.
+///
+/// ⭐ **the largest term is the guard, and the tree already said so.**
+/// `rollout.rs` writes the triangle down — *"Attack beats grab, grab beats
+/// shield, shield beats attack"* — and the L3 rollout has known it since a
+/// shielding opponent made the whole kit worth zero and the CPU picked by
+/// tie-break. L2 did not know it, and L2 is what `attacks.first()` falls back to
+/// whenever L3 names nothing. This is L2 learning the same fact.
+///
+/// ⚠ **what is deliberately NOT here: escape risk.** What a hold is worth truly
+/// depends on whether it can be KEPT, and nothing in the view reports how hard
+/// this opponent mashes. Inventing a term for it would be modelling, not
+/// measuring. Stated rather than guessed.
+///
+/// ⭐⭐ **THE CLAMP IS LOAD-BEARING, and a poison attempt is what showed it.**
+/// The return is clamped to `0..=1`, so no value of [`GRAB_BEATS_GUARD`] or
+/// [`THROW_CONVERSION`] can raise a hold's worth past 1 — raising both tenfold
+/// leaves the score unchanged, which is what the first poison of
+/// `a_hold_is_never_worth_a_grab_the_body_cannot_reach` measured when the test
+/// stayed green. ⇒ **the ceiling on how far a hold can buy a grab is the WEIGHT
+/// alone** (`UtilityWeights::capture_value`), and the guard bites when that is
+/// raised. A future tuner should move the weight knowing it is the only knob
+/// that can reproduce the reverted bug.
+///
+/// ⚠ v1 starting values, in the same sense as [`UtilityWeights::v1`] — chosen so
+/// the relationships are right, not tuned. `capture_probe`'s move histogram is
+/// the instrument.
+pub fn capture_value(foe: &PerceivedActor) -> f32 {
+    // Nothing to hold, or nothing that can be held.
+    if !foe.alive || foe.invulnerable {
+        return 0.0;
+    }
+    // ⛔ **a body already reeling is the WRONG grab.** It is in hitstun, so it
+    // is about to be hit again by anything at all; spending the grab's startup
+    // to catch it trades a live combo for a hold. This is also the case where a
+    // naive "they cannot answer, so grab" rule would score highest, which is
+    // why it is refused explicitly rather than left to the weights.
+    if matches!(foe.phase, BodyPhase::Hitstun) {
+        return 0.0;
+    }
+    // **THE GUARD.** A raised shield makes every damaging option worth nothing
+    // and a grab worth everything — the one answer the genre has. Grounded,
+    // because a shield is a grounded posture and an airborne body's guard is not
+    // the thing this beats.
+    let guard = if foe.shield_raised && foe.on_ground {
+        GRAB_BEATS_GUARD
+    } else {
+        0.0
+    };
+    // **THE CONVERSION.** A throw off a hold sends them further the higher they
+    // are, so the same hold is worth more at 120% than at 0%. Scales with the
+    // percent axis the rest of the scorer already reads.
+    let convert = foe.damage_frac() * THROW_CONVERSION;
+    (guard + convert).clamp(0.0, 1.0)
+}
+
+/// What catching a GUARDING opponent is worth — the third leg of the triangle.
+/// The dominant term on purpose: it is the situation in which every other option
+/// in the kit is worth zero.
+const GRAB_BEATS_GUARD: f32 = 0.8;
+
+/// How much of a hold's worth comes from the throw it sets up, at 100%. Kept
+/// well under [`GRAB_BEATS_GUARD`] so that percent alone never makes a grab the
+/// answer to a neutral opponent standing out of reach.
+const THROW_CONVERSION: f32 = 0.35;
 
 /// `+1` when the attack lands a full startup before the opponent can answer; `-1`
 /// when it is a full startup too slow. Normalized by the startup so a slow move's

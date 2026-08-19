@@ -686,6 +686,7 @@ fn the_score_is_exactly_the_weighted_features() {
         kill_potential: 0.0,
         stage_risk: 0.0,
         expected_payoff: 0.0,
+        capture_value: 0.0,
     };
     let opts = generate_options(
         Perceived::cheating(&view_with(300.0, 400.0)),
@@ -951,4 +952,166 @@ fn an_attack_that_cannot_span_the_gap_is_not_offered() {
         offered.attacks.iter().any(|a| a.move_id == "buff"),
         "a zero-reach move has no reach question and must survive the filter"
     );
+}
+
+// ── what a hold is worth (D166's policy half) ────────────────────────────
+
+/// A grab candidate with a real capture box, the way `capture_candidate` builds
+/// one: no damage, no `reach` from a volume, guard ignored, and a `coverage`
+/// taken from the `CAPTURE_ATTEMPT` params rather than from a hitbox.
+fn grab_candidate(reach: f32) -> AttackCandidate {
+    let mut frames = frames(0.07, 0.0, 0.2);
+    frames.reach = reach;
+    frames.coverage = Some(ambition_entity_catalog::MoveCoverage {
+        min: (0.0, -12.0),
+        max: (reach, 12.0),
+    });
+    // ⛔ the two facts that make a grab a grab and not a weak poke.
+    frames.max_damage = 0;
+    frames.ignores_guard = true;
+    AttackCandidate {
+        move_id: "grab".to_string(),
+        frames,
+        binding: AttackBinding {
+            verb: AttackVerb::Grab,
+            direction: AttackDir::Neutral,
+        },
+    }
+}
+
+fn guarding(mut view: WorldView) -> WorldView {
+    let foe = &mut view.actors[0];
+    foe.shield_raised = true;
+    foe.on_ground = true;
+    foe.phase = BodyPhase::Shielding;
+    view
+}
+
+/// **A hold is worth most against a raised guard** — the third leg of the
+/// triangle `rollout.rs` already writes down, now visible to L2.
+///
+/// ⚠ L2 is the layer that matters here: L3's rollout has known "grab beats
+/// shield" since a shielding opponent made the whole kit worth zero, but
+/// `attacks.first()` is what answers whenever L3 names nothing.
+#[test]
+fn a_hold_is_worth_more_against_a_guard_than_against_a_free_body() {
+    let free = view_with(300.0, 340.0);
+    let held = guarding(view_with(300.0, 340.0));
+
+    let against_free = capture_value(&free.actors[0]);
+    let against_guard = capture_value(&held.actors[0]);
+
+    assert!(
+        against_guard > against_free,
+        "a grab is the genre's answer to a shield, but it priced a guarding \
+         body at {against_guard} and a free one at {against_free}"
+    );
+    // ⛔ the zero floor: if BOTH were zero the comparison above would be
+    // vacuous, and a policy that never fires is the state this replaced.
+    assert!(
+        against_guard > 0.0,
+        "the guard term did not fire at all, so this test proves nothing"
+    );
+}
+
+/// **A body already in hitstun is the WRONG grab, and it is refused explicitly.**
+///
+/// It is the case a naive "they cannot answer, so grab" rule scores HIGHEST —
+/// they are maximally helpless — and it is the case where spending the grab's
+/// startup trades a live combo for a hold.
+#[test]
+fn a_reeling_body_is_not_worth_grabbing() {
+    let mut view = view_with(300.0, 340.0);
+    view.actors[0].phase = BodyPhase::Hitstun;
+    view.actors[0].damage_taken = 90;
+    assert_eq!(
+        capture_value(&view.actors[0]),
+        0.0,
+        "hitstun is the one state where helplessness must NOT read as grab value"
+    );
+}
+
+/// **⛔⛔ THE REVERTED BUG, PINNED: no amount of hold value buys a grab thrown
+/// from outside its own reach.**
+///
+/// Pricing the grab at its forward throw's damage made the CPU grab from 110px
+/// with a 42px reach — nine attempts in sixty seconds, none inside its own
+/// range, zero holds (`capture_probe`, 2026-08-18). The fault was that the
+/// number was UNCONDITIONAL, so this fixes the opponent at every fact that
+/// makes a hold most valuable — guarding AND at high percent — and puts them
+/// out of reach anyway.
+#[test]
+fn a_hold_is_never_worth_a_grab_the_body_cannot_reach() {
+    // 110px apart, exactly the measured failure, with a 42px grab.
+    let mut view = guarding(view_with(300.0, 410.0));
+    view.actors[0].damage_taken = 140;
+
+    let kit = [
+        grab_candidate(42.0),
+        // A poke that DOES cover the gap. It is the option the grab must not
+        // outrank, and it is deliberately the weakest thing in the kit.
+        candidate("poke", 0.1, 120.0),
+    ];
+    let opts = generate_options(
+        Perceived::cheating(&view),
+        Situation::Neutral,
+        &kit,
+        &UtilityWeights::v1(),
+    );
+    let best = opts.best_attack().expect("the kit offers something");
+    assert_eq!(
+        best.move_id, "poke",
+        "a grab out at 110px with a 42px reach outranked a poke that covers the \
+         gap — this is the reverted throw-damage pricing coming back"
+    );
+}
+
+/// **And the converse, so the guard above is not satisfied by a policy that
+/// never fires**: in reach and against a shield, the grab DOES win.
+#[test]
+fn in_reach_and_against_a_guard_the_grab_wins() {
+    let view = guarding(view_with(300.0, 330.0));
+    let kit = [grab_candidate(42.0), candidate("poke", 0.1, 40.0)];
+    let opts = generate_options(
+        Perceived::cheating(&view),
+        Situation::Neutral,
+        &kit,
+        &UtilityWeights::v1(),
+    );
+    let best = opts.best_attack().expect("the kit offers something");
+    assert_eq!(
+        best.move_id, "grab",
+        "a shielding opponent 30px away is the textbook grab and the scorer \
+         picked `{}` instead",
+        best.move_id
+    );
+}
+
+/// **The feature is zero for every move that is not a capture**, asserted at the
+/// scorer rather than at `capture_value`, because the call site is where it
+/// could quietly start pricing ordinary swings.
+#[test]
+fn only_a_capture_carries_capture_value() {
+    let view = guarding(view_with(300.0, 330.0));
+    let kit = [grab_candidate(42.0), candidate("poke", 0.1, 40.0)];
+    let opts = generate_options(
+        Perceived::cheating(&view),
+        Situation::Neutral,
+        &kit,
+        &UtilityWeights::v1(),
+    );
+    let mut saw_grab = false;
+    for attack in &opts.attacks {
+        if attack.move_id == "grab" {
+            saw_grab = true;
+            assert!(attack.features.capture_value > 0.0);
+        } else {
+            assert_eq!(
+                attack.features.capture_value, 0.0,
+                "`{}` is not a capture and was priced as one",
+                attack.move_id
+            );
+        }
+    }
+    assert!(saw_grab, "the grab was filtered out, so this measured nothing");
 }

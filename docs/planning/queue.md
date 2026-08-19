@@ -2624,6 +2624,23 @@ describer can describe an enemy placement.
 harmless, because a describer that grew a broader arm would start building a
 ground item out of a body.
 
+⭐ **AND THE SAVE/LOAD CONSEQUENCE WAS FOLLOWED AND MEASURED, because it would
+have been silent and permanent.** A driven body's occurrence enters the ledger as
+`InCustody` — that IS the fix — and `persist_durable_horizon_to_save` mirrors the
+ledger to disk, so a save taken mid-possession carries a row saying an enemy is
+in somebody's hands. A fresh process adopts that row while nobody possesses
+anything; if it survived, the room build would suppress an enemy nobody is
+holding and it would be gone for good.
+
+⇒ **it does not survive, and the reason is a contract already written down**:
+`republish_custody` is *"RETRACT BY RESETTING, NEVER BY REMOVING … the whole leg
+is replaced by what is true now"*, and its projection runs every tick, ungated.
+Measured: the row is gone ONE TICK after the possession clears, before any room
+build can act on it. Guarded by
+`a_custody_row_with_nobody_holding_it_is_retracted_before_a_room_can_act_on_it`,
+which asserts BOTH terms — that the row is written at all (otherwise it agrees
+with the duplication bug it was written for) and that it is retracted.
+
 ⭐ **and the class was swept: possession was the ONLY subsystem doing this.**
 Grepping the capability rather than a filename — `remove::<RoomScopedEntity>` and
 any `insert(SessionScopedEntity(..))` on an already-created entity, across every

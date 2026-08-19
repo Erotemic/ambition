@@ -1262,3 +1262,111 @@ fn a_checkpoint_taken_while_possessing_does_not_manufacture_an_item() {
          item out of it"
     );
 }
+
+/// **A save taken WHILE POSSESSING cannot suppress the enemy on load.**
+///
+/// ⛔⛔ **this is the save/load consequence of making possession a custody**, and
+/// it had to be measured because the failure would be silent and permanent. A
+/// driven body's occurrence goes into `AuthoredOccurrences` as `InCustody` —
+/// that is the fix, it is what stops the home room authoring a second copy — and
+/// `persist_durable_horizon_to_save` mirrors the ledger to disk. So a save taken
+/// mid-possession carries a row saying an enemy is in somebody's hands. A FRESH
+/// PROCESS then adopts that row while nobody is possessing anything, and if the
+/// row survived, the room build would suppress an enemy that nobody is holding
+/// and it would be gone from the world.
+///
+/// ⭐ **it does not survive, and the reason is `republish_custody`'s own
+/// contract**: *"RETRACT BY RESETTING, NEVER BY REMOVING … the whole leg is
+/// replaced by what is true now"*. `project_custody_onto_authored_occurrences`
+/// runs every tick, ungated, and republishes the custody leg from LIVE state —
+/// so a row with no live holder is dropped on the first tick, before any room
+/// build can act on it. Measured at one tick.
+///
+/// ⚠ **the assertion is the RETRACTION, not the absence.** A test that only
+/// checked "the enemy exists after loading" would pass on a world that never
+/// wrote the row in the first place — i.e. against the bug this whole change
+/// fixes.
+#[test]
+fn a_custody_row_with_nobody_holding_it_is_retracted_before_a_room_can_act_on_it() {
+    use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
+    use ambition_platformer2d::actors::actor::BodyKinematics;
+    use ambition_platformer2d::characters::brain::Brain;
+    use ambition_platformer2d::platformer::lifecycle::AuthoredOccurrences;
+
+    let mut sim = fixed_60hz_room_sim("vertical_shaft");
+    for _ in 0..30 {
+        sim.step(base());
+    }
+    let (actor, id) = {
+        let world = sim.world_mut();
+        let mut q = world.query::<(Entity, &SimId, &Brain, &BodyKinematics)>();
+        q.iter(world)
+            .find(|(_, id, _, _)| id.as_str().starts_with("placement:EnemySpawn"))
+            .map(|(e, id, _, _)| (e, id.clone()))
+            .expect("'vertical_shaft' authors an enemy with a placement identity")
+    };
+    for i in 0..900 {
+        if let Some(here) = sim
+            .world()
+            .get::<BodyKinematics>(actor)
+            .map(|k| (k.pos.x, k.pos.y))
+        {
+            sim.teleport_player(here);
+        }
+        sim.step(AgentAction {
+            move_y: 1.0,
+            interact: i == 0,
+            interact_held: true,
+            ..base()
+        });
+        if sim.world_mut().resource::<PossessionState>().possessed == Some(actor) {
+            break;
+        }
+    }
+    assert_eq!(
+        sim.world_mut().resource::<PossessionState>().possessed,
+        Some(actor),
+        "setup: nothing below is about a driven body unless one is being driven"
+    );
+    sim.step(base());
+    sim.step(base());
+
+    // ⭐ **BOTH TERMS, and this is the one that matters**: the row is WRITTEN.
+    // Without it there is nothing for the retraction to retract, and this test
+    // would agree with the duplication bug.
+    let written: Vec<String> = sim
+        .world()
+        .resource::<AuthoredOccurrences>()
+        .rows()
+        .map(|(occurrence, whereabouts)| format!("{} = {whereabouts:?}", occurrence.as_str()))
+        .collect();
+    assert!(
+        written
+            .iter()
+            .any(|row| row.starts_with(id.as_str()) && row.ends_with("InCustody")),
+        "the driven body's occurrence is not recorded as being in custody, so the \
+         home room is free to author a second copy of it; ledger was {written:?}"
+    );
+
+    // A FRESH PROCESS: the file's row is adopted while nobody possesses anything.
+    *sim.world_mut().resource_mut::<PossessionState>() = PossessionState::default();
+    sim.step(base());
+
+    let after: Vec<String> = sim
+        .world()
+        .resource::<AuthoredOccurrences>()
+        .rows()
+        .map(|(occurrence, whereabouts)| format!("{} = {whereabouts:?}", occurrence.as_str()))
+        .collect();
+    assert!(
+        !after.iter().any(|row| row.starts_with(id.as_str())),
+        "a custody row survived a tick with nobody holding the occurrence. On a load \
+         that row suppresses the enemy in the room build and it is gone from the \
+         world permanently; ledger was {after:?}"
+    );
+    assert_eq!(
+        occurrences(&mut sim, &id).len(),
+        1,
+        "and exactly one occurrence remains"
+    );
+}

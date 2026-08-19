@@ -49,8 +49,29 @@ impl PersistenceRoot {
 pub mod save_data;
 pub mod settings;
 
-/// Schedules user-settings and sandbox-save persistence for visible builds.
-/// Headless / RL drivers omit this plugin so they never read or write user files.
+/// Schedules user-settings and sandbox-save persistence.
+///
+/// ⛔⛔ **THE BOUNDARY, STATED — because it was assumed and got the answer
+/// wrong.** This doc used to say *"for visible builds. Headless / RL drivers
+/// omit this plugin so they never read or write user files."* The second
+/// sentence names a real hazard and the first drew the wrong line from it: the
+/// hazard is **writing the PLAYER's files**, not persisting at all, and the two
+/// were conflated because whoever installed it first (the presentation group)
+/// decided who paid for it.
+///
+/// ⇒ **who installs it: any composition that SIMULATES.** The durable horizon is
+/// sim state — the on-disk form is the checkpoint's own description, serialized
+/// — so a headless run that reaches a checkpoint and cannot write one is a
+/// capability that exists only when somebody is watching. As of 2026-08-19 the
+/// RL/headless composition installs it.
+///
+/// ⇒ **what a non-player App owes: its own [`PersistenceRoot`].**
+/// `PersistenceRoot::default()` is the player's platform data dir, so the
+/// isolation is the caller's obligation and `PersistenceRoot::isolated()` is the
+/// answer — the same redirection a windowless host already makes for audio with
+/// `AudioOutputMode::Recording`. ⚠ installing this plugin without one is the
+/// failure the old wording was trying to prevent, and it is now cheap to state
+/// instead of cheap to forget.
 pub struct PersistenceSchedulePlugin;
 
 impl bevy::prelude::Plugin for PersistenceSchedulePlugin {

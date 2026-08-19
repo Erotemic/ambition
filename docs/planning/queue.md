@@ -5877,6 +5877,31 @@ boundary gets discovered by READING instead.
 because `construction` imports `world::placements` BACK — a bidirectional edge
 nobody declared, found only by chasing it.
 
+⭐⭐ **A SIXTH INSTANCE, 2026-08-19 — and it is the row's failure mode in its
+purest form: a boundary drawn from a real hazard by whoever installed the thing
+first.** `PersistenceSchedulePlugin`'s own doc said *"for visible builds.
+Headless / RL drivers omit this plugin so they never read or write user files."*
+
+```text
+the hazard, real     writing the PLAYER's files
+the line drawn       persist only in visible builds
+what that cost       an RL episode, a fuzz run or a headless test could reach a
+                     checkpoint and never write one — the durable horizon is SIM
+                     state, so this was a capability that existed only when
+                     somebody was watching
+```
+
+⇒ **the two were conflated, and separating them is the whole fix**: any
+composition that SIMULATES installs it, and a non-player App owes its own
+`PersistenceRoot` — `isolated()`, the same redirection a windowless host already
+makes for audio. Both halves are now written on the plugin itself, where the
+next person looks, and asserted in one test because installing one without the
+other is worse than neither.
+⚠ **the shape to recognise**: the sentence naming the hazard was CORRECT and the
+sentence drawing the line was not, in the same doc comment. A stated boundary is
+only as good as the question it answers — *"who may write the player's files"*
+is answerable; *"which builds persist"* was a proxy for it.
+
 ⭐⭐ **THREE MORE INSTANCES 2026-08-17, and one of them is the row's thesis
 RESOLVED for a single capability — which is what a worked example looks like.**
 

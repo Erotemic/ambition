@@ -275,8 +275,9 @@ pub type ConstructFn<D> = for<'w, 's, 'a> fn(
 /// from creating authoritative entities beside it: it holds raw `Commands`, so
 /// it can despawn the root, restamp it, or spawn ten more. Those are caught
 /// after the fact by [`verify_committed_roster`] — the verification invariant —
-/// not prevented here. Making every authoritative root an explicit plan row is
-/// the future structural invariant, and it is Phase-4 work.
+/// not prevented here. Production room construction now keeps every
+/// authoritative root as an explicit plan row; verification remains the
+/// backstop because raw `Commands` cannot make that property structural by type.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ConstructionRoot(Entity);
 
@@ -418,58 +419,6 @@ impl std::fmt::Display for TransactionId {
 /// instead of a quiet exemption.
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PresentationOnly;
-
-/// Declares an identity-bearing entity to have been built by a **named,
-/// enumerated, not-yet-migrated construction family** rather than by the planner.
-///
-/// This exists so that "unowned" can stop meaning "probably legacy, carry on".
-/// It used to: every entity carrying a `SimId` and no ownership stamp was
-/// reported at [`Severity::Unmigrated`] and published anyway, which made the
-/// check unable to distinguish a known un-migrated family from a recipe that
-/// invented an authoritative entity nobody planned — the exact failure the
-/// verifier exists to catch. Now a legacy family must SAY it is one, by name
-/// from [`KNOWN_LEGACY_FAMILIES`], and anything else is fatal.
-///
-/// The list is finite and shrinking, and Phase 4's last step deletes this type
-/// along with [`Severity::Unmigrated`].
-#[derive(Component, Clone, Debug, PartialEq, Eq)]
-pub struct LegacyConstructionRoot {
-    /// Which enumerated family. A value outside [`KNOWN_LEGACY_FAMILIES`] is
-    /// fatal rather than tolerated — an unrecognised claim of legacy status is
-    /// not evidence of legacy status.
-    pub family: String,
-}
-
-impl LegacyConstructionRoot {
-    pub fn new(family: impl Into<String>) -> Self {
-        Self {
-            family: family.into(),
-        }
-    }
-
-    pub fn is_known(&self) -> bool {
-        KNOWN_LEGACY_FAMILIES.contains(&self.family.as_str())
-    }
-}
-
-/// The construction families that still mint authoritative identities outside
-/// the planner, by name.
-///
-/// **The campaign's migration ledger, as code.** Each entry is a documented
-/// temporary exemption from [`Severity::Fatal`]; the count only goes down, and
-/// when it reaches zero both this constant and [`Severity::Unmigrated`] are
-/// deleted. Kept here rather than in a domain crate because the exemption is an
-/// engine-level policy about what verification tolerates, and because a list a
-/// domain could extend at will would not be a shrinking list.
-/// **Empty as of Checkpoint B.** The one entry, `giant-hand-limb`, migrated: the
-/// giant's hands are explicit plan rows now, so no family mints an owned-but-
-/// unstamped identity that verification can see. Other families remain un-
-/// migrated, but they receive their `SimId` from `ensure_sim_id` *after* the
-/// verification pass, so they carry no identity at scope-gather time and are not
-/// classified at all — they will need this list when they migrate to eager
-/// construction stamping, which is why the type survives its empty list. Phase
-/// 4's final step deletes both once every family constructs through the planner.
-pub const KNOWN_LEGACY_FAMILIES: &[&str] = &[];
 
 /// One requested entity, before validation.
 ///
@@ -1391,19 +1340,10 @@ pub fn verify_committed_roster<D: ConstructionDomain>(
                 sim_id: member.sim_id.clone(),
             },
             // Identity-bearing, appeared during this transaction, and nothing in
-            // the world says what built it. FATAL — see `RosterViolation::severity`.
+            // the world says what built it. Every construction family has crossed
+            // the planner boundary, so there is no legacy exemption left.
             ScopeClassification::Unowned => RosterViolation::UnownedIdentity {
                 sim_id: member.sim_id.clone(),
-            },
-            ScopeClassification::UnknownLegacyFamily { family } => {
-                RosterViolation::UnknownLegacyFamily {
-                    sim_id: member.sim_id.clone(),
-                    family: family.clone(),
-                }
-            }
-            ScopeClassification::KnownLegacy { family } => RosterViolation::LegacyConstruction {
-                sim_id: member.sim_id.clone(),
-                family: family.clone(),
             },
             ScopeClassification::ForeignScope(_) | ScopeClassification::PresentationOnly => {
                 continue
@@ -1499,20 +1439,13 @@ pub enum RosterViolation {
     /// Recipes that create authoritative entities internally land here.
     Unplanned { sim_id: SimId },
     /// An identity-bearing entity appeared during this transaction carrying no
-    /// ownership stamp and no explicit classification. **Fatal.**
+    /// ownership stamp and no explicit non-authoritative classification.
     ///
-    /// This was tolerated on the reasoning that it meant "a family that has not
-    /// migrated". It did not mean that — it meant nobody knew what the entity
-    /// was, which is equally the signature of a recipe inventing an
-    /// authoritative root. A genuine legacy family now says so with
-    /// [`LegacyConstructionRoot`], leaving this variant to mean what it says.
+    /// Every production room-construction family now commits authoritative roots
+    /// through the planner, so there is no tolerated legacy spelling of this
+    /// state: an unowned identity is an unplanned authority and the transaction
+    /// is refused.
     UnownedIdentity { sim_id: SimId },
-    /// An entity claims [`LegacyConstructionRoot`] with a family name that is not
-    /// in [`KNOWN_LEGACY_FAMILIES`]. **Fatal**, so the marker cannot become a
-    /// universal opt-out from verification.
-    UnknownLegacyFamily { sim_id: SimId, family: String },
-    /// An explicitly-marked known-legacy root. Reported, not fatal, temporary.
-    LegacyConstruction { sim_id: SimId, family: String },
     /// A planned root does not carry this transaction's ownership stamp.
     ///
     /// The executor stamps it before the recipe runs, so this means a recipe
@@ -1611,55 +1544,6 @@ pub enum RosterViolation {
     RigComposition { host: SimId, detail: String },
 }
 
-/// Whether a violation means the transaction is unpublishable, or names a
-/// known un-migrated family.
-///
-/// **This distinction is load-bearing and temporary.** Nine authoritative
-/// families still construct roots through family-specific loops rather than as
-/// plan rows — the giant's hand limbs mint a `SimId` directly, for one — so
-/// treating every unowned identity as fatal today would refuse rooms that are
-/// working exactly as designed. Reporting them keeps the finding honest and
-/// visible without pretending the migration is finished; as each family becomes
-/// a plan row the class empties on its own, and Phase 4's last step is to delete
-/// [`Severity::Unmigrated`] and let the remainder be fatal.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Severity {
-    /// The transaction built something other than what it planned. Do not
-    /// publish.
-    Fatal,
-    /// A known-unmigrated family produced this. Report it; publish anyway.
-    Unmigrated,
-}
-
-impl RosterViolation {
-    pub const fn severity(&self) -> Severity {
-        match self {
-            // The ONE remaining tolerated class, and it is tolerated only
-            // because the family named itself and the name is enumerated.
-            Self::LegacyConstruction { .. } => Severity::Unmigrated,
-            Self::UnownedIdentity { .. }
-            | Self::UnknownLegacyFamily { .. }
-            | Self::OwnershipLost { .. }
-            | Self::RelationMissingFromReceipt { .. }
-            | Self::Missing { .. }
-            | Self::Duplicated { .. }
-            | Self::MovedRoot { .. }
-            | Self::ProvenanceChanged { .. }
-            | Self::Unplanned { .. }
-            | Self::BaselineLost { .. }
-            | Self::BaselineReplaced { .. }
-            | Self::BaselineProvenanceChanged { .. }
-            | Self::RetiredSurvived { .. }
-            | Self::ReconstructedOldSurvived { .. }
-            | Self::PlannedOverBaseline { .. }
-            | Self::DanglingRelation { .. }
-            | Self::RelationNotEstablished { .. }
-            | Self::RigComposition { .. }
-            | Self::ContentBindingMismatch { .. } => Severity::Fatal,
-        }
-    }
-}
-
 impl std::fmt::Display for RosterViolation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -1693,16 +1577,6 @@ impl std::fmt::Display for RosterViolation {
                 f,
                 "`{sim_id}` appeared during this transaction carrying no construction ownership \
                  and no classification: nothing in the world says what built it"
-            ),
-            Self::UnknownLegacyFamily { sim_id, family } => write!(
-                f,
-                "`{sim_id}` claims legacy construction family `{family}`, which is not one of the \
-                 enumerated un-migrated families"
-            ),
-            Self::LegacyConstruction { sim_id, family } => write!(
-                f,
-                "`{sim_id}` was built by known un-migrated family `{family}`, which is not a plan \
-                 row yet"
             ),
             Self::OwnershipLost {
                 sim_id,
@@ -1947,18 +1821,10 @@ pub enum ScopeClassification {
     ForeignScope(TransactionId),
     /// Explicitly declared non-authoritative by [`PresentationOnly`].
     PresentationOnly,
-    /// Explicitly marked [`LegacyConstructionRoot`] with a family name that is
-    /// in [`KNOWN_LEGACY_FAMILIES`]. Reported, published anyway, temporary.
-    KnownLegacy { family: String },
-    /// Marked [`LegacyConstructionRoot`] with a family nobody enumerated. Fatal:
-    /// an unrecognised claim of legacy status is not evidence of one, and
-    /// accepting it would turn the marker into a universal opt-out.
-    UnknownLegacyFamily { family: String },
-    /// Carries an identity, no ownership stamp, and no explicit classification
-    /// at all. **Fatal.** This used to be the tolerated case, which meant a
-    /// recipe that invented an authoritative entity was indistinguishable from a
-    /// known un-migrated family — so the check could not fail for the one reason
-    /// it was built to fail for.
+    /// Carries an identity, no ownership stamp, and no explicit
+    /// [`PresentationOnly`] classification. Every production room-construction
+    /// family now plans its authoritative roots, so this is unconditionally a
+    /// transaction violation rather than a migration state.
     Unowned,
 }
 
@@ -1998,27 +1864,17 @@ impl AuthoritativeScope {
             &SimId,
             Option<&TransactionId>,
             Option<&PresentationOnly>,
-            Option<&LegacyConstructionRoot>,
         )>();
-        for (entity, sim_id, owner, presentation, legacy) in query.iter(world) {
-            // Order matters: an explicit ownership stamp outranks a legacy claim,
-            // so a family that has migrated cannot keep an exemption it no longer
-            // needs by leaving a stale marker behind.
+        for (entity, sim_id, owner, presentation) in query.iter(world) {
             let classification = if presentation.is_some() {
                 ScopeClassification::PresentationOnly
             } else {
-                match (owner, legacy) {
-                    (Some(owner), _) if owner == transaction => {
+                match owner {
+                    Some(owner) if owner == transaction => {
                         ScopeClassification::TransactionAuthoritative
                     }
-                    (Some(other), _) => ScopeClassification::ForeignScope(other.clone()),
-                    (None, Some(legacy)) if legacy.is_known() => ScopeClassification::KnownLegacy {
-                        family: legacy.family.clone(),
-                    },
-                    (None, Some(legacy)) => ScopeClassification::UnknownLegacyFamily {
-                        family: legacy.family.clone(),
-                    },
-                    (None, None) => ScopeClassification::Unowned,
+                    Some(other) => ScopeClassification::ForeignScope(other.clone()),
+                    None => ScopeClassification::Unowned,
                 }
             };
             members.push(ScopeMember {

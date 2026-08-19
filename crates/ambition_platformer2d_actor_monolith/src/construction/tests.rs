@@ -1378,7 +1378,7 @@ fn a_room_that_fails_verification_is_not_published() {
         "a room that failed verification must not publish: {verification:?}"
     );
     assert!(
-        verification.fatal().any(|violation| matches!(
+        verification.violations.iter().any(|violation| matches!(
             violation,
             ambition_platformer2d_shared_tangle::construction::RosterViolation::PlannedOverBaseline {
                 ..
@@ -1407,8 +1407,8 @@ fn the_same_room_publishes_once_its_relation_lands() {
         .resource::<crate::features::LastConstructionVerification>()
         .clone();
     assert!(
-        verification.fatal().next().is_none(),
-        "a correctly wired room has no fatal violations: {:?}",
+        verification.violations.is_empty(),
+        "a correctly wired room has no construction violations: {:?}",
         verification.violations
     );
     assert!(verification.published, "{verification:?}");
@@ -2282,16 +2282,6 @@ fn the_giant_reconstruction_closure_is_the_whole_cluster() {
     }
 }
 
-/// No family is enumerated as legacy any more — the list emptied when the giant
-/// hands migrated. Deletes with `Severity::Unmigrated` at Phase 4's end.
-#[test]
-fn the_legacy_family_list_is_empty() {
-    assert!(
-        ambition_platformer2d_shared_tangle::construction::KNOWN_LEGACY_FAMILIES.is_empty(),
-        "the giant hands were the last legacy family"
-    );
-}
-
 // ── Giants for every construction origin ─────────────────────────────────────
 
 fn staged_giant(id: &str) -> SpawnActorRequest {
@@ -2546,11 +2536,6 @@ fn rig_faults(plan: &ActorConstructionPlan, receipt: &ConstructionReceipt, world
         assert!(
             matches!(fault, RosterViolation::RigComposition { .. }),
             "the composition pass only speaks RigComposition: {fault:?}"
-        );
-        assert_eq!(
-            fault.severity(),
-            ambition_platformer2d_shared_tangle::construction::Severity::Fatal,
-            "a composition fault is unpublishable"
         );
     }
     faults.len()

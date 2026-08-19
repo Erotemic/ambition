@@ -190,19 +190,17 @@ pub enum ActorConstructionParams {
     GiantHand {
         authored: crate::rooms::Authored<crate::rooms::EnemySpawnSpec>,
     },
-    /// An ordinary authored enemy, planned because an authored mount link names
-    /// it as rider or mount. Built by the SAME populate function the enemy
-    /// family loop calls (`spawn_enemy_with_faction_into`, faction `Enemy`),
-    /// so being planned changes WHO wires its relations, not what it is. The
-    /// rest of the enemy family stays on the loop until Phase 4 migrates it.
+    /// An ordinary authored enemy. Every authored enemy is now a plan row,
+    /// built by the same populate function the former family loop used
+    /// (`spawn_enemy_with_faction_into`, faction `Enemy`), so the migration
+    /// changed who allocates/stamps/wires the root rather than what the actor is.
     AuthoredEnemy {
         authored: crate::rooms::Authored<crate::rooms::EnemySpawnSpec>,
         paths: Vec<(String, ambition_platformer2d_core::KinematicPath)>,
     },
-    /// An authored boss, planned because an authored mount link names it as the
-    /// rider (the gnu_ton_rider pattern). Built by the same populate function
-    /// the boss loop calls, with default overrides — identical body, planned
-    /// identity.
+    /// An authored boss. Every authored boss is now a plan row, built by the
+    /// same populate function the former boss loop used, with default overrides
+    /// — identical body, planned identity.
     AuthoredBoss {
         authored: crate::rooms::Authored<ambition_entity_catalog::placements::BossBrain>,
     },
@@ -1870,8 +1868,7 @@ pub fn staged_actor_requests(
 ///
 /// An ordinary enemy is one [`ActorConstructionParams::AuthoredEnemy`] row; a
 /// `"giant"`-class limbed host expands to one host row plus two hand rows
-/// joined by `ambition.limb` relations (the migration that emptied
-/// `KNOWN_LEGACY_FAMILIES`); a boss is one
+/// joined by `ambition.limb` relations; a boss is one
 /// [`ActorConstructionParams::AuthoredBoss`] row. Each row is built by the SAME
 /// populate function the deleted family loop called, so being planned changes
 /// who allocates the root, stamps identity/provenance/ownership, and

@@ -46,7 +46,7 @@ use bevy::prelude::{Commands, World};
 
 use ambition_platformer2d_shared_tangle::construction::{
     verify_committed_roster, AuthoritativeScope, BaselineCaptureError, ConstructionReceipt,
-    RosterViolation, Severity, TransactionBaseline,
+    RosterViolation, TransactionBaseline,
 };
 use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;
 
@@ -68,20 +68,12 @@ pub(crate) struct PendingConstructionBaseline(Result<TransactionBaseline, Baseli
 #[derive(Resource, Clone, Debug, Default)]
 pub struct LastConstructionVerification {
     pub room_id: String,
-    /// Everything verification found, fatal and un-migrated alike.
+    /// Everything verification found. Every violation withholds publication;
+    /// the temporary known-legacy severity class disappeared when the last room
+    /// construction family migrated to the planner.
     pub violations: Vec<RosterViolation>,
     /// Whether `RoomLoaded` was written.
     pub published: bool,
-}
-
-impl LastConstructionVerification {
-    /// The findings that withheld publication, as opposed to the ones that only
-    /// name a known un-migrated family.
-    pub fn fatal(&self) -> impl Iterator<Item = &RosterViolation> {
-        self.violations
-            .iter()
-            .filter(|violation| violation.severity() == Severity::Fatal)
-    }
 }
 
 /// Open the transaction: queue the baseline capture.
@@ -207,24 +199,15 @@ fn verify_and_publish(
     violations.sort_by_key(|violation| format!("{violation:?}"));
     violations.dedup();
 
-    let fatal = violations
-        .iter()
-        .filter(|violation| violation.severity() == Severity::Fatal)
-        .count();
     for violation in &violations {
-        match violation.severity() {
-            Severity::Fatal => bevy::log::error!(
-                target: "ambition_platformer2d::construction",
-                "room `{room_id}` failed construction verification: {violation}"
-            ),
-            Severity::Unmigrated => bevy::log::debug!(
-                target: "ambition_platformer2d::construction",
-                "room `{room_id}`: {violation}"
-            ),
-        }
+        bevy::log::error!(
+            target: "ambition_platformer2d::construction",
+            "room `{room_id}` failed construction verification: {violation}"
+        );
     }
 
-    let published = fatal == 0;
+    let failure_count = violations.len();
+    let published = violations.is_empty();
     if published {
         // The success branch was silent — only the failure branch spoke — so a
         // capture could not tell "the room never loaded" from "the room loaded
@@ -242,7 +225,7 @@ fn verify_and_publish(
         // a room that never announces itself rather than one that lies.
         bevy::log::error!(
             target: "ambition_platformer2d::construction",
-            "room `{room_id}` was NOT published: {fatal} fatal construction violation(s). The \
+            "room `{room_id}` was NOT published: {failure_count} construction violation(s). The \
              world has already been mutated and cannot be rolled back."
         );
     }

@@ -1380,8 +1380,8 @@ pub(crate) fn spawn_runtime_minion_into(
 /// Populate an enemy onto a root the construction executor allocated.
 ///
 /// **This no longer spawns a giant's hand limbs.** They were minted here as two
-/// authoritative roots no plan row named — the last `KNOWN_LEGACY_FAMILIES`
-/// entry. Giant hands are explicit construction rows now
+/// authoritative roots no plan row named — the last construction-family
+/// exception. Giant hands are explicit construction rows now
 /// ([`crate::construction::authored_giant_requests`]); a `"giant"`-class host is
 /// built by [`populate_giant_host_into`] (this plus the host-side rig state) and
 /// each hand by [`populate_giant_hand_into`], with the two joined by

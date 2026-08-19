@@ -1596,9 +1596,6 @@ enum Sabotage {
     SpawnUnownedIdentity,
     SpawnForeignScopedRoot,
     PresentationChild,
-    /// An entity that CLAIMS a legacy construction family by name. Whether it
-    /// is tolerated depends on whether the name is enumerated.
-    SpawnLegacyRoot(&'static str),
     RemoveTransactionId,
     OverwriteTransactionId,
 }
@@ -1657,15 +1654,6 @@ fn apply_sabotage(root: ConstructionRoot, ctx: &mut ConstructionExecCtx<'_, '_, 
             // nothing. Indistinguishable from a recipe inventing a root, which
             // is why it is fatal.
             ctx.commands.spawn(SimId::placement("mystery_body"));
-        }
-        Sabotage::SpawnLegacyRoot(family) => {
-            // The shape the giant hand limbs have TODAY, once they say so: a
-            // real identity minted outside the planner, explicitly naming the
-            // un-migrated family that minted it.
-            ctx.commands.spawn((
-                SimId::placement("giant/hand_left"),
-                LegacyConstructionRoot::new(family),
-            ));
         }
         Sabotage::RemoveTransactionId => {
             ctx.commands.entity(root.entity()).remove::<TransactionId>();
@@ -1773,7 +1761,6 @@ fn a_planned_relation_missing_from_the_receipt_is_fatal() {
         .filter(|v| matches!(v, RosterViolation::RelationMissingFromReceipt { .. }))
         .collect();
     assert_eq!(missing.len(), 1, "got {violations:?}");
-    assert_eq!(missing[0].severity(), Severity::Fatal);
 }
 
 fn sabotage_plan() -> ConstructionPlan<Toy> {
@@ -1857,15 +1844,9 @@ fn an_unplanned_authoritative_root_is_detected() {
     );
 }
 
-/// **An arbitrary identity-bearing entity with no ownership stamp is FATAL.**
-///
-/// This used to be `Severity::Unmigrated` — reported, published anyway — on the
-/// reasoning that "unowned" meant "a family that has not migrated yet". It did
-/// not mean that. It meant nothing in the world said what the entity was, which
-/// is equally the signature of a recipe inventing an authoritative root, so the
-/// one failure the verifier exists to catch was the one it tolerated. A genuine
-/// legacy family now claims that status by name; see
-/// `the_known_legacy_exception_maps_to_unmigrated_severity`.
+/// **An arbitrary identity-bearing entity with no ownership stamp refuses the
+/// transaction.** Every production room-construction family now uses the plan,
+/// so there is no legacy exemption for an unowned authoritative identity.
 #[test]
 fn an_arbitrary_unowned_identity_is_fatal() {
     let violations = verify_under(Sabotage::SpawnUnownedIdentity, &sabotage_plan())
@@ -1875,66 +1856,6 @@ fn an_arbitrary_unowned_identity_is_fatal() {
         .filter(|v| matches!(v, RosterViolation::UnownedIdentity { .. }))
         .collect();
     assert_eq!(unowned.len(), 1, "got {violations:?}");
-    assert_eq!(
-        unowned[0].severity(),
-        Severity::Fatal,
-        "nothing in the world says what built this entity, so the transaction is unpublishable"
-    );
-}
-
-/// The known-legacy EXCEPTION mechanism: an enumerated family maps to
-/// `Severity::Unmigrated` (reported, published), an unenumerated one to
-/// `Severity::Fatal`.
-///
-/// **The ledger is empty as of Checkpoint B** — the giant hands were the last
-/// entry — so there is no production family to drive the reported-but-not-fatal
-/// path end to end. The mechanism survives for the families that have yet to
-/// migrate to eager stamping, so this pins the severity MAPPING directly rather
-/// than through a live family: `LegacyConstruction` is `Unmigrated`,
-/// `UnknownLegacyFamily` is `Fatal`. When a family re-enters
-/// `KNOWN_LEGACY_FAMILIES`, the end-to-end `Sabotage::SpawnLegacyRoot` path
-/// covers it again.
-#[test]
-fn the_known_legacy_exception_maps_to_unmigrated_severity() {
-    assert!(
-        KNOWN_LEGACY_FAMILIES.is_empty(),
-        "Checkpoint B emptied the ledger; if a family re-enters, restore the \
-         end-to-end SpawnLegacyRoot assertion"
-    );
-    let known = RosterViolation::LegacyConstruction {
-        sim_id: SimId::placement("x"),
-        family: "some-future-family".into(),
-    };
-    assert_eq!(known.severity(), Severity::Unmigrated);
-    let unknown = RosterViolation::UnknownLegacyFamily {
-        sim_id: SimId::placement("x"),
-        family: "not-enumerated".into(),
-    };
-    assert_eq!(unknown.severity(), Severity::Fatal);
-}
-
-/// A root claiming a legacy family nobody enumerated is FATAL.
-///
-/// Without this the marker would be a universal opt-out: any entity could
-/// exempt itself from verification by asserting it was legacy. An unrecognised
-/// claim of legacy status is not evidence of legacy status.
-#[test]
-fn an_unknown_legacy_family_is_fatal() {
-    assert!(
-        !KNOWN_LEGACY_FAMILIES.contains(&"not-a-real-family"),
-        "the fixture must name a family the ledger does not list"
-    );
-    let violations = verify_under(
-        Sabotage::SpawnLegacyRoot("not-a-real-family"),
-        &sabotage_plan(),
-    )
-    .expect_err("an unrecognised legacy claim must be reported");
-    let unknown: Vec<_> = violations
-        .iter()
-        .filter(|v| matches!(v, RosterViolation::UnknownLegacyFamily { .. }))
-        .collect();
-    assert_eq!(unknown.len(), 1, "got {violations:?}");
-    assert_eq!(unknown[0].severity(), Severity::Fatal);
 }
 
 /// **A planned root that lost its ownership stamp is FATAL.**
@@ -1954,7 +1875,6 @@ fn a_planned_root_stripped_of_its_ownership_is_fatal() {
         .filter(|v| matches!(v, RosterViolation::OwnershipLost { found: None, .. }))
         .collect();
     assert_eq!(lost.len(), 2, "got {violations:?}");
-    assert!(lost.iter().all(|v| v.severity() == Severity::Fatal));
 }
 
 /// Ownership OVERWRITTEN, rather than removed, is equally fatal — and the

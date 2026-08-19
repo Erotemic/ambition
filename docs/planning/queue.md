@@ -232,9 +232,21 @@ full-res 2026-07-29), so `regen_visual_quality_variants.sh` applies a generator
 `body_inset` the full-res road was never regenerated to carry. ⭐ today it is
 latent only by luck — `authored_body_pixel_size` is called with the bare target
 id, so full-res always wins — and the rot widens every time one road is
-regenerated without the other. ⇒ owed: regenerate those twelve at full res, and
-tie the tiers' `body_pixel_bbox` to the full-res one by scale so they cannot
-diverge again.
+regenerated without the other.
+
+✔✔ **CLOSED 2026-08-19, and the guard is the deliverable.** All twelve
+re-rendered at full resolution (`./regen_sprites.sh --target …`, 27s) and their
+tiers refreshed; every one now agrees across all four publications. ⭐ **the fix
+that matters is `a_sheets_gameplay_body_does_not_depend_on_the_graphics_setting`**
+in `ambition_sprite_sheet` — it asks the BAKED INDEX (the same table every
+runtime lookup reads, so it cannot pass against a tree the build did not compile)
+and compares each full-res target's `authored_body` claim against all three
+tiers. It was RED on the twelve before the regen and green after, and its zero
+floor is poison-verified: point `TIERS` at names nothing publishes and it refuses
+at *"only 0 sheet/tier pairs were compared"* rather than reporting agreement.
+⚠ the sheets are gitignored generated artifacts, so this was STALE LOCAL
+GENERATION rather than a repo defect — which is exactly why a check that runs on
+whatever the build baked is the only durable answer.
 
 ✔✔ **THE ADOPTION COUNT IS IN (2026-08-16), AND IT IS THE WHOLE ANSWER: TWO.**
 The decision site is `posed_body_for` in

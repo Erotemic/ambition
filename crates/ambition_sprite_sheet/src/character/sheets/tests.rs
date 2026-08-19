@@ -394,3 +394,78 @@ fn a_packed_target_keeps_the_facing_its_artwork_was_drawn_in() {
         );
     }
 }
+
+/// **A CHARACTER'S GAMEPLAY BODY MUST NOT DEPEND ON THE GRAPHICS SETTING.**
+///
+/// Every sheet is published four times — full resolution plus `0_5x`, `0_25x`
+/// and `potato` — and each publication carries its own `body_metrics`. Those
+/// metrics are not decoration: `authored_body` is the sheet's claim that
+/// `body_pixel_bbox` is a GAMEPLAY BODY rather than the extent of the drawing,
+/// and `authored_body_pixel_size` refuses to answer without it. A collision box
+/// derived from one tier and not another is a body whose SIZE changes when the
+/// player turns the graphics down.
+///
+/// ⛔⛔ **and the tiers really did disagree — twelve sheets, measured
+/// 2026-08-19**: `player_extended`, the three `player_*_review` sheets and eight
+/// `robot_*` variants declared `authored_body: true` in all three reduced tiers
+/// and NOT at full resolution, because the tier road was regenerated after a
+/// generator gained a `body_inset` and the full-res road never was. ⭐ **it was
+/// latent only by luck**: `authored_body_pixel_size` is called with the bare
+/// target id, so full resolution always won and nothing observed the other
+/// three. Luck is not an invariant, and the gap widened every time one road was
+/// regenerated without the other.
+///
+/// ⚠ **this asks the BAKED INDEX, not the files** — the same table every runtime
+/// lookup reads, so it cannot pass against a tree the build did not compile.
+#[test]
+fn a_sheets_gameplay_body_does_not_depend_on_the_graphics_setting() {
+    const TIERS: [&str; 3] = ["0_5x", "0_25x", "potato"];
+
+    let index = record_index();
+    let mut compared = 0usize;
+    let mut disagreements: Vec<String> = Vec::new();
+
+    for (target, full) in index.iter() {
+        // Full-resolution targets only — a tier key carries its suffix, and
+        // comparing a tier against itself proves nothing.
+        if TIERS.iter().any(|tier| target.ends_with(&format!(".{tier}"))) {
+            continue;
+        }
+        for tier in TIERS {
+            let Some(reduced) = index.get(&format!("{target}.{tier}")) else {
+                continue;
+            };
+            compared += 1;
+            let claim = |record: &SheetRecord| {
+                record
+                    .body_metrics
+                    .as_ref()
+                    .is_some_and(|metrics| metrics.authored_body)
+            };
+            if claim(full) != claim(reduced) {
+                disagreements.push(format!(
+                    "{target}: full-res authored_body={} but .{tier} says {}",
+                    claim(full),
+                    claim(reduced),
+                ));
+            }
+        }
+    }
+
+    // ⚠ the zero floor. A build that baked no quality variants at all — or an
+    // index whose tier keys stopped carrying their suffix — would compare
+    // NOTHING and report perfect agreement.
+    assert!(
+        compared > 100,
+        "only {compared} sheet/tier pairs were compared, so this proved almost \
+         nothing: either the quality variants are missing from the baked index \
+         or their target keys stopped carrying a tier suffix"
+    );
+    assert!(
+        disagreements.is_empty(),
+        "a character's gameplay body depends on the graphics setting — one road \
+         was regenerated and the other was not. Re-render the full-resolution \
+         sheets (`./regen_sprites.sh --target <name>`), then the tiers:\n{}",
+        disagreements.join("\n")
+    );
+}

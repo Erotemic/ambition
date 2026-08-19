@@ -5404,6 +5404,31 @@ is **that it beats a shield and leads to a throw** — which is platform-fighter
 policy, exactly what this row says the capability should own, now with a match to
 point at instead of an argument.
 
+⭐⭐ **AND THE SAME MEASUREMENT FOUND SOMETHING NOBODY HAD WRITTEN DOWN: THERE IS
+NO INPUT BUFFER.** The 7/7 "spent while committed" figure only means what it
+says if a press made during another move's recovery is LOST, and it is:
+
+```text
+trigger_moveset_moves   a MovePlayback is running and its cancel windows do not
+                        permit the request ⇒ `continue`. No queue, no re-attempt.
+ResolvedAttackGesture   resolved from THIS tick's frame; `pressed` is not a latch
+flick_window_ticks      buffers the FLICK for smash detection — not the press
+```
+
+⇒ **a press in the last frames of recovery does nothing at all**, for a person as
+much as for a CPU. ⛔ this is not recorded anywhere in the tree — not as a
+decision, not as a known gap — and *"a genre's mechanics are RESEARCH, not a
+decision"* applies: a short input buffer so a press lands on the first actionable
+frame is the platform-fighter standard, not a taste call.
+
+⚠ **and it is NOT free, which is why it is recorded rather than built.** A buffer
+is cross-frame state: it would have to join the rollback schema, and a latch that
+survives a rewind it should not is the class this repo has already been bitten by
+(*"a cross-frame MESSAGE is not rollback state"*). ⚠ it would also change the feel
+of every character in every game the engine runs, so it wants a maintainer's
+word — the same shape as the `REACH_TOLERANCE` question above, and possibly the
+same conversation.
+
 ▢▢ **THE FIX IS A DECISION, AND IT IS NOT MINE TO TAKE UNILATERALLY — three
 candidates, costed, 2026-08-18.** All three were reached by asking where "a grab
 cannot be thrown from 2.5× its reach" is expressible.

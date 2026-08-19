@@ -45,6 +45,9 @@ use ambition_platformer2d_world::rooms::ActiveRoomMetadata;
 use crate::session::reset::RoomReplayRequested;
 use crate::ActorDiedMessage;
 
+#[cfg(test)]
+mod tests;
+
 /// **Whose death rules govern the room this body died in.**
 ///
 /// ⭐ **the one place the question is asked**, so a third beat that needs the
@@ -127,15 +130,36 @@ pub fn open_death_interlude(
                 remaining: interlude,
                 consequence_pending: true,
             },
-            // A dead body does not answer input. `ScriptedControl` is the
-            // engine's existing word for exactly this, and its doc already
-            // names Mary-O's death as the case that reinvented it badly —
-            // she blanked the control frame a full phase after everything
-            // that reads it. Its one caveat is a FEATURE here: *"gravity
-            // will happily walk an undriven body out from under its pose"*
-            // is precisely the classic pit death.
-            ambition_characters::brain::ScriptedControl,
         ));
+
+        // A dead body does not answer input, and it says so by CLAIMING the
+        // sequence hold rather than by stamping the marker. `ScriptedControl`
+        // is the engine's existing word for "normal input does not reach this
+        // body", and its doc already names Mary-O's death as the case that
+        // reinvented it badly — she blanked the control frame a full phase
+        // after everything that reads it. Its one caveat is a FEATURE here:
+        // *"gravity will happily walk an undriven body out from under its
+        // pose"* is precisely the classic pit death.
+        //
+        // ⛔ **stamping the marker directly was a real breach, not a style
+        // point.** The marker is DERIVED — its presence means `ControlHolds`
+        // is non-empty — so a death that set it without a bit left the two
+        // disagreeing, and the disagreement is resolved by whoever releases
+        // NEXT: a captor letting go of a body that died in its grip found an
+        // empty claim set, concluded nobody was holding it, and took
+        // `ScriptedControl` off a corpse mid-interlude. Claiming a bit makes
+        // that release arithmetic instead of a guess.
+        //
+        // ⚠ `Sequence` and not a bit of its own: a death fall is the first
+        // case its doc names, and the level beats that share it — a flagpole
+        // slide, a goal brake, an act clear — are states the SAME body cannot
+        // also be in. A second bit is what two OVERLAPPING owners need, and
+        // these do not overlap.
+        ambition_characters::brain::claim_control_hold(
+            &mut commands,
+            victim,
+            ambition_characters::brain::ControlHold::Sequence,
+        );
     }
 }
 

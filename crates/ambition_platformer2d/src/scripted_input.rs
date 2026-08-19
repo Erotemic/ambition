@@ -77,6 +77,16 @@ impl ScriptedControlsObserved {
     /// ⛔ call this in any test whose claim is that something did NOT happen.
     /// Without it, "the ability never fired" and "the button never arrived" are
     /// the same green.
+    ///
+    /// ⚠⚠ **DELIVERY IS OBSERVED ONE FRAME LATE, so this is an END-OF-RUN check
+    /// and not a first-frame precondition.** Bevy runs `FixedUpdate` BEFORE
+    /// `Update` within a frame, so the slot table this reads was published from
+    /// the frame written on the PREVIOUS `app.update()`. Asserting it
+    /// immediately after the first scripted press reports `1 requested, 0
+    /// delivered` on a perfectly healthy pipeline — which is how it was first
+    /// misused, and the reason the contract is written down here rather than
+    /// left for each caller to rediscover. For the same-frame question ("did my
+    /// write survive routing?"), read `ControlFrame` right after the update.
     #[track_caller]
     pub fn assert_the_script_reached_the_simulation(&self) {
         assert!(

@@ -179,6 +179,12 @@ fn settle(app: &mut App) {
 /// graph, so `ambition_platformer2d` builds WITH `input` while this crate's flag
 /// stays off. Ask the composition, not the feature flag.
 ///
+/// ⚠ **the probe is `ControlFrame` right after the update, deliberately.**
+/// `scripted_input`'s own delivery counter observes the SLOT TABLE, which
+/// Bevy publishes from `FixedUpdate` — a frame BEHIND the `Update` that
+/// wrote the press — so it reads `0 delivered` on the first press of a
+/// healthy run. It is an end-of-run check; this is a precondition.
+///
 /// ⭐ the condition is unreachable now rather than merely detected:
 /// `scripted_input` writes after `InputSet::Route`, so it is the last writer
 /// under a composed pipeline and the only writer without one. If this fires
@@ -194,7 +200,6 @@ fn assert_scripted_input_reaches_the_sim(app: &mut App) {
         "a scripted press did not survive into the simulation, so every assertion \
          after this point would pass on a body nobody was driving"
     );
-    ambition_platformer2d::scripted_input::observed(app).assert_the_script_reached_the_simulation();
 }
 
 /// Step until the demo is actually PLAYABLE, rather than a fixed frame count.

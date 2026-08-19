@@ -10,10 +10,23 @@
 //! Every `ControlFrame` field the player simulation needs survives
 //! this translation, including the player-specific verbs
 //! (`pogo_pressed`, `blink_*`, `fast_fall_pressed`, `fly_toggle_pressed`,
-//! `projectile_*`, `aim`). The sandbox's `engine_input_from_actor_control`
-//! builds the engine's `InputState` purely from `ActorControl`; the
-//! raw `ControlFrame` is no longer consulted inside the player
-//! simulation phases.
+//! `projectile_*`, `grab_pressed`, `aim`). The sandbox's
+//! `engine_input_from_actor_control` builds the engine's `InputState` purely
+//! from `ActorControl`; the raw `ControlFrame` is no longer consulted inside
+//! the player simulation phases.
+//!
+//! ⛔⛔ **THAT SENTENCE WAS FALSE FOR THE WHOLE LIFE OF THE CAPTURE MECHANIC**
+//! (2026-08-18). `grab_pressed` was not in the carry list, so a human's Grab
+//! button reached the input layer, the seat, the abilities and the action
+//! scheme — and stopped here. A CPU could grab, because AI brains write
+//! `ActorControl` directly and never call this function; a person could not.
+//! Jon found it by playing: *"grab doesn't work on george when I press the
+//! button that says grab."*
+//!
+//! ⇒ the paragraph above is now GUARDED rather than asserted. See the
+//! exhaustive destructure at the top of [`tick_player_brain_from_control`]:
+//! adding a `ControlFrame` field is a compile error here until somebody decides
+//! whether a human carries it.
 
 use ambition_platformer2d_core as ae;
 
@@ -61,6 +74,65 @@ pub fn tick_player_brain_from_control(
     out: &mut crate::actor::control::ActorControlFrame,
 ) {
     *out = crate::actor::control::ActorControlFrame::neutral();
+
+    // ⛔⛔ **EXHAUSTIVE ON PURPOSE, AND IT IS THE GUARD FOR A DEFECT THAT
+    // SHIPPED.** This function reads `c.<field>` one field at a time, so a field
+    // nobody reads is indistinguishable from a field nobody NEEDS — which is
+    // exactly how `grab_pressed` stayed absent while every other layer of the
+    // capture road was built, tested and documented. A struct pattern with no
+    // `..` makes adding a `ControlFrame` field a COMPILE ERROR right here, so
+    // the next verb cannot be silently human-unreachable.
+    //
+    // ⚠ **every binding is `_` and that is the point**: this states a DECISION,
+    // it reads nothing. The real reads stay below where they are legible, and
+    // this list stays a list of answered questions.
+    let ControlFrame {
+        // ── carried below, verbatim or after interpretation ──
+        axis_x: _,
+        axis_y: _,
+        aim_x: _,
+        aim_y: _,
+        jump_pressed: _,
+        jump_held: _,
+        jump_released: _,
+        dash_pressed: _,
+        interact_pressed: _,
+        shield_held: _,
+        grab_pressed: _,
+        special_pressed: _,
+        attack_pressed: _,
+        attack_held: _,
+        attack_released: _,
+        attack_strong_hint: _,
+        pogo_pressed: _,
+        fast_fall_pressed: _,
+        fly_toggle_pressed: _,
+        blink_pressed: _,
+        blink_held: _,
+        blink_released: _,
+        projectile_pressed: _,
+        projectile_held: _,
+        projectile_released: _,
+        modifier_held: _,
+        modifier_pressed: _,
+        // ── deliberately NOT carried, each for a stated reason ──
+        // The raw direction EDGES. The body reads the RESOLVED axes above and
+        // `locomotion`; carrying these too would be a second answer to "which
+        // way", unrotated by the body's own frame — which under arbitrary
+        // gravity is a different direction.
+        left_pressed: _,
+        right_pressed: _,
+        up_pressed: _,
+        down_pressed: _,
+        // Interact is an EDGE verb at the body. A sustained interact has no
+        // body meaning today; the day one does, it is carried here.
+        interact_held: _,
+        // Shell-level, not body verbs: pause and reset belong to the session,
+        // and a body that could read them could act on somebody else's menu.
+        reset_pressed: _,
+        start_pressed: _,
+    } = c;
+    out.facing = snapshot.actor_facing;
 
     // Directional verbs interpret raw input in the controlled body's local
     // frame. This is the important seam for facing, attacks, crouch-like

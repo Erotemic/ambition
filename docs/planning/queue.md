@@ -3214,85 +3214,29 @@ green on all real data is otherwise indistinguishable from one that cannot fire.
 checking it would need every world loaded at once, which this validator does not
 do.
 
-▢ **THE SECOND CARRIED RISK IS STRUCTURALLY CONFIRMED (2026-08-18) AND NOT YET
-FIXED, because the fix is a boundary question rather than a line.**
-`AuthoredOccurrences` and `OccurrenceBaseline` are plain global `Resource`s
-(`init_resource` in `items/pickup` and `checkpoint_horizon`), and **no experience
-scope names either**: the shell's scopes release `MatchParticipantRoster`,
-`DeclaredCombatRules`, `PreparedMatch` and a handful of smash-local values, and
-nothing else. ⇒ a suppression written in one experience is still there in the
-next.
+✔ **A suppression written in one experience survived into the next.** Fixed
+2026-08-18 by `session::teardown::reset_session_scoped_resources_on_retire`
+clearing `SaveRestored` — the latch is set true in `restore_inventory_from_save`
+and was set false nowhere, so experience 2 in a process never re-ran the durable
+restore and inherited experience 1's ledgers. One value fixes every ledger
+because `adopt_rows` REPLACES rather than merges. Guarded by
+`retirement_clears_the_save_applied_latch`, which asserts BOTH terms (the latch
+survives an ordinary frame, and is cleared on retirement) and is falsified by
+removing the one line.
 
-⭐ **`ExperienceScopeBuilder::resetting` is the right KIND** — *"put back to its
-default. Never a removal, so it makes no ownership claim"* — which is exactly the
-semantics wanted: a new session starts with a clean ledger, and no game is
-claiming to own the resource.
-
-⛔⛔ **but WHERE it is declared is the whole question, and the wrong answer is an
-exemption list.** Scopes are authored per experience by each game, so adding
+⛔ **two shapes were costed and are the ones NOT to reach for**: keying the reset
+on the session generation, and adding a scope-watcher. Both were more machinery
+than the seam that already existed — the lifecycle that ended the session is the
+one place that cannot forget. ⛔ and the wrong answer to "which scope releases
+it" is an exemption list: scopes are authored per experience, so adding
 `.resetting::<AuthoredOccurrences>()` to the two that exist today makes the third
-game's omission a silent bug — the shape D152 already solved once and D136
-catalogues: **the ENGINE owns the invariant, the composition owns the order.**
-There is no engine-side hook to contribute a release to every scope; that seam is
-the work.
+game's omission a silent bug. The ENGINE owns the invariant; the composition owns
+the order.
 
-⭐⭐ **TRACED TO ONE BOOLEAN, AND IT IS THE SAME BUG THEY ALREADY FIXED ONE
-LEVEL DOWN.** The ledger's restore is not the problem — `adopt_rows` REPLACES
-(`self.rows = rows`), so an empty save correctly clears it. What survives is the
-GATE:
-
-```text
-restore_durable_horizon   returns early on `SaveRestored`
-SaveRestored              set true in `restore_inventory_from_save`, and set
-                          false NOWHERE — one write in the tree, `restored.0 = true`
-                          ⇒ experience 2 in a process never re-runs the restore and
-                            inherits experience 1's AuthoredOccurrences,
-                            OccurrenceBaseline, CustodyBaseline, MintedItemBaseline
-```
-
-⛔⛔ **and the latch's own doc already states the rule it breaks**: *"the flag
-now means 'the loaded save has been applied to THIS WORLD'"*. A new experience is
-a new world. ⭐ **they fixed exactly this for ROLLBACK on 2026-08-04** — *"a
-rewind past the restore undid its EFFECT and kept the record of having applied
-it"* — and registered the latch as rollback state so it rewinds with what it
-guards. The experience boundary is the same sentence with a different clock.
-
-✔✔ **FIXED 2026-08-18, and neither of the shapes I costed was needed — the
-codebase had already designated the place.** `session::teardown`'s
-`reset_session_scoped_resources_on_retire` reads `SessionScopeRetired` and
-already clears TEN process-global mirrors, with exactly this rationale: *"the
-mirrors are process-global rather than per-scope, so a single reset on retirement
-is correct"*. `SaveRestored` is that, and it is now the eleventh.
-
-```text
-RouteActivated    → active_scope.begin()          ⇒ a new experience DOES mint a scope
-RouteDeactivated  → GameMode, Dialogue, RoomTransition, Cutscene all reset,
-                    "every one of them describes a live world, and this one has
-                     just been retired"           ⇒ SaveRestored belongs in that list
-```
-
-⭐ **one value fixes all four ledgers**, because `adopt_rows` REPLACES rather
-than merges: the next session's restore rewrites `AuthoredOccurrences`,
-`OccurrenceBaseline`, `CustodyBaseline` and `MintedItemBaseline` from the save,
-empty or not. ⭐ **no schema bump** (the latch's shape is unchanged, so its
-rollback registration is untouched) and **no new hook** — the two options I had
-costed, keying it on the session generation or adding a scope-watcher, were both
-more machinery than the seam that already existed.
-
-⇒ **and the shell system says why it belongs there rather than in a game's
-scope**, in Jon's own framing: *"A rule every caller must obey is a rule three
-callers will eventually break. The lifecycle that ended the session is the one
-place that cannot forget."*
-
-⚠ guarded by `retirement_clears_the_save_applied_latch`, which asserts BOTH terms
-— the latch survives an ordinary frame (clearing it mid-session would re-apply
-the save over live state) and is cleared on retirement. Falsified: removing the
-one line fails it by name.
-
-⇒ the hazard that started this leg, recorded on `ItemCustody`:
-carrying an **authored** placement out of its room and back yields the carried
-object **and a freshly authored copy with the same `SimId::placement(..)`**. It
-could not arise while the boundary destroyed the object.
+⇒ the hazard that started this leg, recorded on `ItemCustody`: carrying an
+**authored** placement out of its room and back yields the carried object **and a
+freshly authored copy with the same `SimId::placement(..)`**. It could not arise
+while the boundary destroyed the object.
 
 ⭐ **but the hazard is the small statement of a much bigger question**, and this
 is the systemic-world pressure the project has been trying to reach:

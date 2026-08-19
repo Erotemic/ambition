@@ -45,6 +45,7 @@ pub mod george_booul_moveset;
 pub mod moveset;
 pub mod select;
 pub mod select_screen;
+pub mod smash_pack;
 
 /// The game-MODE tag this demo's rules gate on, so they sleep everywhere else.
 pub const SMASH_MODE: &str = "smash";

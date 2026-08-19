@@ -134,10 +134,14 @@ pub fn pack_schemas() -> ambition_content_pack::SchemaRegistry {
 /// sheet would make this compiler the thing that stops the game rather than the
 /// thing that explains it. The CLI's strict mode is where art is a gate.
 pub fn compile_pack() -> Result<PreparedContentPack, CompileFailure> {
-    let manifest: ambition_content_pack::ContentPackManifest = ron::from_str(PACK_MANIFEST_RON)
-        .expect("Ambition's own pack manifest is committed beside this file and must parse");
-    let draft =
-        ambition_content_pack::ContentPackDraft::from_sources(manifest, embedded_sources())?;
+    // ⭐ **the manifest is a DIAGNOSTIC, not a panic**, since D166 gave the
+    // compiler its own embedded-pack road. It used to be `ron::from_str(...)
+    // .expect(...)` here — the one content fault in this pipeline that killed the
+    // process instead of being reported like every other one.
+    let draft = ambition_content_pack::ContentPackDraft::from_manifest_ron(
+        PACK_MANIFEST_RON,
+        embedded_sources(),
+    )?;
     ambition_content_pack::compile(
         &draft,
         &pack_schemas(),

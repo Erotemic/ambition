@@ -10,5 +10,9 @@ description = "Stocks-based platform-fighter demo. The first consumer of the S4 
 # The E9 oracle rule, unchanged: `ambition_platformer2d` + `bevy` and nothing else. If
 # authoring a STOCKS match needs a type the umbrella does not re-export, that is
 # an engine leak and it fails to compile HERE, which is the point.
-ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["all_capabilities"] }
+# ⭐ `content_pack` is this demo's own opt-in (D166): it authors George's
+# platform-fighter facet as content and compiles its own pack through the
+# facade, so it links the content compiler on purpose. A game that never
+# validates its content still must not — that is why the feature exists.
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["all_capabilities", "content_pack"] }
 bevy = { version = "0.18.1", default-features = false }

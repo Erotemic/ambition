@@ -1,0 +1,84 @@
+// George Boo'l's platform-fighter facet — the excluded middle, as VALUES.
+//
+// ⭐ **these numbers were Rust literals in `src/george_booul_moveset.rs` until
+// D166's first facet landed.** They moved verbatim, with the reasoning that
+// justified them, because the reasoning is the character: a value with no reason
+// beside it is the thing that gets "balanced" by somebody who does not know what
+// it was for.
+//
+// ⛔ the rest of George's sixteen slots stay in Rust on purpose. They are
+// authored by COMPOSING helpers (`strike`, `impulse`, `on_hit`,
+// `committed_tail`, `feel`) and his file carries a `debug_assert` stating a law
+// about the shape of his whole table; flattening that into RON would turn
+// authored reasoning into a wall of numbers. The capture kit came out clean.
+(
+    character: "smash_george_booul",
+    capture: (
+        // ⭐ **the excluded middle, applied to a grab.** George's table has three
+        // fast options and eight slow ones and nothing in between; his grab
+        // belongs with the eight. 0.16 of startup is slower than every grab in
+        // the genre and slower than his own jab by more than three times, and the
+        // 0.30 of recovery means a whiffed grab is the worst thing he can do —
+        // which is the point. A body with no medium answer should not have a safe
+        // grab either.
+        //
+        // ⭐ **it was authored at 0.14 and HIS OWN LAW refused it**: the
+        // `debug_assert` at the bottom of `george_booul_moveset()` fired with "a
+        // George move landed between the pokes and the commitments", because 0.14
+        // sits inside the (0.08, 0.15) gap that IS this character. The number
+        // moved to the commitment side rather than the gap moving.
+        //
+        // ⚠ the reach is LONG and SHALLOW (26 forward, 13 tall against his own
+        // 24-tall body): he is the heaviest fighter on the grid and he reaches,
+        // he does not lunge. The hold sits at 20 forward — out at arm's length,
+        // where a logician holds something he is examining.
+        grab: (
+            id: "george_grab",
+            clip: "grab",
+            startup_s: 0.16,
+            active_s: 0.06,
+            recover_s: 0.30,
+            reach: (
+                offset: (18.0, 0.0),
+                half_extents: (26.0, 13.0),
+                hold_offset: (20.0, -2.0),
+            ),
+        ),
+        // ⚠ **a SLOW pummel that hurts.** 0.24 is a long beat — most of the genre
+        // pummels twice in that time — and 4 is nearly a jab. George trades rate
+        // for weight here exactly as he does everywhere else, and the tempo is
+        // what makes the trade legible rather than the number.
+        pummel: (
+            id: "george_pummel",
+            clip: "attack",
+            duration_s: 0.24,
+            impact_at_s: 0.11,
+            impact: (damage: 4),
+        ),
+        // ⚠ **the release is LATE in the move** (0.20 of a 0.34 timeline), which
+        // is what makes the wind-up readable and the throw punishable if it is
+        // predicted. The launch is nearly flat (-0.35 of vertical against 1.0
+        // forward): George throws ACROSS the stage rather than up, so his throw
+        // is a stage-control tool and not a combo starter — the heavy body's
+        // version.
+        forward_throw: (
+            id: "george_fthrow",
+            clip: "attack",
+            duration_s: 0.34,
+            release_at_s: 0.20,
+            launch: (
+                damage: 11,
+                knockback: 138.0,
+                knockback_growth: 1.9,
+                launch_dir: (1.0, -0.35),
+            ),
+        ),
+        // ⭐ **the first fighter to author a capture kit, and he authors ONE
+        // throw.** Back, up and down stay `None`: a press for a throw he does not
+        // have finds nothing rather than a pummel, which tells a player he has no
+        // up-throw instead of telling them his up-throw is bad.
+        back_throw: None,
+        up_throw: None,
+        down_throw: None,
+    ),
+)

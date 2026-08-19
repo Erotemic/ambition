@@ -167,6 +167,36 @@ impl ContentPackDraft {
         })
     }
 
+    /// **Read an EMBEDDED pack: the manifest text plus every source's text.**
+    ///
+    /// The shipped-binary road. Every pack owner used to spell this as
+    /// `ron::from_str(MANIFEST).expect("…")` followed by [`Self::from_sources`],
+    /// which had two costs: a malformed manifest PANICKED where every other
+    /// content fault is a diagnostic, and parsing it needed a `ron` dependency
+    /// at the call site — which for a game reaching the compiler through the
+    /// `ambition_platformer2d` facade is a dependency the facade deliberately
+    /// does not re-export.
+    pub fn from_manifest_ron(
+        manifest_ron: &str,
+        sources: impl IntoIterator<Item = (String, String)>,
+    ) -> Result<Self, CompileFailure> {
+        let manifest: ContentPackManifest = ron::from_str(manifest_ron).map_err(|error| {
+            CompileFailure::new(
+                CompileStage::Parse,
+                vec![Diagnostic::error(
+                    DiagnosticCode::MalformedSource,
+                    CompileStage::Parse,
+                    format!("the pack manifest does not parse: {error}"),
+                )
+                .in_source("pack.ron")
+                .fix(
+                    "a manifest is `(id: …, version: …, namespace: …, requires: [], sources: [])`",
+                )],
+            )
+        })?;
+        Self::from_sources(manifest, sources)
+    }
+
     /// The same reading, from a manifest already in hand. Used by tests and by
     /// a future editor that holds an unsaved manifest.
     pub fn read_manifest(

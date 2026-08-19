@@ -11,8 +11,9 @@
 | [`moveset`](src/moveset.rs) | **A platform fighter's actual moves**, authored on the character. |
 | [`select`](src/select.rs) | **Character select: where a match is DECIDED before it is seated.** |
 | [`select_screen`](src/select_screen.rs) | **What the select screen LOOKS like, and how a cursor works it.** |
+| [`smash_pack`](src/smash_pack.rs) | **THIS DEMO'S CHARACTER PACKAGE — George's values, as content.** |
 
-_5 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_6 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -37,10 +37,6 @@
 //! for exactly that reason: heavier than it on every smash, faster nowhere, and
 //! carrying a startup GAP the shared table does not have.
 
-use ambition_platformer2d::characters::smash_capture::{
-    author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
-    CaptureAttemptParams, CapturePummelParams, CaptureThrowParams, SmashCaptureRepertoire,
-};
 use ambition_platformer2d::characters::smash_repertoire::{
     DownSpecial, NeutralSpecial, SmashRepertoire,
 };
@@ -559,56 +555,21 @@ pub fn george_booul_moveset() -> MovesetContract {
 
     // ── The hold ────────────────────────────────────────────────────────────
     //
-    // ⭐ **the excluded middle, applied to a grab.** George's table has three
-    // fast options and eight slow ones and nothing in between; his grab belongs
-    // with the eight. `0.16` of startup is slower than every grab in the genre
-    // and slower than his own jab by more than three times, and the `0.30` of
-    // recovery means a whiffed grab is the worst thing he can do — which is the
-    // point. A body with no medium answer should not have a safe grab either.
+    // ⭐⭐ **HIS CAPTURE KIT IS AUTHORED CONTENT, NOT A LITERAL** (D166, first
+    // facet, 2026-08-18). The grab's reach and timing, the pummel and the throw
+    // live in `assets/fighters/george_booul.ron` — with the reasoning that
+    // justified each number, because the reasoning is the character — and reach
+    // the runtime through the same content compiler the rest of the game's
+    // content uses. `crate::smash_pack` is the road; the values are identical to
+    // the literals that stood here, and the tests at the bottom of this file did
+    // not change, which is what says preparation lost nothing.
     //
-    // ⭐ **it was authored at `0.14` and HIS OWN LAW refused it**: the
-    // `debug_assert` at the bottom of this function fired with *"a George move
-    // landed between the pokes and the commitments"*, because `0.14` sits inside
-    // the `(0.08, 0.15)` gap that IS this character. The number moved to the
-    // commitment side rather than the gap moving, which is the whole reason that
-    // assertion is written where the moves are.
-    //
-    // ⚠ the reach is LONG and SHALLOW (`26` forward, `13` tall against his own
-    // 24-tall body): he is the heaviest fighter on the grid and he reaches, he
-    // does not lunge. The hold sits at `20` forward — out at arm's length, where
-    // a logician holds something he is examining.
-    let grab = author_standing_grab(
-        grab_shell("george_grab", "grab", 0.16, 0.06, 0.30),
-        CaptureAttemptParams {
-            offset: (18.0, 0.0),
-            half_extents: (26.0, 13.0),
-            hold_offset: (20.0, -2.0),
-        },
-    );
-    // ⚠ **a SLOW pummel that hurts.** `0.24` is a long beat — most of the genre
-    // pummels twice in that time — and `4` is nearly a jab. George trades rate
-    // for weight here exactly as he does everywhere else, and the tempo is what
-    // makes the trade legible rather than the number.
-    let pummel = author_pummel(
-        capture_beat("george_pummel", "attack", 0.24),
-        0.11,
-        CapturePummelParams { damage: 4 },
-    );
-    // ⚠ **the release is LATE in the move** (`0.20` of a `0.34` timeline), which
-    // is what makes the wind-up readable and the throw punishable if it is
-    // predicted. The launch is nearly flat (`-0.35` of vertical against `1.0`
-    // forward): George throws ACROSS the stage rather than up, so his throw is a
-    // stage-control tool and not a combo starter — the heavy body's version.
-    let forward_throw = author_throw(
-        capture_beat("george_fthrow", "attack", 0.34),
-        0.20,
-        CaptureThrowParams {
-            damage: 11,
-            knockback: 138.0,
-            knockback_growth: 1.9,
-            launch_dir: (1.0, -0.35),
-        },
-    );
+    // ⛔ **the sixteen slots above stayed in Rust on purpose.** They are built by
+    // COMPOSING `strike` / `impulse` / `on_hit` / `committed_tail` / `feel`, and
+    // the `debug_assert` below states a law about the shape of this whole table.
+    // That composition is the design; flattening it into RON would trade authored
+    // reasoning for a wall of numbers.
+    let capture = crate::smash_pack::capture_kit(crate::SMASH_GEORGE_BOOUL);
 
     let repertoire = SmashRepertoire {
         jab,
@@ -626,17 +587,11 @@ pub fn george_booul_moveset() -> MovesetContract {
         neutral_special: NeutralSpecial::Authored(bivalence),
         side_special: side_b,
         up_special: up_b,
-        // ⭐ **the first fighter to author one.** Back throw, up throw and down
-        // throw stay `None`: this fighter has a forward throw and says so, and a
-        // press for one he does not have finds nothing rather than a pummel.
-        capture: Some(SmashCaptureRepertoire {
-            grab,
-            pummel,
-            forward_throw,
-            back_throw: None,
-            up_throw: None,
-            down_throw: None,
-        }),
+        // ⭐ **the first fighter to author one**, and as of D166 the first to
+        // author it as CONTENT. Back throw, up throw and down throw stay unauthored
+        // in his facet: this fighter has a forward throw and says so, and a press
+        // for one he does not have finds nothing rather than a pummel.
+        capture: Some(capture),
         down_special: DownSpecial::ByPosture {
             grounded: ground_down_b,
             airborne: down_b,

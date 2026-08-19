@@ -54,6 +54,14 @@
 //! `ambition_characters` beside [`crate::brain::smash`] and
 //! [`crate::moveset_authoring`] because that is the crate every provider and
 //! demo already has, so a fighter in any game can reach it with no new dep edge.
+//!
+//! ⚠ **and the sixteen slots are NOT what D166's first facet migrated.**
+//! [`crate::smash_fighter`] carries the CAPTURE kit as authored values, because
+//! that kit is pure numbers. These slots are not: a fighter builds each one by
+//! COMPOSING helpers (`strike`, `impulse`, `on_hit`, `committed_tail`, `feel`),
+//! and George's file states a law about the shape of his whole table in a
+//! `debug_assert` beside them. That composition IS the design, and flattening it
+//! into RON would trade authored reasoning for a wall of numbers.
 
 use ambition_entity_catalog::{MoveGates, MoveSpec, MovesetContract};
 

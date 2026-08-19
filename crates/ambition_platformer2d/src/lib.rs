@@ -93,6 +93,15 @@ pub mod content {
                 crate::characters::brain::boss_pattern::content_schema::boss_seed_library_schema(),
             )
             .expect("the engine's own schemas are registered once");
+        // ⭐ **the platform-fighter capability, named by its schema.** D166's
+        // first character-owned facet: a fighter's capture kit as authored
+        // values. The capability owns the schema even though its types still
+        // live in `ambition_characters` — which is the point of registering it,
+        // since a registration is where ownership becomes something a tool can
+        // print rather than a comment.
+        registry
+            .register(crate::characters::smash_fighter::content_schema::smash_fighter_schema())
+            .expect("the engine's own schemas are registered once");
         registry
             .register(
                 crate::characters::brain::boss_pattern::content_schema::boss_validator_bands_schema(

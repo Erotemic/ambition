@@ -5240,6 +5240,53 @@ would make no sense in a radically different game that merely has actors and
 temporary relationships, it does not belong in the generic actor/character
 layer.* The five pressures above each fail it, and each was recorded rather than
 deepened once that was clear.
+⭐⭐ **AND THE FIRST FACET LANDED — 2026-08-18, George's capture kit as CONTENT.**
+Not the sixteen-slot repertoire, and that restraint is the finding rather than a
+shortfall: the capture kit is the only part of a fighter's authoring that came
+out as pure VALUES — six numbers of geometry, four timings, three payloads, no
+helper composition in the middle of them.
+
+```text
+ambition_characters::smash_fighter             the facet's SEMANTICS + the schema
+ambition_demo_smash/assets/fighters/george.ron the character package's VALUES
+CaptureKitAuthoring::into_repertoire           preparation → the SAME MoveSpecs
+```
+
+⭐ **the capability is NAMED before it is a crate.** A schema registration must
+name an owner, so registering `smash_fighter` writes the ownership down where a
+tool can print it — `SMASH_FIGHTER_CAPABILITY`, in the crate the types still live
+in. ⛔ it is not a licence to start the carve, and the standing note on both
+sibling modules was updated to say so in as many words rather than being left to
+read as satisfied.
+
+⭐ **a SECOND pack in the workspace, which is what proves the pipeline is a
+CAPABILITY** rather than `ambition_content`'s private loader: the demo compiles
+its own pack through `ambition_platformer2d::content`, with no dependency on the
+game crate. ⭐ the E9 oracle caught the one leak this needed — parsing `pack.ron`
+was `ron::from_str` at every pack owner and `ron` is not a facade re-export — and
+it was closed at the FACADE (`ContentPackDraft::from_manifest_ron`), which also
+turned Ambition's own manifest panic into a diagnostic.
+
+⛔ **what stayed in Rust, and why it is not a TODO.** The ordinary slots are
+authored by COMPOSING `strike` / `impulse` / `on_hit` / `committed_tail` / `feel`,
+and George's file states a law about the shape of his whole table in a
+`debug_assert` beside them — the one that refused a `0.14` grab for landing in
+the gap that IS this character. That composition is the design; flattening it
+into RON would trade authored reasoning for a wall of numbers.
+
+⚠ **the ⛔ note this closes.** `smash_capture` used to end with *"if a capture
+param ever becomes authorable as loose RON, wiring `ParamSchemaRegistry` is a
+precondition of that change"*. They are authorable now and they are not LOOSE:
+typed serde with `deny_unknown_fields`, read by the content compiler before a
+pack may reach a runtime, so a misspelled `knockback_grouth` names the file and
+the field at COMPILE time. The precondition was met by a stronger road than the
+one it named.
+
+▢ **still open on this row** — the platform-fighter POLICY half, which is the
+part the grab campaign proved the generic scorer cannot answer: *what is holding
+somebody WORTH.* The facet moved the VALUES; the decision that spends them is
+still `ambition_characters::brain::fighter`'s, and the five pressures above are
+still where they were recorded.
 
 ✔✔ **AND ONE OF THE REVIEW'S ASKS WAS ALREADY DONE — measured before touching
 it.** *"Move authoring has historically duplicated `Vfx(...)` and matching

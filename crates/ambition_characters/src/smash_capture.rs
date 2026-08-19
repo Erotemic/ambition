@@ -6,11 +6,15 @@
 //! crate is where a fighter's authoring currently lands. `ForwardThrow` is no
 //! more a universal character concept than `ForwardSmash` is.
 //!
-//! ⛔ **do not move it for purity.** The restitch point is the first real
-//! character-owned `smash.fighter` facet: when that seam exists, the Smash
-//! capability should own these schemas and character packages should author
-//! their values. Moving the types before then costs a migration and buys
-//! nothing — see the same note on [`crate::smash_repertoire`].
+//! ⛔ **do not move it for purity, and that ruling SURVIVED the facet landing.**
+//! The restitch point named here was *"the first real character-owned
+//! `smash.fighter` facet"*, and [`crate::smash_fighter`] is it (D166,
+//! 2026-08-18): a schema owned by `SMASH_FIGHTER_CAPABILITY`, values authored in
+//! a character package, and George's kit reaching the runtime through it. What
+//! that establishes is the OWNERSHIP, by name, in the crate the types still live
+//! in. It is not a licence to start the crate carve — the capture kit is one
+//! section of one fighter's authoring, and moving the types on the strength of
+//! it would be the migration this note has refused twice.
 //!
 //! ## What a capture IS, and why it is not a hit
 //!
@@ -53,8 +57,15 @@
 //! fighter's own file — strictly earlier than startup. The registry matters for
 //! hand-written RON, which no capture move uses.
 //!
-//! ⇒ if a capture param ever becomes authorable as loose RON, wiring the
-//! registry is a precondition of that change rather than a follow-up to it.
+//! ⇒ **capture params ARE authorable now (D166, 2026-08-18) — and they are not
+//! LOOSE, which is why that precondition is met rather than skipped.** A
+//! [`crate::smash_fighter`] facet carries them as typed serde structs with
+//! `deny_unknown_fields`, read by the content compiler before a pack may reach a
+//! runtime — so a misspelled `knockback_grouth` is a diagnostic naming the file
+//! and the field at COMPILE time, which is strictly earlier and strictly more
+//! specific than the startup check `ParamSchemaRegistry` would have given. The
+//! registry is still the answer for params typed straight into a move's
+//! `EffectRef` by hand; no capture move does that.
 
 use ambition_entity_catalog::{EffectRef, MoveSpec, ParamValue, VolumeShape};
 use serde::{Deserialize, Serialize};
@@ -89,6 +100,7 @@ pub const CAPTURE_THROW: &str = "smash.capture_throw";
 /// tag now, for zero callers, is the generalisation nobody asked for.
 /// [`Self::volume`] rebuilds the engine type at the consumer.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CaptureAttemptParams {
     /// Centre of the grab reach, body-local: `+x` = the captor's committed
     /// facing, `+y` = gravity-down. The SAME contract an authored `HitVolume`
@@ -115,6 +127,7 @@ impl CaptureAttemptParams {
 
 /// Authored parameters of one pummel impact.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CapturePummelParams {
     /// Damage committed to the captive. No knockback, no hitstun, no
     /// post-hit invulnerability — the acquisition already happened, and a
@@ -125,6 +138,7 @@ pub struct CapturePummelParams {
 
 /// Authored parameters of one throw release.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CaptureThrowParams {
     pub damage: i32,
     /// Base knockback, before the victim's damage and weight are applied. Fed

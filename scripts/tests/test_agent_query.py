@@ -7,6 +7,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.detached_tool
+
 _QUERY_PATH = Path(__file__).resolve().parent.parent / "agent_query.py"
 
 

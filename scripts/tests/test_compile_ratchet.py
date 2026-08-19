@@ -11,7 +11,6 @@ that draft before it was kept.
 
 from __future__ import annotations
 
-import functools
 import json
 import sys
 from pathlib import Path
@@ -50,15 +49,57 @@ def unit(**over):
     return row
 
 
-@functools.cache
-def baseline() -> dict:
-    return json.loads(ratchet.BASELINE.read_text(encoding="utf-8"))
+APP = "ambition_app"
 
 
-@functools.cache
-def live() -> dict:
-    """The current tree, priced with the FROZEN weights — one cargo walk, reused."""
-    return ratchet.snapshot(weights=baseline()["unit_weights"])
+@pytest.fixture
+def model(monkeypatch):
+    """A tiny resolved graph for cost-model tests.
+
+    The production gate separately observes the real repository. These tests ask
+    whether projections over an already-observed graph behave correctly, so
+    giving every arithmetic poison test its own Cargo walk was testing the wrong
+    seam and made a pure model suite take seconds.
+
+        app -> monolith -> floor
+
+    The rates deliberately make the monolith cheap and a carved dense crate
+    expensive, preserving the counterexample that motivated the seconds guard.
+    """
+    lines = {APP: 5_000, MONOLITH: 100_000, FLOOR: 10_000}
+    dirs = {name: Path("/synthetic") / name for name in lines}
+    edges = {APP: {MONOLITH}, MONOLITH: {FLOOR}, FLOOR: set()}
+    weights = {
+        "weight_unit": "synthetic milliseconds per physical line",
+        "profile": "release",
+        "cache_class": "rebuild",
+        "opt_levels": ["3"],
+        "ledger": "synthetic",
+        "builds": [],
+        "crates_measured": len(lines),
+        "median_ms_per_line": 1.0,
+        "ms_per_line": {APP: 2.0, MONOLITH: 0.6, FLOOR: 1.2},
+    }
+
+    monkeypatch.setattr(ratchet, "workspace_dirs", lambda: dirs)
+    monkeypatch.setattr(
+        ratchet,
+        "crate_lines",
+        lambda directory: {
+            "lines": lines[directory.name],
+            "files": 1,
+            "test_file_lines": 0,
+        },
+    )
+    monkeypatch.setattr(
+        ratchet,
+        "resolved_edges",
+        lambda consumer: ({name: set(deps) for name, deps in edges.items()}, APP),
+    )
+
+    before = ratchet.snapshot(weights=weights)
+    frozen = {**before, "headroom_fraction": ratchet.HEADROOM_FRACTION}
+    return weights, before, frozen
 
 
 # ---------------------------------------------------------------------------
@@ -143,16 +184,19 @@ def test_every_unit_of_one_crate_sums_against_one_line_count():
 # ---------------------------------------------------------------------------
 
 
-def test_the_weight_is_a_rate_so_growth_since_the_measurement_costs_seconds():
+def test_the_weight_is_a_rate_so_growth_since_the_measurement_costs_seconds(model):
     """⛔ the naive draft freezes each crate's measured DURATION.
 
     A frozen duration cannot answer the question a carve asks — 10,000 lines
     leaving a crate would change nothing — and a crate that doubled since it was
     measured would still be priced at its old size.
+
+    This is a projection property, so it runs on the tiny observed graph above;
+    the production gate is what proves the real repository can be observed.
     """
-    weights = baseline()["unit_weights"]
+    weights, before, _frozen = model
     rate = weights["ms_per_line"][MONOLITH]
-    now = live()["crates"][MONOLITH]
+    now = before["crates"][MONOLITH]
 
     assert now["seconds"] == round(rate * now["lines"] / 1000.0, 3)
     grown = ratchet.snapshot(
@@ -161,19 +205,17 @@ def test_the_weight_is_a_rate_so_growth_since_the_measurement_costs_seconds():
     assert grown["crates"][MONOLITH]["seconds"] > now["seconds"]
 
 
-def test_an_unmeasured_crate_is_priced_at_the_median_and_reported_as_a_guess():
+def test_an_unmeasured_crate_is_priced_at_the_median_and_reported_as_a_guess(model):
     """⛔ the naive draft gives an unmeasured crate a weight of zero.
 
-    That is the failure mode where a carve looks free: the lines leave a priced
-    crate and land somewhere that costs nothing. The median is a placeholder —
-    a least-squares fit of seconds on lines reads R^2 = 0.12 over these 55
-    crates — so it has to arrive with a finding attached, or the next reader
-    takes it for a measurement.
+    A new crate must receive the median placeholder and, more importantly, an
+    UNPRICED finding. This is model behavior and does not require Cargo to
+    rediscover Ambition's live graph.
     """
-    weights = baseline()["unit_weights"]
+    weights, _before, frozen = model
     invented = ratchet.snapshot(
         override_lines={"ambition_invented": 10_000},
-        extra_edges={"ambition_app": {"ambition_invented"}},
+        extra_edges={APP: {"ambition_invented"}},
         weights=weights,
     )
     entry = invented["crates"]["ambition_invented"]
@@ -181,46 +223,47 @@ def test_an_unmeasured_crate_is_priced_at_the_median_and_reported_as_a_guess():
     assert entry["seconds"] > 0
     assert entry["seconds"] == round(weights["median_ms_per_line"] * 10_000 / 1000.0, 3)
     assert entry["seconds_source"] == "estimated"
-    # ⚠ MEMBERSHIP, not equality. Equality here also asserted "and the working
-    # tree contains no other unpriced crate", which is a different claim and not
-    # this test's subject — a real carve landing before its `compile_collect.py`
-    # run makes it false, and the D33 carve (`ambition_character_sprites`,
-    # 2026-08-09) did exactly that. The property under test is that an UNMEASURED
-    # crate is priced from the median and REPORTED; the ratchet's own UNPRICED
-    # finding is what guards the tree, and it fires on the live tree already.
     assert "ambition_invented" in invented["unpriced_crates"]
 
-    severities = [severity for severity, _ in ratchet.evaluate(invented, baseline())]
+    severities = [severity for severity, _ in ratchet.evaluate(invented, frozen)]
     assert "UNPRICED" in severities
 
 
-def test_a_baseline_without_seconds_goes_red_instead_of_checking_nothing():
-    """⛔ the naive draft reads the frozen seconds with `.get(..., 0)`.
-
-    A baseline frozen before this guard existed then compares 1,249s against 0,
-    which is either a silent pass or a nonsense regression depending on which
-    way the `.get` falls. Neither is a guard.
-    """
-    stale = {k: v for k, v in baseline().items() if k != "worst_edit_cost_seconds"}
-    severities = [severity for severity, _ in ratchet.evaluate(live(), stale)]
+def test_a_baseline_without_seconds_goes_red_instead_of_checking_nothing(model):
+    """⛔ a stale baseline must fail instead of silently checking nothing."""
+    _weights, before, frozen = model
+    stale = {k: v for k, v in frozen.items() if k != "worst_edit_cost_seconds"}
+    severities = [severity for severity, _ in ratchet.evaluate(before, stale)]
     assert "STALE" in severities
 
 
-def test_appending_to_the_ledger_cannot_move_a_guarded_number(monkeypatch, tmp_path, capsys):
-    """⛔ the naive draft recomputes the weights from the ledger every run.
+def test_appending_to_the_ledger_cannot_move_a_guarded_number(
+    model, monkeypatch, tmp_path, capsys
+):
+    """⛔ appending measurements cannot move a number priced by frozen weights.
 
-    Then `scripts/compile_collect.py` appending 57 rows turns the gate red on a
-    tree nobody edited — the false red this whole instrument was designed to
-    avoid. Weights are frozen in the baseline and move only on `--update`.
+    The old version paid for two real repository observations and rewrote the
+    entire real ledger. Neither is part of the property. A one-row synthetic
+    ledger proves the same authority boundary directly: `main` must use weights
+    frozen in the baseline while an explicit `unit_weights()` read sees the new
+    ledger.
     """
-    def reported_worst_seconds() -> str:
-        """The `worst_edit_cost_seconds` REPORT row, as printed.
+    weights, _before, frozen = model
+    baseline_path = tmp_path / "compile-ratchet-baseline.json"
+    baseline_path.write_text(json.dumps(frozen), encoding="utf-8")
+    monkeypatch.setattr(ratchet, "BASELINE", baseline_path)
 
-        ⚠ the row, not the whole output. An earlier draft searched all of stdout
-        and passed against the very draft it rejects: a `REGRESSED` finding
-        quotes the frozen value in its own message, so the string was present
-        precisely when the guard had gone wrong.
-        """
+    ledger = tmp_path / "compile_units.jsonl"
+    rate = weights["ms_per_line"][MONOLITH]
+
+    def write_ledger(multiplier: float) -> None:
+        row = unit(unit=MONOLITH, seconds=rate * multiplier, lines=1000)
+        ledger.write_text(json.dumps(row) + "\n", encoding="utf-8")
+
+    monkeypatch.setattr(ratchet, "UNIT_LEDGER", ledger)
+    write_ledger(1.0)
+
+    def reported_worst_seconds() -> str:
         ratchet.main(["--report-only"])
         printed = capsys.readouterr().out
         return next(
@@ -228,32 +271,9 @@ def test_appending_to_the_ledger_cannot_move_a_guarded_number(monkeypatch, tmp_p
             if line.strip().startswith("worst_edit_cost_seconds")
         )
 
-    # Baseline reading FIRST, against the real ledger and this working tree.
     before = reported_worst_seconds()
-
-    doctored = tmp_path / "compile_units.jsonl"
-    doctored.write_text(
-        "\n".join(
-            json.dumps({**json.loads(line), "seconds": json.loads(line)["seconds"] * 9})
-            for line in ratchet.UNIT_LEDGER.read_text(encoding="utf-8").splitlines()
-            if line.strip()
-        ),
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(ratchet, "UNIT_LEDGER", doctored)
-    # The ledger really did change: read directly, the weights are 9x.
-    assert ratchet.unit_weights()["ms_per_line"][MONOLITH] == pytest.approx(
-        baseline()["unit_weights"]["ms_per_line"][MONOLITH] * 9, rel=1e-3
-    )
-
-    # ⛔ compare the two READINGS, never a reading against a frozen constant.
-    # The first draft of this test asserted the row contained the baseline's
-    # `worst_edit_cost_seconds` verbatim — and that number is
-    # `frozen weight × the tree's CURRENT line count`, so it moved the moment
-    # another agent added 380 lines to the monolith. It went red on ordinary
-    # work while the property it names was never violated. A test whose subject
-    # is "X cannot change Y" must hold everything but X still, and the tree is
-    # not X.
+    write_ledger(9.0)
+    assert ratchet.unit_weights()["ms_per_line"][MONOLITH] == pytest.approx(rate * 9)
     assert reported_worst_seconds() == before
 
 
@@ -262,16 +282,9 @@ def test_appending_to_the_ledger_cannot_move_a_guarded_number(monkeypatch, tmp_p
 # ---------------------------------------------------------------------------
 
 
-def test_lines_moved_into_a_dense_crate_reads_as_a_win_on_every_line_number():
-    """⛔ the naive draft is the gate as it stood before D27 — four line numbers.
-
-    10,000 lines leave the monolith (0.61 ms/line measured) for a sibling crate
-    shaped like `ambition_platformer2d_runtime` (14.77 ms/line measured), which
-    still depends on what the monolith depended on. The build gets ~140s slower.
-    Every line number says the carve worked.
-    """
-    weights = baseline()["unit_weights"]
-    before = live()
+def test_lines_moved_into_a_dense_crate_reads_as_a_win_on_every_line_number(model):
+    """A line-only model must reject a carve that makes compile seconds worse."""
+    weights, before, _frozen = model
     new = "ambition_carved"
     moved = 10_000
     edges = {p: {new} for p in before["crates"][MONOLITH]["direct_dependents"]}
@@ -287,7 +300,6 @@ def test_lines_moved_into_a_dense_crate_reads_as_a_win_on_every_line_number():
         weights=dense,
     )
 
-    # Every line number improves or holds still.
     assert after["largest_unit"]["lines"] == before["largest_unit"]["lines"] - moved
     assert after["worst_edit_cost"]["lines"] == before["worst_edit_cost"]["lines"]
     assert (
@@ -296,7 +308,6 @@ def test_lines_moved_into_a_dense_crate_reads_as_a_win_on_every_line_number():
     )
     assert after["critical_path_crates"] == before["critical_path_crates"]
 
-    # And the build is slower, by more than the whole worst-case budget.
     grew = (
         after["worst_edit_cost_seconds"]["seconds"]
         - before["worst_edit_cost_seconds"]["seconds"]
@@ -304,15 +315,6 @@ def test_lines_moved_into_a_dense_crate_reads_as_a_win_on_every_line_number():
     assert grew > 100.0
     assert grew > before["worst_edit_cost_seconds"]["seconds"] * ratchet.HEADROOM_FRACTION
 
-    # ⛔ evaluated against `before` -- the live snapshot this carve was applied
-    # to -- and NOT against the frozen baseline file. This test is about the
-    # MODEL's reasoning: that the naive line view calls a dense carve a win
-    # while the cost model calls it a regression. Comparing against the frozen
-    # file made the verdict depend on how far the tree had drifted from it, and
-    # in 2026-08 the monolith drifted +10,393 lines past its baseline, so
-    # `live - 10,000` was still above the frozen number and the CARVED finding
-    # stopped appearing. The test went red for a reason that had nothing to do
-    # with the reasoning it exists to pin.
     findings = ratchet.evaluate(after, before)
     assert any(
         severity == "REGRESSED" and label.startswith("worst_edit_cost_seconds")
@@ -322,43 +324,15 @@ def test_lines_moved_into_a_dense_crate_reads_as_a_win_on_every_line_number():
                for severity, label in findings)
 
 
-def test_the_same_carve_at_the_median_rate_is_inside_budget_and_still_flagged():
-    """⛔ the naive draft treats the median fallback as good enough to gate on.
+def test_the_same_carve_at_the_median_rate_is_inside_budget_and_still_flagged(model):
+    """The median placeholder can clear magnitude while UNPRICED still gates it.
 
-    A carve into an UNMEASURED crate is priced at the population median, and at
-    that rate a carve can sit comfortably inside the magnitude budget while still
-    being a real cost. So the magnitude arm does NOT gate this class, and the
-    UNPRICED finding is the only thing standing there. Recorded as a test so the
-    limit is a known one.
-
-    ⛔ **the carve size is DERIVED, and it took three tries.** Kept in full,
-    because each draft failed for a different and instructive reason:
-
-    1. `moved = 10_000`, with a docstring saying *"the same 10,000 lines cost
-       +19.5s, inside a 25s budget"*. Both numbers went stale as the tree grew;
-       by 2026-08-09 that carve cost **+26.4s against +25.2s** and went red,
-       **clearing by 1.2s — 4.7%.** ⇒ the assertion had been pinning a
-       COINCIDENCE: *"no magnitude finding"* was never a property of the guard,
-       only a fact about where the tree sat relative to one budget.
-    2. Sized to **half the budget** from a probe — and red again within hours.
-       ⛔ **because it measured against the LIVE tree and asserted against the
-       FROZEN baseline.** Two denominators. The live tree had already spent
-       +13.1s of the +25.2s budget (an unpriced carve, priced at the median), so
-       half-the-budget from `live` still landed at +25.8s from `baseline`.
-       ⚠ its comment claimed *"a margin no plausible tree growth erases"*. One
-       ordinary 369-line commit erased it.
-    3. **This version sizes against the headroom that is actually LEFT** —
-       `budget - (live - baseline)` — which is the same quantity a real carve
-       faces, so the claim under test got more honest rather than more forgiving.
-       It `skip`s, loudly, when the tree has spent everything.
-
-    ⇒ the durable lesson is #2's: **name both denominators before dividing.** A
-    number sized against one reference and judged against another is wrong by
-    exactly the drift between them, and it fails intermittently as that drift
-    moves — which reads like flakiness rather than like a bug.
+    The previous version sized the carve against today's live-tree drift. That
+    made a model poison test depend on whatever unrelated edits happened to have
+    landed before pytest started. Here the observed graph itself is the frozen
+    reference, so only the behavior named by the test can move the result.
     """
-    weights = baseline()["unit_weights"]
-    before = live()
+    weights, before, frozen = model
     new = "ambition_carved"
     budget = before["worst_edit_cost_seconds"]["seconds"] * ratchet.HEADROOM_FRACTION
 
@@ -381,45 +355,17 @@ def test_the_same_carve_at_the_median_rate_is_inside_budget_and_still_flagged():
             - before["worst_edit_cost_seconds"]["seconds"]
         )
 
-    # ⛔ TWO DENOMINATORS, and getting them confused is what broke the previous
-    # two versions of this test. `grew_by` measures against the LIVE tree;
-    # `ratchet.evaluate` compares against the FROZEN baseline. The live tree has
-    # usually already spent part of the budget, so "half the budget" measured
-    # from `live` can still land over the budget measured from `baseline`.
-    #
-    # Size against the headroom that is actually LEFT — which is also what a real
-    # carve faces, so the claim under test gets more honest rather than less.
-    spent = (
-        before["worst_edit_cost_seconds"]["seconds"]
-        - baseline()["worst_edit_cost_seconds"]["seconds"]
-    )
-    remaining = budget - spent
-    if remaining <= 0:
-        pytest.skip(
-            f"the live tree has already spent the whole budget "
-            f"({spent:.1f}s of {budget:.1f}s); there is no headroom to size a "
-            f"carve into, and that is a fact about the tree, not this test"
-        )
-
-    # Probe once to learn this tree's median-rate premium per moved line, then
-    # size the real carve at half the REMAINING headroom. Linear in `moved`: the
-    # moved lines are repriced from the owner's measured rate to the median.
     probe_moved = 10_000
     per_line = grew_by(carve(probe_moved)) / probe_moved
     assert per_line > 0, "moving lines to the median rate must cost something"
-    moved = int(remaining * 0.5 / per_line)
+    moved = int(budget * 0.5 / per_line)
 
     after = carve(moved)
     grew = grew_by(after)
-    assert 0 < grew < remaining * 0.75
+    assert 0 < grew < budget * 0.75
 
-    severities = [severity for severity, _ in ratchet.evaluate(after, baseline())]
-    assert "REGRESSED" not in severities, (
-        f"a {moved:,}-line carve costing +{grew:.1f}s should clear the magnitude "
-        f"arm: the live tree has spent {spent:.1f}s of its {budget:.1f}s budget, "
-        f"leaving {remaining:.1f}s, and this carve uses half of that. The UNPRICED "
-        f"finding is the gate here, not magnitude"
-    )
+    severities = [severity for severity, _ in ratchet.evaluate(after, frozen)]
+    assert "REGRESSED" not in severities
     assert "UNPRICED" in severities
 
 

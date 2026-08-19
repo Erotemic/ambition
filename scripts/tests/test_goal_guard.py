@@ -23,6 +23,11 @@ from pathlib import Path
 
 import pytest
 
+# Goal guard is a self-contained maintainer tool, not an Ambition runtime
+# feature. Repo-wide validation excludes detached-tool tests; run them
+# explicitly after editing the tool with `./run_tests.sh --tool-tests`.
+pytestmark = pytest.mark.detached_tool
+
 GUARD_SOURCE = Path(__file__).resolve().parents[1] / "goal_guard.py"
 
 
@@ -34,18 +39,18 @@ def guard_in(repo: Path) -> Path:
     return repo / "scripts" / "goal_guard.py"
 
 
-@pytest.fixture()
-def repo(tmp_path: Path) -> Path:
-    """A real git repo — the guard's progress oracle is HEAD, not a counter.
+@pytest.fixture(scope="session")
+def repo_template(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """One committed tiny repo, copied per test instead of rebuilt per test.
 
-    The guard is COPIED IN at `scripts/goal_guard.py` rather than run from the
-    checkout, because the guard locates its own `.goal/` from `__file__`. Running
-    the checkout's copy against a tmp repo would aim every test in this file at
-    the REAL `.goal/` — and `test_all_checks_passing_clears_the_goal` would then
-    disarm whatever run is live. Copying it also means these tests exercise the
-    production resolution rule instead of a test-only seam.
+    The guard's progress oracle genuinely is Git, so these remain real Git
+    repositories. What was expensive was paying five process launches (`init`,
+    two `config`s, `add`, `commit`) for every assertion even though every test
+    begins from the same commit. A byte-for-byte copy of this tiny repository
+    gives each test independent refs/index/worktree while preserving the real
+    Git behavior the fixture exists to exercise.
     """
-    root = tmp_path / "repo"
+    root = tmp_path_factory.mktemp("goal-guard-template") / "repo"
     (root / "scripts").mkdir(parents=True)
     shutil.copyfile(GUARD_SOURCE, guard_in(root))
     git(root, "init", "-q")
@@ -54,6 +59,14 @@ def repo(tmp_path: Path) -> Path:
     (root / "seed.txt").write_text("seed\n")
     git(root, "add", "seed.txt", "scripts/goal_guard.py")
     git(root, "commit", "-qm", "seed")
+    return root
+
+
+@pytest.fixture()
+def repo(tmp_path: Path, repo_template: Path) -> Path:
+    """An independent real Git repo starting from the shared committed template."""
+    root = tmp_path / "repo"
+    shutil.copytree(repo_template, root)
     return root
 
 
@@ -79,6 +92,11 @@ def run(repo: Path, *args: str, stdin: dict | None = None, cwd: Path | None = No
 
 PASS = {"name": "always true", "cmd": "true"}
 FAIL = {"name": "the queue still has open items", "cmd": "false"}
+
+# These tests prove timeout semantics, not the passage of human-scale time.
+# Keep the subprocess genuinely hung, but let the guard cut it off quickly so
+# three timeout assertions do not spend three wall-clock seconds per suite run.
+TEST_TIMEOUT_SECONDS = 0.1
 
 
 # ── It can say no ─────────────────────────────────────────────────────────────
@@ -153,7 +171,12 @@ def test_it_keeps_blocking_even_when_stop_hook_active_is_set(repo: Path) -> None
 def test_a_check_that_times_out_is_not_a_pass(repo: Path) -> None:
     """Silence is not consent. A hung check is an unanswered question, and an
     unanswered question leaves the goal open."""
-    arm(repo, checks=[{"name": "slow check", "cmd": "sleep 30", "timeout": 1}])
+    arm(
+        repo,
+        checks=[
+            {"name": "slow check", "cmd": "sleep 30", "timeout": TEST_TIMEOUT_SECONDS}
+        ],
+    )
     out = run(repo)
     assert out.get("decision") == "block"
     assert "timed out" in out["reason"]
@@ -729,17 +752,22 @@ def test_a_repo_with_no_config_still_works(repo: Path) -> None:
 
 
 def test_the_default_check_timeout_comes_from_the_repo(repo: Path) -> None:
-    (repo / ".goal-guard.json").write_text(json.dumps({"default_check_timeout": 1}))
+    (repo / ".goal-guard.json").write_text(
+        json.dumps({"default_check_timeout": TEST_TIMEOUT_SECONDS})
+    )
     arm(repo, checks=[{"name": "a slow check", "cmd": "sleep 30"}])
     reason = run(repo)["reason"]
-    assert "timed out after 1s" in reason, "the repo's number, not the built-in one"
+    expected = f"timed out after {TEST_TIMEOUT_SECONDS:g}s"
+    assert expected in reason, "the repo's number, not the built-in one"
 
 
 def test_a_timeout_says_it_is_the_clock_and_not_a_failure(repo: Path) -> None:
     """This repo read a green integration suite as red for days, because the
     block said only "timed out after 120s" and that looks exactly like a red
     test. A port must not lose the same days to the same sentence."""
-    (repo / ".goal-guard.json").write_text(json.dumps({"default_check_timeout": 1}))
+    (repo / ".goal-guard.json").write_text(
+        json.dumps({"default_check_timeout": TEST_TIMEOUT_SECONDS})
+    )
     arm(repo, checks=[{"name": "the integration suite", "cmd": "sleep 30"}])
     reason = run(repo)["reason"]
     assert "NOT RUN" in reason

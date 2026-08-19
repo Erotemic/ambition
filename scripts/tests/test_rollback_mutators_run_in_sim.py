@@ -52,6 +52,19 @@ def test_a_rollback_mutator_registered_into_Update_is_found(tmp_path):
     assert (name, schedule, hits) == ("regen", "Update", ["BodyMana"])
 
 
+def test_a_qualified_rollback_type_is_still_recognised(tmp_path):
+    """The fast extractor must preserve the old regex's qualified-path case."""
+    root = _tree(tmp_path, {
+        "crates/ambition_x/src/lib.rs": "\n".join([
+            "pub fn regen(mut m: ResMut<bc::BodyMana>) {}",
+            "fn build(app: &mut App) { app.add_systems(Update, regen); }",
+        ]),
+    })
+    found = guard.collect(root)
+    assert len(found) == 1
+    assert found[0][3] == ["BodyMana"]
+
+
 def test_going_through_sim_schedule_is_the_point_and_is_not_flagged(tmp_path):
     root = _tree(tmp_path, {
         "crates/ambition_x/src/lib.rs": "\n".join([

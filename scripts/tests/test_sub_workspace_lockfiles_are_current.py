@@ -1,12 +1,12 @@
 """Every sub-workspace's `Cargo.lock` still resolves.
 
-The repo has three workspaces outside the root — `fixtures/minimal_game`,
-`fixtures/external_consumer`, `examples/capability_demo` — each with its OWN
-lockfile, deliberately: their independent resolution is what makes them proof
-that a third party can build against the umbrella crate.
+Independent workspaces may carry their own TRACKED lockfiles. Their independent
+resolution is what makes them proof that a third party can build against the
+umbrella crate. An ignored machine-local lockfile is not repository state and
+must not change the population this guard checks.
 
 The cost is that changing a dependency anywhere in the main workspace can
-invalidate all three, and nothing in the fast loop says so. `cargo test` in each
+invalidate those lockfiles, and nothing in the fast loop says so. `cargo test` in each
 does eventually — but those are non-fast jobs at the end of the suite, so the
 feedback arrives minutes later attached to a job that looks unrelated.
 
@@ -29,14 +29,33 @@ import pytest
 
 REPO = Path(__file__).resolve().parents[2]
 
-# Discovered rather than listed: a fourth sub-workspace must not be able to
-# appear uncovered. The root lockfile is excluded — it is the one `cargo` keeps
-# current on every ordinary command.
-SUB_WORKSPACES = sorted(
-    path.parent
-    for path in REPO.rglob("Cargo.lock")
-    if path.parent != REPO and "target" not in path.parts
-)
+def _tracked_sub_workspaces() -> list[Path]:
+    """Independent workspaces whose lockfiles are repository state.
+
+    Filesystem recursion is the wrong discovery authority here: this repository
+    commonly stores complete sibling checkouts under `.worktrees/`, and `rglob`
+    therefore made the test population depend on which worktrees happened to be
+    mounted on one developer's machine. Ignored/generated lockfiles have the same
+    problem. Git's tracked-file view states exactly which lockfiles this checkout
+    promises to keep current while still discovering a newly committed fourth
+    sub-workspace automatically.
+    """
+    result = subprocess.run(
+        ["git", "-C", str(REPO), "ls-files", "-z", "--", "**/Cargo.lock"],
+        capture_output=True,
+        check=True,
+    )
+    lockfiles = [
+        REPO / raw.decode("utf8", errors="surrogateescape")
+        for raw in result.stdout.split(b"\0")
+        if raw
+    ]
+    return sorted({path.parent for path in lockfiles if path.parent != REPO})
+
+
+# Discovered rather than listed: a newly committed sub-workspace cannot appear
+# uncovered, while ignored worktrees and local generated locks are invisible.
+SUB_WORKSPACES = _tracked_sub_workspaces()
 
 
 def test_the_repo_still_has_sub_workspaces_to_check():

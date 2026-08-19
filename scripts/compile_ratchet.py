@@ -949,10 +949,12 @@ def report(current: dict, frozen: dict) -> None:
           f"{current['largest_unit']['crate']}{_vs_baseline(current, frozen)}")
     print(f"  worst_edit_cost_lines   {current['worst_edit_cost']['lines']:>9,}  "
           f"{current['worst_edit_cost']['crate']} "
-          f"({current['worst_edit_cost']['crates']} crates)")
+          f"({current['worst_edit_cost']['crates']} crates)"
+          f"{_share_of_workspace(current, frozen, current['worst_edit_cost'], current['worst_edit_cost']['crate'])}")
     for name, entry in current["watched_edit_cost"].items():
         print(f"  edit_cost_lines         {entry['lines']:>9,}  {name} "
-              f"({entry['crates']} crates)")
+              f"({entry['crates']} crates)"
+              f"{_share_of_workspace(current, frozen, entry, name)}")
     print(f"  · largest_unit_seconds  {dearest.get('seconds', 0):>8,.1f}s  "
           f"{dearest.get('crate', '?')}  (context, not guarded)")
     if weights:
@@ -968,6 +970,62 @@ def report(current: dict, frozen: dict) -> None:
           f"({frozen.get('recorded_at', '?')}), "
           f"headroom {frozen.get('headroom_fraction', HEADROOM_FRACTION):.0%}")
 
+
+
+def _share_of_workspace(current: dict, frozen: dict, entry: dict, crate: str) -> str:
+    """An edit cost as a FRACTION of the workspace, beside the absolute number.
+
+    ⛔⛔ **THE ABSOLUTE NUMBER ASKS A PROXY QUESTION FOR A FOUNDATION CRATE, and
+    on 2026-08-19 that cost a reading of three findings.** `edit_cost_lines` is
+    the total lines of a crate's reverse-dependency closure, so for a crate 49 of
+    59 crates depend on it is very nearly a measurement of the workspace itself:
+
+    ```text
+    workspace              456,072 -> 535,388   +79,316
+    ambition_geometry      433,774 -> 511,209   +77,435  = 97.6% of that growth
+                own lines                         +197
+    ```
+
+    The crate grew 197 lines and its edit cost grew 77,435, and the gate said
+    `REGRESSED  Something got bigger or grew a dependency edge. ... if it is a
+    module that belongs in its own crate, that is the finding`. Carving
+    `ambition_geometry` could not have moved that number by anything.
+
+    ⭐ **the share is the quantity that distinguishes the two stories**: geometry
+    went 95.1% -> 95.5% of the workspace (+0.4 pts) — architecturally flat —
+    while the actor monolith went 55.1% -> 53.3% (-1.7 pts), i.e. the
+    decomposition working, which the absolute number reports as a regression.
+
+    ⚠ **this is REPORT ONLY and deliberately does not touch what the gate fails
+    on.** A metric that guards should not change its verdicts in the same commit
+    that teaches it a new number; what was wrong here was the reading, and a
+    reader who can see both figures gets it right.
+    """
+    now_total = current.get("first_party_lines") or 0
+    was_total = frozen.get("first_party_lines") or 0
+    lines = entry.get("lines") or 0
+    if not now_total or not lines:
+        return ""
+    now_share = 100.0 * lines / now_total
+    # The frozen side is only comparable when the baseline recorded the same
+    # crate; a NEW crate has no share to move from and says so by omission.
+    # ⚠ the two shapes differ: `worst_edit_cost` is one record CARRYING its crate
+    # name, `watched_edit_cost` is a dict KEYED by it. Reading only the first is
+    # why the watched crates printed no delta on the first attempt — and the
+    # delta is the whole point, since it is the monolith's −1.7 pts that shows
+    # the decomposition working.
+    was = None
+    worst = frozen.get("worst_edit_cost")
+    if isinstance(worst, dict) and worst.get("crate") == crate:
+        was = worst.get("lines")
+    watched = frozen.get("watched_edit_cost")
+    if was is None and isinstance(watched, dict) and crate in watched:
+        was = watched[crate].get("lines")
+    if not was or not was_total:
+        return f"   [{now_share:.1f}% of the workspace]"
+    was_share = 100.0 * was / was_total
+    return (f"   [{was_share:.1f}% -> {now_share:.1f}% of the workspace, "
+            f"{now_share - was_share:+.1f} pts]")
 
 def diff(current: dict, frozen: dict) -> None:
     """Per-crate attribution: what moved since the baseline, and by how much.

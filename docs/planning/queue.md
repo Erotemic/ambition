@@ -3569,6 +3569,46 @@ to make the tool quiet — that is the laundering this row already paid for once
 ⭐ the honest sequence is: account for the edit-cost regressions FIRST, then
 re-freeze everything together and the size gain locks in with them.
 
+⭐⭐ **THAT ACCOUNTING IS DONE — 2026-08-19 — AND THREE OF THE SEVEN
+"REGRESSIONS" ARE THE WORKSPACE GROWING, SEEN FROM A FOUNDATION CRATE.**
+`edit_cost_lines` is the total lines of a crate's REVERSE-DEPENDENCY CLOSURE, so
+for a crate 49 of 59 crates depend on, it is very nearly a measurement of the
+workspace:
+
+```text
+workspace                       456,072 → 535,388   +79,316  (+17.4%), 56 → 59 crates
+
+ambition_geometry     edit cost 433,774 → 511,209   +77,435  = 97.6% of that growth
+                      own lines                       +197
+                      share of workspace  95.1% → 95.5%   (+0.4 pts)
+
+platformer2d_core     edit cost 430,276 → 508,302   +78,026  = 98.4% of that growth
+                      own lines                     +5,885
+                      share of workspace  94.3% → 94.9%   (+0.6 pts)
+
+actor_monolith        edit cost 251,085 → 285,581   +34,496
+                      share of workspace  55.1% → 53.3%   (−1.7 pts)  ⭐ IMPROVED
+```
+
+⇒ **`ambition_geometry` grew 197 lines and its edit cost grew 77,435.** Nothing
+about that crate got worse; the code behind it got bigger. ⛔ **so a carve is the
+wrong response to those two findings and always would have been** — carving
+geometry cannot move a number that is ~95% workspace size. The only levers are
+reducing FAN-IN (fewer crates depending on the foundation) or not growing, and
+neither is what "REGRESSED, something got bigger" suggests.
+
+⭐ **the monolith's edit-cost SHARE fell 1.7 points**, which is this row's actual
+thesis holding even while its absolute line count is over budget: the
+decomposition is working and the per-crate absolute ratchet cannot see it.
+
+⛔⛔ **THE INSTRUMENT ASKS A PROXY QUESTION for foundation crates.** Absolute
+`edit_cost_lines` conflates *"this crate became expensive to edit"* with *"this
+workspace became bigger"*, and for a crate whose closure is 95% of the workspace
+it measures only the second. `--report-only` now prints the share alongside the
+absolute number so the distinction is visible without changing what the gate
+fails on. ⇒ **re-freezing is still not the answer to the monolith's +5,887**;
+what these three findings needed was to be read correctly, and now they can be.
+
 ⚠⚠ **AND IT DID DRIFT BACK — MEASURED 2026-08-18, ONE DAY LATER, AND PAST THE
 BASELINE RATHER THAN UP TO IT:**
 

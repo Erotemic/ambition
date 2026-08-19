@@ -144,6 +144,21 @@ pub struct OccurrenceContinuity<'a> {
     /// refer to. A room being built reaches into these only for identities the
     /// ledger says are lying in it and that its own records do not produce.
     pub world: &'a [crate::rooms::RoomSpec],
+    /// **THE SECOND DESCRIBER — how to rebuild what no record can.**
+    ///
+    /// ⛔⛔ a RUNTIME-MINTED occurrence has no authored record in any room, so
+    /// the reinstatement above can never settle its debt: the loop searches
+    /// `world` for a record to relocate and finds none. Until 2026-08-19 that
+    /// fell through to a warn, and a weapon the player minted, carried and
+    /// dropped was simply gone after a death — which Jon's dropped-weapon ruling
+    /// makes a product defect, not a residue.
+    ///
+    /// ⭐ the two describers are disjoint populations, not a preference order:
+    /// the capture takes only `SpawnOrigin::Dynamic` rows and an authored record
+    /// can never spell one. `None` is the honest answer for a composition with
+    /// no checkpoint behind it.
+    pub minted:
+        Option<&'a crate::items::pickup::minted_horizon::MintedItemBaseline>,
 }
 
 /// What construction planning needs beyond the room's authored content: the
@@ -523,16 +538,75 @@ impl RoomFeatureConstructionPlan {
                     requests.push(request);
                 }
             }
-            // ⚠ **a debt no record in the world can settle**, which is a CONTENT
-            // change rather than a construction defect: the record an occurrence
-            // was minted from has been edited away. Refusing to build the room
-            // would make it permanently unenterable, so this is loud and the
-            // room is built without it.
+            // ── the SECOND DESCRIBER: a debt no RECORD can settle, that the
+            //    CHECKPOINT can. ─────────────────────────────────────────────
+            //
+            // ⭐ a runtime mint has no authored record anywhere, so the search
+            // above could never settle its debt; what rebuilds it is the
+            // description the checkpoint captured. The position is the ledger's
+            // `at`, which is the whole point — this is an object lying where
+            // somebody dropped it, and nothing else supplies where.
             for (sim_id, at) in owed {
+                let described = continuity
+                    .minted
+                    .and_then(|minted| minted.description_of(&sim_id));
+                if let Some(description) = described {
+                    // ⛔ `held_spec_by_id`, NOT `ambition_characters::brain::held_item_by_id`.
+                    // The narrow one knows only the brain's registry; a mint that
+                    // came out of the INVENTORY resolves through the item catalog
+                    // (`Item::from_held_item_id`) and the narrow lookup answers
+                    // `None` for it — which sent a javelin down the "no item spec
+                    // answers to that id" arm and lost it a second time.
+                    match crate::items::pickup::held_spec_by_id(&description.held_item) {
+                        Some(held) => {
+                            requests.push(crate::construction::ActorConstructionRequest {
+                                sim_id: sim_id.clone(),
+                                // ⛔ the occurrence's OWN provenance, carried
+                                // verbatim: a rebuilt mint with no
+                                // `SpawnOrigin::Dynamic` is invisible to the NEXT
+                                // capture, so it would survive exactly one death
+                                // and then become unrecoverable.
+                                origin: description.origin.clone(),
+                                parameters:
+                                    crate::construction::ActorConstructionParams::GroundItem {
+                                        spec: crate::rooms::GroundItemSpec {
+                                            id: sim_id.as_str().to_string(),
+                                            name: format!("Ground item: {}", description.held_item),
+                                            held_item: description.held_item.clone(),
+                                            pos: at,
+                                            half_extent:
+                                                crate::items::pickup::MINTED_ITEM_HALF_EXTENT,
+                                        },
+                                        held,
+                                    },
+                                relations: Vec::new(),
+                            });
+                            continue;
+                        }
+                        None => {
+                            // ⚠ a CONTENT change: the spec has been edited out of
+                            // the catalog since the checkpoint was taken.
+                            bevy::log::warn!(
+                                target: "ambition_platformer2d::construction",
+                                "room `{}` remembers minted `{sim_id:?}` lying at {at:?} as a \
+                                 `{}`, and no item spec answers to that id any more",
+                                room.id,
+                                description.held_item,
+                            );
+                            continue;
+                        }
+                    }
+                }
+                // ⚠ **a debt NEITHER describer can settle**, which is a CONTENT
+                // change rather than a construction defect: the record an
+                // occurrence was minted from has been edited away. Refusing to
+                // build the room would make it permanently unenterable, so this
+                // is loud and the room is built without it.
                 bevy::log::warn!(
                     target: "ambition_platformer2d::construction",
-                    "room `{}` remembers occurrence `{sim_id:?}` lying at {at:?}, and no \
-                     room in this world authors a record that can rebuild it",
+                    "room `{}` remembers occurrence `{sim_id:?}` lying at {at:?}, no room in \
+                     this world authors a record that can rebuild it, and the checkpoint \
+                     carries no description of it either",
                     room.id,
                 );
             }

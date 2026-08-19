@@ -527,6 +527,17 @@ pub fn begin_room_transition_load_system(
         // a Bevy system stops at sixteen**, and it belongs with the other
         // construction authorities in any case.
         Option<Res<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>>,
+        // ⭐ **THE SECOND DESCRIBER, for the debts no record can settle.** The
+        // ledger above says an occurrence lies here; for a RUNTIME MINT no room
+        // authors a record to rebuild it from, and this is what does. They
+        // travel together for the same reason `remembered` and `world` do —
+        // handing over the memory without the means to act on it deletes the
+        // object.
+        Option<
+            Res<
+                ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::MintedItemBaseline,
+            >,
+        >,
     ),
     // The prepared cast (D73 phase 1), so an NPC rebuilt by a transition still
     // takes its CHARACTER's default autonomous profile rather than only its
@@ -1014,6 +1025,7 @@ pub fn begin_room_transition_load_system(
                         ambition_platformer2d_actor_monolith::features::OccurrenceContinuity {
                             remembered,
                             world: &room_set.rooms,
+                            minted: construction_services.7.as_deref(),
                         }
                     }),
                 ),

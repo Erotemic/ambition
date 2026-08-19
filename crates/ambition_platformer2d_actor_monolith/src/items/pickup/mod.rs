@@ -238,7 +238,7 @@ const THROW_AHEAD: f32 = 48.0;
 /// instance — which is why it is not part of the instance's durable description
 /// and why the checkpoint restore rebuilds one with the same constant rather
 /// than remembering a copy per object.
-const MINTED_ITEM_HALF_EXTENT: Vec2 = Vec2::splat(PICKUP_HALF);
+pub(crate) const MINTED_ITEM_HALF_EXTENT: Vec2 = Vec2::splat(PICKUP_HALF);
 
 /// **WHERE A PHYSICAL ITEM IS — the state that replaced destroy-and-recreate.**
 ///

@@ -896,6 +896,32 @@ fn a_runtime_mint_the_checkpoint_never_saw_is_not_resurrected_by_a_death() {
 /// passes while measuring nothing — the same vacuity A avoids the same way.
 ///
 /// ⛔⛔ **`#[ignore]`d BECAUSE IT IS A REAL PENDING FALSIFIER, not a flake.**
+///
+/// ⭐ **2026-08-19, second measurement — the describer arm LANDED and the debt is
+/// now settled correctly; what remains is downstream of it.** Traced through the
+/// room build:
+///
+/// ```text
+/// room=central_hub_complex  owed=["slot:0/0"]  minted_present=true
+/// settling "slot:0/0": described=true
+/// pushing a rebuild request for "slot:0/0" at Vec2(1323.3, 954.8)
+/// [world-event] room-reset reasons=[Manual]
+/// [game-mode]   request playing <- room_transition_abandoned
+/// ```
+///
+/// So the reinstatement produces the right request, at the position the object
+/// fell, for the right room. The transition that would COMMIT that room is then
+/// abandoned by the death reset, so the plan never becomes entities. ⇒ the
+/// remaining question is the reset/transition ordering, not the describer — and
+/// the arm is worth keeping regardless, because without it the debt could never
+/// be settled at all.
+///
+/// ⚠ one resolver detail worth keeping, because it cost a measurement: a mint
+/// that came out of the INVENTORY resolves through `held_spec_by_id` (the item
+/// catalog), not `ambition_characters::brain::held_item_by_id` (the brain
+/// registry). The narrow lookup answers `None` for a javelin and sent it down
+/// the "no item spec answers to that id" arm — losing it a second time, in the
+/// code written to stop losing it.
 /// Half the fix landed 2026-08-19: the checkpoint now DESCRIBES a dropped mint
 /// (`live_minted_descriptions` no longer filters `!in_world()`), and this test's
 /// own probe confirms both halves of the memory exist after the death — a
@@ -912,8 +938,9 @@ fn a_runtime_mint_the_checkpoint_never_saw_is_not_resurrected_by_a_death() {
 /// remaining work is a describer arm there, which needs the minted baseline
 /// threaded into the room-construction context.
 #[test]
-#[ignore = "PENDING: the describer half landed 2026-08-19; the room build cannot \
-            yet settle a minted reinstatement debt. See the module note and D133."]
+#[ignore = "PENDING: the describer arm lands the rebuild request at the right \
+            position; the death reset then abandons the transition that would \
+            commit it. See the doc above and D133."]
 fn a_mint_banked_where_it_fell_comes_back_where_it_fell() {
     let mut sim = fixed_60hz_room_sim(ROOM);
     sim.step_n(base(), 8);

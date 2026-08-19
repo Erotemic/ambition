@@ -912,6 +912,10 @@ mod tests {
         construction.continuity = Some(features::OccurrenceContinuity {
             remembered,
             world,
+            // ⚠ no checkpoint behind this planner: it prepares a spec from the
+            // world's own records, and `None` is the honest answer for a
+            // composition that has taken none.
+            minted: None,
         });
         RoomConstructionPlan::prepare_spec(
             index,

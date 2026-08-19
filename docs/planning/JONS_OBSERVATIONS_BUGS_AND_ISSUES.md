@@ -47,6 +47,7 @@
   * ✔ Fixed — the engine had every piece and the stage reached none of them: every basic swing is prefab-derived and prefab swings author zero growth, so a hit at 150% launched exactly as far as one at 0%. Smash now declares the growth as a rule (a hit doubles its launch at 100%); Ambition stays flat.
 
 * In mary-o secret blocks or invisible blocks (or question mark blocks which currently work correctly) need to change their tile sprite to spent blocks. A brick block with a quasar in 1-1 just keeps its brick texture. That needs to be fixed.
+  * ✔ Fixed 2026-08-19 — and the hidden/invisible half was already right; only the BRICK look kept its masonry. It did so **deliberately**: the dresser argued that a spent brick would announce afterwards which brick had been the special one. Your call overrides that, and the argument survives anyway, because the new arm is guarded on `is_spent` — an unpaid brick still names no art, so it still keeps the level's paint and stays indistinguishable from the wall. Only the moment of payout takes the paint off. ⚠ a brick holding nothing never reaches `spent` at all (it shatters), so the arm is exactly "a brick that was hiding something and has given it up". Guarded by the whole look × spent table, so the two cases that already worked cannot break while the third is fixed.
 
 * In mary-o she can only have 1 fireball out a time. We should allow her to have 2 out a time.
   * ✔ `MAX_LIVE_SPARKS` is 2 and a test pins the count rather than the constant.

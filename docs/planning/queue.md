@@ -136,7 +136,7 @@ place**: couch play is NOT switched off, and a clipped label is not a defect.
 | Observation | Why it is worth a lane |
 |---|---|
 | Super Sanic's spikes are clipped by the sprite renderer | ⭐ Jon called it structural himself — *"we should not be able to clip sprite artwork so easily"*. This is the only one that is an ENGINE gap rather than content |
-| Mary-O secret/invisible blocks keep their brick texture when spent (quasar brick in 1-1) | the spent-art road already works for `?`-blocks, so this is a road that skipped a case |
+| ~~Mary-O secret/invisible blocks keep their brick texture when spent (quasar brick in 1-1)~~ | ✔ **FIXED 2026-08-19** — and the hidden half already worked; only `Brick` kept its masonry, and DELIBERATELY (the dresser defended the camouflage). Jon's call overrides it, and the argument survives: the new arm is guarded on `is_spent`, so an unpaid brick still names no art and still keeps the level's paint. Guarded by the whole look × spent table |
 | ~~Mary-O allows one fireball; should allow two~~ | ✔ **ALREADY DONE, ruled 2026-08-17** — `MAX_LIVE_SPARKS` is 2 and the guard counts LIVE SHOTS rather than reading the constant back, so a retune cannot make it vacuous |
 | ~~the multi-coin block's coin-pop VFX~~ | ✔ **RESOLVED 2026-08-15 and it was never missing** — it landed in `943a9aa0c`; four demo shells had no `VfxMessage` reader, so it drew in the full game and nowhere else. ⛔ the doc entry said otherwise for a day |
 | the snake and AI slop are far too big, and the snake sprite may not match its box | ⚠ related to the player-side sprite/box unit mismatch at the top of that file — the two may be one bug |

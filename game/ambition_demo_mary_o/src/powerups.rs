@@ -1450,10 +1450,29 @@ pub fn dress_power_blocks(
             // cammo block would have announced itself, in the one level that has
             // one. Saying nothing is what keeps it hidden.
             //
-            // ⚠ **the same texture whether or not it has paid**, which falls out
-            // of saying nothing: a spent brick would otherwise get the used-block
-            // plate and announce afterwards which brick had been the special one.
-            // It cannot be bonked twice regardless — `spent` already gates that.
+            // ⭐⭐ **BUT ONCE IT HAS PAID, IT WEARS THE USED PLATE — Jon,
+            // 2026-08-19: *"A brick block with a quasar in 1-1 just keeps its
+            // brick texture. That needs to be fixed."*** The paragraph above
+            // used to end by defending the opposite, on the grounds that a spent
+            // brick would *announce afterwards which brick had been the special
+            // one*. That is true and it is the point: the secret is worth
+            // keeping until the block pays, and after it has paid there is no
+            // secret left to keep — only a player who cannot tell which bricks
+            // they have already emptied.
+            //
+            // ⚠ **the camouflage argument survives INTACT, because this arm is
+            // guarded on `is_spent`.** An unspent brick still says nothing, so
+            // it still keeps the level's authored paint and is still
+            // indistinguishable from the wall — which is what the comment above
+            // is protecting. Naming art only at the moment of payout takes the
+            // paint off exactly the block that has stopped being a secret.
+            //
+            // ⚠ a brick that holds NOTHING never reaches `spent` at all: it
+            // shatters through `bricks::break_bricks`. So this arm is precisely
+            // "a brick that was hiding something and has now given it up".
+            Some(MaryOBlockLook::Brick) if is_spent => {
+                Some(BlockArt(EntitySprite::SpentBlockTile))
+            }
             Some(MaryOBlockLook::Brick) => None,
             _ => None,
         };
@@ -2742,6 +2761,132 @@ mod multi_coin_counter_tests {
             two.checksum(),
             three.checksum(),
             "⛔ the hash is blind to how much a block still owes"
+        );
+    }
+}
+
+#[cfg(test)]
+mod block_dressing_tests {
+    //! **WHAT EACH LOOK WEARS, BEFORE AND AFTER IT HAS PAID.**
+    //!
+    //! Jon's sentence names all three at once — *"secret blocks or invisible
+    //! blocks (or question mark blocks which currently work correctly) need to
+    //! change their tile sprite to spent blocks. A brick block with a quasar in
+    //! 1-1 just keeps its brick texture."* — so the guard is the whole table
+    //! rather than the one arm that changed. ⚠ pinning only the fixed case would
+    //! have gone green while silently breaking the two that already worked, and
+    //! the ?-block is explicitly the one Jon says is correct today.
+    //!
+    //! ⭐ **the unspent BRICK row is the load-bearing one.** It is the reason the
+    //! fix is guarded on `is_spent` rather than unconditional: a brick that has
+    //! not paid must still name NO art, because naming art strips the level's
+    //! authored paint and a camouflaged block that announces itself before it
+    //! pays is the secret given away.
+
+    use super::*;
+    use crate::ldtk_vocabulary::{MaryOBlock, MaryOBlockContents, MaryOBlockLook, MaryOPickup};
+    use ambition_platformer2d::actors::assets::game_assets::EntitySprite;
+    use ambition_platformer2d::render::rendering::{BlockArt, BlockVisual};
+    use bevy::prelude::{App, Entity, Update};
+
+    /// Spawn one render-side block the way the room build does — the ENCODED
+    /// name, so the dresser decodes the same vocabulary the converter writes.
+    fn block(app: &mut App, iid: &str, block: MaryOBlock) -> Entity {
+        let geo_id = ae::GeoId::placement(ae::PlacementId::new(iid.to_string()), 0);
+        app.world_mut()
+            .spawn(BlockVisual {
+                block_name: crate::ldtk_vocabulary::encoded_name(block, iid),
+                geo_id,
+            })
+            .id()
+    }
+
+    fn art(app: &App, entity: Entity) -> Option<EntitySprite> {
+        app.world().get::<BlockArt>(entity).map(|art| art.0)
+    }
+
+    #[test]
+    fn every_look_wears_the_spent_plate_once_it_has_paid_and_a_brick_hides_until_then() {
+        let mut app = App::new();
+        app.init_resource::<SpentPowerBlocks>();
+        app.add_systems(Update, dress_power_blocks);
+
+        let quasar = MaryOBlockContents::Always(MaryOPickup::Quasar);
+        let question_unspent = block(
+            &mut app,
+            "q_fresh",
+            MaryOBlock::new(MaryOBlockLook::Question, quasar),
+        );
+        let question_spent = block(
+            &mut app,
+            "q_used",
+            MaryOBlock::new(MaryOBlockLook::Question, quasar),
+        );
+        let hidden_unspent = block(
+            &mut app,
+            "h_fresh",
+            MaryOBlock::new(MaryOBlockLook::Hidden, quasar),
+        );
+        let hidden_spent = block(
+            &mut app,
+            "h_used",
+            MaryOBlock::new(MaryOBlockLook::Hidden, quasar),
+        );
+        // ⭐ Jon's exact case: a block that LOOKS like ordinary masonry and is
+        // hiding a quasar, in 1-1.
+        let brick_unspent = block(
+            &mut app,
+            "b_fresh",
+            MaryOBlock::new(MaryOBlockLook::Brick, quasar),
+        );
+        let brick_spent = block(
+            &mut app,
+            "b_used",
+            MaryOBlock::new(MaryOBlockLook::Brick, quasar),
+        );
+
+        {
+            let mut spent = app.world_mut().resource_mut::<SpentPowerBlocks>();
+            for iid in ["q_used", "h_used", "b_used"] {
+                spent.spend(ae::GeoId::placement(ae::PlacementId::new(iid.to_string()), 0));
+            }
+        }
+        app.update();
+
+        // ⚠ the NON-VACUITY floor: if the dresser ran over nothing, every row
+        // below would be `None` and three of them expect exactly that.
+        assert_eq!(
+            art(&app, question_unspent),
+            Some(EntitySprite::BonusBlockTile),
+            "an unpaid ?-block is not wearing the bonus tile, so the dresser did not run"
+        );
+
+        assert_eq!(
+            art(&app, question_spent),
+            Some(EntitySprite::SpentBlockTile),
+            "a paid ?-block must wear the used plate (Jon: this one already worked)"
+        );
+        assert_eq!(
+            art(&app, hidden_unspent),
+            None,
+            "an undiscovered hidden block named art, so it is visible before it is found"
+        );
+        assert_eq!(
+            art(&app, hidden_spent),
+            Some(EntitySprite::SpentBlockTile),
+            "a struck hidden block must reveal itself as a used block"
+        );
+        assert_eq!(
+            art(&app, brick_unspent),
+            None,
+            "a brick that has NOT paid named art, which strips the level's authored \
+             paint and announces the secret it exists to keep"
+        );
+        assert_eq!(
+            art(&app, brick_spent),
+            Some(EntitySprite::SpentBlockTile),
+            "a brick that gave up its quasar still wears masonry, so the player cannot \
+             tell which bricks they have already emptied (Jon, 2026-08-19)"
         );
     }
 }

@@ -5105,8 +5105,40 @@ and the plan, not here:**
   ⚠ **schema 33 → 34 for a RENAME and nothing else**; ⭐ the save file is not
   rollback state — the three values it serializes were already registered.
   ⛔⛔ **PROMOTED TO A PREREQUISITE 2026-08-17**: a runtime mint NOT in a hand at
-  save time (lying in a room, in flight) is undescribed and lost, because the
-  description remembers no position — **and Jon's dropped-weapon ruling makes that
+  save time (lying in a room, in flight) is undescribed and lost
+  ⛔⛔ **— AND THE REASON RECORDED HERE IS WRONG, re-measured 2026-08-19 against
+  HEAD before acting on it.** This row said the cause is that *"the description
+  remembers no position"*. It does not need to: `OccurrenceWhereabouts::Placed
+  { room: String, at: Vec2 }` already records exactly where a resting occurrence
+  lies, and `record_placed_ground_items` writes it for every in-world item. An
+  implementer following the sentence above would add a field that already exists
+  one crate over.
+  ⭐ **the real cause is THREE independent refusals, each of which alone loses the
+  object:**
+
+```text
+1  live_minted_descriptions filters `!custody.in_world()`   no description is
+   (items/pickup/minted_horizon.rs)                         captured at all
+2  restore enumerates CustodyBaseline rows, which key by    a dropped item has
+   CUSTODIAN (items/pickup/mod.rs `missing`)                no custodian, so it
+                                                            is never enumerated
+3  the materializer passes `Vec2::ZERO` and says so:        even if described and
+   "NO POSITION IS REMEMBERED AND NONE IS NEEDED. The       enumerated, it would
+   hand supplies where the object is."                      rebuild at the origin
+```
+
+  ⇒ **1 and 3 are exact complements and that is the shape of the fix**: an
+  in-custody mint is DESCRIBED but unplaced (the hand supplies where); an
+  in-world mint is PLACED but undescribed. Each half already exists; neither
+  covers the other's case.
+  ⭐⭐ **and the fix costs NO wire format.** `MintedItemDescription`'s shape does
+  not change — only WHICH mints get one — so the baseline's codec, the three
+  rollback baselines and the save version all stay put. That is the opposite of
+  what "the description remembers no position" implies, and it is why re-measuring
+  before acting was worth a session's attention.
+  ⚠ what the old sentence got right: this is a BLOCKER rather than a residue, and
+  Jon's dropped-weapon ruling is the product requirement behind it — a unique
+  weapon stays where it fell — **and Jon's dropped-weapon ruling makes that
   exact case a product requirement** (a unique weapon stays where it fell). So this
   is the blocking item, not a noted residue. Also still open: `Consumed` round-trips and still has no live producer;
   `load_save_at_startup` is presentation-only, so a headless composition never

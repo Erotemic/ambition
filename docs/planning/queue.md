@@ -2802,9 +2802,34 @@ one expressible:**
    the model. ⭐ physical custody belongs to the body and the item instance;
    participant entitlement is a separate fact with a different owner and lifetime.
 
-   ⇒ **carried forward:** dynamic drop sites still mint no identity
-   (`damage/boss_hit.rs`, `damage/actor_hit.rs` spawn `GroundItem` drops with no
-   `SimId`, so a boss-dropped axe has nothing to preserve); an orphaned custody is
+   ✔✔ **THE TWO WEAPON DROP SITES ARE MIGRATED (2026-08-19) — and what they were
+   missing was not identity, it was the CLASS.** `damage/actor_hit.rs`'s dropped
+   weapon and `damage/boss_hit.rs`'s signature gauntlet were the only two death
+   drops the 2026-08-05 room-scope fix never reached: both spawned session-scoped
+   with no `SpawnOrigin`, while the coin, the heart and the ability pickup each
+   carried both under a comment explaining why. ⭐ **a session-scoped drop is not
+   in `RoomResident`, so a defeated pirate's gun-sword FOLLOWED THE PLAYER into
+   the next room**, at its old coordinates, pickup-able there. Both now spawn
+   through one `drop_held_weapon`, so the rule is a function rather than a
+   paragraph repeated three times.
+
+   ⛔⛔ **and the guard that existed for exactly this class could not see them —
+   its SUBJECT was narrower than its RULE.** `the_pickup_drop_table_is_complete`
+   scanned ONE FILE for ONE SPELLING (`PickupFeature::new(` in `damage_drops.rs`)
+   while claiming to cover every drop; the two escapees were `GroundItem`s spawned
+   inline in the damage SYSTEMS, so they matched neither, and the coverage half
+   reported a complete table for a set missing both. ⇒ **a coverage check is only
+   as wide as its population** — the scan now reads all four damage-path files for
+   both collectible spellings, and poison-verified it names `apply_actor_hit` the
+   moment a drop is written inline again. The invariant half also stopped
+   restating the rule: it asks the production `RoomResident` roster whether a room
+   change would retire the drop, rather than naming `RoomScopedEntity` itself.
+
+   ⇒ **carried forward:** death drops still mint no `SimId` — deliberate, and the
+   reason is on `dynamic_drop_origin`: an identity would enrol the drop in
+   `TransactionBaseline::capture`, whose roster a room-scoped entity leaves
+   mid-transition. Provenance without identity is the honest intermediate state,
+   and the drops now have it. An orphaned custody is
    possible if a holder despawns while carrying (inert, bounded by room/session
    scope, no reaper built because that would be machinery for a state nobody has
    demonstrated); and `ChestFeature::reward()` still has **zero production

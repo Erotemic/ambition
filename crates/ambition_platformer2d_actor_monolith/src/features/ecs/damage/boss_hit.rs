@@ -13,7 +13,6 @@ use super::super::{ae, GameplayBanner, HitEvent, HitSource};
 // tests query `PickupFeature` directly. Both are test-only now that the drop
 // spawners live in `damage_drops`.
 use ambition_boss_encounter::BossEncounter;
-use ambition_platformer2d_shared_tangle::lifecycle::SpawnSessionScopedExt;
 use ambition_sfx::SfxMessage;
 use ambition_vfx::vfx::{DebrisBurstMessage, PhysicsDebrisCue};
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
@@ -311,20 +310,19 @@ pub(crate) fn apply_boss_hit(
         }
         // …and its signature wielded attack drops as a ground-item gauntlet the
         // player picks up + uses (the player literally wields the boss's move).
-        if let Some(gauntlet_id) = boss.config.behavior.signature_gauntlet.as_deref() {
+        if let (Some(gauntlet_id), Some(parent)) =
+            (boss.config.behavior.signature_gauntlet.as_deref(), &parent)
+        {
             if let Some(spec) = ambition_characters::brain::held_item_by_id(gauntlet_id) {
-                writers.commands.spawn_session_scoped(
+                super::super::damage_drops::drop_held_weapon(
+                    &mut writers.commands,
                     session_scope,
-                    (
-                        crate::items::pickup::GroundItem {
-                            spec,
-                            // Offset from the ability pickup so the two drops don't stack.
-                            pos: boss.kin.pos + ae::Vec2::new(36.0, 0.0),
-                            vel: ae::Vec2::ZERO,
-                            half_extent: ae::Vec2::splat(18.0),
-                        },
-                        bevy::prelude::Name::new("Boss signature gauntlet"),
-                    ),
+                    parent,
+                    // Offset from the ability pickup so the two drops don't stack.
+                    boss.kin.pos + ae::Vec2::new(36.0, 0.0),
+                    spec,
+                    ae::Vec2::splat(18.0),
+                    "Boss signature gauntlet",
                 );
             }
         }

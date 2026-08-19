@@ -40,6 +40,9 @@ use ambition_platformer2d_core as ae;
 const DROP_SEQUENCE_COIN: u64 = 0;
 const DROP_SEQUENCE_HEALTH: u64 = 1;
 const DROP_SEQUENCE_ABILITY: u64 = 2;
+/// The weapon a defeated body was holding. ⚠ a body drops at most one, so this
+/// stays a derivation like its siblings above.
+const DROP_SEQUENCE_WEAPON: u64 = 3;
 
 /// **A drop states the body it fell out of.**
 ///
@@ -299,6 +302,71 @@ pub fn drop_ability_pickup(
             // coin's comment describes, on the longest-lived drop in the game.
             RoomScopedEntity,
             dynamic_drop_origin(parent, DROP_SEQUENCE_ABILITY),
+            super::reset::SpawnedThisAttempt,
+        ),
+    );
+}
+
+/// Spawn the weapon a defeated body was holding as a `GroundItem` at `pos` — a
+/// pirate's gun-sword, a boss's signature gauntlet — so the player can pick it
+/// up and wield it through the ordinary item road.
+///
+/// ⛔⛔ **THIS EXISTS BECAUSE THE TWO SITES THAT USED TO SPAWN THESE INLINE WERE
+/// THE ONLY DEATH DROPS THE 2026-08-05 ROOM-SCOPE FIX NEVER REACHED.** The three
+/// pickup drops above each carry `RoomScopedEntity` and a `SpawnOrigin`, each
+/// under a comment explaining why; `actor_hit`'s dropped weapon and `boss_hit`'s
+/// signature gauntlet carried neither, because they were written in the damage
+/// systems rather than here and a rule stated three times in one file is not a
+/// rule the fourth writer ever reads. ⇒ **the class rule is a FUNCTION now, not
+/// a paragraph** — a drop cannot be spelled without it.
+///
+/// What the two missing halves cost, stated separately because they fail
+/// differently:
+///
+/// ```text
+/// RoomScopedEntity   the roster a room CHANGE retires is
+///                    `(With<RoomScopedEntity>, Without<InCustodyOf>)`, so a
+///                    session-scoped weapon on the floor is not in it — it
+///                    FOLLOWS YOU into the next room, at its old coordinates,
+///                    pickup-able there, while everything else that fell in
+///                    that fight stays behind
+/// SpawnOrigin        `rebuild_dynamic_feature_views` discovers runtime-minted
+///                    loot by construction PROVENANCE; a drop that states no
+///                    parent is a drop nothing can say where it came from
+/// ```
+///
+/// ⚠ **provenance, NOT identity — deliberately, and for the same reason the
+/// coin gives**: no `SimId` is minted here. Giving death drops durable identity
+/// is a step of the reconstruction migration and this is not it.
+pub fn drop_held_weapon(
+    commands: &mut Commands,
+    session_scope: SessionSpawnScope,
+    parent: &SimId,
+    pos: ae::Vec2,
+    spec: ambition_characters::brain::HeldItemSpec,
+    half_extent: ae::Vec2,
+    name: &str,
+) {
+    commands.spawn_session_scoped(
+        session_scope,
+        (
+            crate::items::pickup::GroundItem {
+                spec,
+                pos,
+                vel: ae::Vec2::ZERO,
+                half_extent,
+            },
+            bevy::prelude::Name::new(name.to_string()),
+            // Room-scoped for the same reason as the coin above — and here the
+            // symptom is the object itself rather than its picture.
+            RoomScopedEntity,
+            dynamic_drop_origin(parent, DROP_SEQUENCE_WEAPON),
+            // The attempt produced it; the attempt's reset takes it back.
+            //
+            // ⚠ **the boss's gauntlet did NOT carry this and its sibling reward
+            // did.** Both fall out of one death, and an attempt reset that
+            // un-fights the boss while leaving half its loot on the floor is two
+            // answers to one question. They agree now.
             super::reset::SpawnedThisAttempt,
         ),
     );

@@ -15,7 +15,6 @@ use super::super::{ae, ActorDisposition, GameplayBanner, HitEvent, HitSource, Se
 // tests query `PickupFeature` directly. Both are test-only now that the drop
 // spawners live in `damage_drops`.
 use crate::features::ActorStimulus;
-use ambition_platformer2d_shared_tangle::lifecycle::SpawnSessionScopedExt;
 use ambition_sfx::SfxMessage;
 use ambition_vfx::vfx::{DebrisBurstMessage, PhysicsDebrisCue};
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
@@ -583,21 +582,24 @@ pub(crate) fn apply_actor_hit(
                 // with. `held_items`' own module doc had already named this
                 // consumer: *"future item drops can read the same component
                 // without adding archetype-specific Rust branches."*
-                if let (true, Some(spec)) = (caps.drops_held_item, held_at_death.clone()) {
-                    writers.commands.spawn_session_scoped(
+                //
+                // ⚠ **and it drops through the same spawner as the coin and
+                // the heart.** This used to spawn the item inline here, which is
+                // how it came to be the one death drop with neither
+                // `RoomScopedEntity` nor a `SpawnOrigin` — see
+                // [`super::super::damage_drops::drop_held_weapon`] for what each
+                // of those two omissions cost.
+                if let (true, Some(spec), Some(parent)) =
+                    (caps.drops_held_item, held_at_death.clone(), &parent)
+                {
+                    super::super::damage_drops::drop_held_weapon(
+                        &mut writers.commands,
                         session_scope,
-                        (
-                            crate::items::pickup::GroundItem {
-                                spec,
-                                pos: em.kin.pos + ae::Vec2::new(-14.0, 0.0),
-                                vel: ae::Vec2::ZERO,
-                                half_extent: ae::Vec2::splat(16.0),
-                            },
-                            bevy::prelude::Name::new("Dropped weapon"),
-                            // The attempt produced it; the attempt's reset takes
-                            // it back (see `reset::SpawnedThisAttempt`).
-                            crate::features::ecs::SpawnedThisAttempt,
-                        ),
+                        parent,
+                        em.kin.pos + ae::Vec2::new(-14.0, 0.0),
+                        spec,
+                        ae::Vec2::splat(16.0),
+                        "Dropped weapon",
                     );
                 }
                 // Persist the death per the authored policy (ADR 0022).

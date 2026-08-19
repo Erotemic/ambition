@@ -43,9 +43,11 @@ use bevy::prelude::{Commands, Component, Entity, World};
 use crate::sim_id::SimId;
 
 mod registry;
+mod schema_catalog;
 #[cfg(test)]
 mod tests;
 
+pub use schema_catalog::{ConstructionSchemaCatalog, ConstructionSchemaCatalogError};
 pub use registry::{
     ConstructionRegistrationError, ConstructionRegistry, RelationCheck, RelationFn, RelationKind,
     RelationOps, RelationVerifyFn,
@@ -275,9 +277,8 @@ pub type ConstructFn<D> = for<'w, 's, 'a> fn(
 /// from creating authoritative entities beside it: it holds raw `Commands`, so
 /// it can despawn the root, restamp it, or spawn ten more. Those are caught
 /// after the fact by [`verify_committed_roster`] — the verification invariant —
-/// not prevented here. Production room construction now keeps every
-/// authoritative root as an explicit plan row; verification remains the
-/// backstop because raw `Commands` cannot make that property structural by type.
+/// not prevented here. Making every authoritative root an explicit plan row is
+/// the future structural invariant, and it is Phase-4 work.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ConstructionRoot(Entity);
 
@@ -379,6 +380,76 @@ impl ConstructionScope {
     }
 }
 
+/// One independently-owned construction lane inside a larger transaction.
+///
+/// A room may compose several closed, strongly typed construction domains
+/// (actor bodies, a portal-gun capability, later items or other capabilities)
+/// without erasing their parameter types into a universal executable registry.
+/// Each lane gets its own ownership token so one domain's verifier treats the
+/// others as foreign scope while the outer room transaction still preflights
+/// every plan before mutating and publishes only after every lane verifies.
+///
+/// [`Self::primary`] preserves the historical transaction token byte-for-byte.
+/// Named lanes add one stable suffix, so existing actor roots retain their
+/// snapshot/replay identity while newly federated domains cannot be mistaken for
+/// actor-owned roots.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ConstructionLane(String);
+
+impl ConstructionLane {
+    /// The historical/default lane. Its ownership token is exactly
+    /// [`ConstructionScope::transaction`].
+    pub fn primary() -> Self {
+        Self(String::new())
+    }
+
+    /// A stable named lane. Empty names are rejected by construction rather
+    /// than silently collapsing onto the primary lane.
+    pub fn named(name: impl Into<String>) -> Self {
+        let name = name.into();
+        assert!(
+            !name.trim().is_empty(),
+            "a named construction lane must have a non-empty identity"
+        );
+        assert!(
+            name != "primary",
+            "`primary` is reserved for the unnamed construction lane"
+        );
+        assert!(
+            !name.chars().any(|ch| matches!(ch, '\t' | '\n' | '\r')),
+            "a construction lane identity must fit the canonical one-line format"
+        );
+        Self(name)
+    }
+
+    pub fn as_str(&self) -> &str {
+        if self.0.is_empty() {
+            "primary"
+        } else {
+            &self.0
+        }
+    }
+
+    fn transaction(
+        &self,
+        scope: &ConstructionScope,
+        session: crate::lifecycle::SessionSpawnScope,
+    ) -> TransactionId {
+        let base = scope.transaction(session);
+        if self.0.is_empty() {
+            base
+        } else {
+            TransactionId(format!("{}\tlane:{}", base.as_str(), self.0))
+        }
+    }
+}
+
+impl Default for ConstructionLane {
+    fn default() -> Self {
+        Self::primary()
+    }
+}
+
 /// Which construction transaction owns an authoritative root.
 ///
 /// **Stamped by the executor, on every root it allocates.** This is what lets
@@ -395,7 +466,8 @@ impl TransactionId {
 
     /// Rebuild a stamp from its stored string — the snapshot codec's decode
     /// half. Not a way to MINT ownership: the only live producer is
-    /// [`ConstructionScope::transaction`], and a rollback restore reproduces
+    /// [`ConstructionScope::transaction`] for the primary lane or a prepared
+    /// [`ConstructionPlan::transaction`] for a named lane, and a rollback restore reproduces
     /// exactly the stamp the executor wrote.
     pub fn from_raw(raw: String) -> Self {
         Self(raw)
@@ -735,6 +807,7 @@ impl ConstructionReceipt {
 /// them. Immutable once prepared: every fallible decision is already made.
 pub struct ConstructionPlan<D: ConstructionDomain> {
     scope: ConstructionScope,
+    lane: ConstructionLane,
     entities: Vec<PlannedEntity<D>>,
     relations: Vec<PlannedRelation<D>>,
 }
@@ -743,6 +816,7 @@ impl<D: ConstructionDomain> Clone for ConstructionPlan<D> {
     fn clone(&self) -> Self {
         Self {
             scope: self.scope.clone(),
+            lane: self.lane.clone(),
             entities: self.entities.clone(),
             relations: self.relations.clone(),
         }
@@ -769,6 +843,21 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
     /// rule `SimId` already imposes on snapshot rows.
     pub fn prepare(
         scope: ConstructionScope,
+        requests: impl IntoIterator<Item = ConstructionRequest<D>>,
+        live: &BTreeSet<SimId>,
+        registry: &ConstructionRegistry<D>,
+    ) -> Result<Self, ConstructionError> {
+        Self::prepare_in_lane(scope, ConstructionLane::primary(), requests, live, registry)
+    }
+
+    /// Validate and freeze requests in one named lane of an outer transaction.
+    ///
+    /// This is the federation seam: the lane is ownership metadata only. Recipe
+    /// dispatch stays closed and typed on `D`; no executable behavior is looked
+    /// up through a cross-domain registry.
+    pub fn prepare_in_lane(
+        scope: ConstructionScope,
+        lane: ConstructionLane,
         requests: impl IntoIterator<Item = ConstructionRequest<D>>,
         live: &BTreeSet<SimId>,
         registry: &ConstructionRegistry<D>,
@@ -875,6 +964,7 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
 
         Ok(Self {
             scope,
+            lane,
             entities,
             relations,
         })
@@ -882,6 +972,15 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
 
     pub fn scope(&self) -> &ConstructionScope {
         &self.scope
+    }
+
+    pub fn lane(&self) -> &ConstructionLane {
+        &self.lane
+    }
+
+    /// Ownership token this exact prepared lane stamps under `session`.
+    pub fn transaction(&self, session: crate::lifecycle::SessionSpawnScope) -> TransactionId {
+        self.lane.transaction(&self.scope, session)
     }
 
     pub fn entities(&self) -> &[PlannedEntity<D>] {
@@ -1040,7 +1139,7 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
 
         let mut receipt = ConstructionReceipt::default();
         for planned in self.entities.iter().filter(|e| included(&e.sim_id)) {
-            let entity = Self::commit_entity(planned, ctx);
+            let entity = self.commit_entity(planned, ctx);
             receipt.committed.insert(planned.sim_id.clone(), entity);
         }
         for relation in self.relations.iter().filter(|r| included(&r.from)) {
@@ -1082,6 +1181,7 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
     /// entity that by definition nothing else holds, so one planned row is one
     /// distinct new root, and there is no check to get wrong.
     fn commit_entity(
+        &self,
         planned: &PlannedEntity<D>,
         ctx: &mut ConstructionExecCtx<'_, '_, '_, D>,
     ) -> Entity {
@@ -1094,7 +1194,7 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
         ctx.commands.entity(root).insert((
             planned.sim_id.clone(),
             planned.origin.clone(),
-            ctx.scope.transaction(ctx.session),
+            self.transaction(ctx.session),
         ));
         // The constructor preparation resolved — NOT a fresh dispatch. A domain
         // whose `dispatch` reads mutable state would otherwise let commit run a
@@ -1109,9 +1209,10 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
     pub fn deterministic_dump(&self) -> String {
         use std::fmt::Write as _;
         let mut out = format!(
-            "construction-plan-v{CONSTRUCTION_PLAN_SCHEMA_VERSION}\n{}\nroom\t{}\n",
+            "construction-plan-v{CONSTRUCTION_PLAN_SCHEMA_VERSION}\n{}\nroom\t{}\nlane\t{}\n",
             self.scope.binding.canonical_summary(),
             self.scope.room.as_deref().unwrap_or("-"),
+            self.lane.as_str(),
         );
         for entity in &self.entities {
             // No separate parent column: `canonical_summary` already carries it
@@ -1340,8 +1441,7 @@ pub fn verify_committed_roster<D: ConstructionDomain>(
                 sim_id: member.sim_id.clone(),
             },
             // Identity-bearing, appeared during this transaction, and nothing in
-            // the world says what built it. Every construction family has crossed
-            // the planner boundary, so there is no legacy exemption left.
+            // the world says what built it. Every production family is planned.
             ScopeClassification::Unowned => RosterViolation::UnownedIdentity {
                 sim_id: member.sim_id.clone(),
             },
@@ -1439,12 +1539,9 @@ pub enum RosterViolation {
     /// Recipes that create authoritative entities internally land here.
     Unplanned { sim_id: SimId },
     /// An identity-bearing entity appeared during this transaction carrying no
-    /// ownership stamp and no explicit non-authoritative classification.
-    ///
-    /// Every production room-construction family now commits authoritative roots
-    /// through the planner, so there is no tolerated legacy spelling of this
-    /// state: an unowned identity is an unplanned authority and the transaction
-    /// is refused.
+    /// ownership stamp and no explicit classification. Every production
+    /// construction family is planned now, so this is unambiguously a defect: a
+    /// recipe or integration road created an authoritative root outside the plan.
     UnownedIdentity { sim_id: SimId },
     /// A planned root does not carry this transaction's ownership stamp.
     ///
@@ -1821,10 +1918,9 @@ pub enum ScopeClassification {
     ForeignScope(TransactionId),
     /// Explicitly declared non-authoritative by [`PresentationOnly`].
     PresentationOnly,
-    /// Carries an identity, no ownership stamp, and no explicit
-    /// [`PresentationOnly`] classification. Every production room-construction
-    /// family now plans its authoritative roots, so this is unconditionally a
-    /// transaction violation rather than a migration state.
+    /// Carries an identity, no ownership stamp, and no explicit classification
+    /// at all. Every production construction family is planned, so this is a
+    /// construction violation rather than migration residue.
     Unowned,
 }
 
@@ -1913,4 +2009,4 @@ impl AuthoritativeScope {
 
 /// Bumped when the plan dump's shape changes. The dump is an inspection and
 /// comparison surface, so its shape is a compatibility contract.
-pub const CONSTRUCTION_PLAN_SCHEMA_VERSION: u32 = 3;
+pub const CONSTRUCTION_PLAN_SCHEMA_VERSION: u32 = 4;

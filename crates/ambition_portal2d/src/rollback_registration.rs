@@ -1,35 +1,25 @@
 //! Rollback declaration owned by `ambition_portal2d`.
 //!
-//! This module names this domain's concrete rewindable state while the host
-//! supplies the backend through [`RollbackRegistrar`]. It deliberately contains
+//! Portal simulation and the optional portal-gun opener publish separate
+//! registration functions for the same reason their Bevy plugins are separate:
+//! static/scripted portal users should not inherit gun state merely by opting
+//! into portal topology and transit. [`register_rollback_state`] remains the
+//! compatibility composition and registers both surfaces.
+//!
+//! The host supplies the backend through [`RollbackRegistrar`]. This module has
 //! no `bevy_ggrs` dependency and no host/composition logic.
 
 use ambition_platformer2d_core::snapshot::RollbackRegistrar;
 
 const OWNER: &str = env!("CARGO_PKG_NAME");
 
-/// Register everything the portal domain needs rewound.
-pub fn register_rollback_state<R>(registrar: &mut R)
+/// Register reusable portal topology/transit/shot state, with no portal-gun
+/// custody or control vocabulary.
+pub fn register_portal_rollback_state<R>(registrar: &mut R)
 where
     R: RollbackRegistrar,
 {
     registrar.require_rollback::<crate::PlacedPortal>(OWNER, "entity:placed_portal");
-    // ⚠ **the PICKUP, not just the placed portal** (2026-08-06, K2b edit 2).
-    // The gun pickup carries `SimId`, `SpawnOrigin` and `TransactionId` — all
-    // rollback-registered state — and had no anchor, so every one of those
-    // registrations was INERT on it: the registry listed them, the coverage
-    // sweep counted them as accounted, and nothing restored them.
-    //
-    // ⭐ **it was invisible because the entity was outside the swept
-    // population.** Direct entry built its world UNSCOPED, so the pickup carried
-    // no `SessionScopedEntity` and the sweep never looked at it. Deleting the
-    // build-time root put the whole authored room inside a session scope, which
-    // is what made this visible — the same class as `WorldItem`, found the same
-    // way, one composition later.
-    registrar.require_rollback::<crate::PortalGunPickup>(
-        OWNER,
-        "entity:portal_gun_pickup",
-    );
     registrar.rollback_resource_clone::<crate::PortalFrameHistory>(
         OWNER,
         "resource.portal_frame_history",
@@ -43,10 +33,10 @@ where
         "portal.transit_cooldown",
         |cooldown| cooldown.remaining.to_bits() as u64,
     );
-    registrar.rollback_component_clone::<crate::PortalGunPickup>(OWNER, "portal.gun_pickup");
     registrar.rollback_component_clone::<crate::PortalEmission>(OWNER, "portal.emission");
+    // A shot is a generic portal opener: scripts, AI, moving emitters, or a gun
+    // can all produce the same PortalFireIntent.
     registrar.rollback_component_clone::<crate::PortalShot>(OWNER, "portal.shot");
-    registrar.rollback_component_clone::<crate::PortalGun>(OWNER, "portal.gun");
     registrar.declare_rollback_derived_component::<crate::PortalTransitable>(
         OWNER,
         "derived.portal_transitable",
@@ -68,18 +58,10 @@ where
         "republished from the authoritative collision world each frame",
     );
     registrar.clear_message_on_rollback::<crate::ClearPortals>(OWNER, "message.clear_portals");
-    registrar.clear_message_on_rollback::<crate::DropPortalGun>(
-        OWNER,
-        "message.drop_portal_gun",
-    );
-    registrar.clear_message_on_rollback::<crate::FirePortalGun>(
-        OWNER,
-        "message.fire_portal_gun",
-    );
-    registrar.clear_message_on_rollback::<crate::PickUpPortalGun>(
-        OWNER,
-        "message.pick_up_portal_gun",
-    );
+    // Historical alias retained so the full compatibility registration keeps
+    // the existing rollback schema byte-for-byte. A later protocol migration
+    // may retire aliases deliberately.
+    registrar.clear_message_on_rollback::<crate::ClearPortals>(OWNER, "message.portal_clear");
     registrar.clear_message_on_rollback::<crate::PortalBodyEntered>(
         OWNER,
         "message.portal_body_entered",
@@ -88,17 +70,9 @@ where
         OWNER,
         "message.portal_fire_intent",
     );
-    registrar.clear_message_on_rollback::<crate::PortalGunEquipped>(
-        OWNER,
-        "message.portal_gun_equipped",
-    );
     registrar.clear_message_on_rollback::<crate::PortalShotFired>(
         OWNER,
         "message.portal_shot_fired",
-    );
-    registrar.clear_message_on_rollback::<crate::TogglePortalGun>(
-        OWNER,
-        "message.toggle_portal_gun",
     );
     registrar.clear_message_on_rollback::<crate::BodyTeleported>(
         OWNER,
@@ -108,10 +82,32 @@ where
         OWNER,
         "message.portal_body_transited",
     );
-    registrar.clear_message_on_rollback::<crate::ClearPortals>(OWNER, "message.portal_clear");
+}
+
+/// Register state owned specifically by the optional held portal-gun workflow.
+pub fn register_portal_gun_rollback_state<R>(registrar: &mut R)
+where
+    R: RollbackRegistrar,
+{
+    // The pickup carries SimId, SpawnOrigin and TransactionId, so it must be an
+    // entity anchor whenever the gun capability is installed.
+    registrar.require_rollback::<crate::PortalGunPickup>(
+        OWNER,
+        "entity:portal_gun_pickup",
+    );
+    registrar.rollback_component_clone::<crate::PortalGunPickup>(OWNER, "portal.gun_pickup");
+    registrar.rollback_component_clone::<crate::PortalGun>(OWNER, "portal.gun");
+    registrar.clear_message_on_rollback::<crate::DropPortalGun>(
+        OWNER,
+        "message.drop_portal_gun",
+    );
     registrar.clear_message_on_rollback::<crate::DropPortalGun>(
         OWNER,
         "message.portal_gun_drop",
+    );
+    registrar.clear_message_on_rollback::<crate::FirePortalGun>(
+        OWNER,
+        "message.fire_portal_gun",
     );
     registrar.clear_message_on_rollback::<crate::FirePortalGun>(
         OWNER,
@@ -119,34 +115,33 @@ where
     );
     registrar.clear_message_on_rollback::<crate::PickUpPortalGun>(
         OWNER,
+        "message.pick_up_portal_gun",
+    );
+    registrar.clear_message_on_rollback::<crate::PickUpPortalGun>(
+        OWNER,
         "message.portal_gun_pick_up",
-    );
-    registrar.clear_message_on_rollback::<crate::PortalBodyEntered>(
-        OWNER,
-        "message.portal_body_entered",
-    );
-    registrar.clear_message_on_rollback::<crate::PortalFireIntent>(
-        OWNER,
-        "message.portal_fire_intent",
     );
     registrar.clear_message_on_rollback::<crate::PortalGunEquipped>(
         OWNER,
         "message.portal_gun_equipped",
     );
-    registrar.clear_message_on_rollback::<crate::PortalShotFired>(
+    registrar.clear_message_on_rollback::<crate::TogglePortalGun>(
         OWNER,
-        "message.portal_shot_fired",
+        "message.toggle_portal_gun",
     );
     registrar.clear_message_on_rollback::<crate::TogglePortalGun>(
         OWNER,
         "message.portal_gun_toggle",
     );
-    registrar.clear_message_on_rollback::<crate::BodyTeleported>(
-        OWNER,
-        "message.body_teleported",
-    );
-    registrar.clear_message_on_rollback::<crate::PortalBodyTransited>(
-        OWNER,
-        "message.portal_body_transited",
-    );
+}
+
+/// Backward-compatible full portal registration used by the existing runtime.
+/// New portal-only compositions may call [`register_portal_rollback_state`]
+/// without adopting the gun.
+pub fn register_rollback_state<R>(registrar: &mut R)
+where
+    R: RollbackRegistrar,
+{
+    register_portal_rollback_state(registrar);
+    register_portal_gun_rollback_state(registrar);
 }

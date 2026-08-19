@@ -1,34 +1,86 @@
-//! Portal mechanic plugin assembly: the public [`PortalPlugin`] hosts install,
-//! and the [`PortalSimulationPlugin`] it delegates to (registers the portal
-//! messages, resources, and simulation systems against
-//! [`PortalSet`](crate::PortalSet)). Render/authoring/debug stay out of here —
-//! those are host or `ambition_portal2d_presentation` concerns.
+//! Portal plugin assembly: reusable simulation plus an optional portal-gun opener.
+//! Render, authoring, and debug stay in downstream adapters.
 
 use bevy::prelude::*;
 
-use super::messages::{
-    ClearPortals, DropPortalGun, FirePortalGun, PickUpPortalGun, PortalBodyEntered,
-    PortalFireIntent, PortalGunEquipped, PortalShotFired, TogglePortalGun,
-};
+use super::messages::{ClearPortals, PortalBodyEntered, PortalFireIntent, PortalShotFired};
 use super::schedule::PortalSet;
 use super::{
-    clear_portals_on_reset, despawn_orphaned_portals, portal_fire_system,
-    portal_teleport_ground_items, portal_toggle_system, portal_transit, publish_portal_carves,
-    sync_portal_tuning_convention, tick_portal_cooldowns, BodyTeleported, PlayerMovementIntent,
-    PortalBodyTransited, PortalCarves, PortalTuning,
+    clear_portals_on_reset, portal_fire_system, portal_teleport_ground_items, portal_transit,
+    publish_portal_carves, sync_portal_tuning_convention, tick_portal_cooldowns, BodyTeleported,
+    PlayerMovementIntent, PortalBodyTransited, PortalCarves, PortalTuning,
 };
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
-/// Top-level portal mechanic plugin.
+/// Backward-compatible full portal composition.
 ///
-/// This is the public plugin app assembly should install. It currently delegates
-/// to the simulation plugin, leaving room for future render, authoring, and
-/// debug adapters to become independent subplugins.
+/// Existing Ambition hosts install this and keep the historical gun-enabled
+/// behavior. Portal-only consumers may install [`PortalSimulationPlugin`]
+/// directly and avoid the gun control/custody vocabulary entirely.
 pub struct PortalPlugin;
 
 impl Plugin for PortalPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(PortalSimulationPlugin);
+        // Backward-compatible full portal experience: the reusable portal
+        // simulation plus the optional gun opener. A game that wants static,
+        // scripted, or moving portals without gun vocabulary installs only
+        // `PortalSimulationPlugin`.
+        app.add_plugins((PortalSimulationPlugin, PortalGunPlugin));
+    }
+}
+
+/// Optional portal-gun opener layered over the reusable portal simulation.
+///
+/// This plugin owns only gun vocabulary and gun lifetime policy. It translates
+/// no host input itself; Ambition's inventory/input adapters still live above
+/// this crate. The generic shot path remains in [`PortalSimulationPlugin`] and
+/// consumes [`PortalFireIntent`], so scripts or other emitters do not need a gun.
+pub struct PortalGunPlugin;
+
+impl Plugin for PortalGunPlugin {
+    fn build(&self, app: &mut App) {
+        use super::messages::{
+            DropPortalGun, FirePortalGun, PickUpPortalGun, PortalGunEquipped, TogglePortalGun,
+        };
+
+        let sim = app.sim_schedule();
+        app.add_message::<FirePortalGun>();
+        app.add_message::<TogglePortalGun>();
+        app.add_message::<DropPortalGun>();
+        app.add_message::<PickUpPortalGun>();
+        app.add_message::<PortalGunEquipped>();
+
+        // Construction metadata is federated as DATA. The actual constructor
+        // remains the closed `PortalGunConstruction` dispatch and is never
+        // selected from this catalog.
+        app.init_resource::<
+            ambition_platformer2d_shared_tangle::construction::ConstructionSchemaCatalog,
+        >();
+        let registry = super::portal_gun_construction_registry();
+        app.world_mut()
+            .resource_mut::<
+                ambition_platformer2d_shared_tangle::construction::ConstructionSchemaCatalog,
+            >()
+            .try_contribute(
+                super::PORTAL_GUN_CONSTRUCTION_DOMAIN,
+                registry.deterministic_dump(),
+            )
+            .expect("the portal-gun construction schema cannot conflict with itself");
+
+        // Toggle is gun-local policy; generic fire consumes a PortalFireIntent
+        // and remains in the simulation plugin. Keeping the explicit edge
+        // preserves the old same-set ordering without making portal core know a
+        // gun exists.
+        app.add_systems(
+            sim,
+            super::portal_toggle_system
+                .before(super::portal_fire_system)
+                .in_set(PortalSet::WeaponAndProjectiles),
+        );
+        app.add_systems(
+            sim,
+            super::despawn_orphaned_portals.in_set(PortalSet::WeaponMaintenance),
+        );
     }
 }
 
@@ -49,17 +101,12 @@ impl Plugin for PortalSimulationPlugin {
         app.add_message::<PortalBodyTransited>();
         // Reusable portal intent / outcome messages. Host input/inventory
         // adapters write these; core consumes them, staying content-agnostic.
-        app.add_message::<FirePortalGun>();
         // Generic fire intent the core fire system consumes (origin/dir/channel);
         // a host may map a gun gesture, script, AI, or moving emitter into this.
         app.add_message::<PortalFireIntent>();
-        app.add_message::<TogglePortalGun>();
-        app.add_message::<DropPortalGun>();
-        app.add_message::<PickUpPortalGun>();
         // Portal-owned reset signal; the host room-reset adapter emits it so
         // core never names the host reset event.
         app.add_message::<ClearPortals>();
-        app.add_message::<PortalGunEquipped>();
         // Portal-owned audio SIGNALS (not sfx): the crate emits these on a fire /
         // aperture entry; a host audio adapter maps them to the sfx vocabulary. The EXIT cue rides `PortalBodyTransited` (`exit_pos`).
         app.add_message::<PortalShotFired>();
@@ -128,17 +175,7 @@ impl Plugin for PortalSimulationPlugin {
         // helper over `SolidWorldQuery`.
         app.add_systems(
             sim,
-            (portal_toggle_system, portal_fire_system)
-                .chain()
-                .in_set(PortalSet::WeaponAndProjectiles),
-        );
-        app.add_systems(
-            sim,
-            // Portals must not outlive their gun (the "destroyed" case).
-            // (`ensure_actor_roll`/`update_actor_roll` used to ride here; the
-            // righting reflex is host-simulation owned now — the actors plugin
-            // registers it after body integration — and transit just ADDs roll.)
-            despawn_orphaned_portals.in_set(PortalSet::WeaponMaintenance),
+            portal_fire_system.in_set(PortalSet::WeaponAndProjectiles),
         );
 
         app.add_systems(sim, clear_portals_on_reset.in_set(PortalSet::RoomReset));
@@ -171,5 +208,48 @@ impl Plugin for PortalSimulationPlugin {
                 .chain()
                 .in_set(PortalSet::Transit),
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bevy::prelude::{App, Messages};
+
+    use ambition_platformer2d_shared_tangle::construction::ConstructionSchemaCatalog;
+
+    use super::{PortalGunPlugin, PortalPlugin, PortalSimulationPlugin};
+    use crate::{PortalFireIntent, TogglePortalGun, PORTAL_GUN_CONSTRUCTION_DOMAIN};
+
+    #[test]
+    fn simulation_only_portals_install_no_gun_control_channel() {
+        let mut app = App::new();
+        app.add_plugins(PortalSimulationPlugin);
+
+        assert!(app.world().contains_resource::<Messages<PortalFireIntent>>());
+        assert!(
+            !app.world().contains_resource::<Messages<TogglePortalGun>>(),
+            "static/scripted portal users must not inherit portal-gun control vocabulary",
+        );
+    }
+
+    #[test]
+    fn gun_layer_publishes_its_construction_schema() {
+        let mut app = App::new();
+        app.add_plugins((PortalSimulationPlugin, PortalGunPlugin));
+
+        assert!(app.world().contains_resource::<Messages<TogglePortalGun>>());
+        assert!(
+            app.world()
+                .resource::<ConstructionSchemaCatalog>()
+                .contains_domain(PORTAL_GUN_CONSTRUCTION_DOMAIN),
+        );
+    }
+
+    #[test]
+    fn compatibility_plugin_still_composes_the_full_portal_experience() {
+        let mut app = App::new();
+        app.add_plugins(PortalPlugin);
+        assert!(app.world().contains_resource::<Messages<PortalFireIntent>>());
+        assert!(app.world().contains_resource::<Messages<TogglePortalGun>>());
     }
 }

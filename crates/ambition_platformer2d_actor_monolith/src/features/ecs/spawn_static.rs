@@ -413,30 +413,6 @@ pub(crate) fn spawn_ground_item_resolved_into(
 }
 
 #[cfg(feature = "portal")]
-/// Populate one portal-gun pickup onto a root the construction executor
-/// allocated.
-pub(crate) fn spawn_portal_gun_spawn_into(
-    commands: &mut Commands,
-    session_scope: SessionSpawnScope,
-    root: bevy::ecs::entity::Entity,
-    spec: &crate::rooms::PortalGunSpawnSpec,
-) {
-    commands.insert_room_in_session(
-        session_scope,
-        root,
-        (
-            Name::new(format!("Portal gun pickup: {}", spec.name)),
-            ambition_portal2d::PortalGunPickup {
-                pos: spec.pos,
-                half_extent: spec.half_extent,
-                // World-placed pickups spawn already armed (a just-dropped one delays).
-                arm_timer: 0.0,
-            },
-        ),
-    );
-}
-
-#[cfg(feature = "portal")]
 pub(crate) fn lower_portal_placement(
     record: &crate::world::placements::PlacementRecord,
     ctx: &mut crate::world::placements::LoweringCtx<'_, '_, '_>,

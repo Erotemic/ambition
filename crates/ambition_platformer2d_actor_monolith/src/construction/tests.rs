@@ -194,8 +194,8 @@ fn commit_over(plan: RoomFeatureConstructionPlan, seed: impl FnOnce(&mut World))
         );
         crate::world::rooms::transaction::close(
             &mut commands,
-            plan.construction(),
-            receipt.construction(),
+            &plan,
+            &receipt,
             plan.room().id.clone(),
             SessionSpawnScope::UNSCOPED,
         );
@@ -218,9 +218,10 @@ fn a_room_plans_its_authored_and_provider_staged_families_with_real_provenance()
 
     assert_eq!(
         plan.construction().deterministic_dump(),
-        "construction-plan-v3\n\
+        "construction-plan-v4\n\
          epoch:4\n\
          room\thall\n\
+         lane\tprimary\n\
          entity\tplacement:duel_blue\tambition.staged-actor\tprovider-staged\ttest_provider\thall\tduel_blue\tstaged-actor duel_blue test_walker enemy\n\
          entity\tplacement:duel_red\tambition.staged-actor\tprovider-staged\ttest_provider\thall\tduel_red\tstaged-actor duel_red test_walker enemy\n\
          entity\tplacement:pickup_a\tambition.authored-ground-item\tauthored\thall\tpickup_a\tground-item pickup_a gun_sword\n\
@@ -1490,7 +1491,7 @@ fn verify_bare(
     receipt: &ConstructionReceipt,
     baseline: &TransactionBaseline,
 ) -> Result<(), Vec<RosterViolation>> {
-    let transaction = plan.scope().transaction(SessionSpawnScope::UNSCOPED);
+    let transaction = plan.transaction(SessionSpawnScope::UNSCOPED);
     let scope = AuthoritativeScope::gather(world, &transaction);
     verify_committed_roster(plan, receipt, baseline, &scope, world)
 }

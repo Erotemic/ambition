@@ -97,6 +97,14 @@ const WAIVED: &[(&str, &str)] = &[
         "ambition_entity_catalog::",
         "authored contract, immutable during a session",
     ),
+    (
+        "ambition_platformer2d_shared_tangle::construction::schema_catalog::ConstructionSchemaCatalog",
+        "composition-time construction schema descriptors, assembled before a session \
+         starts and immutable for its lifetime. The prepared-content fingerprint \
+         already binds these descriptors into session identity; changing the \
+         installed construction schemas creates a different composition/session \
+         rather than state a rollback could reach",
+    ),
     // ── The SESSION ROOT entity ──────────────────────────────────────────────
     //
     // Pulled into the population once it was derived from the rollback vocabulary:

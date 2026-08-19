@@ -3601,6 +3601,16 @@ neither is what "REGRESSED, something got bigger" suggests.
 thesis holding even while its absolute line count is over budget: the
 decomposition is working and the per-crate absolute ratchet cannot see it.
 
+⚠ **the accounting above uses LINE COUNTS, which are exact, and is therefore
+independent of the ratchet's `UNPRICED` finding** — three crates
+(`ambition_binding`, `ambition_boss_encounter`, `ambition_conversation`) are
+priced at the population median because nothing has measured them, and size
+predicts a crate's compile cost with R² = 0.12, so every SECONDS figure involving
+them is off by an unknown factor. ⛔ measuring them means
+`compile_collect.py` building the whole graph into its own target root, and this
+volume sat at 93% with 36 GB free; that is the operation that filled it before.
+⇒ **the guess is accepted for now, and no conclusion here rests on it.**
+
 ⛔⛔ **THE INSTRUMENT ASKS A PROXY QUESTION for foundation crates.** Absolute
 `edit_cost_lines` conflates *"this crate became expensive to edit"* with *"this
 workspace became bigger"*, and for a crate whose closure is 95% of the workspace

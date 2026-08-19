@@ -73,3 +73,36 @@ reports its own breakage as the subject's.
 ⛔ **the general lesson, which is the part to keep**: a sweep that produces a
 plausible-looking list of false positives is worse than no sweep. It costs every
 future reader the hand-verification I just did, and it looks like evidence.
+
+
+## A SECOND sweep, same day, same verdict — and what the difference was
+
+Later the same session I tried the sibling question: **which rollback-registered
+type does production never reference?** Rewound state nothing writes is real
+waste, and `BodyActionBuffer` had just turned out to be exactly that.
+
+It ranked `LimbRouteState` at **0 production references**. Verified by hand:
+`limbs.rs:314` takes `&mut LimbRouteState` in a system and
+`spawn_actors.rs:1698` inserts it. Live. The zero was an artefact of the same
+class of filter mistake as the first sweep.
+
+⇒ **two lead generators over Rust source, two unreliable answers.** The rule that
+falls out is not "don't measure" — it is about WHERE the leads came from:
+
+```text
+found by a SWEEP        add_systems orphans      60 candidates, 0 real
+                        unreferenced rewound     1 candidate, 0 real
+                        types
+found by READING a doc  BodyActionBuffer         1 candidate, REAL — the
+        that contradicted                        `AxisManeuverState` field doc
+        the code                                 named the combat buffer, and
+                                                 it has zero writers and zero
+                                                 tick callers
+```
+
+⭐ every real finding this session came from a DOC that disagreed with the code —
+`ActorControl::grab_pressed` ("the human's Grab button and a CPU's decision write
+this SAME field"), `_mary_o_v2_svg_poc` ("Every `ControlFrame` field … survives
+this translation"), `AxisManeuverState` ("Combat buffers … stay on the shared
+`BodyActionBuffer`"), and D125's own ledger note. ⛔ none came from a grep that
+counted things.

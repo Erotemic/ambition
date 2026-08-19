@@ -347,10 +347,25 @@ pub use ambition_characters::smash_capture::{
 /// buttons would be six presses, and escape would reward a control-scheme trick
 /// rather than a mash.
 pub fn sample_capture_escape(
-    mut captives: Query<(
-        &mut ambition_characters::smash_capture::SmashHoldState,
-        &ambition_characters::brain::ActorControl,
-    )>,
+    mut captives: Query<
+        (
+            &mut ambition_characters::smash_capture::SmashHoldState,
+            &ambition_characters::brain::ActorControl,
+        ),
+        // ⛔⛔ **`With<CapturedBy>` IS LOAD-BEARING, and dropping it was a
+        // regression this system already survived once.** Before the
+        // 2026-08-19 split this query took `&mut CapturedBy`, which required
+        // the relation by construction; asking for the ruleset's half alone
+        // silently WIDENED the population, because `release_capture` removes
+        // the relation and leaves `SmashHoldState` on the freed body.
+        //
+        // ⇒ without this filter every body that has ever been captured keeps
+        // accumulating escape progress from ordinary play, forever — a write to
+        // ROLLBACK STATE every tick, churning the checksum for a hold that
+        // ended. It would not free anybody (a fresh capture overwrites the row),
+        // which is exactly why it would not have shown up as a bug.
+        bevy::prelude::With<CapturedBy>,
+    >,
 ) {
     for (mut held, control) in &mut captives {
         let frame = &control.0;
@@ -502,6 +517,75 @@ mod tests {
             app.world().get::<CapturedBy>(victim).is_some(),
             "a raised shield stopped a grab — the rock-paper-scissors triangle \
              has no third leg if a guard beats a capture too"
+        );
+    }
+
+    /// **⛔⛔ A FREED BODY STOPS ACCUMULATING ESCAPE PROGRESS.**
+    ///
+    /// `release_capture` removes the RELATION and leaves `SmashHoldState` on the
+    /// body — which is fine, because a fresh capture overwrites it. What is not
+    /// fine is a sampler that reads the ruleset's half without asking whether
+    /// the body is actually held: every body that has ever been captured would
+    /// then keep crediting escape presses from ordinary play, forever, writing
+    /// ROLLBACK STATE every tick for a hold that ended.
+    ///
+    /// ⚠ **it would never have shown up as a bug**, which is why it is pinned:
+    /// nothing reads the value while the body is free, and the next capture
+    /// resets it. The cost is checksum churn and a lie in the snapshot, not a
+    /// broken mechanic — the quietest kind of defect this codebase has.
+    #[test]
+    fn a_freed_body_stops_crediting_escape_presses() {
+        let mut app = capture_app();
+        app.add_systems(bevy::prelude::Update, sample_capture_escape);
+        let captor = grounded_body(&mut app, "captor", ae::Vec2::new(0.0, 0.0));
+        let victim = grounded_body(&mut app, "victim", ae::Vec2::new(16.0, 0.0));
+        app.world_mut()
+            .entity_mut(victim)
+            .insert(crate::features::ActorFaction::Player);
+        app.world_mut()
+            .entity_mut(victim)
+            .insert(ambition_characters::brain::ActorControl(
+                ambition_characters::actor::control::ActorControlFrame::neutral(),
+            ));
+        app.world_mut().write_message(attempt(captor));
+        app.update();
+        assert!(
+            app.world().get::<CapturedBy>(victim).is_some(),
+            "no capture was established, so this measured nothing"
+        );
+
+        // Mash while HELD: progress accrues.
+        app.world_mut()
+            .get_mut::<ambition_characters::brain::ActorControl>(victim)
+            .expect("the captive carries a control frame")
+            .0
+            .melee_pressed = true;
+        app.update();
+        let while_held = app
+            .world()
+            .get::<ambition_characters::smash_capture::SmashHoldState>(victim)
+            .expect("a held body carries the ruleset's hold state")
+            .escape_progress;
+        assert!(
+            while_held > 0.0,
+            "mashing while held credited nothing, so the sampler is not running"
+        );
+
+        // Free the body, keep mashing: progress must not move.
+        app.world_mut().entity_mut(victim).remove::<CapturedBy>();
+        for _ in 0..10 {
+            app.update();
+        }
+        let after_release = app
+            .world()
+            .get::<ambition_characters::smash_capture::SmashHoldState>(victim)
+            .expect("the state stays on the body, and that is fine")
+            .escape_progress;
+        assert_eq!(
+            after_release, while_held,
+            "a body nobody is holding kept accumulating escape progress — the \
+             sampler is reading the ruleset's half without asking whether there \
+             is a hold, and writing rollback state every tick for it"
         );
     }
 

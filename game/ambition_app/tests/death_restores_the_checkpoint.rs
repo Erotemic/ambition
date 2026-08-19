@@ -910,11 +910,25 @@ fn a_runtime_mint_the_checkpoint_never_saw_is_not_resurrected_by_a_death() {
 /// ```
 ///
 /// So the reinstatement produces the right request, at the position the object
-/// fell, for the right room. The transition that would COMMIT that room is then
-/// abandoned by the death reset, so the plan never becomes entities. ⇒ the
-/// remaining question is the reset/transition ordering, not the describer — and
-/// the arm is worth keeping regardless, because without it the debt could never
-/// be settled at all.
+/// fell, for the right room.
+///
+/// ⛔⛔ **WHAT BLOCKS THE END-TO-END CLAIM IS THIS FIXTURE, measured after the
+/// arm landed.** Two things, neither of them the describer:
+///
+/// * **a death does not return the player to the checkpoint's ROOM.** Test A can
+///   assert from anywhere because a HAND travels with the body; an object lying
+///   on a floor is visible only from the room it is in, and after the death
+///   `duel_arena` is still the loaded room. Asserting there asserts that a room
+///   nobody is in has not been rebuilt.
+/// * **`walk_to` cannot come BACK.** It teleports into a loading zone and holds
+///   Interact; going ROOM → NEIGHBOUR works and has always been the only
+///   direction any test used. The return crossing never fires in 90 frames, with
+///   or without settling the body first.
+///
+/// ⇒ the honest state: the debt is now settleable and the request is correct;
+/// the round trip that would SHOW it needs a fixture that can walk back. The arm
+/// is worth keeping regardless — without it the debt could never be settled at
+/// all, and the warn it replaces was the object being lost.
 ///
 /// ⚠ one resolver detail worth keeping, because it cost a measurement: a mint
 /// that came out of the INVENTORY resolves through `held_spec_by_id` (the item
@@ -938,9 +952,9 @@ fn a_runtime_mint_the_checkpoint_never_saw_is_not_resurrected_by_a_death() {
 /// remaining work is a describer arm there, which needs the minted baseline
 /// threaded into the room-construction context.
 #[test]
-#[ignore = "PENDING: the describer arm lands the rebuild request at the right \
-            position; the death reset then abandons the transition that would \
-            commit it. See the doc above and D133."]
+#[ignore = "PENDING: the describer arm produces the right request at the right \
+            position; the FIXTURE cannot walk back through a door to look. See \
+            the doc above and D133."]
 fn a_mint_banked_where_it_fell_comes_back_where_it_fell() {
     let mut sim = fixed_60hz_room_sim(ROOM);
     sim.step_n(base(), 8);
@@ -982,7 +996,17 @@ fn a_mint_banked_where_it_fell_comes_back_where_it_fell() {
          pass without restoring anything"
     );
 
-    die(&mut sim);
+    // ⚠ **COME BACK, and no death is needed.** The claim is that the object
+    // survives its ROOM being forgotten and rebuilt, which the round trip
+    // already forces: the room unloaded above and destroyed it. A death is test
+    // A's mechanism because a HAND travels with the body; an object lying on a
+    // floor is only visible from the room it is in, and the death does not
+    // itself return the player there (measured: `duel_arena` stays loaded).
+    // ⚠ settle on the ground before reaching for the door: the drop above
+    // leaves the body mid-animation, and the crossing wants a grounded body in
+    // the zone.
+    sim.step_n(base(), 60);
+    walk_to(&mut sim, ROOM);
     sim.step_n(base(), 30);
     assert_returned(
         &mut sim,

@@ -5148,6 +5148,27 @@ what the falsifier proved EXISTS after the death (both halves of the memory):
 what is missing:                                                 the REBUILD
 ```
 
+  ✔ **THE ROOM BUILD CAN NOW SETTLE A MINTED DEBT (2026-08-19).**
+  `OccurrenceContinuity` carries the checkpoint's `MintedItemBaseline` beside the
+  ledger and the world definitions, and the reinstatement's unsettled-debt arm
+  builds a `GroundItem` request at the ledger's own position instead of warning.
+  Traced: `owed=["slot:0/0"]` → `described=true` → a request at
+  `Vec2(1323.3, 954.8)` for `central_hub_complex`.
+  ▢ **what is left is a FIXTURE, not the mechanism** — two things, both measured
+  after the arm landed:
+  · a death does not return the player to the checkpoint's ROOM (`duel_arena`
+    stays loaded), so there is nowhere to look from; test A only works because a
+    HAND travels with the body.
+  · `walk_to` cannot come BACK — it teleports into a loading zone and holds
+    Interact, which has only ever been used outward, and the return crossing
+    never fires in 90 frames.
+  ⇒ the falsifier exists and is `#[ignore]`d with both blockers written on it.
+  ⚠ **and one resolver detail that cost a measurement**: a mint out of the
+  INVENTORY resolves through `held_spec_by_id` (the item catalog), not
+  `ambition_characters::brain::held_item_by_id` (the brain registry) — the narrow
+  lookup answers `None` for a javelin and sent it down the "no item spec answers
+  to that id" arm, losing it a second time in the code written to stop losing it.
+
   ⇒ **the debt belongs to the ROOM BUILD**, which already settles exactly this
   obligation: `outlook.reinstatements()` in `features/ecs/spawn` relocates an
   AUTHORED record to where the ledger says the object lies, and a runtime mint

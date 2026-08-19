@@ -190,7 +190,6 @@ pub fn possession_trigger_system(
     // room scope into this scope (see the possess handover below), so the body you
     // took over survives room transitions and can be walked anywhere — it is your
     // character now, not a fixture of the room you found it in (Jon).
-    active_session: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>>,
     mut state: ResMut<PossessionState>,
     mut commands: Commands,
     // Home avatar kinematics: its position seeds the candidate search, and on
@@ -331,29 +330,64 @@ pub fn possession_trigger_system(
     //
     // ⛔⛔ **AND THE ITEM DOMAIN DEPENDS ON THIS WITHOUT NAMING IT (2026-08-19).**
     // `items::pickup::project_custody_onto_residency` decides whether a HELD
-    // object travels by asking whether its HOLDER is room-scoped — so this
-    // promotion, made to save the body, is also the only reason an object in a
-    // possessed body's hand is not retired at the door. Two subsystems that never
-    // reference each other agree by way of this one component write.
-    // `an_item_carried_by_a_possessed_body_survives_the_door_too` is the guard:
-    // delete the three lines below and it reports the carried object destroyed at
-    // the door (poison-verified). ⇒ if this promotion ever moves, that projection
-    // needs a different question, not a patch. Possession makes the
+    // object travels by asking whether its HOLDER is a `RoomResident` — so the
+    // custody marker below, which suspends this body's residency, is also the
+    // only reason an object in a possessed body's hand is not retired at the
+    // door. Two subsystems that never reference each other agree by way of one
+    // component write. `an_item_carried_by_a_possessed_body_survives_the_door_too`
+    // is the guard, and it is not theoretical: it went RED when this stopped
+    // swapping the lifetime and stayed red until that projection stopped asking
+    // `Has<RoomScopedEntity>` as a proxy for residency. Possession makes the
     // target the body you drive, so it takes the same lifetime — otherwise it
     // would vanish the instant you carried it through an exit (or die during a
     // rollback-confirmed transition's delay, which is exactly the substitution
     // hazard GPT review #1 named). `release_possession` reverts it. The scope
     // markers are rollback-snapshot state, so this rewinds with the possession
     // decision. Absent an active session (a minimal test) it stays as it is.
-    if let Some(scope_id) = active_session
-        .as_deref()
-        .and_then(ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope::current)
-    {
-        target_cmds
-            .remove::<RoomScopedEntity>()
-            .remove::<SessionScopedEntity>()
-            .insert(SessionScopedEntity(scope_id));
-    }
+    //
+    // ⭐⭐ **AND IT DOES THAT BY SUSPENDING RESIDENCY, NOT BY CHANGING THE
+    // LIFETIME — which is what `InCustodyOf`'s own doc has said all along:**
+    // *"the LIFETIME is unchanged, and that is deliberate. The entity keeps
+    // `RoomScopedEntity`; the marker is never taken away, so no query that
+    // requires the scope silently loses sight of it"*, and *"`0` is whatever
+    // entity took custody: a couch seat, A POSSESSED ACTOR, an NPC."*
+    //
+    // ⛔⛔ **this used to swap the scope instead, and that is precisely the
+    // failure that doc warns about.** `project_custody_onto_authored_occurrences`
+    // reads `(With<InCustodyOf>, With<RoomScopedEntity>)` — so a possessed body
+    // with its room scope removed was invisible to the occurrence ledger, its
+    // home room was never told the occurrence was in somebody's hands, and
+    // re-entering that room AUTHORED A SECOND COPY behind the same
+    // `SimId::placement(..)`. Measured, not reasoned:
+    // `an_authored_actor_carried_out_of_its_room_and_back_does_not_meet_a_copy`
+    // counted two.
+    //
+    // ⭐ the retirement half is unchanged and needs no promotion, because
+    // `RoomResident` is `(With<RoomScopedEntity>, Without<InCustodyOf>)` — the
+    // custody marker already excludes this body from the sweep a room change
+    // runs. One mechanism instead of two, and the ledger joins for free.
+    //
+    // ⚠ `restore_scope` below still records and restores the exact scope. It is
+    // a no-op on this path now (nothing is removed), and it is kept because it
+    // is part of a rollback-registered resource: retiring the field is a schema
+    // change and belongs to a bump, not to a bug fix.
+    //
+    // ⛔⛔ **AND THE MARKER IS NOT WRITTEN HERE, because it is DERIVED.**
+    // `InCustodyOf` is declared to rollback as
+    // *"room residency reprojected from `ItemCustody` every tick"* — a
+    // justification for not snapshotting it that is only true while something
+    // reprojects it. A possessed body has no `ItemCustody`, so inserting the
+    // marker at this site would create the one population nothing re-derives:
+    // a rewind past the possession would drop it and never put it back, and the
+    // driven body would become a `RoomResident` again and be retired at the next
+    // door. [`project_possession_onto_custody`] is the deriver, reading
+    // `PossessionState` — which IS rollback state — so the declaration's
+    // justification stays true for both populations.
+    // ⭐ the `ActiveSessionScope` parameter is GONE with the promotion it served:
+    // its scope id was needed to mint `SessionScopedEntity(scope_id)`, and
+    // nothing here mints a scope any more. A `let _ = &param` suppression would
+    // have kept an authority this system no longer consults, which is exactly
+    // what makes a later reader think it matters.
 }
 
 /// Restore the home avatar's player brain and the target's authored brain plus
@@ -389,21 +423,28 @@ fn release_possession(
             // inconsistent state where the brain is already gone, discard the
             // record while leaving the body wearing the possession-time session
             // scope forever.
-            let restore_scope = std::mem::take(&mut state.restore_scope);
+            // ⭐⭐ **RELEASE TOUCHES NO SCOPE, because possession touched none.**
+            // Dropping the custody marker is the whole of it, and residency
+            // resumes in whatever room is active NOW — the marker's own
+            // contract: `RoomScopedEntity` carries no room id, so a body
+            // released two rooms later is resident THERE and the next transition
+            // out retires it correctly. Nothing has to remember where it came
+            // from.
+            //
+            // ⛔ **and removing-then-restoring the scope would now be a BUG, not
+            // a no-op.** It used to be the point; today nothing has changed the
+            // scope during possession, so a remove/re-insert pair would silently
+            // revert any scope write some OTHER system made while the body was
+            // being driven.
+            //
+            // ⚠ `restore_scope` is still recorded above and is now vestigial. It
+            // is a field of a rollback-registered resource, so retiring it is a
+            // schema change and belongs to a bump rather than to a bug fix; it is
+            // read nowhere.
+            let _ = &state.restore_scope;
             ec.insert(brain)
                 .insert(ActorControl::default())
-                .insert(TemporaryControl::Autonomous)
-                .remove::<RoomScopedEntity>()
-                .remove::<SessionScopedEntity>();
-            match restore_scope {
-                PossessionRestoreScope::Unscoped => {}
-                PossessionRestoreScope::Room => {
-                    ec.insert(RoomScopedEntity);
-                }
-                PossessionRestoreScope::Session(scope_id) => {
-                    ec.insert(SessionScopedEntity(scope_id));
-                }
-            }
+                .insert(TemporaryControl::Autonomous);
         }
     }
 
@@ -425,6 +466,62 @@ fn release_possession(
                 aabb.center,
                 ambition_platformer2d_core::movement::TransitVelocity::Zero,
             );
+        }
+    }
+}
+
+/// **A DRIVEN BODY IS IN THE PARTICIPANT'S CUSTODY, and that marker is a
+/// PROJECTION of [`PossessionState`] rather than a write at the possess site.**
+///
+/// ⭐ **possession is custody of a BODY**, so it uses the same vocabulary a
+/// carried object does — `InCustodyOf`, whose own doc says *"the LIFETIME is
+/// unchanged, and that is deliberate"* and names *"a possessed actor"* among the
+/// custodians. Possession used to express the same fact by SWAPPING the body's
+/// lifetime (room scope out, session scope in), which hid it from every query
+/// that requires the room scope — including the occurrence ledger's, so a home
+/// room re-authored a SECOND copy of the body being driven.
+///
+/// ⛔⛔ **IT IS A DERIVE AND NOT A FOLLOW-UP CALL, for a rollback reason.**
+/// `InCustodyOf` is registered as a DERIVED component on the strength of one
+/// sentence — *"room residency reprojected from `ItemCustody` every tick"* — and
+/// that sentence is what excuses it from the snapshot. A possessed body has no
+/// `ItemCustody`; writing the marker at the possess site would create a
+/// population nothing reprojects, and a rewind past the possession would drop it
+/// with nothing to put it back. Reading `PossessionState`, which IS rollback
+/// state, keeps the excuse true for both populations.
+///
+/// ⚠ **the retraction arm is scoped by `Without<GroundItem>`**, because the item
+/// domain owns the marker on objects and reprojects it from its own authority.
+/// A blanket retraction here would fight
+/// [`project_custody_onto_residency`](crate::items::pickup::project_custody_onto_residency)
+/// every tick.
+///
+/// ⚠ **compared before writing**, like its item sibling: an unconditional insert
+/// would mark the component changed on every tick of a possession, and change
+/// ticks do not rewind.
+pub fn project_possession_onto_custody(
+    mut commands: Commands,
+    state: Res<PossessionState>,
+    driven: Query<
+        (
+            Entity,
+            &ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf,
+        ),
+        Without<crate::items::pickup::GroundItem>,
+    >,
+) {
+    use ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf;
+    let wanted = state.possessed.zip(state.home);
+    for (entity, custody) in &driven {
+        let agrees =
+            matches!(wanted, Some((possessed, home)) if possessed == entity && custody.0 == home);
+        if !agrees {
+            commands.entity(entity).remove::<InCustodyOf>();
+        }
+    }
+    if let Some((possessed, home)) = wanted {
+        if driven.get(possessed).map(|(_, custody)| custody.0) != Ok(home) {
+            commands.entity(possessed).try_insert(InCustodyOf(home));
         }
     }
 }

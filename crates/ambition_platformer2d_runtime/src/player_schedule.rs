@@ -342,6 +342,13 @@ impl Plugin for PlayerSchedulePlugin {
                 ambition_platformer2d_actor_monolith::abilities::traversal::possession::possession_trigger_system
                     .run_if(gameplay_allowed),
                 ambition_platformer2d_actor_monolith::abilities::traversal::possession::release_possession_if_target_lost,
+                // ⭐ **THE DRIVEN BODY'S CUSTODY MARKER, reprojected every tick.**
+                // Last in the chain so it sees the possession this tick settled
+                // on, and deliberately UNGATED for the same reason its item
+                // sibling is: a room transition suspends gameplay between the
+                // crossing and the commit, and that window is exactly when the
+                // room sweep reads residency.
+                ambition_platformer2d_actor_monolith::abilities::traversal::possession::project_possession_onto_custody,
             )
                 .chain()
                 .in_set(PlayerSimulationSet::Possession),

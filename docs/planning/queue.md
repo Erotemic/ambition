@@ -2547,6 +2547,123 @@ portal_leak       -> vfx.oiler.portal_leak         packed .loop only   no move e
 - ▢ **D125 — The systemic world substrate: what a thing IS, which occurrence it
   is, why it exists, and how long it lasts.**
 
+⭐⭐ **A POSSESSED ACTOR WAS DUPLICATING ITSELF, AND THE FIX UNIFIED TWO
+MECHANISMS FOR ONE FACT — 2026-08-19, MEASURED.** Possess an authored enemy in
+`vertical_shaft`, walk it through the door to `central_hub_complex` and back:
+**two live entities behind one `SimId::placement(EnemySpawn-4513)`** — the state
+`ActorConstructionPlan::prepare` refuses as `IdentityAlreadyLive` when it is
+told, and cannot refuse when it is not.
+
+```text
+why      `record_placed_ground_items` is the ONLY writer of `AuthoredOccurrences`
+         ⇒ the occurrence ledger is ITEMS-ONLY, and nothing recorded where a
+           possessed body went. The home room's rebuild consulted an outlook that
+           had never heard of it.
+how      possession expressed "this body travels" by SWAPPING ITS LIFETIME
+         (remove `RoomScopedEntity`, insert `SessionScopedEntity`) while items
+         express the same fact by SUSPENDING RESIDENCY (`InCustodyOf`, lifetime
+         untouched). Two mechanisms for one idea, and the ledger's projection
+         reads `(With<InCustodyOf>, With<RoomScopedEntity>)` — so the possessed
+         body was invisible to it.
+```
+
+⛔ **`InCustodyOf`'s own doc had said so all along**: *"the LIFETIME is unchanged,
+and that is deliberate … no query that requires the scope silently loses sight of
+it"*, and *"`0` is whatever entity took custody: a couch seat, A POSSESSED ACTOR,
+an NPC."* The vocabulary was already body-generic and already contemplated this
+holder; possession simply did not use it.
+
+⭐ **so possession now keeps the room scope and adds `InCustodyOf`.** The
+retirement half needs no promotion, because `RoomResident` is
+`(With<RoomScopedEntity>, Without<InCustodyOf>)` — the custody marker already
+excludes a travelling body from the sweep a room change runs.
+
+⛔⛔ **AND THE TWO HALVES COULD NOT LAND SEPARATELY, which is the finding worth
+keeping.** Removing the promotion turned the carried-item proof red:
+`project_custody_onto_residency` asked `Has<RoomScopedEntity>` on a holder as a
+PROXY for "would a room change retire it", and the proxy agreed with the roster
+only while there were two kinds of holder (a room fixture, and the session-scoped
+home avatar). A possessed body is the third — room-scoped AND travelling — and
+the proxy called it a fixture, so its cargo was retired at the door. It asks the
+`RoomResident` roster now, which makes custody TRANSITIVE for free. ⚠ two
+queries, not one: a single filtered query answers `Err` for *gone* and
+*travelling* alike, and a despawned holder's custody is deliberately left
+dangling ("a known remaining orphan"), so conflating them would make that orphan
+follow the player through every door forever.
+
+⭐ **and three possession unit tests failed, correctly** — they pinned the old
+mechanism. One named a real risk rather than a preference (*"the possessed body
+leaves room scope so a room load can't despawn it"*), and it was checked rather
+than dismissed: `losing_the_target_hands_control_back_to_home` already returns
+control to the home avatar when the driven body is destroyed, so a new-game reset
+— which sweeps `With<RoomScopedEntity>` and deliberately does NOT exempt custody
+— is safe. ⇒ **it is also more correct than before**: the old promotion let a
+possessed enemy from a destroyed world survive into the new game still being
+driven. The three are rewritten to assert *scope untouched, custody added and
+dropped*, which is the poison for reintroducing a promotion — a promote/restore
+pair looks identical at the end and differs in the middle.
+
+⛔⛔ **AND THE FIRST FIX WAS ITSELF WRONG IN A WAY ONLY ROLLBACK WOULD SHOW.**
+`InCustodyOf` is registered as a DERIVED component, excused from the snapshot by
+one sentence — *"room residency reprojected from `ItemCustody` every tick"* — and
+a possessed body has no `ItemCustody`. Writing the marker at the possess site
+therefore created the one population nothing reprojects: a rewind past the
+possession drops it, nothing puts it back, and the driven body becomes a
+`RoomResident` again and is retired at the next door. ⇒ the marker is a
+PROJECTION of `PossessionState` (which IS snapshot state) now, so the
+declaration's excuse is true for both populations. Poison-verified: move the
+write back to the possess site and ONLY the rewind test fails — every other
+possession test stays green, which is exactly why a plain insert looked correct.
+
+⚠ **and one consequence was measured rather than assumed**: a driven body now
+enters `CustodyBaseline` as `placement:… <- slot:0`, which is TRUE and which the
+item domain's restore ignores because its loop is keyed on live items. Its
+materialization arm sees the row as "missing" and falls through — neither
+describer can describe an enemy placement.
+`a_checkpoint_taken_while_possessing_does_not_manufacture_an_item` keeps that
+harmless, because a describer that grew a broader arm would start building a
+ground item out of a body.
+
+⭐ **and the class was swept: possession was the ONLY subsystem doing this.**
+Grepping the capability rather than a filename — `remove::<RoomScopedEntity>` and
+any `insert(SessionScopedEntity(..))` on an already-created entity, across every
+crate — leaves exactly one other hit, `SessionSpawnScope::apply_to`, which is
+spawn-time ownership rather than a promotion of something that already had a
+lifetime. So there is no second place with the same ledger blindness.
+
+⚠ `PossessionState::restore_scope` is vestigial now and is deliberately kept: it
+is a field of a rollback-registered resource, so retiring it is a schema change
+that belongs to a bump rather than to a bug fix. Release touches no scope at all
+— removing and re-inserting one would now be a BUG rather than a no-op, because
+it would silently revert a scope write some other system made while the body was
+being driven.
+
+⇒ guarded at both tiers: `an_authored_actor_carried_out_of_its_room_and_back_does_not_meet_a_copy`
+(app, the duplication), `an_item_carried_by_a_possessed_body_survives_the_door_too`
+(app, the coupling — it is the test that caught the incomplete fix), and
+`an_item_held_by_a_possessed_body_travels_with_it` (unit, the transitive rule).
+
+⚠ **still open, and named rather than fixed — it is TWO named pieces, not one.**
+An actor RELEASED in a foreign room writes no `Placed` row, so it is retired when
+that room is left and re-authored at home on re-entry. That is defensible
+behaviour ("the enemy goes home"), and making it stay where it was left needs
+BOTH:
+
+```text
+a producer   the placement recorder is items-only (`record_placed_ground_items`);
+             a released body needs the same `republish_placements` call
+a consumer   `construction::relocate_request` returns FALSE for anything but a
+             ground item — "only the families a producer can write a `Placed` row
+             for can be reinstated, and today that is one" — so an actor request
+             would be REFUSED and rebuilt at its authored spot with a warn
+```
+
+⭐ the refusal is honest rather than broken: the room build already declines to
+pretend an unmovable family moved. ⛔ so adding the producer WITHOUT the consumer
+would make every re-entry log a warn and teleport the actor home anyway — the two
+land together or not at all. And whether an abandoned enemy should stay put is a
+product call, not a defect.
+
 ⚠ **AND THE PERSISTENCE HALF OF THIS ROW HAS ITS OWN CARRY LIST — 2026-08-19.**
 A checkpoint baseline owes the reset horizon FIVE separate enrollments across
 three crates: `init_resource`, a capture system, a restore system, DURABLE-LOAD

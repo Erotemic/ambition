@@ -866,25 +866,33 @@ fn an_untouched_placement_is_authored_on_every_entry_and_a_reset_rebuilds_it() {
 // holder is not `RoomScopedEntity` — which the session-scoped home avatar never
 // is.
 //
-// ⚠ **I predicted this would FAIL for a possessed body and I was wrong**, which
-// is worth writing down because the wrong prediction is the reason the test
-// exists and the right answer is the thing it now guards. The reasoning was: an
-// authored actor is room-scoped, so the projection would read it as *"a room
-// fixture's hand"*, leave the object RESIDENT, and let the room change retire it
-// while `carry_body` carried the body itself.
+// ⚠ **I predicted this would FAIL and it passed, for a reason that then turned
+// out to be a bug of its own** — the whole sequence is worth keeping because
+// each step corrected the one before it.
 //
-// ⭐ **what actually happens is that POSSESSION PROMOTES THE BODY'S LIFETIME.**
-// `possess_target` removes `RoomScopedEntity` and inserts `SessionScopedEntity`,
-// for its own reason — *"a room-scoped actor despawns on every room load; the
-// home avatar you drive is session-scoped precisely so it survives transitions"*
-// — and that promotion is what makes the custody projection's rule true of a
-// possessed holder as well.
+// 1. PREDICTED: an authored actor is room-scoped, so the projection reads it as
+//    *"a room fixture's hand"*, leaves the object resident, and the room change
+//    retires it while `carry_body` carries the body.
+// 2. MEASURED: `holder_room_scoped=false`. `possess_target` was PROMOTING the
+//    body out of room scope into session scope, and that promotion — made to
+//    save the BODY — was what made the custody rule true of the ITEM.
+// 3. AND THAT PROMOTION WAS ITSELF THE DEFECT. `InCustodyOf`'s doc says *"the
+//    LIFETIME is unchanged, and that is deliberate … no query that requires the
+//    scope silently loses sight of it"*, and the occurrence ledger's projection
+//    requires exactly that scope. So a possessed body was invisible to the
+//    ledger and its home room authored a SECOND copy of it —
+//    `an_authored_actor_carried_out_of_its_room_and_back_does_not_meet_a_copy`
+//    counted two.
 //
-// ⛔⛔ **so two subsystems that never name each other agree by way of a third
-// fact, and NOTHING said so.** Possession promotes a scope to save the BODY;
-// custody reads that scope to decide the ITEM. Poison-verified: delete the
-// promotion and this test reports the carried object destroyed at the door. That
-// coupling is the thing under guard here — not the happy path.
+// ⭐ **possession suspends RESIDENCY now, like everything else that travels**:
+// it keeps `RoomScopedEntity` and adds `InCustodyOf`, and the residency
+// projection asks the `RoomResident` roster instead of restating it — which
+// makes custody TRANSITIVE, and is what carries this test's object.
+//
+// ⛔⛔ two subsystems that never name each other still agree by way of one fact,
+// and this test is what makes that agreement visible: it went RED the moment the
+// promotion was removed, and stayed red until the projection stopped asking a
+// proxy question. Neither change could land alone.
 // ---------------------------------------------------------------------------
 
 const POSSESS_TARGET_ID: &str = "carry_while_possessed";
@@ -1021,10 +1029,10 @@ fn an_item_carried_by_a_possessed_body_survives_the_door_too() {
         sim.world().get_entity(item).is_ok(),
         "the object a POSSESSED body carried was destroyed by the room transition. \
          `project_custody_onto_residency` makes a held object non-resident only when \
-         its holder is NOT `RoomScopedEntity`, and what makes that true of a possessed \
-         body is `possess_target` PROMOTING it out of room scope. If that promotion \
-         moved or went away, the body still crosses (carry_body carries it) and the \
-         thing in its hand is retired at the door"
+         its holder is not a `RoomResident`, and what makes that true of a possessed \
+         body is `possess_target` giving it `InCustodyOf`. If either half moved, the \
+         body still crosses (carry_body carries it) and the thing in its hand is \
+         retired at the door"
     );
     assert_eq!(
         sim.world().get::<SimId>(item),
@@ -1039,5 +1047,218 @@ fn an_item_carried_by_a_possessed_body_survives_the_door_too() {
         occurrences(&mut sim, &authored).len(),
         1,
         "exactly one occurrence claims the authored identity after the crossing"
+    );
+}
+/// **An authored ACTOR carried out of its room and back does not meet a second
+/// copy of itself.**
+///
+/// ⛔⛔ **THE OCCURRENCE LEDGER IS ITEMS-ONLY, and possession makes a body
+/// travel exactly like a carried object.** `record_placed_ground_items` is the
+/// single writer of `AuthoredOccurrences`; nothing records where a POSSESSED
+/// actor went. So the actor's home room, rebuilt on re-entry, consults an outlook
+/// that has never heard of it, authors it again, and the world holds two live
+/// entities behind one `SimId::placement(..)` — the state
+/// `ActorConstructionPlan::prepare` refuses as `IdentityAlreadyLive` when it is
+/// told, and cannot refuse when it is not.
+///
+/// ⚠ **possession is CUSTODY OF A BODY**, which is why the fix is the same
+/// vocabulary and not a new one: while a participant is driving an authored
+/// actor, that occurrence is `InCustody` and its home room must not re-author it
+/// — precisely the rule a carried axe already follows.
+///
+/// ⚠ the player is re-anchored onto the target every frame during the hold: the
+/// enemy fights back, and a staggered player drifts out of the 150 px possession
+/// radius. That is a spacing race, not the thing under test.
+#[test]
+fn an_authored_actor_carried_out_of_its_room_and_back_does_not_meet_a_copy() {
+    use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
+    use ambition_platformer2d::actors::actor::BodyKinematics;
+    use ambition_platformer2d::characters::brain::Brain;
+
+    const HOME: &str = "vertical_shaft";
+    const AWAY: &str = "central_hub_complex";
+
+    let mut sim = fixed_60hz_room_sim(HOME);
+    for _ in 0..20 {
+        sim.step(base());
+    }
+    let (actor, id) = {
+        let world = sim.world_mut();
+        let mut q = world.query::<(Entity, &SimId, &Brain, &BodyKinematics)>();
+        q.iter(world)
+            .find(|(_, id, _, _)| id.as_str().starts_with("placement:EnemySpawn"))
+            .map(|(e, id, _, _)| (e, id.clone()))
+            .expect("'vertical_shaft' authors an enemy with a placement identity")
+    };
+    assert_eq!(
+        occurrences(&mut sim, &id).len(),
+        1,
+        "setup: exactly one occurrence of the authored actor before anything happens"
+    );
+
+    let mut possessed = false;
+    for i in 0..900 {
+        if let Some(here) = sim
+            .world()
+            .get::<BodyKinematics>(actor)
+            .map(|k| (k.pos.x, k.pos.y))
+        {
+            sim.teleport_player(here);
+        }
+        sim.step(AgentAction {
+            move_y: 1.0,
+            interact: i == 0,
+            interact_held: true,
+            ..base()
+        });
+        if sim.world_mut().resource::<PossessionState>().possessed == Some(actor) {
+            possessed = true;
+            break;
+        }
+    }
+    assert!(
+        possessed,
+        "setup: holding Down+Interact on the authored actor never possessed it, so \
+         nothing below is about a travelling body"
+    );
+
+    for (target, leg) in [(AWAY, "out"), (HOME, "back")] {
+        let before = sim.observation().active_room.clone();
+        let door = door_to(&mut sim, target);
+        let centre = door.aabb.center();
+        place_body(&mut sim, actor, (centre.x, centre.y));
+        let mut arrived = None;
+        for _ in 0..90 {
+            let room = sim
+                .step(AgentAction {
+                    interact: true,
+                    interact_held: true,
+                    ..base()
+                })
+                .active_room;
+            if room != before {
+                arrived = Some(room);
+                break;
+            }
+        }
+        assert_eq!(
+            arrived.as_deref(),
+            Some(target),
+            "setup: the {leg} leg never left '{before}', so the round trip did not happen"
+        );
+    }
+
+    assert!(
+        sim.world().get_entity(actor).is_ok(),
+        "the possessed body did not survive its own round trip"
+    );
+    assert_eq!(
+        occurrences(&mut sim, &id).len(),
+        1,
+        "'{HOME}' authored a SECOND copy of the actor you are driving. The occurrence \
+         ledger is written only by `record_placed_ground_items`, so a possessed body \
+         that leaves its authoring room is remembered nowhere, and the rebuild on \
+         re-entry has no disposition telling it the occurrence is already alive in \
+         somebody's hands"
+    );
+}
+
+/// **A checkpoint taken while possessing does not turn the driven body into an
+/// item.**
+///
+/// ⭐ **this is a consequence of the fix above, measured rather than assumed.**
+/// A possessed body wears `InCustodyOf` now, and `capture_custody_baseline`
+/// records `(&SimId, &InCustodyOf)` for ANY room-scoped entity — so the driven
+/// actor genuinely enters the checkpoint's custody baseline, as
+/// `placement:EnemySpawn-4513 <- slot:0`. That row is TRUE (a participant does
+/// have custody of that body), and the population it joins is one the ITEM
+/// domain's restore was written for.
+///
+/// ⛔ the risk that had to be checked: `restore_custody_to_checkpoint` has a
+/// materialization arm for baseline rows with no live occurrence behind them,
+/// and an actor is not a `GroundItem`, so the row looks "missing" to it. It is
+/// harmless because the arm's two describers — the checkpoint's minted
+/// descriptions and the world's authored ground-item records — can describe
+/// neither an enemy placement, so it falls through. This test is what keeps that
+/// harmless: a describer that grew a broader arm would start manufacturing a
+/// ground item for a body.
+#[test]
+fn a_checkpoint_taken_while_possessing_does_not_manufacture_an_item() {
+    use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
+    use ambition_platformer2d::actors::actor::BodyKinematics;
+    use ambition_platformer2d::characters::brain::Brain;
+    use ambition_platformer2d::platformer::lifecycle::{
+        CheckpointCommitted, CustodyBaseline, ResetToCheckpoint,
+    };
+
+    let mut sim = fixed_60hz_room_sim("vertical_shaft");
+    for _ in 0..20 {
+        sim.step(base());
+    }
+    let (actor, id) = {
+        let world = sim.world_mut();
+        let mut q = world.query::<(Entity, &SimId, &Brain, &BodyKinematics)>();
+        q.iter(world)
+            .find(|(_, id, _, _)| id.as_str().starts_with("placement:EnemySpawn"))
+            .map(|(e, id, _, _)| (e, id.clone()))
+            .expect("'vertical_shaft' authors an enemy with a placement identity")
+    };
+    for i in 0..900 {
+        if let Some(here) = sim
+            .world()
+            .get::<BodyKinematics>(actor)
+            .map(|k| (k.pos.x, k.pos.y))
+        {
+            sim.teleport_player(here);
+        }
+        sim.step(AgentAction {
+            move_y: 1.0,
+            interact: i == 0,
+            interact_held: true,
+            ..base()
+        });
+        if sim.world_mut().resource::<PossessionState>().possessed == Some(actor) {
+            break;
+        }
+    }
+    assert_eq!(
+        sim.world_mut().resource::<PossessionState>().possessed,
+        Some(actor),
+        "setup: nothing below is about a driven body unless one is being driven"
+    );
+
+    sim.world_mut().write_message(CheckpointCommitted);
+    sim.step(base());
+    sim.step(base());
+
+    // ⚠ asserted, not assumed: if the row stopped forming, the reset below would
+    // prove nothing about what the restore does with one.
+    let rows: Vec<String> = sim
+        .world()
+        .resource::<CustodyBaseline>()
+        .rows()
+        .map(|(occurrence, custodian)| format!("{} <- {}", occurrence.as_str(), custodian.as_str()))
+        .collect();
+    assert!(
+        rows.iter().any(|row| row.starts_with(id.as_str())),
+        "the driven body did not enter the custody baseline at all, so this test is \
+         not exercising the arm it exists for; rows were {rows:?}"
+    );
+
+    sim.world_mut().write_message(ResetToCheckpoint);
+    for _ in 0..5 {
+        sim.step(base());
+    }
+
+    assert!(
+        sim.world().get_entity(actor).is_ok(),
+        "the reset destroyed the body that was being driven"
+    );
+    assert_eq!(
+        occurrences(&mut sim, &id).len(),
+        1,
+        "the checkpoint restore manufactured a second occurrence for the driven body \
+         — its materialization arm found a describer for an ACTOR and built a ground \
+         item out of it"
     );
 }

@@ -618,22 +618,53 @@ pub fn project_custody_onto_residency(
         ),
         With<GroundItem>,
     >,
-    // Whether a holder is itself a resident of the room. Deliberately unfiltered
+    // Whether a holder is itself a RESIDENT of the room. Deliberately unfiltered
     // — ANY entity can hold something, and a query that required a body cluster
-    // would answer "not room-scoped" for a holder it simply could not see.
-    holders: Query<
-        bevy::prelude::Has<ambition_platformer2d_shared_tangle::lifecycle::RoomScopedEntity>,
-    >,
+    // would answer "not resident" for a holder it simply could not see.
+    //
+    // ⛔⛔ **THIS ASKED `Has<RoomScopedEntity>` AND THAT WAS A RESTATEMENT OF THE
+    // RULE RATHER THAN THE RULE.** The question is *"would a room change retire
+    // this holder"*, and the roster that answers it is `RoomResident` =
+    // `(With<RoomScopedEntity>, Without<InCustodyOf>)`. The two agreed for as
+    // long as the only travelling holder was the session-scoped home avatar.
+    // They stopped agreeing the moment a POSSESSED body kept its room scope and
+    // suspended its residency through custody — a holder that is room-scoped,
+    // not resident, and about to travel. The proxy answered "resident", so the
+    // object in its hand stayed resident and was retired at the door.
+    //
+    // ⭐ asking the roster makes custody TRANSITIVE for free: a thing held by a
+    // thing that is itself in somebody's custody travels with both, and nothing
+    // here has to know how many links the chain has.
+    //
+    // ⛔⛔ **TWO QUERIES, BECAUSE ONE CONFLATES "GONE" WITH "TRAVELLING" — and
+    // that conflation is a real bug, not a tidiness point.** A single
+    // `Query<(), RoomResident>` answers `Err` for both a holder that despawned
+    // and a holder that is carrying the object out of the room. But
+    // `return_released_items` says in its own ⛔: *"a holder that DESPAWNED is
+    // deliberately NOT released here, and that is a known remaining orphan"* —
+    // so custody stays `Held { holder: <dead entity> }` forever. Reading that as
+    // "travelling" would mark the object non-resident permanently and it would
+    // follow the player through every door for the rest of the session.
+    existing: Query<()>,
+    residents: Query<(), ambition_platformer2d_shared_tangle::lifecycle::RoomResident>,
 ) {
     use ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf;
     for (entity, custody, suspended) in &items {
         let holder = match *custody {
             ItemCustody::InWorld => None,
-            ItemCustody::Held { holder } => match holders.get(holder) {
-                // A room fixture's hand, or a holder that is gone: resident.
-                Ok(true) | Err(_) => None,
-                Ok(false) => Some(holder),
-            },
+            ItemCustody::Held { holder } => {
+                // A holder that is GONE: the object is an orphan and stays
+                // resident, so the room it is in still retires it. A holder that
+                // exists and is a ROOM RESIDENT — a room fixture's hand — keeps
+                // the object resident too. Anything else is a holder that
+                // travels: the session-scoped home avatar, or a room-scoped body
+                // whose own residency is suspended by custody.
+                if existing.get(holder).is_err() || residents.get(holder).is_ok() {
+                    None
+                } else {
+                    Some(holder)
+                }
+            }
         };
         match (holder, suspended) {
             // Already says what it should say. Checked before writing so this

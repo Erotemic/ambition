@@ -8,10 +8,10 @@ use ambition_characters::actor::attack_gesture::{
     AttackGestureState, AttackGestureTuning, ResolvedAttackGesture,
 };
 use ambition_combat::moveset::{ActorMoveset, MovePlayback};
-use ambition_input::ControlFrame;
 use ambition_entity_catalog::{
     ClipBinding, MoveGates, MoveSpec, MoveWindow, MovesetContract, WindowTag,
 };
+use ambition_input::ControlFrame;
 use std::collections::BTreeMap;
 
 fn spawn_player(app: &mut App, pos: Vec2) -> Entity {
@@ -37,9 +37,9 @@ fn spawn_player(app: &mut App, pos: Vec2) -> Entity {
         .id();
     // `fire_held_ranged_system` keys on the controlled subject; in tests the
     // spawned player IS the controlled body.
-    app.insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(
-        Some(entity),
-    ));
+    app.insert_resource(
+        ambition_platformer2d_shared_tangle::markers::ControlledSubject(Some(entity)),
+    );
     entity
 }
 
@@ -428,9 +428,9 @@ fn pickup_targets_the_controlled_subject_not_a_primary_player_marker() {
             ambition_characters::brain::ActorControl::default(),
         ))
         .id();
-    app.insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(
-        Some(body),
-    ));
+    app.insert_resource(
+        ambition_platformer2d_shared_tangle::markers::ControlledSubject(Some(body)),
+    );
     app.world_mut().spawn(GroundItem {
         spec: axe_spec(),
         pos: Vec2::new(100.0, 100.0),
@@ -775,20 +775,18 @@ fn the_production_plugin_registers_the_custody_release() {
     // built against an empty world has no systems to enumerate, which reads
     // exactly like a missing registration. The first draft did that and reported
     // "0 systems" for a system that is registered.
-    let names: Vec<String> =
-        app.world_mut()
-            .resource_scope::<bevy::ecs::schedule::Schedules, Vec<String>>(
-                |world, mut schedules| {
-                    let schedule = schedules
-                        .get_mut(label)
-                        .expect("the plugin added systems to the sim schedule, so it exists");
-                    schedule.initialize(world).expect("the sim schedule builds");
-                    schedule
-                        .systems()
-                        .map(|systems| systems.map(|(_, s)| format!("{}", s.name())).collect())
-                        .unwrap_or_default()
-                },
-            );
+    let names: Vec<String> = app
+        .world_mut()
+        .resource_scope::<bevy::ecs::schedule::Schedules, Vec<String>>(|world, mut schedules| {
+            let schedule = schedules
+                .get_mut(label)
+                .expect("the plugin added systems to the sim schedule, so it exists");
+            schedule.initialize(world).expect("the sim schedule builds");
+            schedule
+                .systems()
+                .map(|systems| systems.map(|(_, s)| format!("{}", s.name())).collect())
+                .unwrap_or_default()
+        });
     assert!(
         !names.is_empty(),
         "the sim schedule enumerated NO systems, so the assertion below could \
@@ -997,6 +995,51 @@ fn custody_suspends_and_restores_room_residency() {
         is_resident(&app, item),
         "dropped back into the world it is a resident again — of whatever room is \
          active now, because room residency carries no room id",
+    );
+}
+
+/// **A holder that is room-scoped AND ITSELF IN CUSTODY is travelling.**
+///
+/// ⭐ this is the case possession creates: a possessed body keeps
+/// `RoomScopedEntity` and suspends its own residency with `InCustodyOf`, so the
+/// thing in ITS hand must travel too. The projection asks the `RoomResident`
+/// roster rather than `Has<RoomScopedEntity>` precisely so custody is
+/// TRANSITIVE — a chain of any length resolves without this system counting its
+/// links.
+///
+/// ⛔ before that, this asked whether the holder carried a room scope, and a
+/// possessed body answered "yes, a room fixture" — so the object it carried
+/// stayed resident and was retired at the door it was carried through.
+#[test]
+fn an_item_held_by_a_possessed_body_travels_with_it() {
+    let mut app = residency_app();
+    let participant = app.world_mut().spawn_empty().id();
+    // A possessed body: room-scoped, and NOT resident because a participant has
+    // custody of it — exactly what `possess_target` produces.
+    let possessed = app
+        .world_mut()
+        .spawn((
+            ambition_platformer2d_shared_tangle::lifecycle::RoomScopedEntity,
+            ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf(participant),
+        ))
+        .id();
+    let item = room_scoped_item(&mut app, Vec2::ZERO);
+
+    app.update();
+    assert!(
+        is_resident(&app, item),
+        "setup: the item starts resident, so the assertion below is a CHANGE"
+    );
+
+    *app.world_mut().get_mut::<ItemCustody>(item).unwrap() =
+        ItemCustody::Held { holder: possessed };
+    app.update();
+    assert!(
+        !is_resident(&app, item),
+        "an object held by a POSSESSED body must travel with it. The holder is \
+         room-scoped, so a `Has<RoomScopedEntity>` question calls it a room \
+         fixture; the `RoomResident` roster knows better, because the holder's own \
+         residency is suspended by the custody a participant has of it"
     );
 }
 

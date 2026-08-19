@@ -12,38 +12,20 @@ pub fn register_rollback_state<R>(registrar: &mut R)
 where
     R: RollbackRegistrar,
 {
-    registrar.require_rollback::<crate::body::BodyKinematics>(
-        OWNER,
-        "entity:body_kinematics",
-    );
-    registrar.require_rollback::<crate::lifecycle::FeatureSimEntity>(
-        OWNER,
-        "entity:feature_sim_entity",
-    );
-    registrar.rollback_resource_canonical::<crate::time::SimDt>(
-        OWNER,
-        "resource.sim_dt",
-    );
-    registrar.rollback_resource_canonical::<crate::gravity::BaseGravity>(
-        OWNER,
-        "resource.base_gravity",
-    );
+    registrar.require_rollback::<crate::body::BodyKinematics>(OWNER, "entity:body_kinematics");
+    registrar
+        .require_rollback::<crate::lifecycle::FeatureSimEntity>(OWNER, "entity:feature_sim_entity");
+    registrar.rollback_resource_canonical::<crate::time::SimDt>(OWNER, "resource.sim_dt");
+    registrar
+        .rollback_resource_canonical::<crate::gravity::BaseGravity>(OWNER, "resource.base_gravity");
     registrar.rollback_resource_canonical::<crate::gravity::GravityField>(
         OWNER,
         "resource.gravity_field",
     );
-    registrar.rollback_component_canonical::<crate::sim_id::SimId>(
-        OWNER,
-        "entity.sim_id",
-    );
-    registrar.rollback_component_canonical::<crate::body::BodyKinematics>(
-        OWNER,
-        "body.kinematics",
-    );
-    registrar.rollback_component_canonical::<crate::sim_id::SimIdCounter>(
-        OWNER,
-        "body.sim_id_counter",
-    );
+    registrar.rollback_component_canonical::<crate::sim_id::SimId>(OWNER, "entity.sim_id");
+    registrar.rollback_component_canonical::<crate::body::BodyKinematics>(OWNER, "body.kinematics");
+    registrar
+        .rollback_component_canonical::<crate::sim_id::SimIdCounter>(OWNER, "body.sim_id_counter");
     registrar.rollback_component_canonical::<crate::construction::TransactionId>(
         OWNER,
         "component.construction_transaction_id",
@@ -52,34 +34,22 @@ where
         OWNER,
         "entity.spawn_origin",
     );
-    registrar.rollback_component_canonical::<crate::orientation::ActorRoll>(
-        OWNER,
-        "actor.roll",
-    );
-    registrar.rollback_component_clone::<crate::lifecycle::RoomVisual>(
-        OWNER,
-        "lifecycle.room_visual",
-    );
+    registrar.rollback_component_canonical::<crate::orientation::ActorRoll>(OWNER, "actor.roll");
+    registrar
+        .rollback_component_clone::<crate::lifecycle::RoomVisual>(OWNER, "lifecycle.room_visual");
     registrar.rollback_component_clone::<crate::lifecycle::PlayerVisual>(
         OWNER,
         "lifecycle.player_visual",
     );
-    registrar.rollback_component_clone::<crate::body::PrimaryBody>(
-        OWNER,
-        "marker.primary_body",
-    );
+    registrar.rollback_component_clone::<crate::body::PrimaryBody>(OWNER, "marker.primary_body");
     registrar.rollback_component_clone::<crate::lifecycle::FeatureSimEntity>(
         OWNER,
         "marker.feature_sim_entity",
     );
-    registrar.rollback_component_clone::<crate::markers::PlayerEntity>(
-        OWNER,
-        "marker.player_entity",
-    );
-    registrar.rollback_component_clone::<crate::markers::PrimaryPlayer>(
-        OWNER,
-        "marker.primary_player",
-    );
+    registrar
+        .rollback_component_clone::<crate::markers::PlayerEntity>(OWNER, "marker.player_entity");
+    registrar
+        .rollback_component_clone::<crate::markers::PrimaryPlayer>(OWNER, "marker.primary_player");
     registrar.declare_rollback_derived_resource::<crate::markers::ControlledSubject>(
         OWNER,
         "derived.controlled_subject",
@@ -95,10 +65,8 @@ where
         "derived.gravity_zones",
         "rebuilt from authoritative GravityZone components before body integration",
     );
-    registrar.rollback_component_canonical::<crate::lifecycle::RoomScopedEntity>(
-        OWNER,
-        "scope.room",
-    );
+    registrar
+        .rollback_component_canonical::<crate::lifecycle::RoomScopedEntity>(OWNER, "scope.room");
     registrar.rollback_component_canonical::<crate::lifecycle::SessionScopedEntity>(
         OWNER,
         "scope.session",
@@ -119,6 +87,28 @@ where
     // `item.item_custody` already answers properly — its `_entity_set` probe
     // measures the same holder through that body's stable `SimId`. A second,
     // WORSE projection of the same fact is not more coverage.
+    //
+    // ⛔⛔ **THE REASON BELOW IS A PROMISE, AND IT IS OWED BY EVERY POPULATION
+    // THAT WEARS THIS COMPONENT (2026-08-19).** "Reprojected from `ItemCustody`"
+    // is what excuses this from the snapshot — so a population `ItemCustody`
+    // cannot see is a population nothing reprojects, and a rewind drops the
+    // marker with nothing to put it back.
+    //
+    // ⇒ that is exactly what happened when a POSSESSED BODY started wearing it:
+    // a body has no `ItemCustody`. It is covered by a second deriver,
+    // `abilities::traversal::possession::project_possession_onto_custody`,
+    // reading `PossessionState` — which IS snapshot state — so the excuse holds
+    // for both. ⚠ **a third population owes a third deriver**, and the poison is
+    // cheap: delete the component and step, because that is what a restore does.
+    // Writing it at the site that causes it passes every other test.
+    //
+    // ⛔⛔ **AND THE REASON STRING BELOW IS DELIBERATELY NOT UPDATED TO NAME THE
+    // SECOND DERIVER.** It reads as a comment and it is not one: `detail` reaches
+    // `RollbackRegistry::schema_dump`, which is hashed into
+    // `schema_fingerprint`, which the schema baseline pins and a peer compares.
+    // Editing this prose to be more accurate would be a WIRE FORMAT CHANGE, paid
+    // for in save/peer compatibility, to improve a sentence. The accurate version
+    // lives in the block above, where it costs nothing.
     registrar.declare_rollback_derived_component::<crate::lifecycle::InCustodyOf>(
         OWNER,
         "derived.custody_residency",
@@ -248,5 +238,4 @@ where
         OWNER,
         "message.camera_shake_request",
     );
-
 }

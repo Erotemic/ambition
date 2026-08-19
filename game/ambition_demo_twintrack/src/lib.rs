@@ -65,8 +65,21 @@ pub const ROOM_HEIGHT: f32 = 900.0;
 pub const LAB_POS: Vec2 = Vec2::new(720.0, 450.0);
 pub const VIEW_CONSOLE_POS: Vec2 = Vec2::new(470.0, 700.0);
 pub const DJ_POS: Vec2 = Vec2::new(1_010.0, 680.0);
-pub const TAG_START_POS: Vec2 = Vec2::new(1_060.0, 455.0);
-const TAG_ORBIT_CENTER: Vec2 = Vec2::new(1_060.0, 4_455.0);
+// AMBITION_REVIEW(spatial): the light-tagger's OFFSET FROM `LAB_POS` IS THE
+// LESSON, not decoration. The tagger flies +x (orbit phase -PI/2 puts it at the
+// bottom of a 4 km arc), so the angle between "where you SEE it" and "where you
+// must AIM" is the TRANSVERSE fraction of that velocity as seen from the
+// observer at `LAB_POS` — i.e. it is set by `TAG_START_POS.y - LAB_POS.y`. Put
+// the tagger on the observer's eye line and the lead angle goes to zero: the
+// red visible-image marker, the green intercept marker and the cyan aim ray all
+// collapse onto one another and the overlay teaches nothing. The 2026-08-12
+// plaza relayout did exactly that (it moved the lab to x=720 and left the
+// tagger at y=455, five pixels off the lab's eye height), which is why
+// `photon_fox_visible_image_and_future_light_intercept_are_distinct` went red.
+// The 150 px offset restored here is the one the SR-3 overlay was authored
+// against. Keep the tagger well off `LAB_POS.y`; `x` is free.
+pub const TAG_START_POS: Vec2 = Vec2::new(1_060.0, 300.0);
+const TAG_ORBIT_CENTER: Vec2 = Vec2::new(1_060.0, 4_300.0);
 
 /// TwinTrack is intentionally an open relativity laboratory. The room still
 /// owns a finite authored coordinate frame for content placement, but camera

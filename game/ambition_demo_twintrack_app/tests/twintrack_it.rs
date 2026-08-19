@@ -527,7 +527,15 @@ fn photon_fox_visible_image_and_future_light_intercept_are_distinct() {
     let separation = target
         .apparent_to_intercept_angle
         .expect("Photon Fox should also have a light-delayed visible image");
-    assert!(separation > 0.01);
+    assert!(
+        separation > 0.01,
+        "the visible image and the intercept solution have collapsed onto each \
+         other ({separation:.5} rad). That is geometry, not physics: Photon Fox \
+         is flying almost straight along the observer's line of sight, so there \
+         is no transverse motion to lead and the SR-3 overlay's red, green and \
+         cyan markers all land on the same spot. Check that TAG_START_POS sits \
+         well off LAB_POS.y."
+    );
     assert!(target.optical_light_age.unwrap_or_default() > 0.0);
     assert!(target.time_to_intercept > 0.0);
 }

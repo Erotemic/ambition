@@ -4353,6 +4353,184 @@ fn on_the_smash_pad_a_held_player_can_mash_free() {
     );
 }
 
+/// **A HOLDING PLAYER'S ATTACK PRESS IS A PUMMEL, NOT A JAB.**
+///
+/// ⭐⭐ **the next thing a person does after the grab they could not throw.**
+/// `988807b99` made the grab reachable; this asks whether the rest of the
+/// capture context is. It is a DIFFERENT road from `grab_pressed`: a pummel and
+/// the four throws are selected inside `trigger_moveset_moves` from
+/// `gesture.pressed` — the resolved ATTACK gesture — and only when
+/// `captive_of(entity, ..)` says this body is holding somebody. So a press that
+/// works perfectly in free state proves nothing here, and vice versa.
+///
+/// ⛔ **the failure this is shaped to catch is the loud one**: falling through
+/// to the ordinary menu, so a captor holding a body throws a jab or starts a
+/// smash while a captive hangs off it. That is what the capture-context branch
+/// exists to prevent, and it is invisible unless somebody presses Attack while
+/// holding.
+///
+/// ⚠ the hold is manufactured for the same reason as
+/// [`on_the_smash_pad_a_held_player_can_mash_free`] — who grabbed whom is setup,
+/// and the CPU's grab TIMING is a separate open question (queue D166).
+#[test]
+fn on_the_smash_pad_attacking_while_holding_pummels() {
+    use ambition_platformer2d::combat::capture::CapturedBy;
+    use ambition_platformer2d::combat::moveset::{ActorMoveset, MovePlayback};
+    use ambition_platformer2d::entity_catalog::CAPTURE_PUMMEL_VERB;
+
+    let (mut app, pad, body) = a_pad_player_fighting_as(OTHER_PREPARED_FIGHTER);
+
+    // Non-vacuity: this fighter answers the pummel verb at all.
+    let pummel_id = app
+        .world()
+        .get::<ActorMoveset>(body)
+        .and_then(|moveset| {
+            moveset
+                .0
+                .move_for_verb(CAPTURE_PUMMEL_VERB)
+                .map(|spec| spec.id.clone())
+        })
+        .expect("this fighter authors no pummel, so pressing A while holding could not reach one");
+
+    // Somebody to hold. Which body does not matter; that it is not the captor does.
+    let captive = {
+        use ambition_platformer2d::actors::character_runtime::MatchSeat;
+        let world = app.world_mut();
+        let mut seats = world.query::<(bevy::prelude::Entity, &MatchSeat)>();
+        seats
+            .iter(world)
+            .map(|(entity, _)| entity)
+            .find(|entity| *entity != body)
+            .expect("a two-seat match has a second body")
+    };
+
+    // ⚠ re-established each round: a live match keeps breaking holds, and a
+    // press that lands on a body which stopped holding would be an ordinary jab.
+    let mut started: Option<String> = None;
+    for _ in 0..24 {
+        app.world_mut().entity_mut(captive).insert(CapturedBy {
+            captor: body,
+            hold_offset_local: ambition_platformer2d::engine_core::Vec2::new(20.0, -2.0),
+            prior_gravity_scale: 1.0,
+            pummels_landed: 0,
+            held_for: 0.0,
+            escape_progress: 0.0,
+        });
+        pad_hold(&mut app, pad, GamepadButton::South, 1.0);
+        app.update();
+        pad_hold(&mut app, pad, GamepadButton::South, 0.0);
+        app.update();
+        if let Some(playback) = app.world().get::<MovePlayback>(body) {
+            let id = playback.spec.id.clone();
+            if id == pummel_id {
+                started = Some(id);
+                break;
+            }
+        }
+    }
+
+    assert_eq!(
+        started.as_deref(),
+        Some(pummel_id.as_str()),
+        "twenty-four presses of A while holding a body never started the pummel \
+         `{pummel_id}`. Either the capture context is not reached from a real \
+         press, or the press fell through to the ordinary attack menu — which is \
+         a captor throwing a jab with somebody in its hands"
+    );
+}
+
+/// **FORWARD + ATTACK WHILE HOLDING IS THE FORWARD THROW, NOT THE BACK ONE.**
+///
+/// ⭐⭐ **the payoff of the whole mechanic, and the one step whose direction
+/// resolution has already been wrong once.** `attack_dir_from_axis` computes
+/// `forward = axis.x * facing`, so the stick is MIRRORED by which way the body
+/// faces — and earlier in the capture campaign a left-facing captor asked for a
+/// BACK throw from a forward shove, because a caller had not applied the mirror.
+/// George authors no back throw, so that defect would show here as "nothing
+/// happens" rather than as the wrong move: an unauthored throw resolves to
+/// NOTHING on purpose, and does not fall back to the pummel.
+///
+/// ⇒ the stick is pushed the way the captor is CURRENTLY facing, read each
+/// round, rather than at a fixed side — otherwise this test would pass or fail
+/// on where the two happened to be standing.
+#[test]
+fn on_the_smash_pad_forward_and_attack_while_holding_throws() {
+    use ambition_platformer2d::combat::capture::CapturedBy;
+    use ambition_platformer2d::combat::moveset::{ActorMoveset, MovePlayback};
+    use ambition_platformer2d::engine_core::BodyKinematics;
+    use ambition_platformer2d::entity_catalog::CAPTURE_THROW_FORWARD_VERB;
+
+    let (mut app, pad, body) = a_pad_player_fighting_as(OTHER_PREPARED_FIGHTER);
+
+    let throw_id = app
+        .world()
+        .get::<ActorMoveset>(body)
+        .and_then(|moveset| {
+            moveset
+                .0
+                .move_for_verb(CAPTURE_THROW_FORWARD_VERB)
+                .map(|spec| spec.id.clone())
+        })
+        .expect("this fighter authors no forward throw, so this could not reach one");
+
+    let captive = {
+        use ambition_platformer2d::actors::character_runtime::MatchSeat;
+        let world = app.world_mut();
+        let mut seats = world.query::<(bevy::prelude::Entity, &MatchSeat)>();
+        seats
+            .iter(world)
+            .map(|(entity, _)| entity)
+            .find(|entity| *entity != body)
+            .expect("a two-seat match has a second body")
+    };
+
+    let mut started: Option<String> = None;
+    for _ in 0..24 {
+        app.world_mut().entity_mut(captive).insert(CapturedBy {
+            captor: body,
+            hold_offset_local: ambition_platformer2d::engine_core::Vec2::new(20.0, -2.0),
+            prior_gravity_scale: 1.0,
+            pummels_landed: 0,
+            held_for: 0.0,
+            escape_progress: 0.0,
+        });
+        // FORWARD is the captor's own facing, not a screen direction.
+        let facing = app
+            .world()
+            .get::<BodyKinematics>(body)
+            .map(|kin| kin.facing)
+            .unwrap_or(1.0);
+        let toward = if facing >= 0.0 {
+            GamepadButton::DPadRight
+        } else {
+            GamepadButton::DPadLeft
+        };
+        pad_hold(&mut app, pad, toward, 1.0);
+        app.update();
+        pad_hold(&mut app, pad, GamepadButton::South, 1.0);
+        app.update();
+        pad_hold(&mut app, pad, GamepadButton::South, 0.0);
+        pad_hold(&mut app, pad, toward, 0.0);
+        app.update();
+        if let Some(playback) = app.world().get::<MovePlayback>(body) {
+            let id = playback.spec.id.clone();
+            if id == throw_id {
+                started = Some(id);
+                break;
+            }
+        }
+    }
+
+    assert_eq!(
+        started.as_deref(),
+        Some(throw_id.as_str()),
+        "twenty-four forward+attack presses while holding never started the \
+         forward throw `{throw_id}`. A throw is how a hold ENDS on the captor's \
+         terms, so without it a person can grab and pummel and then only wait \
+         out the clock"
+    );
+}
+
 /// **THE LEFT TRIGGER SHIELDS, THROUGH THE SEMANTIC SHIELD ACTION.**
 ///
 /// Jon: *"left trigger is shield"*. Slice 2 made Shield a real participant

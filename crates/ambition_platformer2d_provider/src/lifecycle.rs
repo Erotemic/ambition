@@ -228,8 +228,8 @@ pub(crate) struct PlatformerPreparation<'w> {
         Option<Res<'w, ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry>>,
     // ⚠ This brings the struct to Bevy's 16-parameter `SystemParam` ceiling.
     // The next field added here must bundle something first.
-    construction_recipes: Option<
-        Res<'w, ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry>,
+    construction_schema_catalog: Option<
+        Res<'w, ambition_platformer2d_shared_tangle::construction::ConstructionSchemaCatalog>,
     >,
     epochs: ResMut<'w, ContentEpochSequence>,
     audio_catalogs: Res<'w, ambition_audio::catalog::AudioCatalogRegistry>,
@@ -520,9 +520,9 @@ impl PlatformerPreparation<'_> {
             self.character_catalog_registry.as_deref(),
             self.placement_lowering.as_deref(),
             self.content_staging.as_deref(),
-            self.construction_recipes
+            self.construction_schema_catalog
                 .as_deref()
-                .map(ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry::deterministic_dump),
+                .map(ambition_platformer2d_shared_tangle::construction::ConstructionSchemaCatalog::deterministic_dump),
             snapshot_schema,
             &mut self.epochs,
         ) {
@@ -761,8 +761,8 @@ pub fn prepare_platformer_content_for_app(
         .cloned();
     let construction_recipes = app
         .world()
-        .get_resource::<ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry>()
-        .map(|registry| registry.deterministic_dump());
+        .get_resource::<ambition_platformer2d_shared_tangle::construction::ConstructionSchemaCatalog>()
+        .map(|catalog| catalog.deterministic_dump());
     let snapshot_schema = app
         .world()
         .get_resource::<ambition_platformer2d_runtime::rollback::RollbackRegistry>()
@@ -797,10 +797,9 @@ pub fn prepare_platformer_content(
     content_staging: Option<
         &ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry,
     >,
-    // Canonical dump of the construction registry, when the app has one. A dump
-    // rather than the registry itself: `ConstructionRegistry` is not `Clone` (it
-    // holds relation `fn` pointers), and the fingerprint wants only its stable
-    // semantic metadata anyway. Nothing process-local is hashed.
+    // Canonical descriptor-only dump of every installed construction domain.
+    // Executable recipe dispatch remains typed and closed inside each domain;
+    // the fingerprint needs only stable schema metadata, never function pointers.
     construction_recipes: Option<String>,
     snapshot_schema: ambition_platformer2d_runtime::SnapshotSchemaFingerprint,
     epochs: &mut ContentEpochSequence,

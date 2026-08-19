@@ -173,7 +173,7 @@ impl RoomConstructionPlan {
         })?;
         let platform_states =
             ambition_platformer2d_world::platforms::moving_platforms_for_room(&spec);
-        let id = construction_plan_id(&spec, feature_plan.construction());
+        let id = construction_plan_id(&spec, &feature_plan);
         Ok(Self {
             id,
             target_index,
@@ -307,8 +307,8 @@ impl RoomConstructionPlan {
         });
         transaction::close(
             commands,
-            self.features.construction(),
-            receipt.construction(),
+            &self.features,
+            &receipt,
             self.room_id().to_string(),
             self.session_scope,
         );
@@ -383,7 +383,7 @@ impl RoomConstructionPlan {
 /// across runs and replays.
 fn construction_plan_id(
     spec: &RoomSpec,
-    construction: &crate::construction::ActorConstructionPlan,
+    features: &RoomFeatureConstructionPlan,
 ) -> RoomConstructionPlanId {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     spec.id.hash(&mut hasher);
@@ -392,7 +392,7 @@ fn construction_plan_id(
     serde_json::to_vec(spec)
         .expect("RoomSpec serialization must succeed for construction identity")
         .hash(&mut hasher);
-    construction.deterministic_dump().hash(&mut hasher);
+    features.construction_deterministic_dump().hash(&mut hasher);
     RoomConstructionPlanId(format!("room-plan:{:016x}", hasher.finish()))
 }
 
@@ -467,6 +467,58 @@ mod tests {
         assert_eq!(
             a.predicted_authoritative_ids(),
             b.predicted_authoritative_ids()
+        );
+    }
+
+    #[cfg(feature = "portal")]
+    #[test]
+    fn portal_gun_is_a_capability_owned_construction_lane() {
+        let mut spec = empty_spec("portal-lane");
+        spec.portal_gun_spawns.push(crate::rooms::PortalGunSpawnSpec {
+            id: "gun".to_string(),
+            name: "Aperture Device".to_string(),
+            pos: ae::Vec2::new(120.0, 80.0),
+            half_extent: ae::Vec2::new(8.0, 6.0),
+        });
+        let plan = prepare(spec).expect("portal-gun room plan");
+        let gun = ambition_platformer2d_shared_tangle::sim_id::SimId::placement("gun");
+
+        assert!(
+            plan.features.construction().get(&gun).is_none(),
+            "portal-gun vocabulary must not re-enter ActorConstructionParams",
+        );
+        assert!(
+            plan.features.portal_construction().get(&gun).is_some(),
+            "the portal capability owns the authored pickup row",
+        );
+        assert_eq!(
+            plan.features.portal_construction().lane().as_str(),
+            ambition_portal2d::PORTAL_GUN_CONSTRUCTION_DOMAIN,
+        );
+
+        let mut app = bevy::prelude::App::new();
+        app.add_message::<crate::rooms::RoomLoaded>();
+        {
+            let mut commands = app.world_mut().commands();
+            plan.spawn_contents(&mut commands);
+        }
+        app.world_mut().flush();
+
+        let entity = {
+            let mut query = app
+                .world_mut()
+                .query::<(bevy::prelude::Entity, &ambition_platformer2d_shared_tangle::sim_id::SimId)>();
+            query
+                .iter(app.world())
+                .find_map(|(entity, id)| (id == &gun).then_some(entity))
+                .expect("constructed portal-gun root")
+        };
+        assert!(app.world().get::<ambition_portal2d::PortalGunPickup>(entity).is_some());
+        assert!(
+            app.world()
+                .resource::<crate::features::LastConstructionVerification>()
+                .published,
+            "all typed construction lanes must verify before RoomLoaded",
         );
     }
 

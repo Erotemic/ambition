@@ -12,6 +12,9 @@ use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;
 use bevy::prelude::Commands;
 use std::collections::BTreeSet;
 
+#[cfg(feature = "portal")]
+mod portal_construction;
+
 mod character_spawn_plan;
 pub(crate) use character_spawn_plan::{
     report_unprepared_character, CharacterSpawnPlan, SpawnContext,
@@ -55,11 +58,10 @@ pub enum RoomFeatureConstructionError {
         room: String,
         id: String,
     },
-    /// The planned families (authored ground items, provider-staged actors)
-    /// could not be resolved into a valid construction plan.
+    /// One typed construction lane could not be resolved into a valid plan.
     Construction(ambition_platformer2d_shared_tangle::construction::ConstructionError),
-    /// A planned family's parameters could not be resolved from content — an
-    /// authored ground item naming a held item no registry provides.
+    /// Actor-lane parameters could not be resolved from content — for example
+    /// an authored ground item naming a held item no registry provides.
     ActorConstruction(crate::construction::ActorConstructionError),
 }
 
@@ -90,14 +92,15 @@ impl std::error::Error for RoomFeatureConstructionError {}
 pub struct RoomFeatureConstructionPlan {
     room: crate::rooms::RoomSpec,
     content_requests: Vec<super::spawn_actors::SpawnActorRequest>,
-    /// The complete actor-domain construction plan for authoritative room
-    /// contents. Authored items, staged actors, placements, static families,
-    /// enemies, bosses and derived giant limbs all enter through this plan;
-    /// summoned minions use the same planner at the moment they are summoned.
+    /// The primary actor-domain construction lane. Every actor-owned
+    /// authoritative family is planned here; optional capabilities compose
+    /// separate typed lanes beside it instead of entering this domain enum.
     construction: crate::construction::ActorConstructionPlan,
+    #[cfg(feature = "portal")]
+    portal_construction: ambition_portal2d::PortalGunConstructionPlan,
     /// The frozen catalogs this plan reads — character catalog, hostile roster,
-    /// boss profiles. THE copy: recipes read it through `ConstructionExecCtx`,
-    /// so a cached plan carries one coherent service snapshot into execution.
+    /// boss profiles. THE copy: actor recipes read it through
+    /// `ConstructionExecCtx`, so a cached plan holds one coherent snapshot.
     construction_services: crate::construction::ActorConstructionServices,
     expected_authoritative_ids: BTreeSet<String>,
     /// What this room POINTS AT and did not find. Empty for a clean room.
@@ -281,6 +284,8 @@ impl<'a> ActorConstructionContext<'a> {
 pub struct RoomFeatureConstructionReceipt {
     authoritative_ids: BTreeSet<String>,
     construction: ambition_platformer2d_shared_tangle::construction::ConstructionReceipt,
+    #[cfg(feature = "portal")]
+    portal_construction: ambition_platformer2d_shared_tangle::construction::ConstructionReceipt,
 }
 
 impl RoomFeatureConstructionReceipt {
@@ -288,8 +293,7 @@ impl RoomFeatureConstructionReceipt {
         &self.authoritative_ids
     }
 
-    /// What the Phase-3 planned families actually committed, keyed by identity.
-    /// Compared against the plan's roster to prove plan-to-world parity.
+    /// What the primary actor lane committed, keyed by stable identity.
     pub fn construction(
         &self,
     ) -> &ambition_platformer2d_shared_tangle::construction::ConstructionReceipt {
@@ -308,7 +312,7 @@ impl std::fmt::Debug for RoomFeatureConstructionPlan {
                 "expected_authoritative_ids",
                 &self.expected_authoritative_ids,
             )
-            .field("construction", &self.construction)
+            .field("construction", &self.construction_deterministic_dump())
             .finish()
     }
 }
@@ -355,10 +359,12 @@ impl RoomFeatureConstructionPlan {
         let bindings = crate::rooms::RoomBindings::default();
         let binding_report = bindings.sweep(room);
         binding_report.log(&format!("room `{}` construction", room.id));
-        // Authored-id uniqueness across every family, checked in the RAW authored
-        // namespace while the outgoing room is still whole. The plan also checks
-        // final `SimId` uniqueness; this earlier pass keeps duplicate diagnostics
-        // in the author's source vocabulary before records expand into derived rows.
+        // Authored-id uniqueness across actor-owned families, checked in the RAW
+        // authored namespace while the outgoing room is still whole. This stays
+        // separate from the plan-derived roster below so duplicate diagnostics
+        // remain in the author's source vocabulary before records expand into
+        // derived rows. Capability lanes perform the same SimId-level check when
+        // their own plans prepare, and cross-lane collisions are refused below.
         let authored_ids = room
             .placements
             .iter()
@@ -377,9 +383,9 @@ impl RoomFeatureConstructionPlan {
             }
         }
 
-        // The planned families. Resolution failures (an authored ground item
-        // naming a held item nothing provides) and identity/relation failures
-        // surface HERE, while the outgoing room is still whole.
+        // The actor-owned construction lane. Resolution failures (an authored
+        // ground item naming a held item nothing provides) and identity/relation
+        // failures surface HERE, while the outgoing room is still whole.
         let mut requests = crate::construction::authored_ground_item_requests(room)
             .map_err(RoomFeatureConstructionError::ActorConstruction)?;
         for (provider, request) in &owned_content_requests {
@@ -559,11 +565,13 @@ impl RoomFeatureConstructionPlan {
         // commit, with the outgoing room already retired.
         crate::construction::preflight_planned_bodies(&requests, construction.prepared)
             .map_err(RoomFeatureConstructionError::ActorConstruction)?;
-        let construction_plan = crate::construction::ActorConstructionPlan::prepare(
+        let construction_scope =
             ambition_platformer2d_shared_tangle::construction::ConstructionScope {
                 binding: construction.binding,
                 room: Some(room.id.clone()),
-            },
+            };
+        let construction_plan = crate::construction::ActorConstructionPlan::prepare(
+            construction_scope.clone(),
             requests,
             // ⛔ **THIS USED TO BE AN EMPTY SET AND A SENTENCE THAT STOPPED
             // BEING TRUE**: *"a room plan is prepared against the room it
@@ -584,17 +592,41 @@ impl RoomFeatureConstructionPlan {
         )
         .map_err(RoomFeatureConstructionError::Construction)?;
 
-        // The authoritative roster the room PREDICTS, derived from the completed
-        // plan rather than re-enumerated by hand: `planned_ids()` covers every
-        // migrated family INCLUDING giant hands (a `SimId::spawned` row absent
-        // from the authored id list above), all in the one `SimId` namespace. The
-        // families that are still separate spawn loops are unioned in explicitly
-        // by [`non_plan_authoritative_ids`] and are the Phase-4 migration surface.
-        let expected_authoritative_ids: BTreeSet<String> = construction_plan
-            .planned_ids()
-            .iter()
-            .map(std::string::ToString::to_string)
-            .collect();
+        #[cfg(feature = "portal")]
+        let portal_construction = {
+            let portal_registry = ambition_portal2d::portal_gun_construction_registry();
+            ambition_portal2d::PortalGunConstructionPlan::prepare_in_lane(
+                construction_scope.clone(),
+                ambition_platformer2d_shared_tangle::construction::ConstructionLane::named(
+                    ambition_portal2d::PORTAL_GUN_CONSTRUCTION_DOMAIN,
+                ),
+                portal_construction::authored_requests(room, &outlook),
+                &suppressed,
+                &portal_registry,
+            )
+            .map_err(RoomFeatureConstructionError::Construction)?
+        };
+
+        let actor_ids = construction_plan.planned_ids();
+        #[cfg(feature = "portal")]
+        let portal_ids = portal_construction.planned_ids();
+        #[cfg(feature = "portal")]
+        if let Some(duplicate) = actor_ids.intersection(&portal_ids).next() {
+            return Err(RoomFeatureConstructionError::DuplicateAuthoritativeId {
+                room: room.id.clone(),
+                id: duplicate.to_string(),
+            });
+        }
+
+        // The authoritative roster the room PREDICTS, derived from every typed
+        // construction lane. Lanes remain independently typed and verified; the
+        // room composes only their stable identities.
+        let mut expected_authoritative_ids: BTreeSet<String> =
+            actor_ids.iter().map(std::string::ToString::to_string).collect();
+        #[cfg(feature = "portal")]
+        expected_authoritative_ids.extend(
+            portal_ids.iter().map(std::string::ToString::to_string),
+        );
 
         let mut placement_context =
             crate::world::placements::ActorPlacementContext::new(catalog, sheets);
@@ -612,6 +644,8 @@ impl RoomFeatureConstructionPlan {
             },
             content_requests,
             construction: construction_plan,
+            #[cfg(feature = "portal")]
+            portal_construction,
             expected_authoritative_ids,
             binding_report,
             outlook,
@@ -644,9 +678,105 @@ impl RoomFeatureConstructionPlan {
         &self.binding_report
     }
 
-    /// The Phase-3 construction plan for this room's planned families.
+    /// The primary actor-owned construction lane for this room.
     pub fn construction(&self) -> &crate::construction::ActorConstructionPlan {
         &self.construction
+    }
+
+    #[cfg(feature = "portal")]
+    pub(crate) fn portal_construction(&self) -> &ambition_portal2d::PortalGunConstructionPlan {
+        &self.portal_construction
+    }
+
+    /// Canonical construction fingerprint material for every lane this room
+    /// prepared. The actor lane remains primary; optional capabilities append
+    /// independently typed named lanes without entering the actor enum.
+    pub fn construction_deterministic_dump(&self) -> String {
+        use std::fmt::Write as _;
+
+        let mut out = String::from("room-construction-lanes-v1\n");
+        let actor = self.construction.deterministic_dump();
+        let _ = writeln!(
+            out,
+            "domain\t{}\t{}",
+            crate::construction::ACTOR_CONSTRUCTION_DOMAIN,
+            actor.len()
+        );
+        out.push_str(&actor);
+        #[cfg(feature = "portal")]
+        {
+            let portal = self.portal_construction.deterministic_dump();
+            let _ = writeln!(
+                out,
+                "domain\t{}\t{}",
+                ambition_portal2d::PORTAL_GUN_CONSTRUCTION_DOMAIN,
+                portal.len()
+            );
+            out.push_str(&portal);
+        }
+        out
+    }
+
+    pub(crate) fn construction_binding(
+        &self,
+    ) -> ambition_platformer2d_shared_tangle::construction::ContentBinding {
+        let binding = self.construction.scope().binding;
+        #[cfg(feature = "portal")]
+        debug_assert_eq!(self.portal_construction.scope().binding, binding);
+        binding
+    }
+
+    /// Verify every independently typed construction lane against the same
+    /// pre-transaction baseline. The room transaction owns publication; each
+    /// lane keeps its own parameter, service, and postcondition vocabulary.
+    pub(crate) fn verify_committed_construction(
+        &self,
+        receipt: &RoomFeatureConstructionReceipt,
+        baseline: &ambition_platformer2d_shared_tangle::construction::TransactionBaseline,
+        world: &mut bevy::prelude::World,
+        session: SessionSpawnScope,
+    ) -> Vec<ambition_platformer2d_shared_tangle::construction::RosterViolation> {
+        use ambition_platformer2d_shared_tangle::construction::{
+            verify_committed_roster, AuthoritativeScope,
+        };
+
+        let actor_transaction = self.construction.transaction(session);
+        let actor_scope = AuthoritativeScope::gather(world, &actor_transaction);
+        let mut violations = verify_committed_roster(
+            &self.construction,
+            &receipt.construction,
+            baseline,
+            &actor_scope,
+            world,
+        )
+        .err()
+        .unwrap_or_default();
+        violations.extend(crate::construction::verify_rig_composition(
+            &self.construction,
+            &receipt.construction,
+            world,
+        ));
+
+        #[cfg(feature = "portal")]
+        {
+            let portal_transaction = self.portal_construction.transaction(session);
+            let portal_scope = AuthoritativeScope::gather(world, &portal_transaction);
+            violations.extend(
+                verify_committed_roster(
+                    &self.portal_construction,
+                    &receipt.portal_construction,
+                    baseline,
+                    &portal_scope,
+                    world,
+                )
+                .err()
+                .unwrap_or_default(),
+            );
+        }
+
+        violations.sort_by_key(|violation| format!("{violation:?}"));
+        violations.dedup();
+        violations
     }
 
     pub fn room(&self) -> &crate::rooms::RoomSpec {
@@ -667,9 +797,8 @@ impl RoomFeatureConstructionPlan {
     /// Rebuild one authored authoritative root through the exact interpreter
     /// and catalogs frozen by this plan.
     ///
-    /// This is [`ConstructionPlan::construct_one`] through the same frozen recipe
-    /// ordinary room construction uses. Every authored authoritative family is a
-    /// plan row now, so there is no family-specific reconstruction fallback.
+    /// This uses the same typed construction plan ordinary room construction
+    /// commits. Capability-owned lanes are consulted after the actor lane.
     pub fn respawn_authoritative_entity(
         &self,
         commands: &mut Commands,
@@ -677,13 +806,7 @@ impl RoomFeatureConstructionPlan {
         authored_id: &str,
     ) -> bool {
         let planned_id = ambition_platformer2d_shared_tangle::sim_id::SimId::placement(authored_id);
-        if self.construction.get(&planned_id).is_some() {
-            return self.respawn_authoritative_sim_id(commands, session_scope, &planned_id);
-        }
-        // Phase 4a-4c: no family-specific fallback survives — enemies, bosses,
-        // and placements are all plan rows, so the planned branch above covers
-        // every authored id they own.
-        false
+        self.respawn_authoritative_sim_id(commands, session_scope, &planned_id)
     }
 
     /// Rebuild one PLANNED authoritative root by its stable identity — the form
@@ -710,29 +833,54 @@ impl RoomFeatureConstructionPlan {
         session_scope: SessionSpawnScope,
         sim_id: &ambition_platformer2d_shared_tangle::sim_id::SimId,
     ) -> bool {
-        if self.construction.get(sim_id).is_none() {
-            return false;
+        if self.construction.get(sim_id).is_some() {
+            let closure = self
+                .construction
+                .relation_closure(&std::collections::BTreeSet::from([sim_id.clone()]));
+            let mut ctx = ambition_platformer2d_shared_tangle::construction::ConstructionExecCtx {
+                commands,
+                scope: self.construction.scope(),
+                session: session_scope,
+                services: &self.construction_services,
+            };
+            return match self.construction.commit_subset(&closure, &mut ctx) {
+                Ok(_) => true,
+                Err(error) => {
+                    bevy::log::error!(
+                        target: "ambition_platformer2d::construction",
+                        "`{sim_id}` is planned in the actor lane but its reconstruction closure \
+                         could not be rebuilt: {error}"
+                    );
+                    false
+                }
+            };
         }
-        let closure = self
-            .construction
-            .relation_closure(&std::collections::BTreeSet::from([sim_id.clone()]));
-        let mut ctx = ambition_platformer2d_shared_tangle::construction::ConstructionExecCtx {
-            commands,
-            scope: self.construction.scope(),
-            session: session_scope,
-            services: &self.construction_services,
-        };
-        match self.construction.commit_subset(&closure, &mut ctx) {
-            Ok(_) => true,
-            Err(error) => {
-                bevy::log::error!(
-                    target: "ambition_platformer2d::construction",
-                    "`{sim_id}` is planned but its reconstruction closure could not be rebuilt: \
-                     {error}"
-                );
-                false
-            }
+
+        #[cfg(feature = "portal")]
+        if self.portal_construction.get(sim_id).is_some() {
+            let closure = self.portal_construction.relation_closure(
+                &std::collections::BTreeSet::from([sim_id.clone()]),
+            );
+            let mut ctx = ambition_platformer2d_shared_tangle::construction::ConstructionExecCtx {
+                commands,
+                scope: self.portal_construction.scope(),
+                session: session_scope,
+                services: &(),
+            };
+            return match self.portal_construction.commit_subset(&closure, &mut ctx) {
+                Ok(_) => true,
+                Err(error) => {
+                    bevy::log::error!(
+                        target: "ambition_platformer2d::construction",
+                        "`{sim_id}` is planned in the portal-gun lane but could not be rebuilt: \
+                         {error}"
+                    );
+                    false
+                }
+            };
         }
+
+        false
     }
 
     /// Apply the exact feature decisions captured by [`Self::prepare`].
@@ -751,8 +899,8 @@ impl RoomFeatureConstructionPlan {
         commands: &mut Commands,
         session_scope: SessionSpawnScope,
     ) -> RoomFeatureConstructionReceipt {
-        // Phase 4a/4b: enemies and bosses are plan rows, committed below with
-        // their relations. No family loop remains for either.
+        // Every actor-owned authoritative family is a plan row, committed below
+        // with its relations. Capability-owned families use sibling lanes.
         commands.insert_resource(crate::features::FactionRelations::default());
 
         // The planned families commit through the one planner. Provider-staged
@@ -775,21 +923,44 @@ impl RoomFeatureConstructionPlan {
             "construction execution diverged from its prepared roster",
         );
 
-        // The COMMITTED roster: what the plan families actually built
-        // (`committed_ids()`, giant hands included) unioned with the same
-        // not-yet-migrated families the prediction counted. Sharing
-        // `non_plan_authoritative_ids` with `prepare` means the outer
-        // predicted-vs-committed cross-check (`stage::spawn_contents`) reduces to
-        // "did every plan row commit", the one comparison that can differ.
-        let authoritative_ids: BTreeSet<String> = construction
+        #[cfg(feature = "portal")]
+        let portal_construction = {
+            let mut ctx = ambition_platformer2d_shared_tangle::construction::ConstructionExecCtx {
+                commands,
+                scope: self.portal_construction.scope(),
+                session: session_scope,
+                services: &(),
+            };
+            let receipt = self.portal_construction.commit(&mut ctx);
+            debug_assert_eq!(
+                receipt.committed_ids(),
+                self.portal_construction.planned_ids(),
+                "portal-gun construction diverged from its prepared roster",
+            );
+            receipt
+        };
+
+        // The COMMITTED roster: the union of every independently typed lane.
+        // The outer predicted-vs-committed cross-check in `stage::spawn_contents`
+        // therefore reduces to one question: did every planned root commit?
+        let mut authoritative_ids: BTreeSet<String> = construction
             .committed_ids()
             .iter()
             .map(std::string::ToString::to_string)
             .collect();
+        #[cfg(feature = "portal")]
+        authoritative_ids.extend(
+            portal_construction
+                .committed_ids()
+                .iter()
+                .map(std::string::ToString::to_string),
+        );
 
         RoomFeatureConstructionReceipt {
             authoritative_ids,
             construction,
+            #[cfg(feature = "portal")]
+            portal_construction,
         }
     }
 }

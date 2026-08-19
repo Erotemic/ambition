@@ -275,13 +275,46 @@ fn the_plan_dump_has_a_stable_shape() {
 
     assert_eq!(
         plan.deterministic_dump(),
-        "construction-plan-v3\n\
+        "construction-plan-v4\n\
          epoch:7\n\
          room\troom_a\n\
+         lane\tprimary\n\
          entity\tplacement:a\ttoy.build\tauthored\troom_a\ta\ta\n\
          entity\tplacement:b\ttoy.build\tdynamic\tplacement:a\t4\tb\n\
          relation\tplacement:a\ttoy.grudge\tplacement:b\t-\n"
     );
+}
+
+#[test]
+#[should_panic(expected = "`primary` is reserved")]
+fn a_named_lane_cannot_alias_the_primary_lane() {
+    let _ = ConstructionLane::named("primary");
+}
+
+#[test]
+fn named_lanes_preserve_primary_ownership_and_isolate_their_scope() {
+    let registry = registry();
+    let primary = ConstructionPlan::prepare(
+        scope(),
+        vec![request("a")],
+        &nothing_live(),
+        &registry,
+    )
+    .unwrap();
+    let named = ConstructionPlan::prepare_in_lane(
+        scope(),
+        ConstructionLane::named("portal-gun"),
+        vec![request("b")],
+        &nothing_live(),
+        &registry,
+    )
+    .unwrap();
+
+    let session = SessionSpawnScope::UNSCOPED;
+    assert_eq!(primary.transaction(session), primary.scope().transaction(session));
+    assert_ne!(primary.transaction(session), named.transaction(session));
+    assert_eq!(named.lane().as_str(), "portal-gun");
+    assert!(named.deterministic_dump().contains("lane\tportal-gun\n"));
 }
 
 // ── Validation before mutation ───────────────────────────────────────────────
@@ -1596,6 +1629,8 @@ enum Sabotage {
     SpawnUnownedIdentity,
     SpawnForeignScopedRoot,
     PresentationChild,
+    /// An entity that CLAIMS a legacy construction family by name. Whether it
+    /// is tolerated depends on whether the name is enumerated.
     RemoveTransactionId,
     OverwriteTransactionId,
 }
@@ -1720,7 +1755,7 @@ fn verify_under_both(
     SABOTAGE.with(|s| s.set(Sabotage::None));
     RELATION_SABOTAGE.with(|s| s.set(RelationSabotage::None));
 
-    let transaction = plan.scope().transaction(SessionSpawnScope::UNSCOPED);
+    let transaction = plan.transaction(SessionSpawnScope::UNSCOPED);
     let scope = AuthoritativeScope::gather(&mut world, &transaction);
     verify_committed_roster(plan, &receipt, &baseline, &scope, &world)
 }
@@ -1752,7 +1787,7 @@ fn a_planned_relation_missing_from_the_receipt_is_fatal() {
         "the fixture must have wired the relation before we drop it"
     );
 
-    let transaction = plan.scope().transaction(SessionSpawnScope::UNSCOPED);
+    let transaction = plan.transaction(SessionSpawnScope::UNSCOPED);
     let scope = AuthoritativeScope::gather(&mut world, &transaction);
     let violations = verify_committed_roster(&plan, &receipt, &baseline, &scope, &world)
         .expect_err("an unwired planned relation must be reported");
@@ -1936,7 +1971,7 @@ fn verify_world(
     receipt: &ConstructionReceipt,
     baseline: &TransactionBaseline,
 ) -> Result<(), Vec<RosterViolation>> {
-    let transaction = plan.scope().transaction(SessionSpawnScope::UNSCOPED);
+    let transaction = plan.transaction(SessionSpawnScope::UNSCOPED);
     let scope = AuthoritativeScope::gather(world, &transaction);
     verify_committed_roster(plan, receipt, baseline, &scope, world)
 }
@@ -2249,7 +2284,7 @@ fn a_relation_onto_a_stale_generation_is_detected() {
                 source: "room_a".into(),
                 instance: "b".into(),
             },
-            plan.scope().transaction(SessionSpawnScope::UNSCOPED),
+            plan.transaction(SessionSpawnScope::UNSCOPED),
         ))
         .id();
     assert_ne!(fresh_b, stale_b);

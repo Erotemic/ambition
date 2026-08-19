@@ -5,6 +5,12 @@
 //! runtime-dynamic family to share a pure, preflightable planner and a
 //! recipe-backed reconstruction path. These are those three:
 //!
+//! That table is the historical seed of this domain, not a claim that every
+//! authoritative room family belongs here. The completed migration put every
+//! actor-owned family on the planner; construction federation now lets optional
+//! capabilities keep their own closed `ConstructionDomain` and compose a named
+//! room lane instead. The portal-gun pickup is the first such departure.
+//!
 //! | recipe | origin | family |
 //! |---|---|---|
 //! | [`RECIPE_AUTHORED_GROUND_ITEM`] | [`SpawnOrigin::Authored`] | an LDtk-authored `GroundItemSpec` |
@@ -67,8 +73,6 @@ pub const RECIPE_AUTHORED_PLACEMENT: &str = "ambition.authored-placement";
 pub const RECIPE_AUTHORED_SHRINE: &str = "ambition.authored-shrine";
 /// An authored gravity zone.
 pub const RECIPE_AUTHORED_GRAVITY_ZONE: &str = "ambition.authored-gravity-zone";
-/// An authored portal-gun pickup (portal builds only).
-pub const RECIPE_AUTHORED_PORTAL_GUN: &str = "ambition.authored-portal-gun";
 /// An authored boss pulled into the planner because a relation names it.
 pub const RECIPE_AUTHORED_BOSS: &str = "ambition.authored-boss";
 /// A personal grudge from one constructed actor onto another.
@@ -79,6 +83,8 @@ pub const RELATION_LIMB: &str = "ambition.limb";
 /// A rider seated on a mount. **Bidirectional**: `RidingOn` on the rider,
 /// `MountSlot` on the mount going back.
 pub const RELATION_MOUNT: &str = "ambition.mount";
+
+pub const ACTOR_CONSTRUCTION_DOMAIN: &str = "actor";
 
 const OWNER: &str = "ambition_platformer2d_actor_monolith";
 // v2: relation wiring and postconditions changed — the rig became slot-keyed,
@@ -116,9 +122,6 @@ pub fn recipe_authored_shrine() -> RecipeId {
 }
 pub fn recipe_authored_gravity_zone() -> RecipeId {
     RecipeId::new(RECIPE_AUTHORED_GRAVITY_ZONE)
-}
-pub fn recipe_authored_portal_gun() -> RecipeId {
-    RecipeId::new(RECIPE_AUTHORED_PORTAL_GUN)
 }
 pub fn relation_grudge() -> RelationKind {
     RelationKind::new(RELATION_GRUDGE)
@@ -190,17 +193,14 @@ pub enum ActorConstructionParams {
     GiantHand {
         authored: crate::rooms::Authored<crate::rooms::EnemySpawnSpec>,
     },
-    /// An ordinary authored enemy. Every authored enemy is now a plan row,
-    /// built by the same populate function the former family loop used
-    /// (`spawn_enemy_with_faction_into`, faction `Enemy`), so the migration
-    /// changed who allocates/stamps/wires the root rather than what the actor is.
+    /// An ordinary authored enemy. Every authored enemy is a plan row, built by
+    /// the same populate function the former family loop used.
     AuthoredEnemy {
         authored: crate::rooms::Authored<crate::rooms::EnemySpawnSpec>,
         paths: Vec<(String, ambition_platformer2d_core::KinematicPath)>,
     },
-    /// An authored boss. Every authored boss is now a plan row, built by the
-    /// same populate function the former boss loop used, with default overrides
-    /// — identical body, planned identity.
+    /// An authored boss. Every authored boss is a plan row, built by the same
+    /// populate function the former boss loop used, with default overrides.
     AuthoredBoss {
         authored: crate::rooms::Authored<ambition_entity_catalog::placements::BossBrain>,
     },
@@ -226,11 +226,6 @@ pub enum ActorConstructionParams {
     /// An authored gravity zone (same story as [`Self::Shrine`]).
     GravityZone {
         spec: crate::rooms::GravityZoneSpec,
-    },
-    /// An authored portal-gun pickup (portal builds only).
-    #[cfg(feature = "portal")]
-    PortalGunSpawn {
-        spec: crate::rooms::PortalGunSpawnSpec,
     },
 }
 
@@ -316,11 +311,6 @@ impl ConstructionDomain for ActorConstruction {
                 recipe: recipe_authored_gravity_zone(),
                 construct: construct_gravity_zone,
             },
-            #[cfg(feature = "portal")]
-            ActorConstructionParams::PortalGunSpawn { .. } => RecipeDispatch {
-                recipe: recipe_authored_portal_gun(),
-                construct: construct_portal_gun_spawn,
-            },
         }
     }
 
@@ -394,10 +384,6 @@ impl ConstructionDomain for ActorConstruction {
             ActorConstructionParams::Shrine { spec } => format!("shrine {}", spec.id),
             ActorConstructionParams::GravityZone { spec } => {
                 format!("gravity-zone {}", spec.id)
-            }
-            #[cfg(feature = "portal")]
-            ActorConstructionParams::PortalGunSpawn { spec } => {
-                format!("portal-gun {}", spec.id)
             }
         }
     }
@@ -768,23 +754,6 @@ fn construct_gravity_zone(
         unreachable!("dispatch pairs this fn with GravityZone parameters")
     };
     crate::features::ecs::spawn_static::spawn_gravity_zone_into(
-        ctx.commands,
-        ctx.session,
-        root.entity(),
-        spec,
-    );
-}
-
-#[cfg(feature = "portal")]
-fn construct_portal_gun_spawn(
-    parameters: &ActorConstructionParams,
-    root: ConstructionRoot,
-    ctx: &mut Ctx<'_, '_, '_>,
-) {
-    let ActorConstructionParams::PortalGunSpawn { spec } = parameters else {
-        unreachable!("dispatch pairs this fn with PortalGunSpawn parameters")
-    };
-    crate::features::ecs::spawn_static::spawn_portal_gun_spawn_into(
         ctx.commands,
         ctx.session,
         root.entity(),
@@ -1169,13 +1138,18 @@ fn verify_grudge(
 
 /// A standalone registry holding the engine's own recipes.
 ///
-/// ⚠ **This domain is CLOSED.** `ActorConstructionParams` is a closed enum and
-/// [`ActorConstruction::dispatch`] a closed match, so a provider registering
-/// into this table contributes recipe METADATA — identity, ownership, schema
-/// version, and therefore a prepared-content fingerprint contribution — and
-/// cannot contribute executable construction behaviour. Callers that need a
-/// registry of their own (fixtures, tools, a preflight outside a live App) build
-/// one here rather than re-listing the recipes and drifting from the real table.
+/// **This domain is CLOSED.** `ActorConstructionParams` is a closed enum and
+/// [`ActorConstruction::dispatch`] a closed match, so the actor registry contains
+/// metadata only for recipes the actor domain can actually dispatch. An outside
+/// capability does not add a metadata-only alias here: unreachable schema entries
+/// would be dead declarations with no executable construction behind them.
+///
+/// A capability that owns authoritative roots owns its own [`ConstructionDomain`],
+/// typed registry, and named construction lane, then contributes only its stable
+/// registry dump to `ConstructionSchemaCatalog` for prepared-content fingerprinting.
+/// The portal-gun lane is the first production example. Callers that need an actor
+/// registry of their own (fixtures, tools, or preflight outside a live `App`) build
+/// one here rather than re-listing the actor recipes and drifting from the real table.
 pub fn engine_construction_registry() -> ActorConstructionRegistry {
     let mut registry = ActorConstructionRegistry::default();
     install_actor_construction_recipes(&mut registry)
@@ -1208,7 +1182,6 @@ pub fn install_actor_construction_recipes(
         "authored-room",
         SCHEMA,
     )?;
-    registry.try_register_recipe(recipe_authored_portal_gun(), OWNER, "authored-room", SCHEMA)?;
     // Metadata only — the wiring and the checks come from
     // `ActorConstruction::dispatch_relation`, so there is nothing here for an
     // outside registration to replace or to win an insertion-order race for.
@@ -1302,8 +1275,6 @@ pub fn mount_capabilities_of(
         ActorConstructionParams::Shrine { .. } | ActorConstructionParams::GravityZone { .. } => {
             PlannedMountCapabilities::default()
         }
-        #[cfg(feature = "portal")]
-        ActorConstructionParams::PortalGunSpawn { .. } => PlannedMountCapabilities::default(),
         ActorConstructionParams::AuthoredBoss { authored } => PlannedMountCapabilities {
             mount_class: None,
             pilots: ambition_boss_encounter::behavior::BossBehaviorProfile::for_authored_boss(
@@ -1356,8 +1327,6 @@ fn family_of(parameters: &ActorConstructionParams) -> &'static str {
         ActorConstructionParams::Placement { .. } => "placement",
         ActorConstructionParams::Shrine { .. } => "shrine",
         ActorConstructionParams::GravityZone { .. } => "gravity-zone",
-        #[cfg(feature = "portal")]
-        ActorConstructionParams::PortalGunSpawn { .. } => "portal-gun",
     }
 }
 
@@ -1403,8 +1372,6 @@ fn planned_body_character(parameters: &ActorConstructionParams) -> Option<&str> 
         | ActorConstructionParams::GroundItem { .. }
         | ActorConstructionParams::Shrine { .. }
         | ActorConstructionParams::GravityZone { .. } => None,
-        #[cfg(feature = "portal")]
-        ActorConstructionParams::PortalGunSpawn { .. } => None,
     }
 }
 
@@ -2122,9 +2089,10 @@ pub fn placement_requests(
     requests
 }
 
-/// Turn the formerly-anonymous static families — shrines, gravity zones, and
-/// (portal builds) portal-gun pickups — into construction rows. Their specs
-/// always carried stable LDtk iids; the entities now wear them.
+/// Turn the actor-owned formerly-anonymous static families — shrines and gravity
+/// zones — into construction rows. Their specs always carried stable authored
+/// ids; the entities now wear them. Capability-owned families compose their own
+/// typed construction lanes beside this actor lane.
 pub fn authored_static_requests(room: &crate::rooms::RoomSpec) -> Vec<ActorConstructionRequest> {
     let mut requests = Vec::new();
     for shrine in &room.shrines {
@@ -2148,18 +2116,6 @@ pub fn authored_static_requests(room: &crate::rooms::RoomSpec) -> Vec<ActorConst
                 instance: zone.id.clone(),
             },
             parameters: ActorConstructionParams::GravityZone { spec: zone.clone() },
-            relations: Vec::new(),
-        });
-    }
-    #[cfg(feature = "portal")]
-    for gun in &room.portal_gun_spawns {
-        requests.push(ActorConstructionRequest {
-            sim_id: SimId::placement(&gun.id),
-            origin: SpawnOrigin::Authored {
-                source: room.id.clone(),
-                instance: gun.id.clone(),
-            },
-            parameters: ActorConstructionParams::PortalGunSpawn { spec: gun.clone() },
             relations: Vec::new(),
         });
     }

@@ -78,10 +78,11 @@ impl Plugin for SimCoreResourcesPlugin {
             // The room-content staging seam: providers/content register pure
             // stagers into it; an app with none stages rooms as authored.
             .init_resource::<ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry>()
-            // The construction recipe table (Phase 3). Installed with the
-            // engine's own recipes below, and open for a provider to add its
-            // own before the first room is planned.
+            // The closed actor construction table, plus a descriptor-only
+            // catalog that fingerprints every independently typed construction
+            // domain installed by the composition.
             .init_resource::<ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry>()
+            .init_resource::<ambition_platformer2d_shared_tangle::construction::ConstructionSchemaCatalog>()
             // App-local boss authority. Boss-free providers keep the explicit
             // empty resource; content plugins assemble provider fragments.
             .init_resource::<ambition_boss_encounter::BossCatalog>()
@@ -198,15 +199,27 @@ impl Plugin for SimCoreResourcesPlugin {
                     .before(ambition_platformer2d_shared_tangle::camera_ease::tick_camera_shake),
             );
 
-        // The engine's own construction recipes. `init_resource` above never
-        // clobbers a provider's pre-inserted registry, and registration is
-        // idempotent, so composing this plugin twice is not an error.
-        let mut recipes = app
-            .world_mut()
-            .resource_mut::<ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry>();
-        ambition_platformer2d_actor_monolith::construction::install_actor_construction_recipes(
-            &mut recipes,
-        )
-        .expect("the engine's own construction recipes cannot conflict with each other");
+        // The engine's closed actor construction recipes. `init_resource` above
+        // does not clobber a pre-inserted fixture/host registry, and registration
+        // is idempotent, so composing this plugin twice is harmless. Optional
+        // capabilities do not extend this table: they own typed construction
+        // domains/lanes and contribute descriptor-only schema dumps separately.
+        let actor_construction_dump = {
+            let mut recipes = app
+                .world_mut()
+                .resource_mut::<ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry>();
+            ambition_platformer2d_actor_monolith::construction::install_actor_construction_recipes(
+                &mut recipes,
+            )
+            .expect("the engine's own construction recipes cannot conflict with each other");
+            recipes.deterministic_dump()
+        };
+        app.world_mut()
+            .resource_mut::<ambition_platformer2d_shared_tangle::construction::ConstructionSchemaCatalog>()
+            .try_contribute(
+                ambition_platformer2d_actor_monolith::construction::ACTOR_CONSTRUCTION_DOMAIN,
+                actor_construction_dump,
+            )
+            .expect("the actor construction schema cannot conflict with itself");
     }
 }

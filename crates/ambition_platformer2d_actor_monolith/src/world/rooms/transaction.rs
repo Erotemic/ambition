@@ -45,8 +45,7 @@ use bevy::ecs::resource::Resource;
 use bevy::prelude::{Commands, World};
 
 use ambition_platformer2d_shared_tangle::construction::{
-    verify_committed_roster, AuthoritativeScope, BaselineCaptureError, ConstructionReceipt,
-    RosterViolation, TransactionBaseline,
+    BaselineCaptureError, RosterViolation, TransactionBaseline,
 };
 use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;
 
@@ -68,13 +67,12 @@ pub(crate) struct PendingConstructionBaseline(Result<TransactionBaseline, Baseli
 #[derive(Resource, Clone, Debug, Default)]
 pub struct LastConstructionVerification {
     pub room_id: String,
-    /// Everything verification found. Every violation withholds publication;
-    /// the temporary known-legacy severity class disappeared when the last room
-    /// construction family migrated to the planner.
+    /// Every construction invariant the transaction found violated.
     pub violations: Vec<RosterViolation>,
     /// Whether `RoomLoaded` was written.
     pub published: bool,
 }
+
 
 /// Open the transaction: queue the baseline capture.
 ///
@@ -95,8 +93,8 @@ pub(crate) fn open(commands: &mut Commands) {
 /// actually build" is a question the world can answer.
 pub(crate) fn close(
     commands: &mut Commands,
-    plan: &crate::construction::ActorConstructionPlan,
-    receipt: &ConstructionReceipt,
+    plan: &crate::features::RoomFeatureConstructionPlan,
+    receipt: &crate::features::RoomFeatureConstructionReceipt,
     room_id: String,
     session: SessionSpawnScope,
 ) {
@@ -130,8 +128,8 @@ impl ActiveContentBinding {
 
 fn verify_and_publish(
     world: &mut World,
-    plan: &crate::construction::ActorConstructionPlan,
-    receipt: &ConstructionReceipt,
+    plan: &crate::features::RoomFeatureConstructionPlan,
+    receipt: &crate::features::RoomFeatureConstructionReceipt,
     room_id: String,
     session: SessionSpawnScope,
 ) {
@@ -168,29 +166,18 @@ fn verify_and_publish(
         }
     };
 
-    // The ownership token is keyed by content generation, room, AND session, so
-    // it must be derived from the session that COMMITTED — the same one the
-    // executor stamped its roots with.
-    let transaction = plan.scope().transaction(session);
-    let scope = AuthoritativeScope::gather(world, &transaction);
-    let mut violations = verify_committed_roster(plan, receipt, &baseline, &scope, world)
-        .err()
-        .unwrap_or_default();
-    // The actor-domain composition pass: exact rig equality per planned host.
-    // The generic per-relation postconditions above prove each planned limb
-    // landed; only the domain that owns `LimbRig` can prove nothing EXTRA did.
-    violations.extend(crate::construction::verify_rig_composition(
-        plan, receipt, world,
-    ));
-    // The commit-boundary staleness check (Phase 4g): a plan prepared against
-    // one content generation must not publish a room into a session that has
-    // moved to another. Enforced HERE because commit cannot yet be prevented
-    // (no staging world) — a stale plan's room is refused publication.
+    let mut violations = plan.verify_committed_construction(receipt, &baseline, world, session);
+
+    // The commit-boundary staleness check: every lane was prepared against the
+    // same content generation, and the room may publish only into that exact
+    // generation. The room transaction owns this comparison because it owns
+    // publication; individual construction domains do not.
     if let Some(live) = world.get_resource::<ActiveContentBinding>() {
-        if plan.scope().binding != live.0 {
+        let planned = plan.construction_binding();
+        if planned != live.0 {
             violations.push(
                 ambition_platformer2d_shared_tangle::construction::RosterViolation::ContentBindingMismatch {
-                    planned: plan.scope().binding,
+                    planned,
                     live: live.0,
                 },
             );
@@ -206,13 +193,8 @@ fn verify_and_publish(
         );
     }
 
-    let failure_count = violations.len();
     let published = violations.is_empty();
     if published {
-        // The success branch was silent — only the failure branch spoke — so a
-        // capture could not tell "the room never loaded" from "the room loaded
-        // and something after it broke". This is the single writer of
-        // `RoomLoaded`, so the marker belongs on it.
         ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
             "room-loaded {room_id}"
         ));
@@ -220,9 +202,7 @@ fn verify_and_publish(
             room_id: room_id.clone(),
         });
     } else {
-        // Loud, and NOT a `RoomLoaded`. The world keeps whatever the offending
-        // recipe produced — commands do not roll back — so the honest outcome is
-        // a room that never announces itself rather than one that lies.
+        let failure_count = violations.len();
         bevy::log::error!(
             target: "ambition_platformer2d::construction",
             "room `{room_id}` was NOT published: {failure_count} construction violation(s). The \

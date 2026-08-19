@@ -1,6 +1,6 @@
 # HEAD orientation
 
-**Snapshot:** `ef923a644` (2026-08-18 local project date).
+**Snapshot:** `5cefafc05` (2026-08-18 local project date).
 
 ⚠ **this SHA goes stale within hours during an active run** — it names the tree
 these paragraphs were measured against, not the tree you have. ⭐ **if it
@@ -410,6 +410,14 @@ streaming, a generic residency scheduler and byte shaving do not.
   in every game this engine runs, has no term for it and should not grow one.
   **That is D166's customer**, and the five other pressures capture put on
   generic structures are listed in that row.
+
+  ⭐ **and D166's FIRST FACET landed the same day** (`5cefafc05`): George's
+  capture kit is authored content — `game/ambition_demo_smash/assets/fighters/`
+  — read by the content compiler, prepared into the same `MoveSpec`s the Rust
+  literal produced. What that moved is the VALUES. ▢ the POLICY half above is
+  still open and is still the interesting one. ⛔ the sixteen ordinary move
+  slots deliberately did NOT move: they are authored by COMPOSING helpers, and
+  George's file states a law about the shape of his table beside them.
 - **TwinTrack:** strongest current pressure test for independent views and
   observer/reference-frame presentation; split-screen should exercise the same
   multi-view model Ambition uses.

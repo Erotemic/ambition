@@ -5253,8 +5253,16 @@ what is missing:                                                 the REBUILD
   weapon stays where it fell — **and Jon's dropped-weapon ruling makes that
   exact case a product requirement** (a unique weapon stays where it fell). So this
   is the blocking item, not a noted residue. Also still open: `Consumed` round-trips and still has no live producer;
-  `load_save_at_startup` is presentation-only, so a headless composition never
-  writes a file; and the body resumes at the shrine while the objects resume at the
+  ✔ **the headless-persistence residue is CLOSED 2026-08-19** —
+  `PersistenceSchedulePlugin` was installed by `AmbitionGamePresentationPlugin`
+  ("visible binary only"), so an RL episode or a headless test could reach a
+  checkpoint and never write a file. The durable horizon is SIM state, so the
+  sim composition installs the writer now. ⛔ **with `PersistenceRoot::isolated()`,
+  which is not optional**: the default root is the PLAYER's platform data dir,
+  and installing the writer without a root of its own would point every headless
+  run at the user's real save — the same redirection a windowless host already
+  makes for audio. Both halves are asserted, because installing one without the
+  other is worse than neither; and the body resumes at the shrine while the objects resume at the
   autosave's instant.
 
 - ▣ **D132 — HALF CLOSED 2026-08-16. The same item had two persistence authorities

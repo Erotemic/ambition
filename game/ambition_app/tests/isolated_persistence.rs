@@ -106,3 +106,47 @@ fn a_windowless_host_does_not_advance_its_clock_by_wall_clock() {
          test depend on how busy the machine is"
     );
 }
+
+/// **A HEADLESS COMPOSITION CAN PERSIST — and it writes to a root of its own.**
+///
+/// ⛔⛔ **it could not, until 2026-08-19, and D133 recorded that as an open
+/// residue.** `PersistenceSchedulePlugin` is installed by
+/// `AmbitionGamePresentationPlugin`, which is "visible binary only", so an RL
+/// episode or a headless test could reach a checkpoint and never write a file.
+/// The durable horizon is SIM state — its own row says *"the on-disk form IS the
+/// checkpoint's own description, serialized"* — so a composition that simulates
+/// should be able to persist.
+///
+/// ⚠ **and the root matters as much as the plugin.** `PersistenceRoot::default()`
+/// is the PLAYER's platform data dir; installing the writer without an isolated
+/// root would point every headless run at the user's real save. Both halves are
+/// asserted here, because installing one without the other is worse than
+/// neither.
+#[test]
+fn a_headless_sim_persists_into_a_root_of_its_own() {
+    use ambition_app::{AmbitionSim as _, Platformer2dSimHarness};
+
+    let mut sim = Platformer2dSimHarness::new().expect("the headless sim composes");
+    sim.step_n(crate::common::base(), 8);
+
+    let root = sim
+        .world()
+        .get_resource::<PersistenceRoot>()
+        .expect("a headless composition installs persistence at all")
+        .0
+        .clone();
+    // ⛔ the zero floor for the SECOND claim: a root equal to the player's is the
+    // failure this test exists for, and it would otherwise read as a pass.
+    assert_ne!(
+        root,
+        PersistenceRoot::default().0,
+        "a headless run is pointed at the PLAYER's save directory"
+    );
+    assert!(
+        sim.world()
+            .get_resource::<ambition_platformer2d::persistence::save::SaveFileWritable>()
+            .is_some(),
+        "the save writer's own resources are absent, so the plugin is not really \
+         installed however the root reads"
+    );
+}

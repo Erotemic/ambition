@@ -34,9 +34,9 @@ use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 /// condition under a ceiling rather than for a fixed count.
 const LIVENESS_CAP: usize = 600;
 
-/// The scripted stick, republished every frame in `PreUpdate`: Bevy runs the
-/// fixed-timestep loop BEFORE `Update`, so intent written any later is not seen
-/// by the tick it was meant to drive.
+/// The scripted stick, written where the participant pipeline has finished
+/// writing `ControlFrame` and before the fixed-tick latch reads it. See `boot`
+/// for why `PreUpdate` — what this used to say — could not work.
 #[derive(Resource, Clone, Copy, Default)]
 struct ScriptedStick(ControlFrame);
 
@@ -52,7 +52,32 @@ fn boot() -> App {
         TEST_COURSE_ROOM_ID.to_string(),
     ));
     app.init_resource::<ScriptedStick>();
-    app.add_systems(PreUpdate, apply_scripted_stick);
+    // ⛔⛔ **`PreUpdate` IS THE WRONG SCHEDULE AND IT FAILS SILENTLY** — the
+    // lesson `two_rooms.rs` recorded, rediscovered here 2026-08-19 with two
+    // tests red and the rest of this file's presses reaching nobody. The
+    // reasoning that put it there — *"Bevy runs the fixed-timestep loop BEFORE
+    // `Update`, so intent written any later is not seen by the tick it was meant
+    // to drive"* — is a claim about ORDER that ignores WHO ELSE WRITES: the
+    // participant pipeline owns `ControlFrame` in `Update` behind
+    // `ambition_platformer2d/input`, which workspace feature unification turns on
+    // from `ambition_app`'s defaults whatever this crate asked for. So every
+    // `PreUpdate` write was overwritten before the sim saw it, and Mary-O simply
+    // never moved.
+    //
+    // ⇒ **order against the authority instead of guessing**: after
+    // `InputSet::Route`, where the pipeline declares its `ControlFrame` writers,
+    // and before `accumulate_control_frame_latch`, which is what the sim
+    // actually consumes — `publish_latched_control_frame` overwrites
+    // `ControlFrame` from the latch inside the sim schedule, so a write that
+    // misses the latch never reaches gameplay however late it lands in `Update`.
+    // Ordering against a set nobody composed is a no-op, so a headless
+    // frame-stepped composition (no latch) is unaffected.
+    app.add_systems(
+        Update,
+        apply_scripted_stick
+            .after(ambition_platformer2d::input::InputSet::Route)
+            .before(ambition_platformer2d::engine_core::accumulate_control_frame_latch),
+    );
     for _ in 0..LIVENESS_CAP {
         app.update();
         if seated(&mut app).is_some() {

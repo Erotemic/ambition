@@ -46,8 +46,21 @@ const PACK_MANIFEST_RON: &str = include_str!("../assets/pack.ron");
 /// The declared path of each source, exactly as `pack.ron` spells it. A
 /// mismatch is the compiler's own "no source supplied" refusal rather than a
 /// silently absent fighter.
-const GEORGE_FACET_PATH: &str = "fighters/george_booul.ron";
-const GEORGE_FACET_RON: &str = include_str!("../assets/fighters/george_booul.ron");
+const GEORGE_FACET_PATH: &str =
+    "../../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/data/characters/george_booul/smash_fighter.ron";
+/// ⭐⭐ **embedded from the CHARACTER-AUTHORING SUBMODULE, not from this demo.**
+/// The 2026-08-19 GPT review: *"Smash should select George; it should not own
+/// George's values."* The values moved to
+/// `tools/ambition_sprite2d_renderer/.../characters/george_booul/smash_fighter.ron`,
+/// whose repository claims that material by name; this crate keeps the SELECTION
+/// and the schema/preparation stay in Rust.
+///
+/// ⚠ the honest cost, stated rather than discovered: this binary no longer
+/// compiles from a checkout whose submodule is uninitialised. That is what
+/// "George's values live with George" means.
+const GEORGE_FACET_RON: &str = include_str!(
+    "../../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/data/characters/george_booul/smash_fighter.ron"
+);
 
 /// Every source `pack.ron` declares, paired with its embedded text.
 fn embedded_sources() -> impl IntoIterator<Item = (String, String)> {

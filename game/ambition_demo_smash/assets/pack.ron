@@ -26,7 +26,21 @@
     // Nothing beyond the schema owners. `smash_fighter` brings the
     // platform-fighter capability with it.
     requires: [],
+    // ⭐⭐ **THE PATH LEAVES THIS DIRECTORY ON PURPOSE — the demo SELECTS
+    // George, it does not own his values** (2026-08-19 GPT review: *"Smash
+    // should select George; it should not own George's values."*). The facet
+    // lives in the character-authoring submodule, whose README claims exactly
+    // this material: "game/ruleset-specific character FACET VALUES".
+    //
+    // ⚠ a source path is `root.join(path)` + `canonicalize`, so escaping the
+    // pack root is expressible and readable; what it costs is that the pack no
+    // longer validates from a checkout with the submodule uninitialised, which
+    // is the honest consequence of the values living where they belong.
     sources: [
-        (path: "fighters/george_booul.ron", schema: "smash_fighter", version: 1),
+        (
+            path: "../../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/data/characters/george_booul/smash_fighter.ron",
+            schema: "smash_fighter",
+            version: 1,
+        ),
     ],
 )

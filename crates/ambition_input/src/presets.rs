@@ -751,6 +751,55 @@ mod tests {
         );
     }
 
+    /// **EVERY SLOT A BODY CAN CARRY IS ON THE KEYBOARD, ON EVERY PRESET.**
+    ///
+    /// ⭐⭐ **the sweep this file had cases of but never a sweep.** Three verbs
+    /// have now been unreachable by a person while every other layer of them
+    /// worked, and each was found by a human pressing a button rather than by a
+    /// test: `Special` had no gamepad button in any composition; `Modifier` was
+    /// drawn on the touch overlay and sent nothing (2026-08-04); and `Grab` was
+    /// bound everywhere and dropped at the player brain (2026-08-18, Jon: *"grab
+    /// doesn't work on george when I press the button that says grab"*). The
+    /// existing tests pin the first two ONE CASE AT A TIME, which is a list that
+    /// grows only after each new verb has already shipped broken.
+    ///
+    /// ⭐ **the keyboard is the right subject** and the pad is not: a pad may
+    /// legitimately decline a slot (the default pad is fully assigned and leaves
+    /// `Special` to a game's layout — the test above pins exactly that), while
+    /// the keyboard is the device every composition always has. A slot with no
+    /// key anywhere is a verb no keyboard player can reach.
+    ///
+    /// ⚠ this guards the BINDING, which is one link. The two below it are
+    /// guarded by the compiler: `ControlFrame`'s literal in `control.rs` has no
+    /// rest pattern, and `brain/player.rs` destructures exhaustively.
+    #[cfg(feature = "input")]
+    #[test]
+    fn every_control_slot_reaches_a_key_on_every_preset() {
+        use crate::bindings::{action_for_slot, ActionBindings};
+        use ambition_entity_catalog::action_scheme::CANONICAL_SLOT_ORDER;
+
+        for preset in KeyboardPreset::presets() {
+            let map = preset.input_map();
+            let bound = ActionBindings::from_map(&map);
+            for slot in CANONICAL_SLOT_ORDER {
+                let action = action_for_slot(slot).unwrap_or_else(|| {
+                    panic!(
+                        "{slot:?} maps to no input action at all, so nothing can \
+                         press it on any device"
+                    )
+                });
+                assert!(
+                    !bound.controls(&action).is_empty(),
+                    "{:?}: {slot:?} ({action:?}) has NO key. A body granted that \
+                     slot advertises the verb — the action scheme derives it, the \
+                     touch overlay draws a button for it — and a keyboard player \
+                     cannot press it.",
+                    preset.id
+                );
+            }
+        }
+    }
+
     /// A second local seat's map must touch NO key.
     ///
     /// Partitioning the controllers between two seats accomplishes nothing if

@@ -90,11 +90,26 @@ substrate had overtaken the two fronts printed above it:
    in that same change and not before** — spending it earlier turns the phantom
    into an annihilation whenever a death retracts a post-checkpoint mint.
 
-   ⛔ **and the reason none of this was ever caught is structural**: the
-   durable-save leg (`InventoryRestored` + both persist systems) is installed by
+   ⛔ **the reason none of this was ever caught was structural**: the
+   durable-save leg (`InventoryRestored` + both persist systems) was installed by
    `install_menu_setup_and_hotkeys`, inside the **visible-binary-only**
-   presentation plugins. **No headless composition schedules it**, so one of the
-   two authorities does not exist in the test harness at all.
+   presentation plugins, so no headless composition scheduled it and one of the
+   two authorities did not exist in the test harness at all.
+   ✔✔ **CLOSED 2026-08-16, and this paragraph read as PRESENT TENSE until
+   2026-08-18.** The leg moved to
+   `ambition_platformer2d_runtime::durable_save_horizon::DurableSaveHorizonPlugin`
+   — in the runtime's own plugin group, beside the checkpoint horizon it
+   serializes — and two headless tests now cover it
+   (`a_save_remembers_where_you_left_things`,
+   `two_persistence_authorities_for_one_item`). ⚠ `install_menu_setup_and_hotkeys`
+   carries the note explaining the move; the ledger did not, which is how a
+   fixed structural gap kept reading as an open one.
+   ⭐ the gate the granted-quantity half named — *"`OwnedItems` joining the
+   checkpoint baseline"* — is also met: it is `resource.owned_items` in the
+   rollback schema, and `SaveRestored`'s own doc lists it among the state the
+   durable restore coordinates. ⚠ the OTHER half of that gate (*"the mint
+   spending the row in that same change and not before"*) is NOT checked here,
+   so the item stays open on that half alone.
 
    ✔ **inventory OWNERSHIP is settled (Jon's reviewer, 2026-08-15): the BODY owns
    its inventory and capabilities.** Participant entitlements and possession-transfer

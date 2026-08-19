@@ -344,7 +344,7 @@ fn capture_context_frame(snapshot: &BrainSnapshot) -> Option<ActorControlFrame> 
         } else {
             1.0
         };
-        ae::LocalAxes::new(TILT_DEFLECTION * facing, 0.0)
+        ae::LocalAxes::new(crate::actor::attack_gesture::TILT_DEFLECTION * facing, 0.0)
     } else {
         ae::LocalAxes::ZERO
     };
@@ -727,26 +727,13 @@ struct DecisionSummary<'a, 'k> {
     proposed_routes: &'a [&'k AttackCandidate],
 }
 
-/// **How far the brain pushes the stick for a move that is NOT a smash.**
-///
-/// ⭐ between the body's `directional_deadzone` (0.5) and its `flick_threshold`
-/// (0.8), and both halves are load-bearing: below the deadzone the direction
-/// does not register at all and the press falls back to the neutral move; at or
-/// above the flick threshold [`crate::actor::attack_gesture::resolve_attack_gesture`]
-/// records a FLICK, and a press inside the flick window is a **smash whatever
-/// the strength hint says** (`strong_hint || recent_matches`).
-///
-/// ⛔ so a brain that shoved the stick to 1.0 for every direction could not ask
-/// for a tilt at all — which is what it did until 2026-08-15, and why George's
-/// forward TILT was measured 8–12 times per match in the decision log while the
-/// body's own move ledger recorded `smash_forward`.
-///
-/// ⚠ the numbers it sits between are `AttackGestureTuning`'s DEFAULTS, and the
-/// brain cannot see a body's tuning. A body that retunes them far enough to
-/// swallow this deflection loses the CPU's tilts and keeps everything else; that
-/// is a coupling worth stating rather than a fact worth threading, because the
-/// same partial-deflection-means-tilt convention is what a human's stick obeys.
-pub(in crate::brain) const TILT_DEFLECTION: f32 = 0.65;
+// ⭐ **`TILT_DEFLECTION` MOVED to `crate::actor::attack_gesture` on 2026-08-19.**
+// It describes how far a stick is pushed to mean a TILT rather than a SMASH —
+// which is attack-gesture vocabulary, not a fact about the fighter brain. It
+// lived here and `brain/smash/emit.rs` reached across for it, which was one of
+// the three edges the generic brain had into this one (D166's carve). Moving it
+// to the module that owns the tilt/smash distinction removes that edge without
+// either brain naming the other.
 
 /// **AIM THE ATTACK STICK** — the direction half of a chosen move, written at
 /// DECISION time and held until the next decision, the way a hand holds a stick.
@@ -768,7 +755,8 @@ pub(in crate::brain) const TILT_DEFLECTION: f32 = 0.65;
 ///   `special_back` verb exists, and the chain fell back to `special` — which is
 ///   why the move ledger recorded two `bivalence` presses the decision log never
 ///   selected. That disagreement is the falsifier; nothing else produces it.
-/// * **the accidental smash.** See [`TILT_DEFLECTION`].
+/// * **the accidental smash.** See
+///   [`crate::actor::attack_gesture::TILT_DEFLECTION`].
 ///
 /// ⚠ a `Neutral` direction is a CENTRED stick, and centring it re-arms the
 /// flick detector — which is correct: the next directional press is then a fresh
@@ -797,7 +785,9 @@ fn aim_the_stick(
         // only needs the direction to clear the deadzone — but it takes the same
         // partial deflection so that a special press can never leave a flick
         // armed behind it and turn the FOLLOWING tilt into a smash.
-        AttackVerb::Basic | AttackVerb::Special => TILT_DEFLECTION,
+        AttackVerb::Basic | AttackVerb::Special => {
+            crate::actor::attack_gesture::TILT_DEFLECTION
+        }
     };
     frame.attack_axis = match binding.direction {
         AttackDir::Neutral => ae::LocalAxes::ZERO,

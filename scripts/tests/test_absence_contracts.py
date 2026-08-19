@@ -30,6 +30,8 @@ from check_absence_contracts import (  # noqa: E402
 
 # One line that each contract must reject, written the way real code would.
 VIOLATING_LINE = {
+    "the-generic-brain-does-not-grow-new-platform-fighter-edges":
+        "    let cfg: fighter::FighterCfg = todo!();",
     "player-input-frame-mirror-does-not-return": "pub struct PlayerInputFrame;",
     # The shortest path back to a 1,870-line function: adding a registration
     # where all the others used to be. Campaign 2 R5.

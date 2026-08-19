@@ -5253,6 +5253,41 @@ review's own order.**
 5  every fighter has a grab     12 of 14 had `capture: None`; now none do.
 ```
 
+▢▢ **THE CARVE IS COSTED — measured 2026-08-19, and the boundary is now a
+CHECKABLE CLAIM rather than an estimate.** The review asked to make the semantic
+boundary load-bearing first and let a capability crate follow *"if the clean
+dependency result"* justifies it. Measured: `brain/fighter` is **10,644 lines**
+and the GENERIC brain names it in exactly **three** places.
+
+```text
+brain/snapshot.rs          `attack_kit: Vec<fighter::options::AttackCandidate>`
+                           every brain pays for a field one of them reads
+brain/state_machine/mod.rs `StateMachineCfg::Fighter { cfg, state }` — the
+                           shared brain cannot compile without the fighter one.
+                           THE BIG ONE: removing it needs a registration seam so
+                           a capability supplies its own brain variant.
+brain/smash/emit.rs        ✔ CLOSED 2026-08-19 — read
+                           `fighter::decision::TILT_DEFLECTION`
+```
+
+✔ **THE THIRD EDGE IS ALREADY GONE.** `TILT_DEFLECTION` says how far a stick is
+pushed to mean a TILT rather than a SMASH — attack-gesture vocabulary, not a
+fact about the fighter brain — so it moved to `crate::actor::attack_gesture`
+beside `AttackGestureTuning`, whose deadzone (0.5) and flick threshold (0.8) it
+sits between. Both brains read it from there and neither names the other. ⇒ two
+edges left, and the contract's exclude list shrank to match.
+
+⭐ **and a fourth edge turned out not to exist**: `ambition_platformer2d_core`
+appears in a `fighter::` grep, but it is a DOC reference in `hit_response.rs`.
+The floor does not depend on the fighter brain, which is the one edge that would
+have made the carve impossible rather than merely expensive.
+
+⇒ **the ratchet is `the-generic-brain-does-not-grow-new-platform-fighter-edges`**
+(`scripts/check_absence_contracts.py`), which pins those three and refuses a
+fourth. ⛔ growing that exclude list IS the review; shrinking it is the work, and
+the order is `smash/emit.rs` (one constant), then `snapshot.rs`, then the
+state-machine variant that needs the seam.
+
 ⛔⛔ **the review's one prohibition is NOT satisfied and is deliberately still
 open**: *"I would specifically avoid adding things like `Features { grab_value:
 ... }` to the generic scorer. That just moves the smell into a struct."* A

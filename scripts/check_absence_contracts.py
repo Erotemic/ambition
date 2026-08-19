@@ -96,6 +96,53 @@ from pathlib import Path
 # assertion INSIDE the allowed file rather than renaming it back.
 ABSENCE_CONTRACTS: list[dict] = [
     {
+        "id": "the-generic-brain-does-not-grow-new-platform-fighter-edges",
+        "paths": [
+            "crates/ambition_characters/src/brain/",
+            # ⭐ THE PLATFORM-FIGHTER BRAIN ITSELF. `brain/fighter/` is the
+            # capability; it is allowed to know what it is.
+            ":(exclude)crates/ambition_characters/src/brain/fighter",
+            # ⛔⛔ THE THREE EDGES THAT BLOCK THE CARVE, measured 2026-08-19.
+            # Each is a place the GENERIC brain names the platform-fighter one,
+            # and each has to go before `brain/fighter` can become a capability
+            # crate. They are excluded so this contract pins the boundary where
+            # it is today; ⛔ **growing this list IS the review**, and shrinking
+            # it is the work.
+            #
+            # 1. the generic `BrainSnapshot` carries `attack_kit:
+            #    Vec<fighter::options::AttackCandidate>` — every brain in the
+            #    game pays for a field only one of them reads, in a type only
+            #    one of them owns.
+            ":(exclude)crates/ambition_characters/src/brain/snapshot.rs",
+            # 2. the generic `StateMachineCfg` has a `Fighter` VARIANT holding
+            #    `FighterCfg`/`FighterState`, so the shared state-machine brain
+            #    cannot compile without the fighter one. This is the big edge:
+            #    removing it needs a registration seam so a capability supplies
+            #    its own brain variant.
+            ":(exclude)crates/ambition_characters/src/brain/state_machine/mod.rs",
+            # ✔ **3 IS CLOSED, 2026-08-19 — the list shrank, which is the work.**
+            # `smash/emit.rs` reached across for `fighter::decision::TILT_DEFLECTION`.
+            # That constant says how far a stick is pushed to mean a TILT rather
+            # than a SMASH, which is attack-gesture vocabulary and not a fact
+            # about the fighter brain; it now lives in
+            # `crate::actor::attack_gesture` beside `AttackGestureTuning`, whose
+            # deadzone and flick threshold it sits between. Both brains read it
+            # from there and neither names the other.
+        ],
+        "patterns": [r"\bfighter::"],
+        "reason": (
+            "The 2026-08-19 GPT review withdrew the standing 'do not carve yet' hold on "
+            "D166: 'I no longer think that should be treated as indefinitely binding... "
+            "the carve has now been earned.' It also said to make the SEMANTIC boundary "
+            "load-bearing first and let a dedicated platform-fighter capability crate "
+            "follow only if the dependency result comes out clean. This contract is that "
+            "boundary, stated as a checkable claim: the generic brain names the "
+            "platform-fighter brain in exactly three places, and it may not grow a "
+            "fourth. Without it the carve gets costed from a photograph months later, "
+            "which is how the previous estimate went stale."
+        ),
+    },
+    {
         "id": "player-input-frame-mirror-does-not-return",
         "paths": ["crates/", "game/"],
         "patterns": [r"\bPlayerInputFrame\b"],

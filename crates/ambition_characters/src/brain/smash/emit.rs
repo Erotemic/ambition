@@ -179,7 +179,7 @@ pub fn emit_inputs(
             // the next ordinary attack into an accidental smash.
             out.attack_axis = if forward {
                 ae::LocalAxes::new(
-                    crate::brain::fighter::decision::TILT_DEFLECTION
+                    crate::actor::attack_gesture::TILT_DEFLECTION
                         * if obs.self_facing < 0.0 { -1.0 } else { 1.0 },
                     0.0,
                 )

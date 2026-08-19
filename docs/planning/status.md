@@ -212,14 +212,31 @@ substrate had overtaken the two fronts printed above it:
    pixels**, because a float costs the save's `Eq` derive and a `NaN` makes the
    value-comparing autosave rewrite the file every frame forever.
 
-   ⇒ **still open, and these are the durable frontier now**: a runtime mint **not
-   in a hand** at save time is undescribed and lost (the description remembers no
-   position — exactly where *"a hand needs less than a world"* stops paying);
-   `Consumed` round-trips through the file and still has **no live producer**;
-   `load_save_at_startup` is still presentation-only, so a headless composition
-   mirrors into `AmbitionGameSave` and never writes a FILE; and ⚠ **the body
-   resumes at the shrine while the objects resume at the autosave's instant** —
-   two different times in one load.
+   ⇒ **the durable frontier, re-measured 2026-08-19 — TWO of the four are
+   CLOSED and one of them was recorded with the wrong REASON:**
+
+   * ✔ **a runtime mint not in a hand comes back where it fell.** This said the
+     cause was that *"the description remembers no position"*, which implied a
+     missing field. The position was always in
+     `OccurrenceWhereabouts::Placed { room, at }`; what lost the object was the
+     checkpoint's describer refusing anything `InWorld`, so the world knew WHERE
+     and had no way to make it again. ⇒ the fix cost **no wire format at all** —
+     the opposite of what the recorded reason predicted. Poison-verified end to
+     end. ⚠ in FLIGHT is still uncovered, and by design: the ledger tracks only
+     occurrences somebody CARRIED.
+   * ✔ **a headless composition persists.** `PersistenceSchedulePlugin` was
+     installed by the presentation group ("visible binary only"), so an RL
+     episode could reach a checkpoint and never write a file. The sim
+     composition installs it now, with `PersistenceRoot::isolated()` — the
+     default root is the PLAYER's data dir, and that isolation is the caller's
+     obligation.
+   * ▢ `Consumed` round-trips through the file and still has **no live
+     producer**. ⚠ already documented at the variant itself, where it is
+     load-bearing for `AuthoredOccurrences::rewind_argument` — this is an open
+     DESIGN item, not a missing note.
+   * ▢ ⚠ **the body resumes at the shrine while the objects resume at the
+     autosave's instant** — two different times in one load, and stated as a
+     deliberate first-slice trade rather than an oversight.
    ⛔ **do not promote easy actor-monolith leaf carving ahead of this.**
 2. **Simulation authority and determinism.** Decompose parameter-ceiling systems
    by phase/authority and invert rollback declaration ownership. See

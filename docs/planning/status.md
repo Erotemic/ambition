@@ -1,6 +1,6 @@
 # HEAD orientation
 
-**Snapshot:** `5cefafc05` (2026-08-18 local project date).
+**Snapshot:** `6cf791b8c` (2026-08-18 local project date).
 
 ⚠ **this SHA goes stale within hours during an active run** — it names the tree
 these paragraphs were measured against, not the tree you have. ⭐ **if it
@@ -410,6 +410,31 @@ streaming, a generic residency scheduler and byte shaving do not.
   in every game this engine runs, has no term for it and should not grow one.
   **That is D166's customer**, and the five other pressures capture put on
   generic structures are listed in that row.
+
+  ⛔⛔ **AND A PERSON COULD NOT GRAB AT ALL UNTIL `988807b99`.** Jon, playing:
+  *"grab doesn't work on george when I press the button that says grab."*
+  `brain/player.rs` — the ONE seam a human's input frame crosses to reach a body
+  — never copied `grab_pressed`. Every other layer was right (the pad bound Y,
+  the frame was set, the body had `AbilitySet::grab` and a `ControlSlot::Grab`,
+  George authored the move), and a CPU worked because AI brains write
+  `ActorControl` directly. ⚠ **no test could have caught it**: every capture test
+  in the repo writes `grab_pressed` onto the body, so all of them start
+  downstream of the input layer.
+
+  ⭐⭐ **the input-reachability chain is now closed at all four links**, three by
+  the compiler:
+
+  ```text
+  ControlSlot → action     exhaustive match (action_for_slot)
+  action → a KEY           the sweep in presets.rs — poison-verified
+  action → ControlFrame    struct literal, no rest pattern (control.rs)
+  ControlFrame → body      exhaustive destructure (brain/player.rs) — poison-verified
+  ```
+
+  ⇒ the reusable half: **a hand-driven chain pins the FUNCTION and says nothing
+  about the WIRING.** The instrument that does is `a_pad_player_fighting_as` +
+  `move_started_while_holding` in `smash_in_the_host.rs` — a real button through
+  the live `InputMap`. It reproduced this in 2.6s.
 
   ⭐ **and D166's FIRST FACET landed the same day** (`5cefafc05`): George's
   capture kit is authored content — `game/ambition_demo_smash/assets/fighters/`

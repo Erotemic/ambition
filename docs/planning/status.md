@@ -421,6 +421,16 @@ streaming, a generic residency scheduler and byte shaving do not.
   in the repo writes `grab_pressed` onto the body, so all of them start
   downstream of the input layer.
 
+  ⭐ **and the obvious follow-up worry is answered NO, measured**: *"does the
+  Grab button die again on another fighter?"* The smash demo seats exactly THREE
+  — Robot v3, Robot v2 (both on the shared table, which carries a capture kit)
+  and George — and all three author a grab. The twelve `capture: None` tables are
+  `ambition_content`'s main-game roster, which the 2026-08-18 review told us not
+  to migrate (*"Use George first. Don't migrate the roster."*), so their absence
+  is a standing instruction rather than an oversight. ⚠ a fighter with no
+  authored grab gets no `ControlSlot::Grab` at all, so the touch overlay draws no
+  button for it — the pad is the only surface where the press is silent.
+
   ⭐⭐ **the input-reachability chain is now closed at all four links**, three by
   the compiler:
 

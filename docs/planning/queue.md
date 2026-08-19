@@ -3377,7 +3377,37 @@ writes the WHOLE snapshot — so banking the 497 lines would also bank
 `ambition_geometry`'s and `ambition_platformer2d_core`'s edit-cost regressions,
 which are eight days of unrelated growth nobody has accounted for.
 
-⇒ **so it stays unfrozen on purpose, and the monolith may drift back up to
+⚠⚠ **AND IT HAS DRIFTED — MEASURED AT HEAD 2026-08-18, one day later.** The
+same count that produces the ledger's own 110,932 at `355874fe1` gives:
+
+```text
+355874fe1   110,932   the recorded win, UNDER the 111,429 baseline
+HEAD        115,562   +4,630 in a day, and +4,133 OVER the baseline
+```
+
+⛔ **but a carve is the WRONG response, because the biggest single item is debt
+that moved here BY DESIGN.** Where it went:
+
+```text
++1,555  features/ecs/capture.rs (NEW)   the grab campaign — a whole mechanic
+  +767  rollback_registration.rs (NEW)  the domain-owned rollback merge
+  +589  world/authored_switch_commands{,/tests}.rs (NEW)   D136's own inversion
+  rest  tests and ordinary feature growth
+```
+
+⭐ the +767 is a RELOCATION, and the other side of it is visible in the same
+window: `ambition_platformer2d_runtime` went **17,652 → 15,554 (−2,098)** as the
+`rollback/domains/*` files dissolved into the crates that own the state. That is
+this repo's own rule working — *"the destination joins in the same commit"* — and
+a per-crate line ratchet reads it as the monolith rotting.
+
+⇒ **so the honest statement is not "the monolith grew 4,133 over budget"**; it is
+that one mechanic (+1,555), one inversion this row asked for (+589) and one
+ownership transfer that shrank a sibling by 2,098 (+767) account for most of it.
+⛔ a session that reads only the total will carve something to pay for work that
+was correct.
+
+⇒ **it stays unfrozen on purpose, and the monolith may drift back up to
 111,429 for free until the other findings are dealt with.** ⛔ do not re-freeze
 to make the tool quiet — that is the laundering this row already paid for once.
 ⭐ the honest sequence is: account for the edit-cost regressions FIRST, then

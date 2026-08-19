@@ -41,7 +41,7 @@ investigation that led to the question. Same rule as
 [`README.md`](README.md#queue-contract); on 2026-08-17 this file was **739 lines
 for 9 open questions**, and the four answered ones held a third of it.
 
-## Open decisions — 12 (§1, §6, §7, §9, §10, §11, §12 and §13 are ANSWERED; §8 is DEFERRED)
+## Open decisions — 13 (§1, §6, §7, §9, §10, §11, §12 and §13 are ANSWERED; §8 is DEFERRED)
 
 ### 1. ✔ ANSWERED 2026-08-17 — a bolt hits what a sword hits (former D23)
 
@@ -953,6 +953,53 @@ and its source disagreeing, resolved by whoever writes next.
 `crate::control::ActingParticipant` asks "which seat drives this body" once, for
 both interaction systems, by reading the brain — so the answer already has ONE
 call site to change when the fact moves off `Brain`.
+
+### 22. ▢ NEW 2026-08-19 — the external-consumer sentinel has not compiled since D73, and porting it is an AUTHORING decision
+
+**The question: how should a third party author an enemy now that the roster is
+deleted — and is `fixtures/external_consumer` still the right shape to prove it?**
+
+`fixtures/external_consumer` is the sentinel for the public SDK: *"what compiles
+here is exactly what a third party gets"*. It does not compile. Two independent
+reasons, and the first was hiding the second:
+
+```text
+1  DEPENDENCY RESOLUTION — fixed here.  `[patch.crates-io]` does not cross a
+   workspace boundary, and this fixture is its own workspace. The engine's
+   `bevy_ggrs` is a FORK backporting `GgrsFrameTiming`; a separate workspace
+   resolves the bare `bevy_ggrs = "0.21"` from crates.io, which has no such
+   type, so `ambition_platformer2d_rollback_ggrs` fails to compile. ⚠ invisible
+   because the fixture's `Cargo.lock` is GITIGNORED — no committed state carried
+   the wrong resolution, and any machine that had already run it had a local
+   lock pointing at the fork. A FRESH CLONE could never have built it.
+2  API DRIFT — NOT fixed, and this is the decision.  Four errors, all from D73
+   deleting the roster: `CharacterRosterFragment`, `CharacterRosterAppExt`,
+   `register_character_roster_fragment`, and `SpawnActorKind::Enemy.character`
+   which is now a `CharacterId` rather than an `Option`.
+```
+
+⛔ **the port is not a rename.** The fixture authors its sentry as a roster ROW
+(`OUTLANDER_ROSTER_RON`: `max_health`, `run_speed`, `patrol_effort`,
+`chase_effort`, `aggro_radius`, `attack_range`, `contact_strength`,
+`damage_amount`, `brain_template: Wanderer`, `move_style: Walk`, `respawn:
+OnRoomReenter`) and its own comments make that authoring story the point —
+*"this crate authors it as a roster ROW … an id here would name a character
+nobody registered"*. Translating those eleven fields into a
+`CharacterDefinition` is a statement about **how a stranger authors a creature**,
+which is `engine/character-authoring-package.md`'s subject (D165), not a
+compile fix. Guessing it would bake an authoring story into the one artifact
+whose job is to demonstrate the intended one.
+
+⭐ **and the sentinel failing silently is its own finding**: `scripts/run_tests.py`
+runs this fixture, and D110 records that this crate is `exclude`d from the
+workspace precisely so a `cargo check --workspace` census cannot see it. So the
+population a public-API census exists to protect has been uncompilable for as
+long as the roster has been gone, and nothing said so.
+
+⇒ **what I want from you**: whether the fixture should (a) register a
+`CharacterDefinition` — and with which of those eleven fields surviving — or (b)
+be re-pointed at whatever the character-authoring package settles on, or (c) be
+retired in favour of `fixtures/minimal_game` as the single sentinel.
 
 ## ✔ CLOSED 2026-08-15 — every submodule remote is reachable and current
 

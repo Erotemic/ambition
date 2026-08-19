@@ -258,7 +258,23 @@ fn the_demo_body_cannot_trigger_a_single_move_from_its_own_smash_table() {
 
     let mut app = ambition_demo_sanic_app::build_demo_app();
     app.init_resource::<ScriptedStick>();
-    app.add_systems(PreUpdate, apply_scripted_stick);
+    // ⛔⛔ **`PreUpdate` IS THE WRONG SCHEDULE AND IT FAILS SILENTLY** — the
+    // participant pipeline owns `ControlFrame` in `Update` behind
+    // `ambition_platformer2d/input`, which workspace feature unification turns on
+    // from `ambition_app`'s defaults whatever this crate asked for, so a
+    // `PreUpdate` write is overwritten before the sim ever sees it. Order against
+    // the authority: after `InputSet::Route`, where the pipeline declares its
+    // `ControlFrame` writers, and before `accumulate_control_frame_latch`, which
+    // is what the sim actually consumes. Ordering against a set nobody composed
+    // is a no-op, so a frame-stepped composition with no latch is unaffected.
+    // (Mary-O's `two_rooms.rs` records this the long way; four of her files were
+    // still guessing on 2026-08-19 and this was the fifth.)
+    app.add_systems(
+        Update,
+        apply_scripted_stick
+            .after(ambition_platformer2d::input::InputSet::Route)
+            .before(ambition_platformer2d::engine_core::accumulate_control_frame_latch),
+    );
     settle_until_primary_player(&mut app);
     for _ in 0..30 {
         app.update();
@@ -335,6 +351,39 @@ fn the_demo_body_cannot_trigger_a_single_move_from_its_own_smash_table() {
     assert!(
         triggered.is_empty(),
         "Sanic's own speedway answered a combat press with a smash move: {triggered:#?}"
+    );
+
+    // ⛔⛔ **THE PAIRED POSITIVE TERM, AND WITHOUT IT THE ASSERTION ABOVE CANNOT
+    // FAIL.** Every claim in this test is that something does NOT happen, so a
+    // run in which no press reaches Sanic at all satisfies it perfectly — which
+    // is exactly what this file did while its stick was written in `PreUpdate`.
+    // Holding a direction and watching him travel is what makes the silence
+    // above mean "the ability gate held" rather than "the buttons went nowhere".
+    let x_before = app
+        .world()
+        .get::<ambition_platformer2d::engine_core::BodyKinematics>(body)
+        .expect("Sanic has a body")
+        .pos
+        .x;
+    for _ in 0..90 {
+        app.world_mut().resource_mut::<ScriptedStick>().0 = ControlFrame {
+            axis_x: 1.0,
+            aim_x: 1.0,
+            right_pressed: true,
+            ..ControlFrame::default()
+        };
+        app.update();
+    }
+    let x_after = app
+        .world()
+        .get::<ambition_platformer2d::engine_core::BodyKinematics>(body)
+        .expect("Sanic has a body")
+        .pos
+        .x;
+    assert!(
+        x_after > x_before + 8.0,
+        "held right for 90 frames and Sanic moved from {x_before} to {x_after} — \
+         no input reached him, so the combat-press sweep above proved nothing"
     );
 }
 

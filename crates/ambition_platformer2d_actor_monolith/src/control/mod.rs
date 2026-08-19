@@ -24,11 +24,13 @@
 //! slot machinery was never player-only state, and keeping it under `player/`
 //! was one of the reasons that module read as a universal dependency sink.
 
+pub mod acting;
 pub mod components;
 pub mod input_systems;
 pub mod queries;
 pub mod slots;
 
+pub use acting::ActingParticipant;
 pub use components::{LocalPlayer, PlayerSlot, SlotGestures, SlotInteractionState};
 pub use input_systems::{
     cleanup_timers_system, input_timer_system, interaction_input_system, InputTimersAdvanced,

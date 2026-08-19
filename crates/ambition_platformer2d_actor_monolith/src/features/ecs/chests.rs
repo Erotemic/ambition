@@ -9,17 +9,20 @@ pub fn open_ecs_chests(
     mut commands: Commands,
     mut banner: ResMut<GameplayBanner>,
     controlled: Option<Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>>,
-    // The local controller's buffered interact (published from the device onto its
-    // slot); consumed for whatever body it currently drives.
-    mut slot_gestures: ResMut<crate::control::SlotInteractionState>,
-    // Interact-gesture pose + startup-frame fallback subject.
-    mut input_surface: Query<
-        (Entity, &mut crate::actor::BodyAnimFacts),
+    // ⭐ **the buffered interact belongs to the SEAT DRIVING THE ACTING BODY.**
+    // Slot 0 was the wrong source the moment a body other than the home avatar
+    // can be driven: a possessed actor's chest open spent the home seat's press.
+    mut acting: crate::control::ActingParticipant,
+    // The startup-frame fallback subject, and nothing else.
+    primary: Query<
+        Entity,
         (
             With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
             With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>,
         ),
     >,
+    // Presentation anim for whichever body opened the chest.
+    mut anims: Query<&mut crate::actor::BodyAnimFacts>,
     // The driven body's kinematics — reach is measured from the controlled subject.
     bodies: Query<&ambition_platformer2d_core::BodyKinematics>,
     // ⛔ **`&ChestFeature`, not `With<ChestFeature>` — that one word is the whole
@@ -60,17 +63,17 @@ pub fn open_ecs_chests(
     // so the player's reach-and-open animation feels uniform across
     // every interactable kind.
     const INTERACT_ANIM_HOLD_SECS: f32 = 0.28;
-    let Ok((primary_entity, mut anim)) = input_surface.single_mut() else {
-        return;
-    };
-    if !slot_gestures.primary().buffered() {
-        return;
-    }
     // Reach is measured from the controlled subject — a possessed actor opens the
     // chest IT is standing on, not one the vacated home avatar is next to.
-    let subject = controlled
+    let Some(subject) = controlled
         .and_then(|subject| subject.0)
-        .unwrap_or(primary_entity);
+        .or_else(|| primary.iter().next())
+    else {
+        return;
+    };
+    if !acting.buffered_interact(subject) {
+        return;
+    }
     let Ok(subject_kin) = bodies.get(subject) else {
         return;
     };
@@ -81,8 +84,8 @@ pub fn open_ecs_chests(
                 continue;
             }
             commands.entity(entity).insert(Opened);
-            slot_gestures.primary_mut().clear();
-            anim.interact_anim_timer = INTERACT_ANIM_HOLD_SECS;
+            acting.consume_interact(subject);
+            super::interact::pose_interact(&mut anims, subject, INTERACT_ANIM_HOLD_SECS);
             banner.show(format!("opened {}", name.0.as_str()), 2.6);
             // ⭐ **THE CHEST DOES NOT KNOW HOW TO GRANT ANYTHING**, and that is
             // the point: its reward is a `PickupKind`, and there is exactly one

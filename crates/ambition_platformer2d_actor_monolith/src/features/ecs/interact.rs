@@ -35,19 +35,24 @@ pub fn interact_ecs_actors_and_switches(
     mut next_mode: ResMut<NextState<ambition_platformer2d_shared_tangle::schedule::GameMode>>,
     mut banner: ResMut<GameplayBanner>,
     controlled: Option<Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>>,
-    // The local controller's buffered interact lives on its SLOT, published from the
-    // device even while the home avatar is vacated — the right source for "the local
-    // player wants to interact" independent of which body is being driven.
-    mut slot_gestures: ResMut<crate::control::SlotInteractionState>,
-    // Interact-gesture pose on the primary player's presentation anim (+ the
-    // startup-frame fallback subject).
-    mut input_surface: Query<
-        (Entity, &mut crate::actor::BodyAnimFacts),
+    // ⭐ **the buffered interact belongs to the SEAT DRIVING THE ACTING BODY**,
+    // not to slot 0. Under possession those are different controllers, and
+    // reading slot 0 meant a possessed body's interaction spent — and was gated
+    // by — the home seat's press.
+    mut acting: crate::control::ActingParticipant,
+    // The startup-frame fallback subject, and nothing else: the interact POSE is
+    // applied to the body that acted, below.
+    primary: Query<
+        Entity,
         (
             With<crate::actor::PlayerEntity>,
             With<crate::actor::PrimaryPlayer>,
         ),
     >,
+    // Presentation anim for whichever body acted. Body-generic on purpose: a
+    // possessed actor plays its own reach-and-open, and the vacated home avatar
+    // plays nothing.
+    mut anims: Query<&mut crate::actor::BodyAnimFacts>,
     // The driven body's kinematics — body-generic so the reach test uses the
     // controlled subject's position whether it's the player or a possessed actor.
     bodies: Query<&crate::actor::BodyKinematics>,
@@ -90,18 +95,18 @@ pub fn interact_ecs_actors_and_switches(
     // commits. Short enough that the gesture clears before dialogue UI
     // or the room transition takes camera focus.
     const INTERACT_ANIM_HOLD_SECS: f32 = 0.28;
-    let Ok((primary_entity, mut anim)) = input_surface.single_mut() else {
+    // The body actually doing the interacting: the controlled subject (the body
+    // carrying `Brain::Player`), falling back to the primary player itself for
+    // the startup frame before the subject resolver has run.
+    let Some(subject) = controlled
+        .and_then(|subject| subject.0)
+        .or_else(|| primary.iter().next())
+    else {
         return;
     };
-    if !slot_gestures.primary().buffered() {
+    if !acting.buffered_interact(subject) {
         return;
     }
-    // The body actually doing the interacting: the controlled subject (the body
-    // carrying `Brain::Player`), falling back to the input surface itself for
-    // the startup frame before the subject resolver has run.
-    let subject = controlled
-        .and_then(|subject| subject.0)
-        .unwrap_or(primary_entity);
     let Ok(subject_kin) = bodies.get(subject) else {
         return;
     };
@@ -176,8 +181,8 @@ pub fn interact_ecs_actors_and_switches(
             continue;
         }
 
-        slot_gestures.primary_mut().clear();
-        anim.interact_anim_timer = INTERACT_ANIM_HOLD_SECS;
+        acting.consume_interact(subject);
+        pose_interact(&mut anims, subject, INTERACT_ANIM_HOLD_SECS);
         banner.show(
             super::super::npcs::npc_message(interactable, &identity.name, false),
             2.6,
@@ -213,8 +218,8 @@ pub fn interact_ecs_actors_and_switches(
         if !aabb.aabb().strict_intersects(reach_aabb) {
             continue;
         }
-        slot_gestures.primary_mut().clear();
-        anim.interact_anim_timer = INTERACT_ANIM_HOLD_SECS;
+        acting.consume_interact(subject);
+        pose_interact(&mut anims, subject, INTERACT_ANIM_HOLD_SECS);
         banner.show(format!("activated {}", name.0.as_str()), 2.6);
         on.0 = true;
         switch_activated.write(SwitchActivated {
@@ -235,3 +240,20 @@ pub fn interact_ecs_actors_and_switches(
 
 #[cfg(test)]
 mod tests;
+
+/// **Play the interact gesture on the body that ACTED.**
+///
+/// ⛔ this used to be an unconditional write to the entity carrying
+/// `PrimaryPlayer`, which under possession is the body standing still somewhere
+/// else. A body with no `BodyAnimFacts` — a possessed prop, a headless fixture —
+/// simply has no pose to play, which is a silent no-op rather than a reason to
+/// fall back to somebody else's animation.
+pub(crate) fn pose_interact(
+    anims: &mut Query<&mut crate::actor::BodyAnimFacts>,
+    body: Entity,
+    hold_secs: f32,
+) {
+    if let Ok(mut anim) = anims.get_mut(body) {
+        anim.interact_anim_timer = hold_secs;
+    }
+}

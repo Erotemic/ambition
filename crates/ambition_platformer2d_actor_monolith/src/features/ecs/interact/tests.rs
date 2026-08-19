@@ -406,3 +406,207 @@ fn an_unpopulated_node_index_never_suppresses() {
     assert!(state.active(), "not knowing is not grounds for suppressing");
     assert_eq!(state.dialogue_id(), "hall_player");
 }
+
+// ---------------------------------------------------------------------------
+// **The rest of the controlled-body interaction seam** (2026-08-19 review).
+//
+// The geometry half was already right — `interact_lands_on_the_controlled_
+// subject_not_the_vacated_home_avatar` above pins it. Two halves were not: the
+// interaction POSE was written unconditionally to whatever carried
+// `PrimaryPlayer`, and the buffered press was read from and cleared on SLOT 0
+// whichever seat was actually driving. Under possession the first shows up as
+// *"the possessed body opens the door and the body you left behind plays the
+// animation"*; the second is a co-op bug that single-player cannot see at all.
+// ---------------------------------------------------------------------------
+
+/// The resources `interact_ecs_actors_and_switches` needs, and nothing else.
+fn interaction_app() -> App {
+    let mut app = App::new();
+    app.insert_resource(GameplayBanner::default());
+    app.insert_resource(ambition_dialog::DialogState::default());
+    app.init_resource::<ambition_conversation::ActiveConversation>();
+    app.init_resource::<ambition_dialog::DialogueNodeIndex>();
+    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        <crate::avatar::StartingCharacter>::default(),
+    );
+    app.insert_resource(NextState::<
+        ambition_platformer2d_shared_tangle::schedule::GameMode,
+    >::default());
+    app.add_message::<SetFlagRequested>();
+    app.add_message::<QuestAdvanceRequested>();
+    app.add_message::<SwitchActivated>();
+    app.add_message::<VfxMessage>();
+    app.add_systems(Update, interact_ecs_actors_and_switches);
+    app
+}
+
+fn spawn_switch(app: &mut App, id: &str, pos: ae::Vec2) -> Entity {
+    app.world_mut()
+        .spawn((
+            FeatureSimEntity,
+            FeatureId::new(id),
+            FeatureName::new(id),
+            CenteredAabb::from_center_size(pos, ae::Vec2::new(24.0, 24.0)),
+            SwitchFeature::new(ambition_encounter::SwitchActivation {
+                id: id.into(),
+                action: "open".into(),
+                target_encounter: String::new(),
+            }),
+            SwitchOn(false),
+        ))
+        .id()
+}
+
+/// A body a seat is driving: kinematics, a pose to play, and the brain that
+/// says WHOSE body it is.
+fn spawn_driven_body(app: &mut App, pos: ae::Vec2, slot: u8) -> Entity {
+    app.world_mut()
+        .spawn((
+            crate::actor::BodyKinematics {
+                pos,
+                vel: ae::Vec2::ZERO,
+                size: ae::Vec2::new(24.0, 40.0),
+                facing: 1.0,
+            },
+            crate::actor::BodyAnimFacts::default(),
+            ambition_characters::brain::Brain::Player(ambition_characters::brain::PlayerSlot(slot)),
+        ))
+        .id()
+}
+
+fn buffer_interact(app: &mut App, slot: u8, secs: f32) {
+    let mut state = app
+        .world_mut()
+        .get_resource_or_insert_with(crate::control::SlotInteractionState::default);
+    state
+        .get_mut(ambition_characters::brain::PlayerSlot(slot))
+        .expect("slot is in range")
+        .interact_buffer_timer = secs;
+}
+
+fn buffered_secs(app: &App, slot: u8) -> f32 {
+    app.world()
+        .resource::<crate::control::SlotInteractionState>()
+        .get(ambition_characters::brain::PlayerSlot(slot))
+        .interact_buffer_timer
+}
+
+/// **The body that acted plays the pose; the body left behind plays nothing.**
+#[test]
+fn the_interact_pose_lands_on_the_body_that_acted() {
+    use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
+
+    let home_pos = ae::Vec2::new(0.0, 0.0);
+    let subject_pos = ae::Vec2::new(600.0, 0.0);
+
+    let mut app = interaction_app();
+    let home = spawn_interaction_player(&mut app, home_pos);
+    let subject = spawn_driven_body(&mut app, subject_pos, 0);
+    app.insert_resource(ControlledSubject(Some(subject)));
+    let switch = spawn_switch(&mut app, "subject_switch", subject_pos);
+
+    app.update();
+
+    assert!(
+        app.world().get::<SwitchOn>(switch).unwrap().0,
+        "the interaction did not happen at all, so neither pose assertion below \
+         could have failed"
+    );
+    assert!(
+        app.world()
+            .get::<crate::actor::BodyAnimFacts>(subject)
+            .unwrap()
+            .interact_anim_timer
+            > 0.0,
+        "the possessed body did the interacting and plays no reach-and-open pose"
+    );
+    assert_eq!(
+        app.world()
+            .get::<crate::actor::BodyAnimFacts>(home)
+            .unwrap()
+            .interact_anim_timer,
+        0.0,
+        "the VACATED home avatar played the interaction animation: the pose was \
+         written to whatever carries `PrimaryPlayer` rather than to the body that acted"
+    );
+}
+
+/// **A second seat interacts with its OWN press.**
+///
+/// ⭐ the discriminating half is what is left behind: seat 0's press is still
+/// buffered afterwards, because seat 1 spent seat 1's.
+#[test]
+fn a_second_seat_spends_its_own_buffered_interact() {
+    use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
+
+    let subject_pos = ae::Vec2::new(600.0, 0.0);
+    let mut app = interaction_app();
+    // The home avatar exists and is holding a press of its own, which must
+    // survive untouched.
+    spawn_interaction_player(&mut app, ae::Vec2::new(0.0, 0.0));
+    buffer_interact(&mut app, 0, 0.15);
+    buffer_interact(&mut app, 1, 0.15);
+
+    let subject = spawn_driven_body(&mut app, subject_pos, 1);
+    app.insert_resource(ControlledSubject(Some(subject)));
+    let switch = spawn_switch(&mut app, "subject_switch", subject_pos);
+
+    app.update();
+
+    assert!(
+        app.world().get::<SwitchOn>(switch).unwrap().0,
+        "seat 1's body was in reach with a live buffered press and nothing happened"
+    );
+    assert_eq!(
+        buffered_secs(&app, 1),
+        0.0,
+        "the acting seat's press was not spent"
+    );
+    assert_eq!(
+        buffered_secs(&app, 0),
+        0.15,
+        "seat 1's interaction consumed SEAT 0's buffered press — the system read and \
+         cleared slot 0 whichever seat was actually driving, so a co-op partner's \
+         queued interact vanished when somebody else opened a door"
+    );
+}
+
+/// **The negative direction, with positive evidence that the road is live.**
+///
+/// Seat 0 is mashing interact and seat 1 — the seat actually driving the body in
+/// reach — is not. Nothing may happen. ⛔ this is the assertion the old code
+/// failed outright: it gated on slot 0, so seat 0's press worked seat 1's
+/// switch.
+#[test]
+fn a_seat_that_pressed_nothing_does_not_interact_on_another_seats_press() {
+    use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
+
+    let subject_pos = ae::Vec2::new(600.0, 0.0);
+    let mut app = interaction_app();
+    spawn_interaction_player(&mut app, ae::Vec2::new(0.0, 0.0));
+    buffer_interact(&mut app, 0, 0.15);
+    buffer_interact(&mut app, 1, 0.0);
+
+    let subject = spawn_driven_body(&mut app, subject_pos, 1);
+    app.insert_resource(ControlledSubject(Some(subject)));
+    let switch = spawn_switch(&mut app, "subject_switch", subject_pos);
+
+    app.update();
+
+    assert!(
+        !app.world().get::<SwitchOn>(switch).unwrap().0,
+        "seat 0's press worked a switch that only seat 1's body was standing on"
+    );
+
+    // ⭐ **the road is live**: the same fixture, with seat 1 pressing, DOES fire.
+    // Without this the assertion above would also pass on a world where the
+    // press could never reach the simulation at all.
+    buffer_interact(&mut app, 1, 0.15);
+    app.update();
+    assert!(
+        app.world().get::<SwitchOn>(switch).unwrap().0,
+        "seat 1's own press did not work its own switch either, so the assertion \
+         above proved nothing about WHOSE press was read"
+    );
+}

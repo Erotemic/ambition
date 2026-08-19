@@ -33,7 +33,7 @@ fn trigger_app() -> App {
         (
             possession_trigger_system,
             release_possession_if_target_lost,
-            super::project_possession_onto_custody,
+            super::project_driven_body_custody,
         )
             .chain(),
     );
@@ -451,6 +451,75 @@ fn possession_finds_no_target_in_a_world_of_only_corpses() {
         brain_slot(&app, corpse),
         None,
         "a corpse is never possessed"
+    );
+}
+
+/// **A MOUNT TRAVELS WITH A PILOTED RIDER AND STAYS PUT UNDER AN AI ONE.**
+///
+/// ⭐ the transitive link, and both terms. A mount is in its rider's custody
+/// exactly while that rider is itself travelling — so possessing the rider
+/// carries the mount through a door, and an AI-piloted sky rider patrolling its
+/// own room keeps its mount as room furniture.
+///
+/// ⛔ **the negative half is the one that matters.** A rule that gave every
+/// mount to its rider would pass the positive assertion and would quietly stop
+/// every authored mount in the game from ever being retired with its room.
+#[test]
+fn a_mount_travels_with_a_piloted_rider_and_not_with_an_ai_one() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{InCustodyOf, RoomScopedEntity};
+
+    let mut app = trigger_app();
+    let home = spawn_home(&mut app);
+
+    // The pair we will possess: a room-scoped rider on a room-scoped mount.
+    let piloted_mount = app.world_mut().spawn(RoomScopedEntity).id();
+    let rider = spawn_candidate(&mut app, vec2(80.0, 0.0));
+    app.world_mut().entity_mut(rider).insert((
+        RoomScopedEntity,
+        crate::features::RidingOn {
+            mount: piloted_mount,
+        },
+    ));
+
+    // An AI-piloted pair, far away so it is never the possession candidate.
+    let ai_mount = app.world_mut().spawn(RoomScopedEntity).id();
+    let ai_rider = spawn_candidate(&mut app, vec2(4000.0, 0.0));
+    app.world_mut().entity_mut(ai_rider).insert((
+        RoomScopedEntity,
+        crate::features::RidingOn { mount: ai_mount },
+    ));
+
+    hold_down_interact(&mut app, true);
+    app.update();
+    app.update();
+    assert_eq!(
+        app.world().resource::<PossessionState>().possessed,
+        Some(rider),
+        "setup: the near rider must be the one possessed, or neither assertion below \
+         is about what it says it is"
+    );
+    let _ = home;
+
+    assert_eq!(
+        app.world().get::<InCustodyOf>(piloted_mount).map(|c| c.0),
+        Some(rider),
+        "the mount a PILOTED rider is on is in that rider's custody, so a room change \
+         cannot retire it out from under the pilot"
+    );
+    assert!(
+        app.world().get::<InCustodyOf>(ai_mount).is_none(),
+        "an AI-piloted rider is room furniture and so is its mount — giving every \
+         mount to its rider would stop authored mounts being retired with their room"
+    );
+
+    // Release: the mount goes back to being the room's.
+    hold_down_interact(&mut app, false);
+    app.update();
+    hold_down_interact(&mut app, true);
+    app.update();
+    assert!(
+        app.world().get::<InCustodyOf>(piloted_mount).is_none(),
+        "letting go of the rider lets go of its mount"
     );
 }
 

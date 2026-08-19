@@ -51,8 +51,8 @@ pub(crate) use brain_builders::enemy_default_brain;
 /// The ladder projection, registered in the actor pipeline beside the brain tick.
 pub use brain_builders::project_authored_fighter_ladder;
 mod brain_effects;
-pub(crate) mod character_policy;
 pub mod capture;
+pub(crate) mod character_policy;
 pub mod chests;
 mod damage;
 pub mod damage_apply;
@@ -141,8 +141,8 @@ pub use hitbox::{
 pub use interact::interact_ecs_actors_and_switches;
 pub use mount::{
     enforce_mount_rider_link, steer_mount_from_rider, sync_riders_to_mounts, CanPilot,
-    ControlGrant, Mass, MountClass, MountDeathImpact, MountRiderLinkEnforced, MountSlot,
-    Mountable, Mounted, MountedBrainCache, MountedSize, RidingOn,
+    ControlGrant, Mass, MountClass, MountDeathImpact, MountRiderLinkEnforced, MountSlot, Mountable,
+    Mounted, MountedBrainCache, MountedSize, RidingOn,
 };
 pub use pickups::{
     collect_ecs_pickups, magnetize_pickups, PickupArt, PickupCollect, PickupCollectLock,

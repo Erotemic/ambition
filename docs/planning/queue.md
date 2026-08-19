@@ -2603,6 +2603,44 @@ driven. The three are rewritten to assert *scope untouched, custody added and
 dropped*, which is the poison for reintroducing a promotion — a promote/restore
 pair looks identical at the end and differs in the middle.
 
+⭐⭐ **AND THE THIRD POPULATION WAS STILL BROKEN: A MOUNT YOU RIDE THROUGH A
+DOOR WAS DESTROYED.** Measured in `pirate_sky_lookout` — possess an authored sky
+rider, cross to `pirate_cove`: the rider arrived, `mount_alive=false`, and the
+rider still wore `RidingOn` naming a dead entity. A mount is an ordinary authored
+room actor and nothing suspended its residency.
+
+⭐ **the rule is TRANSITIVE, and that is the whole finding**: a mount is in its
+RIDER's custody exactly while that rider is itself travelling. `RoomResident`
+answers the same question at every link, so custody composes without anything
+counting links. ⚠ the discriminating half is the negative one — an AI-piloted sky
+rider is room furniture and keeps its mount, which is why a rule that gave every
+mount to its rider would quietly stop every authored mount in the game from being
+retired with its room.
+
+⛔⛔ **TWO LESSONS FROM GETTING IT WRONG FIRST, both worth keeping.**
+
+```text
+two owners fight    it was two projections — a mount one in `WorldPrep` granting
+                    and possession's in `PlayerSimulation` retracting on the same
+                    tick. `InCustodyOf` records no granter, and no structural
+                    filter separates the populations: EVERY actor carries
+                    `TemporaryControl`, and a mount carries `MountSlot` whether
+                    ridden or not. ⇒ ONE COMPONENT, ONE OWNER: the whole non-item
+                    body population is decided in one pass.
+a rule that reads   the first version asked `RoomResident` about the rider — a
+its own output      roster that EXCLUDES anything wearing the marker this system
+                    writes. The chain then converged one tick per link, so
+                    releasing a rider left its mount in custody for a frame. It
+                    asks `RoomScopedEntity` instead: the same question with none
+                    of the feedback.
+```
+
+⚠ and the diagnosis took four wrong guesses before a measurement: the system was
+"not registered" (it was), the chain was "gameplay-gated" (it was not), the mount
+link was "dissolved by possession" (it was not). ⭐ what settled it was an
+`eprintln!` inside the system — a `bevy::log::warn!` printed NOTHING, because the
+default log filter swallowed a custom target.
+
 ⛔⛔ **AND THE FIRST FIX WAS ITSELF WRONG IN A WAY ONLY ROLLBACK WOULD SHOW.**
 `InCustodyOf` is registered as a DERIVED component, excused from the snapshot by
 one sentence — *"room residency reprojected from `ItemCustody` every tick"* — and

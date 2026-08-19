@@ -470,16 +470,27 @@ fn release_possession(
     }
 }
 
-/// **A DRIVEN BODY IS IN THE PARTICIPANT'S CUSTODY, and that marker is a
-/// PROJECTION of [`PossessionState`] rather than a write at the possess site.**
+/// **WHO IS CARRYING WHOM — the one owner of `InCustodyOf` for BODIES.**
 ///
-/// ⭐ **possession is custody of a BODY**, so it uses the same vocabulary a
+/// ⭐ **possession is custody of a body**, so it uses the same vocabulary a
 /// carried object does — `InCustodyOf`, whose own doc says *"the LIFETIME is
 /// unchanged, and that is deliberate"* and names *"a possessed actor"* among the
 /// custodians. Possession used to express the same fact by SWAPPING the body's
 /// lifetime (room scope out, session scope in), which hid it from every query
 /// that requires the room scope — including the occurrence ledger's, so a home
 /// room re-authored a SECOND copy of the body being driven.
+///
+/// ⭐⭐ **AND THE RULE IS TRANSITIVE, WHICH IS WHY THIS IS ONE SYSTEM AND NOT
+/// TWO.** A mount is in its RIDER's custody exactly while that rider is itself
+/// travelling, so a piloted mount rides through a door with its pilot while an
+/// AI-piloted one stays room furniture. ⛔ it was two systems for one afternoon
+/// and they FOUGHT: the mount's projection granted the marker in `WorldPrep` and
+/// this one retracted it in `PlayerSimulation` on the same tick, because
+/// `InCustodyOf` has no field saying who granted it and no structural
+/// discriminator separates the populations — every actor carries
+/// `TemporaryControl`, and a mount carries `MountSlot` whether ridden or not.
+/// ⇒ **one component, one owner**: the whole non-item body population is decided
+/// here, in one pass, and the retraction cannot disagree with the grant.
 ///
 /// ⛔⛔ **IT IS A DERIVE AND NOT A FOLLOW-UP CALL, for a rollback reason.**
 /// `InCustodyOf` is registered as a DERIVED component on the strength of one
@@ -488,21 +499,33 @@ fn release_possession(
 /// `ItemCustody`; writing the marker at the possess site would create a
 /// population nothing reprojects, and a rewind past the possession would drop it
 /// with nothing to put it back. Reading `PossessionState`, which IS rollback
-/// state, keeps the excuse true for both populations.
+/// state, keeps the excuse true.
 ///
 /// ⚠ **the retraction arm is scoped by `Without<GroundItem>`**, because the item
 /// domain owns the marker on objects and reprojects it from its own authority.
-/// A blanket retraction here would fight
-/// [`project_custody_onto_residency`](crate::items::pickup::project_custody_onto_residency)
-/// every tick.
 ///
 /// ⚠ **compared before writing**, like its item sibling: an unconditional insert
 /// would mark the component changed on every tick of a possession, and change
 /// ticks do not rewind.
-pub fn project_possession_onto_custody(
+pub fn project_driven_body_custody(
     mut commands: Commands,
     state: Res<PossessionState>,
-    driven: Query<
+    riders: Query<(Entity, &crate::features::RidingOn)>,
+    // ⛔ **`RoomScopedEntity`, NOT `RoomResident`, and the difference is a TICK.**
+    // `RoomResident` excludes anything wearing `InCustodyOf` — the very marker
+    // this system writes — so reading it here makes the rule depend on its own
+    // previous output. The chain then converges one tick per link: releasing a
+    // rider left its mount in custody for a frame, because the rider's own
+    // retraction had not landed yet. Asking whether the rider is room-SCOPED is
+    // the same question with none of the feedback: a room-scoped rider travels
+    // only if THIS pass says so, and a session-scoped one always travels.
+    room_scoped: Query<(), With<ambition_platformer2d_shared_tangle::lifecycle::RoomScopedEntity>>,
+    // ⛔ existence, kept apart from residency: a mount that DIED leaves
+    // `RidingOn` dangling by design ("keeping the link record lets the same-room
+    // reset path re-mount the rider"), and a dead entity must not be read as
+    // "travelling".
+    existing: Query<()>,
+    held: Query<
         (
             Entity,
             &ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf,
@@ -511,17 +534,39 @@ pub fn project_possession_onto_custody(
     >,
 ) {
     use ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf;
-    let wanted = state.possessed.zip(state.home);
-    for (entity, custody) in &driven {
-        let agrees =
-            matches!(wanted, Some((possessed, home)) if possessed == entity && custody.0 == home);
-        if !agrees {
+    use std::collections::BTreeMap;
+
+    // WHO SHOULD BE IN WHOSE CUSTODY THIS TICK.
+    //
+    // ⚠ a `BTreeMap` rather than the query's order: this decides component
+    // writes that reach a room sweep, and Bevy's iteration order is an archetype
+    // accident.
+    let mut wanted: BTreeMap<Entity, Entity> = BTreeMap::new();
+    if let Some((possessed, home)) = state.possessed.zip(state.home) {
+        if existing.get(possessed).is_ok() && existing.get(home).is_ok() {
+            wanted.insert(possessed, home);
+        }
+    }
+    // ⭐ ONE LINK FURTHER: a mount whose rider is travelling. A rider travels if
+    // this pass already put it in somebody's custody, or if it has no room scope
+    // at all (the session-scoped home avatar).
+    for (rider, riding) in &riders {
+        if existing.get(rider).is_err() || existing.get(riding.mount).is_err() {
+            continue;
+        }
+        if wanted.contains_key(&rider) || room_scoped.get(rider).is_err() {
+            wanted.insert(riding.mount, rider);
+        }
+    }
+
+    for (entity, custody) in &held {
+        if wanted.get(&entity) != Some(&custody.0) {
             commands.entity(entity).remove::<InCustodyOf>();
         }
     }
-    if let Some((possessed, home)) = wanted {
-        if driven.get(possessed).map(|(_, custody)| custody.0) != Ok(home) {
-            commands.entity(possessed).try_insert(InCustodyOf(home));
+    for (subject, custodian) in wanted {
+        if held.get(subject).map(|(_, custody)| custody.0) != Ok(custodian) {
+            commands.entity(subject).try_insert(InCustodyOf(custodian));
         }
     }
 }

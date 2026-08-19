@@ -31,9 +31,7 @@
 //! There is no "shark-rider knowledge" in the engine — the whole
 //! relationship is data (ADR 0020).
 
-use bevy::prelude::{
-    Commands, Component, Entity, MessageWriter, Query, Res, With, Without,
-};
+use bevy::prelude::{Commands, Component, Entity, MessageWriter, Query, Res, With, Without};
 
 use super::brain_builders::dismounted_rider_brain_and_action_set;
 use super::CenteredAabb;

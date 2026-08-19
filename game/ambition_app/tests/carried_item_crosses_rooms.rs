@@ -1370,3 +1370,146 @@ fn a_custody_row_with_nobody_holding_it_is_retracted_before_a_room_can_act_on_it
         "and exactly one occurrence remains"
     );
 }
+
+/// **A MOUNT YOU ARE RIDING GOES THROUGH THE DOOR WITH YOU.**
+///
+/// ⛔⛔ **the third population of one rule, and it was the last one still
+/// broken.** An object in a travelling body's custody rides across; a possessed
+/// body itself rides across; a MOUNT the possessed body is sitting on did not —
+/// it is an authored room actor, nothing suspended its residency, and the room
+/// change retired it at the door. Measured in `pirate_sky_lookout`: the rider
+/// arrived in `pirate_cove`, `mount_alive=false`, and the rider still carried
+/// `RidingOn` naming the dead mount.
+///
+/// ⭐ **the rule is TRANSITIVE and this is what makes it so.** The mount is in
+/// its rider's custody exactly when that rider is itself not a `RoomResident` —
+/// which is true while a participant is driving it. An AI-piloted sky rider is
+/// room furniture and stays resident, mount and all.
+///
+/// ⚠ the fixture aims the MOUNT so the RIDER lands in the door: the transition
+/// tests the controlled subject's box, and `sync_riders_to_mounts` snaps the
+/// rider to a saddle 77 px above the mount's centre. Placing the mount in the
+/// door puts the rider above it, which is why a one-shot placement never crosses.
+#[test]
+fn a_mount_you_are_riding_crosses_the_door_with_you() {
+    use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
+    use ambition_platformer2d::actors::actor::BodyKinematics;
+    use ambition_platformer2d::actors::features::RidingOn;
+    use ambition_platformer2d::characters::brain::Brain;
+
+    let mut sim = fixed_60hz_room_sim("pirate_sky_lookout");
+    for _ in 0..30 {
+        sim.step(base());
+    }
+
+    let (rider, mount) = {
+        let world = sim.world_mut();
+        let mut q = world.query::<(Entity, &SimId, &RidingOn, &Brain)>();
+        q.iter(world)
+            .next()
+            .map(|(entity, _, riding, _)| (entity, riding.mount))
+            .expect("'pirate_sky_lookout' authors a rider on a mount")
+    };
+    let mount_id = sim
+        .world()
+        .get::<SimId>(mount)
+        .cloned()
+        .expect("the authored mount has a placement identity");
+
+    let mut possessed = false;
+    for i in 0..900 {
+        if let Some(here) = sim
+            .world()
+            .get::<BodyKinematics>(rider)
+            .map(|k| (k.pos.x, k.pos.y))
+        {
+            sim.teleport_player(here);
+        }
+        sim.step(AgentAction {
+            move_y: 1.0,
+            interact: i == 0,
+            interact_held: true,
+            ..base()
+        });
+        if sim.world_mut().resource::<PossessionState>().possessed == Some(rider) {
+            possessed = true;
+            break;
+        }
+    }
+    assert!(
+        possessed,
+        "setup: the rider was never possessed, so nothing below is about a PILOTED \
+         mount and an AI-piloted one is supposed to stay put"
+    );
+
+    let before = sim.observation().active_room.clone();
+    let door = {
+        let world = sim.world_mut();
+        let mut q = world.query::<&ambition_platformer2d::actors::rooms::RoomSet>();
+        let set = q.iter(world).next().expect("a room set");
+        set.active_loading_zones()
+            .iter()
+            .find(|zone| {
+                zone.activation == ambition_platformer2d::world::rooms::LoadingZoneActivation::Door
+            })
+            .cloned()
+            .expect("'pirate_sky_lookout' authors a door")
+    };
+    let centre = door.aabb.center();
+    place_body(&mut sim, mount, (centre.x, centre.y));
+    sim.step(base());
+    let saddle = {
+        let m = sim
+            .world()
+            .get::<BodyKinematics>(mount)
+            .map(|k| k.pos)
+            .unwrap();
+        let r = sim
+            .world()
+            .get::<BodyKinematics>(rider)
+            .map(|k| k.pos)
+            .unwrap();
+        (r.x - m.x, r.y - m.y)
+    };
+    let aim = (centre.x - saddle.0, centre.y - saddle.1);
+
+    let mut arrived = None;
+    for _ in 0..120 {
+        place_body(&mut sim, mount, aim);
+        let room = sim
+            .step(AgentAction {
+                interact: true,
+                interact_held: true,
+                ..base()
+            })
+            .active_room;
+        if room != before {
+            arrived = Some(room);
+            break;
+        }
+    }
+    let arrived = arrived
+        .expect("the piloted mount never left the room, so nothing below is about a crossing");
+
+    assert!(
+        sim.world().get_entity(rider).is_ok(),
+        "the rider did not survive its own crossing into '{arrived}'"
+    );
+    assert!(
+        sim.world().get_entity(mount).is_ok(),
+        "the MOUNT was destroyed at the door of '{before}' while the rider crossed \
+         into '{arrived}'. A mount whose rider is travelling is in that rider's \
+         custody and must not be a `RoomResident` — the same rule that carries a \
+         held axe and a possessed body, one link further along"
+    );
+    assert_eq!(
+        sim.world().get::<SimId>(mount),
+        Some(&mount_id),
+        "and it is the mount it was authored as — no despawn, no re-mint"
+    );
+    assert_eq!(
+        occurrences(&mut sim, &mount_id).len(),
+        1,
+        "exactly one occurrence claims the mount's authored identity after the crossing"
+    );
+}

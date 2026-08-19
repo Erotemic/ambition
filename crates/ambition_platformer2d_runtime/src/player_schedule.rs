@@ -348,7 +348,7 @@ impl Plugin for PlayerSchedulePlugin {
                 // sibling is: a room transition suspends gameplay between the
                 // crossing and the commit, and that window is exactly when the
                 // room sweep reads residency.
-                ambition_platformer2d_actor_monolith::abilities::traversal::possession::project_possession_onto_custody,
+                ambition_platformer2d_actor_monolith::abilities::traversal::possession::project_driven_body_custody,
             )
                 .chain()
                 .in_set(PlayerSimulationSet::Possession),

@@ -5288,6 +5288,53 @@ somebody WORTH.* The facet moved the VALUES; the decision that spends them is
 still `ambition_characters::brain::fighter`'s, and the five pressures above are
 still where they were recorded.
 
+⭐⭐ **AND THE OPEN HALF WAS RE-MEASURED, 2026-08-18 — the row's own statement of
+it was WRONG.** `capture_probe -- 60` with no `--force`, George versus Alice:
+
+```text
+Grab pressed          7 tick(s)   5 of them at 107–122px … and 2 at 11px and 18px
+moves started         1 × grab    so SIX presses of seven started NOTHING
+attempts requested    3           the one grab's active ticks, all at ~84–93px
+holds established     0
+inside a grab's 42px  1313 ticks — 36.5% OF THE MATCH
+```
+
+⭐⭐ **AND THE SECOND MEASUREMENT NAMED THE CAUSE, because the first one could
+not tell "wrong DISTANCE" from "wrong TIME".** `capture_probe` was taught to ask,
+at each press, whether the presser was already inside a `MovePlayback` — because
+`trigger_moveset_moves` DROPS a requested move outright when one is running and
+its cancel window does not permit the new one, which a smash into a grab never
+does:
+
+```text
+122px  SPENT mid-`smash_down`      11px  SPENT mid-`air_forward`
+112px  SPENT mid-`smash_forward`   18px  SPENT mid-`smash_down`
+108px  SPENT mid-`smash_down`
+107px  SPENT mid-`smash_forward`
+115px  the one that STARTED a grab — and 115px is outside its own 42px reach
+```
+
+⇒ **ZERO presses from a free body, in 3600 ticks, 1313 of them inside grab
+range.** ⚠ instrument caveat, stated because it changes one row: the sample is
+taken AFTER `app.update()`, so the tick a grab STARTS reads as "mid-`grab`" — the
+115px row. Six of the seven are unambiguous (mid-`smash_*` / mid-`air_forward`,
+moves that are not the grab).
+
+⭐⭐ **the causal story, and it is one defect rather than two.**
+`REACH_TOLERANCE = 2.0`, so `reach_fit(44, 110) = 1 − 66/88 = 0.25`: the grab
+survives the "cannot reach" filter at 2.5× its own reach while every shorter move
+is filtered to zero, so **at long range the grab is the last option standing and
+wins by default**. And the body is at long range precisely BECAUSE it just threw
+a smash and is in its recovery. ⇒ **the grab is chosen exactly when it cannot be
+pressed, and never when it could work** — at 11–18px the jab and the smashes beat
+it, because they carry damage and it carries none.
+
+⇒ so the missing term is not "grabs are worth their throw's damage" (measured
+wrong, above) and not a wider tolerance. It is that a grab's worth in this genre
+is **that it beats a shield and leads to a throw** — which is platform-fighter
+policy, exactly what this row says the capability should own, now with a match to
+point at instead of an argument.
+
 ✔✔ **AND ONE OF THE REVIEW'S ASKS WAS ALREADY DONE — measured before touching
 it.** *"Move authoring has historically duplicated `Vfx(...)` and matching
 `Sfx(...)` events … converge on one semantic authored effect request with default

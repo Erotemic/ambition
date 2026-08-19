@@ -205,6 +205,9 @@ fn main() {
     // reaches the body, the move never plays, or acquisition declines. Counting
     // the presses and the moves that actually played localizes it in one run.
     let mut grab_presses = 0u32;
+    // Of those, the ones made while the presser was already committed to a move,
+    // so the press could not start anything. See the block that fills it.
+    let mut grab_presses_while_committed = 0u32;
     let mut attempts_reported = 0u32;
     // **How close these two ever actually get.** A grab that reaches 42px cannot
     // land in a fight held at 100, and that is a fact about SPACING rather than
@@ -318,6 +321,23 @@ fn main() {
             .collect();
         grab_presses += pressing.len() as u32;
         if !pressing.is_empty() {
+            // ⭐ **WAS THE PRESSER FREE TO ACT?** `trigger_moveset_moves` drops a
+            // requested move outright when a `MovePlayback` is running and its
+            // cancel window does not permit the new one — which for a smash into
+            // a grab it never does. Counting presses without this cannot tell a
+            // brain that grabs at the wrong DISTANCE from one that grabs at the
+            // wrong TIME, and the first natural-behaviour run showed seven
+            // presses producing exactly one grab.
+            let mut committed = world.query::<(
+                bevy::prelude::Entity,
+                &ambition_platformer2d::combat::moveset::MovePlayback,
+            )>();
+            let busy: std::collections::HashMap<bevy::prelude::Entity, String> = committed
+                .iter(world)
+                .map(|(entity, pb)| (entity, pb.spec.id.clone()))
+                .collect();
+            let blocked: Vec<&String> = pressing.iter().filter_map(|e| busy.get(e)).collect();
+            grab_presses_while_committed += blocked.len() as u32;
             let mut seats = world.query::<(
                 &ambition_platformer2d::actor::MatchSeat,
                 &ambition_platformer2d::engine_core::BodyKinematics,
@@ -325,10 +345,21 @@ fn main() {
             let mut xs: Vec<f32> = seats.iter(world).map(|(_, kin)| kin.pos.x).collect();
             xs.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
             if xs.len() == 2 {
-                println!(
-                    "[capture_probe] Grab pressed with the two {:.0}px apart",
-                    xs[1] - xs[0]
-                );
+                let gap = xs[1] - xs[0];
+                match blocked.as_slice() {
+                    [] => println!(
+                        "[capture_probe] Grab pressed with the two {gap:.0}px apart — body FREE"
+                    ),
+                    busy_ids => println!(
+                        "[capture_probe] Grab pressed with the two {gap:.0}px apart — \
+                         SPENT mid-`{}`",
+                        busy_ids
+                            .iter()
+                            .map(|id| id.as_str())
+                            .collect::<Vec<_>>()
+                            .join("`, mid-`")
+                    ),
+                }
             }
         }
 
@@ -370,6 +401,10 @@ fn main() {
         tally.timed_out
     );
     println!("[capture_probe]   Grab pressed          {grab_presses} tick(s)");
+    println!(
+        "[capture_probe]     …while COMMITTED    {grab_presses_while_committed} tick(s) (the press \
+         cannot start a move and is spent)"
+    );
     println!(
         "[capture_probe]   Grab FORCED           {} tick(s)",
         app.world().resource::<Forced>().0

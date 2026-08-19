@@ -351,7 +351,10 @@ impl SnapshotState for crate::control::SlotInteractionState {
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
         let mut state = Self::default();
         for index in 0..ambition_characters::brain::SlotControls::MAX_SLOTS {
-            *state.get_mut(ambition_characters::brain::PlayerSlot(index as u8)) =
+            // `?` rather than an unwrap: the loop is bounded by `MAX_SLOTS`, so
+            // this cannot be `None` today, and a decode that could not address
+            // one of its own slots is a failed decode rather than a panic.
+            *state.get_mut(ambition_characters::brain::PlayerSlot(index as u8))? =
                 crate::control::SlotGestures {
                     down_tap_timer: r.f32()?,
                     up_tap_timer: r.f32()?,

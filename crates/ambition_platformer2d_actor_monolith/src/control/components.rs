@@ -9,7 +9,6 @@
 
 use bevy::prelude::*;
 
-
 // The slot marker every body-facing consumer keys on. Defined a tier down, in
 // `ambition_characters::brain`, because a brain names its own slot.
 pub use ambition_characters::brain::PlayerSlot;
@@ -127,11 +126,26 @@ impl SlotInteractionState {
         self.slots.get(slot.0 as usize).copied().unwrap_or_default()
     }
 
-    /// Mutable access to a slot's gestures; out-of-range slots fall back to slot 0
-    /// so a bad index can never panic mid-frame.
-    pub fn get_mut(&mut self, slot: PlayerSlot) -> &mut SlotGestures {
-        let idx = (slot.0 as usize).min(Self::LAST);
-        &mut self.slots[idx]
+    /// **Mutable access to a slot's gestures — `None` for a slot that does not
+    /// exist.**
+    ///
+    /// ⛔ **it used to CLAMP, and clamping a participant identifier is not a
+    /// defensive measure, it is a wrong write to somebody else's controller.**
+    /// `PlayerSlot(9)` resolved to the LAST valid slot, so a caller that had
+    /// mistaken a slot could take player 4's buffered interact and consume it —
+    /// a bug that presents as "somebody else's door opened" and can never be
+    /// traced back to an index. (The comment on the old body was wrong in its
+    /// own right: it promised a fallback to slot 0 while the code clamped to
+    /// the last one, so neither the promise nor the behaviour was defensible.)
+    ///
+    /// ⭐ **`SlotControls` already models the honest policy** — a write to a
+    /// slot that does not exist is ignored — and returning `Option` states the
+    /// same thing where the caller can see it. [`get`](Self::get) still answers
+    /// `default()` for an out-of-range READ, which is a different question with
+    /// a defensible answer: a controller that does not exist is pressing
+    /// nothing.
+    pub fn get_mut(&mut self, slot: PlayerSlot) -> Option<&mut SlotGestures> {
+        self.slots.get_mut(slot.0 as usize)
     }
 
     /// The local primary controller's gestures — the single-player default.
@@ -140,13 +154,26 @@ impl SlotInteractionState {
     }
 
     /// Mutable primary-controller gestures.
+    ///
+    /// ⚠ **the one unconditional accessor on this type, and it is sound by
+    /// construction rather than by a caller's care**: the const assertion below
+    /// pins that the primary slot is inside the array, so this cannot become
+    /// the clamp it replaced by way of a later change to either constant.
     pub fn primary_mut(&mut self) -> &mut SlotGestures {
-        self.get_mut(PlayerSlot::PRIMARY)
+        &mut self.slots[PlayerSlot::PRIMARY.0 as usize]
     }
-
-    const LAST: usize = ambition_characters::brain::SlotControls::MAX_SLOTS - 1;
 }
+
+/// The primary slot exists. `primary_mut` indexes unconditionally on the
+/// strength of this, so a build where the two constants disagreed would fail
+/// here rather than panic in a frame.
+const _: () =
+    assert!((PlayerSlot::PRIMARY.0 as usize) < ambition_characters::brain::SlotControls::MAX_SLOTS);
 
 #[cfg(test)]
 #[path = "multiplayer_smoke_tests.rs"]
 mod multiplayer_smoke_tests;
+
+#[cfg(test)]
+#[path = "slot_gesture_tests.rs"]
+mod slot_gesture_tests;

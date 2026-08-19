@@ -151,3 +151,75 @@ fn the_ai_slops_box_has_the_shape_its_sheet_publishes() {
         "an AI Slop is a wide low blob; its box measured {width:.1} x {height:.1}"
     );
 }
+
+/// **A LIVE slop is the size its character authors — asked of the BODY, not of
+/// the arithmetic.**
+///
+/// ⛔⛔ **its sibling above cannot see this defect and says so in its own
+/// comment.** `the_ai_slops_box_has_the_shape_its_sheet_publishes` asserts
+/// against `ai_slop_half_size()` — the FUNCTION — deliberately, after a first
+/// draft that recomputed from the sheet and was green against the splat it
+/// existed to prevent. Asking the function proves the arithmetic. It cannot
+/// prove that the arithmetic reaches an entity, and it did not: measured
+/// 2026-08-18, `tag_mary_o_ai_slop` wrote `CenteredAabb.half_size`, which is a
+/// DERIVED MIRROR, while `BodyKinematics.size` — the authority every later
+/// re-derivation reads — kept the size the spawn gave it. The authored value
+/// reached the mirror for two ticks and never reached the body.
+///
+/// ⇒ **the same lesson the human-grab defect taught one layer up: a test that
+/// starts downstream of the wiring cannot see the wiring.** This one starts at
+/// a booted app.
+///
+/// ⚠ **it asserts AGREEMENT, not a number.** How big a slop should be is a
+/// taste call for whoever is looking at the running game (Jon ruled on
+/// 2026-08-19 that the authored constant wins); that the number a character
+/// authors is the number its body has is not.
+#[test]
+fn a_live_ai_slop_wears_the_size_its_character_authors() {
+    let mut app = ambition_demo_mary_o_app::build_demo_app();
+    for _ in 0..400 {
+        app.update();
+    }
+
+    let authored = ambition_demo_mary_o::ai_slop::ai_slop_half_size();
+    let mut q = app.world_mut().query::<(
+        &ambition_platformer2d::engine_core::BodyKinematics,
+        &ambition_platformer2d::actors::features::CenteredAabb,
+        &ambition_demo_mary_o::ai_slop::AiSlop,
+    )>();
+    let live: Vec<(bevy::prelude::Vec2, bevy::prelude::Vec2)> = q
+        .iter(app.world())
+        .map(|(kin, aabb, _)| (kin.size, aabb.half_size))
+        .collect();
+
+    // ⛔ **the zero floor.** A run that tagged no slop at all would otherwise
+    // agree with every assertion below by reading no subjects.
+    assert!(
+        !live.is_empty(),
+        "no tagged AI Slop is alive after 400 ticks, so this measured nothing"
+    );
+
+    for (kin_size, half) in &live {
+        assert!(
+            (kin_size.x - authored.x * 2.0).abs() < 0.5
+                && (kin_size.y - authored.y * 2.0).abs() < 0.5,
+            "a live slop's BODY is {:.1} x {:.1} but its character authors \
+             {:.1} x {:.1} — the authored size is reaching a mirror and not the \
+             authority (`BodyKinematics.size`), which is what every reset and \
+             re-derivation reads",
+            kin_size.x,
+            kin_size.y,
+            authored.x * 2.0,
+            authored.y * 2.0
+        );
+        assert!(
+            (half.x - authored.x).abs() < 0.5 && (half.y - authored.y).abs() < 0.5,
+            "a live slop's COLLISION BOX is {:.1} x {:.1} (half-extents) but its \
+             character authors {:.1} x {:.1}",
+            half.x,
+            half.y,
+            authored.x,
+            authored.y
+        );
+    }
+}

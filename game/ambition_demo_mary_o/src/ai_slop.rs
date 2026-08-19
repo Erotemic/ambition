@@ -207,11 +207,34 @@ pub fn is_ai_slop_brain(brain: &CharacterBrain) -> bool {
 /// placement in LDtk gets a predictable answer instead of two different ones.
 pub fn tag_mary_o_ai_slop(
     mut commands: Commands,
-    mut fresh: Query<(Entity, &ActorConfig, &mut CenteredAabb), Without<AiSlop>>,
+    mut fresh: Query<
+        (
+            Entity,
+            &ActorConfig,
+            &mut CenteredAabb,
+            &mut ae::BodyKinematics,
+        ),
+        Without<AiSlop>,
+    >,
 ) {
-    for (entity, config, mut body) in &mut fresh {
+    for (entity, config, mut body, mut kin) in &mut fresh {
         if is_ai_slop_brain(&config.brain) {
-            body.half_size = ai_slop_half_size();
+            let half = ai_slop_half_size();
+            // ⛔⛔ **WRITE THE AUTHORITY, NOT ONLY THE MIRROR.** `CenteredAabb`
+            // is DERIVED from `BodyKinematics.size` — `reset_to_spawn` and the
+            // mount seam both do `aabb.half_size = kin.size * 0.5` — so writing
+            // the box alone reached the slop for two ticks and was then
+            // overwritten by the size the spawn gave it. Measured 2026-08-18:
+            // the authored 28 x 18.2 landed on the box at tick 2 and the body
+            // read 73.87 x 48.00 from tick 400 onward, and BOTH readings were
+            // true at once, which is why this survived a guard that asked the
+            // sizing FUNCTION whether the arithmetic was right.
+            //
+            // ⚠ `kin.size` is a FULL size and `half_size` is half of it; the
+            // authored width (`AI_SLOP_BODY_WIDTH`) is the FULL width, which is
+            // why `ai_slop_half_size()` is doubled here and not there.
+            kin.size = half * 2.0;
+            body.half_size = half;
             // The dormancy policy rides the same tag pass rather than the spawn
             // request, because `SpawnActorRequest` is the ENGINE's vocabulary for
             // what an actor IS and dormancy is a per-character decision the

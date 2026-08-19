@@ -255,43 +255,14 @@ pub fn collect_ecs_pickups(
         };
         commands.entity(entity).insert(Collected);
         banner.show(format!("picked up {}", name.0.as_str()), 2.6);
-        match &pickup.pickup.kind {
-            ambition_interaction::PickupKind::Health { amount } => {
-                heals.write(crate::avatar::PlayerHealRequested::for_target(
-                    *amount,
-                    collector_entity,
-                ));
-            }
-            ambition_interaction::PickupKind::Currency { amount } => {
-                // Credit the collecting player's wallet (HUD money meter).
-                if let Ok(mut wallet) = wallets.get_mut(collector_entity) {
-                    wallet.add(*amount);
-                }
-            }
-            ambition_interaction::PickupKind::Ability { ability_id } => {
-                // Grant the ability into the player's catalog so it shows up in
-                // the OoT inventory and can be equipped (wired abilities) — the
-                // Metroidvania "learn a power from a boss" beat.
-                if let Some(owned) = owned.as_deref_mut() {
-                    if let Some(item) = crate::items::Item::from_dialog_id(ability_id) {
-                        owned.grant(item, 1);
-                    }
-                }
-            }
-            ambition_interaction::PickupKind::StoryFlag { flag } => {
-                // PickupSpawn entities with `kind: "flag:<id>"` set
-                // the named flag in the save layer and emit a
-                // QuestAdvanceEvent::FlagSet via apply_flag_effects.
-                // Mirrors the LockWall/Switch flag-setting pattern so
-                // intro-v1 cartography pickups and similar narrative
-                // story-flag drops just work without per-pickup wiring.
-                set_flag.write(SetFlagRequested {
-                    id: flag.clone(),
-                    on: true,
-                });
-            }
-            _ => {}
-        }
+        grant_pickup(
+            &pickup.pickup.kind,
+            collector_entity,
+            &mut heals,
+            &mut wallets,
+            &mut set_flag,
+            owned.as_deref_mut(),
+        );
         let pos = aabb.center;
         vfx.write(VfxMessage::Burst {
             pos,
@@ -310,6 +281,87 @@ pub fn collect_ecs_pickups(
             _ => ambition_sfx::ids::WORLD_PICKUP_GENERIC,
         };
         sfx.write(SfxMessage::Play { id, pos });
+    }
+}
+
+/// **Give `collector` what this pickup is worth.** THE grant authority for a
+/// [`PickupKind`](ambition_interaction::PickupKind), for every road that hands
+/// one to somebody.
+///
+/// ⛔⛔ **it exists because a SECOND road had the payload and no way to spend
+/// it.** `ChestFeature::reward()` — an `Option<PickupKind>` filled by all three
+/// chest authors (LDtk's `spawn_static`, the mob encounter's reward chest, and
+/// the boss's `DropChest` profile) — had **zero callers**. Every chest in the
+/// game opened, sparked, played its sound and announced *"opened X"*, and the
+/// authored reward was parsed, lowered onto the live component, and never
+/// granted to anybody.
+///
+/// ⭐ **the fix was not to teach chests how to grant.** The walk-over pickup
+/// already knew, in a `match` inlined in the middle of its collection system, so
+/// the chest road would have had to grow a second copy that agrees with it about
+/// four payload kinds forever. Lifting the arm out is what makes "a chest's
+/// reward is a pickup" true in the code rather than only in the data.
+///
+/// ⚠ **grant only — no banner, no spark, no sound.** Those belong to the road
+/// the reward arrived by, and a chest already has its own.
+pub fn grant_pickup(
+    kind: &ambition_interaction::PickupKind,
+    collector: bevy::prelude::Entity,
+    heals: &mut MessageWriter<crate::avatar::PlayerHealRequested>,
+    wallets: &mut Query<&mut ambition_characters::actor::BodyWallet>,
+    set_flag: &mut MessageWriter<SetFlagRequested>,
+    mut owned: Option<&mut crate::items::OwnedItems>,
+) {
+    match kind {
+        ambition_interaction::PickupKind::Health { amount } => {
+            heals.write(crate::avatar::PlayerHealRequested::for_target(
+                *amount, collector,
+            ));
+        }
+        ambition_interaction::PickupKind::Currency { amount } => {
+            // Credit the collecting player's wallet (HUD money meter).
+            if let Ok(mut wallet) = wallets.get_mut(collector) {
+                wallet.add(*amount);
+            }
+        }
+        ambition_interaction::PickupKind::Ability { ability_id } => {
+            // Grant the ability into the player's catalog so it shows up in
+            // the OoT inventory and can be equipped (wired abilities) — the
+            // Metroidvania "learn a power from a boss" beat.
+            if let Some(owned) = owned.as_deref_mut() {
+                if let Some(item) = crate::items::Item::from_dialog_id(ability_id) {
+                    owned.grant(item, 1);
+                }
+            }
+        }
+        ambition_interaction::PickupKind::StoryFlag { flag } => {
+            // PickupSpawn entities with `kind: "flag:<id>"` set
+            // the named flag in the save layer and emit a
+            // QuestAdvanceEvent::FlagSet via apply_flag_effects.
+            // Mirrors the LockWall/Switch flag-setting pattern so
+            // intro-v1 cartography pickups and similar narrative
+            // story-flag drops just work without per-pickup wiring.
+            set_flag.write(SetFlagRequested {
+                id: flag.clone(),
+                on: true,
+            });
+        }
+        // ⛔⛔ **A PAYLOAD THIS CANNOT SPEND IS A LOUD FAILURE, NOT A NO-OP.**
+        // `PickupKind::Custom` is an opaque authored string with no reader
+        // anywhere in the engine, so reaching here means somebody authored a
+        // reward that is granted to nobody — and a silent `_ => {}` is how the
+        // eight shipped boss chests came to be authored `Custom("pirate_hoard")`,
+        // `Custom("gnu_scroll")` and six more relics whose ids appear in
+        // `boss_profiles.ron` and in NO catalog, item table or flag. Measured
+        // 2026-08-19. ⚠ bounded by opens/collects, not per frame.
+        ambition_interaction::PickupKind::Custom(id) => {
+            bevy::log::warn!(
+                target: "ambition_platformer2d::pickups",
+                "pickup payload `Custom({id})` reached the grant and the engine has no \
+                 vocabulary for it, so {id} was awarded to nobody: author it as a \
+                 health/currency/ability/flag reward, or teach the catalog what it is",
+            );
+        }
     }
 }
 

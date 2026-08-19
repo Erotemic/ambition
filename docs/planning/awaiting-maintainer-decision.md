@@ -41,7 +41,7 @@ investigation that led to the question. Same rule as
 [`README.md`](README.md#queue-contract); on 2026-08-17 this file was **739 lines
 for 9 open questions**, and the four answered ones held a third of it.
 
-## Open decisions — 10 (§1, §6, §7, §9, §10, §11, §12 and §13 are ANSWERED; §8 is DEFERRED)
+## Open decisions — 11 (§1, §6, §7, §9, §10, §11, §12 and §13 are ANSWERED; §8 is DEFERRED)
 
 ### 1. ✔ ANSWERED 2026-08-17 — a bolt hits what a sword hits (former D23)
 
@@ -785,6 +785,45 @@ revert.
 goes red and stays red, and both failures were guards that were CORRECT when
 written and became wrong when a rule moved under them. ⇒ **when you add a check,
 name the TIER that runs it.**
+
+### 20. ▢ NEW 2026-08-19 — eight boss chests are authored with treasure that does not exist
+
+**The wiring half is FIXED and is not the question.** `ChestFeature::reward()`
+had zero callers: every chest in the game opened, sparked, played its sound,
+announced *"opened X"* and granted nothing, because `open_ecs_chests` asked for
+`With<ChestFeature>` and never `&ChestFeature`. It now routes the payload through
+the same `grant_pickup` the walk-over pickup uses — **130 authored chests in the
+shipped world start paying out**: 104 health chests, 13 `ability:test_key`, 13
+`flag:opened_basement_story_chest`.
+
+▢ **what is left is a CONTENT call and it is yours.** The eight boss reward
+chests in `boss_profiles.ron` are authored `PickupKind::Custom(..)` —
+`pirate_hoard`, `gnu_scroll`, `noodly_relic`, `trex_bone_relic`,
+`collapsed_relic`, `divergence_shard`, `stack_frame_relic` and one more — and
+**each of those ids appears in that one file and nowhere else in the tree**: no
+item, no ability, no flag, no catalog row. `Custom` has no reader in the engine
+at all. So a defeated boss still drops a chest that pays nothing, and closing the
+wiring did not change that.
+
+⇒ **the question is what a boss's hoard IS**, which is a design answer rather
+than an engineering one. The three shapes available today:
+
+```text
+an ABILITY      the boss teaches a verb — the north star's "every upgrade a
+                theorem" beat, and the road bosses already use for
+                `reward_ability` beside the chest
+a QUANTITY      currency/health — cheap, works now, says nothing about the boss
+a NEW ITEM      each relic becomes a real catalog item with art and a use;
+                the most work and the only one that makes the names mean
+                something
+```
+
+⚠ **not guessed at in the meantime, deliberately.** Inventing eight item
+definitions would be authoring content policy at an engine seam. What landed
+instead is that the unspendable case is now LOUD: a `Custom` payload reaching the
+grant warns with the id and says nobody was awarded it, so this stops being
+invisible. ⛔ the silent `_ => {}` that swallowed it is what let eight shipped
+bosses drop empty treasure without a single line of evidence.
 
 ## ✔ CLOSED 2026-08-15 — every submodule remote is reachable and current
 

@@ -22,20 +22,30 @@ pub fn open_ecs_chests(
     >,
     // The driven body's kinematics — reach is measured from the controlled subject.
     bodies: Query<&ambition_platformer2d_core::BodyKinematics>,
+    // ⛔ **`&ChestFeature`, not `With<ChestFeature>` — that one word is the whole
+    // of D125's "authored chest rewards are never granted".** The payload was
+    // filled by all three chest authors and read by nobody: this system knew a
+    // chest was there and never asked what was IN it.
     chests: Query<
         (
             Entity,
             &FeatureId,
             &FeatureName,
             &CenteredAabb,
+            &ChestFeature,
             Option<&Opened>,
             Option<&FallingChest>,
         ),
-        (With<FeatureSimEntity>, With<ChestFeature>),
+        With<FeatureSimEntity>,
     >,
     mut set_flag: MessageWriter<SetFlagRequested>,
     mut sfx: SfxWriter,
     mut vfx: MessageWriter<VfxMessage>,
+    // The grant, routed to the body that opened it — the same three writers the
+    // walk-over pickup hands to `grant_pickup`.
+    mut heals: MessageWriter<crate::avatar::PlayerHealRequested>,
+    mut wallets: Query<&mut ambition_characters::actor::BodyWallet>,
+    mut owned: Option<ResMut<crate::items::OwnedItems>>,
 ) {
     // Iterate every player so each player's own buffered interact
     // can open a chest the player is overlapping. Per-player interact
@@ -66,7 +76,7 @@ pub fn open_ecs_chests(
     };
     let reach_aabb = subject_kin.aabb();
     {
-        for (entity, id, name, aabb, opened, falling) in &chests {
+        for (entity, id, name, aabb, chest, opened, falling) in &chests {
             if falling.is_some() || opened.is_some() || !aabb.aabb().strict_intersects(reach_aabb) {
                 continue;
             }
@@ -74,6 +84,21 @@ pub fn open_ecs_chests(
             slot_gestures.primary_mut().clear();
             anim.interact_anim_timer = INTERACT_ANIM_HOLD_SECS;
             banner.show(format!("opened {}", name.0.as_str()), 2.6);
+            // ⭐ **THE CHEST DOES NOT KNOW HOW TO GRANT ANYTHING**, and that is
+            // the point: its reward is a `PickupKind`, and there is exactly one
+            // authority that turns one of those into health, money, an ability
+            // or a story flag. Teaching the chest a second copy would be four
+            // payload kinds to keep in agreement forever.
+            if let Some(reward) = chest.reward() {
+                super::pickups::grant_pickup(
+                    reward,
+                    subject,
+                    &mut heals,
+                    &mut wallets,
+                    &mut set_flag,
+                    owned.as_deref_mut(),
+                );
+            }
             let pos = aabb.center;
             vfx.write(VfxMessage::Burst {
                 pos,

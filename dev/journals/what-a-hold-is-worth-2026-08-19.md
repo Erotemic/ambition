@@ -96,3 +96,37 @@ gets a tighter one because it has no trade outcome.
 after the first behavioural change, so "median press distance went 48 -> 67"
 is not evidence the airborne term hurt spacing. What IS comparable is the
 outcome pair — same holds, a third fewer presses and attempts.
+
+## Closing state, re-measured after the whole day's work
+
+```text
+                        before   +policy   +airborne   +legality   final
+grab presses                 7        85          54           9       9
+  wasted mid-smash           6        34          33           0       0
+grabs started                1        22          14           9       9
+attempts requested           3        66          42          27      27
+holds established            0         1           1           2       2
+pummels / throws           0/0       1/1         1/1         2/2     2/2
+time spent held              —         —           —           —    1.3s
+```
+
+⭐ **nine presses, nine grabs, nothing spent.** Every press the brain issues now
+becomes a move, and the chain completes twice in sixty seconds — grab, hold,
+pummel, forward throw.
+
+⚠ **the probe still prints "9 of 9 while COMMITTED", and that is the instrument,
+not the brain.** The sample is taken after `app.update()`, so the tick a grab
+STARTS reads as mid-`grab`. Nine presses started nine grabs, so all nine of those
+lines are the artifact — which is exactly the reading that was wrong the first
+time and is worth not re-deriving.
+
+⛔ **`REACH_TOLERANCE` was never touched.** The spacing corrected itself once a
+grab had a reason to be thrown at the right moment instead of being the last
+option standing at long range. That was the row's own thesis, and it held.
+
+⚠ **what is NOT solved**: two holds in a match is a start, not a target. 27
+attempts still produce 2 holds, so most grabs still close on a body that has
+moved by the time the active window opens. That is the `REACH_TOLERANCE`
+question the queue flags as a maintainer's call — a grab has no trade outcome,
+so it may deserve a tighter tolerance than a poke — and it is deliberately still
+open rather than tuned away.

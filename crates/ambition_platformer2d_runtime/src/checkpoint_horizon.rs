@@ -42,7 +42,7 @@ use ambition_platformer2d_shared_tangle::schedule::{
     Platformer2dSimulationPhaseMonolith, SimScheduleExt,
 };
 
-/// Installs the reset horizon: its two channels, the three domain baselines,
+/// Installs the reset horizon: its two channels, the FOUR domain baselines,
 /// and the placement of the capture and restore sets.
 ///
 /// ⚠ **a host that installs this and never emits [`CheckpointCommitted`] gets

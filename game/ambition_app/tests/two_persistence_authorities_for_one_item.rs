@@ -644,3 +644,52 @@ fn a_granted_quantity_survives_the_death_that_retracts_the_instance_minted_from_
         "and it stays a stored quantity, so the durable save still carries it"
     );
 }
+
+/// **⛔⛔ A LOAD THEN A DEATH MUST NOT EMPTY THE BAG.**
+///
+/// The failure this pins is one I introduced on 2026-08-19 and caught the same
+/// day. `OwnedItemsBaseline` joined the checkpoint horizon that morning so a mint
+/// could SPEND the quantity it came from — correct, and it made the death restore
+/// entitlements. But a fresh process starts with the DEFAULT baseline, an empty
+/// bag, and the durable load adopted only three of the four baselines. So the
+/// first death after a load restored *nothing* over everything the file
+/// remembered.
+///
+/// ⭐ **the module header of `durable_horizon` names this exact failure** — *"a
+/// fresh process has no checkpoint history… leaving the empty default baseline
+/// in place would make the FIRST death after a load take back everything the
+/// file remembered"* — and I reached it anyway, by adding a baseline after the
+/// header was written. ⇒ **a stated invariant only protects the members it
+/// knows about**; a new one has to be enrolled by hand, which is what this test
+/// makes loud.
+#[test]
+fn a_load_then_a_death_keeps_what_the_file_remembered() {
+    let mut sim = fixed_60hz_room_sim(ROOM);
+    sim.step_n(base(), 8);
+    load_the_save(&mut sim);
+
+    // Something the file remembers, through the channel the game uses.
+    sim.world_mut()
+        .write_message(ambition_platformer2d::actors::items::ItemGrantRequested {
+            item: COUNTED_ITEM,
+            count: 1,
+        });
+    sim.step_n(base(), 4);
+    save_the_inventory(&mut sim);
+    let before = catalog_count(&sim, COUNTED_ITEM);
+    assert_eq!(before, 1, "the grant must land, or this measures nothing");
+
+    // A second load, so the baseline is whatever THIS process adopted.
+    load_the_save(&mut sim);
+    sim.step_n(base(), 4);
+
+    die(&mut sim);
+    sim.step_n(base(), 60);
+
+    assert_eq!(
+        catalog_count(&sim, COUNTED_ITEM),
+        before,
+        "the first death after a load took back what the file remembered — the \
+         entitlement baseline was never adopted, so it restored an empty bag"
+    );
+}

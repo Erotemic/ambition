@@ -154,6 +154,15 @@ pub fn restore_durable_horizon(
     occurrence_baseline: Option<ResMut<OccurrenceBaseline>>,
     custody_baseline: Option<ResMut<CustodyBaseline>>,
     minted_baseline: Option<ResMut<MintedItemBaseline>>,
+    // ⛔⛔ **THE FOURTH, AND OMITTING IT WAS A BUG FOR A FEW HOURS ON 2026-08-19.**
+    // `OwnedItemsBaseline` joined the checkpoint horizon that morning so a mint
+    // could spend the quantity it came from. Without adopting it here, a fresh
+    // process starts with the DEFAULT baseline — an empty bag — and the first
+    // death after a load restores that over everything the file remembered.
+    // That is exactly the failure this module's header names, reached by a
+    // baseline that was added after the header was written.
+    owned_items_baseline: Option<ResMut<crate::items::pickup::minted_horizon::OwnedItemsBaseline>>,
+    owned_items: Option<Res<crate::items::OwnedItems>>,
     mut resets: MessageWriter<ResetToCheckpoint>,
 ) {
     if restored.0 || bodies.is_empty() {
@@ -221,6 +230,14 @@ pub fn restore_durable_horizon(
     }
     if let Some(mut baseline) = minted_baseline {
         baseline.adopt(minted);
+    }
+    // ⚠ **the ENTITLEMENTS come from the live table, not from the row list
+    // above.** `items::persist` has already restored `OwnedItems` from the file
+    // by the time this runs — it is the sibling leg, and the two do not
+    // coordinate (D132's surviving half) — so what this process must adopt as
+    // its baseline is what the bag actually holds now.
+    if let (Some(mut baseline), Some(owned)) = (owned_items_baseline, owned_items) {
+        baseline.adopt(owned.clone());
     }
     // ⭐⭐ AND THE SHIPPED RESUME DOES THE REST. Nothing here spawns, despawns,
     // equips or rebuilds a room: the restore road a death takes reads the three

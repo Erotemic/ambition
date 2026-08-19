@@ -962,9 +962,22 @@ fn a_runtime_mint_the_checkpoint_never_saw_is_not_resurrected_by_a_death() {
 ///   missing DIAGNOSTIC — the system's own `warn_once` for "touching a zone and
 ///   still refused" is silent because it already fired on the outward trip.
 ///
-///   ⇒ what remains is a refusal inside `transition_for_player` or an early
-///   return above it (`sim_state.remaining > 0.0` is one), and finding it wants
-///   a look at the room system rather than more fixture attempts.
+///   ⛔ **and a SIXTH: it is not the activation asymmetry either.** Both seams
+///   are `Door`, measured — so the outward trip is not succeeding because it
+///   needs no press while the return does:
+///
+/// ```text
+///   central_hub_complex -> duel_arena          activation=Door   fires
+///   duel_arena          -> central_hub_complex activation=Door   refused
+/// ```
+///
+///   ⇒ two identical-looking Doors, one of which works. `transition_from_zone`
+///   resolves for BOTH (`walk_to`'s own discovery calls it and gets `Some`), so
+///   the graph edge exists in both directions and the remaining suspect is the
+///   state the system reads that the discovery does not: `wants_interact` from
+///   `slot_gestures.primary().buffered()`, or an early return above it
+///   (`sim_state.remaining > 0.0`). Finding it wants a look at the gesture
+///   buffer after a crossing, not more fixture attempts.
 ///
 /// ⇒ the honest state: the debt is now settleable and the request is correct;
 /// the round trip that would SHOW it needs a fixture that can walk back. The arm

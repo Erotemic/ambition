@@ -129,6 +129,46 @@ use crate::items::pickup::{GroundItem, ItemCustody};
 #[derive(Resource, Default, Clone)]
 pub struct SaveRestored(pub bool);
 
+/// **Every baseline a durable load must adopt, named once.**
+///
+/// ⛔⛔ **THIS TYPE EXISTS BECAUSE A BASELINE WAS ADDED AND THIS SITE DID NOT
+/// NOTICE (2026-08-19).** A checkpoint baseline owes the horizon five separate
+/// enrollments, in three crates:
+///
+/// ```text
+/// 1  init_resource                 CheckpointHorizonPlugin   (runtime)
+/// 2  a capture system              in `CheckpointCapture`    (runtime)
+/// 3  a restore system              in `CheckpointRestore`    (runtime)
+/// 4  DURABLE-LOAD ADOPTION         here                      (this crate)
+/// 5  rollback declaration+checksum rollback_registration.rs  (this crate)
+/// ```
+///
+/// `OwnedItemsBaseline` got 1, 2, 3 and 5 and missed 4, and nothing failed:
+/// a missing adoption is silent until the FIRST DEATH AFTER A LOAD, which then
+/// restores an empty bag over everything the save remembered.
+///
+/// ⭐ **gathering them into one `SystemParam` moves obligation 4 from memory to
+/// the compiler**: the destructure in [`restore_durable_horizon`] is exhaustive,
+/// so a fifth field here is a build error at the exact site that must handle it.
+///
+/// ⚠ **it does NOT guard obligations 1–3 and 5**, and pretending otherwise would
+/// be worse than saying so. Those live in other crates and are enrolled
+/// separately; the honest statement is that this closes the one leg whose
+/// omission is invisible. The eventual shape — a domain-owned participant that
+/// carries all five together — is recorded in
+/// `docs/planning/engine/instance-lifetime-provenance-and-persistence.md`.
+///
+/// ⚠ every field is `Option` for the same reason the old parameters were: a
+/// composition that installs no reset horizon is legal, and this system must
+/// degrade to doing nothing rather than failing param validation.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct DurableBaselines<'w> {
+    pub occurrence: Option<ResMut<'w, OccurrenceBaseline>>,
+    pub custody: Option<ResMut<'w, CustodyBaseline>>,
+    pub minted: Option<ResMut<'w, MintedItemBaseline>>,
+    pub owned_items: Option<ResMut<'w, crate::items::pickup::minted_horizon::OwnedItemsBaseline>>,
+}
+
 /// **Apply the file's memory of where everything is, then ask for a checkpoint
 /// resume.**
 ///
@@ -151,23 +191,29 @@ pub fn restore_durable_horizon(
     // body to exist, not to touch one.
     bodies: Query<(), crate::actor::PrimaryPlayerOnly>,
     occurrences: Option<ResMut<AuthoredOccurrences>>,
-    occurrence_baseline: Option<ResMut<OccurrenceBaseline>>,
-    custody_baseline: Option<ResMut<CustodyBaseline>>,
-    minted_baseline: Option<ResMut<MintedItemBaseline>>,
-    // ⛔⛔ **THE FOURTH, AND OMITTING IT WAS A BUG FOR A FEW HOURS ON 2026-08-19.**
-    // `OwnedItemsBaseline` joined the checkpoint horizon that morning so a mint
-    // could spend the quantity it came from. Without adopting it here, a fresh
-    // process starts with the DEFAULT baseline — an empty bag — and the first
-    // death after a load restores that over everything the file remembered.
-    // That is exactly the failure this module's header names, reached by a
-    // baseline that was added after the header was written.
-    owned_items_baseline: Option<ResMut<crate::items::pickup::minted_horizon::OwnedItemsBaseline>>,
+    // ⛔⛔ **ONE PARAMETER, AND THAT IS THE FIX.** These were four separate
+    // `Option<ResMut<…>>` and the fourth was MISSING for a few hours on
+    // 2026-08-19 — `OwnedItemsBaseline` joined the checkpoint horizon that
+    // morning and nothing made this site notice, so a fresh process started with
+    // the DEFAULT baseline (an empty bag) and the first death after a load
+    // restored that over everything the file remembered. See
+    // [`DurableBaselines`] for why they travel together now.
+    baselines: DurableBaselines,
     owned_items: Option<Res<crate::items::OwnedItems>>,
     mut resets: MessageWriter<ResetToCheckpoint>,
 ) {
     if restored.0 || bodies.is_empty() {
         return;
     }
+    // ⭐ **EXHAUSTIVE, on purpose.** A fifth baseline cannot be added to
+    // [`DurableBaselines`] without this line failing to compile, which is what
+    // turns "remember to adopt it here" into something the compiler says.
+    let DurableBaselines {
+        occurrence: occurrence_baseline,
+        custody: custody_baseline,
+        minted: minted_baseline,
+        owned_items: owned_items_baseline,
+    } = baselines;
     let Some(mut occurrences) = occurrences else {
         return;
     };

@@ -507,6 +507,50 @@ checkpoint horizon it serializes, so every composition that simulates a world
 saves and loads. `two_persistence_authorities_for_one_item` no longer calls the
 shipped systems by hand — it steps a frame.
 
+## Checkpoint participation is still five manual enrollments (2026-08-19)
+
+A checkpoint/durable baseline is a domain concept, but PARTICIPATING in the reset
+horizon is a set of separately synchronised sites, in three crates:
+
+```text
+1  init_resource                    CheckpointHorizonPlugin      runtime
+2  a capture system in CheckpointCapture                         runtime
+3  a restore system in CheckpointRestore                         runtime
+4  durable-load adoption            restore_durable_horizon      actor monolith
+5  rollback declaration + checksum  rollback_registration.rs     actor monolith
+```
+
+`OwnedItemsBaseline` got 1, 2, 3 and 5 on 2026-08-19 and missed 4. Nothing
+failed: a missing adoption is silent until the **first death after a load**,
+which then restores the default empty bag over everything the file remembered.
+That is the persistence equivalent of the old central rollback census — a domain
+concept whose participation is a hand-kept list.
+
+**What was done now.** Obligation 4 is the one whose omission is invisible, so
+the four baselines were gathered into one `DurableBaselines` `SystemParam` and
+`restore_durable_horizon` destructures it exhaustively. A fifth baseline cannot
+be added to that type without the destructure failing to compile at the exact
+site that must handle it. ⚠ this does NOT guard 1–3 or 5 — saying so is the
+point; the guard closes one leg, it does not close the class.
+
+**What the class wants.** A typed, domain-owned checkpoint participant that
+carries all five obligations together, composed by the session — so the item
+domain declares "here is my baseline, here is how it captures, restores, is
+adopted after a load, and is checksummed", once, and the horizon composes
+participants rather than enumerating resources. Constraints, unchanged and
+non-negotiable:
+
+- no `Any` / `TypeId`;
+- no string-dispatched restore callbacks;
+- no universal mutable service locator;
+- and no speculative framework — the item domain's two baselines are the second
+  customer, which is what makes this legitimate pressure rather than hypothetical
+  abstraction work.
+
+⛔ **the shape to avoid is the one that looks tidiest**: a central registry that
+maps a name to a boxed capture/restore pair. That reintroduces exactly the
+runtime census this program spent its first half removing.
+
 ## Candidate crate / Bevy shape
 
 Do not immediately invent one `UniversalInstanceId`. Domain-specific instance IDs

@@ -45,6 +45,10 @@
 //! name misses the bank for that one.
 
 use ambition_characters::moveset_prefabs::{SLASH_ARC_VFX, SLASH_POKE_VFX};
+use ambition_characters::smash_capture::{
+    author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
+    CaptureAttemptParams, CapturePummelParams, CaptureThrowParams, SmashCaptureRepertoire,
+};
 use ambition_characters::smash_repertoire::{DownSpecial, NeutralSpecial, SmashRepertoire};
 use ambition_platformer2d::entity_catalog::{ImpulseMode, MoveSpec, MovesetContract, WindowTag};
 
@@ -502,6 +506,58 @@ pub fn carl_stargan_moveset() -> MovesetContract {
     // heard. The dot he points at is under him now.
     let air_down_b = vfx_at(air_down_b, 0.11, "pale_blue_dot_ping", (0.0, 22.0), POKE_FX);
     let air_down_b = on_contact(air_down_b, "player.hit");
+    // **CARL'S CAPTURE KIT.** Deliberately unremarkable in its numbers — the
+    // roster needs a baseline to read the others against, and Carl is it.
+    //
+    // ⚠ **but his capture moves carry ART, because his table requires it of
+    // every move.** `none_of_his_bursts_sit_on_his_navel` asserts that each move
+    // throws an effect at all, and it was written over a population with no
+    // capture in it. Honouring it is right rather than scoping it away: a silent
+    // grab would be the one mute beat in a kit whose whole idea is that every
+    // gesture is cosmic-scale. `orbit_lock` for the catch, `evidence_ping` for
+    // the pummel, `planetary_slingshot` for the throw.
+    // ⭐ his sheet ships the whole grab family — `grab`, `grab_hold`, `grab_release` — so the capture kit draws the rows it was drawn for.
+    let grab = vfx_at(
+        author_standing_grab(
+            grab_shell("carl_grab", "grab", 0.07, 0.05, 0.20),
+            CaptureAttemptParams {
+                offset: (12.0, 1.0),
+                half_extents: (19.0, 16.0),
+                hold_offset: (13.0, 3.0),
+            },
+        ),
+        0.07,
+        "orbit_lock",
+        (12.0, 1.0),
+        1.0,
+    );
+    let pummel = vfx_at(
+        author_pummel(
+            capture_beat("carl_pummel", "grab_hold", 0.18),
+            0.08,
+            CapturePummelParams { damage: 3 },
+        ),
+        0.08,
+        "evidence_ping",
+        (12.0, 1.0),
+        0.8,
+    );
+    let forward_throw = vfx_at(
+        author_throw(
+            capture_beat("carl_fthrow", "grab_release", 0.26),
+            0.14,
+            CaptureThrowParams {
+                damage: 8,
+                knockback: 122.0,
+                knockback_growth: 2.0,
+                launch_dir: (0.85, -0.55),
+            },
+        ),
+        0.14,
+        "planetary_slingshot",
+        (16.0, -2.0),
+        1.1,
+    );
 
     SmashRepertoire {
         jab,
@@ -519,11 +575,25 @@ pub fn carl_stargan_moveset() -> MovesetContract {
         neutral_special: NeutralSpecial::Authored(n_b),
         side_special: side_b,
         up_special: up_b,
-        // ⚠ **no capture kit yet** — the relationship architecture is being
-        // proven on two fighters first (see `SmashCaptureRepertoire`). This is
-        // the transitional `None`, and it means exactly one thing: no Grab slot,
-        // no grab verbs, nothing about this fighter lying about having one.
-        capture: None,
+        // ⭐ **AUTHORED 2026-08-19, at Jon's ask that every fighter in the smash
+        // roster have a grab.** The transitional `None` is gone: capture was
+        // proven on George and the Pirate Admiral, and the whole point of
+        // proving it was to stop being the only two.
+        //
+        // ⚠ the VALUES are per character on purpose. A roster whose grabs are
+        // twelve copies of one number set is one grab wearing twelve names.
+        capture: Some(SmashCaptureRepertoire {
+            grab,
+            pummel,
+            forward_throw,
+            // ⛔ back/up/down stay `None` and that is still the authored answer,
+            // not an omission: an unauthored throw does NOTHING rather than
+            // falling back to a pummel, which tells a player this fighter has
+            // none instead of telling them it has a bad one.
+            back_throw: None,
+            up_throw: None,
+            down_throw: None,
+        }),
         down_special: DownSpecial::ByPosture {
             grounded: down_b,
             airborne: air_down_b,
@@ -630,7 +700,10 @@ mod tests {
 
         for (who, other) in [
             ("oiler", crate::oiler_moveset::oiler_moveset()),
-            ("emmy_noether", crate::emmy_noether_moveset::emmy_noether_moveset()),
+            (
+                "emmy_noether",
+                crate::emmy_noether_moveset::emmy_noether_moveset(),
+            ),
         ] {
             let theirs: Vec<f32> = other
                 .moves

@@ -40,6 +40,10 @@
 use ambition_platformer2d::characters::moveset_authoring::{
     committed_tail, impulse, on_contact, sfx, strike, vfx_at,
 };
+use ambition_platformer2d::characters::smash_capture::{
+    author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
+    CaptureAttemptParams, CapturePummelParams, CaptureThrowParams, SmashCaptureRepertoire,
+};
 use ambition_platformer2d::characters::smash_repertoire::{
     DownSpecial, NeutralSpecial, SmashRepertoire,
 };
@@ -412,6 +416,37 @@ pub fn sanic_moveset() -> MovesetContract {
     let ground_down_b = vfx_at(ground_down_b, 0.18, "sonic_ripple", (0.0, 16.0), RUSH_FX);
     let ground_down_b = on_contact(ground_down_b, "player.hit");
 
+    // **SANIC'S CAPTURE KIT.** Fastest startup, shortest reach, weakest throw and the
+    // longest recovery. He gets there first and cannot do much with it, which is the
+    // joke and also the balance.
+    // ⚠ the grab draws `attack`, not `grab`: these sheets publish no `grab` row,
+    // and each table's own `every_clip_names_a_row_..._sheet_carries` guard says
+    // so. `ClipBinding`'s fallbacks would have covered it at runtime, but a move
+    // that NAMES a row nobody publishes is a lie the guard is right to refuse.
+    let grab = author_standing_grab(
+        grab_shell("sanic_grab", "attack", 0.05, 0.04, 0.24),
+        CaptureAttemptParams {
+            offset: (12.0, 1.0),
+            half_extents: (17.0, 14.0),
+            hold_offset: (13.0, 3.0),
+        },
+    );
+    let pummel = author_pummel(
+        capture_beat("sanic_pummel", "attack", 0.12),
+        0.05,
+        CapturePummelParams { damage: 2 },
+    );
+    let forward_throw = author_throw(
+        capture_beat("sanic_fthrow", "attack", 0.22),
+        0.11,
+        CaptureThrowParams {
+            damage: 6,
+            knockback: 98.0,
+            knockback_growth: 2.3,
+            launch_dir: (1.0, -0.3),
+        },
+    );
+
     SmashRepertoire {
         jab,
         forward_tilt: f_tilt,
@@ -428,11 +463,21 @@ pub fn sanic_moveset() -> MovesetContract {
         neutral_special: NeutralSpecial::Authored(n_b),
         side_special: side_b,
         up_special: up_b,
-        // ⚠ **no capture kit yet** — the relationship architecture is being
-        // proven on two fighters first (see `SmashCaptureRepertoire`). This is
-        // the transitional `None`, and it means exactly one thing: no Grab slot,
-        // no grab verbs, nothing about this fighter lying about having one.
-        capture: None,
+        // ⭐ **AUTHORED 2026-08-19, at Jon's ask that every fighter in the smash
+        // roster have a grab.** The transitional `None` is gone: capture was
+        // proven on George and the Pirate Admiral, and the point of proving it
+        // was to stop being the only two.
+        capture: Some(SmashCaptureRepertoire {
+            grab,
+            pummel,
+            forward_throw,
+            // ⛔ back/up/down stay `None` — the authored answer, not an
+            // omission: an unauthored throw does NOTHING rather than falling
+            // back to a pummel.
+            back_throw: None,
+            up_throw: None,
+            down_throw: None,
+        }),
         down_special: DownSpecial::ByPosture {
             grounded: ground_down_b,
             airborne: down_b,

@@ -39,6 +39,10 @@
 use ambition_platformer2d::characters::moveset_authoring::{
     committed_tail, impulse, on_contact, sfx, strike, vfx_at,
 };
+use ambition_platformer2d::characters::smash_capture::{
+    author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
+    CaptureAttemptParams, CapturePummelParams, CaptureThrowParams, SmashCaptureRepertoire,
+};
 use ambition_platformer2d::characters::smash_repertoire::{
     DownSpecial, NeutralSpecial, SmashRepertoire,
 };
@@ -397,6 +401,36 @@ pub fn mary_o_moveset() -> MovesetContract {
     let air_down_b = vfx_at(air_down_b, 0.09, "smoke_puff", (0.0, 22.0), STEP_FX);
     let air_down_b = on_contact(air_down_b, "player.hit");
 
+    // **MARY_O'S CAPTURE KIT.** The smallest capture box on the roster, because she is
+    // the smallest body on it. Everything else is deliberately ordinary.
+    // ⚠ the grab draws `attack`, not `grab`: these sheets publish no `grab` row,
+    // and each table's own `every_clip_names_a_row_..._sheet_carries` guard says
+    // so. `ClipBinding`'s fallbacks would have covered it at runtime, but a move
+    // that NAMES a row nobody publishes is a lie the guard is right to refuse.
+    let grab = author_standing_grab(
+        grab_shell("mary_o_grab", "attack", 0.07, 0.05, 0.19),
+        CaptureAttemptParams {
+            offset: (12.0, 1.0),
+            half_extents: (16.0, 13.0),
+            hold_offset: (13.0, 3.0),
+        },
+    );
+    let pummel = author_pummel(
+        capture_beat("mary_o_pummel", "attack", 0.2),
+        0.09,
+        CapturePummelParams { damage: 3 },
+    );
+    let forward_throw = author_throw(
+        capture_beat("mary_o_fthrow", "attack", 0.25),
+        0.13,
+        CaptureThrowParams {
+            damage: 7,
+            knockback: 112.0,
+            knockback_growth: 2.0,
+            launch_dir: (0.8, -0.6),
+        },
+    );
+
     SmashRepertoire {
         jab,
         forward_tilt: f_tilt,
@@ -413,11 +447,21 @@ pub fn mary_o_moveset() -> MovesetContract {
         neutral_special: NeutralSpecial::Authored(n_b),
         side_special: side_b,
         up_special: up_b,
-        // ⚠ **no capture kit yet** — the relationship architecture is being
-        // proven on two fighters first (see `SmashCaptureRepertoire`). This is
-        // the transitional `None`, and it means exactly one thing: no Grab slot,
-        // no grab verbs, nothing about this fighter lying about having one.
-        capture: None,
+        // ⭐ **AUTHORED 2026-08-19, at Jon's ask that every fighter in the smash
+        // roster have a grab.** The transitional `None` is gone: capture was
+        // proven on George and the Pirate Admiral, and the point of proving it
+        // was to stop being the only two.
+        capture: Some(SmashCaptureRepertoire {
+            grab,
+            pummel,
+            forward_throw,
+            // ⛔ back/up/down stay `None` — the authored answer, not an
+            // omission: an unauthored throw does NOTHING rather than falling
+            // back to a pummel.
+            back_throw: None,
+            up_throw: None,
+            down_throw: None,
+        }),
         down_special: DownSpecial::ByPosture {
             grounded: down_b,
             airborne: air_down_b,

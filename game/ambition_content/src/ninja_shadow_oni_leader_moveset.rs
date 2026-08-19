@@ -40,6 +40,10 @@
 //! a vanish as a move window would be the wholesale-migration failure mode
 //! wearing a content commit.
 
+use ambition_characters::smash_capture::{
+    author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
+    CaptureAttemptParams, CapturePummelParams, CaptureThrowParams, SmashCaptureRepertoire,
+};
 use ambition_characters::smash_repertoire::{DownSpecial, NeutralSpecial, SmashRepertoire};
 use ambition_platformer2d::entity_catalog::MovesetContract;
 
@@ -400,6 +404,36 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
     let air_down_b = sfx(air_down_b, 0.05, "faction.ninja.parry_flash");
     let air_down_b = on_contact(air_down_b, "player.hit");
 
+    // **ONI'S CAPTURE KIT.** The FASTEST grab in the game and the longest recovery
+    // behind it — a read, not a poke. Whiffing this is the punish window his whole kit
+    // is balanced around.
+    // ⚠ the grab draws `attack`, not `grab`: these sheets publish no `grab` row,
+    // and each table's own `every_clip_names_a_row_..._sheet_carries` guard says
+    // so. `ClipBinding`'s fallbacks would have covered it at runtime, but a move
+    // that NAMES a row nobody publishes is a lie the guard is right to refuse.
+    let grab = author_standing_grab(
+        grab_shell("oni_grab", "attack", 0.05, 0.04, 0.26),
+        CaptureAttemptParams {
+            offset: (12.0, 1.0),
+            half_extents: (21.0, 16.0),
+            hold_offset: (13.0, 3.0),
+        },
+    );
+    let pummel = author_pummel(
+        capture_beat("oni_pummel", "attack", 0.15),
+        0.06,
+        CapturePummelParams { damage: 3 },
+    );
+    let forward_throw = author_throw(
+        capture_beat("oni_fthrow", "attack", 0.25),
+        0.12,
+        CaptureThrowParams {
+            damage: 9,
+            knockback: 126.0,
+            knockback_growth: 2.0,
+            launch_dir: (0.8, -0.6),
+        },
+    );
     SmashRepertoire {
         jab,
         forward_tilt: f_tilt,
@@ -416,11 +450,25 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
         neutral_special: NeutralSpecial::Authored(n_b),
         side_special: side_b,
         up_special: up_b,
-        // ⚠ **no capture kit yet** — the relationship architecture is being
-        // proven on two fighters first (see `SmashCaptureRepertoire`). This is
-        // the transitional `None`, and it means exactly one thing: no Grab slot,
-        // no grab verbs, nothing about this fighter lying about having one.
-        capture: None,
+        // ⭐ **AUTHORED 2026-08-19, at Jon's ask that every fighter in the smash
+        // roster have a grab.** The transitional `None` is gone: capture was
+        // proven on George and the Pirate Admiral, and the whole point of
+        // proving it was to stop being the only two.
+        //
+        // ⚠ the VALUES are per character on purpose. A roster whose grabs are
+        // twelve copies of one number set is one grab wearing twelve names.
+        capture: Some(SmashCaptureRepertoire {
+            grab,
+            pummel,
+            forward_throw,
+            // ⛔ back/up/down stay `None` and that is still the authored answer,
+            // not an omission: an unauthored throw does NOTHING rather than
+            // falling back to a pummel, which tells a player this fighter has
+            // none instead of telling them it has a bad one.
+            back_throw: None,
+            up_throw: None,
+            down_throw: None,
+        }),
         down_special: DownSpecial::ByPosture {
             grounded: down_b,
             airborne: air_down_b,
@@ -442,11 +490,23 @@ mod tests {
             .clone()
     }
 
+    /// ⚠ **only a STRIKE has one.** A pummel and a throw are timelines with no
+    /// Active window at all, so the swing tests below iterate `strikes()` rather
+    /// than every move the contract carries — asking a throw for its startup is
+    /// asking about a window it never has.
     fn active(m: &MoveSpec) -> &MoveWindow {
         m.windows
             .iter()
             .find(|w| matches!(w.tag, WindowTag::Active))
             .expect("a strike has an active window")
+    }
+
+    /// Every move that actually swings.
+    fn strikes(set: &MovesetContract) -> Vec<&MoveSpec> {
+        set.moves
+            .iter()
+            .filter(|m| m.windows.iter().any(|w| matches!(w.tag, WindowTag::Active)))
+            .collect()
     }
 
     fn startup(m: &MoveSpec) -> f32 {
@@ -490,8 +550,12 @@ mod tests {
             "the shadow answers first"
         );
 
-        let longest =
-            |set: &MovesetContract| set.moves.iter().map(active_len).fold(0.0f32, f32::max);
+        let longest = |set: &MovesetContract| {
+            strikes(set)
+                .into_iter()
+                .map(|m| active_len(m))
+                .fold(0.0f32, f32::max)
+        };
         assert!(
             longest(&oni) < longest(&goblin),
             "and his widest window is still narrower than the goblin's ({} vs {}) \
@@ -514,7 +578,18 @@ mod tests {
     #[test]
     fn every_swing_costs_more_than_three_times_the_moment_it_buys() {
         let oni = ninja_shadow_oni_leader_moveset();
-        for m in &oni.moves {
+        // ⚠ SWINGS only. The claim is about what a swing costs, and a pummel or
+        // a throw is not a swing — it holds no window to be three times longer
+        // than. ⛔ the count is the zero floor: a filter that removed everything
+        // would satisfy this loop by iterating nothing.
+        let swings = strikes(&oni);
+        assert!(
+            swings.len() >= 16,
+            "only {} of his moves swing at all — this is being asserted over a \
+             population that shrank",
+            swings.len()
+        );
+        for m in swings {
             assert!(
                 recovery(m) > active_len(m) * 3.0,
                 "`{}` recovers {}s for an active window of {}s — under 3x, which \

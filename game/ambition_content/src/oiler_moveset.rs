@@ -54,6 +54,10 @@
 //! burst itself through `vfx_cued` — the override arm, one authored thing.
 
 use ambition_characters::moveset_prefabs::{SLASH_ARC_VFX, SLASH_POKE_VFX};
+use ambition_characters::smash_capture::{
+    author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
+    CaptureAttemptParams, CapturePummelParams, CaptureThrowParams, SmashCaptureRepertoire,
+};
 use ambition_characters::smash_repertoire::{DownSpecial, NeutralSpecial, SmashRepertoire};
 use ambition_platformer2d::entity_catalog::{
     HitVolume, ImpulseMode, MoveSpec, MoveWindow, MovesetContract, VolumeShape, WindowTag,
@@ -555,6 +559,32 @@ pub fn oiler_moveset() -> MovesetContract {
     let down_b = vfx(down_b, 0.12, "brass_spark");
     let down_b = on_contact(down_b, "player.robot.slash.impact.metal.gong");
 
+    // **OILER'S CAPTURE KIT.** Middle of the roster on every axis, with a slightly
+    // taller box: he grabs with the arms his rig actually has.
+    // ⚠ his sheet publishes NO grab family and no plain `attack`, so all three beats draw `attack_side`, the reaching row he does have. A move naming a row nobody publishes is what his own clip guard refuses.
+    let grab = author_standing_grab(
+        grab_shell("oiler_grab", "attack_side", 0.08, 0.11, 0.20),
+        CaptureAttemptParams {
+            offset: (12.0, 1.0),
+            half_extents: (19.0, 17.0),
+            hold_offset: (13.0, 3.0),
+        },
+    );
+    let pummel = author_pummel(
+        capture_beat("oiler_pummel", "attack_side", 0.22),
+        0.1,
+        CapturePummelParams { damage: 4 },
+    );
+    let forward_throw = author_throw(
+        capture_beat("oiler_fthrow", "attack_side", 0.27),
+        0.14,
+        CaptureThrowParams {
+            damage: 8,
+            knockback: 114.0,
+            knockback_growth: 2.1,
+            launch_dir: (0.75, -0.65),
+        },
+    );
     let repertoire = SmashRepertoire {
         jab,
         forward_tilt: f_tilt,
@@ -571,11 +601,25 @@ pub fn oiler_moveset() -> MovesetContract {
         neutral_special: NeutralSpecial::Authored(convergence),
         side_special: side_b,
         up_special: up_b,
-        // ⚠ **no capture kit yet** — the relationship architecture is being
-        // proven on two fighters first (see `SmashCaptureRepertoire`). This is
-        // the transitional `None`, and it means exactly one thing: no Grab slot,
-        // no grab verbs, nothing about this fighter lying about having one.
-        capture: None,
+        // ⭐ **AUTHORED 2026-08-19, at Jon's ask that every fighter in the smash
+        // roster have a grab.** The transitional `None` is gone: capture was
+        // proven on George and the Pirate Admiral, and the whole point of
+        // proving it was to stop being the only two.
+        //
+        // ⚠ the VALUES are per character on purpose. A roster whose grabs are
+        // twelve copies of one number set is one grab wearing twelve names.
+        capture: Some(SmashCaptureRepertoire {
+            grab,
+            pummel,
+            forward_throw,
+            // ⛔ back/up/down stay `None` and that is still the authored answer,
+            // not an omission: an unauthored throw does NOTHING rather than
+            // falling back to a pummel, which tells a player this fighter has
+            // none instead of telling them it has a bad one.
+            back_throw: None,
+            up_throw: None,
+            down_throw: None,
+        }),
         down_special: DownSpecial::OneForm(down_b),
     }
     .into_contract();
@@ -584,10 +628,22 @@ pub fn oiler_moveset() -> MovesetContract {
     // test module. A move edited under it stops being Oiler's before anything
     // else notices, and this is the last place that still holds the whole table
     // at once.
+    // ⚠ **the band is a claim about moves that HOLD A BOX**, and it is scoped to
+    // say so now that he has a capture kit. A pummel and a throw have no Active
+    // window at all by construction — `capture_beat`'s doc: *"Neither reaches
+    // for anybody… so neither has an Active window or a volume"* — so asking
+    // them to keep a hitbox out for `TOLERANCE_S` is asking about a hitbox they
+    // never have. His GRAB does reach, and it honours the band like every other
+    // reaching move: `active_s` 0.11, the widest catch window on the grid, which
+    // is the same forgiveness the rest of his kit is made of.
+    //
+    // ⛔ this is a scope statement, not a weakening: a reaching move that closed
+    // inside the band still fails here, which is what the assertion was for.
     debug_assert!(
         repertoire
             .moves
             .iter()
+            .filter(|m| m.windows.iter().any(|w| matches!(w.tag, WindowTag::Active)))
             .all(|m| total_active_s(m) + 1e-4 >= TOLERANCE_S),
         "an Oiler move closed its window inside the tolerance band"
     );
@@ -684,7 +740,19 @@ mod tests {
     #[test]
     fn every_move_holds_its_hitbox_for_the_tolerance_band() {
         let oiler = oiler_moveset();
-        for m in &oiler.moves {
+        // ⚠ **scoped to moves that HOLD A BOX**, exactly like the assertion the
+        // builder itself carries. A pummel and a throw have no Active window by
+        // construction (`capture_beat`: *"Neither reaches for anybody… so
+        // neither has an Active window or a volume"*), so asking them to keep a
+        // hitbox out is asking about a hitbox they never have. His GRAB does
+        // reach and is inside the band like every other reaching move.
+        let mut reaching = 0;
+        for m in oiler
+            .moves
+            .iter()
+            .filter(|m| m.windows.iter().any(|w| matches!(w.tag, WindowTag::Active)))
+        {
+            reaching += 1;
             let held = total_active_s(m);
             assert!(
                 held + 1e-4 >= TOLERANCE_S,
@@ -693,6 +761,13 @@ mod tests {
                 m.id
             );
         }
+        // ⛔ the zero floor: a filter that removed EVERY move would satisfy the
+        // loop by iterating nothing.
+        assert!(
+            reaching >= 16,
+            "only {reaching} Oiler moves hold a box at all — the band is being \
+             asserted over a population that shrank"
+        );
 
         let goblin = crate::goblin_moveset::goblin_moveset();
         let tighter = goblin

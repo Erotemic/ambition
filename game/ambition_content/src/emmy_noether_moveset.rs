@@ -75,6 +75,10 @@
 //! authored thing instead of a pair.
 
 use ambition_characters::moveset_prefabs::{SLASH_ARC_VFX, SLASH_POKE_VFX};
+use ambition_characters::smash_capture::{
+    author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
+    CaptureAttemptParams, CapturePummelParams, CaptureThrowParams, SmashCaptureRepertoire,
+};
 use ambition_characters::smash_repertoire::{DownSpecial, NeutralSpecial, SmashRepertoire};
 use ambition_platformer2d::entity_catalog::{
     ClipBinding, HitVolume, ImpulseMode, MoveSpec, MoveWindow, MovesetContract, VolumeShape,
@@ -715,6 +719,33 @@ pub fn emmy_noether_moveset() -> MovesetContract {
     );
     let air_down_b = on_contact(air_down_b, "player.hit");
 
+    // **EMMY'S CAPTURE KIT.** The steepest growth after the automaton: weak early,
+    // decisive late. A conservation joke that is also a real property — what her throw
+    // takes out of you is returned with interest at high percent.
+    // ⭐ her sheet ships the whole grab family — `grab`, `grab_hold`, `grab_release` — so the capture kit draws the rows it was drawn for.
+    let grab = author_standing_grab(
+        grab_shell("emmy_grab", "grab", 0.07, 0.06, 0.21),
+        CaptureAttemptParams {
+            offset: (12.0, 1.0),
+            half_extents: (20.0, 15.0),
+            hold_offset: (13.0, 3.0),
+        },
+    );
+    let pummel = author_pummel(
+        capture_beat("emmy_pummel", "grab_hold", 0.2),
+        0.09,
+        CapturePummelParams { damage: 4 },
+    );
+    let forward_throw = author_throw(
+        capture_beat("emmy_fthrow", "grab_release", 0.28),
+        0.15,
+        CaptureThrowParams {
+            damage: 9,
+            knockback: 108.0,
+            knockback_growth: 2.5,
+            launch_dir: (0.6, -0.8),
+        },
+    );
     let repertoire = SmashRepertoire {
         jab,
         forward_tilt: f_tilt,
@@ -731,11 +762,25 @@ pub fn emmy_noether_moveset() -> MovesetContract {
         neutral_special: NeutralSpecial::Authored(n_b),
         side_special: side_b,
         up_special: up_b,
-        // ⚠ **no capture kit yet** — the relationship architecture is being
-        // proven on two fighters first (see `SmashCaptureRepertoire`). This is
-        // the transitional `None`, and it means exactly one thing: no Grab slot,
-        // no grab verbs, nothing about this fighter lying about having one.
-        capture: None,
+        // ⭐ **AUTHORED 2026-08-19, at Jon's ask that every fighter in the smash
+        // roster have a grab.** The transitional `None` is gone: capture was
+        // proven on George and the Pirate Admiral, and the whole point of
+        // proving it was to stop being the only two.
+        //
+        // ⚠ the VALUES are per character on purpose. A roster whose grabs are
+        // twelve copies of one number set is one grab wearing twelve names.
+        capture: Some(SmashCaptureRepertoire {
+            grab,
+            pummel,
+            forward_throw,
+            // ⛔ back/up/down stay `None` and that is still the authored answer,
+            // not an omission: an unauthored throw does NOTHING rather than
+            // falling back to a pummel, which tells a player this fighter has
+            // none instead of telling them it has a bad one.
+            back_throw: None,
+            up_throw: None,
+            down_throw: None,
+        }),
         down_special: DownSpecial::ByPosture {
             grounded: down_b,
             airborne: air_down_b,

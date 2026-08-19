@@ -27,6 +27,10 @@
 //! and settles for `attack_side`, then `attack`, then `slash`, then `idle`. A
 //! missing clip costs the move its picture, never its gameplay.
 
+use ambition_characters::smash_capture::{
+    author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
+    CaptureAttemptParams, CapturePummelParams, CaptureThrowParams, SmashCaptureRepertoire,
+};
 use ambition_characters::smash_repertoire::{DownSpecial, NeutralSpecial, SmashRepertoire};
 use ambition_platformer2d::entity_catalog::MovesetContract;
 
@@ -387,6 +391,35 @@ pub fn goblin_moveset() -> MovesetContract {
     let air_down_b = sfx(air_down_b, 0.08, "enemy.goblin.attack");
     let air_down_b = on_contact(air_down_b, "enemy.goblin.hit");
 
+    // **GOBLIN'S CAPTURE KIT.** Short reach, fast everything, weak throw: it wins the
+    // grab and cannot finish with it. The flattest launch on the roster.
+    // ⚠ the grab draws `attack`, not `grab`: these sheets publish no `grab` row,
+    // and each table's own `every_clip_names_a_row_..._sheet_carries` guard says
+    // so. `ClipBinding`'s fallbacks would have covered it at runtime, but a move
+    // that NAMES a row nobody publishes is a lie the guard is right to refuse.
+    let grab = author_standing_grab(
+        grab_shell("goblin_grab", "attack", 0.06, 0.04, 0.22),
+        CaptureAttemptParams {
+            offset: (12.0, 1.0),
+            half_extents: (17.0, 14.0),
+            hold_offset: (13.0, 3.0),
+        },
+    );
+    let pummel = author_pummel(
+        capture_beat("goblin_pummel", "attack", 0.14),
+        0.06,
+        CapturePummelParams { damage: 2 },
+    );
+    let forward_throw = author_throw(
+        capture_beat("goblin_fthrow", "attack", 0.23),
+        0.12,
+        CaptureThrowParams {
+            damage: 6,
+            knockback: 100.0,
+            knockback_growth: 2.2,
+            launch_dir: (1.0, -0.35),
+        },
+    );
     SmashRepertoire {
         jab,
         forward_tilt: f_tilt,
@@ -403,11 +436,25 @@ pub fn goblin_moveset() -> MovesetContract {
         neutral_special: NeutralSpecial::Authored(n_b),
         side_special: side_b,
         up_special: up_b,
-        // ⚠ **no capture kit yet** — the relationship architecture is being
-        // proven on two fighters first (see `SmashCaptureRepertoire`). This is
-        // the transitional `None`, and it means exactly one thing: no Grab slot,
-        // no grab verbs, nothing about this fighter lying about having one.
-        capture: None,
+        // ⭐ **AUTHORED 2026-08-19, at Jon's ask that every fighter in the smash
+        // roster have a grab.** The transitional `None` is gone: capture was
+        // proven on George and the Pirate Admiral, and the whole point of
+        // proving it was to stop being the only two.
+        //
+        // ⚠ the VALUES are per character on purpose. A roster whose grabs are
+        // twelve copies of one number set is one grab wearing twelve names.
+        capture: Some(SmashCaptureRepertoire {
+            grab,
+            pummel,
+            forward_throw,
+            // ⛔ back/up/down stay `None` and that is still the authored answer,
+            // not an omission: an unauthored throw does NOTHING rather than
+            // falling back to a pummel, which tells a player this fighter has
+            // none instead of telling them it has a bad one.
+            back_throw: None,
+            up_throw: None,
+            down_throw: None,
+        }),
         down_special: DownSpecial::ByPosture {
             grounded: down_b,
             airborne: air_down_b,

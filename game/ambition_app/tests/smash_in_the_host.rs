@@ -4273,6 +4273,86 @@ fn on_the_smash_pad_y_starts_the_fighters_authored_grab() {
     );
 }
 
+/// **A HELD PERSON CAN MASH THEIR WAY OUT, WITH A REAL BUTTON.**
+///
+/// ⭐⭐ **the mirror of the grab bug, asked the way that would have caught it.**
+/// A human's Grab press reached every layer but the body, because
+/// `brain/player.rs` never carried the field and every capture test wrote
+/// `ActorControl` directly. The captive's ESCAPE is the same shape of question
+/// from the other side: `sample_capture_escape` reads the body's frame, and a
+/// human's frame only exists at ONE position in the schedule — immediately
+/// before `blank_scripted_control_frames`, since capture blanks a held body's
+/// controls. Reading the schedule says that is right; reading is what missed
+/// the grab.
+///
+/// ⚠ **the hold is MANUFACTURED and the press is not, which is the split that
+/// makes this a measurement.** Who grabbed whom is setup — the CPU's grab
+/// TIMING is a separate open question (queue D166) and waiting for one would
+/// make this a test of the brain. What is under test is only whether a pad
+/// press survives to `escape_progress`.
+#[test]
+fn on_the_smash_pad_a_held_player_can_mash_free() {
+    use ambition_platformer2d::combat::capture::CapturedBy;
+
+    let (mut app, pad, body) = a_pad_player_fighting_as(OTHER_PREPARED_FIGHTER);
+
+    // Somebody else on the stage is the captor; which body it is does not
+    // matter to the question, only that it is not the captive.
+    let captor = {
+        use ambition_platformer2d::actors::character_runtime::MatchSeat;
+        let world = app.world_mut();
+        let mut seats = world.query::<(bevy::prelude::Entity, &MatchSeat)>();
+        seats
+            .iter(world)
+            .map(|(entity, _)| entity)
+            .find(|entity| *entity != body)
+            .expect("a two-seat match has a second body")
+    };
+
+    // ⚠ **the hold is re-established each round, because a LIVE match keeps
+    // breaking it and that is the mechanic working.**
+    // `release_interrupted_captures` ends a hold the moment either body takes a
+    // hit, and these two are fighting — a first attempt asserted across twelve
+    // presses and lost the hold to an ordinary exchange. ⛔ the first version of
+    // this test treated that as a pass ("or the escape already finished"), which
+    // made it a test that could not fail: with the hold gone for ANY reason, the
+    // mash was never measured at all.
+    let hold = |app: &mut App| {
+        app.world_mut().entity_mut(body).insert(CapturedBy {
+            captor,
+            hold_offset_local: ambition_platformer2d::engine_core::Vec2::new(20.0, -2.0),
+            prior_gravity_scale: 1.0,
+            pummels_landed: 0,
+            held_for: 0.0,
+            escape_progress: 0.0,
+        });
+    };
+
+    let mut best = 0.0_f32;
+    for _ in 0..24 {
+        // Re-establish from a KNOWN zero, so any rise below is this round's press.
+        hold(&mut app);
+        pad_hold(&mut app, pad, GamepadButton::South, 1.0);
+        app.update();
+        pad_hold(&mut app, pad, GamepadButton::South, 0.0);
+        app.update();
+        if let Some(held) = app.world().get::<CapturedBy>(body) {
+            best = best.max(held.escape_progress);
+            if best > 0.0 {
+                break;
+            }
+        }
+    }
+
+    assert!(
+        best > 0.0,
+        "twenty-four presses of A, each against a freshly zeroed hold, moved \
+         `escape_progress` not once. A held person's frame is blanked by capture, \
+         so if the escape sampler stops running while the frame is still theirs, \
+         mashing does nothing and a hold is unbreakable by a human"
+    );
+}
+
 /// **THE LEFT TRIGGER SHIELDS, THROUGH THE SEMANTIC SHIELD ACTION.**
 ///
 /// Jon: *"left trigger is shield"*. Slice 2 made Shield a real participant

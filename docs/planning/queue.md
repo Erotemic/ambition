@@ -1193,17 +1193,47 @@ publish per-frame rects with `off`, so the quad can be the rect and the offset
 can place it — which is also why the earlier attempt stretched, having done the
 first half without the second.
 
-⚠ **AN OPEN THREAD, RECORDED BECAUSE IT IS NOT RECONCILED.** Two single-variable
-poisons of the same body disagree:
+✔✔ **THAT OPEN THREAD IS EXPLAINED — 2026-08-18, and the answer is that the
+slop's SIZING WRITES A MIRROR, NOT THE AUTHORITY.** Two single-variable poisons
+of the same body had disagreed:
 
 ```text
 AI_SLOP_BODY_WIDTH 28 -> 60      drawn slop 48x55 -> 48x55 px   ZERO change
 body.half_size     -> 4.0        drawn slop 48x54 -> 18x21 px   follows it
 ```
 
-The drawing follows the box, and the constant that sets the box does not reach
-the drawing. Both were photographed at the same warmup on the same route. ⛔ do
-not build on either reading until that is explained.
+⭐ **measured on the live entity rather than on the sizing function**, which is
+what every existing guard here asks and why none of them could see it:
+
+```text
+ai_slop_half_size()        28.0 x 18.2     what the constant derives
+CenteredAabb @ tick 2      28.0 x 18.2     tag_mary_o_ai_slop's write LANDS
+kin.size / BodyBaseSize    73.87 x 48.00   the AUTHORITY — never written
+CenteredAabb @ tick 400    73.87 x 48.00   re-derived from the authority
+```
+
+⇒ `tag_mary_o_ai_slop` does `body.half_size = ai_slop_half_size()` on
+`CenteredAabb`, which is a DERIVED MIRROR; `reset.rs` does
+`aabb.half_size = em.kin.size * 0.5`, so the spawn size comes back. The constant
+reaches the mirror for two ticks and never reaches the body. **Both readings were
+true**: the drawing does follow the box, and the constant does not reach it.
+
+⛔⛔ **and the guard beside it is structurally blind to this.**
+`the_ai_slops_box_has_the_shape_its_sheet_publishes` asserts against
+`ai_slop_half_size()` — the FUNCTION — and its own doc says it was written that
+way on purpose after a first draft that recomputed from the sheet. Asking the
+function proves the arithmetic; only asking a spawned slop proves the body. ⇒ the
+same lesson the human-grab defect taught one layer up: *a test that starts
+downstream of the wiring cannot see the wiring.*
+
+▢ **the fix is one line and it is NOT TAKEN HERE, on this row's own rule.**
+Writing the authority (`kin.size` + `BodyBaseSize`) instead of the mirror makes
+every slop 28 x 18.2 rather than 73.9 x 48 — a **2.64x shrink** in a level Jon
+plays. This row already says *"how big a slop should be is a taste call for
+whoever is looking at the running game"*, so the size is his and the defect is
+that the intended value never took effect. ⚠ **`SpritePosedBody` is NOT the
+overwriter** — checked and it is absent on all twelve slops, so the sprite road
+is not involved and the 73.87 x 48.00 comes from the spawn.
 
 ⛔⛔ **AND THE ONE-BRICK RESCALE HALVED THE SNAKE, WITH NOTHING SAYING SO.**
 `snake_body_width()` derives from `mary_o_body_width()`, so when she became one

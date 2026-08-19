@@ -50,6 +50,17 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use ambition_platformer2d_core as ae;
 
+// ⛔⛔ **THE GATE THIS MODULE'S OWN DOC ASKED FOR AND DID NOT HAVE.** It says it
+// "isolates everything that needs `bevy_ecs_ldtk` types", and `ldtk_runtime` is
+// the feature that supplies that crate — but the module was declared
+// unconditionally, so `--no-default-features` did not compile at all. Two
+// consumers (`ambition_platformer2d_runtime`, `ambition_menu`) declare this
+// dependency `default-features = false`, and BOTH of those declarations were
+// fiction: the workspace only built because feature unification turned
+// `ldtk_runtime` on from somewhere else. ⇒ measured 2026-08-18 by
+// `cargo check -p ambition_menu --features ldtk`, a legitimate configuration
+// that had never been built on its own.
+#[cfg(feature = "ldtk_runtime")]
 pub mod bevy_runtime;
 pub mod contract;
 mod conversion;
@@ -59,6 +70,7 @@ mod loading;
 mod project;
 mod surfaces;
 
+#[cfg(feature = "ldtk_runtime")]
 pub use bevy_runtime::*;
 // The LDtk entity-converter registry (ADR 0009): content registers
 // game-specific entity converters at plugin-build time; the engine's

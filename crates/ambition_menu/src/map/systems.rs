@@ -5,7 +5,10 @@
 
 use bevy::prelude::*;
 
-use super::{MapMenuState, MapRoomNode};
+use super::MapMenuState;
+// ⚠ only `populate_map_rooms` builds one, and that is behind `ldtk`.
+#[cfg(feature = "ldtk")]
+use super::MapRoomNode;
 
 pub fn track_room_visits(
     room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<

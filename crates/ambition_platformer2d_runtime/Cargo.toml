@@ -14,7 +14,13 @@ description = "The platformer ENGINE face (demo plan E5): a `PlatformerEnginePlu
 # The LDtk backend, named directly. This crate used to reach it through the
 # actor monolith's `ldtk_world` compatibility facade; the edge was already here
 # transitively, and declaring it is what let that facade be deleted (2026-08-15).
-ambition_platformer2d_ldtk = { path = "../ambition_platformer2d_ldtk", default-features = false }
+# ⛔ `default-features = false` here was FICTION until 2026-08-18: this crate
+# names `LdtkRuntimeIndex` and `LdtkRuntimeSpinePlugin`, both of which live in
+# the backend's `bevy_runtime` module, and that module only exists under
+# `ldtk_runtime`. The workspace built anyway because feature unification turned
+# the feature on from elsewhere — so the manifest said one thing and the build
+# did another. Say what is needed.
+ambition_platformer2d_ldtk = { path = "../ambition_platformer2d_ldtk", default-features = false, features = ["ldtk_runtime"] }
 ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_monolith", default-features = false, features = [
     "headless",
     "input",

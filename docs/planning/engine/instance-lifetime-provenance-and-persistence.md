@@ -485,14 +485,23 @@ quantity, never the projection, so a hand never reaches disk as a row. The two
 populations are disjoint now: a row is a quantity with no object, an object is an
 occurrence the checkpoint owns.
 
-⚠ **THE GATE for the other half, named rather than taken.** A quantity conferred
-by `<<give_item>>`/shop/drop still keeps its row through the mint, so it can
-still manifest a second object. Spending the row at the mint is the obvious fix
-and is wrong while the catalog sits outside the checkpoint horizon: a death that
-retracts an instance minted after the checkpoint would find the quantity already
-spent and annihilate it — the mirror image of the phantom. `OwnedItems`
-participating in the checkpoint baseline is the prerequisite, and the mint can
-spend the row in that same change and not before.
+✔ **THE GATE IS CLOSED (2026-08-19).** A quantity conferred by
+`<<give_item>>`/shop/drop used to keep its row through the mint, so it could
+still manifest a second object — measured as one granted javelin and two
+javelins on the floor. Spending the row at the mint was the obvious fix and was
+wrong while the catalog sat outside the checkpoint horizon: a death retracting an
+instance minted after the checkpoint would have found the quantity already spent
+and annihilated it, the mirror image of the phantom. `OwnedItems` participating
+in the checkpoint baseline was the named prerequisite; `OwnedItemsBaseline`
+supplied it and the mint's `owned.take(item, 1)` landed in the same change, with
+`a_granted_quantity_survives_the_death_that_retracts_the_instance_minted_from_it`
+as the poison that keeps the wrong shortcut (retracting the row at the reset)
+out.
+
+⛔ **the prose above it in `pickup/mod.rs` outlived the fix by half a day** — a
+⛔ note that goes on advising after it stops being true is worse than no note,
+because the next reader either re-fixes a closed hole or trusts a hole that is
+gone. Both copies are corrected; the enrollment audit that found them is below.
 `a_granted_quantity_survives_the_death_that_retracts_the_instance_minted_from_it`
 is the poison that keeps the wrong shortcut (retracting the row at the reset)
 out.

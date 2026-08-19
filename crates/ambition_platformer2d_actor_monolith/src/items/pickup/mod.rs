@@ -303,15 +303,22 @@ pub(crate) const MINTED_ITEM_HALF_EXTENT: Vec2 = Vec2::splat(PICKUP_HALF);
 /// the hand does. The two populations are disjoint now: a row is a quantity with
 /// no object; an object is an occurrence the checkpoint owns.
 ///
-/// ⛔ **the GRANTED half is still open, and the tempting fix is still wrong.** A
-/// quantity conferred by `<<give_item>>`, a shop or a drop still keeps its row
-/// through the mint, so it can still manifest a second object. ⛔ do not "fix" it
-/// by spending the count on throw while the catalog sits outside the checkpoint
-/// horizon: a death that retracts an instance minted after the checkpoint would
-/// find the quantity already spent and annihilate it, which trades a duplication
-/// bug for a deletion bug. THE GATE is `OwnedItems` participating in the
-/// checkpoint baseline; the mint can spend the row in the same change and not
-/// before.
+/// ✔ **the GRANTED half is CLOSED (2026-08-19), and the reason it stayed open so
+/// long is worth keeping.** A quantity conferred by `<<give_item>>`, a shop or a
+/// drop used to keep its row through the mint, so it could manifest a second
+/// object. Spending the count on throw was the tempting fix and was WRONG while
+/// the catalog sat outside the checkpoint horizon: a death retracting an instance
+/// minted after the checkpoint would have found the quantity already spent and
+/// annihilated it, trading a duplication bug for a deletion bug. The gate was
+/// `OwnedItems` participating in the checkpoint baseline — `OwnedItemsBaseline`
+/// supplied it, and the mint's spend landed in the same change, not before.
+///
+/// ⛔⛔ **THIS NOTE, AND TWO COPIES OF IT, OUTLIVED THE FIX.** Three places went
+/// on saying the half was open after it was closed. A ⛔ note is a claim with a
+/// shelf life: when the thing it warns about is fixed, the note does not become
+/// harmless, it becomes WRONG — and the next reader either re-fixes a closed hole
+/// or trusts a hole that is gone. ⇒ **when you close a gate, grep for the
+/// sentence that named it.**
 ///
 /// ⭐ **CUSTODY ALSO DECIDES WHERE THE OBJECT LIVES.** An object in a travelling
 /// body's custody is not resident in any room, so a room change does not retire
@@ -1596,15 +1603,20 @@ pub fn throw_held_item_system(
     // only record, and the grid dims. A weapon equipped out of a GRANTED quantity
     // still has its row, so the thrower keeps catalog ownership and can re-equip.
     //
-    // ⛔⛔ **and that second case is the surviving half of D132, deliberately left
-    // open.** Throwing a granted quantity MINTS an instance (below) without
-    // spending the row, so the row and the object both claim it and a second
-    // throw makes a second object. The row cannot simply be spent here: the
-    // catalog is not checkpoint state, so a death that retracts a
-    // minted-after-the-checkpoint instance would find the quantity already spent
-    // and ANNIHILATE it — the mirror image of the phantom this slice removed.
-    // ⇒ THE GATE: spending the row at the mint is correct only once `OwnedItems`
-    // participates in the checkpoint horizon.
+    // ⭐ **that second case WAS the surviving half of D132, and it is closed.**
+    // Throwing a granted quantity mints an instance, and the mint SPENDS the row
+    // it came from — see the block beside the mint below. The reason it could
+    // not be spent here for months was that `OwnedItems` was not checkpoint
+    // state, so a death retracting a minted-after-the-checkpoint instance would
+    // have found the quantity already gone and annihilated it. `OwnedItemsBaseline`
+    // answered that on 2026-08-19 and the spend landed in the same change.
+    //
+    // ⛔ **this note used to say the opposite and it outlived the fix**, which is
+    // the failure mode a ⛔ comment has: it goes on advising after it stops being
+    // true, and the next reader either re-fixes a closed hole or trusts a hole
+    // that is gone. The rule the note still carries is the useful part: only the
+    // equipped slot moves here, never the stored quantity — the spend belongs at
+    // the MINT, where the quantity actually becomes an object.
     unequip_held(
         &mut commands,
         player,

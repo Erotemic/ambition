@@ -918,7 +918,20 @@ fn a_runtime_mint_the_checkpoint_never_saw_is_not_resurrected_by_a_death() {
 /// object is never destroyed, the restore has nothing to rebuild, and this test
 /// passes while measuring nothing — the same vacuity A avoids the same way.
 ///
-/// ⛔⛔ **`#[ignore]`d BECAUSE IT IS A REAL PENDING FALSIFIER, not a flake.**
+/// ✔✔ **GREEN 2026-08-19, and poison-verified**: stubbing the checkpoint's
+/// describer out of the room build (`minted: None`) leaves this at ZERO
+/// occurrences, so the object really is destroyed by the reset and really is
+/// rebuilt by the describer arm — not merely surviving untouched.
+///
+/// ⚠ **it dies WITHOUT LEAVING, and that is the whole trick.** The death road
+/// writes `ResetToCheckpoint`, and the room is torn down and rebuilt around the
+/// body (`room-reset reasons=[Manual]`) — which is exactly the rebuild whose
+/// reinstatement debt the arm settles. An earlier draft walked next door and
+/// back to force the same rebuild, and could not: the return crossing is refused
+/// for a reason six measurements did not find. Staying put needs no door at all.
+///
+/// ⛔ **the eliminations are kept anyway**, because the return trip is a real
+/// harness gap that the next fixture to need it will hit:
 ///
 /// ⭐ **2026-08-19, second measurement — the describer arm LANDED and the debt is
 /// now settled correctly; what remains is downstream of it.** Traced through the
@@ -1006,9 +1019,6 @@ fn a_runtime_mint_the_checkpoint_never_saw_is_not_resurrected_by_a_death() {
 /// remaining work is a describer arm there, which needs the minted baseline
 /// threaded into the room-construction context.
 #[test]
-#[ignore = "PENDING: the describer arm produces the right request at the right \
-            position; the FIXTURE cannot walk back through a door to look. See \
-            the doc above and D133."]
 fn a_mint_banked_where_it_fell_comes_back_where_it_fell() {
     let mut sim = fixed_60hz_room_sim(ROOM);
     sim.step_n(base(), 8);
@@ -1042,30 +1052,19 @@ fn a_mint_banked_where_it_fell_comes_back_where_it_fell() {
     // custody and must still be able to describe it.
     commit_a_checkpoint(&mut sim);
 
-    // Destroyed: the room that holds it unloads.
-    walk_to(&mut sim, NEIGHBOUR);
-    assert!(
-        occurrences(&mut sim, &minted).is_empty(),
-        "the room did not unload, so nothing was destroyed and this test would \
-         pass without restoring anything"
-    );
+    // ⭐ **DIE WITHOUT LEAVING, so the room resets IN PLACE.** The death road
+    // writes `ResetToCheckpoint` and the room is torn down and rebuilt around
+    // the body — `room-reset reasons=[Manual]` — which is exactly the rebuild
+    // whose reinstatement debt this arm settles. Walking next door and back
+    // would test the same thing through a door the fixture cannot re-cross
+    // (six eliminations recorded above); staying put needs no door at all.
+    die(&mut sim);
+    sim.step_n(base(), 90);
 
-    // ⚠ **COME BACK, and no death is needed.** The claim is that the object
-    // survives its ROOM being forgotten and rebuilt, which the round trip
-    // already forces: the room unloaded above and destroyed it. A death is test
-    // A's mechanism because a HAND travels with the body; an object lying on a
-    // floor is only visible from the room it is in, and the death does not
-    // itself return the player there (measured: `duel_arena` stays loaded).
-    // ⚠ settle on the ground before reaching for the door: the drop above
-    // leaves the body mid-animation, and the crossing wants a grounded body in
-    // the zone.
-    sim.step_n(base(), 60);
-    walk_to(&mut sim, ROOM);
-    sim.step_n(base(), 30);
     assert_returned(
         &mut sim,
         &minted,
-        "a mint banked where it fell must come back where it fell — it is \
+        "a mint banked where it fell must survive its room being rebuilt — it is \
          described by nobody else, and no authored record can rebuild what the \
          simulation invented",
     );

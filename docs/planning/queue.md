@@ -5195,7 +5195,19 @@ what is missing:                                                 the REBUILD
   builds a `GroundItem` request at the ledger's own position instead of warning.
   Traced: `owed=["slot:0/0"]` → `described=true` → a request at
   `Vec2(1323.3, 954.8)` for `central_hub_complex`.
-  ▢ **what is left is a FIXTURE, not the mechanism** — two things, both measured
+  ✔✔ **CLOSED 2026-08-19 — A DROPPED RUNTIME MINT COMES BACK WHERE IT FELL, AND
+  THE FALSIFIER IS GREEN AND POISON-VERIFIED.**
+  `death_restores_the_checkpoint::a_mint_banked_where_it_fell_comes_back_where_it_fell`
+  mints on the production road, picks up, drops, banks at a real shrine, dies,
+  and asserts the object is back AND back at the position it fell. ⛔ stubbing
+  the describer out of the room build (`minted: None`) leaves it at ZERO, so the
+  object really is destroyed by the reset and really is rebuilt by the arm rather
+  than merely surviving untouched.
+  ⭐ **the trick was to DIE WITHOUT LEAVING.** The death road writes
+  `ResetToCheckpoint` and the room is torn down and rebuilt around the body
+  (`room-reset reasons=[Manual]`) — which is the same rebuild a round trip would
+  force, reached without a door.
+  ▢ **what is left is a HARNESS GAP, and it is no longer in this row's way** — two things, both measured
   after the arm landed:
   · a death does not return the player to the checkpoint's ROOM (`duel_arena`
     stays loaded), so there is nowhere to look from; test A only works because a

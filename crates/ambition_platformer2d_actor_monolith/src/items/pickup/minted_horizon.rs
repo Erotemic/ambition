@@ -209,20 +209,37 @@ pub fn capture_minted_item_baseline(
     }
 }
 
-/// **How to remake every runtime mint that is in a hand RIGHT NOW.**
+/// **How to remake every runtime mint that exists RIGHT NOW — in a hand or
+/// lying where somebody dropped it.**
 ///
 /// ⭐ **extracted so the checkpoint horizon and the durable one cannot fork.**
 /// The capture above reads it at a commit; the durable writer
 /// (`session::durable_horizon`) reads the same function every tick to decide what
-/// a save file should say. The population rule — `SpawnOrigin::Dynamic` AND not
-/// `InWorld` — is stated once, so a second describer cannot start describing
-/// authored occurrences by accident.
+/// a save file should say. The population rule — `SpawnOrigin::Dynamic` — is
+/// stated once, so a second describer cannot start describing authored
+/// occurrences by accident.
+///
+/// ⛔⛔ **IT USED TO SAY `AND NOT InWorld`, AND THAT LOST EVERY DROPPED MINT.**
+/// A runtime mint put down in a room was described by nobody: this refused it
+/// for being in the world, and no authored record can describe a thing the
+/// simulation invented. So the checkpoint knew WHERE it lay — a `Placed { room,
+/// at }` row is written for every in-world item — and had no way to make it
+/// again.
+///
+/// ⭐ **the two halves are exact complements, which is why the filter read as
+/// correct for a year.** An in-custody mint is DESCRIBED and unplaced, because
+/// the hand supplies where it is. An in-world mint is PLACED and, until now,
+/// undescribed. Neither half ever covered the other's case.
+///
+/// ⚠ **this widens a POPULATION, not a format.** `MintedItemDescription` is
+/// unchanged, so the baseline's codec, the three rollback baselines and the save
+/// version are all untouched by it — the reason D133's recorded cause (*"the
+/// description remembers no position"*) mattered is that it implied the opposite.
 pub fn live_minted_descriptions(
     carried: &Query<(&SimId, &SpawnOrigin, &GroundItem, &ItemCustody), With<RoomScopedEntity>>,
 ) -> BTreeMap<SimId, MintedItemDescription> {
     carried
         .iter()
-        .filter(|(_, _, _, custody)| !custody.in_world())
         .filter_map(|(occurrence, origin, ground, _)| {
             // ⛔ the DISCRIMINATOR IS THE PROVENANCE COMPONENT, never the shape
             // of the id string. `SimId::as_str`'s doc is explicit that the
@@ -367,14 +384,21 @@ mod tests {
         );
     }
 
-    /// **A later commit with nothing carried overwrites an earlier one's rows.**
+    /// **A later commit with nothing minted overwrites an earlier one's rows.**
     ///
     /// ⛔ the failure this pins is a capture that skips the write when the map
     /// would be empty: the previous checkpoint's descriptions survive, and a
-    /// death then rebuilds an object the player had thrown away and re-banked
-    /// without.
+    /// death then rebuilds an object that no longer exists.
+    ///
+    /// ⚠ **its fixture used to DROP the item and expect the row to vanish**, and
+    /// that only worked because the capture refused anything `InWorld` — the
+    /// defect fixed on 2026-08-19, where a dropped mint was described by nobody
+    /// and lost. Dropping is now correctly a no-op for this row: the object still
+    /// exists and still has to be describable. So the fixture states the case the
+    /// test is actually about — the occurrence CEASING TO EXIST — and the claim
+    /// it was written for is unchanged.
     #[test]
-    fn committing_with_nothing_minted_in_hand_clears_the_earlier_rows() {
+    fn committing_with_nothing_minted_clears_the_earlier_rows() {
         let mut app = horizon_world();
         let thrower = SimId::player_slot(0);
         let mint = SimId::spawned(&thrower, 0);
@@ -391,12 +415,83 @@ mod tests {
         app.update();
         assert!(!app.world().resource::<MintedItemBaseline>().is_empty());
 
-        *app.world_mut().get_mut::<ItemCustody>(item).expect("custody") = ItemCustody::InWorld;
+        app.world_mut().entity_mut(item).despawn();
         app.world_mut().write_message(CheckpointCommitted);
         app.update();
         assert!(
             app.world().resource::<MintedItemBaseline>().is_empty(),
-            "the second checkpoint saw an empty hand and must say so"
+            "the second checkpoint saw no mint at all and must say so"
         );
+    }
+
+    /// A runtime mint lying in the world, dropped rather than carried.
+    fn dropped(app: &mut App, occurrence: SimId, origin: SpawnOrigin, spec_id: &str) -> Entity {
+        app.world_mut()
+            .spawn((
+                occurrence,
+                origin,
+                ground(spec_id),
+                ItemCustody::InWorld,
+                RoomScopedEntity,
+            ))
+            .id()
+    }
+
+    /// **⛔⛔ A DROPPED RUNTIME MINT IS DESCRIBED TOO — it used to be described by
+    /// NOBODY.**
+    ///
+    /// The capture refused anything `InWorld`, and no authored record can
+    /// describe a thing the simulation invented, so a minted item put down in a
+    /// room was lost at the save horizon. The checkpoint knew WHERE it lay — a
+    /// `Placed { room, at }` row is written for every in-world item — and had no
+    /// way to make it again.
+    ///
+    /// ⭐ **Jon's dropped-weapon ruling is the product requirement behind it**: a
+    /// unique weapon stays where it fell, which is not expressible while the only
+    /// mints that survive are the ones in somebody's hand.
+    ///
+    /// ⚠ both custody states are asserted in ONE run, because the failure that
+    /// matters is a capture that trades one for the other rather than covering
+    /// both.
+    #[test]
+    fn the_capture_describes_a_dropped_mint_as_well_as_a_carried_one() {
+        let mut app = horizon_world();
+        let thrower = SimId::player_slot(0);
+        let carried_mint = SimId::spawned(&thrower, 0);
+        let dropped_mint = SimId::spawned(&thrower, 1);
+        carried(
+            &mut app,
+            carried_mint.clone(),
+            SpawnOrigin::Dynamic {
+                parent: thrower.clone(),
+                sequence: 0,
+            },
+            "spark_bomb",
+        );
+        dropped(
+            &mut app,
+            dropped_mint.clone(),
+            SpawnOrigin::Dynamic {
+                parent: thrower.clone(),
+                sequence: 1,
+            },
+            "cinder_beacon",
+        );
+        app.world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<CheckpointCommitted>>()
+            .write(CheckpointCommitted::default());
+        app.update();
+
+        let baseline = app.world().resource::<MintedItemBaseline>();
+        assert!(
+            baseline.description_of(&carried_mint).is_some(),
+            "the carried mint stopped being described, so widening the population \
+             traded one case for the other"
+        );
+        let dropped_row = baseline.description_of(&dropped_mint).expect(
+            "a mint lying in a room is described by NOBODY else — no authored \
+             record can describe what the simulation invented",
+        );
+        assert_eq!(dropped_row.held_item, "cinder_beacon");
     }
 }

@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 """Ambition test runner -- a pytest-like front door to the whole cargo suite.
 
-`./run_tests.sh` (which execs this) runs the BACKBONE: the repo's own Python
-suites, and `cargo test --workspace` — one cargo invocation, one build graph.
-That is broad-good-enough coverage and it is what you want in a dev cycle.
+`./run_tests.sh` (which execs this) runs the BACKBONE: repo-coupled Python
+checks and `cargo test --workspace` — one cargo invocation, one build graph.
+Self-contained maintainer-tool tests use the `detached_tool` marker and run
+explicitly with `./run_tests.sh --tool-tests` when those tools change. Periodic
+repository-hygiene audits run through `./run_tests.sh --maintenance` instead of
+blocking ordinary code validation. That is broad-good-enough coverage and it is
+what you want in a dev cycle.
 
 ⭐ **THE DEFAULT IS DELIBERATELY NOT EXHAUSTIVE, and that is Jon's call
 (2026-08-02).** The exhaustive plan — a separate `cargo test -p` per crate with
@@ -33,6 +37,8 @@ loud at the end of every run rather than letting a partial pass read as a full o
 Usage:
   ./run_tests.sh                     # BACKBONE: python suites + cargo test --workspace
   ./run_tests.sh --rust              # Rust/Cargo lane only; no Python checkers
+  ./run_tests.sh --tool-tests        # detached developer-tool tests only
+  ./run_tests.sh --maintenance       # periodic repository-hygiene audits only
   ./run_tests.sh -p <crate>          # only that crate's job (repeatable)
   ./run_tests.sh -k <substr>         # only tests whose name contains <substr>
   ./run_tests.sh --list              # print the job plan, run nothing
@@ -133,6 +139,13 @@ DENY_EXACT = {
     "profile",
 }
 DENY_PREFIX = ("android", "web", "visible_web", "static_")
+
+# Tests owned by self-contained maintainer tools do not belong to the
+# repo-wide correctness gate: ordinary engine/game edits cannot invalidate
+# them. They remain first-class tests and run explicitly through
+# `./run_tests.sh --tool-tests` after the tool changes.
+DETACHED_TOOL_MARKER = "detached_tool"
+PYTEST_TIMING_ARGS = ["--durations=20", "--durations-min=0.05"]
 
 # Big composition crates whose only non-default headless-safe features gate NO
 # test code (verified: app's portal_ldtk/profile, actors' profile, menu,
@@ -354,100 +367,40 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
     # `--heavy` is the MORE-than-exhaustive pass; it cannot mean less.
     everything = everything or heavy
 
-    # The repo's OWN tooling, which is Python and was therefore invisible to a
-    # cargo-only runner. `scripts/tests/` guards the goal guard, the test runner,
-    # the package-asset guard and the architectural absence contracts -- and on
-    # 2026-07-28 one of them had been RED for a day because a deliberate
-    # behaviour change (SessionStart must never run the checks) left a stale
-    # assertion behind and nothing ran it. A guard nobody executes is not a
-    # guard. Cheap (~3s) and dependency-free, so it runs in the backbone too,
-    # and FIRST: if the thing that decides whether the suite is honest is
-    # broken, that is the answer, not the 40 minutes of cargo behind it.
-    # `--rust` keeps this entire lane out of the plan. Keep Python/tooling jobs
-    # together under this seam so a Rust-only run cannot accidentally acquire a
-    # checker later merely because another job was appended elsewhere.
+    # Repo-coupled Python tests run first because they validate the cheap guards
+    # that decide whether this checkout is internally coherent. Detached tool
+    # tests live behind --tool-tests and periodic repository-hygiene audits live
+    # behind --maintenance; neither ordinary engine/game edits nor a Rust test
+    # failure need to wait for them.
+    #
+    # Everything after the pytest job is DEFERRED until the Rust backbone has
+    # started. This is an ordering decision, not a coverage reduction: warning,
+    # documentation, and compile-cost guards still contribute to the same final
+    # default verdict, but `cargo test --workspace` begins as soon as the cheap
+    # repo-coupled Python gate completes.
+    post_rust_repo_jobs: list[Job] = []
     if not only and include_python_tooling:
-        jobs.append(Job("repo tooling (scripts/tests)",
-                        [sys.executable, "-m", "pytest", "scripts/tests", "-q",
-                         "--durations=20", "--durations-min=0.05"]))
-        # ⭐ the WARNING gate, which CI has had all along and no local command
-        # did. `.github/workflows/test.yml` sets `RUSTFLAGS: -D warnings`, so a
-        # warning is a red build there; locally `cargo check` says nothing and
-        # five had accumulated in the tree by 2026-08-02.
-        # ⚠ it does NOT set RUSTFLAGS itself -- that is part of cargo's
-        # fingerprint and would rebuild the whole workspace, which is how this
-        # target directory filled the volume three times. It reads the SAME
-        # build's diagnostics instead. See the script's docstring.
-        jobs.append(Job("no warnings (cargo check --all-targets)",
-                        [sys.executable, "scripts/check_no_warnings.py"]))
-        # ⭐ **THE THIRD CHECKER NOTHING RAN**, and the pattern is now a habit
-        # worth naming: the two jobs above were both added for exactly this
-        # reason. `check_agent_kb.py` owns the doc-navigation contracts -- dead
-        # links between agent docs, stale planning evidence, ADR implications,
-        # and the inline-test review markers that keep a 200+ line test module
-        # from escaping review. Nothing invoked it, so all of that was advisory
-        # in the sense of "true only if somebody remembered".
-        # ⚠ it caught a live regression the day it was wired in: two inline test
-        # modules had crossed the 200-line proxy that morning with no marker.
-        # ⚠ its AGENTS.md SIZE finding is a warning rather than an error, because
-        # that overage is queue F6's open maintainer decision and a suite
-        # permanently red on a decision nobody has made teaches people to ignore
-        # the suite. Every other check in that file is fatal.
-        jobs.append(Job("agent KB (doc contracts + inline-test review)",
-                        [sys.executable, "scripts/check_agent_kb.py"]))
-        # Active documentation links remain a cheap correctness check. Completed
-        # campaign evidence is archival provenance; live planning should state open
-        # work rather than carrying machine-parsed completion claims.
-        jobs.append(Job("doc links (active KB)",
-                        [sys.executable, "scripts/check_doc_links.py"]))
-        # ⭐ **the compile-cost ratchet** (Jon, 2026-08-08: *"I want to quantify
-        # those compile wins as we do those. And to guard against compile time
-        # regressions."*). Guards the DETERMINISTIC cause — blast radius of an
-        # edit in measured SECONDS, largest recompilation unit, and the serial
-        # chain length that parallelism cannot compress — against a frozen
-        # baseline in `dev/`.
-        # ⛔ **still not a wall-clock threshold**, which is what the renamed job
-        # is saying. The seconds are per-crate WEIGHTS read from the committed
-        # `dev/ambition_dev_measurements/compile_units.jsonl` and frozen into the baseline; nothing is
-        # timed while the gate runs, so it cannot fail randomly on a busy
-        # machine. A stale weight is a known number in a reviewable file, which
-        # is the trade this instrument was built to make.
-        # ⚠ **it costs ~1.6s and runs NO build.** `cargo metadata --offline` and
-        # `cargo tree --offline` resolve manifests; neither compiles anything, so
-        # this is safe beside any other cargo work and cannot be the job that
-        # fills the disk.
-        # ⚠ and it needs no `--check`: a violation exits 1 by default. Gates that
-        # require a special enforcement flag are too easy to run in advisory mode
-        # accidentally.
-        jobs.append(Job("compile-cost ratchet (frozen weights, not a stopwatch)",
-                        [sys.executable, "scripts/compile_ratchet.py"]))
-        # The LDtk AUTHORING toolchain, which is the path every room in the
-        # game is built through and was the second Python suite nothing ran.
-        # Found 2026-07-28 with 11 of 149 RED, all of them pointing at asset
-        # paths that moved out of `crates/ambition_platformer2d_actor_monolith/assets` -- and the
-        # tools themselves defaulted to the same dead path, so a bare
-        # `ldtk level set-field` opened a file that had not existed for weeks.
-        # The lesson is the same one the job above records: a suite nobody
-        # executes stops being a suite and becomes a document about the past.
-        # ⚠ Its OWN interpreter, not `sys.executable`. `run_developer_setup.sh`
-        # installs each tool project into a venv beside it (`install_tool_project`
-        # → `uv pip install -e .`), so the LDtk package and its dependencies —
-        # `pyron` among them — live in `tools/ambition_ldtk_tools/.venv` and are
-        # NOT importable from the repo-root `.venv` this runner happens to be
-        # executing under. Running the suite with the root interpreter collapsed
-        # all 149 tests into `ModuleNotFoundError: pyron` at collection time.
-        #
-        # That was invisible for as long as the root venv had no `pytest` either:
-        # the job died one step EARLIER, for a different reason, and fixing the
-        # first exposed the second (2026-07-30). Falls back to this interpreter
-        # when the tool venv is absent, so a partially set-up clone reports the
-        # real import error rather than a missing-file error about python.
-        ldtk = REPO / "tools" / "ambition_ldtk_tools"
-        ldtk_python = ldtk / ".venv" / "bin" / "python"
-        jobs.append(Job("ldtk authoring tools (tools/ambition_ldtk_tools)",
-                        [str(ldtk_python) if ldtk_python.exists() else sys.executable,
-                         "-m", "pytest", "tests", "-q"],
-                        cwd=str(ldtk)))
+        jobs.append(Job(
+            "repo tooling (scripts/tests; repo-coupled)",
+            [
+                sys.executable, "-m", "pytest", "scripts/tests", "-q",
+                "-m", f"not {DETACHED_TOOL_MARKER}", *PYTEST_TIMING_ARGS,
+            ],
+        ))
+        post_rust_repo_jobs.extend([
+            Job(
+                "no warnings (cargo check --all-targets)",
+                [sys.executable, "scripts/check_no_warnings.py"],
+            ),
+            Job(
+                "doc links (active KB)",
+                [sys.executable, "scripts/check_doc_links.py"],
+            ),
+            Job(
+                "compile-cost ratchet (frozen weights, not a stopwatch)",
+                [sys.executable, "scripts/compile_ratchet.py"],
+            ),
+        ])
 
     def libtest(extra: list[str] = ()) -> list[str]:
         tail = list(libtest_args) + list(extra)
@@ -645,6 +598,13 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
                     [CARGO, "check", "--all-targets"],
                     cwd=str(REPO / "fixtures" / "external_consumer")))
 
+    # These checks are repo-coupled and remain part of the default verdict, but
+    # they do not gate STARTING the Rust tests. Running them after the workspace,
+    # render-composition, and external-consumer Rust jobs minimizes time to the
+    # feedback that dominates ordinary engine work. The no-warnings check also
+    # benefits from Cargo artifacts the Rust lane has just materialized.
+    jobs.extend(post_rust_repo_jobs)
+
     if not only and everything:
         jobs.append(Job("external consumer: outlander",
                         [CARGO, "test"],
@@ -766,6 +726,59 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
     return jobs
 
 
+def build_detached_tool_jobs(pytest_filter: str | None = None) -> list[Job]:
+    """Plan tests owned by self-contained developer tools, and nothing else.
+
+    Detached does not mean ignored: these tests run explicitly when their tool
+    changes. Keeping root-tool ownership as a marker expression makes it visible
+    at each test module and lets a tool migrate out of this repository without
+    leaving runner-specific filename exceptions behind.
+
+    The LDtk authoring package is already physically self-contained and owns its
+    own virtualenv, so its full pytest suite belongs here too. A focused `-k`
+    selects only the root detached tests; that avoids making an unrelated LDtk
+    suite fail with pytest's "no tests selected" exit code when the filter names
+    (for example) a goal-guard test.
+    """
+    argv = [
+        sys.executable, "-m", "pytest", "scripts/tests", "-q",
+        "-m", DETACHED_TOOL_MARKER, *PYTEST_TIMING_ARGS,
+    ]
+    if pytest_filter:
+        argv.extend(["-k", pytest_filter])
+        return [Job("detached repo developer tools", argv)]
+
+    ldtk = REPO / "tools" / "ambition_ldtk_tools"
+    ldtk_python = ldtk / ".venv" / "bin" / "python"
+    return [
+        Job("detached repo developer tools", argv),
+        Job(
+            "ldtk authoring tool tests",
+            [
+                str(ldtk_python) if ldtk_python.exists() else sys.executable,
+                "-m", "pytest", "tests", "-q", *PYTEST_TIMING_ARGS,
+            ],
+            cwd=str(ldtk),
+        ),
+    ]
+
+
+def build_maintenance_jobs() -> list[Job]:
+    """Plan periodic repository-hygiene audits, and nothing else.
+
+    `check_agent_kb.py` describes itself as periodic maintainer hygiene rather
+    than routine code validation. Keeping that ownership explicit prevents an
+    ungenerated local `.agent/index` or planning-corpus housekeeping issue from
+    delaying every Rust edit while retaining a one-command audit lane.
+    """
+    return [
+        Job(
+            "agent KB (periodic doc/index hygiene)",
+            [sys.executable, "scripts/check_agent_kb.py"],
+        )
+    ]
+
+
 # libtest ends every binary with a line naming how long IT ran, and that number
 # is the only part of a job's wall clock that is not the build graph.
 LIBTEST_DURATION = re.compile(r"finished in ([0-9]+\.[0-9]+)s")
@@ -858,7 +871,9 @@ def telemetry_envelope() -> dict:
 
 
 def append_cost_ledger(results: list[JobResult], exhaustive: bool,
-                       filtered: bool, rust_only: bool = False) -> Path | None:
+                       filtered: bool, rust_only: bool = False,
+                       tool_tests_only: bool = False,
+                       maintenance_only: bool = False) -> Path | None:
     """Record what this run COST, on every run, so two runs can be compared.
 
     ⭐ **Front 0 of the test-iteration campaign** (Jon, 2026-08-02: *"testing
@@ -907,6 +922,8 @@ def append_cost_ledger(results: list[JobResult], exhaustive: bool,
         "exhaustive": exhaustive,
         "filtered": filtered,
         "rust_only": rust_only,
+        "tool_tests_only": tool_tests_only,
+        "maintenance_only": maintenance_only,
         "per_job": timings_payload(results),
     }
     try:
@@ -933,25 +950,38 @@ def write_status(path: Path, payload: dict) -> None:
     tmp.replace(path)
 
 
-def coverage_notice(exhaustive: bool, filtered: bool, rust_only: bool = False) -> str:
-    """What this plan did NOT cover, said out loud.
+def coverage_notice(
+    exhaustive: bool,
+    filtered: bool,
+    rust_only: bool = False,
+    tool_tests_only: bool = False,
+    maintenance_only: bool = False,
+) -> str:
+    """State the intentionally omitted validation lanes out loud."""
+    if tool_tests_only:
+        return (
+            "\n  ⚠ --tool-tests ran detached developer-tool tests only. "
+            "Repo-coupled validation, Rust/Cargo lanes, and periodic maintenance "
+            "audits were NOT run."
+        )
+    if maintenance_only:
+        return (
+            "\n  ⚠ --maintenance ran periodic repository-hygiene audits only. "
+            "Repo-coupled tests, Rust/Cargo lanes, and detached tool tests were NOT run."
+        )
 
-    A green backbone must not be readable as a green everything. This is a
-    printed line, not a guard: it states the gap and names the flag that closes
-    it, and then gets out of the way.
-
-    ⚠ It is deliberately NOT an argument that the gap must be closed. Jon,
-    2026-08-02, on the wasm target having sat broken for four days: *"we let it
-    sit for 4 days because we didn't care about it for 4 days."* Not caring was
-    the correct call. The notice exists so the choice stays visible and
-    deliberate, not so someone feels obliged to spend an hour closing it.
-    """
-    notices: list[str] = []
+    notices: list[str] = [
+        "\n  · detached developer-tool tests were omitted from repo-wide "
+        "validation; run `./run_tests.sh --tool-tests` after editing those tools.",
+        "\n  · periodic repository-hygiene audits were omitted; run "
+        "`./run_tests.sh --maintenance` when auditing agent indexes, planning, "
+        "or knowledge-base structure.",
+    ]
     if rust_only:
         notices.append(
             "\n  ⚠ --rust ran the Rust/Cargo lane only. Python repo checkers and "
             "authoring-tool pytest suites were NOT run. Run without --rust "
-            "for the full backbone."
+            "for the full repo backbone."
         )
     if not exhaustive:
         scope = "this package filter" if filtered else "the default BACKBONE plan"
@@ -971,13 +1001,17 @@ def coverage_notice(exhaustive: bool, filtered: bool, rust_only: bool = False) -
 
 def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
         status_json: str | None = None, exhaustive: bool = False,
-        filtered: bool = False, rust_only: bool = False) -> int:
+        filtered: bool = False, rust_only: bool = False,
+        tool_tests_only: bool = False,
+        maintenance_only: bool = False) -> int:
     if list_only:
         print(f"Planned {len(jobs)} job(s):\n")
         for j in jobs:
             print(f"  {j.name}")
             print(f"      {' '.join(j.argv)}")
-        print(coverage_notice(exhaustive, filtered, rust_only))
+        print(coverage_notice(
+            exhaustive, filtered, rust_only, tool_tests_only, maintenance_only
+        ))
         return 0
 
     env = dict(os.environ)
@@ -1011,7 +1045,7 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
     # nowhere in the output. One refusal up front, naming the remedy, is worth
     # more than any amount of diagnosing that.
     free_gb = free_gb_on_target()
-    if free_gb < MIN_FREE_GB:
+    if not (tool_tests_only or maintenance_only) and free_gb < MIN_FREE_GB:
         print(
             f"REFUSING: {free_gb:.1f} GB free on {target_dir()}, and a full suite "
             f"needs about "
@@ -1029,7 +1063,9 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
     # `free_gb` travels in the status file so a long autonomous run can WATCH
     # the headroom fall instead of discovering it at zero.
     base = {"pid": os.getpid(), "started": time.time(), "jobs": len(jobs),
-            "free_gb_at_start": round(free_gb, 1), "rust_only": rust_only}
+            "free_gb_at_start": round(free_gb, 1), "rust_only": rust_only,
+            "tool_tests_only": tool_tests_only,
+            "maintenance_only": maintenance_only}
     write_status(status, {**base, "state": "running", "finished_jobs": 0})
     # Not a happy-path write: a suite that dies mid-run (Ctrl-C, an unhandled
     # exception) must not leave `"running"` behind, or a future reader waits on
@@ -1077,7 +1113,9 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
         for n in failed:
             print(f"    - {n}")
     print(timing_report(results))
-    notice = coverage_notice(exhaustive, filtered, rust_only)
+    notice = coverage_notice(
+        exhaustive, filtered, rust_only, tool_tests_only, maintenance_only
+    )
     if notice:
         print(notice)
     print("=" * 60)
@@ -1090,7 +1128,9 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
     # ...and the ledger every run appends to, whether or not anybody asked.
     # `--timings-json` is for looking at ONE run; this is what makes the next
     # measurement a comparison instead of another hand-read log.
-    ledger = append_cost_ledger(results, exhaustive, filtered, rust_only)
+    ledger = append_cost_ledger(
+        results, exhaustive, filtered, rust_only, tool_tests_only, maintenance_only
+    )
     if ledger:
         print(f"  cost appended to {ledger.relative_to(REPO) if ledger.is_relative_to(REPO) else ledger}")
 
@@ -1159,6 +1199,13 @@ def main() -> int:
     ap.add_argument("--rust", action="store_true",
                     help="run the Rust/Cargo lane only; skip all Python checker "
                          "and authoring-tool pytest jobs")
+    ap.add_argument("--tool-tests", action="store_true",
+                    help="run detached developer-tool tests only; these are "
+                         "excluded from repo-wide validation because ordinary "
+                         "engine/game edits cannot invalidate them")
+    ap.add_argument("--maintenance", action="store_true",
+                    help="run periodic repository-hygiene audits only; these "
+                         "maintainer checks do not block ordinary code validation")
     ap.add_argument("--list", action="store_true", help="print job plan, run nothing")
     ap.add_argument("-k", metavar="SUBSTR", default=None,
                     help="only tests whose name contains SUBSTR (libtest filter)")
@@ -1176,6 +1223,38 @@ def main() -> int:
     ap.add_argument("cargo_extra", nargs="*",
                     help="args after `--` forwarded to libtest")
     args = ap.parse_args()
+
+    scope_flags = [args.rust, args.tool_tests, args.maintenance]
+    if sum(bool(flag) for flag in scope_flags) > 1:
+        ap.error("--rust, --tool-tests, and --maintenance are mutually exclusive scopes")
+    if (args.tool_tests or args.maintenance) and args.package:
+        ap.error("--tool-tests/--maintenance do not accept -p/--package")
+    if (args.tool_tests or args.maintenance) and (args.heavy or args.run_everything):
+        ap.error("focused tool/maintenance lanes cannot be combined with exhaustive modes")
+    if (args.tool_tests or args.maintenance) and args.cargo_extra:
+        ap.error("arguments after -- are libtest arguments and do not apply to tool/maintenance lanes")
+    if args.maintenance and args.k:
+        ap.error("--maintenance does not accept -k; run the maintenance checker directly to focus it")
+
+    if args.tool_tests:
+        jobs = build_detached_tool_jobs(args.k)
+        print("run_tests: DETACHED TOOL lane requested; repo-coupled Python and "
+              "Rust/Cargo jobs are omitted.")
+        return run(
+            jobs, args.list, timings_json=args.timings_json,
+            status_json=args.status_json, exhaustive=False, filtered=False,
+            tool_tests_only=True,
+        )
+
+    if args.maintenance:
+        jobs = build_maintenance_jobs()
+        print("run_tests: MAINTENANCE lane requested; routine repo tests, detached "
+              "tool suites, and Rust/Cargo jobs are omitted.")
+        return run(
+            jobs, args.list, timings_json=args.timings_json,
+            status_json=args.status_json, exhaustive=False, filtered=False,
+            maintenance_only=True,
+        )
 
     libtest_args = list(args.cargo_extra)
     if args.k:

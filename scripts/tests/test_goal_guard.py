@@ -23,6 +23,11 @@ from pathlib import Path
 
 import pytest
 
+# Goal guard is a self-contained maintainer tool, not an Ambition runtime
+# feature. Repo-wide validation excludes detached-tool tests; run them
+# explicitly after editing the tool with `./run_tests.sh --tool-tests`.
+pytestmark = pytest.mark.detached_tool
+
 GUARD_SOURCE = Path(__file__).resolve().parents[1] / "goal_guard.py"
 
 
@@ -34,18 +39,18 @@ def guard_in(repo: Path) -> Path:
     return repo / "scripts" / "goal_guard.py"
 
 
-@pytest.fixture()
-def repo(tmp_path: Path) -> Path:
-    """A real git repo — the guard's progress oracle is HEAD, not a counter.
+@pytest.fixture(scope="session")
+def repo_template(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """One committed tiny repo, copied per test instead of rebuilt per test.
 
-    The guard is COPIED IN at `scripts/goal_guard.py` rather than run from the
-    checkout, because the guard locates its own `.goal/` from `__file__`. Running
-    the checkout's copy against a tmp repo would aim every test in this file at
-    the REAL `.goal/` — and `test_all_checks_passing_clears_the_goal` would then
-    disarm whatever run is live. Copying it also means these tests exercise the
-    production resolution rule instead of a test-only seam.
+    The guard's progress oracle genuinely is Git, so these remain real Git
+    repositories. What was expensive was paying five process launches (`init`,
+    two `config`s, `add`, `commit`) for every assertion even though every test
+    begins from the same commit. A byte-for-byte copy of this tiny repository
+    gives each test independent refs/index/worktree while preserving the real
+    Git behavior the fixture exists to exercise.
     """
-    root = tmp_path / "repo"
+    root = tmp_path_factory.mktemp("goal-guard-template") / "repo"
     (root / "scripts").mkdir(parents=True)
     shutil.copyfile(GUARD_SOURCE, guard_in(root))
     git(root, "init", "-q")
@@ -54,6 +59,14 @@ def repo(tmp_path: Path) -> Path:
     (root / "seed.txt").write_text("seed\n")
     git(root, "add", "seed.txt", "scripts/goal_guard.py")
     git(root, "commit", "-qm", "seed")
+    return root
+
+
+@pytest.fixture()
+def repo(tmp_path: Path, repo_template: Path) -> Path:
+    """An independent real Git repo starting from the shared committed template."""
+    root = tmp_path / "repo"
+    shutil.copytree(repo_template, root)
     return root
 
 

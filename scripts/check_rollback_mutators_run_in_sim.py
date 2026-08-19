@@ -55,6 +55,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import functools
 import re
 import sys
 from pathlib import Path
@@ -83,6 +84,9 @@ NON_REWINDING = ("Update", "PostUpdate", "PreUpdate", "FixedUpdate")
 _CANONICAL = re.compile(r"rollback_(?:component|resource)_canonical::<([^>]+)>")
 _PUB_FN = re.compile(r"\bfn\s+([a-z_][a-z_0-9]*)\s*\(")
 _CFG_TEST = re.compile(r"#\[cfg\(test\)\]\s*mod\s+[A-Za-z_][A-Za-z_0-9]*\s*\{")
+_MUTABLE_PARAM_TYPE = re.compile(
+    r"(?:&mut\s+|ResMut\s*<\s*)(?:[A-Za-z_][A-Za-z_0-9]*::)*([A-Z][A-Za-z_0-9]*)\b"
+)
 
 # ── Waivers ──
 #
@@ -153,7 +157,16 @@ def _is_test_path(path: Path) -> bool:
     )
 
 
-def _production_sources(repo: Path):
+@functools.cache
+def _production_sources(repo: Path = REPO) -> tuple[tuple[Path, str], ...]:
+    """Read and normalize each production Rust source once per repository.
+
+    `collect()` needs the same source corpus twice: once to discover which
+    systems mutate rollback state and once to find where those systems are
+    scheduled. Re-reading and re-stripping every Rust file for the second pass
+    adds no information inside one checker invocation.
+    """
+    found: list[tuple[Path, str]] = []
     for root in SOURCE_ROOTS:
         if not (repo / root).is_dir():
             continue
@@ -161,9 +174,11 @@ def _production_sources(repo: Path):
             if _is_test_path(src):
                 continue
             text = strip_test_modules(strip_comments(src.read_text(errors="replace")))
-            yield src, text
+            found.append((src, text))
+    return tuple(found)
 
 
+@functools.cache
 def rollback_types(repo: Path = REPO) -> set[str]:
     """Every type registered for canonical rollback, by its bare name."""
     registry = repo / ROLLBACK_REGISTRY.relative_to(REPO)
@@ -187,18 +202,21 @@ def _params(text: str, open_paren: int) -> str:
     return text[open_paren : index - 1]
 
 
+@functools.cache
 def mutating_systems(repo: Path = REPO) -> dict[str, list[str]]:
-    """system name → the rollback types its signature takes mutably."""
+    """system name → the rollback types its signature takes mutably.
+
+    Extract mutable parameter type names once and intersect with the rollback
+    registry. The old implementation ran one regular expression per rollback
+    type for every function signature — hundreds of regex searches for each
+    candidate function even though a signature names only a handful of types.
+    """
     types = rollback_types(repo)
     found: dict[str, list[str]] = {}
     for _src, text in _production_sources(repo):
         for match in _PUB_FN.finditer(text):
             params = _params(text, match.end())
-            hits = sorted(
-                t
-                for t in types
-                if re.search(rf"(?:&mut\s+|ResMut\s*<\s*)[\w:]*\b{t}\b", params)
-            )
+            hits = sorted(types.intersection(_MUTABLE_PARAM_TYPE.findall(params)))
             if hits:
                 found.setdefault(match.group(1), hits)
     return found

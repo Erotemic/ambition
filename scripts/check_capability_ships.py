@@ -40,6 +40,7 @@ this script's business.
 from __future__ import annotations
 
 import argparse
+import functools
 import json
 import re
 import subprocess
@@ -85,6 +86,7 @@ GATED_MOD = re.compile(
 PLAIN_MOD = re.compile(r"(?:pub(?:\([^)]*\))?\s+)?mod\s+(?P<module>\w+)\s*;")
 
 
+@functools.cache
 def _crate_roots() -> list[Path]:
     out = subprocess.run(
         ["cargo", "metadata", "--no-deps", "--format-version", "1"],
@@ -106,6 +108,12 @@ def _crate_roots() -> list[Path]:
     return roots
 
 
+@functools.cache
+def _source(path: Path) -> str:
+    """Read one Rust source file once per checker process."""
+    return path.read_text(encoding="utf-8", errors="ignore")
+
+
 def _resolve_mod(parent: Path, module: str) -> Path | None:
     for candidate in (
         parent.parent / f"{module}.rs",
@@ -118,6 +126,7 @@ def _resolve_mod(parent: Path, module: str) -> Path | None:
     return None
 
 
+@functools.cache
 def _gates_by_file() -> dict[Path, frozenset[str]]:
     """Every source file → the features gating it, walked from each crate root.
 
@@ -133,7 +142,7 @@ def _gates_by_file() -> dict[Path, frozenset[str]]:
             if path in gates and gates[path] <= inherited:
                 continue
             gates[path] = inherited if path not in gates else gates[path] & inherited
-            source = path.read_text(encoding="utf-8", errors="ignore")
+            source = _source(path)
             gated = {m["module"]: m["feature"] for m in GATED_MOD.finditer(source)}
             for match in PLAIN_MOD.finditer(source):
                 module = match["module"]
@@ -189,7 +198,7 @@ def main() -> int:
     for path, features in gates.items():
         if _is_test(path):
             continue
-        source = _without_comments(path.read_text(encoding="utf-8", errors="ignore"))
+        source = _without_comments(_source(path))
         for match in OPTIONAL_READ.finditer(source):
             optional_reads.setdefault(match["ty"], set()).add(path)
         bindings = {m["name"]: m["ty"] for m in LOCAL_BINDING.finditer(source)}

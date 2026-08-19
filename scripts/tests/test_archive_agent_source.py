@@ -9,6 +9,8 @@ from types import SimpleNamespace
 
 import pytest
 
+pytestmark = pytest.mark.detached_tool
+
 _ARCHIVER_PATH = Path(__file__).resolve().parent.parent / "archive_agent_source.py"
 
 

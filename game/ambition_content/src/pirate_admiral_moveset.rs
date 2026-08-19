@@ -724,7 +724,7 @@ mod tests {
     // -----------------------------------------------------------------------
 
     use ambition_characters::brain::fighter::options::{
-        lifting_candidates, AttackBinding, AttackCandidate, AttackVerb,
+        lifting_candidates, ActionLegality, AttackBinding, AttackCandidate, AttackVerb,
     };
     use ambition_characters::brain::fighter::recovery::{
         BodyKit, RecoveryLens, RecoveryLift, RecoveryQuery,
@@ -754,6 +754,7 @@ mod tests {
                     verb: AttackVerb::Special,
                     direction: ambition_characters::actor::attack_gesture::AttackDir::Up,
                 },
+                legality: ActionLegality::Now,
             })
             .collect()
     }

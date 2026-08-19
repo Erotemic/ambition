@@ -270,6 +270,43 @@ pub struct AttackCandidate {
     pub move_id: String,
     pub frames: MoveFrameData,
     pub binding: AttackBinding,
+    /// **Whether the BODY can begin this move on this tick** — see
+    /// [`ActionLegality`]. Supplied by the caller, which is the only layer that
+    /// can see the running `MovePlayback`.
+    pub legality: ActionLegality,
+}
+
+/// **CAN this action begin right now?** — a question about the BODY's state,
+/// kept deliberately separate from *how useful would it be*, which is the
+/// scorer's ([`Features`]) subject.
+///
+/// ⛔⛔ **the two were conflated and it was measured.** `capture_probe`,
+/// 2026-08-19: of 54 CPU grab presses in a sixty-second match, **33 were issued
+/// while a smash already owned the body** and were dropped by
+/// `trigger_moveset_moves` before they did anything. The brain was scoring an
+/// action it could not perform, every tick, and no feature could express that
+/// because it is not a question about the opponent or the geometry at all.
+///
+/// ⭐ **it is a FILTER, never a weight.** A cheap move that cannot be started is
+/// not a slightly worse option than one that can — it is not an option. Pricing
+/// it low would leave it winning whenever the kit is bad, which is exactly how
+/// the "an attack that cannot REACH is not an option" filter came to exist one
+/// class over.
+///
+/// ⚠ **the third state is deliberately absent and named here so it is not
+/// invented twice.** Once `BodyActionBuffer` is actually fed, a press that
+/// cannot execute *now* but would be consumed on the first actionable frame
+/// becomes `BufferableSoon`, and the brain may legitimately issue it. Until
+/// then, "legal eventually" must not read as "press now".
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ActionLegality {
+    /// Nothing owns the body, or the running move's cancel windows admit this
+    /// one under its hit-state condition.
+    #[default]
+    Now,
+    /// Another move owns the body and its cancel windows do not admit this one.
+    /// The press would be discarded, so the brain does not spend it.
+    BlockedByPlayback,
 }
 
 /// L2's working set for one decision tick.
@@ -350,8 +387,14 @@ const REACH_TOLERANCE: f32 = 2.0;
 /// only airborne-legal moves — which is why nothing here has to ask whether a
 /// grounded-only move could be pressed off the stage.
 pub fn lifting_candidates(kit: &[AttackCandidate]) -> Vec<&AttackCandidate> {
-    let mut lifts: Vec<&AttackCandidate> =
-        kit.iter().filter(|c| c.frames.lift_speed > 0.0).collect();
+    // ⚠ **legality applies here too, and it is the same rule.** A body past the
+    // blastzone has one problem, but a lifting move it cannot BEGIN does not
+    // solve it — offering one would make `Recovery` name a route the press
+    // cannot take, which is the failure this filter exists to stop one layer up.
+    let mut lifts: Vec<&AttackCandidate> = kit
+        .iter()
+        .filter(|c| c.legality == ActionLegality::Now && c.frames.lift_speed > 0.0)
+        .collect();
     lifts.sort_by(|a, b| {
         b.frames
             .lift_speed
@@ -487,6 +530,23 @@ pub fn generate_options(
     let kit_max_damage = kit.iter().map(|c| c.frames.max_damage).max().unwrap_or(0);
     let mut attacks: Vec<AttackOption> = kit
         .iter()
+        // **AN ATTACK THE BODY CANNOT BEGIN IS NOT AN OPTION.** (measured
+        // 2026-08-19) Sibling to the "cannot reach" filter below, and the other
+        // half of the same sentence: that one refuses a move that cannot touch
+        // the opponent, this refuses one the BODY cannot start. `capture_probe`
+        // measured 33 of 54 CPU grab presses issued while a smash already owned
+        // the body, every one dropped by `trigger_moveset_moves`.
+        //
+        // ⭐ **filtered here rather than scored low**, and rather than filtered
+        // after scoring: `attacks.first()` always answers, so an impossible move
+        // priced low still wins whenever the rest of the kit prices worse — and
+        // an option that cannot happen should never have become an option.
+        //
+        // ⚠ the legality is the CALLER's answer, from the same `cancel_permits`
+        // question the trigger system asks. A brain guessing from its own phase
+        // would be answering a different question than the one that drops the
+        // press.
+        .filter(|c| c.legality == ActionLegality::Now)
         .map(|c| {
             use super::options::AttackVerb;
             let fa = frame_advantage(c.frames.startup_s, their_commitment);
@@ -546,6 +606,7 @@ pub fn generate_options(
     // most-selected move in one seat's whole `Disadvantage` column while being
     // the one move the filter could not see.
     attacks.retain(|attack| attack.frames.coverage.is_none() || attack.features.reach_fit > 0.0);
+
 
     // Ties break on the move id, so the best option is a function of the world and
     // not of the kit's declaration order (ADR 0023: no order-dependent decisions).

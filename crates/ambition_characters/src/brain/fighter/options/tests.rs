@@ -49,6 +49,7 @@ fn candidate(id: &str, startup_s: f32, reach: f32) -> AttackCandidate {
             verb: AttackVerb::Basic,
             direction: AttackDir::Forward,
         },
+        legality: ActionLegality::Now,
     }
 }
 
@@ -726,6 +727,7 @@ fn the_smash_outbids_the_jab_on_a_punish_it_fits() {
             verb: AttackVerb::Smash,
             direction: AttackDir::Forward,
         },
+        legality: ActionLegality::Now,
     };
     let jab = AttackCandidate {
         move_id: "jab".to_string(),
@@ -733,6 +735,7 @@ fn the_smash_outbids_the_jab_on_a_punish_it_fits() {
             verb: AttackVerb::Basic,
             direction: AttackDir::Forward,
         },
+        legality: ActionLegality::Now,
         frames: MoveFrameData {
             max_damage: 4,
             ..frames(0.1, 100.0, 0.2)
@@ -976,6 +979,7 @@ fn grab_candidate(reach: f32) -> AttackCandidate {
             verb: AttackVerb::Grab,
             direction: AttackDir::Neutral,
         },
+        legality: ActionLegality::Now,
     }
 }
 
@@ -1142,5 +1146,103 @@ fn an_airborne_body_is_worth_nothing_to_hold() {
         0.0,
         "a body in the air cannot be captured at all, so no state of it is worth \
          spending a grab on"
+    );
+}
+
+// ── legality: can this action begin at all? ──────────────────────────────
+
+/// **⛔⛔ AN ATTACK THE BODY CANNOT BEGIN IS NOT AN OPTION.**
+///
+/// Measured with `capture_probe` on 2026-08-19: of 54 CPU grab presses in a
+/// sixty-second match, **33 were issued while a smash already owned the body**
+/// and were dropped by `trigger_moveset_moves` before they did anything. No
+/// feature could express that, because it is not a question about the opponent
+/// or the geometry — it is a question about the body.
+///
+/// ⚠ **the sibling filter cannot catch it.** "An attack that cannot REACH is not
+/// an option" refuses a move that cannot touch the foe; this one is in reach and
+/// still cannot happen.
+#[test]
+fn an_attack_the_body_cannot_begin_is_not_offered() {
+    let view = view_with(300.0, 340.0);
+    let mut blocked = candidate("smash", 0.1, 60.0);
+    blocked.legality = ActionLegality::BlockedByPlayback;
+    let free = candidate("jab", 0.1, 60.0);
+    let kit = [blocked, free];
+
+    let opts = generate_options(
+        Perceived::cheating(&view),
+        Situation::Neutral,
+        &kit,
+        &UtilityWeights::v1(),
+    );
+
+    // ⛔ the zero floor: a run that offered NOTHING would satisfy "the blocked
+    // move is absent" while proving the filter deletes everything.
+    assert!(
+        !opts.attacks.is_empty(),
+        "the whole kit was filtered out, so this measured nothing"
+    );
+    assert!(
+        opts.attacks.iter().all(|a| a.move_id != "smash"),
+        "a move the body cannot begin was offered anyway: {:?}",
+        opts.attacks.iter().map(|a| &a.move_id).collect::<Vec<_>>()
+    );
+    assert!(
+        opts.attacks.iter().any(|a| a.move_id == "jab"),
+        "the startable move should still be there"
+    );
+}
+
+/// **Legality is a FILTER, not a penalty — asserted where the difference shows.**
+///
+/// The blocked move here is the BEST option in the kit by every feature: it
+/// reaches perfectly and the alternative barely reaches at all. Scoring it low
+/// would still let it win, because `attacks.first()` always answers; only
+/// removing it produces the right press.
+#[test]
+fn a_blocked_move_loses_even_when_it_is_the_best_one() {
+    let view = view_with(300.0, 340.0);
+    let mut best = candidate("perfect", 0.05, 40.0);
+    best.legality = ActionLegality::BlockedByPlayback;
+    // ⚠ it must REACH, just badly. An 8px reach against a 40px gap is filtered
+    // by the *sibling* ("cannot reach") rule, which would leave the kit empty
+    // and make this test pass for the wrong reason — it did, on the first draft.
+    let poor = candidate("stubby", 0.3, 20.0);
+    let kit = [best, poor];
+
+    let opts = generate_options(
+        Perceived::cheating(&view),
+        Situation::Neutral,
+        &kit,
+        &UtilityWeights::v1(),
+    );
+    assert_eq!(
+        opts.best_attack().map(|a| a.move_id.as_str()),
+        Some("stubby"),
+        "the blocked move was the strongest and still must not be pressed"
+    );
+}
+
+/// **A lifting move the body cannot begin does not answer `Recovery` either.**
+///
+/// A body past the blastzone has exactly one problem, which is what makes this
+/// the tempting place to skip the check — but a route the press cannot take is
+/// not a route.
+#[test]
+fn recovery_does_not_offer_a_lift_the_body_cannot_begin() {
+    let mut blocked = lifting_candidate("blocked_lift", 500.0, 0.05);
+    blocked.legality = ActionLegality::BlockedByPlayback;
+    let free = lifting_candidate("free_lift", 100.0, 0.05);
+    let kit = [blocked, free];
+
+    let lifts = lifting_candidates(&kit);
+    assert!(
+        !lifts.is_empty(),
+        "no lift survived at all, so this measured nothing"
+    );
+    assert!(
+        lifts.iter().all(|c| c.move_id != "blocked_lift"),
+        "the strongest lift cannot be started and was still offered"
     );
 }

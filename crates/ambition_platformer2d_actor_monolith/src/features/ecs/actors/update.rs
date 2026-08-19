@@ -226,6 +226,20 @@ pub fn tick_actor_brains(
                 // `Option` because a body with no moveset (a peaceful NPC, a
                 // prop) has no kit, and an empty kit is the honest answer.
                 Option<&crate::combat::moveset::ActorMoveset>,
+                // **THE MOVE THAT CURRENTLY OWNS THIS BODY**, so the attack kit
+                // can say which of its candidates could be STARTED this tick —
+                // see `ActionLegality`. Here for exactly the reason the moveset
+                // above is: the brain reads no ECS, so a fact it needs about the
+                // body arrives through the world-in port.
+                //
+                // ⛔ **it must be this component and not the body's PHASE.** The
+                // rule that actually drops a press is
+                // `spec.cancel_permits(t, landed_hit, names)`, which depends on
+                // the running move's authored cancel windows and on whether it
+                // has landed a hit. A brain inferring "I look like I am in
+                // recovery" would be answering a different question and would be
+                // wrong for every move with a cancel window.
+                Option<&crate::combat::moveset::MovePlayback>,
                 // **WHAT IS TRUE OF THIS BODY'S LOCOMOTION**, published once per
                 // tick by the movement kernel. The brain snapshot's
                 // `turns_at_walls` reads it instead of the spawn-time
@@ -361,7 +375,7 @@ pub fn tick_actor_brains(
         _,
         _,
         _,
-        (clusters, _, faction, _, _, _, _, _, _),
+        (clusters, _, faction, _, _, _, _, _, _, _),
         in_a_fight,
     ) in &actors
     {
@@ -418,6 +432,7 @@ pub fn tick_actor_brains(
             mut perception_memory,
             perception,
             moveset,
+            playback,
             motion_facts,
             motion_model,
         ),
@@ -555,6 +570,12 @@ pub fn tick_actor_brains(
                         enemy_gravity_dir,
                         moveset,
                         Some(brain_ref),
+                        // **THE BODY'S RUNNING MOVE**, so the kit can say which
+                        // of its candidates the body could actually BEGIN this
+                        // tick. Threaded rather than re-queried because the
+                        // brain layer reads no ECS, exactly like the moveset
+                        // above.
+                        playback,
                         // A body with no movement clusters publishes no
                         // locomotion facts, and "none of them true" is the
                         // honest reading of that.
@@ -1479,6 +1500,12 @@ pub(super) fn attack_kit_of(
     // need that yet: the cheaper answer is not to build it for a brain that
     // cannot use it, and this is the one place that knows which brain a body has.
     brain: Option<&ambition_characters::brain::Brain>,
+    // **The move that currently owns the body, if any.** Each candidate carries
+    // whether it could be STARTED this tick, answered by the same
+    // `cancel_permits` call `trigger_moveset_moves` makes — see
+    // `ActionLegality`. `None` means nothing owns the body and everything is
+    // startable.
+    playback: Option<&crate::combat::moveset::MovePlayback>,
 ) -> Vec<ambition_characters::brain::fighter::options::AttackCandidate> {
     use ambition_characters::brain::{Brain, StateMachineCfg};
     if !matches!(
@@ -1545,15 +1572,48 @@ pub(super) fn attack_kit_of(
                 move_id: spec.id.clone(),
                 frames: spec.frame_data(),
                 binding: AttackBinding { verb, direction },
+                legality: legality_of(playback, verb_name, &spec.id),
             });
         }
     }
     // **AND THE GRAB**, which the three loops above cannot reach: it answers its
     // own button, not a direction on one of theirs.
-    if let Some(grab) = capture_candidate(moveset, grounded) {
+    if let Some(grab) = capture_candidate(moveset, grounded, playback) {
         kit.push(grab);
     }
     kit
+}
+
+/// **CAN THE BODY BEGIN THIS MOVE THIS TICK?** — asked of the same function that
+/// actually decides it.
+///
+/// ⛔⛔ **this deliberately does NOT read the body's phase.** The rule that drops
+/// a press is `spec.cancel_permits(t, landed_hit, names)` on the RUNNING move:
+/// it depends on that move's authored cancel windows and on whether it has
+/// landed a hit, so two bodies in visually identical recovery can differ. A
+/// brain inferring legality from "I look like I am in recovery" would answer a
+/// different question and be wrong for every move that authors a cancel window
+/// — the proxy-instrument failure, one layer up from where it usually shows up.
+///
+/// ⚠ **the name list must match `trigger_moveset_moves` exactly**: the verb the
+/// press resolves through, plus the resolved move id. That is the one cancel
+/// namespace, and asking with a different list would make this answer a
+/// question nothing enforces.
+fn legality_of(
+    playback: Option<&crate::combat::moveset::MovePlayback>,
+    verb_name: &str,
+    move_id: &str,
+) -> ambition_characters::brain::fighter::options::ActionLegality {
+    use ambition_characters::brain::fighter::options::ActionLegality;
+    let Some(pb) = playback else {
+        // Nothing owns the body: every candidate is startable.
+        return ActionLegality::Now;
+    };
+    if pb.spec.cancel_permits(pb.t, pb.landed_hit, &[verb_name, move_id]) {
+        ActionLegality::Now
+    } else {
+        ActionLegality::BlockedByPlayback
+    }
 }
 
 /// **The authored GRAB, priced as an option like any other technique.**
@@ -1591,6 +1651,7 @@ pub(super) fn attack_kit_of(
 fn capture_candidate(
     moveset: &crate::combat::moveset::ActorMoveset,
     grounded: bool,
+    playback: Option<&crate::combat::moveset::MovePlayback>,
 ) -> Option<ambition_characters::brain::fighter::options::AttackCandidate> {
     use ambition_characters::actor::attack_gesture::AttackDir;
     use ambition_characters::brain::fighter::options::{
@@ -1634,6 +1695,7 @@ fn capture_candidate(
             verb: AttackVerb::Grab,
             direction: AttackDir::Neutral,
         },
+        legality: legality_of(playback, ambition_entity_catalog::GRAB_VERB, &spec.id),
     })
 }
 
@@ -1656,6 +1718,9 @@ fn build_enemy_brain_snapshot(
     // Which brain this body carries, so the kit is built only for one that reads
     // it. See `attack_kit_of`.
     brain: Option<&ambition_characters::brain::Brain>,
+    // **The move that currently owns this body**, so the attack kit can say
+    // which candidates could be STARTED this tick. See `attack_kit_of`.
+    playback: Option<&crate::combat::moveset::MovePlayback>,
     // **What is TRUE of this body's locomotion**, published by the movement
     // kernel — see `turns_at_walls` below for why this replaced a tuning read.
     motion_facts: &ambition_platformer2d_core::BodyMotionFacts,
@@ -1698,7 +1763,7 @@ fn build_enemy_brain_snapshot(
         // Built every tick like every other snapshot field. Correctness first:
         // if profiling ever complains, the fix is to rebuild it on moveset
         // CHANGE, not to let it go stale.
-        attack_kit: attack_kit_of(moveset, em.ground.on_ground, brain),
+        attack_kit: attack_kit_of(moveset, em.ground.on_ground, brain, playback),
         // WHICH BODY THIS IS, so a published decision fact can name its
         // subject. The brain cannot know — a snapshot is body state and identity
         // is the host's to assign — so it arrives through the world-in port like

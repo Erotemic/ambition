@@ -289,7 +289,7 @@ fn move_played_for_moveset(
 fn every_candidate_in_the_kit_carries_the_press_that_invokes_it() {
     let moveset = ActorMoveset(jab_and_uptilt());
     let brain = fighter_brain();
-    let kit = attack_kit_of(Some(&moveset), true, Some(&brain));
+    let kit = attack_kit_of(Some(&moveset), true, Some(&brain), None);
 
     let ids: Vec<&str> = kit.iter().map(|c| c.move_id.as_str()).collect();
     assert_eq!(
@@ -332,7 +332,7 @@ fn every_candidate_in_the_kit_carries_the_press_that_invokes_it() {
 fn the_fighter_plays_the_move_it_scored_not_the_neutral_one() {
     let moveset = ActorMoveset(jab_and_uptilt());
     let mut brain = fighter_brain();
-    let kit = attack_kit_of(Some(&moveset), true, Some(&brain));
+    let kit = attack_kit_of(Some(&moveset), true, Some(&brain), None);
 
     // A gap only the up-tilt's reach fits: the jab (reach 16) falls far short,
     // so the scoring has one clear answer and the test is not measuring a tie.
@@ -354,7 +354,7 @@ fn the_fighter_plays_the_move_it_scored_not_the_neutral_one() {
 fn a_close_foe_gets_the_jab_the_scoring_actually_picked() {
     let moveset = ActorMoveset(jab_and_uptilt());
     let mut brain = fighter_brain();
-    let kit = attack_kit_of(Some(&moveset), true, Some(&brain));
+    let kit = attack_kit_of(Some(&moveset), true, Some(&brain), None);
 
     let view = scene(16.0);
     let frame = frame_when_the_fighter_attacks(&mut brain, kit, &view);
@@ -379,7 +379,7 @@ fn a_close_foe_gets_the_jab_the_scoring_actually_picked() {
 #[test]
 fn the_kit_prices_a_grab_from_the_capture_its_own_move_authors() {
     let moveset = ActorMoveset(jab_and_grab());
-    let kit = attack_kit_of(Some(&moveset), true, Some(&fighter_brain()));
+    let kit = attack_kit_of(Some(&moveset), true, Some(&fighter_brain()), None);
     let grab = kit
         .iter()
         .find(|candidate| candidate.move_id == "grab")
@@ -431,7 +431,7 @@ fn a_guard_ignoring_move_is_what_answers_a_raised_shield() {
     use ambition_characters::actor::attack_gesture::AttackDir;
     use ambition_characters::brain::fighter::habit::{Choice, HabitModel};
     use ambition_characters::brain::fighter::options::{
-        generate_options, AttackBinding, AttackCandidate, AttackVerb,
+        generate_options, ActionLegality, AttackBinding, AttackCandidate, AttackVerb,
     };
     use ambition_characters::brain::fighter::rollout::{refine_by_rollout, ShadowTuning};
     use ambition_characters::brain::fighter::situation::classify;
@@ -452,6 +452,7 @@ fn a_guard_ignoring_move_is_what_answers_a_raised_shield() {
                 verb: AttackVerb::Basic,
                 direction: AttackDir::Neutral,
             },
+            legality: ActionLegality::Now,
         },
         AttackCandidate {
             move_id: "unblockable".to_string(),
@@ -460,6 +461,7 @@ fn a_guard_ignoring_move_is_what_answers_a_raised_shield() {
                 verb: AttackVerb::Grab,
                 direction: AttackDir::Neutral,
             },
+            legality: ActionLegality::Now,
         },
     ];
     let profile = FighterBrainProfile::for_level(8);

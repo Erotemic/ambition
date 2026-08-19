@@ -28,7 +28,7 @@
 //! is this rig's next slice and is what also unlocks survival/damage.
 
 use super::decision::{tick_fighter, FighterCfg, FighterState};
-use super::options::{AttackBinding, AttackCandidate, AttackVerb};
+use super::options::{ActionLegality, AttackBinding, AttackCandidate, AttackVerb};
 use super::profile::FighterBrainProfile;
 use super::scenarios::{suite, Scenario};
 use crate::actor::attack_gesture::AttackDir;
@@ -88,6 +88,7 @@ fn rig_kit() -> Vec<AttackCandidate> {
                 verb: AttackVerb::Basic,
                 direction: AttackDir::Forward,
             },
+            legality: ActionLegality::Now,
         },
         AttackCandidate {
             move_id: "rig_smash".into(),
@@ -96,6 +97,7 @@ fn rig_kit() -> Vec<AttackCandidate> {
                 verb: AttackVerb::Smash,
                 direction: AttackDir::Forward,
             },
+            legality: ActionLegality::Now,
         },
         AttackCandidate {
             move_id: "rig_uptilt".into(),
@@ -104,6 +106,7 @@ fn rig_kit() -> Vec<AttackCandidate> {
                 verb: AttackVerb::Basic,
                 direction: AttackDir::Up,
             },
+            legality: ActionLegality::Now,
         },
     ]
 }

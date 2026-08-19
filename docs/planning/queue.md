@@ -5728,6 +5728,26 @@ a smash and is in its recovery. ⇒ **the grab is chosen exactly when it cannot 
 pressed, and never when it could work** — at 11–18px the jab and the smashes beat
 it, because they carry damage and it carries none.
 
+✔✔ **THE THREE SENTENCES ABOVE ARE SUPERSEDED, 2026-08-19 — left in place
+because the causal story is still the best statement of WHY, and a reader must
+not take their NUMBERS as current.** Both halves were built and measured:
+
+```text
+                        the run above   +policy   +airborne   +legality
+grab presses                        7        85          54           9
+  wasted while committed            6        34          33           0
+grabs started                       1        22          14           9
+holds established                   0         1           1           2
+```
+
+⇒ `capture_value` prices a hold from the OPPONENT — guard, percent, hitstun,
+airborne — rather than from damage the move does not deal; `ActionLegality` stops
+the brain offering a move the body cannot begin. ⛔⛔ **`REACH_TOLERANCE` was
+neither widened nor narrowed.** The spacing corrected itself once the grab had a
+reason to be thrown at the right moment instead of being the last option standing
+at long range — which is this row's own thesis confirmed, not a tuning change.
+
+
 ⇒ so the missing term is not "grabs are worth their throw's damage" (measured
 wrong, above) and not a wider tolerance. It is that a grab's worth in this genre
 is **that it beats a shield and leads to a throw** — which is platform-fighter

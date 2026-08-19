@@ -806,7 +806,7 @@ press was ALREADY an air dodge, so **the dash bit was dead weight in that kit**.
 Poison column (dash, NO dodge) reaches 370/330/280, so the instrument can see a
 dash. And the stage is ONE contiguous 480px platform: ground traversal has no
 gap to clear.
-⭐ the CPU's `smash_dash_to_close` was already locomotion (full throttle) with
+⭐ the CPU's `smash_dash_to_close` (⚠ GONE — the dash-to-close family was deleted at `a7b5ab681` when the smash CPU's hard approach became a SPRINT, D146-1) was already locomotion (full throttle) with
 an optional `dash_pressed` riding along; the press is gone and the verb is now
 `SpecificAction::Sprint` / `sprint_to_close` / `smash_sprint_to_close`, because
 closing distance is not a capability. Nothing in the sixteen-press repertoire or
@@ -3133,7 +3133,7 @@ were found by RUNNING it rather than by poisoning it:
    quietly undid it one phase later.
 
 ⭐ **the gap that looked save-destroying is NOT** — measured, not reasoned
-(`a_banked_object_left_in_an_unloaded_room_survives_a_death`). A baseline row
+(`a_banked_object_whose_room_unloaded_returns_to_the_hand_that_banked_it` (renamed `13dd4d31b`)). A baseline row
 whose occurrence has no live entity (banked, carried next door, put down, that
 room unloaded, then a death) would seem to be erased: the restore overwrites the
 `Placed` row that was the only memory of where it lay, after which every room
@@ -3911,7 +3911,7 @@ whose owning crate is already in the tree.**
 lines were an eleven-line re-export adapter, a 36-line settings facade, and
 `settings/model` — 1,289 lines of pause-menu vocabulary. **All eight of its
 public names (`SettingsPage`, `SettingsItem`, `SettingsAction`,
-`SettingsOutcome`, `DevToggleSnapshot`, `apply_action`, `apply_display_mode`,
+`SettingsOutcome`, `DevToggleSnapshot`, `apply_action`, `apply_display_mode` (⚠ GONE — left the monolith at `355874fe1`; the logic is `ambition_settings_menu::settings::apply` now),
 `PLAYER_DAMAGE_SLIDER_MAX`) have zero code references anywhere in `crates/` or
 `game/`** — every hit outside the module is a doc comment. ⭐ the instrument was
 shown WORKING first: the same grep run on `TextureResolutionScale` and
@@ -4330,7 +4330,7 @@ is cheaper than moving it.
   (2026-08-14): `RoomTransitionApplication` is the only implementation of *"put
   this RECORDED subject in this PREPARED room"*, reached by the eager host as a
   `SystemParam` and by the confirmed host through a `SystemState` on `&mut
-  World`. `load_room` (24 params), `apply_room_transition_resets`,
+  World`. `load_room` (24 params), `apply_room_transition_resets` (⚠ GONE — folded into the one room-transition application at `a2b6652e7`, D71),
   `RoomConstructionPlan::apply_to_world` and `resolve_transition_subject` are
   DELETED; the eager system went from 16 `SystemParam`s to 2. The fork had
   already cost a live defect — the shipped rollback host never cleared room
@@ -5774,7 +5774,7 @@ room and then asked LDtk what was in it.
 `ActiveLdtkProject::is_changed()` — the hot-reload case its own test was written
 for. Watching the room set instead is not optional bookkeeping: a reload that
 rebuilds rooms under an UNCHANGED room id would otherwise serve a stale wall set
-forever. `swapping_the_project_alone_invalidates_the_cached_walls` became
+forever. `swapping_the_room_set_alone_invalidates_the_cached_walls` (renamed `8559d1246`) became
 `swapping_the_room_set_alone_…` and now pins exactly that.
 ⚠ **and the fixture had to grow a `PlayerStart`** — the converter refuses an area
 without one, and the old hand-walk never asked. A fixture that could not survive
@@ -5941,7 +5941,7 @@ evict BEFORE choosing which code to carve.**
   (that is now a five-line pattern), but **state belonging to a game while it is NOT
   in its own rooms** — a crossover fighter carrying its home rules onto a foreign
   stage — or a scope whose boundary is a SEAT rather than a room.
-  ⚠ the sibling was a smaller cure: `sync_hosted_sanic_wallet_shield` was not a
+  ⚠ the sibling was a smaller cure: `sync_hosted_sanic_wallet_shield` (⚠ GONE — consolidated at `03d4c8d22`) was not a
   global but a system whose POPULATION was every `PrimaryPlayer` in the process. It
   states its population now, and its `hosted` fork is deleted — the constructor flag
   was answering a question the ROOM already answers.

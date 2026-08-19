@@ -148,3 +148,113 @@ impl Plugin for CheckpointHorizonPlugin {
         );
     }
 }
+
+/// **What a baseline owes the horizon, and the two KINDS of baseline** — the
+/// audit that produced this guard, kept beside it.
+///
+/// A checkpoint baseline is enrolled at five separate sites in three crates:
+///
+/// ```text
+/// 1  init_resource                    HERE                         runtime
+/// 2  a capture system                 in `CheckpointCapture`       runtime
+/// 3  a restore system                 in `CheckpointRestore`       runtime  ← STATE baselines only
+/// 4  durable-load adoption            `restore_durable_horizon`    monolith
+/// 5  rollback declaration + checksum  `rollback_registration.rs`   monolith
+/// ```
+///
+/// `OwnedItemsBaseline` got 1, 2, 3 and 5 on 2026-08-19 and missed 4, and
+/// nothing failed — a missing adoption is silent until the first death after a
+/// load. That leg is a compile error now (`DurableBaselines` destructures
+/// exhaustively); this test is the anchor for the OTHER four, because
+/// `init_resource` is the one step a new baseline cannot skip.
+///
+/// ⭐ **AND THE AUDIT FOUND A DISTINCTION WORTH NAMING, not a defect.**
+/// [`MintedItemBaseline`] has a capture and NO restore, which reads like an
+/// omission and is not:
+///
+/// ```text
+/// a STATE baseline       captured from live state and RESTORED into it.
+///                        Occurrence, custody, owned items. Owes all five.
+/// a DESCRIBER baseline   captured from live state and CONSULTED by room
+///                        construction — it answers "how would I rebuild this
+///                        occurrence", never "put this back". Minted items.
+///                        Owes four; a restore system would have nothing to
+///                        write to.
+/// ```
+///
+/// ⛔ so "every baseline needs a restore" is the wrong rule, and adding one for
+/// the describer would be a change that compiles, passes, and means nothing.
+#[cfg(test)]
+mod enrollment_tests {
+    use super::CheckpointHorizonPlugin;
+    use ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::{
+        MintedItemBaseline, OwnedItemsBaseline,
+    };
+    use ambition_platformer2d_shared_tangle::lifecycle::{CustodyBaseline, OccurrenceBaseline};
+    use bevy::prelude::App;
+
+    /// How many resources [`CheckpointHorizonPlugin`] adds beyond a bare `App`.
+    ///
+    /// FOUR baselines, its TWO message channels, and the sim-schedule handle
+    /// `sim_schedule()` initialises.
+    const RESOURCES_THE_HORIZON_ADDS: usize = 7;
+
+    /// Resources a bare `App::new()` already has, measured rather than assumed —
+    /// so a Bevy upgrade that changes the baseline moves both sides of the
+    /// subtraction and this test does not become a version tripwire.
+    fn bare_resource_count() -> usize {
+        App::new().world().iter_resources().count()
+    }
+
+    /// **A new baseline cannot join the horizon quietly.**
+    ///
+    /// ⭐ the trigger is `init_resource`, which is the step a baseline cannot
+    /// skip — unlike the four obligations this stands in for, each of which can
+    /// be forgotten in silence. Adding one turns this red on the day it is
+    /// written, and the only way back to green is to answer, in this module's
+    /// doc, whether it is a STATE or a DESCRIBER baseline and to wire the legs
+    /// its kind owes.
+    ///
+    /// ⛔ **it counts rather than names, and that is forced.** `iter_resources`
+    /// reports `<Enable the debug feature to see the name>` in this crate's test
+    /// build, so a name-based assertion here would compare a list of identical
+    /// placeholder strings and pass no matter what changed. The four known
+    /// baselines are asserted BY TYPE, which needs no names at all; the count
+    /// catches the fifth.
+    #[test]
+    fn every_baseline_the_horizon_installs_is_accounted_for() {
+        let mut app = App::new();
+        app.add_plugins(CheckpointHorizonPlugin);
+        let world = app.world();
+
+        // The four this module's doc accounts for, by type.
+        assert!(
+            world.contains_resource::<OccurrenceBaseline>(),
+            "the occurrence baseline is not installed"
+        );
+        assert!(
+            world.contains_resource::<CustodyBaseline>(),
+            "the custody baseline is not installed"
+        );
+        assert!(
+            world.contains_resource::<MintedItemBaseline>(),
+            "the minted-item DESCRIBER baseline is not installed"
+        );
+        assert!(
+            world.contains_resource::<OwnedItemsBaseline>(),
+            "the owned-items baseline is not installed"
+        );
+
+        let added = world.iter_resources().count() - bare_resource_count();
+        assert_eq!(
+            added, RESOURCES_THE_HORIZON_ADDS,
+            "the reset horizon installs a different number of resources than this test \
+             accounts for. If that is a new BASELINE, it owes FIVE enrollments (see this \
+             module's doc): init_resource here, a capture system, a restore system IF it \
+             is a state baseline rather than a describer, durable-load adoption in \
+             `restore_durable_horizon`, and a rollback declaration with its checksum. \
+             `OwnedItemsBaseline` got four of the five and the missing one was silent \
+             until the first death after a load."
+        );
+    }
+}

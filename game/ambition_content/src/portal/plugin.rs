@@ -217,10 +217,10 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         // AFTER it.
         //
         // BOTH brackets must sit in the same `[populate ControlFrame ->
-        // sync_local_player_input_frame consumes it]` window that
-        // `warp_portal_input` itself occupies, exactly as the old in-`warp`
+        // primary SlotControls publication]` window that `warp_portal_input`
+        // itself occupies, exactly as the old in-`warp`
         // direct mutate did. `warp_portal_input` is `.in_set(PlayerInput)` and
-        // `.before(sync_local_player_input_frame)`; pin the brackets the same way
+        // `.before(PrimarySlotInputCommit)`; pin the brackets the same way
         // so:
         //   * `sync_movement_intent_from_control` reads the FRESH per-frame axis
         //     (PlayerInput runs after the `.before(CoreSimulation)` populate), and
@@ -236,7 +236,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
             sync_movement_intent_from_control
                 .run_if(gameplay_allowed)
                 // `PortalSet::InputWarp` is wired `.in_set(PlayerInput)` (and
-                // `.before(sync_local_player_input_frame)`) in
+                // `.before(PrimarySlotInputCommit)`) in
                 // `wire_portal_schedule`, so the parent placement + consume window
                 // are already implied — a direct `.in_set(PlayerInput)` would be a
                 // redundant hierarchy edge.
@@ -252,11 +252,11 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
                 // `.in_set(PlayerInput)` would be a redundant hierarchy edge.
                 // `InputSet::Route` is a SEPARATE set (NOT nested under
                 // `PlayerInput`), so it stays — it pins this write-back inside the
-                // `Populate.before(sync_local_player_input_frame)` consume window.
+                // `InputSet::Route.before(PrimarySlotInputCommit)` consume window.
                 .in_set(PortalSet::InputWarp)
                 .in_set(ambition_input::InputSet::Route)
                 .after(warp_portal_input)
-                .before(ambition_platformer2d_actor_monolith::control::LocalInputFrameCommit),
+                .before(ambition_platformer2d_actor_monolith::control::PrimarySlotInputCommit),
         );
         // The player-input adapter reads `PlayerMovementIntent` as the warp
         // anchor; re-sync from `ControlFrame` immediately before the generic
@@ -298,8 +298,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         // tagged before transit sees it.
         //
         // Ordering of projectile INTEGRATION vs transit: projectile motion
-        // integrates in `Platformer2dSimulationPhaseMonolith::Combat` (`update_projectiles` /
-        // `update_enemy_projectiles`), which is chained AFTER
+        // integrates in `Platformer2dSimulationPhaseMonolith::Combat` (`step_projectiles`), which is chained AFTER
         // `Platformer2dSimulationPhaseMonolith::PlayerSimulation` (where `PortalSet::Transit` lives). So
         // within every frame the relationship is FIXED and deterministic —
         // `portal_transit` runs against the projectile body integrated on the
@@ -409,8 +408,8 @@ mod schedule_tests {
         frame.axis_x = -1.0;
     }
 
-    // Stand-in for the player consume (`sync_local_player_input_frame`), the tail
-    // of `Platformer2dSimulationPhaseMonolith::PlayerInput`. Records the axis it observes.
+    // Stand-in for the primary-slot publication boundary. Records the finalized
+    // global axis the canonical slot adapter is about to publish.
     fn consume_axis(frame: Res<ControlFrame>, mut consumed: ResMut<ConsumedAxis>) {
         consumed.0 = frame.axis_x;
     }
@@ -479,24 +478,21 @@ mod schedule_tests {
     // A `ControlFrame` writer whose ONLY scheduling constraint is set
     // membership: `InputSet::Route`. It carries no manual ordering against
     // the consumer, so it can only land before the consume if the structural
-    // `Populate.before(sync_local_player_input_frame)` contract holds.
+    // `InputSet::Route.before(PrimarySlotInputCommit)` contract holds.
     fn populate_only_via_set(mut frame: ResMut<ControlFrame>) {
         frame.axis_x = 0.75;
     }
 
     /// The general input contract: any system tagged `InputSet::Route` is
-    /// pinned BEFORE the real gameplay consumers in `Platformer2dSimulationPhaseMonolith::PlayerInput`.
-    /// The slot-input path is `populate_slot_controls` (ControlFrame →
-    /// `SlotControls[PRIMARY]`) then `sync_local_player_input_frame`
-    /// (SlotControls → the controlled body's `PlayerInputFrame`, gated on
-    /// `Brain::Player`). Observing the populated axis land on `PlayerInputFrame`
-    /// proves the Populate writer ran before that boundary.
+    /// pinned BEFORE the canonical primary-slot publication in
+    /// `Platformer2dSimulationPhaseMonolith::PlayerInput`. Observing the value in
+    /// `SlotControls[PRIMARY]` proves the writer ran before that boundary; there
+    /// is deliberately no second slot→body copy to inspect.
     #[test]
-    fn input_set_populate_runs_before_the_real_consumer() {
-        use ambition_characters::brain::{ActorControl, Brain, PlayerSlot, SlotControls};
-        use ambition_platformer2d_actor_monolith::actor::PlayerEntity;
+    fn input_set_populate_runs_before_primary_slot_publication() {
+        use ambition_characters::brain::{PlayerSlot, SlotControls};
         use ambition_platformer2d_actor_monolith::control::{
-            populate_slot_controls, sync_local_player_input_frame, LocalPlayer, PlayerInputFrame,
+            populate_slot_controls, PrimarySlotInputCommit,
         };
 
         let mut app = App::new();
@@ -507,18 +503,6 @@ mod schedule_tests {
             ));
         app.init_resource::<ControlFrame>();
         app.init_resource::<SlotControls>();
-        // The controlled body carries `Brain::Player(PRIMARY)`, so the gated
-        // input mirror routes slot-0's frame onto its `PlayerInputFrame`.
-        let player = app
-            .world_mut()
-            .spawn((
-                PlayerEntity,
-                LocalPlayer,
-                Brain::Player(PlayerSlot::PRIMARY),
-                ActorControl::default(),
-                PlayerInputFrame::default(),
-            ))
-            .id();
 
         app.add_systems(
             Update,
@@ -526,8 +510,8 @@ mod schedule_tests {
         );
         app.add_systems(
             Update,
-            (populate_slot_controls, sync_local_player_input_frame)
-                .chain()
+            populate_slot_controls
+                .in_set(PrimarySlotInputCommit)
                 .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput),
         );
 
@@ -535,17 +519,14 @@ mod schedule_tests {
 
         let observed = app
             .world()
-            .entity(player)
-            .get::<PlayerInputFrame>()
-            .expect("player has an input frame")
-            .frame
+            .resource::<SlotControls>()
+            .get(PlayerSlot::PRIMARY)
             .axis_x;
         assert_eq!(
             observed, 0.75,
-            "a Populate-tagged ControlFrame writer must run before the PlayerInput \
-             consumers; the mirror snapshotted axis_x = {observed} instead of the \
-             populated 0.75 — InputSet::Route is not pinned before the consume \
-             boundary."
+            "a Route-tagged ControlFrame writer must run before primary-slot \
+             publication; SlotControls[PRIMARY] captured axis_x = {observed} \
+             instead of the populated 0.75"
         );
     }
 }

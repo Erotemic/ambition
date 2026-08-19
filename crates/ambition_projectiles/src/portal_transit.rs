@@ -7,9 +7,9 @@
 //!
 //! The core ([`try_projectile_portal_transit`]) is **pure + deterministic** —
 //! no Bevy, no RNG — so the transit geometry (does it cross? where does it pop
-//! out? which way does momentum rotate?) is headless-testable. Both the player
-//! and enemy projectile systems call it BEFORE their shared world-collision
-//! step: if it transited, the shot is now at the exit portal and the caller
+//! out? which way does momentum rotate?) is headless-testable. The unified
+//! projectile stepper calls it BEFORE world collision: if it transited, the
+//! shot is now at the exit portal and the caller
 //! skips collision for the tick (so it neither explodes on the entry face nor
 //! double-tests a hit).
 

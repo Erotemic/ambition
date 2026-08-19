@@ -18,7 +18,7 @@ use bevy::prelude::{App, Entity, Update};
 
 /// Set the controlled body's `ActorControl` — the body-generic intent the driver
 /// consumes (already-resolved locomotion + jump/dash edges), replacing the old
-/// per-body `PlayerInputFrame`.
+/// per-body raw-input component.
 fn set_control(app: &mut App, body: Entity, f: impl FnOnce(&mut ActorControlFrame)) {
     let mut control = app.world_mut().get_mut::<ActorControl>(body).unwrap();
     control.0 = ActorControlFrame::neutral();
@@ -201,11 +201,10 @@ fn home_body_mode_still_works_when_home_is_controlled() {
     );
 }
 
-/// `PlayerInputFrame` is no longer body-mode authority: with a stale/neutral input
-/// frame on the body but a live crouch intent on its `ActorControl` (what the brain
-/// produces from the slot), the body follows `ActorControl`.
+/// Body mode consumes the body's semantic `ActorControl`, which the player
+/// brain derives from its slot. No per-body raw-input state participates.
 #[test]
-fn player_input_frame_is_not_body_mode_authority() {
+fn body_mode_follows_actor_control_without_per_body_input_state() {
     let mut app = App::new();
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
         app.world_mut(),
@@ -220,11 +219,6 @@ fn player_input_frame_is_not_body_mode_authority() {
     .0
     .spawn;
     let body = spawn_mode_body(&mut app, spawn, Some(PlayerSlot::PRIMARY));
-    // A NEUTRAL PlayerInputFrame — if the driver still read it, the body would never
-    // crouch. The live crouch intent lives only on ActorControl.
-    app.world_mut()
-        .entity_mut(body)
-        .insert(crate::control::PlayerInputFrame::default());
     set_control(&mut app, body, |c| {
         c.locomotion = ambition_platformer2d_core::LocalAxes::new(0.0, 1.0)
     });
@@ -232,7 +226,7 @@ fn player_input_frame_is_not_body_mode_authority() {
     assert_eq!(
         app.world().get::<BodyModeState>(body).unwrap().body_mode,
         ae::BodyMode::Crouching,
-        "body mode must follow ActorControl (slot-derived), not a neutral PlayerInputFrame",
+        "body mode must follow the slot-derived ActorControl intent",
     );
 }
 

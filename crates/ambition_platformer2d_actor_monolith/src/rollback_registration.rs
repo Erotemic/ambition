@@ -595,11 +595,6 @@ where
         "derived.body_mode_capabilities",
         "projected from the active body mode each frame",
     );
-    registrar.declare_rollback_derived_component::<crate::control::PlayerInputFrame>(
-        OWNER,
-        "derived.player_input_frame",
-        "copied from GGRS PlayerInputs at the head of every frame",
-    );
     registrar.declare_rollback_derived_component::<crate::character_runtime::ResolvedHurtboxes>(
         OWNER,
         "derived.resolved_hurtboxes",

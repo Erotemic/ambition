@@ -12,21 +12,18 @@ use ambition_platformer2d_core::Vec2;
 use super::spec::ProjectileSpec;
 use ambition_platformer2d_core::{Aabb, AabbExt};
 
-/// One live projectile: the kinematic [`BodyKinematics`] plus the
-/// projectile [`ProjectileGameplay`] state plus optional owner
-/// attribution. This is the single in-flight representation for both
-/// the per-player projectile state and the global enemy-projectile
-/// pool, so the body list, visuals, and collision read the same shape
-/// regardless of who fired.
+/// One prepared projectile: the kinematic [`BodyKinematics`] plus the
+/// projectile [`ProjectileGameplay`] state. This is the single in-flight value
+/// used to prepare every projectile before ECS materialization, so named body fire and open authored
+/// volleys share the same kinematic/gameplay representation regardless of who
+/// fired.
 ///
-/// `owner_id` carries the spawning actor's id for self-friendly-fire
-/// ignore lists and sprite routing (GNU-ton's apple rain, the lasersword
-/// rider). It is empty for player projectiles, which are attributed via
-/// `HitEvent::attacker` instead.
+/// Ownership is deliberately absent here. Before ECS materialization the body is
+/// just projectile state; `ProjectileSpawnRequest.owner` is the authoritative
+/// firing occurrence, and materialization stamps that as `ProjectileOwner`.
 #[derive(Clone, Debug)]
 pub struct InFlightProjectile {
     pub body: ProjectileBody,
-    pub owner_id: String,
 }
 
 /// Projectile gameplay state: lifetime, gravity, damage, and bounce budget.

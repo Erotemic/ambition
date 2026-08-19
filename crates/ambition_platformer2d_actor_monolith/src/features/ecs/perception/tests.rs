@@ -270,16 +270,52 @@ fn projectile_threat_resolved_relationally() {
             pos: ae::Vec2::new(160.0, 180.0),
             vel: ae::Vec2::new(-200.0, 0.0),
             damage: 1,
-            faction: ActorFaction::Enemy,
+            faction: Some(ActorFaction::Enemy),
+            team: None,
         },
         // Player's own shot → does not threaten the player.
         PerceptionProjectile {
             pos: ae::Vec2::new(160.0, 180.0),
             vel: ae::Vec2::new(200.0, 0.0),
             damage: 1,
-            faction: ActorFaction::Player,
+            faction: Some(ActorFaction::Player),
+            team: None,
+        },
+        // Environmental/ownerless shot → indiscriminate, matching damage routing.
+        PerceptionProjectile {
+            pos: ae::Vec2::new(140.0, 180.0),
+            vel: ae::Vec2::new(-50.0, 0.0),
+            damage: 1,
+            faction: None,
+            team: None,
         },
     ];
+    // Same authored faction but a different match team: team authority
+    // outranks faction exactly as projectile damage does.
+    let mut team_player = body(ae::Vec2::new(100.0, 180.0), ActorFaction::Player);
+    team_player.team = Some(crate::combat::targeting::MatchTeam::new("blue"));
+    let team_shot = PerceptionProjectile {
+        pos: ae::Vec2::new(150.0, 180.0),
+        vel: ae::Vec2::ZERO,
+        damage: 1,
+        faction: Some(ActorFaction::Player),
+        team: Some(crate::combat::targeting::MatchTeam::new("red")),
+    };
+    let team_view = build_world_view(
+        &team_player,
+        &[],
+        &[team_shot],
+        &[],
+        &world,
+        &relations,
+        DEFAULT_VIEWPORT_HALF,
+        0.0,
+    );
+    assert!(
+        team_view.projectiles[0].hostile_to_self,
+        "different match teams make the projectile threatening even when factions match"
+    );
+
     let view = build_world_view(
         &player,
         &[],
@@ -290,15 +326,20 @@ fn projectile_threat_resolved_relationally() {
         DEFAULT_VIEWPORT_HALF,
         0.0,
     );
-    assert_eq!(view.projectiles.len(), 2);
+    assert_eq!(view.projectiles.len(), 3);
     assert_eq!(
         view.projectiles
             .iter()
             .filter(|p| p.hostile_to_self)
             .count(),
-        1
+        2
     );
-    assert_eq!(view.incoming_threats().count(), 1);
+    assert_eq!(
+        view.incoming_threats().count(),
+        2,
+        "both the hostile enemy shot and the ownerless environmental shot are closing; \
+         the friendly shot is receding and must not be a dodge candidate",
+    );
 }
 
 /// Portals are clipped to the viewport and the paired exit is resolvable from
@@ -406,12 +447,11 @@ fn collect_perception_peers_snapshots_every_body() {
     );
 }
 
-/// §A7 projectiles-wiring: `collect_perception_projectiles` snapshots BOTH pools —
-/// the `enemy_projectile` pool reading its own `ActorFaction`, the `LiveProjectile`
-/// pool defaulting to Player — with pos/vel/damage from the shared
-/// `BodyKinematics` + `ProjectileGameplay`.
+/// §A7 projectiles-wiring: `collect_perception_projectiles` snapshots the single
+/// live-projectile occurrence family exactly once and reads side from the frozen
+/// allegiance rather than from the shot's presentation vocabulary.
 #[test]
-fn collect_perception_projectiles_snapshots_both_pools() {
+fn collect_perception_projectiles_snapshots_live_projectiles_once_with_frozen_side() {
     use bevy::prelude::*;
 
     let mut app = App::new();
@@ -432,30 +472,37 @@ fn collect_perception_projectiles_snapshots_both_pools() {
         world_hit: crate::projectile::WorldHitPolicy::ExpireOnContact,
     };
     app.world_mut().spawn((
-        crate::enemy_projectile::EnemyProjectile,
+        crate::projectile::LiveProjectile,
         kin(200.0),
         game(3),
-        ActorFaction::Enemy,
+        crate::projectile::ProjectileAllegiance {
+            faction: ActorFaction::Enemy,
+            team: Some(crate::combat::targeting::MatchTeam::new("red")),
+        },
     ));
     app.world_mut()
         .spawn((crate::projectile::LiveProjectile, kin(50.0), game(2)));
     app.update();
 
     let shots = app.world().resource::<PerceptionProjectiles>();
-    assert_eq!(shots.0.len(), 2, "both pools snapshotted");
+    assert_eq!(shots.0.len(), 2, "one row per live projectile");
     assert!(
         shots
             .0
             .iter()
-            .any(|p| p.faction == ActorFaction::Enemy && p.damage == 3),
-        "the enemy-pool shot carries its own faction + damage"
+            .any(|p| {
+                p.faction == Some(ActorFaction::Enemy)
+                    && p.team.as_ref().is_some_and(|team| team.as_str() == "red")
+                    && p.damage == 3
+            }),
+        "the sided shot carries its frozen allegiance"
     );
     assert!(
         shots
             .0
             .iter()
-            .any(|p| p.faction == ActorFaction::Player && p.damage == 2),
-        "the live-pool shot defaults to Player"
+            .any(|p| p.faction.is_none() && p.team.is_none() && p.damage == 2),
+        "an ownerless shot remains explicitly unsided rather than defaulting to Player"
     );
 }
 

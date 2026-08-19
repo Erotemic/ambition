@@ -647,12 +647,12 @@ pub fn register_engine_rollback_state(app: &mut App) {
 ;
     // Scope, projectile, and encounter state.
     // Derived state: one maintenance path, never restore-only repair code.
-    // NOTE this justification was wrong until 2026-07-22: it named
-    // `ProjectileOwnerId`, which is the firer's raw config id and is EMPTY for
-    // every player projectile, so it could not have carried the owner identity
-    // for the largest pool in the game. The handle was actually recovered by
-    // splitting the projectile's own `SimId` on `/`. It is now recovered from
-    // declared provenance, which is what this line always claimed in spirit.
+    // NOTE the historical derived-owner justification was wrong until
+    // 2026-07-22: the old open-projectile road carried an opaque string id while
+    // named body fire did not, so it could never be a universal owner authority.
+    // `ProjectileOwner(Entity)` is now the single firing-occurrence reference,
+    // restored/remapped as entity-bearing rollback state rather than re-derived
+    // from presentation or configuration identity.
     // ⚠ This was DECLARED DERIVED, on the promise that
     // `heal_projectile_owners` re-resolves it from
     // `SpawnOrigin::Dynamic { parent }`. The promise is not kept: that system's

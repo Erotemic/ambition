@@ -26,7 +26,7 @@
 //!   divergence was originally seen).
 //!
 //! NB: this lab's "strikers" are MELEE (`melee_brute_striker` / `striker_swipe`),
-//! so no `EnemyProjectile` entities arise here — the reset's projectile-despawn
+//! so no `LiveProjectile` entities arise here — the reset's projectile-despawn
 //! line (`reset_ecs_room_features`) is not exercised by these tests; a
 //! ranged-enemy room would be needed to pin it, and is noted as a follow-up.
 //!

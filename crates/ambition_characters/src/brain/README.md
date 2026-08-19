@@ -62,9 +62,9 @@ the possession / multi-body invariant.
         └────────┬────────────────────┘
                  ▼  consumed OUTSIDE brain/ by the sim ("EFFECTS" stage):
         features::ecs::brain_effects        (specials, GNU-ton, sentinel)
-        features::ecs::spawn_enemy_projectiles_from_brain_actions (ranged)
+        features::ecs::spawn_projectiles_from_brain_actions (ranged)
         runtime melee windup → active hitbox edge    (melee)
-        crate::projectile::update_projectiles        (player projectile tick)
+        crate::projectile::charge_projectile_input   (charge-capable body tick)
 ```
 
 The brain half is **pure-ish and deterministic**: same brain + same snapshot →
@@ -87,7 +87,7 @@ in `app/plugins.rs` because they must chain after sandbox input systems:
 
 | Actor kind | Brain backend | Behavior code | Spawned/wired from |
 |---|---|---|---|
-| **Player** | `Brain::Player(slot)` | `player.rs` — *pure translation* of `PlayerInputFrame` → frame; makes **no** gameplay decisions | player spawn |
+| **Player** | `Brain::Player(slot)` | `player.rs` — *pure translation* of the slot-selected `ControlFrame` → frame; makes **no** gameplay decisions | player spawn |
 | **NPC (peaceful)** | `StateMachine(Patrol{aggressiveness:0})` / `StandStill` | `state_machine/mod.rs` (`tick_patrol`, `tick_stand_still`) | `features/npcs.rs` |
 | **Enemy (common)** | `StateMachine(MeleeBrute/Skirmisher/Sniper/Shark/Wanderer)` | `state_machine/mod.rs` (`tick_*` per template) | `features/ecs/brain_builders.rs` (`enemy_default_brain`, archetype-driven from `character_archetypes.ron`) |
 | **Enemy (brawler)** | `StateMachine(Smash{..})` | `smash/` 5-stage pipeline | `brain_builders.rs` (`smash_cfg_for_archetype`) |

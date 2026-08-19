@@ -136,8 +136,7 @@ pub struct PlayerIntent {
 /// avatar; the actor-local frame, not the global `Res<ControlFrame>`) and the
 /// input from that body's own `Brain::Player(slot)` — the same control seam
 /// the universal brain tick uses, so the intent is the driven body's own
-/// intent whether or not the body carries the player-specific
-/// `PlayerInputFrame` mirror (possessed actors don't). A body whose player
+/// intent without requiring any player-specific input component on the body. A body whose player
 /// brain is mid-transfer reads neutral, the conservative default.
 pub fn compute_controlled_actor_intent(
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
@@ -169,7 +168,7 @@ pub fn compute_controlled_actor_intent(
         return;
     };
     // The body's input is its slot's frame, resolved through its own player
-    // brain. A possessed actor has no `PlayerInputFrame` mirror, so this is
+    // brain. A possessed actor changes bodies without copying input state, so this is
     // the ONE input read that is correct for every controlled body.
     let frame = brain
         .and_then(ambition_characters::brain::Brain::player_slot)

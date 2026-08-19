@@ -82,9 +82,9 @@
 //! not see it on the pass that produced it, and would see it again on a later
 //! frame it does not belong to. In particular [`ambition_vfx::EffectRequest`] is
 //! *not* quarantined despite its name and its listing in the quarantine
-//! work-list — all three of its readers (`apply_effects` spawning hitboxes,
-//! `apply_summon_effects` spawning minions, `apply_enemy_projectile_effects`)
-//! are sim-side. Same for `SpawnProjectile`. The test
+//! work-list — its remaining readers (`apply_effects` spawning hitboxes and
+//! `apply_summon_effects` spawning minions) are sim-side. Projectile spawning now
+//! has its own simulation-side `ProjectileSpawnRequest` channel. The test
 //! `only_presentation_facing_effects_are_quarantined` pins the distinction.
 
 use std::collections::BTreeMap;
@@ -347,7 +347,7 @@ pub fn quarantine_discard_on_load<M: Message>(app: &mut App, load_schedule: impl
 /// | `DebrisBurstMessage` | `physics_spawn_debris_messages` (`Update`) | spawns physics debris |
 /// | `CameraShakeRequest` | `apply_camera_shake_requests` (`Update`) | moves the screen |
 ///
-/// Deliberately absent: `EffectRequest` and `SpawnProjectile`, whose readers are
+/// Deliberately absent: `EffectRequest` and `ProjectileSpawnRequest`, whose readers are
 /// all sim-side despite the effect-shaped names.
 ///
 /// The two presentation-side writers in the fan-out chain (`FxRequest`

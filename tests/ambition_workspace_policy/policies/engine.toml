@@ -660,10 +660,10 @@ scope = "engine"
 kind = "dependency-denylist"
 owners = ["ambition_vfx"]
 watch_paths = ["crates/ambition_vfx/Cargo.toml"]
-rationale = "ambition_vfx is the reusable effect substrate; never depends on the game lib or cast crate"
+rationale = "ambition_vfx is the reusable non-projectile effect substrate; projectile spawning is a sibling authoritative domain, not effect transport"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-deny = ["ambition_platformer2d_actor_monolith", "ambition_characters"]
+deny = ["ambition_platformer2d_actor_monolith", "ambition_characters", "ambition_projectiles", "ambition_projectile_spec"]
 manifest = "crates/ambition_vfx/Cargo.toml"
 
 [[policy]]
@@ -676,7 +676,7 @@ rationale = "ambition_vfx source stays free of forbidden refs"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 roots = ["crates/ambition_vfx/src"]
-forbid = ["ambition_platformer2d_actor_monolith", "ambition_characters"]
+forbid = ["ambition_platformer2d_actor_monolith", "ambition_characters", "ambition_projectiles", "ambition_projectile_spec"]
 
 
 # was: architecture_boundaries_projectiles_crate_is_model_only
@@ -1633,10 +1633,10 @@ scope = "engine"
 kind = "file-contains"
 owners = ["ambition_platformer2d_runtime"]
 watch_paths = ["crates/ambition_platformer2d_runtime/src/projectile_schedule.rs"]
-rationale = "runtime owns the projectile schedule facade"
+rationale = "runtime owns the projectile schedule facade and composes both timing faces of the single projectile-domain materialization seam"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-contains = ["ambition_platformer2d_actor_monolith::projectile", "ambition_projectiles::enemy::apply_enemy_projectile_effect_requests", "ambition_projectiles::apply_player_spawn_projectile_messages"]
+contains = ["ambition_platformer2d_actor_monolith::projectile", "ambition_projectiles::materialize_projectiles_for_this_tick", "ambition_projectiles::materialize_projectiles_for_next_tick"]
 file = "crates/ambition_platformer2d_runtime/src/projectile_schedule.rs"
 
 [[policy]]
@@ -1645,7 +1645,7 @@ scope = "engine"
 kind = "file-omits"
 owners = ["ambition_platformer2d_runtime"]
 watch_paths = ["crates/ambition_platformer2d_runtime/src/projectile_schedule.rs"]
-rationale = "enemy-pool effect-request spawning is substrate-owned"
+rationale = "projectile materialization is substrate-owned and never routed back through the actor monolith"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 forbid = ["ambition_platformer2d_actor_monolith::enemy_projectile"]

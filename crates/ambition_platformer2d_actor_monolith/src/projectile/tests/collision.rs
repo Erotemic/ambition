@@ -64,7 +64,7 @@ fn fireball_damages_enemy_on_intersect() {
         // overlaps the enemy AABB regardless of arc tuning.
         body.kin.pos = ae::Vec2::new(395.0, 300.0);
         body.kin.vel = ae::Vec2::new(50.0, 0.0);
-        crate::projectile::tests::spawn_player_projectile(&mut app, body, "");
+        crate::projectile::tests::spawn_player_projectile(&mut app, body);
     }
     advance_time(&mut app, 0.016);
     app.update();
@@ -122,7 +122,7 @@ fn fireball_bounces_off_floor_in_system() {
         body.kin.vel = ae::Vec2::new(60.0, 240.0);
         starting_bounces = body.game.bounces_remaining;
         assert!(starting_bounces > 0);
-        crate::projectile::tests::spawn_player_projectile(&mut app, body, "");
+        crate::projectile::tests::spawn_player_projectile(&mut app, body);
     }
     advance_time(&mut app, 0.016);
     app.update();
@@ -167,7 +167,7 @@ fn fireball_bounces_off_one_way_platform_in_system() {
         body.kin.vel = ae::Vec2::new(60.0, 240.0);
         starting_bounces = body.game.bounces_remaining;
         assert!(starting_bounces > 0);
-        crate::projectile::tests::spawn_player_projectile(&mut app, body, "");
+        crate::projectile::tests::spawn_player_projectile(&mut app, body);
     }
     advance_time(&mut app, 0.016);
     app.update();
@@ -218,7 +218,7 @@ fn fireball_passes_through_one_way_from_below_in_system() {
         // landing. Velocity is purely horizontal.
         body.kin.pos = ae::Vec2::new(500.0, 404.0);
         body.kin.vel = ae::Vec2::new(360.0, 0.0);
-        crate::projectile::tests::spawn_player_projectile(&mut app, body, "");
+        crate::projectile::tests::spawn_player_projectile(&mut app, body);
     }
     advance_time(&mut app, 0.016);
     app.update();
@@ -263,7 +263,7 @@ fn hadouken_expires_on_solid_in_system() {
         let mut body = crate::projectile::ProjectileBody::from_spec(spec);
         body.kin.pos = ae::Vec2::new(595.0, 300.0);
         body.kin.vel = ae::Vec2::new(520.0, 0.0);
-        crate::projectile::tests::spawn_player_projectile(&mut app, body, "");
+        crate::projectile::tests::spawn_player_projectile(&mut app, body);
     }
     advance_time(&mut app, 0.016);
     app.update();

@@ -116,9 +116,9 @@ pub fn sync_portal_reorient_from_settings(
 /// `Without<ProjectileGameplay>`, so the actor transit set is unchanged); this
 /// dedicated system opts them in with their own policy. Idempotent
 /// (`Without<PortalBody>`), so it is cheap to run every frame and tolerates
-/// late spawns. Both pools (`PlayerProjectile` + `EnemyProjectile`) carry the
-/// shared [`BodyKinematics`] + [`ProjectileGameplay`], so filtering on the
-/// gameplay marker covers every projectile regardless of pool.
+/// late spawns. Every shot carries the shared [`BodyKinematics`] +
+/// [`ProjectileGameplay`], so filtering on the gameplay marker covers the single
+/// live projectile family regardless of producer or presentation.
 ///
 /// A projectile nowhere near a portal is unaffected: `transit_step` returns
 /// `Idle`, so this is a pure no-op for the non-portal case.

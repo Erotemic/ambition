@@ -9,9 +9,9 @@
 //!
 //! This crate owns the world-anchored [`Hitbox`] damage-box component and the
 //! `DamageBox` executor; damage *resolution* (`apply_hitbox_damage`) and the
-//! `Summon` / `Projectiles` executors live in the game lib next to their
-//! substrate (the enemy roster, the projectile pool), reading this crate's
-//! [`Effect`] enum.
+//! `Summon` executor live beside their substrate. Projectile spawning is a
+//! separate authoritative domain and uses its own `ProjectileSpawnRequest`
+//! directly rather than passing simulation work through a VFX enum.
 
 use bevy::prelude::*;
 
@@ -21,7 +21,6 @@ use bevy::prelude::*;
 // geometry stays on `ambition_geometry`; the only direct core edge now is the
 // backend-neutral rollback declaration vocabulary in `rollback_registration`.
 use ambition_geometry as ae;
-use ambition_projectile_spec::ProjectileSpawn;
 
 pub mod fx;
 pub mod vfx;
@@ -36,11 +35,10 @@ pub use vfx::{
 //
 // ⚠ **this is the one piece of combat vocabulary that stayed**, and the reason
 // is the orphan rule rather than taste. `Effect::DamageBox` and
-// `Effect::Summon` both carry a side, and `ambition_projectiles` — which sits
-// BELOW `ambition_combat` — names `Effect`. Moving the tag up would drag the
-// whole effect-request vocabulary with it and hand a projectile crate a
-// dependency on the combat crate. The authoritative components it used to sit
-// beside are gone; what is left is a small enum on a message.
+// `Effect::Summon` both carry a side. Projectile spawning no longer names this
+// enum at all; its request vocabulary is owned by the projectile domain. The
+// authoritative components this tag used to sit beside are gone; what remains
+// is a small enum on an effect message.
 // ===================================================================
 // Hitbox — the world-anchored damage volume an effect spawns.
 // ===================================================================
@@ -109,18 +107,17 @@ pub struct SummonSpec {
     pub faction: HitSide,
 }
 
-/// A composable effect an actor *technique* emits. [`apply_effects`] executes
-/// `DamageBox`; `Summon` and the enemy-pool `Projectiles` are materialized by
-/// lib-side executors next to their substrate (so the shared `ProjectileSeq`
-/// ordering is preserved).
+/// A composable non-projectile effect an actor *technique* emits.
+/// [`apply_effects`] executes `DamageBox`; `Summon` is materialized beside the
+/// actor-construction substrate. Projectile requests deliberately use their own
+/// domain-owned message instead of entering this enum.
 pub enum Effect {
     DamageBox(DamageBoxEffect),
     Summon(SummonSpec),
-    Projectiles { shots: Vec<ProjectileSpawn> },
 }
 
 /// "This `owner` emitted this `effect`." Written by a technique, drained by
-/// [`apply_effects`] (and the lib-side Summon/Projectiles executors).
+/// [`apply_effects`] (and the lib-side Summon executor).
 #[derive(Message)]
 pub struct EffectRequest {
     pub owner: Entity,

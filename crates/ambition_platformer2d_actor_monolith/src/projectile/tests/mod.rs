@@ -42,9 +42,8 @@ fn dummy_world() -> World {
 fn spawn_player(app: &mut App, pos: ae::Vec2, facing: f32) {
     // Spawn via `PlayerSimulationBundle` so the entity carries every
     // component the projectile system + visuals path queries
-    // (`BodyKinematics`, `PlayerEntity`, `PrimaryPlayer`,
-    // `LocalPlayer`, `PlayerInputFrame`, the 17 other cluster
-    // components, …) with no manual spawn-tuple list.
+    // (`BodyKinematics`, `PlayerEntity`, `PrimaryPlayer`, `LocalPlayer`, the
+    // cluster components, …) with no manual spawn-tuple list.
     let mut scratch = crate::avatar::primary_player_scratch(pos, ae::AbilitySet::sandbox_all());
     scratch.kinematics.facing = facing;
     scratch.ground.on_ground = true;
@@ -93,7 +92,7 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
         app.world_mut(),
         RoomGeometry(world),
     );
-    // `update_projectiles` collides against the portal-carved world; no carves in
+    // `step_projectiles` collides against the portal-carved world; no carves in
     // these tests, so the overlay is empty (collision == raw world).
     app.init_resource::<crate::features::FeatureEcsWorldOverlay>();
     app.insert_resource(ControlFrame::default());
@@ -120,7 +119,7 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
     app.add_message::<crate::features::ActorStimulus>();
     app.add_message::<crate::combat::stocks::BodyKnockedOut>();
     app.add_message::<crate::features::ecs::damage_apply::WalletShieldSpent>();
-    app.add_message::<crate::projectile::SpawnProjectile>();
+    app.add_message::<crate::projectile::ProjectileSpawnRequest>();
     // The unified stepper can heal the player on a parry, so the message must be
     // registered even though player projectiles never trigger it.
     app.add_message::<crate::avatar::PlayerHealRequested>();
@@ -129,18 +128,17 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
     app.add_systems(
         Update,
         (
-            // Publish the device ControlFrame into SlotControls[PRIMARY] so the
-            // brain-gated input mirror sees it (production order).
+            // Publish the device ControlFrame into SlotControls[PRIMARY], then
+            // let the player brain translate that canonical slot (production order).
             crate::control::populate_slot_controls,
-            crate::control::sync_local_player_input_frame,
             crate::avatar::tick_controlled_brains,
             ambition_characters::brain::emit_player_projectile_tick_messages,
             // Mirror production order: the unified stepper advances existing
-            // shots, THEN input fires + the pool consumer materializes (so a
+            // shots, THEN input fires + the delayed request materializer runs (so a
             // shot fired this frame first ticks next frame), then feature hits.
             step_projectiles,
             charge_projectile_input,
-            ambition_projectiles::apply_player_spawn_projectile_messages,
+            ambition_projectiles::materialize_projectiles_for_next_tick,
             crate::features::apply_feature_hit_events,
         )
             .chain(),
@@ -253,7 +251,6 @@ pub(in crate::projectile) fn projectile_kinds(
 pub(in crate::projectile) fn spawn_player_projectile(
     app: &mut App,
     body: crate::projectile::ProjectileBody,
-    owner_id: &str,
 ) {
     let owner = primary_player_entity(app);
     let seq = {
@@ -267,9 +264,7 @@ pub(in crate::projectile) fn spawn_player_projectile(
         body.game,
         crate::projectile::ProjectileOwner(owner),
         seq,
-        crate::projectile::ProjectileOwnerId(owner_id.to_string()),
         crate::projectile::LiveProjectile,
-        crate::projectile::PlayerProjectile,
         Name::new("Player projectile (test)"),
     ));
 }
@@ -277,7 +272,7 @@ pub(in crate::projectile) fn spawn_player_projectile(
 fn advance_time(app: &mut App, dt_seconds: f32) {
     let mut time = app.world_mut().resource_mut::<Time<()>>();
     time.advance_by(std::time::Duration::from_secs_f32(dt_seconds));
-    // `update_projectiles` reads `Res<WorldTime>`, not `Res<Time>`,
+    // `step_projectiles` reads `Res<WorldTime>`, not `Res<Time>`,
     // so the test harness must mirror the production pipeline's
     // `refresh_world_time` step. Tests run at `time_scale = 1.0`,
     // so `sim_dt == wall_dt`.

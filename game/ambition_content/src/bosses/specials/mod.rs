@@ -59,7 +59,7 @@ use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 ///    [`CombatSet::ContentSpecials`], the engine's combat extension slot.
 ///    The slot's position in the combat chain (after the enemy-action
 ///    consumers, before the effect/projectile executors that drain a
-///    Technique's `SpawnProjectile`/`EffectRequest` output) is configured
+///    Technique's `ProjectileSpawnRequest`/`EffectRequest` output) is configured
 ///    by the app's `CombatSchedulePlugin`.
 ///
 /// Installed by [`super::AmbitionBossContentPlugin`].
@@ -92,7 +92,7 @@ impl Plugin for BossSpecialContentPlugin {
 
         // The 11 Technique systems, hung on the engine's combat extension
         // slot. They read `ActorActionMessage::Special` and emit
-        // `SpawnProjectile`/`EffectRequest`; the slot ordering guarantees
+        // `ProjectileSpawnRequest`/`EffectRequest`; the slot ordering guarantees
         // those land before the executors that drain them. Each only acts
         // during live gameplay. Nested into two tuples to stay under
         // Bevy's 20-element add_systems limit; the Techniques are mutually

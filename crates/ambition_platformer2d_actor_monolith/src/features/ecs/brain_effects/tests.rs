@@ -4,8 +4,7 @@
 //! `use super::*;`.
 
 use super::*;
-use crate::enemy_projectile::test_support::enemy_projectile_bodies;
-use crate::enemy_projectile::EnemyProjectileState;
+use crate::enemy_projectile::test_support::live_projectile_bodies;
 use crate::features::ecs::actor_clusters::ActorClusterSeed;
 use crate::projectile::ProjectileSeqCounter;
 use ambition_characters::brain::{ActionSet, RangedActionSpec};
@@ -53,16 +52,15 @@ fn build_app() -> App {
     app.add_plugins(MinimalPlugins);
     app.add_message::<ActorActionMessage>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.add_message::<ambition_vfx::EffectRequest>();
-    app.init_resource::<EnemyProjectileState>();
+    app.add_message::<crate::projectile::ProjectileSpawnRequest>();
     app.init_resource::<ProjectileSeqCounter>();
-    // Phase 3b: the consumer emits SpawnProjectile; chain the enemy-pool
-    // applier so the projectile entity spawns within the update.
+    // The consumer emits ProjectileSpawnRequest; chain the immediate materializer
+    // so the projectile entity spawns within the update.
     app.add_systems(
         Update,
         (
-            spawn_enemy_projectiles_from_brain_actions,
-            crate::enemy_projectile::apply_projectile_effects,
+            spawn_projectiles_from_brain_actions,
+            ambition_projectiles::materialize_projectiles_for_this_tick,
         )
             .chain(),
     );
@@ -75,7 +73,7 @@ fn ranged_message_for_non_pirate_uses_body_origin_not_hand() {
     let actor_pos = ae::Vec2::new(300.0, 300.0);
     // Use Combatant (a melee archetype) — its spec is irrelevant
     // here; the consumer only branches on archetype for origin
-    // and owner_id formatting.
+    // and presentation defaults.
     let aabb = ae::Aabb::new(actor_pos, ae::Vec2::new(14.0, 23.0));
     let enemy = ActorClusterSeed::new(
         "skitter_a",
@@ -97,17 +95,23 @@ fn ranged_message_for_non_pirate_uses_body_origin_not_hand() {
             },
         });
     app.update();
-    let projectiles = enemy_projectile_bodies(&mut app);
+    let projectiles = live_projectile_bodies(&mut app);
     assert_eq!(projectiles.len(), 1);
-    let owner = &projectiles[0].owner_id;
-    assert!(
-        !owner.starts_with("lasersword:"),
-        "non-pirate archetype must not get lasersword owner_id; got {owner:?}",
+    assert_eq!(
+        projectiles[0].body.kin.pos,
+        actor_pos + ae::Vec2::new(0.0, -8.0),
+        "an ordinary body fires from its authored body origin, not the gun-sword hand",
+    );
+    let mut owners = app.world_mut().query::<&crate::projectile::ProjectileOwner>();
+    assert_eq!(
+        owners.single(app.world()).expect("one projectile owner").0,
+        actor,
+        "the firing body entity is the sole owner identity carried by the shot",
     );
 }
 
 /// The ranged-fire consumer stamps the firing actor's authored ranged
-/// visual id onto the spawned projectile (by open id, not owner_id). A
+/// visual id onto the spawned projectile independently of ownership. A
 /// `cellular_automaton_fighter` authored `ranged_visual: "glider"` fires a
 /// `"glider"`-id shot.
 #[test]
@@ -181,7 +185,7 @@ fn ranged_message_converts_local_direction_at_consumer_frame() {
             },
         });
     app.update();
-    let projectiles = enemy_projectile_bodies(&mut app);
+    let projectiles = live_projectile_bodies(&mut app);
     assert_eq!(projectiles.len(), 1);
     let dir = projectiles[0].body.kin.vel.normalize_or_zero();
     assert!(
@@ -211,7 +215,7 @@ fn ranged_message_for_dead_actor_is_dropped() {
         });
     app.update();
     assert!(
-        enemy_projectile_bodies(&mut app).is_empty(),
+        live_projectile_bodies(&mut app).is_empty(),
         "dead actor must not spawn a projectile",
     );
 }

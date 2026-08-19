@@ -161,7 +161,7 @@ fn affordances_follow_the_possessed_body_not_the_home_avatar() {
     // The home avatar stays grounded, no ledge → its own verbs would be Jump/Shield.
     // Possess an actor hanging on a ledge: as in production, the player brain
     // TRANSFERS onto the target (which never carries `PlayerEntity` /
-    // `PrimaryPlayer` / a `PlayerInputFrame` mirror) and `ControlledSubject`
+    // `PrimaryPlayer` identity) and `ControlledSubject`
     // names it.
     let possessed = app
         .world_mut()
@@ -211,7 +211,7 @@ fn affordances_follow_the_possessed_body_not_the_home_avatar() {
 
 /// The intent (aim) must ALSO follow the possessed body — live slot input
 /// resolved against the DRIVEN body's facing. A possessed actor carries no
-/// `PlayerInputFrame` mirror (possession transfers only the brain), so an
+/// entity-local input mirror (possession transfers only the brain), so an
 /// intent compute that reads the mirror component would silently freeze at the
 /// home avatar's last pre-possession aim; reading the slot frame through the
 /// body's own `Brain::Player` is what keeps it live.
@@ -227,7 +227,7 @@ fn intent_reads_the_possessed_bodys_slot_input_and_facing() {
     app.update();
     assert_eq!(app.world().resource::<PlayerIntent>().aim, Aim::Forward);
 
-    // Possess a LEFT-facing actor (brain transfer; no PlayerInputFrame mirror).
+    // Possess a LEFT-facing actor (brain transfer; no entity-local input copy).
     let possessed = app
         .world_mut()
         .spawn((

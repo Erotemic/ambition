@@ -9,7 +9,7 @@ use super::movement_components::BodyKinematics;
 use crate::actor::AncillaryMovementBundle;
 use crate::actor::{BodyAnimFacts, BodyMelee};
 use crate::body_mode::BodyModeCapabilities;
-use crate::control::{LocalPlayer, PlayerInputFrame, PlayerSlot};
+use crate::control::{LocalPlayer, PlayerSlot};
 use crate::features::{ActorFaction, ActorPose, DamageableVolumes, PogoPolicy, PogoTargetVolumes};
 use ambition_characters::actor::{BodyCombat, BodyHealth, BodyWallet};
 use ambition_characters::brain::{ActionSet, ActorControl, Brain};
@@ -59,16 +59,12 @@ pub struct PlayerSimulationBundle {
     pub blink_cam: PlayerBlinkCameraState,
     pub attack: BodyMelee,
     pub safety: PlayerSafetyState,
-    pub input: PlayerInputFrame,
     pub faction: ActorFaction,
     pub name: Name,
     /// Universal-brain seam. The player entity carries a
-    /// `Brain::Player(slot)`, an `ActionSet` (its full moveset), and
-    /// an `ActorControl` that the brain-driver system fills each
-    /// frame from `PlayerInputFrame`. Until Chunk 4d/e wires the
-    /// authority to consume the frame, the brain and control
-    /// component are *parallel* state — they're built but nothing
-    /// reads them yet.
+    /// `Brain::Player(slot)`, an `ActionSet` (its full moveset), and an
+    /// `ActorControl` that the brain driver fills each frame from the canonical
+    /// `SlotControls[slot]`. No input frame is copied onto the body.
     pub brain: Brain,
     pub action_set: ActionSet,
     /// The player's melee as DATA (fable review R2.5 / I7): the controlled
@@ -187,7 +183,6 @@ impl PlayerSimulationBundle {
             blink_cam: PlayerBlinkCameraState::default(),
             attack: BodyMelee::default(),
             safety: PlayerSafetyState::new(initial_safe_pos),
-            input: PlayerInputFrame::default(),
             faction: ActorFaction::Player,
             name: Name::new("Player"),
             brain: Brain::Player(PlayerSlot::PRIMARY),

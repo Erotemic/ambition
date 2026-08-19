@@ -161,6 +161,7 @@ pub fn record_frame_system(
     replay: Option<Res<ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>>,
     clock: Res<ambition_time::ClockState>,
     platform_set: Res<ambition_platformer2d_world::collision::MovingPlatformSet>,
+    slots: Res<ambition_characters::brain::SlotControls>,
 
     time: Res<Time>,
     rooms: Option<
@@ -180,7 +181,6 @@ pub fn record_frame_system(
             &ae::BodyMotionFacts,
             Option<&ambition_characters::actor::BodyHealth>,
             &crate::avatar::PlayerSafetyState,
-            &crate::control::PlayerInputFrame,
             &ambition_characters::actor::BodyCombat,
             // AC3.1.B: the melee authority, read directly rather than through the
             // deleted `BodyCombat.attacking` mirror.
@@ -203,7 +203,7 @@ pub fn record_frame_system(
     if teleported.read().next().is_some() {
         buffer.teleport_suppress_ticks = super::PORTAL_TELEPORT_SUPPRESS_FRAMES;
     }
-    let Ok((mut cluster_item, model, facts, player_health, safety, input, combat, melee)) =
+    let Ok((mut cluster_item, model, facts, player_health, safety, combat, melee)) =
         player_q.single_mut()
     else {
         return;
@@ -211,7 +211,7 @@ pub fn record_frame_system(
     // Trace recording is read-only. Walks the cluster components
     // directly through `BodyClustersMut`.
     let clusters = cluster_item.as_clusters_mut();
-    let control_frame = input.frame;
+    let control_frame = slots.get(ambition_characters::brain::PlayerSlot::PRIMARY);
     let real_dt = time.delta_secs();
     let sim_dt = real_dt * clock.time_scale;
     let active_area = rooms

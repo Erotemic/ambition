@@ -174,26 +174,18 @@ pub struct FeatureDebugQueries<'w, 's> {
         'w,
         ambition_platformer2d::actors::combat::authored_volumes::AuthoredAttackVolumeResolver,
     >,
-    /// In-flight player projectiles (ECS entities). Bundled here (rather than a
-    /// top-level param) so `draw_debug_overlay` has a slot free for the
-    /// debug-label buffer while staying under the 16-param ceiling.
-    /// `Without<PlayerEntity>` proves disjointness from the `&mut` player query.
-    pub player_projectiles: Query<
+    /// Every in-flight projectile, with its frozen combat side when it has one.
+    /// Bundled here so `draw_debug_overlay` stays under Bevy's parameter ceiling.
+    /// Presentation vocabulary does not decide debug faction color.
+    pub live_projectiles: Query<
         'w,
         's,
-        &'static ambition_platformer2d::actors::actor::BodyKinematics,
         (
-            With<ambition_platformer2d::projectiles::PlayerProjectile>,
-            Without<ambition_platformer2d::actors::actor::PlayerEntity>,
+            &'static ambition_platformer2d::actors::actor::BodyKinematics,
+            Option<&'static ambition_platformer2d::actors::projectile::ProjectileAllegiance>,
         ),
-    >,
-    /// In-flight enemy projectiles (ECS entities); see `player_projectiles`.
-    pub enemy_projectiles: Query<
-        'w,
-        's,
-        &'static ambition_platformer2d::actors::actor::BodyKinematics,
         (
-            With<ambition_platformer2d::projectiles::enemy::EnemyProjectile>,
+            With<ambition_platformer2d::projectiles::LiveProjectile>,
             Without<ambition_platformer2d::actors::actor::PlayerEntity>,
         ),
     >,
@@ -725,23 +717,30 @@ pub(crate) fn draw_feature_debug(
     // privileged-player owner fallback or its own strike-geometry resolver.
 }
 
-/// Draw in-flight player and enemy projectile AABBs so they remain
-/// visible when `hide_sprites` strips the textured projectile ring.
-/// Player projectiles use a warm orange (matches charge tint); enemy
-/// projectiles use red so the faction is immediately readable.
+/// Draw every in-flight projectile AABB so shots remain visible when
+/// `hide_sprites` strips textured art. Color comes from frozen combat allegiance,
+/// never from whether the shot used named or open-visual presentation.
 pub(crate) fn draw_projectile_debug<'a>(
     gizmos: &mut Gizmos,
     world: &ae::World,
-    player_bodies: impl IntoIterator<Item = &'a ambition_platformer2d::actors::actor::BodyKinematics>,
-    enemy_bodies: impl IntoIterator<Item = &'a ambition_platformer2d::actors::actor::BodyKinematics>,
+    projectiles: impl IntoIterator<
+        Item = (
+            &'a ambition_platformer2d::actors::actor::BodyKinematics,
+            Option<&'a ambition_platformer2d::actors::projectile::ProjectileAllegiance>,
+        ),
+    >,
     developer_tools: &DeveloperTools,
 ) {
     let player_color = Color::srgba(1.00, 0.74, 0.30, 0.92);
-    let enemy_color = Color::srgba(1.00, 0.32, 0.32, 0.92);
-    for kin in player_bodies {
-        draw_aabb_styled(gizmos, world, kin.aabb(), player_color, developer_tools);
-    }
-    for kin in enemy_bodies {
-        draw_aabb_styled(gizmos, world, kin.aabb(), enemy_color, developer_tools);
+    let hostile_color = Color::srgba(1.00, 0.32, 0.32, 0.92);
+    for (kin, allegiance) in projectiles {
+        let color = if allegiance.is_some_and(|side| {
+            side.faction == ambition_platformer2d::characters::actor::ActorFaction::Player
+        }) {
+            player_color
+        } else {
+            hostile_color
+        };
+        draw_aabb_styled(gizmos, world, kin.aabb(), color, developer_tools);
     }
 }

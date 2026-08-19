@@ -158,7 +158,7 @@ pub use ecs::{
     rebuild_feature_ecs_world_overlay, refresh_body_damageable_volumes,
     refresh_boss_damageable_volumes, refresh_breakable_damageable_volumes, reset_ecs_room_features,
     route_boss_strikes_to_limbs, select_actor_targets, spawn_encounter_mob,
-    spawn_enemy_projectiles_from_brain_actions, spawn_room_feature_entities_from_plan,
+    spawn_projectiles_from_brain_actions, spawn_room_feature_entities_from_plan,
     steer_mount_from_rider, sync_actor_poses_from_feature_aabbs, sync_actor_read_model,
     sync_boss_actor_components, sync_boss_encounter_phase, sync_ecs_actors_with_save,
     sync_ecs_bosses_with_save, sync_ecs_switches_from_save, sync_encounter_reward_chests_ecs,

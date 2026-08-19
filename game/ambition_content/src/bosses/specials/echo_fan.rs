@@ -12,8 +12,7 @@ use ambition_platformer2d_actor_monolith::actor::{BodyKinematics, PlayerEntity};
 use ambition_boss_encounter::BossClusterRef;
 use ambition_platformer2d_actor_monolith::features::{ActorTarget, FeatureSimEntity};
 use ambition_platformer2d_core::{self as ae, AabbExt};
-use ambition_projectiles::enemy::ProjectileSpawn;
-use ambition_vfx::{Effect, EffectRequest};
+use ambition_projectiles::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
 
 // ---- Mockingbird's echo fan (content-only, open-seam; mimic spread) ----
 
@@ -27,7 +26,6 @@ const ECHO_FAN_SPEED: f32 = 300.0;
 const ECHO_FAN_DAMAGE: i32 = 1;
 const ECHO_FAN_HALF_EXTENT: ae::Vec2 = ae::Vec2::new(9.0, 9.0);
 const ECHO_FAN_LIFETIME: f32 = 2.0;
-const ECHO_FAN_OWNER_PREFIX: &str = "echo_fan";
 
 /// Per-boss gate for the echo fan. One spread per strike.
 #[derive(Component, Clone, Copy, Debug, Default)]
@@ -62,7 +60,7 @@ fn echo_fan(aim: ae::Vec2, count: u32, spread: f32) -> Vec<ae::Vec2> {
 /// Technique: Mockingbird echo fan — copies one shot across a cone aimed at the
 /// player (content-only; open-seam special).
 pub fn spawn_echo_fan_from_special_messages(
-    mut effects: MessageWriter<EffectRequest>,
+    mut projectiles: MessageWriter<ProjectileSpawnRequest>,
     mut messages: MessageReader<ActorActionMessage>,
     player_query: Query<&BodyKinematics, With<PlayerEntity>>,
     mut bosses: Query<
@@ -110,25 +108,23 @@ pub fn spawn_echo_fan_from_special_messages(
             .filter(|d| d.length_squared() > 1e-4)
             .unwrap_or_else(|| ae::Vec2::new(boss.kin.facing.signum(), 0.0));
         for dir in echo_fan(aim, ECHO_FAN_COUNT, ECHO_FAN_SPREAD_RAD) {
-            effects.write(EffectRequest {
-                owner: entity,
-                effect: Effect::Projectiles {
-                    shots: vec![ProjectileSpawn {
-                        origin,
-                        dir,
-                        speed: ECHO_FAN_SPEED,
-                        damage: ECHO_FAN_DAMAGE,
-                        max_lifetime: ECHO_FAN_LIFETIME,
-                        half_extent: ECHO_FAN_HALF_EXTENT,
-                        owner_id: format!("{}:{}", ECHO_FAN_OWNER_PREFIX, boss.config.id),
-                        gravity: 0.0,
-                        visual_id: String::new(),
-                        // Straight shot: this ability authors no bounce.
-                        bounces: 0,
-                        bounce_on_world_contact: false,
-                    }],
+            projectiles.write(ProjectileSpawnRequest::open(
+                entity,
+                ProjectileSpawn {
+                    origin,
+                    dir,
+                    speed: ECHO_FAN_SPEED,
+                    damage: ECHO_FAN_DAMAGE,
+                    max_lifetime: ECHO_FAN_LIFETIME,
+                    half_extent: ECHO_FAN_HALF_EXTENT,
+                    gravity: 0.0,
+                    visual_id: String::new(),
+                    // Straight shot: this ability authors no bounce.
+                    bounces: 0,
+                    bounce_on_world_contact: false,
                 },
-            });
+                ProjectileStart::StepThisTick,
+            ));
         }
         state.fired_this_strike = true;
     }

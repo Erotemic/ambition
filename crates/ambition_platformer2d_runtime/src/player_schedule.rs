@@ -179,21 +179,19 @@ impl Plugin for PlayerSchedulePlugin {
                 // 1. Resolve the CONTROLLED SUBJECT — the body carrying
                 //    `Brain::Player(PRIMARY)` this frame (home avatar, or a
                 //    possessed actor).
-                // 2. Publish the local device frame into the slot-based
-                //    controller model (`SlotControls[PRIMARY]`).
-                // 3. Mirror each controlled body's slot frame onto its
-                //    PlayerInputFrame (gated on brain ownership: a vacated
-                //    avatar sees neutral input).
+                // 2. Publish the local device frame into the canonical slot-based
+                //    controller model (`SlotControls[PRIMARY]`). This is the end
+                //    of the local-device adapter; bodies read their slot through
+                //    `Brain::Player(slot)` and no input component is copied.
                 (
                     ambition_platformer2d_actor_monolith::abilities::traversal::possession::resolve_controlled_subject,
-                    ambition_platformer2d_actor_monolith::control::populate_slot_controls,
+                    ambition_platformer2d_actor_monolith::control::populate_slot_controls
+                        .in_set(ambition_platformer2d_actor_monolith::control::PrimarySlotInputCommit),
                     // N0.2: capture the input the SIM consumes, which is not the
                     // input the device produced — gestures, portal warp, and the
                     // fixed-tick latch all rewrite the frame on the way here.
                     crate::input_stream::record_input_stream
                         .run_if(crate::input_stream::input_stream_recording),
-                    ambition_platformer2d_actor_monolith::control::sync_local_player_input_frame
-                        .in_set(ambition_platformer2d_actor_monolith::control::LocalInputFrameCommit),
                 )
                     .chain(),
             )

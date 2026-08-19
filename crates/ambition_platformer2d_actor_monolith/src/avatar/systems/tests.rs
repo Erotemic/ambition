@@ -3,11 +3,11 @@
 //! same test names + logic, now an adjacent child module with private access via
 //! `use super::*;`.
 
-// The device→slot and slot→body bridges left for `crate::control` (R6c);
-// these end-to-end tests drive the player tick THROUGH them, so they import
-// them as fixtures rather than owning them.
+// The device→slot bridge lives in `crate::control` (R6c); these end-to-end
+// tests drive the player tick THROUGH it so they exercise the same slot-owned
+// authority as production rather than stamping body-local input state.
 use super::*;
-use crate::control::{populate_slot_controls, sync_local_player_input_frame};
+use crate::control::populate_slot_controls;
 use ambition_characters::brain::ActorControl;
 use ambition_input::ControlFrame;
 
@@ -190,7 +190,6 @@ fn player_projectile_release_emits_ranged_bolt_action_message_end_to_end() {
         Update,
         (
             populate_slot_controls,
-            sync_local_player_input_frame,
             tick_controlled_brains,
             emit_brain_action_messages,
         )
@@ -273,7 +272,6 @@ fn player_attack_press_emits_swipe_action_message_end_to_end() {
         Update,
         (
             populate_slot_controls,
-            sync_local_player_input_frame,
             tick_controlled_brains,
             emit_brain_action_messages,
         )
@@ -306,8 +304,8 @@ fn player_attack_press_emits_swipe_action_message_end_to_end() {
 }
 
 /// End-to-end: spawn a player entity with the brain components,
-/// populate ControlFrame, run sync_local_player_input_frame +
-/// tick_controlled_brains, assert ActorControl reflects the input.
+/// populate ControlFrame into the primary slot, run tick_controlled_brains,
+/// and assert ActorControl reflects that slot input.
 /// Pins the universal-brain seam on the player side.
 #[test]
 fn player_brain_seam_translates_control_frame_to_actor_control() {
@@ -338,7 +336,6 @@ fn player_brain_seam_translates_control_frame_to_actor_control() {
         Update,
         (
             populate_slot_controls,
-            sync_local_player_input_frame,
             tick_controlled_brains,
         )
             .chain(),

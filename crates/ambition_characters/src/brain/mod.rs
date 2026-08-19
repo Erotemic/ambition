@@ -189,10 +189,9 @@ impl SlotControlLatches {
 /// future variants will include `Remote`, `Scripted`, and `RlPolicy`.
 #[derive(Component, Clone, Debug)]
 pub enum Brain {
-    /// Human player (or in the future, anything that "presses
-    /// inputs"). The slot identifies which `PlayerInputFrame` to
-    /// read — for now there's only `PlayerSlot(0)`, but the brain
-    /// shape is per-slot ready.
+    /// Human participant (or in the future, anything that "presses inputs").
+    /// The slot identifies which [`SlotControls`] entry to read, so control
+    /// authority is participant-scoped rather than copied onto a body.
     Player(PlayerSlot),
     /// Pre-canned AI policy template. The variant carries both the
     /// cfg (tuning) and the per-actor runtime state.
@@ -664,9 +663,9 @@ impl ActorActionMessage {
         matches!(self.request, action_set::ActionRequest::Special { .. })
     }
 
-    /// True iff this message carries a player projectile tick. The
-    /// player projectile EFFECTS consumer filters the action stream
-    /// with this predicate to drive its charge state machine.
+    /// True iff this message carries a charge-capable projectile tick. The
+    /// body-fire input consumer filters the action stream with this predicate
+    /// to drive its charge state machine.
     pub fn is_player_projectile_tick(&self) -> bool {
         matches!(
             self.request,
@@ -736,10 +735,10 @@ pub struct MovesetRanged;
 pub struct ChargesProjectiles;
 
 /// Bevy system: emit one `ActorActionMessage::PlayerProjectileTick`
-/// per charge-capable actor per tick. The player projectile EFFECTS
-/// consumer (`update_projectiles` (ambition_platformer2d_actor_monolith)) drives its
+/// per charge-capable actor per tick. The charge-projectile input
+/// consumer (`charge_projectile_input` in `ambition_platformer2d_actor_monolith`) drives its
 /// motion-recognition buffer + Fireball charge state machine from
-/// this stream instead of reading `PlayerInputFrame` directly.
+/// this stream from the already translated `ActorControl` rather than raw slot input.
 ///
 /// Emitted every tick — even on neutral input — because the
 /// motion-recognition buffer needs continuous axis samples to detect

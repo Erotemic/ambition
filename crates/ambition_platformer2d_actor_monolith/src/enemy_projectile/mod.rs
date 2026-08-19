@@ -1,17 +1,9 @@
-//! Enemy-fired projectile glue (pirate volleys etc).
+//! Historical projectile-system tests, retained as a test-only namespace.
 //!
-//! The enemy-shot MODEL — the `EnemyProjectile` marker + `EnemyProjectileState`/
-//! `ProjectileSpawn` — now lives in [`ambition_projectiles::enemy`] (E2
-//! carve) and is re-exported below so `crate::enemy_projectile::*` paths resolve
-//! unchanged. The canonical effect-request spawn executor now lives in
-//! [`ambition_projectiles::enemy::apply_enemy_projectile_effect_requests`]. This
-//! module keeps the legacy system name for actor-internal tests and transitional
-//! call sites only; runtime scheduling goes through `ambition_platformer2d_runtime`.
+//! Production has one `ambition_projectiles::LiveProjectile` occurrence family and
+//! one authoritative `ProjectileSpawnRequest` road. These helpers keep the old
+//! collision/routing regression suite readable without reintroducing a production
+//! enemy-projectile category.
 
-pub use ambition_projectiles::enemy::*;
-
-pub mod systems;
-pub use systems::apply_projectile_effects;
-
-#[cfg(test)]
 pub(crate) mod test_support;
+mod tests;

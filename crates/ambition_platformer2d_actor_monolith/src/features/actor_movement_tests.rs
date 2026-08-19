@@ -548,7 +548,7 @@ fn sideways_wall_contact_is_reported_without_mutating_facing() {
 // comes from the brain's tick output, not the legacy orbit-and-
 // fire branch that lived inside `build_control_frame`.
 // The EFFECTS-consumer test
-// `spawn_enemy_projectiles_from_brain_actions::tests::*` still
+// `spawn_projectiles_from_brain_actions::tests::*` still
 // covers the projectile spawn shape; brain-side fire-intent
 // generation belongs in the relevant brain backend's tests.
 

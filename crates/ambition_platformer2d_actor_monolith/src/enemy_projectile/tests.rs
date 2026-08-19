@@ -3,14 +3,17 @@
 //! same test names + logic, now an adjacent child module with private access via
 //! `use super::*;`.
 
-use super::*;
 use crate::features::{HitEvent, HitSource};
 use ambition_platformer2d_core as ae;
 use ambition_vfx::vfx::VfxMessage;
+use bevy::prelude::*;
 
 use crate::combat::components::ActorFaction;
-use crate::enemy_projectile::test_support::{enemy_projectile_bodies, spawn_enemy_projectile};
-use crate::enemy_projectile::ProjectileSpawn;
+use crate::enemy_projectile::test_support::{live_projectile_bodies, spawn_test_projectile};
+use crate::projectile::{
+    build_in_flight_projectile, ProjectileSeqCounter, ProjectileSpawn, ProjectileSpawnRequest,
+    ProjectileStart,
+};
 
 #[derive(Resource, Default)]
 struct CapturedHits(Vec<HitEvent>);
@@ -29,8 +32,8 @@ fn insert_projectile_authority(app: &mut App) {
 }
 
 /// The faction-aware routing keystone: a **Player**-faction shot in the
-/// shared pool damages the enemy it overlaps (a PlayerProjectile hit, NOT an
-/// EnemyProjectile one) and expires on contact — the substrate for the
+/// single live-projectile road damages the enemy it overlaps and expires on
+/// contact — the substrate for the
 /// wielded ranged boss attack (`crate::abilities::ranged::volley`). The enemy-faction path is
 /// unchanged (covered by the existing boss-special consumer tests).
 #[test]
@@ -89,7 +92,7 @@ fn player_faction_shot_damages_an_overlapping_enemy_and_expires() {
         ))
         .id();
     // A player-faction shot already overlapping the enemy.
-    spawn_enemy_projectile(
+    spawn_test_projectile(
         &mut app,
         ProjectileSpawn {
             origin: enemy_pos,
@@ -98,7 +101,6 @@ fn player_faction_shot_damages_an_overlapping_enemy_and_expires() {
             damage: 3,
             max_lifetime: 2.0,
             half_extent: ae::Vec2::new(8.0, 8.0),
-            owner_id: "player_volley".into(),
             gravity: 0.0,
             visual_id: String::new(),
             // Straight shot: this ability authors no bounce.
@@ -150,7 +152,7 @@ fn player_faction_shot_damages_an_overlapping_enemy_and_expires() {
         "and the enemy is what it reached"
     );
     assert!(
-        enemy_projectile_bodies(&mut app).is_empty(),
+        live_projectile_bodies(&mut app).is_empty(),
         "the shot expires on contact with the enemy"
     );
 }
@@ -211,7 +213,6 @@ fn an_ownerless_shot_damages_a_same_faction_actor_indiscriminately() {
             damage: 3,
             max_lifetime: 2.0,
             half_extent: ae::Vec2::new(8.0, 8.0),
-            owner_id: String::new(),
             gravity: 0.0,
             visual_id: String::new(),
             // Straight shot: this ability authors no bounce.
@@ -278,7 +279,7 @@ fn spawn_boss_actor(app: &mut App, pos: ae::Vec2) -> Entity {
 }
 
 fn spawn_overlapping_enemy_glider(app: &mut App, pos: ae::Vec2) {
-    spawn_enemy_projectile(
+    spawn_test_projectile(
         app,
         ProjectileSpawn {
             origin: pos,
@@ -287,7 +288,6 @@ fn spawn_overlapping_enemy_glider(app: &mut App, pos: ae::Vec2) {
             damage: 3,
             max_lifetime: 2.0,
             half_extent: ae::Vec2::new(8.0, 8.0),
-            owner_id: "pca_glider".into(),
             gravity: 0.0,
             visual_id: String::new(),
             // Straight shot: this ability authors no bounce.
@@ -703,15 +703,14 @@ fn a_shot_stamped_at_birth_survives_its_firers_elimination() {
 /// [`spawn_overlapping_enemy_glider`] but the OWNER is the caller's, because
 /// what is under test is a fact about the owner (its team).
 fn spawn_owned_glider(app: &mut App, pos: ae::Vec2, firer: Entity) {
-    use crate::projectile::{ProjectileOwner, ProjectileOwnerId, ProjectileSeq};
-    let projectile = crate::enemy_projectile::EnemyProjectileState::build(ProjectileSpawn {
+    use crate::projectile::{ProjectileOwner, ProjectileSeq};
+    let projectile = build_in_flight_projectile(ProjectileSpawn {
         origin: pos,
         dir: ae::Vec2::new(1.0, 0.0),
         speed: 200.0,
         damage: 3,
         max_lifetime: 2.0,
         half_extent: ae::Vec2::new(8.0, 8.0),
-        owner_id: "pca_glider".into(),
         gravity: 0.0,
         visual_id: String::new(),
         bounces: 0,
@@ -727,10 +726,8 @@ fn spawn_owned_glider(app: &mut App, pos: ae::Vec2, firer: Entity) {
         projectile.body.kin,
         projectile.body.game,
         seq,
-        ProjectileOwnerId(projectile.owner_id),
         ProjectileOwner(firer),
         crate::projectile::LiveProjectile,
-        crate::enemy_projectile::EnemyProjectile,
         bevy::prelude::Name::new("Owned glider (test)"),
     ));
 }
@@ -801,7 +798,7 @@ fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
     // An enemy bolt overlapping the player, travelling left (toward where it
     // came from — at the player).
     let incoming = ae::Vec2::new(-300.0, 0.0);
-    spawn_enemy_projectile(
+    spawn_test_projectile(
         &mut app,
         ProjectileSpawn {
             origin: player_pos,
@@ -810,7 +807,6 @@ fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
             damage: 2,
             max_lifetime: 2.0,
             half_extent: ae::Vec2::new(8.0, 8.0),
-            owner_id: "boss_bolt".into(),
             gravity: 0.0,
             visual_id: String::new(),
             // Straight shot: this ability authors no bounce.
@@ -822,7 +818,7 @@ fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
 
     app.update();
 
-    let bodies = enemy_projectile_bodies(&mut app);
+    let bodies = live_projectile_bodies(&mut app);
     assert_eq!(bodies.len(), 1, "the parried bolt stays in flight");
     let body = &bodies[0].body;
     // Parry RE-OWNS the bolt to the player (so its firer faction is Player next
@@ -849,7 +845,7 @@ fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
 /// Task B: an enemy shot spawned through the executor with a real firing
 /// actor carries `ProjectileOwner`, so the hit it lands on the player
 /// attributes back to that actor (`HitEvent::attacker`), instead of the
-/// historical `None`. Drives the full `EffectRequest` → executor →
+/// historical `None`. Drives the full projectile-request → materializer →
 /// `step_projectiles` path so the stamping + the enemy-branch read are both
 /// exercised.
 #[test]
@@ -876,7 +872,7 @@ fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
     app.add_message::<HitEvent>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
-    app.add_message::<ambition_vfx::EffectRequest>();
+    app.add_message::<ProjectileSpawnRequest>();
     app.add_message::<crate::avatar::PlayerHealRequested>();
     app.init_resource::<ProjectileSeqCounter>();
     app.init_resource::<CapturedHits>();
@@ -885,7 +881,7 @@ fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
     app.add_systems(
         Update,
         (
-            apply_projectile_effects,
+            ambition_projectiles::materialize_projectiles_for_this_tick,
             crate::projectile::step_projectiles,
             capture_hits,
         )
@@ -936,25 +932,23 @@ fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
     ));
 
     // Fire an enemy-faction shot owned by `attacker`, overlapping the player.
-    app.world_mut().write_message(ambition_vfx::EffectRequest {
-        owner: attacker,
-        effect: ambition_vfx::Effect::Projectiles {
-            shots: vec![ProjectileSpawn {
-                origin: player_pos,
-                dir: ae::Vec2::new(1.0, 0.0),
-                speed: 100.0,
-                damage: 2,
-                max_lifetime: 2.0,
-                half_extent: ae::Vec2::new(8.0, 8.0),
-                owner_id: "boss_bolt".into(),
-                gravity: 0.0,
-                visual_id: String::new(),
-                // Straight shot: this ability authors no bounce.
-                bounces: 0,
-                bounce_on_world_contact: false,
-            }],
+    app.world_mut().write_message(ProjectileSpawnRequest::open(
+        attacker,
+        ProjectileSpawn {
+            origin: player_pos,
+            dir: ae::Vec2::new(1.0, 0.0),
+            speed: 100.0,
+            damage: 2,
+            max_lifetime: 2.0,
+            half_extent: ae::Vec2::new(8.0, 8.0),
+            gravity: 0.0,
+            visual_id: String::new(),
+            // Straight shot: this ability authors no bounce.
+            bounces: 0,
+            bounce_on_world_contact: false,
         },
-    });
+        ProjectileStart::StepThisTick,
+    ));
 
     app.update();
 
@@ -963,7 +957,7 @@ fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
         .0
         .iter()
         .find(|e| matches!(e.source, HitSource::Projectile))
-        .expect("the enemy shot lands an EnemyProjectile hit on the player");
+        .expect("the enemy shot lands a projectile hit on the controlled body");
     assert_eq!(
         player_hit.attacker,
         Some(attacker),
@@ -1067,7 +1061,7 @@ fn a_bolt_passes_through_a_body_that_published_no_hurtbox() {
          pass through it, exactly as a swing does"
     );
     assert_eq!(
-        enemy_projectile_bodies(&mut dead).len(),
+        live_projectile_bodies(&mut dead).len(),
         1,
         "and the shot is not absorbed: an intangible body must not eat a bolt \
          that should have flown on to whatever was behind it"
@@ -1082,28 +1076,26 @@ fn spawn_executor_attaches_visual_id() {
     use crate::projectile::ProjectileVisualId;
     let mut app = App::new();
     insert_projectile_authority(&mut app);
-    app.add_message::<ambition_vfx::EffectRequest>();
+    app.add_message::<ProjectileSpawnRequest>();
     app.init_resource::<ProjectileSeqCounter>();
-    app.add_systems(Update, apply_projectile_effects);
-    app.world_mut().write_message(ambition_vfx::EffectRequest {
-        owner: Entity::PLACEHOLDER,
-        effect: ambition_vfx::Effect::Projectiles {
-            shots: vec![ProjectileSpawn {
-                origin: ae::Vec2::ZERO,
-                dir: ae::Vec2::new(1.0, 0.0),
-                speed: 100.0,
-                damage: 1,
-                max_lifetime: 1.0,
-                half_extent: ae::Vec2::new(8.0, 8.0),
-                owner_id: "pca".into(),
-                gravity: 0.0,
-                visual_id: "glider".into(),
-                // Straight shot: this ability authors no bounce.
-                bounces: 0,
-                bounce_on_world_contact: false,
-            }],
+    app.add_systems(Update, ambition_projectiles::materialize_projectiles_for_this_tick);
+    app.world_mut().write_message(ProjectileSpawnRequest::open(
+        Entity::PLACEHOLDER,
+        ProjectileSpawn {
+            origin: ae::Vec2::ZERO,
+            dir: ae::Vec2::new(1.0, 0.0),
+            speed: 100.0,
+            damage: 1,
+            max_lifetime: 1.0,
+            half_extent: ae::Vec2::new(8.0, 8.0),
+            gravity: 0.0,
+            visual_id: "glider".into(),
+            // Straight shot: this ability authors no bounce.
+            bounces: 0,
+            bounce_on_world_contact: false,
         },
-    });
+        ProjectileStart::StepThisTick,
+    ));
     app.update();
     let mut q = app.world_mut().query::<&ProjectileVisualId>();
     let ids: Vec<_> = q.iter(app.world()).map(|v| v.0.clone()).collect();

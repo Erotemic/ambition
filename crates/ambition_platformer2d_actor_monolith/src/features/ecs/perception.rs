@@ -157,13 +157,18 @@ pub struct PerceptionPeer {
     pub health_max: i32,
 }
 
-/// A live projectile the viewer may perceive. `faction` is the **firer's**
-/// faction; the builder resolves whether it threatens the viewer relationally.
+/// A live projectile the viewer may perceive. `faction` + `team` are the frozen
+/// firing side when the projectile has one. No faction means an intentionally
+/// ownerless/environmental shot, which the builder treats as indiscriminate.
+/// Team precedence matches projectile damage whenever both sides are seated.
 pub struct PerceptionProjectile {
     pub pos: ae::Vec2,
     pub vel: ae::Vec2,
     pub damage: i32,
-    pub faction: ActorFaction,
+    pub faction: Option<ActorFaction>,
+    /// Frozen match team from the firing body, when the shot belongs to a
+    /// seated combatant. `None` for unseated and ownerless shots.
+    pub team: Option<crate::combat::targeting::MatchTeam>,
 }
 
 /// A portal aperture the viewer may perceive. `channel_key` is the stable pair
@@ -295,46 +300,29 @@ pub fn collect_perception_peers(
 #[derive(bevy::prelude::Resource, Default)]
 pub struct PerceptionProjectiles(pub Vec<PerceptionProjectile>);
 
-/// Collect the projectile snapshot from BOTH live pools (§A7 projectiles slice). The
-/// two pools carry faction DIFFERENTLY (only projectiles carry `ProjectileGameplay`,
-/// so it selects them): an `enemy_projectile` reads its own `ActorFaction` component;
-/// a `projectile` `LiveProjectile` has none (the unified stepper attributes via its
-/// owner), so it is snapshotted as `Player` — the live pool is the player/charge path,
-/// and mixed-faction reflected shots are a refinement for when a dodging brain actually
-/// reads `incoming_threats` (no consumer today, so this is additive + behavior-neutral).
+/// Collect one snapshot row for every live projectile.
+///
+/// `LiveProjectile` is occurrence identity; `ProjectileAllegiance` is the frozen
+/// combat side. The old player/enemy spawn-family markers are deliberately not
+/// part of perception: an open-visual projectile can be friendly, and a named
+/// projectile can be hostile after a reflect. An unstamped environmental shot
+/// carries `None`, matching the stepper's indiscriminate ownerless semantics.
 pub fn collect_perception_projectiles(
     mut out: bevy::prelude::ResMut<PerceptionProjectiles>,
-    enemy_pool: bevy::prelude::Query<
-        (
-            &crate::actor::BodyKinematics,
-            &crate::projectile::ProjectileGameplay,
-            &ActorFaction,
-        ),
-        bevy::prelude::With<crate::enemy_projectile::EnemyProjectile>,
-    >,
-    live_pool: bevy::prelude::Query<
-        (
-            &crate::actor::BodyKinematics,
-            &crate::projectile::ProjectileGameplay,
-        ),
-        bevy::prelude::With<crate::projectile::LiveProjectile>,
-    >,
+    live: bevy::prelude::Query<(
+        &crate::actor::BodyKinematics,
+        &crate::projectile::ProjectileGameplay,
+        Option<&crate::projectile::ProjectileAllegiance>,
+    ), bevy::prelude::With<crate::projectile::LiveProjectile>>,
 ) {
     out.0.clear();
-    for (kin, game, faction) in &enemy_pool {
+    for (kin, game, allegiance) in &live {
         out.0.push(PerceptionProjectile {
             pos: kin.pos,
             vel: kin.vel,
             damage: game.damage,
-            faction: *faction,
-        });
-    }
-    for (kin, game) in &live_pool {
-        out.0.push(PerceptionProjectile {
-            pos: kin.pos,
-            vel: kin.vel,
-            damage: game.damage,
-            faction: ActorFaction::Player,
+            faction: allegiance.map(|side| side.faction),
+            team: allegiance.and_then(|side| side.team.clone()),
         });
     }
 }
@@ -501,8 +489,19 @@ pub fn build_world_view(
             pos: pr.pos,
             vel: pr.vel,
             damage: pr.damage,
-            // A projectile threatens me iff its firer's faction is hostile to mine.
-            hostile_to_self: relations.is_hostile(pr.faction, body.faction),
+            // A sided projectile threatens me iff its frozen firing side is
+            // hostile to mine. An ownerless/environmental projectile is
+            // indiscriminate, matching the damage stepper.
+            hostile_to_self: match pr.faction {
+                None => true,
+                Some(faction) => match crate::combat::targeting::team_allows_damage(
+                    pr.team.as_ref(),
+                    body.team.as_ref(),
+                ) {
+                    Some(allowed) => allowed,
+                    None => relations.is_hostile(faction, body.faction),
+                },
+            },
         })
         .collect();
 

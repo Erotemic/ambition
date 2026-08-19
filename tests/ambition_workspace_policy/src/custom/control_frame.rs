@@ -312,8 +312,8 @@ pub fn run(ws: &Workspace, scope: Scope, report: &mut Report) {
                 owner,
                 format!(
                     "fn `{}` holds the global ControlFrame but is not an allowlisted input-layer \
-                     bridge — read PlayerInputFrame / ActorControl / SlotControls instead, or add a \
-                     justified allowlist entry (review with `{}`)",
+                     bridge — read ActorControl / SlotControls instead, or add a justified \
+                     allowlist entry (review with `{}`)",
                     h.func, cfg.review_marker
                 ),
             ));
@@ -432,7 +432,7 @@ pub fn poison_self_tests() {
         "pub fn n(f: Res<MenuControlFrame>) {}",
         "fn build(app: &mut App) { app.init_resource::<ControlFrame>(); }",
         "fn b2(app: &mut App) { app.init_resource::<ambition_input::ControlFrame>(); }",
-        "pub fn body(f: Res<SlotControls>, q: Query<&PlayerInputFrame>) {}",
+        "pub fn body(f: Res<SlotControls>, q: Query<&ActorControl>) {}",
         "pub fn actor(q: Query<&ActorControl>) {}",
         "/// Reads `Res<ControlFrame>` — but it doesn't, this is prose.",
     ] {

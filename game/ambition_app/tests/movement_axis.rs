@@ -12,7 +12,7 @@
 //! headlessly, independent of rendering or input devices.
 //!
 //! If this FAILS, the regression is DOWNSTREAM of `ControlFrame` (the
-//! ControlFrame -> PlayerInputFrame -> brain -> movement-integration path, or a
+//! ControlFrame -> SlotControls -> Brain::Player -> ActorControl -> movement path, or a
 //! system clobbering `ControlFrame.axis` between populate and consume). If it
 //! PASSES, the live device->ControlFrame populate path is the only remaining
 //! suspect (not exercised by this seam).

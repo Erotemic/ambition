@@ -19,7 +19,7 @@
 use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
-use crate::enemy_projectile::ProjectileSpawn;
+use crate::projectile::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
 #[cfg(test)]
 use crate::time::feel::Platformer2dFeelTuningMonolith;
 use ambition_characters::brain::{
@@ -66,9 +66,9 @@ const SHOOT_ANIM_HOLD_SECS: f32 = 0.18;
 /// state (which owns the shared refire floor), its surface frame, and an OPTIONAL
 /// archetype config for the per-archetype default look. Any body that emits
 /// `ActionRequest::Ranged` now fires through this one consumer.
-pub fn spawn_enemy_projectiles_from_brain_actions(
+pub fn spawn_projectiles_from_brain_actions(
     mut messages: MessageReader<ActorActionMessage>,
-    mut effects: MessageWriter<ambition_vfx::EffectRequest>,
+    mut projectiles: MessageWriter<ProjectileSpawnRequest>,
     mut sfx: SfxWriter,
     mut actors: Query<(
         &mut ae::BodyKinematics,
@@ -183,14 +183,6 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
             speed: spec.speed(),
         };
         let world_dir = request.dir_to_world(frame).normalize_or_zero();
-        // owner_id is the firing actor's id ONLY — used for self / friendly-fire
-        // filtering and traces. It no longer encodes the projectile's look
-        // (that's `visual_kind`), so a gun-sword shot carries the plain actor id
-        // while still originating at the hand muzzle.
-        // Used for self / friendly-fire ignore lists and traces only; the
-        // authoritative owner is the `ProjectileOwner` entity stamped at spawn, so
-        // a body with no archetype row still owns its shot correctly.
-        let owner_id = config.map(|c| c.id.clone()).unwrap_or_default();
         let spawn_origin = if uses_gun_sword {
             let hand = crate::features::rider_hand_world_pos_in_frame(
                 kin.pos,
@@ -209,7 +201,6 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
             damage: spec.damage(),
             max_lifetime: flight.max_lifetime,
             half_extent: flight.half_extent,
-            owner_id: owner_id.clone(),
             gravity: flight.gravity,
             visual_id,
             bounces: flight.bounces,
@@ -221,10 +212,11 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
                 pos: spawn.origin,
             });
         }
-        effects.write(ambition_vfx::EffectRequest {
-            owner: msg.actor,
-            effect: ambition_vfx::Effect::Projectiles { shots: vec![spawn] },
-        });
+        projectiles.write(ProjectileSpawnRequest::open(
+            msg.actor,
+            spawn,
+            ProjectileStart::StepThisTick,
+        ));
         // Recoil: push the firing actor backward along the negative
         // fire direction.
         let recoil_strength = if uses_gun_sword {

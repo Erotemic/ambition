@@ -1302,7 +1302,7 @@ pub fn apply_player_hit_events(
         // Friendly-fire gate: a same-faction attacker (co-op ally) doesn't damage
         // the player unless friendly fire is on; any different-faction hit lands
         // (the observer takes a duel's strays). Hits with no entity attacker
-        // (hazards, string-owned enemy projectiles) are environmental and always apply.
+        // (hazards or genuinely ownerless projectiles) are environmental and always apply.
         .filter(
             |e| match e.attacker.and_then(|a| attacker_factions.get(a).ok()) {
                 Some(faction) => crate::combat::targeting::can_damage(

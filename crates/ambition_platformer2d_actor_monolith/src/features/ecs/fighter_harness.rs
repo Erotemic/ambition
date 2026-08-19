@@ -7,7 +7,7 @@
 //! **real** simulation systems, not a proxy with its own kinematics. This module
 //! is the seed of that harness: it builds a minimal but real headless `App` —
 //! real messages, the real `emit_brain_action_messages` resolver and the real
-//! `spawn_enemy_projectiles_from_brain_actions` body-enforcement system — drops a
+//! `spawn_projectiles_from_brain_actions` body-enforcement system — drops a
 //! body, lets a chosen controller drive the one input seam (`ActorControlFrame`),
 //! and ticks.
 //!
@@ -36,9 +36,8 @@ use ambition_characters::brain::{
 };
 
 use super::actor_clusters::ActorClusterSeed;
-use super::brain_effects::spawn_enemy_projectiles_from_brain_actions;
-use crate::enemy_projectile::test_support::enemy_projectile_bodies;
-use crate::enemy_projectile::EnemyProjectileState;
+use super::brain_effects::spawn_projectiles_from_brain_actions;
+use crate::enemy_projectile::test_support::live_projectile_bodies;
 use crate::projectile::ProjectileSeqCounter;
 
 /// Fixed simulation step the harness ticks at (s). Matches the engine's nominal
@@ -73,17 +72,16 @@ pub struct FighterHarness {
 impl FighterHarness {
     /// Drop one ranged-capable hostile body at `pos` and wire the real fire
     /// pipeline: `emit_brain_action_messages` (resolve the seam into action
-    /// requests) → `spawn_enemy_projectiles_from_brain_actions` (the body's
-    /// fire-rate enforcement) → `apply_projectile_effects` (materialize shots),
+    /// requests) → `spawn_projectiles_from_brain_actions` (the body's
+    /// fire-rate enforcement) → `materialize_projectiles_for_this_tick` (materialize shots),
     /// with `tick_body_cooldowns` decaying the body's weapon cooldown each frame.
     pub fn ranged_body_at(pos: ae::Vec2) -> Self {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
         app.add_message::<ActorActionMessage>();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
-        app.add_message::<ambition_vfx::EffectRequest>();
-        app.init_resource::<EnemyProjectileState>();
-        app.init_resource::<ProjectileSeqCounter>();
+        app.add_message::<crate::projectile::ProjectileSpawnRequest>();
+                app.init_resource::<ProjectileSeqCounter>();
         // The real pipeline, in order: tick body cooldowns, resolve the seam,
         // enforce + emit fire effects, then materialize the projectiles.
         app.add_systems(
@@ -91,8 +89,8 @@ impl FighterHarness {
             (
                 tick_body_cooldowns,
                 ambition_characters::brain::emit_brain_action_messages,
-                spawn_enemy_projectiles_from_brain_actions,
-                crate::enemy_projectile::apply_projectile_effects,
+                spawn_projectiles_from_brain_actions,
+                ambition_projectiles::materialize_projectiles_for_this_tick,
             )
                 .chain(),
         );
@@ -137,7 +135,7 @@ impl FighterHarness {
             self.app.update();
             self.tick += 1;
         }
-        enemy_projectile_bodies(&mut self.app).len()
+        live_projectile_bodies(&mut self.app).len()
     }
 }
 

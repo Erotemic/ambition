@@ -1,5 +1,5 @@
 //! Multi-player smoke tests: spawn two player entities and assert their
-//! per-player components (attacks, safety anchors, input frames) and the
+//! per-player components (attacks, safety anchors) plus slot-owned input, and the
 //! singleton queries / heal routing stay independent and correct.
 
 use super::*;
@@ -333,46 +333,24 @@ fn untargeted_heal_routes_to_primary() {
     assert_eq!(p2_health.current(), 1, "p2 not touched by untargeted heal");
 }
 
-/// Two players each carry their own `PlayerInputFrame`; mutating
-/// one player's input frame must not propagate to the other.
-/// Pins the multiplayer-readiness invariant for the per-player
-/// input migration (OVERNIGHT-TODO #17.5) — if a future patch
-/// turns the input frame back into a `Resource`, this test will
-/// stop being meaningful and should fail loudly.
+/// Two participant slots carry independent control frames. Mutating one slot
+/// must not propagate into another; this is the multiplayer-readiness invariant
+/// now that input is slot-owned rather than copied onto bodies.
 #[test]
-fn two_players_have_independent_input_frames() {
-    let mut app = App::new();
-    let p1 = app
-        .world_mut()
-        .spawn((
-            PlayerEntity,
-            PlayerSlot(0),
-            PrimaryPlayer,
-            PlayerInputFrame::default(),
-        ))
-        .id();
-    let p2 = app
-        .world_mut()
-        .spawn((PlayerEntity, PlayerSlot(1), PlayerInputFrame::default()))
-        .id();
+fn two_slots_have_independent_control_frames() {
+    use ambition_characters::brain::SlotControls;
+    use ambition_input::ControlFrame;
 
-    // Mutate p1's input frame only.
-    app.world_mut()
-        .entity_mut(p1)
-        .get_mut::<PlayerInputFrame>()
-        .unwrap()
-        .frame
-        .interact_pressed = true;
+    let mut slots = SlotControls::default();
+    let mut first = ControlFrame::default();
+    first.interact_pressed = true;
+    let mut second = ControlFrame::default();
+    second.axis_x = -1.0;
+    slots.set(PlayerSlot(0), first);
+    slots.set(PlayerSlot(1), second);
 
-    let p1_input = app.world().entity(p1).get::<PlayerInputFrame>().unwrap();
-    let p2_input = app.world().entity(p2).get::<PlayerInputFrame>().unwrap();
-    assert!(
-        p1_input.frame.interact_pressed,
-        "p1's input frame should reflect the just-written press"
-    );
-    assert!(
-        !p2_input.frame.interact_pressed,
-        "p2's input frame must not pick up p1's press — per-player input \
-             only makes sense if the components are independent"
-    );
+    assert!(slots.get(PlayerSlot(0)).interact_pressed);
+    assert!(!slots.get(PlayerSlot(1)).interact_pressed);
+    assert_eq!(slots.get(PlayerSlot(0)).axis_x, 0.0);
+    assert_eq!(slots.get(PlayerSlot(1)).axis_x, -1.0);
 }

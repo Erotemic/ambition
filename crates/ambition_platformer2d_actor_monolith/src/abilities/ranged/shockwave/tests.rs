@@ -19,7 +19,7 @@ fn test_app() -> App {
 }
 
 /// Stamp `melee_pressed` onto the body's resolved intent (the shockwave
-/// system reads the body-generic `ActorControl`, not `PlayerInputFrame` or
+/// system reads the body-generic `ActorControl`, not raw/device input or
 /// `Res<ControlFrame>`).
 fn press_attack(app: &mut App, player: Entity) {
     app.world_mut()

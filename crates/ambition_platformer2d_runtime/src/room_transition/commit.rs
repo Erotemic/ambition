@@ -49,18 +49,17 @@ pub struct RoomClock<'w> {
 #[derive(SystemParam)]
 pub struct RoomTransitionCombatReset<'w, 's> {
     pub commands: Commands<'w, 's>,
-    pub enemy_projectiles:
-        Query<'w, 's, Entity, With<ambition_projectiles::enemy::EnemyProjectile>>,
+    pub live_projectiles: Query<'w, 's, Entity, With<ambition_projectiles::LiveProjectile>>,
     pub feature_overlay: Res<'w, FeatureEcsWorldOverlay>,
     pub base_gravity: ResMut<'w, ambition_platformer2d_actor_monolith::physics::BaseGravity>,
 }
 
 impl RoomTransitionCombatReset<'_, '_> {
-    /// Drop every in-flight enemy projectile and return ambient gravity to its
-    /// default, so a fresh room does not inherit hostile shots or a stale
-    /// gravity frame from the one just left.
+    /// Drop every in-flight projectile and return ambient gravity to its default,
+    /// so a fresh room does not inherit combat events or a stale gravity frame
+    /// from the one just left.
     pub fn clear_carryover(&mut self) {
-        for entity in &self.enemy_projectiles {
+        for entity in &self.live_projectiles {
             self.commands.entity(entity).despawn();
         }
         // Resetting the AMBIENT is the real gravity reset; the presentation

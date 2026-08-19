@@ -16,14 +16,10 @@ where
     // The ANCHOR: a projectile-only entity is a rollback participant in its own
     // right — it carries no body and would otherwise be swept by nothing.
     registrar.require_rollback::<crate::LiveProjectile>(OWNER, "entity:live_projectile")
-        // Resources: the deterministic id source, and the enemy pool's cadence.
+        // Resource: the deterministic id source.
         .rollback_resource_canonical::<crate::ProjectileSeqCounter>(
             OWNER,
             "resource.projectile_seq_counter",
-        )
-        .rollback_resource_canonical::<crate::enemy::EnemyProjectileState>(
-            OWNER,
-            "resource.enemy_projectile_state",
         )
         // The firing body's own cooldown state.
         .rollback_component_canonical::<crate::PlayerProjectileState>(
@@ -32,10 +28,6 @@ where
         )
         // The bolt itself.
         .rollback_component_canonical::<crate::ProjectileSeq>(OWNER, "projectile.seq")
-        .rollback_component_canonical::<crate::ProjectileOwnerId>(
-            OWNER,
-            "projectile.owner_id",
-        )
         .rollback_component_canonical::<crate::ProjectileVisualId>(
             OWNER,
             "projectile.visual_id",
@@ -47,14 +39,6 @@ where
         .rollback_component_canonical::<crate::LiveProjectile>(
             OWNER,
             "projectile.live_marker",
-        )
-        .rollback_component_canonical::<crate::PlayerProjectile>(
-            OWNER,
-            "projectile.player_marker",
-        )
-        .rollback_component_canonical::<crate::enemy::EnemyProjectile>(
-            OWNER,
-            "projectile.enemy_marker",
         )
         // ⚠ `projectile.gameplay` is intentionally absent here: its type is
         // owned by `ambition_platformer2d_shared_tangle`, whose own
@@ -70,16 +54,9 @@ where
         |owner| owner.0,
     )
     .rollback_map_entities::<crate::ProjectileOwner>(OWNER, "map.projectile_owner")
-    // The spawn request buffer: a message written on a tick that gets rewound
-    // must not materialize a bolt on the resimulated one.
-    //
-    // ⚠ the central function registered this TWICE — once as
-    // `crate::SpawnProjectile` and once as
-    // `crate::spawn_message::SpawnProjectile`, which are the same
-    // type through two paths. The registry deduplicates identical descriptors,
-    // so it was invisible and harmless; collecting the domain in one place is
-    // what made it visible.
-    .clear_message_on_rollback::<crate::SpawnProjectile>(
+    // The authoritative projectile request buffer: a request written on a tick
+    // that gets rewound must not materialize on the abandoned future.
+    .clear_message_on_rollback::<crate::ProjectileSpawnRequest>(
         OWNER,
         "message.spawn_projectile",
     );

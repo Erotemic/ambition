@@ -6,7 +6,7 @@
 //! sentry is the first thing the player deploys that **autonomously attacks**.
 //!
 //! It fires through the same faction-aware projectile pool the volley uses
-//! (`EnemyProjectileState::spawn_with_faction(..., Player)`), so its bolts damage
+//! through the shared `ProjectileSpawnRequest` seam with the sentry as owner, so its bolts damage
 //! enemies/bosses and ignore the player. Bosses carry `BodyKinematics`, but the
 //! sentry targets by `CenteredAabb` + `ActorFaction::Enemy`, so it shoots mobs
 //! (not bosses or the player). Pairs with the vortex: drop a sentry, vortex the
@@ -16,7 +16,7 @@ use bevy::prelude::*;
 
 use crate::actor::BodyKinematics;
 use crate::actor::BodyMana;
-use crate::enemy_projectile::ProjectileSpawn;
+use crate::projectile::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
 use crate::features::{ActorFaction, CenteredAabb, FeatureSimEntity, HeldItem};
 use ambition_characters::brain::ActorControl;
 use ambition_platformer2d_core as ae;
@@ -123,7 +123,7 @@ pub fn update_sentries(
         ),
         With<FeatureSimEntity>,
     >,
-    mut effects: MessageWriter<ambition_vfx::EffectRequest>,
+    mut projectiles: MessageWriter<ProjectileSpawnRequest>,
     mut sfx: ambition_sfx::BodySfxWriter,
 ) {
     let dt = world_time.scaled_dt;
@@ -166,25 +166,23 @@ pub fn update_sentries(
         if dir == ae::Vec2::ZERO {
             continue;
         }
-        effects.write(ambition_vfx::EffectRequest {
-            owner: entity,
-            effect: ambition_vfx::Effect::Projectiles {
-                shots: vec![ProjectileSpawn {
-                    origin: sentry.pos,
-                    dir,
-                    speed: SENTRY_BOLT_SPEED,
-                    damage: SENTRY_BOLT_DAMAGE,
-                    max_lifetime: SENTRY_BOLT_LIFETIME,
-                    half_extent: SENTRY_BOLT_HALF,
-                    owner_id: "player_sentry".into(),
-                    gravity: 0.0,
-                    visual_id: String::new(),
-                    // Straight volley: this ability authors no bounce.
-                    bounces: 0,
-                    bounce_on_world_contact: false,
-                }],
+        projectiles.write(ProjectileSpawnRequest::open(
+            entity,
+            ProjectileSpawn {
+                origin: sentry.pos,
+                dir,
+                speed: SENTRY_BOLT_SPEED,
+                damage: SENTRY_BOLT_DAMAGE,
+                max_lifetime: SENTRY_BOLT_LIFETIME,
+                half_extent: SENTRY_BOLT_HALF,
+                gravity: 0.0,
+                visual_id: String::new(),
+                // Straight volley: this ability authors no bounce.
+                bounces: 0,
+                bounce_on_world_contact: false,
             },
-        });
+            ProjectileStart::StepThisTick,
+        ));
         sentry.fire_cooldown = SENTRY_FIRE_INTERVAL_S;
         // The TURRET fires, and it inherited its summoner's source at spawn.
         sfx.write_for(
@@ -201,28 +199,26 @@ pub fn update_sentries(
 mod tests {
     use super::*;
     use crate::abilities::test_support::spawn_primary_player_holding;
-    use crate::enemy_projectile::test_support::enemy_projectile_bodies;
-    use crate::enemy_projectile::EnemyProjectileState;
+    use crate::enemy_projectile::test_support::live_projectile_bodies;
     use crate::projectile::ProjectileSeqCounter;
 
     fn test_app() -> App {
         let mut app = App::new();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
-        app.add_message::<ambition_vfx::EffectRequest>();
+        app.add_message::<crate::projectile::ProjectileSpawnRequest>();
         app.insert_resource(ambition_time::WorldTime {
             raw_dt: 0.1,
             scaled_dt: 0.1,
         });
-        app.init_resource::<EnemyProjectileState>();
         app.init_resource::<ProjectileSeqCounter>();
-        // update_sentries emits Effect::Projectiles; apply_projectile_effects
-        // spawns the projectile entity (chained after).
+        // update_sentries emits ProjectileSpawnRequest; the projectile-domain
+        // materializer spawns the entity (chained after).
         app.add_systems(
             Update,
             (
                 fire_sentry_system,
                 update_sentries,
-                crate::enemy_projectile::apply_projectile_effects,
+                ambition_projectiles::materialize_projectiles_for_this_tick,
             )
                 .chain(),
         );
@@ -254,7 +250,7 @@ mod tests {
         for _ in 0..10 {
             app.update();
         }
-        let bodies = enemy_projectile_bodies(&mut app);
+        let bodies = live_projectile_bodies(&mut app);
         assert!(
             !bodies.is_empty(),
             "the sentry should have fired at the enemy"
@@ -295,7 +291,7 @@ mod tests {
             app.update();
         }
         assert!(
-            enemy_projectile_bodies(&mut app).is_empty(),
+            live_projectile_bodies(&mut app).is_empty(),
             "the sentry must not fire at a dead enemy corpse"
         );
     }
@@ -325,7 +321,7 @@ mod tests {
             app.update();
         }
         assert!(
-            enemy_projectile_bodies(&mut app).is_empty(),
+            live_projectile_bodies(&mut app).is_empty(),
             "no target in range → no shots"
         );
         // Age out (lifetime 5s at 0.1/tick → 50 ticks).

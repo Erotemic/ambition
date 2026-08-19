@@ -36,7 +36,7 @@ impl Plugin for SimCoreResourcesPlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<ambition_sfx::OwnedSfxMessage>()
             .add_message::<VfxMessage>()
-            .add_message::<ambition_projectiles::SpawnProjectile>()
+            .add_message::<ambition_projectiles::ProjectileSpawnRequest>()
             .add_message::<FxRequest>()
             .add_message::<FireworksRequest>()
             .add_message::<DebrisBurstMessage>()
@@ -100,12 +100,9 @@ impl Plugin for SimCoreResourcesPlugin {
             .add_plugins(bevy_common_assets::ron::RonAssetPlugin::<
                 data::Platformer2dGameplayDefaults,
             >::new(&["ron"]))
-            // In-flight player projectiles are ECS entities; their monotonic
-            // spawn-id source is this global counter.
+            // Every in-flight projectile is an ECS entity; one monotonic
+            // spawn-id source orders the unified live-projectile population.
             .init_resource::<ambition_projectiles::ProjectileSeqCounter>()
-            // Enemy projectiles (pirate volleys etc) — separate from player
-            // projectiles so faction routing stays explicit.
-            .init_resource::<ambition_projectiles::enemy::EnemyProjectileState>()
             .init_resource::<ambition_platformer2d_actor_monolith::encounter::SwitchActivationQueue>()
             .init_resource::<ambition_platformer2d_actor_monolith::encounter::EncounterSwitchIndex>()
             // Victim-side hits staged in Combat, drained by the player resolver

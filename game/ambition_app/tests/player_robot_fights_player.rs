@@ -23,7 +23,7 @@ use ambition_platformer2d::characters::actor::BodyHealth;
 use ambition_platformer2d::characters::brain::ActorControl;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
-use ambition_platformer2d::projectiles::enemy::EnemyProjectile;
+use ambition_platformer2d::projectiles::LiveProjectile;
 use bevy::prelude::World;
 
 const ROBOT_ID: &str = "player_robot_boss";
@@ -72,7 +72,7 @@ fn observe(world: &mut World, player_pos: ae::Vec2, t: &mut Tally) {
         }
     }
     // Its signature ranged kit in flight (any actor-fired bolt this frame).
-    let mut pq = world.query::<&EnemyProjectile>();
+    let mut pq = world.query::<&LiveProjectile>();
     if pq.iter(world).next().is_some() {
         t.projectile_frames += 1;
     }

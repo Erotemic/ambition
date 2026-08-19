@@ -950,8 +950,8 @@ impl Plugin for CharacterRuntimePlugin {
                     // G1/H1: the BACKSTOP for a projectile that reached the world
                     // without a source. The materializers stamp it themselves —
                     // this slot cannot cover a bolt that spawns and hits inside one
-                    // tick, because the enemy pool spawns later in this same set
-                    // and steps immediately.
+                    // tick, because immediate projectile requests materialize later
+                    // in this same set and step immediately.
                     presentation::inherit_projectile_presentation_sources,
                 )
                     .chain()

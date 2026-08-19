@@ -629,7 +629,7 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
     use ambition_platformer2d::platformer::lifecycle::SessionSpawnScope;
     use ambition_platformer2d::platformer::projectile::{ProjectileSpec, WorldHitPolicy};
     use ambition_platformer2d::projectiles::{
-        LiveProjectile, PlayerProjectile, ProjectileOwner, ProjectileOwnerId, ProjectileSeqCounter,
+        LiveProjectile, ProjectileOwner, ProjectileSeqCounter,
         ProjectileVisualCatalog, ProjectileVisualId,
     };
 
@@ -759,9 +759,7 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
         body.game,
         ProjectileOwner(firer),
         seq,
-        ProjectileOwnerId(String::new()),
         LiveProjectile,
-        PlayerProjectile,
         ProjectileVisualId(ambition_demo_mary_o::powerups::SPARK_VISUAL.to_string()),
     ));
 

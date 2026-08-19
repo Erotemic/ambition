@@ -1916,7 +1916,7 @@ fn a_move_started_aiming_up_fires_up_after_its_request_is_cleared() {
 /// Ranged subsumption (option A): a `MoveEventKind::Ranged` fire event BRIDGES to
 /// the SAME `ActorActionMessage::Ranged` the flat `frame.fire` resolver emits —
 /// carrying the owner's authored `ActionSet.ranged` spec and SAMPLING its LIVE
-/// aim at the event frame — so the existing enemy-projectile consumer fires the
+/// aim at the event frame — so the shared projectile-request consumer fires the
 /// shot unchanged and a moveset shot still tracks a strafing target.
 #[test]
 fn move_event_dispatch_bridges_ranged_to_a_live_aimed_shot() {

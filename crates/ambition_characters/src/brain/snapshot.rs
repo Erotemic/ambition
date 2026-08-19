@@ -214,10 +214,9 @@ pub struct BrainSnapshot {
     /// clear (or non-boss).
     pub front_wall_clearance: Option<f32>,
     /// Per-tick input snapshot for [`crate::brain::Brain::Player`].
-    /// `None` for non-player actors. The player-brain-driver system
-    /// fills this from the actor entity's `PlayerInputFrame`; the
-    /// player brain reads it to populate jump / dash / fire / etc.
-    /// edges of the control frame.
+    /// `None` for non-player actors. The player-brain driver fills this directly
+    /// from the [`SlotControls`](crate::brain::SlotControls) entry named by the
+    /// body's `Brain::Player(slot)`; no input frame is copied onto the entity.
     pub player_input: Option<ambition_platformer2d_core::ControlFrame>,
 
     /// Per-tick crowding signal — same-faction + non-faction

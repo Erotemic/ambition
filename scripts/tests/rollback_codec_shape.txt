@@ -11,7 +11,7 @@ crates/ambition_platformer2d_runtime/src/rollback/registry.rs	0	da39a3ee5e6b4b0d
 crates/ambition_platformer2d_shared_tangle/src/lifecycle/round.rs	6	ebfd75dd6ce790b8
 crates/ambition_platformer2d_shared_tangle/src/snapshot_impls.rs	44	65472a019733d472
 crates/ambition_platformer2d_world/src/snapshot_impls.rs	2	f571bd2cf345bda8
-crates/ambition_projectiles/src/snapshot_impls.rs	44	9da6a370d38730aa
+crates/ambition_projectiles/src/snapshot_impls.rs	42	138f7f6bf9c17f2e
 crates/ambition_relativity2d/src/lib.rs	7	913c1ae65b53f74a
 crates/ambition_relativity2d/src/optics.rs	5	19c9f60e92799b9a
 crates/ambition_relativity2d/src/signals.rs	60	82a08f3f7b7d007a

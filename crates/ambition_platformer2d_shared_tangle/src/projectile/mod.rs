@@ -34,8 +34,10 @@ pub mod spec;
 
 pub use body::{InFlightProjectile, ProjectileBody, ProjectileGameplay, ProjectileSolidHit};
 pub use collision::{resolve_world_collision, WorldHitOutcome, WorldHitPolicy};
-// ⚠ `ProjectileSpawn` is re-exported, not owned: it lives in
-// `ambition_projectile_spec` so `ambition_vfx` can take it without taking this
-// crate. A re-export path lies about ownership — the owner is that crate.
+// ⚠ `ProjectileSpawn` is re-exported, not owned: authored projectile intent
+// lives in the lower `ambition_projectile_spec` floor. The VFX crate no longer
+// transports projectile requests at all; keeping the vocabulary below this
+// physics primitive preserves its independent ownership and avoids making this
+// re-export look like the defining path.
 pub use ambition_projectile_spec::ProjectileSpawn;
 pub use spec::ProjectileSpec;

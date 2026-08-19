@@ -505,6 +505,47 @@ mod tests {
         );
     }
 
+    /// **⛔⛔ A HOLD IS TWO COMPONENTS, AND ACQUIRING ONE INSERTS BOTH.**
+    ///
+    /// Since the 2026-08-19 split, `CapturedBy` is the RELATION — who holds
+    /// whom, where, and what physical state release must give back — and
+    /// `SmashHoldState` is this ruleset's half: the pummel count, the hold's age
+    /// and the escape accumulator. A body carrying only the first is held by
+    /// somebody with **no clock and nothing to mash out of**: `tick_capture_holds`
+    /// requires the state, so such a hold would never time out, and
+    /// `sample_capture_escape` would never credit a press.
+    ///
+    /// ⚠ **pinned because the pairing is a convention, not a type.** Nothing
+    /// stops a future site inserting the relation alone, and there is exactly
+    /// ONE production site that establishes a hold — precisely the situation
+    /// where a second one lands later and nobody notices.
+    #[test]
+    fn acquiring_a_capture_inserts_both_halves_of_the_hold() {
+        let mut app = capture_app();
+        let captor = grounded_body(&mut app, "captor", ae::Vec2::new(0.0, 0.0));
+        let victim = grounded_body(&mut app, "victim", ae::Vec2::new(16.0, 0.0));
+        app.world_mut()
+            .entity_mut(victim)
+            .insert(crate::features::ActorFaction::Player);
+        app.world_mut().write_message(attempt(captor));
+        app.update();
+
+        // ⛔ the zero floor: no capture at all would satisfy "no unpaired hold"
+        // by having no hold, which is the vacuous pass this must not take.
+        assert!(
+            app.world().get::<CapturedBy>(victim).is_some(),
+            "no capture was established, so this measured nothing"
+        );
+        assert!(
+            app.world()
+                .get::<ambition_characters::smash_capture::SmashHoldState>(victim)
+                .is_some(),
+            "the relation was inserted without this ruleset's half — the captive \
+             has no hold clock and no escape accumulator, so the grab would last \
+             forever and no mash could end it"
+        );
+    }
+
     /// **AN AIRBORNE VICTIM IS NOT CAPTURED BY A STANDING GRAB (v1).**
     ///
     /// Aerial grabs are a named future technique. A standing grab that happened

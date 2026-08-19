@@ -363,12 +363,35 @@ fn walk_to(sim: &mut Platformer2dSimHarness, target: &str) {
             .unwrap_or_else(|| panic!("'{before}' has no door to '{target}'"))
     };
     let center = zone.aabb.center();
+    // ⚠ **STEP OUT OF THE ZONE FIRST.** Arriving through a door leaves the body
+    // standing INSIDE the return zone, and a transition that fired the moment
+    // you landed in it would ping-pong; so the crossing wants the player to
+    // enter the zone rather than to already be in it. Without this the return
+    // trip held Interact for ninety frames and never fired — measured
+    // 2026-08-19, and it is why every earlier test only ever walked OUTWARD.
+    let away = zone.aabb.center() + ambition_platformer2d::engine_core::Vec2::new(0.0, -400.0);
+    sim.teleport_player((away.x, away.y));
+    sim.step_n(base(), 10);
     sim.teleport_player((center.x, center.y));
-    for _ in 0..90 {
+    for frame in 0..90 {
+        // ⚠ **RE-PLACED EVERY FRAME, because gravity takes the body straight
+        // back out of the zone.** A single teleport plus ninety frames of
+        // Interact never fired the return crossing and produced no diagnostic
+        // either — the system's own `warn_once` is for a body TOUCHING a zone,
+        // and this body was not touching it after the first frame. Standing
+        // still in the zone is also the discrete case the swept test preserves
+        // exactly: a zero-length delta degrades to the overlap it always was.
+        sim.teleport_player((center.x, center.y));
+        // ⚠ **the press is an EDGE, so it is released between attempts.**
+        // `wants_interact` reads `slot_gestures.primary().buffered()`; holding
+        // Interact down forever arms the gesture once and never again, which is
+        // why ninety frames of a held button crossed nothing while the body was
+        // demonstrably standing in the zone.
+        let pressed = frame % 2 == 0;
         let room = sim
             .step(AgentAction {
-                interact: true,
-                interact_held: true,
+                interact: pressed,
+                interact_held: pressed,
                 ..base()
             })
             .active_room;
@@ -920,10 +943,28 @@ fn a_runtime_mint_the_checkpoint_never_saw_is_not_resurrected_by_a_death() {
 ///   on a floor is visible only from the room it is in, and after the death
 ///   `duel_arena` is still the loaded room. Asserting there asserts that a room
 ///   nobody is in has not been rebuilt.
-/// * **`walk_to` cannot come BACK.** It teleports into a loading zone and holds
-///   Interact; going ROOM → NEIGHBOUR works and has always been the only
-///   direction any test used. The return crossing never fires in 90 frames, with
-///   or without settling the body first.
+/// * **`walk_to` cannot come BACK, and five hypotheses are eliminated.** Going
+///   ROOM → NEIGHBOUR works and has always been the only direction any test
+///   used. The return crossing never fires in 90 frames, and the body is
+///   demonstrably standing in the right zone while it does not:
+///
+/// ```text
+///   zone  Aabb2d { min: (16, 592), max: (64, 688) }   in `duel_arena`,
+///                                                     targeting the hub
+///   body  (40.0, 640.6)                               inside it, every frame
+/// ```
+///
+///   Ruled out, each by measurement: the ACTIVATION kind (`is_ready` accepts a
+///   held Interact for all three variants); an anti-ping-pong LATCH (stepping
+///   out of the zone and back in changes nothing); the body FALLING out under
+///   gravity (it is re-placed every frame now, and stays); the interact EDGE
+///   never re-arming (the press is released between attempts now); and a
+///   missing DIAGNOSTIC — the system's own `warn_once` for "touching a zone and
+///   still refused" is silent because it already fired on the outward trip.
+///
+///   ⇒ what remains is a refusal inside `transition_for_player` or an early
+///   return above it (`sim_state.remaining > 0.0` is one), and finding it wants
+///   a look at the room system rather than more fixture attempts.
 ///
 /// ⇒ the honest state: the debt is now settleable and the request is correct;
 /// the round trip that would SHOW it needs a fixture that can walk back. The arm

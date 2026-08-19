@@ -5107,6 +5107,7 @@ fn no_single_cue_is_asked_for_twice_in_one_tick_during_a_grab() {
     let mut heard_anything = false;
     let mut total_cues = 0usize;
     let mut ticks_with_move = 0usize;
+    let mut totals: HashMap<String, usize> = HashMap::new();
     for tick in 0..600 {
         app.update();
         if app
@@ -5133,6 +5134,7 @@ fn no_single_cue_is_asked_for_twice_in_one_tick_during_a_grab() {
         let mut counts: HashMap<&String, usize> = HashMap::new();
         for cue in &cues {
             *counts.entry(cue).or_default() += 1;
+            *totals.entry(cue.clone()).or_default() += 1;
         }
         for (cue, n) in counts {
             if n > worst.0 {
@@ -5160,10 +5162,30 @@ fn no_single_cue_is_asked_for_twice_in_one_tick_during_a_grab() {
     assert!(
         worst.0 <= 1,
         "cue {} was asked for {} times in a SINGLE tick — that is not {} times \
-         louder, it is one sample against phase-aligned copies of itself, and it \
-         is what Jon hears as a flurry",
+         louder, it is one sample against phase-aligned copies of itself",
         worst.1,
         worst.0,
         worst.0
     );
+
+    // ⛔⛔ **AND THE RATE, which is the question the per-tick check CANNOT ask —
+    // measured 2026-08-19 and it corrects this test's first draft.** Driving a
+    // player into the pirate sky's ceiling produced 91 plays of ONE cue in 600
+    // ticks with a worst SINGLE TICK of exactly 1. A flurry is a cue repeating
+    // at high rate over TIME, not N copies inside one tick, so a per-tick check
+    // alone would have reported that scene clean.
+    //
+    // ⚠ the ceiling is deliberately generous — 10 plays/second sustained. A
+    // rapid-jab move legitimately machine-guns a cue for a few frames; what
+    // nobody authors is one cue holding that rate across a whole second.
+    const CUE_PLAYS_PER_SECOND: usize = 10;
+    let seconds = 600 / 60;
+    for (cue, plays) in &totals {
+        assert!(
+            *plays <= CUE_PLAYS_PER_SECOND * seconds,
+            "cue {cue} played {plays} times in {seconds}s — {:.1}/s sustained, \
+             which is the shape of a flurry even though no single tick doubled it",
+            *plays as f32 / seconds as f32
+        );
+    }
 }

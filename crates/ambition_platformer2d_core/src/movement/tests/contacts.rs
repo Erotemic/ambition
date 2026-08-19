@@ -187,3 +187,120 @@ fn rising_into_a_bonk_only_block_reports_a_head_contact() {
          is the thing `BonkOnly` exists to prevent",
     );
 }
+
+/// **A BODY HELD AGAINST GEOMETRY MUST NOT RE-LAND EVERY TICK.**
+///
+/// ⛔⛔ Jon, playing, 2026-08-19: *"in the pirate sky in ambition there is also
+/// an sfx flurry that is loud and off-putting… I think the pirate sky issue is
+/// collision into the ceiling causing the sfx"* — and, on the grab: *"I don't
+/// think it's the grab with the noise, I think it causes the noise via world
+/// interaction."* Two reports, one shape: a body **held against geometry** by
+/// something other than its own motion — a flyer pressed into a ceiling, a
+/// captive whose position is forced by its captor.
+///
+/// ⭐ **why a re-entry is a NOISE bug and not merely a bookkeeping one.**
+/// `emit_movement_fx` writes one `SfxMessage::Land` per
+/// [`GroundContactTransition::Landed`], for EVERY body, and nothing between that
+/// write and the audio backend caps or dedupes voices. A body that re-lands on
+/// alternate ticks therefore asks for the same cue thirty times a second; four
+/// of them in one room ask a hundred and twenty times. That is not loud, it is a
+/// comb filter.
+///
+/// ⚠ this asserts a CONTACT-STATE property, not an audio one, because that is
+/// where the fault would be: the emitter is correct to voice a landing, so the
+/// only wrong thing available is a landing that did not happen.
+#[test]
+fn a_body_pressed_into_the_ceiling_does_not_re_land_every_tick() {
+    let world = test_world();
+    let mut scratch = crate::body_clusters::BodyClusterScratch::new_with_abilities(
+        Vec2::new(210.0, 200.0),
+        AbilitySet::sandbox_all(),
+    );
+    // Fly, and hold "up" into the ceiling for two seconds of ticks.
+    scratch.flight.fly_enabled = true;
+    let up = InputState {
+        axes: crate::LocalAxes::new(0.0, -1.0),
+        ..Default::default()
+    };
+
+    let mut landings = 0usize;
+    let mut head_contacts = 0usize;
+    for _ in 0..120 {
+        let events = step_scratch(&world, &mut scratch, up);
+        if matches!(
+            events.ground_contact,
+            crate::movement::GroundContactTransition::Landed { .. }
+        ) {
+            landings += 1;
+        }
+        if events
+            .contacts
+            .iter()
+            .any(|c| c.kind == crate::collision_semantics::ContactKind::Head)
+        {
+            head_contacts += 1;
+        }
+    }
+
+    // ⛔ **the zero floor.** A run that never reached the ceiling would report
+    // zero landings and pass while measuring nothing at all.
+    assert!(
+        head_contacts > 0,
+        "the body never touched the ceiling in 120 ticks, so this measured nothing"
+    );
+    assert_eq!(
+        landings, 0,
+        "a body pressed into a CEILING registered {landings} landing(s) in 120 \
+         ticks — every one of them writes an `SfxMessage::Land`, and nothing \
+         downstream caps or dedupes voices"
+    );
+}
+
+/// **A BODY WHOSE POSITION IS WRITTEN BY ANOTHER BODY MUST NOT RE-LAND EVERY
+/// TICK EITHER.**
+///
+/// ⭐ **this is the shape both of Jon's reports actually share**, and it is not
+/// the ceiling by itself — its sibling above proves a plain flyer pressed into a
+/// ceiling never re-lands. What the pirate sky and the grab have in common is a
+/// body being *carried*: `pirate_sky_lookout`'s riders are mounted on sharks and
+/// a captive's pose is written by its captor, so in both cases something other
+/// than the body's own motion decides where it is, every tick. Jon: *"I don't
+/// think it's the grab with the noise, I think it causes the noise via world
+/// interaction."*
+///
+/// The fixture is that forcing, reduced to its essential: re-place the body on
+/// the floor line every tick and step it normally, which is exactly what a
+/// carrier does to a carried body.
+#[test]
+fn a_body_whose_pose_is_written_each_tick_does_not_re_land_each_tick() {
+    let world = test_world();
+    let mut scratch = crate::body_clusters::BodyClusterScratch::new_with_abilities(
+        world.spawn,
+        AbilitySet::sandbox_all(),
+    );
+    // Settle first, so the baseline is a body that is genuinely grounded.
+    for _ in 0..30 {
+        step_scratch(&world, &mut scratch, InputState::default());
+    }
+    assert!(scratch.ground.on_ground, "the fixture starts grounded");
+    let carried_at = scratch.kinematics.pos;
+
+    let mut landings = 0usize;
+    for _ in 0..120 {
+        // THE CARRY: another body decides where this one is, every tick.
+        scratch.kinematics.pos = carried_at;
+        let events = step_scratch(&world, &mut scratch, InputState::default());
+        if matches!(
+            events.ground_contact,
+            crate::movement::GroundContactTransition::Landed { .. }
+        ) {
+            landings += 1;
+        }
+    }
+    assert_eq!(
+        landings, 0,
+        "a carried body re-landed {landings} time(s) in 120 ticks — each one \
+         writes an `SfxMessage::Land`, and with four riders in a room that is a \
+         hundred voices a second of one cue"
+    );
+}

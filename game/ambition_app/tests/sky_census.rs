@@ -1,0 +1,151 @@
+//! **WHAT DOES `pirate_sky_lookout` ACTUALLY ASK THE SFX CHANNEL FOR?**
+//!
+//! ⛔⛔ **THE FINDING IS A DEFECT IN THE INSTRUMENT'S OWN WORLD, and Jon named
+//! it before the numbers did.** Chasing his report of *"an sfx flurry that is
+//! loud and off-putting"* in the pirate sky, this census reported the room
+//! nearly silent. He refused the reading: *"there must be sounds in the pirate
+//! sky. they fire their gun swords… I'm just giving you an example of something
+//! obvious the instrument should be able to hear. it points at defect in the
+//! instrument."* He was right.
+//!
+//! Measured 2026-08-19, 1800 ticks (30 seconds) of `Platformer2dSimHarness` in
+//! this room:
+//!
+//! ```text
+//! actors in the room                10   (4 flying sharks, 4 pirate riders, 2 parrots)
+//! DORMANT actors                     0   — every one is awake
+//! actors holding a combat TARGET  10/10  — every one has somebody to shoot
+//! upstream FxRequests               0    — in THIRTY SECONDS
+//! ticks with any audio             12/1800
+//! ```
+//!
+//! ⇒ **eight awake, targeted pirates fire nothing at all in the headless sim.**
+//! Whatever makes them shoot in the running game is not reaching this
+//! composition, so a census built on it cannot hear the scene it is pointed at —
+//! and neither can any other test built on this harness that concludes
+//! "nothing bad happened".
+//!
+//! ⚠ that is the reason this is `#[ignore]`d rather than asserted: the honest
+//! assertion ("awake targeted enemies produce combat over 30s") is RED today,
+//! and a red test on `main` is not how a finding gets reported. Run it with
+//! `cargo test -p ambition_app --test app_it -- pirate_sky --ignored --nocapture`.
+//!
+//! ⛔ do NOT read a future green here as "the sky is quiet". It is quiet because
+//! nothing happens.
+
+use ambition_platformer2d::sfx::{OwnedSfxMessage, SfxMessage};
+use crate::common::fixed_60hz_room_sim;
+use std::collections::HashMap;
+
+#[test]
+#[ignore = "instrument: the harness's pirates never fire, so this measures an inert room — see the module doc"]
+fn pirate_sky_sfx_census() {
+    let mut sim = fixed_60hz_room_sim("pirate_sky_lookout");
+    let mut per_tick_worst = 0usize;
+    let mut worst_cue = String::new();
+    let mut totals: HashMap<String, usize> = HashMap::new();
+    let mut ticks_with_audio = 0usize;
+    let mut fx_requests = 0usize;
+    let mut fx_channel_missing = false;
+
+    for tick in 0..1800 {
+        // ⭐ **DRIVE INTO THE CEILING**, which is the scenario Jon named — an
+        // idle player in this room is quiet. Jump repeatedly and hold up.
+        // ⭐ **GO AT THEM.** The riders are dormancy-gated on observers
+        // (`AwakeNearObservers`), so an idle or stationary player never wakes
+        // them and the room measures as silent. Jon: "they fire their gun
+        // swords" — that is the sound, and it needs the pirates awake.
+        let action = ambition_app::AgentAction {
+            move_x: if (tick / 240) % 2 == 0 { 1.0 } else { -1.0 },
+            jump: tick % 90 == 0,
+            ..crate::common::base()
+        };
+        sim.step(action);
+        let cues: Vec<String> = {
+            let world = sim.world();
+            let Some(messages) = world.get_resource::<bevy::prelude::Messages<OwnedSfxMessage>>()
+            else {
+                continue;
+            };
+            let mut cursor = messages.get_cursor();
+            cursor
+                .read(messages)
+                .filter_map(|m| match &m.request {
+                    SfxMessage::Play { id, .. } => Some(format!("{id}")),
+                    _ => None,
+                })
+                .collect()
+        };
+        // ⛔ **IS THE INSTRUMENT DEAF?** Count the UPSTREAM channel too. If
+        // `FxRequest`s are plentiful while `OwnedSfxMessage`s are scarce, the
+        // fan-out that turns one into the other is not installed here and the
+        // census is measuring its own composition, not the game.
+        {
+            let world = sim.world();
+            if let Some(m) =
+                world.get_resource::<bevy::prelude::Messages<ambition_platformer2d::vfx::FxRequest>>()
+            {
+                let mut c = m.get_cursor();
+                fx_requests += c.read(m).count();
+            } else {
+                fx_channel_missing = true;
+            }
+        }
+        if !cues.is_empty() {
+            ticks_with_audio += 1;
+        }
+        let mut counts: HashMap<&String, usize> = HashMap::new();
+        for c in &cues {
+            *counts.entry(c).or_default() += 1;
+            *totals.entry(c.clone()).or_default() += 1;
+        }
+        for (cue, n) in counts {
+            if n > per_tick_worst {
+                per_tick_worst = n;
+                worst_cue = cue.clone();
+            }
+        }
+    }
+    // Diagnose the population: are the pirates even here, and did anything fire?
+    {
+        use ambition_platformer2d::actors::features::ActorConfig;
+        let world = sim.world_mut();
+        let mut q = world.query::<&ActorConfig>();
+        let world = sim.world();
+        let mut brains: HashMap<String, usize> = HashMap::new();
+        for cfg in q.iter(world) {
+            *brains.entry(format!("{:?}", cfg.brain)).or_default() += 1;
+        }
+        println!("[sky-census] actors in the room: {}", brains.values().sum::<usize>());
+        {
+            use ambition_platformer2d::actors::features::ecs::dormancy::Dormant;
+            let w = sim.world_mut();
+            let mut dq = w.query::<&Dormant>();
+            let n = dq.iter(sim.world()).count();
+            println!("[sky-census] DORMANT actors: {n}");
+        }
+        {
+            use ambition_platformer2d::combat::ActorTarget;
+            let w = sim.world_mut();
+            let mut tq = w.query::<&ActorTarget>();
+            let world = sim.world();
+            let total = tq.iter(world).count();
+            let with_target = tq.iter(world).filter(|t| t.entity.is_some()).count();
+            println!("[sky-census] actors with a combat TARGET: {with_target}/{total}");
+        }
+
+        let mut rows: Vec<(&String, &usize)> = brains.iter().collect();
+        rows.sort_by(|a, b| b.1.cmp(a.1));
+        for (b, n) in rows.iter().take(10) {
+            println!("[sky-census]   {n:3} x {b}");
+        }
+    }
+    let mut rows: Vec<(&String, &usize)> = totals.iter().collect();
+    rows.sort_by(|a, b| b.1.cmp(a.1));
+    println!("[sky-census] ticks with audio: {ticks_with_audio}/1800");
+    println!("[sky-census] upstream FxRequests seen: {fx_requests} (channel missing: {fx_channel_missing})");
+    println!("[sky-census] worst single tick: {per_tick_worst} x {worst_cue}");
+    for (cue, n) in rows.iter().take(12) {
+        println!("[sky-census]   {n:5} x {cue}");
+    }
+}

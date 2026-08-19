@@ -19,6 +19,7 @@ weaker fault than a mute pedestal.
 
 from __future__ import annotations
 
+from functools import cache
 import re
 from pathlib import Path
 
@@ -33,6 +34,7 @@ _DECLARED = re.compile(r'hall_dialogue_id:\s*Some\("([a-z_0-9]+)"\)')
 _NODE = re.compile(r"^title:\s*([A-Za-z_0-9]+)\s*$", re.M)
 
 
+@cache
 def _declared_ids() -> set[str]:
     """Every pedestal id, from EVERY provider that stages hall characters.
 
@@ -53,6 +55,7 @@ def _declared_ids() -> set[str]:
     return set(_DECLARED.findall("\n".join(text)))
 
 
+@cache
 def _authored_nodes() -> set[str]:
     nodes: set[str] = set()
     for path in sorted(DIALOGUE.glob("**/*.yarn")):

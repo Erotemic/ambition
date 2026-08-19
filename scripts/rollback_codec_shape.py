@@ -48,6 +48,7 @@ close.
 from __future__ import annotations
 
 import argparse
+from functools import cache
 import hashlib
 import re
 import sys
@@ -72,6 +73,7 @@ SNAPSHOT_POD = re.compile(r'\bsnapshot_pod!\s*\(')
 CODEC_MARKER = re.compile(r'\bSnapshotState\b|\bsnapshot_pod!|\bReader<')
 
 
+@cache
 def codec_files() -> list[Path]:
     found: list[Path] = []
     for root in SEARCH_ROOTS:

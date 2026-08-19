@@ -32,6 +32,7 @@ loud at the end of every run rather than letting a partial pass read as a full o
 
 Usage:
   ./run_tests.sh                     # BACKBONE: python suites + cargo test --workspace
+  ./run_tests.sh --rust              # Rust/Cargo lane only; no Python checkers
   ./run_tests.sh -p <crate>          # only that crate's job (repeatable)
   ./run_tests.sh -k <substr>         # only tests whose name contains <substr>
   ./run_tests.sh --list              # print the job plan, run nothing
@@ -338,7 +339,8 @@ def wasm_target_installed() -> bool:
 
 
 def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
-               everything: bool = False) -> list[Job]:
+               everything: bool = False,
+               include_python_tooling: bool = True) -> list[Job]:
     """Plan the run. `everything=False` (the DEFAULT) is the backbone.
 
     ⚠ The gate below reads `if everything:` and it used to read `if not fast:`.
@@ -361,9 +363,13 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
     # guard. Cheap (~3s) and dependency-free, so it runs in the backbone too,
     # and FIRST: if the thing that decides whether the suite is honest is
     # broken, that is the answer, not the 40 minutes of cargo behind it.
-    if not only:
+    # `--rust` keeps this entire lane out of the plan. Keep Python/tooling jobs
+    # together under this seam so a Rust-only run cannot accidentally acquire a
+    # checker later merely because another job was appended elsewhere.
+    if not only and include_python_tooling:
         jobs.append(Job("repo tooling (scripts/tests)",
-                        [sys.executable, "-m", "pytest", "scripts/tests", "-q"]))
+                        [sys.executable, "-m", "pytest", "scripts/tests", "-q",
+                         "--durations=20", "--durations-min=0.05"]))
         # ⭐ the WARNING gate, which CI has had all along and no local command
         # did. `.github/workflows/test.yml` sets `RUSTFLAGS: -D warnings`, so a
         # warning is a red build there; locally `cargo check` says nothing and
@@ -852,7 +858,7 @@ def telemetry_envelope() -> dict:
 
 
 def append_cost_ledger(results: list[JobResult], exhaustive: bool,
-                       filtered: bool) -> Path | None:
+                       filtered: bool, rust_only: bool = False) -> Path | None:
     """Record what this run COST, on every run, so two runs can be compared.
 
     ⭐ **Front 0 of the test-iteration campaign** (Jon, 2026-08-02: *"testing
@@ -900,6 +906,7 @@ def append_cost_ledger(results: list[JobResult], exhaustive: bool,
         "passed": sum(1 for r in results if r.ok),
         "exhaustive": exhaustive,
         "filtered": filtered,
+        "rust_only": rust_only,
         "per_job": timings_payload(results),
     }
     try:
@@ -926,7 +933,7 @@ def write_status(path: Path, payload: dict) -> None:
     tmp.replace(path)
 
 
-def coverage_notice(exhaustive: bool, filtered: bool) -> str:
+def coverage_notice(exhaustive: bool, filtered: bool, rust_only: bool = False) -> str:
     """What this plan did NOT cover, said out loud.
 
     A green backbone must not be readable as a green everything. This is a
@@ -939,31 +946,38 @@ def coverage_notice(exhaustive: bool, filtered: bool) -> str:
     the correct call. The notice exists so the choice stays visible and
     deliberate, not so someone feels obliged to spend an hour closing it.
     """
-    if exhaustive:
-        return ""
-    scope = "this package filter" if filtered else "the default BACKBONE plan"
-    return (
-        f"\n  ⚠ this was {scope}, which does NOT cover:\n"
-        "      - tests behind #[cfg(feature = \"...\")] (only a per-crate\n"
-        "        `cargo test -p <crate> --features ...` compiles them)\n"
-        "      - the external-consumer fixtures (own workspace + lockfile, so\n"
-        "        an umbrella API break stays invisible to a workspace build)\n"
-        "      - the wasm/web build check\n"
-        "    All three: --run-everything-you-probably-dont-need-this (~25 min).\n"
-        "    That is the right trade for a dev cycle and the wrong one before a\n"
-        "    release or after touching features, an SDK surface, or the web path."
-    )
+    notices: list[str] = []
+    if rust_only:
+        notices.append(
+            "\n  ⚠ --rust ran the Rust/Cargo lane only. Python repo checkers and "
+            "authoring-tool pytest suites were NOT run. Run without --rust "
+            "for the full backbone."
+        )
+    if not exhaustive:
+        scope = "this package filter" if filtered else "the default BACKBONE plan"
+        notices.append(
+            f"\n  ⚠ this was {scope}, which does NOT cover:\n"
+            "      - tests behind #[cfg(feature = \"...\")] (only a per-crate\n"
+            "        `cargo test -p <crate> --features ...` compiles them)\n"
+            "      - the external-consumer fixtures (own workspace + lockfile, so\n"
+            "        an umbrella API break stays invisible to a workspace build)\n"
+            "      - the wasm/web build check\n"
+            "    All three: --run-everything-you-probably-dont-need-this (~25 min).\n"
+            "    That is the right trade for a dev cycle and the wrong one before a\n"
+            "    release or after touching features, an SDK surface, or the web path."
+        )
+    return "\n".join(notices)
 
 
 def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
         status_json: str | None = None, exhaustive: bool = False,
-        filtered: bool = False) -> int:
+        filtered: bool = False, rust_only: bool = False) -> int:
     if list_only:
         print(f"Planned {len(jobs)} job(s):\n")
         for j in jobs:
             print(f"  {j.name}")
             print(f"      {' '.join(j.argv)}")
-        print(coverage_notice(exhaustive, filtered))
+        print(coverage_notice(exhaustive, filtered, rust_only))
         return 0
 
     env = dict(os.environ)
@@ -1015,7 +1029,7 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
     # `free_gb` travels in the status file so a long autonomous run can WATCH
     # the headroom fall instead of discovering it at zero.
     base = {"pid": os.getpid(), "started": time.time(), "jobs": len(jobs),
-            "free_gb_at_start": round(free_gb, 1)}
+            "free_gb_at_start": round(free_gb, 1), "rust_only": rust_only}
     write_status(status, {**base, "state": "running", "finished_jobs": 0})
     # Not a happy-path write: a suite that dies mid-run (Ctrl-C, an unhandled
     # exception) must not leave `"running"` behind, or a future reader waits on
@@ -1063,7 +1077,7 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
         for n in failed:
             print(f"    - {n}")
     print(timing_report(results))
-    notice = coverage_notice(exhaustive, filtered)
+    notice = coverage_notice(exhaustive, filtered, rust_only)
     if notice:
         print(notice)
     print("=" * 60)
@@ -1076,7 +1090,7 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
     # ...and the ledger every run appends to, whether or not anybody asked.
     # `--timings-json` is for looking at ONE run; this is what makes the next
     # measurement a comparison instead of another hand-read log.
-    ledger = append_cost_ledger(results, exhaustive, filtered)
+    ledger = append_cost_ledger(results, exhaustive, filtered, rust_only)
     if ledger:
         print(f"  cost appended to {ledger.relative_to(REPO) if ledger.is_relative_to(REPO) else ledger}")
 
@@ -1142,6 +1156,9 @@ def main() -> int:
     # that says so rather than a silent one.
     ap.add_argument("--fast", action="store_true",
                     help="DEPRECATED no-op: the backbone is the default now")
+    ap.add_argument("--rust", action="store_true",
+                    help="run the Rust/Cargo lane only; skip all Python checker "
+                         "and authoring-tool pytest jobs")
     ap.add_argument("--list", action="store_true", help="print job plan, run nothing")
     ap.add_argument("-k", metavar="SUBSTR", default=None,
                     help="only tests whose name contains SUBSTR (libtest filter)")
@@ -1170,7 +1187,11 @@ def main() -> int:
               "--run-everything-you-probably-dont-need-this.")
 
     jobs = build_jobs(args.package, args.heavy, libtest_args,
-                      everything=args.run_everything)
+                      everything=args.run_everything,
+                      include_python_tooling=not args.rust)
+    if args.rust:
+        print("run_tests: RUST/CARGO lane requested; Python checker and "
+              "authoring-tool jobs are omitted.")
     if args.run_everything or args.heavy:
         print("run_tests: EXHAUSTIVE plan requested. Measured 2026-08-03: "
               "~33 jobs, ~25 minutes, ~17% of it executing tests. If you are "
@@ -1179,7 +1200,7 @@ def main() -> int:
     return run(jobs, args.list, timings_json=args.timings_json,
                status_json=args.status_json,
                exhaustive=args.run_everything or args.heavy,
-               filtered=bool(args.package))
+               filtered=bool(args.package), rust_only=args.rust)
 
 
 if __name__ == "__main__":

@@ -80,6 +80,11 @@ def run(repo: Path, *args: str, stdin: dict | None = None, cwd: Path | None = No
 PASS = {"name": "always true", "cmd": "true"}
 FAIL = {"name": "the queue still has open items", "cmd": "false"}
 
+# These tests prove timeout semantics, not the passage of human-scale time.
+# Keep the subprocess genuinely hung, but let the guard cut it off quickly so
+# three timeout assertions do not spend three wall-clock seconds per suite run.
+TEST_TIMEOUT_SECONDS = 0.1
+
 
 # ── It can say no ─────────────────────────────────────────────────────────────
 
@@ -153,7 +158,12 @@ def test_it_keeps_blocking_even_when_stop_hook_active_is_set(repo: Path) -> None
 def test_a_check_that_times_out_is_not_a_pass(repo: Path) -> None:
     """Silence is not consent. A hung check is an unanswered question, and an
     unanswered question leaves the goal open."""
-    arm(repo, checks=[{"name": "slow check", "cmd": "sleep 30", "timeout": 1}])
+    arm(
+        repo,
+        checks=[
+            {"name": "slow check", "cmd": "sleep 30", "timeout": TEST_TIMEOUT_SECONDS}
+        ],
+    )
     out = run(repo)
     assert out.get("decision") == "block"
     assert "timed out" in out["reason"]
@@ -729,17 +739,22 @@ def test_a_repo_with_no_config_still_works(repo: Path) -> None:
 
 
 def test_the_default_check_timeout_comes_from_the_repo(repo: Path) -> None:
-    (repo / ".goal-guard.json").write_text(json.dumps({"default_check_timeout": 1}))
+    (repo / ".goal-guard.json").write_text(
+        json.dumps({"default_check_timeout": TEST_TIMEOUT_SECONDS})
+    )
     arm(repo, checks=[{"name": "a slow check", "cmd": "sleep 30"}])
     reason = run(repo)["reason"]
-    assert "timed out after 1s" in reason, "the repo's number, not the built-in one"
+    expected = f"timed out after {TEST_TIMEOUT_SECONDS:g}s"
+    assert expected in reason, "the repo's number, not the built-in one"
 
 
 def test_a_timeout_says_it_is_the_clock_and_not_a_failure(repo: Path) -> None:
     """This repo read a green integration suite as red for days, because the
     block said only "timed out after 120s" and that looks exactly like a red
     test. A port must not lose the same days to the same sentence."""
-    (repo / ".goal-guard.json").write_text(json.dumps({"default_check_timeout": 1}))
+    (repo / ".goal-guard.json").write_text(
+        json.dumps({"default_check_timeout": TEST_TIMEOUT_SECONDS})
+    )
     arm(repo, checks=[{"name": "the integration suite", "cmd": "sleep 30"}])
     reason = run(repo)["reason"]
     assert "NOT RUN" in reason

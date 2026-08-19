@@ -248,10 +248,14 @@ pub fn acquire_captures(
                 .get(victim)
                 .map(|body| body.surface.gravity_scale)
                 .unwrap_or(1.0),
-            pummels_landed: 0,
-            held_for: 0.0,
-            escape_progress: 0.0,
         });
+        // ⭐ **the RULESET's half of the hold, inserted beside the relation.**
+        // Pummel count, hold age and escape progress are platform-fighter
+        // policy; `CapturedBy` is the relation and answers none of them. A hold
+        // without this component is one this ruleset has no opinion about.
+        commands
+            .entity(victim)
+            .insert(ambition_characters::smash_capture::SmashHoldState::default());
     }
 }
 
@@ -279,34 +283,46 @@ pub struct CaptureFacts {
 
 impl CaptureFacts {
     /// Read both ends of the relationship out of the one table that records it.
-    pub fn resolve(body: Entity, captives: &Query<(Entity, &CapturedBy)>) -> Self {
-        let held = captives.iter().find(|(entity, _)| *entity == body);
-        let holding = captives.iter().find(|(_, held)| held.captor == body);
+    ///
+    /// ⚠ **the RELATION answers who, and the RULESET's state answers how long
+    /// and how many.** `SmashHoldState` is `Option` because a hold this ruleset
+    /// has no opinion about is a real thing — a game that constrains bodies
+    /// without pummelling them has the relation and not the policy — and
+    /// `unwrap_or_default` reads that as "no pummels, no age", which is true.
+    pub fn resolve(
+        body: Entity,
+        captives: &Query<(
+            Entity,
+            &CapturedBy,
+            Option<&ambition_characters::smash_capture::SmashHoldState>,
+        )>,
+    ) -> Self {
+        let held = captives.iter().find(|(entity, _, _)| *entity == body);
+        let holding = captives.iter().find(|(_, held, _)| held.captor == body);
         Self {
             captured: held.is_some(),
-            captured_for: held.map(|(_, held)| held.held_for).unwrap_or(0.0),
+            captured_for: held
+                .and_then(|(_, _, state)| state)
+                .map(|state| state.held_for)
+                .unwrap_or(0.0),
             holding_captive: holding.is_some(),
-            pummels_landed: holding.map(|(_, held)| held.pummels_landed).unwrap_or(0),
+            pummels_landed: holding
+                .and_then(|(_, _, state)| state)
+                .map(|state| state.pummels_landed)
+                .unwrap_or(0),
         }
     }
 }
 
-/// **A hold's ceiling, in scaled seconds.**
-///
-/// ⚠ **a provisional number whose job is to make "forever" impossible**, not to
-/// tune the mechanic. The genre's real answer is a function of the captive's
-/// percent and of how much its captor has pummelled; both are escape POLICY and
-/// belong with the fighter capability's rules when those land. What must not
-/// wait for them is boundedness: until this existed, a fighter who grabbed
-/// somebody and then pressed nothing held that body for the rest of the match.
-pub const CAPTURE_HOLD_LIMIT_SECONDS: f32 = 4.0;
-
-/// What one press of the CAPTIVE's own contributes toward one escape.
-///
-/// At this value a person mashing at a human cadence gets out in appreciably
-/// less than [`CAPTURE_HOLD_LIMIT_SECONDS`], which is the only property v1
-/// claims: struggling is better than not struggling.
-pub const CAPTURE_ESCAPE_PER_PRESS: f32 = 0.05;
+// ⭐ **THE TWO ESCAPE/TIMEOUT CONSTANTS MOVED TO THE FIGHTER CAPABILITY**
+// (`ambition_characters::smash_capture`) on 2026-08-19. A grab timeout and a
+// mash rate are platform-fighter rules; this crate is the generic actor road
+// and had no business deciding either. Re-exported rather than deleted so the
+// call sites and tests that name them here keep working, and so the move is
+// visible to anyone who looks for them where they used to be.
+pub use ambition_characters::smash_capture::{
+    CAPTURE_ESCAPE_PER_PRESS, CAPTURE_HOLD_LIMIT_SECONDS,
+};
 
 /// **The captive's restricted channel: a mash reaches the hold, and nothing
 /// else does.**
@@ -331,7 +347,10 @@ pub const CAPTURE_ESCAPE_PER_PRESS: f32 = 0.05;
 /// buttons would be six presses, and escape would reward a control-scheme trick
 /// rather than a mash.
 pub fn sample_capture_escape(
-    mut captives: Query<(&mut CapturedBy, &ambition_characters::brain::ActorControl)>,
+    mut captives: Query<(
+        &mut ambition_characters::smash_capture::SmashHoldState,
+        &ambition_characters::brain::ActorControl,
+    )>,
 ) {
     for (mut held, control) in &mut captives {
         let frame = &control.0;
@@ -364,15 +383,22 @@ pub fn tick_capture_holds(
     time: Res<ambition_time::WorldTime>,
     mut captives: Query<(
         Entity,
-        &mut CapturedBy,
+        &CapturedBy,
+        // ⚠ **the clock and the escape are the RULESET's, so this system asks
+        // for them explicitly.** A hold with no `SmashHoldState` is one this
+        // ruleset does not time out or let anybody mash out of — which is the
+        // correct behaviour for a game that constrains bodies under different
+        // rules, and is why the query REQUIRES it rather than treating absence
+        // as zero and releasing everybody on the first tick.
+        &mut ambition_characters::smash_capture::SmashHoldState,
         Option<&mut crate::features::ActorSurfaceState>,
         Option<&mut ambition_characters::brain::ControlHolds>,
     )>,
 ) {
     let dt = time.scaled_dt;
-    for (victim, mut held, surface, holds) in &mut captives {
-        held.held_for += dt;
-        if held.escape_progress < 1.0 && held.held_for < CAPTURE_HOLD_LIMIT_SECONDS {
+    for (victim, held, mut state, surface, holds) in &mut captives {
+        state.held_for += dt;
+        if state.escape_progress < 1.0 && state.held_for < CAPTURE_HOLD_LIMIT_SECONDS {
             continue;
         }
         let ended = *held;
@@ -520,9 +546,6 @@ mod tests {
             captor,
             hold_offset_local: ae::Vec2::new(20.0, -4.0),
             prior_gravity_scale: 1.0,
-            pummels_landed: 0,
-            held_for: 0.0,
-            escape_progress: 0.0,
         });
         app.update();
         let kin = app.world().get::<ae::BodyKinematics>(victim).unwrap();
@@ -579,9 +602,6 @@ mod tests {
             captor,
             hold_offset_local: ae::Vec2::new(16.0, 0.0),
             prior_gravity_scale: 1.0,
-            pummels_landed: 0,
-            held_for: 0.0,
-            escape_progress: 0.0,
         });
         app.update();
         let held = &app
@@ -622,9 +642,6 @@ mod tests {
                 captor,
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
                 prior_gravity_scale: 0.25,
-                pummels_landed: 1,
-                held_for: 0.0,
-                escape_progress: 0.0,
             },
             ambition_characters::brain::ScriptedControl,
             // The hold as a CLAIM: a bare marker is nobody's, and the release
@@ -697,9 +714,6 @@ mod tests {
             captor,
             hold_offset_local: ae::Vec2::new(16.0, 0.0),
             prior_gravity_scale: 1.0,
-            pummels_landed: 0,
-            held_for: 0.0,
-            escape_progress: 0.0,
         });
 
         app.update();
@@ -730,9 +744,6 @@ mod tests {
                 captor,
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
                 prior_gravity_scale: 0.75,
-                pummels_landed: 0,
-                held_for: 0.0,
-                escape_progress: 0.0,
             },
         ));
         app.world_mut().entity_mut(captor).despawn();
@@ -792,9 +803,6 @@ mod tests {
                     captor,
                     hold_offset_local: ae::Vec2::new(16.0, 0.0),
                     prior_gravity_scale: 1.0,
-                    pummels_landed: 0,
-                    held_for: 0.0,
-                    escape_progress: 0.0,
                 },
             ));
 
@@ -875,9 +883,6 @@ mod tests {
                     captor,
                     hold_offset_local: ae::Vec2::new(16.0, 0.0),
                     prior_gravity_scale: 1.0,
-                    pummels_landed: 0,
-                    held_for: 0.0,
-                    escape_progress: 0.0,
                 },
             ));
             // The interruption: the captor is hit.
@@ -978,9 +983,6 @@ mod tests {
                 captor,
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
                 prior_gravity_scale: 1.0,
-                pummels_landed: 0,
-                held_for: 0.0,
-                escape_progress: 0.0,
             },
         ));
 
@@ -993,11 +995,15 @@ mod tests {
             app.update();
         }
 
-        let held = app
-            .world()
+        // the RELATION survives the pummel, and the COUNT is the ruleset's.
+        app.world()
             .get::<CapturedBy>(victim)
             .expect("the pummel released the grab it belongs to");
-        assert_eq!(held.pummels_landed, 2, "the hold did not count its pummels");
+        let state = app
+            .world()
+            .get::<ambition_characters::smash_capture::SmashHoldState>(victim)
+            .expect("a held body carries this ruleset's hold state");
+        assert_eq!(state.pummels_landed, 2, "the hold did not count its pummels");
         assert_eq!(
             app.world()
                 .get::<ambition_characters::actor::BodyHealth>(victim)
@@ -1043,9 +1049,6 @@ mod tests {
                 captor,
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
                 prior_gravity_scale: 1.0,
-                pummels_landed: 2,
-                held_for: 0.0,
-                escape_progress: 0.0,
             },
         ));
         (app, captor, victim)
@@ -1161,9 +1164,6 @@ mod tests {
             captor,
             hold_offset_local: ae::Vec2::new(18.0, 0.0),
             prior_gravity_scale: 1.0,
-            pummels_landed: 0,
-            held_for: 0.0,
-            escape_progress: 0.0,
         });
         app.world_mut().write_message(attempt(captor));
         app.update();
@@ -1416,21 +1416,29 @@ pub fn release_interrupted_captures(
 /// second damage road would be a second answer to "how hurt is this body".
 pub fn apply_capture_pummels(
     mut requests: MessageReader<ambition_combat::capture::CapturePummelRequested>,
-    mut captives: Query<(&mut CapturedBy, &mut ambition_characters::actor::BodyHealth)>,
+    mut captives: Query<(
+        &CapturedBy,
+        &mut ambition_characters::smash_capture::SmashHoldState,
+        &mut ambition_characters::actor::BodyHealth,
+    )>,
 ) {
     for request in requests.read() {
         // The captor names itself; the victim comes from the relationship. A
         // pummel cannot miss, because acquisition already decided who it hits.
-        let Some((mut held, mut health)) = captives
+        let Some((held, mut state, mut health)) = captives
             .iter_mut()
-            .find(|(held, _)| held.captor == request.captor)
+            .find(|(held, _, _)| held.captor == request.captor)
         else {
             continue;
         };
+        let _ = held;
         health.damage(request.damage);
         // Saturating: a hold long enough to overflow a u8 has other problems,
         // and wrapping to zero would tell a CPU policy the hold just started.
-        held.pummels_landed = held.pummels_landed.saturating_add(1);
+        //
+        // ⚠ the count is the RULESET's, not the relation's: "how many pummels"
+        // is a question only a game with pummels can ask.
+        state.pummels_landed = state.pummels_landed.saturating_add(1);
     }
 }
 

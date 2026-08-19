@@ -31,6 +31,7 @@
 
 use std::collections::HashMap;
 
+use ambition_platformer2d::characters::smash_capture::SmashHoldState;
 use ambition_platformer2d::combat::capture::{CaptureAttemptRequested, CapturedBy};
 
 /// How many capture attempts the adapter actually asked for.
@@ -217,14 +218,26 @@ fn main() {
     let mut moves_started: HashMap<String, u32> = HashMap::new();
     let mut last_move: HashMap<bevy::prelude::Entity, String> = HashMap::new();
     // What each captive's hold looked like on the last tick it existed.
-    let mut live: HashMap<bevy::prelude::Entity, CapturedBy> = HashMap::new();
+    // ⚠ the tally is about PUMMELS, ESCAPES and HOLD AGE, all of which are this
+    // ruleset's half of a capture since the 2026-08-19 split. `CapturedBy` says
+    // only who holds whom, so the probe tracks `SmashHoldState` across ticks.
+    let mut live: HashMap<bevy::prelude::Entity, SmashHoldState> = HashMap::new();
 
     for _ in 0..ticks {
         app.update();
         let world = app.world_mut();
-        let mut query = world.query::<(bevy::prelude::Entity, &CapturedBy)>();
-        let now: HashMap<bevy::prelude::Entity, CapturedBy> =
-            query.iter(world).map(|(e, held)| (e, *held)).collect();
+        // ⚠ the hold is TWO components since 2026-08-19: `CapturedBy` is the
+        // relation and `SmashHoldState` is this ruleset's half. The probe tallies
+        // pummels and escapes, which are the ruleset's, so it reads both.
+        let mut query = world.query::<(
+            bevy::prelude::Entity,
+            &CapturedBy,
+            &ambition_platformer2d::characters::smash_capture::SmashHoldState,
+        )>();
+        let now: HashMap<bevy::prelude::Entity, SmashHoldState> = query
+            .iter(world)
+            .map(|(e, _, state)| (e, *state))
+            .collect();
         for (victim, held) in &now {
             if !live.contains_key(victim) {
                 tally.holds += 1;

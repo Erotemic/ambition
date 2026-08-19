@@ -327,6 +327,18 @@ use super::{
 /// it also moved `ambition_cutscene` and `ambition_demo_twintrack`, which is the
 /// instrument CHANGING and NOT a wire change in either: neither file was edited.
 ///
+/// ⚠ **v39 (2026-08-19) SPLITS a capture into its RELATION and this ruleset's
+/// POLICY.** `pummels_landed`, `held_for` and `escape_progress` left
+/// `ambition_combat::capture::CapturedBy` for
+/// `ambition_characters::smash_capture::SmashHoldState`, which registers as
+/// `smash.hold_state` under the characters domain. This IS a payload change and
+/// so it bumps: a snapshot now carries a second component for a held body, and
+/// the relation's own encoding shrank by the three fields it gave up.
+/// ⭐ the reason is ownership, not tidiness (2026-08-19 GPT review): *"A
+/// radically different game may quite reasonably want `actor A constrains actor
+/// B` without any concept of pummels, mash escape, a four-second grab timeout,
+/// or a standing-grab grounded rule."* A capture in such a game now pays to
+/// rewind the relation and nothing else.
 /// ⚠ **2026-08-19 FINISHES the slot-owned control migration, with NO version
 /// bump.** It removes only `derived.player_input_frame`: the entity-local frame
 /// was a declared-derived copy of `derived.slot_controls`, not snapshot payload.
@@ -347,7 +359,7 @@ use super::{
 /// `message.spawn_projectile` keeps its stable key while its concrete message
 /// becomes `ProjectileSpawnRequest`, so abandoned-future spawn requests remain
 /// cleared on load through the same wire identity.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 38;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 39;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

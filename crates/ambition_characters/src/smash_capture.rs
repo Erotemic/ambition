@@ -292,6 +292,63 @@ pub fn author_throw(mut spec: MoveSpec, at_s: f32, params: CaptureThrowParams) -
     spec
 }
 
+/// **WHAT A PLATFORM-FIGHTER HOLD KNOWS ABOUT ITSELF — the policy half of a
+/// capture, split off the generic relation on 2026-08-19.**
+///
+/// ⭐⭐ **why this is not on [`CapturedBy`](ambition_combat::capture::CapturedBy)
+/// any more.** That component is the RELATION: who holds whom, where, and what
+/// physical state release must give back. Every field of it is answerable
+/// without knowing what genre is being played. These three are not — the
+/// 2026-08-19 GPT review put it plainly: *"A radically different game may quite
+/// reasonably want `actor A constrains actor B` without any concept of pummels,
+/// mash escape, a four-second grab timeout, or a standing-grab grounded rule."*
+///
+/// ⇒ they were fine on the relation while the mechanic was being proven, and
+/// they are not convincing final owners. The split is not cosmetic: it is why a
+/// capture in another game does not pay to rewind a pummel counter it has no
+/// rule for.
+///
+/// ⛔ **it rides BESIDE `CapturedBy` on the captive, and its lifetime is that
+/// component's.** A hold with no `SmashHoldState` is a hold this ruleset has no
+/// opinion about, which is the honest reading for a game that constrains bodies
+/// without pummelling them.
+#[derive(bevy::prelude::Component, Clone, Copy, Debug, Default, PartialEq)]
+pub struct SmashHoldState {
+    /// How many pummels have landed on this hold. The current customer is the
+    /// CPU's capture policy (pummel, then throw) and diagnostics; it is a fact
+    /// ABOUT the hold and dies with it.
+    pub pummels_landed: u8,
+    /// **How long this hold has lasted**, in the same scaled seconds a move
+    /// timeline advances in — so a capture does not age during hitstop.
+    ///
+    /// ⛔⛔ **a capture with no clock is UNBOUNDED, and that is a gameplay bug
+    /// rather than a missing feature.** Nothing in the relation ends it on its
+    /// own: a throw is a choice its captor may never make, and an interruption
+    /// is a third party's. Without an age, a fighter who grabs and then does
+    /// nothing holds a body for the rest of the match.
+    pub held_for: f32,
+    /// **What the captive's OWN input has contributed toward getting out**, as a
+    /// fraction of one escape.
+    ///
+    /// ⭐ **the shape matters more than the number.** A captive is not a body
+    /// whose input ceased to exist — it is a body whose input reaches a
+    /// restricted channel, and this is that channel's accumulator.
+    pub escape_progress: f32,
+}
+
+/// **How long a hold lasts before it lets go on its own.**
+///
+/// ⚠ moved here from the generic actor monolith on 2026-08-19: a timeout is a
+/// platform-fighter rule, not a property of one body constraining another.
+pub const CAPTURE_HOLD_LIMIT_SECONDS: f32 = 4.0;
+
+/// **What one mash press buys the captive**, as a fraction of one escape.
+///
+/// ⚠ chosen so a captive mashing at a human rate gets out in less than
+/// [`CAPTURE_HOLD_LIMIT_SECONDS`] — the only property v1 claims. Moved here with
+/// its sibling, and for the same reason.
+pub const CAPTURE_ESCAPE_PER_PRESS: f32 = 0.05;
+
 /// **A fighter's capture kit.**
 ///
 /// ⚠ the three throws beyond forward are `Option` DURING THE MIGRATION. The

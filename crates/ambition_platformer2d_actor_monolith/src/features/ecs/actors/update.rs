@@ -113,7 +113,14 @@ pub fn tick_actor_brains(
     // touches `CapturedBy` — a pure decision reaching into the ECS is what the
     // perception layer exists to prevent — so the relationship is resolved HERE,
     // where the queries live, and travels as three plain values.
-    captives: Query<(bevy::prelude::Entity, &ambition_combat::capture::CapturedBy)>,
+    captives: Query<(
+        bevy::prelude::Entity,
+        &ambition_combat::capture::CapturedBy,
+        // ⚠ the RELATION says who holds whom; the RULESET's state says how long
+        // and how many. `Option` because a hold this ruleset has no opinion
+        // about is a real thing.
+        Option<&ambition_characters::smash_capture::SmashHoldState>,
+    )>,
     // **The log, lent to whichever worker thread this tick lands on.**
     //
     // A brain publishes through `ambition_causal::record`, which writes to a

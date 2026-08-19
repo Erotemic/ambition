@@ -67,29 +67,19 @@ pub struct CapturedBy {
     /// a floating character into a falling one — a bug that only ever appears
     /// for the characters least likely to be tested.
     pub prior_gravity_scale: f32,
-    /// How many pummels have landed on this hold. The real current customer is
-    /// the CPU's capture policy (pummel, then throw) and diagnostics; it is on
-    /// the relationship because it is a fact ABOUT the hold and dies with it.
-    pub pummels_landed: u8,
-    /// **How long this hold has lasted**, in the same scaled seconds a move
-    /// timeline advances in — so a capture does not age during hitstop.
-    ///
-    /// ⛔⛔ **a capture with no clock is UNBOUNDED, and that is a gameplay bug
-    /// rather than a missing feature.** Nothing in the relationship ends it on
-    /// its own: a throw is a choice its captor may never make, and an
-    /// interruption is a third party's. Without an age, a fighter who grabs and
-    /// then does nothing holds a body for the rest of the match.
-    pub held_for: f32,
-    /// **What the captive's OWN input has contributed toward getting out**, as
-    /// a fraction of one escape.
-    ///
-    /// ⭐ **the shape matters more than the number.** A captive is not a body
-    /// whose input ceased to exist — it is a body whose input reaches a
-    /// restricted channel, and this is that channel's accumulator. Direction
-    /// -based escape, faster escapes at low percent and pummels lengthening a
-    /// hold are all later policies that write here; none of them need the
-    /// relationship reshaped.
-    pub escape_progress: f32,
+    // ⛔⛔ **`pummels_landed`, `held_for` and `escape_progress` LEFT THIS STRUCT
+    // on 2026-08-19** — see `ambition_characters::smash_capture::SmashHoldState`.
+    //
+    // They were fine here while capture was being proven and they are not
+    // convincing final owners, which the 2026-08-19 GPT review put plainly: a
+    // radically different game may want "actor A constrains actor B" with no
+    // concept of pummels, mash escape, or a four-second grab timeout. What is
+    // left is the RELATION — who holds whom, where, and what physical state
+    // release must give back — and every field of it is answerable without
+    // knowing what genre is being played.
+    //
+    // ⚠ the split is not cosmetic: it is why a capture in another game does not
+    // pay to rewind a pummel counter it has no rule for.
 }
 
 impl bevy::ecs::entity::MapEntities for CapturedBy {
@@ -188,9 +178,6 @@ mod tests {
                 captor,
                 hold_offset_local: ae::Vec2::new(16.0, -2.0),
                 prior_gravity_scale: 1.0,
-                pummels_landed: 0,
-                held_for: 0.0,
-                escape_progress: 0.0,
             })
             .id();
 
@@ -234,18 +221,24 @@ mod tests {
             captor: before,
             hold_offset_local: ae::Vec2::new(16.0, -2.0),
             prior_gravity_scale: 0.0,
-            pummels_landed: 2,
-            held_for: 0.0,
-            escape_progress: 0.0,
         };
         held.map_entities(&mut ToFixed(after));
         assert_eq!(
             held.captor, after,
             "the captor handle was not remapped, so a restored capture names the wrong body"
         );
+        // ⚠ the "own state" this guards used to be `pummels_landed`, which left
+        // for the fighter capability on 2026-08-19. The claim is unchanged —
+        // remapping touches the ENTITY HANDLE and nothing else — so it is now
+        // made against the fields the relation still carries.
         assert_eq!(
-            held.pummels_landed, 2,
-            "remapping disturbed the hold's own state"
+            held.hold_offset_local,
+            ae::Vec2::new(16.0, -2.0),
+            "remapping disturbed where the body is held"
+        );
+        assert_eq!(
+            held.prior_gravity_scale, 0.0,
+            "remapping disturbed the gravity scale release must give back"
         );
     }
 }

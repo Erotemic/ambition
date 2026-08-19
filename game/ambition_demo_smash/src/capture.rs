@@ -341,11 +341,16 @@ mod tests {
             run_until(&mut app, captor, "the pummel finishes", |app| {
                 app.world().get::<MovePlayback>(captor).is_none()
             });
-            let held = app
-                .world()
+            // ⚠ the RELATION must still be there, and the COUNT is the
+            // ruleset's — two components since the 2026-08-19 split.
+            app.world()
                 .get::<CapturedBy>(victim)
                 .expect("the pummel released the hold it belongs to");
-            assert_eq!(held.pummels_landed, expected);
+            let state = app
+                .world()
+                .get::<ambition_platformer2d::characters::smash_capture::SmashHoldState>(victim)
+                .expect("a held body carries this ruleset's hold state");
+            assert_eq!(state.pummels_landed, expected);
         }
         let hurt = app
             .world()

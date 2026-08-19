@@ -1304,14 +1304,33 @@ def rollback_schema_usage(root: Path) -> dict[str, list[str]]:
         if is_test_path(str(source)):
             continue
         text = source.read_text(errors="replace")
-        if "SnapshotState for" not in text:
-            continue
+        # ⛔⛔ **AND IT HAPPENED A THIRD TIME (2026-08-19), which is why this
+        # condition is gone.** The scan used to skip any file without the literal
+        # `SnapshotState for`, then match `impl SnapshotState for X`. Both
+        # `snapshot_pod!` and `snapshot_unit_enum!` GENERATE that impl inside the
+        # macro body, and the macro's own definition spells it
+        # `impl $crate::snapshot::SnapshotState for $ty` — so every type encoded
+        # through either macro was invisible.
+        #
+        # Measured when `SmashHoldState` joined the wire format and the ratchet
+        # stayed green: **35 macro-encoded types against 84 hand-written impls**,
+        # a 29% hole in a guard whose one claim is that a type joining or leaving
+        # the wire format has to be seen. Exactly the failure this function's own
+        # header describes twice already — an instrument that measures less than
+        # it says and reports the success condition.
         crate = source.relative_to(root).parts[1]
         for match in re.findall(
             r"impl SnapshotState for ([A-Za-z0-9_:<>]+)", text
         ):
             # `crate::Foo` inside `ambition_platformer2d_actor_monolith` IS `ambition_platformer2d_actor_monolith::Foo`;
             # collapse the doubled prefix so the frozen name reads like a path.
+            encoded.add(f"{crate}::{match}".replace("::crate::", "::"))
+        # ⚠ the macro takes a `$ty:path` first, so the type is everything up to
+        # the opening brace. Both macros are matched by ONE pattern on purpose: a
+        # second pattern is a second thing to forget when a third macro lands.
+        for match in re.findall(
+            r"snapshot_(?:pod|unit_enum)!\(\s*([A-Za-z0-9_:<>]+)\s*\{", text
+        ):
             encoded.add(f"{crate}::{match}".replace("::crate::", "::"))
 
     return {

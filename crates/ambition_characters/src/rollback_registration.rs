@@ -132,4 +132,17 @@ where
         OWNER,
         "message.actor_action",
     );
+    // ⭐ **the PLATFORM-FIGHTER half of a capture** — pummel count, hold age and
+    // escape progress. Authoritative sim state for exactly the reason its
+    // relation half is: a rewind past a pummel must undo the pummel, and a
+    // rewind past a mash must undo the progress it bought.
+    //
+    // ⚠ it joined this domain on 2026-08-19 when those three fields left
+    // `ambition_combat::capture::CapturedBy`. The relation stays registered by
+    // `ambition_combat`; this is a second, separately-owned row rather than a
+    // widening of that one, which is the whole point of the split.
+    registrar.rollback_component_canonical::<crate::smash_capture::SmashHoldState>(
+        OWNER,
+        "smash.hold_state",
+    );
 }

@@ -18,6 +18,7 @@
 
 use bevy::asset::AssetPlugin;
 use bevy::image::ImagePlugin;
+use ambition_platformer2d::characters::smash_capture::SmashHoldState;
 use bevy::prelude::*;
 use bevy::state::app::StatesPlugin;
 use bevy::transform::TransformPlugin;
@@ -4318,14 +4319,17 @@ fn on_the_smash_pad_a_held_player_can_mash_free() {
     // made it a test that could not fail: with the hold gone for ANY reason, the
     // mash was never measured at all.
     let hold = |app: &mut App| {
-        app.world_mut().entity_mut(body).insert(CapturedBy {
-            captor,
-            hold_offset_local: ambition_platformer2d::engine_core::Vec2::new(20.0, -2.0),
-            prior_gravity_scale: 1.0,
-            pummels_landed: 0,
-            held_for: 0.0,
-            escape_progress: 0.0,
-        });
+        // ⚠ **a hold is TWO components since 2026-08-19**: the relation, and
+        // this ruleset's half. Inserting only the first would leave a body held
+        // by somebody with no clock and nothing to mash out of.
+        app.world_mut().entity_mut(body).insert((
+            CapturedBy {
+                captor,
+                hold_offset_local: ambition_platformer2d::engine_core::Vec2::new(20.0, -2.0),
+                prior_gravity_scale: 1.0,
+            },
+            ambition_platformer2d::characters::smash_capture::SmashHoldState::default(),
+        ));
     };
 
     let mut best = 0.0_f32;
@@ -4336,7 +4340,7 @@ fn on_the_smash_pad_a_held_player_can_mash_free() {
         app.update();
         pad_hold(&mut app, pad, GamepadButton::South, 0.0);
         app.update();
-        if let Some(held) = app.world().get::<CapturedBy>(body) {
+        if let Some(held) = app.world().get::<SmashHoldState>(body) {
             best = best.max(held.escape_progress);
             if best > 0.0 {
                 break;
@@ -4408,14 +4412,14 @@ fn on_the_smash_pad_attacking_while_holding_pummels() {
     // press that lands on a body which stopped holding would be an ordinary jab.
     let mut started: Option<String> = None;
     for _ in 0..24 {
-        app.world_mut().entity_mut(captive).insert(CapturedBy {
+        app.world_mut().entity_mut(captive).insert((
+            CapturedBy {
             captor: body,
             hold_offset_local: ambition_platformer2d::engine_core::Vec2::new(20.0, -2.0),
             prior_gravity_scale: 1.0,
-            pummels_landed: 0,
-            held_for: 0.0,
-            escape_progress: 0.0,
-        });
+            },
+            ambition_platformer2d::characters::smash_capture::SmashHoldState::default(),
+        ));
         pad_hold(&mut app, pad, GamepadButton::South, 1.0);
         app.update();
         pad_hold(&mut app, pad, GamepadButton::South, 0.0);
@@ -4486,14 +4490,14 @@ fn on_the_smash_pad_forward_and_attack_while_holding_throws() {
 
     let mut started: Option<String> = None;
     for _ in 0..24 {
-        app.world_mut().entity_mut(captive).insert(CapturedBy {
+        app.world_mut().entity_mut(captive).insert((
+            CapturedBy {
             captor: body,
             hold_offset_local: ambition_platformer2d::engine_core::Vec2::new(20.0, -2.0),
             prior_gravity_scale: 1.0,
-            pummels_landed: 0,
-            held_for: 0.0,
-            escape_progress: 0.0,
-        });
+            },
+            ambition_platformer2d::characters::smash_capture::SmashHoldState::default(),
+        ));
         // FORWARD is the captor's own facing, not a screen direction.
         let facing = app
             .world()

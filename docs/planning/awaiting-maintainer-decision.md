@@ -424,9 +424,35 @@ SheetRegistry::from_baked_table keys by TARGET     — 5 keys claimed by 48 file
 The 48 are sheets authored against a shared rig adapter: **robot 18, toon 16,
 goblin 9, sandbag 3, ninja 2.** For those five keys the target-keyed registry
 cannot answer *"give me sheet X"* — whichever manifest loads last wins, and three
-of them currently take the key away from a same-named character's own sheet
-(`robot_archivist` over `robot`, `goblin_brute_hammer` over `goblin`,
-`sandbag_armored_review` over `sandbag`).
+of them currently take the key away from a same-named character's own sheet.
+
+⛔⛔ **CORRECTED 2026-08-19 — THE COUNT WAS RIGHT AND ALL THREE NAMED WINNERS
+WERE WRONG.** This row said `robot_archivist` over `robot`,
+`goblin_brute_hammer` over `goblin` and `sandbag_armored_review` over `sandbag`.
+In each case that is the **first** non-own claimant, not the last — the row read
+the collision list with last-wins inverted. Measured against the real generated
+baked table (812 entries, 166 targets, 39 geometry-differing collisions — the
+same 39 the crate's own comment records):
+
+```text
+robot    18 claimants   own 256x256  LOSES to tech_bro_disruptor  215x256
+goblin    9 claimants   own 239x253  LOSES to ranged_skirmisher   235x229
+sandbag   3 claimants   own 128x128  LOSES to sandbag_full_review 256x256
+toon     16 claimants   not a catalog id — no character resolves by it
+ninja     2 claimants   not a catalog id
+shrine    2 claimants   the SAME file via two directories, identical geometry
+```
+
+⚠ **the table sorts by file root with `_spritesheet` STRIPPED**, which is what
+makes `robot` sort before `robot_archivist`; modelling the sort with the suffix
+attached inverts exactly these three and reproduces the original mistake. ⇒ read
+the generated table, not a model of it.
+
+⭐ **and "stale manifest" is the wrong frame for two of the three.**
+`tech_bro_disruptor` and `ranged_skirmisher` are distinct characters whose
+manifests declare a shared rig target; neither file is stale and there is no
+pair to retire. Only `sandbag`'s three are one character's own variants. The
+full write-up is [`../../dev/reviews/sheet-target-collisions-2026-08-19.md`](../../dev/reviews/sheet-target-collisions-2026-08-19.md).
 
 ⭐ **it appears harmless today**: every consumer of the target-keyed resource
 (shrine, slash, projectile, boss) looks up a name where root == target, and the

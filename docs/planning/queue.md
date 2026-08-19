@@ -5451,6 +5451,45 @@ appears in a `fighter::` grep, but it is a DOC reference in `hit_response.rs`.
 The floor does not depend on the fighter brain, which is the one edge that would
 have made the carve impossible rather than merely expensive.
 
+⛔⛔ **THE EDGE COUNT WAS AN UNDERCOUNT, and the contract's own pattern caused
+it (corrected 2026-08-19, hours after it was written).** It watched `fighter::`
+under `brain/`, which cannot see either of these:
+
+```text
+4  snapshot_impls.rs   `Brain`'s rollback CURSOR CODEC hand-writes a per-variant
+                       tag and encodes `state.ticks_until_decision`,
+                       `state.apm.presses` and the pending press BY FIELD.
+                       Outside `brain/`, and it spells `StateMachineCfg::Fighter`
+                       — invisible on both axes.
+5  brain/mod.rs        maps the variant to the string `"fighter"`.
+```
+
+⇒ **FIVE edges, not three**, and widening the pattern found both within a
+minute. That is the argument for pinning a boundary rather than estimating one:
+the estimate was wrong the same day it was made, and only a checkable claim
+noticed.
+
+⭐⭐ **AND THE SEAM HAS A PROVEN SHAPE IN THIS TREE — it is not a new invention.**
+Edge 4 is the expensive-looking one, and `SmashHoldState` (2026-08-19) is the
+same problem already solved one domain over: platform-fighter state that used to
+ride inside a generic thing now rides BESIDE it as the capability's own
+component, registered through `RollbackRegistrar` by the capability's own domain.
+Applied here:
+
+```text
+today    Brain::StateMachine(StateMachineCfg::Fighter { cfg, state })
+         — a closed enum a capability cannot add an arm to, whose CODEC lives
+           in the generic crate and knows the fighter's fields
+wanted   Brain::Capability(BrainId)  +  FighterCfg / FighterState as the
+         capability's OWN components, registered by its OWN domain
+```
+
+⇒ the generic brain then names no fighter type, holds no fighter codec, and
+enumerates no fighter name — all five edges fall out of ONE change, and the
+crate move becomes a move rather than a redesign. ⚠ the cost is a dispatch that
+finds a registered brain rather than matching an arm, which is the part that
+wants a deliberate decision.
+
 ⭐⭐ **AND THE TWO REMAINING EDGES ARE ONE EDGE, which halves the estimate.**
 `attack_kit` looks like an independent problem — the generic `BrainSnapshot`
 carrying `Vec<fighter::options::AttackCandidate>` — but the only thing that

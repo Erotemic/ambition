@@ -99,6 +99,9 @@ ABSENCE_CONTRACTS: list[dict] = [
         "id": "the-generic-brain-does-not-grow-new-platform-fighter-edges",
         "paths": [
             "crates/ambition_characters/src/brain/",
+            # the codec that rewinds the brain, outside `brain/` and named the
+            # fighter's fields by hand — see the pattern note below.
+            "crates/ambition_characters/src/snapshot_impls.rs",
             # ⭐ THE PLATFORM-FIGHTER BRAIN ITSELF. `brain/fighter/` is the
             # capability; it is allowed to know what it is.
             ":(exclude)crates/ambition_characters/src/brain/fighter",
@@ -120,6 +123,15 @@ ABSENCE_CONTRACTS: list[dict] = [
             #    removing it needs a registration seam so a capability supplies
             #    its own brain variant.
             ":(exclude)crates/ambition_characters/src/brain/state_machine/mod.rs",
+            # 4. `Brain`'s rollback cursor codec encodes the fighter's own state
+            #    fields. The capability owes its own rollback row before this can
+            #    go — the pattern `SmashHoldState` proved on 2026-08-19.
+            ":(exclude)crates/ambition_characters/src/snapshot_impls.rs",
+            # 5. `brain/mod.rs` maps the variant to the string `"fighter"` for
+            #    diagnostics. The SMALLEST edge and the one a registration seam
+            #    answers for free: a registered brain carries its own name, so
+            #    the generic side stops enumerating names it does not own.
+            ":(exclude)crates/ambition_characters/src/brain/mod.rs",
             # ✔ **3 IS CLOSED, 2026-08-19 — the list shrank, which is the work.**
             # `smash/emit.rs` reached across for `fighter::decision::TILT_DEFLECTION`.
             # That constant says how far a stick is pushed to mean a TILT rather
@@ -129,7 +141,18 @@ ABSENCE_CONTRACTS: list[dict] = [
             # deadzone and flick threshold it sits between. Both brains read it
             # from there and neither names the other.
         ],
-        "patterns": [r"\bfighter::"],
+        # ⛔⛔ **TWO PATTERNS, because ONE MISSED AN EDGE (2026-08-19).** The
+        # first version watched `fighter::` under `brain/` only, and the fourth
+        # edge is `Brain`'s rollback CURSOR CODEC in `snapshot_impls.rs`: it
+        # hand-writes a per-variant tag and encodes `state.ticks_until_decision`,
+        # `state.apm.presses` and the pending press by field. That names the
+        # fighter brain's internals as thoroughly as any import — and it was
+        # invisible on BOTH axes, since the file is outside `brain/` and it
+        # spells `StateMachineCfg::Fighter`, never `fighter::`.
+        #
+        # ⇒ the second pattern watches the VARIANT, which is what a capability
+        # arm actually looks like from the generic side.
+        "patterns": [r"\bfighter::", r"StateMachineCfg::Fighter"],
         "reason": (
             "The 2026-08-19 GPT review withdrew the standing 'do not carve yet' hold on "
             "D166: 'I no longer think that should be treated as indefinitely binding... "

@@ -5761,6 +5761,29 @@ remaining                          world/mod.rs · world/gated_lock_walls.rs
                                    world/authored_switch_commands.rs
 ```
 
+✔✔ **AND THOSE THREE ARE ALREADY DONE — re-measured 2026-08-18, and this row was
+understating its own completion.** All three "remaining" holders name LDtk in
+PROSE only (*"it used to take an `LdtkProject`"*, *"`ActiveLdtkProject::is_changed()`"*
+in a comment about what the code no longer does):
+
+```text
+monolith PRODUCTION refs to ambition_platformer2d_ldtk    0
+the 7 that remain                                          all in `tests.rs` —
+                                                           converter/vocabulary
+                                                           fixtures, legitimate
+monolith PRODUCTION refs to bevy_ecs_ldtk (upstream)       1
+```
+
+⇒ **the one surviving production edge is a different KIND of thing**, and worth
+naming rather than counting with the others:
+`assets/loading.rs` declares `#[asset(path = "game://worlds/sandbox.ldtk")]
+pub ldtk_project: Handle<bevy_ecs_ldtk::assets::LdtkProject>` — an ASSET-LOADING
+declaration that the app loads the file, not a consumer reading world facts out
+of a project instead of the room IR. ⚠ whether an asset collection in the
+monolith should name the format at all is a real boundary question and IS this
+row's subject; it is simply not the inversion the three-file list implied was
+outstanding. ⛔ a reader starting from that list would have redone finished work.
+
 ⭐ **the placements channel was NOT the road, and the reason is worth keeping**:
 `PlacementSchema` is a CLOSED Tier-0 schema whose `PlacementKind::stable_id` is
 *"an explicit compatibility contract [that] may only change with a

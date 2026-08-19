@@ -756,6 +756,65 @@ fn throwing_a_menu_equipped_item_mints_an_identity_under_the_thrower() {
 /// identity it was authored with. So this walks the whole round trip: take it,
 /// stow it, take it again, and demand it is the SAME object.
 ///
+/// **AND THE PRODUCTION PLUGIN ACTUALLY REGISTERS IT.**
+///
+/// ⛔⛔ **the behaviour test below cannot see a deletion, and the ledger said so
+/// without answering it** (D125: *"its test pins the FUNCTION, not the WIRING:
+/// removing the system from the production chain leaves it green, because the
+/// test lists the system in its own chain. Recorded, not answered with a
+/// registration assertion."*). This is that assertion.
+///
+/// ⚠ **a schedule must be INITIALIZED before its systems are enumerable**, which
+/// is why the graph is built explicitly rather than after an `update()` — this
+/// plugin's schedule is the sim one, and a bare `App` never runs it.
+///
+/// ⭐ matched on the system's own NAME rather than on a set or a node, because
+/// naming a graph NODE walks the hierarchy and can panic on an app whose graph
+/// still references removed systems (see `update_schedule_census`, which
+/// documents that trap).
+#[test]
+fn the_production_plugin_registers_the_custody_release() {
+    let mut app = App::new();
+    app.add_plugins(super::ItemPickupSimulationPlugin);
+    let label = {
+        use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
+        app.sim_schedule()
+    };
+    // ⚠ initialized against the APP's OWN world, not a fresh one: a schedule
+    // built against an empty world has no systems to enumerate, which reads
+    // exactly like a missing registration. The first draft did that and reported
+    // "0 systems" for a system that is registered.
+    let names: Vec<String> =
+        app.world_mut()
+            .resource_scope::<bevy::ecs::schedule::Schedules, Vec<String>>(
+                |world, mut schedules| {
+                    let schedule = schedules
+                        .get_mut(label)
+                        .expect("the plugin added systems to the sim schedule, so it exists");
+                    schedule.initialize(world).expect("the sim schedule builds");
+                    schedule
+                        .systems()
+                        .map(|systems| systems.map(|(_, s)| format!("{}", s.name())).collect())
+                        .unwrap_or_default()
+                },
+            );
+    assert!(
+        !names.is_empty(),
+        "the sim schedule enumerated NO systems, so the assertion below could \
+         only ever fail — this measures the enumeration, not the registration"
+    );
+    assert!(
+        names
+            .iter()
+            .any(|name| name.contains("return_released_items")),
+        "`return_released_items` is not in the production sim schedule. The \
+         behaviour test below lists it in a chain of its own, so it stays GREEN \
+         when the registration is deleted — which is exactly how an authored axe \
+         goes back to ceasing to exist through the menu. Registered systems: {}",
+        names.len()
+    );
+}
+
 /// Falsified by dropping `return_released_items` from the schedule below: the
 /// stowed axe stays `Held` by an empty hand, `items_in_world` reports 0, and the
 /// second Attack finds nothing to grab.

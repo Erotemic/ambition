@@ -3179,9 +3179,23 @@ occurrence continuity, which has the stronger product pressure.
 object recording `ItemCustody::Held` by a body with an empty hand — a third state
 the enum does not have — so **an authored axe silently ceased to exist through the
 menu**. Custody is now re-derived from the hand and **RESET** to `InWorld`.
-⛔⛔ **its test pins the FUNCTION, not the WIRING**: removing the system from the
-production chain leaves it green, because the test lists the system in its own
-chain. Recorded, not answered with a registration assertion.
+✔✔ **ANSWERED 2026-08-18 with the registration assertion it asked for.** The
+behaviour test lists `return_released_items` in a chain of its own, so deleting
+the production registration left it green. `the_production_plugin_registers_the_custody_release`
+builds `ItemPickupSimulationPlugin` and asks the SIM SCHEDULE whether the system
+is in it. Poison-verified by deleting the real registration:
+
+```text
+an_item_stowed_from_the_menu_…_can_be_taken_again   ok       <- the behaviour test
+the_production_plugin_registers_the_custody_release  FAILED   <- the new guard
+```
+
+⛔ **and the first draft of the guard was itself the bug it hunts**: it
+initialized the schedule against a FRESH `World`, enumerated zero systems, and
+reported "not registered" for a system that is. It now initializes against the
+app's own world and asserts a non-empty floor first, so "the enumeration is
+broken" can never be read as "the registration is missing". ⇒ every count needs
+a zero floor.
 
 ⛔ **and Bevy-crate extraction is a CRITERION APPLIED AT EVERY STEP, never a
 follow-up cleanup campaign.** Reach a coherent internal `Plugin` with owned

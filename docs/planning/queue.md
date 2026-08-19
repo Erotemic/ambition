@@ -2547,6 +2547,20 @@ portal_leak       -> vfx.oiler.portal_leak         packed .loop only   no move e
 - ▢ **D125 — The systemic world substrate: what a thing IS, which occurrence it
   is, why it exists, and how long it lasts.**
 
+⚠ **AND THE PERSISTENCE HALF OF THIS ROW HAS ITS OWN CARRY LIST — 2026-08-19.**
+A checkpoint baseline owes the reset horizon FIVE separate enrollments across
+three crates: `init_resource`, a capture system, a restore system, DURABLE-LOAD
+ADOPTION, and a rollback declaration with its checksum. `OwnedItemsBaseline` got
+four and missed adoption, and nothing failed — a missing adoption is silent until
+the FIRST DEATH AFTER A LOAD, which restores the default empty bag over
+everything the file remembered. ⭐ adoption is the leg whose omission is
+invisible, so the four baselines now travel as one `DurableBaselines`
+`SystemParam` that `restore_durable_horizon` destructures EXHAUSTIVELY: a fifth
+field is a build error at the site that must handle it (poison-verified, `E0027`).
+⚠ that closes one leg, not the class; the domain-owned participant the class
+wants — and the boxed-callback registry to avoid — are written down in
+`engine/instance-lifetime-provenance-and-persistence.md`.
+
 ⭐⭐ **THE CONSTRUCTION FEDERATION HAS A SECOND LANE, AND IT WAS CHEAP —
 2026-08-19.** The federation's claim was that moving the SECOND independently
 owned construction family out of `ActorConstructionParams` would be cheaper and

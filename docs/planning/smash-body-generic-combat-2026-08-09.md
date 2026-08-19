@@ -73,10 +73,40 @@ avoid; either implement them or delete them.
 
 ## Remaining reusable engine work
 
-### S1 — body-generic grab / hold / throw
+### S1 — body-generic grab / hold / throw — ✔✔ **BUILT (2026-08-18)**
 
-The current combat model still has no general platform-fighter grab/hold/throw
-capability. Design it through ordinary bodies and control authority:
+⛔ **this section opened "the current combat model still has no general
+platform-fighter grab/hold/throw capability" until 2026-08-18, by which point
+every bullet under it was satisfied.** Checked one at a time rather than from
+memory:
+
+```text
+a temporary hold names holder and held       ambition_combat::capture::CapturedBy
+constrains control, keeps body identity      body constraint + ControlHold::Relationship
+release/throw enters the ordinary path       CaptureThrowRequested -> the same
+                                             scaled-knockback road every authored
+                                             launcher uses
+possession / AI / human see the same         the HUMAN leg was the last one, and it
+  held-body semantics                        was broken until `988807b99` — the
+                                             player brain never carried
+                                             `grab_pressed`
+rollback snapshots the relationship          `capture.captured_by` (clone) +
+  through the owning domain                  `map.captured_by` (entity remap),
+                                             registered by ambition_combat
+no Smash-only grabbed-fighter ontology       capture lives in `ambition_combat`,
+                                             not in the smash demo
+```
+
+⭐ **and it did follow the mount pattern this section pointed at**, as a SIBLING
+rather than a generalisation: `ControlHold` is the claim registry, and a captive
+is a body whose control is suppressed rather than redirected. ⛔ the two were not
+merged into one relationship, per the instruction below.
+
+▢ **what is genuinely left is the FEEL, which this section already scoped out as
+product work**: grab range, break-out and hold duration exist and are authored;
+what a hold is WORTH to a CPU's decision is open and costed in queue D166.
+
+The original design instruction, kept because it is what the build followed:
 
 - a temporary hold relationship names holder and held body;
 - holding constrains movement/control without changing body identity;

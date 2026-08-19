@@ -3741,6 +3741,33 @@ to make the tool quiet — that is the laundering this row already paid for once
 ⭐ the honest sequence is: account for the edit-cost regressions FIRST, then
 re-freeze everything together and the size gain locks in with them.
 
+⭐⭐ **AND A CARVE LANDED AND WAS MEASURED — `d6ac394ff`, GGRS ROLLBACK HOSTING
+OUT OF THE GENERIC RUNTIME (merged 2026-08-19).** This is the row's own thesis
+producing a number rather than an argument:
+
+```text
+ambition_platformer2d_rollback_ggrs  [NEW CRATE]  +6,440 lines
+ambition_platformer2d_runtime                     −5,221 lines
+largest_unit_seconds   ambition_platformer2d_runtime 253.3s
+                    →  ambition_content              209.1s      ⭐ −44s
+```
+
+⭐ **the dearest single compile unit is no longer the runtime**, which is the
+payoff a carve is supposed to buy and the one this ledger can see directly.
+`edit_cost_seconds` fell ~76s for all three watched crates in the same window,
+even though the workspace GREW by a crate and ~1,000 lines — because the lines
+that moved left an expensive-per-line crate for a leaf.
+
+⚠ **+6,440 out against −5,221 in is not bookkeeping error**: the difference is
+new material the carve wrote (`reconcile.rs`, `registrar.rs`, `registration.rs`,
+`codec_tests.rs`, `host_invariant_tests.rs`). ⛔ so this is NOT the debt-laundering
+shape this row already paid for once — the destination joined in the same commit,
+which is the test that distinguishes a carve from a move.
+
+⚠ the new crate is UNPRICED (median placeholder, R² = 0.12), so its SECONDS
+figure is a guess; the LINE movement above is exact and is what the claim rests
+on.
+
 ⭐⭐ **THAT ACCOUNTING IS DONE — 2026-08-19 — AND THREE OF THE SEVEN
 "REGRESSIONS" ARE THE WORKSPACE GROWING, SEEN FROM A FOUNDATION CRATE.**
 `edit_cost_lines` is the total lines of a crate's REVERSE-DEPENDENCY CLOSURE, so

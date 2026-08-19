@@ -5131,32 +5131,40 @@ and the plan, not here:**
   custody, so a dropped mint is described; the staleness test beside it kept its
   claim and had its fixture corrected (it dropped an item to mean "gone", which
   only worked because of this bug).
-  ▢ **2 AND 3 REMAIN, and the implementation is specified rather than guessed —
-  read this before opening the file.** `restore_custody_to_checkpoint` needs
-  `AuthoredOccurrences` as a parameter (it does not take it today) and a SECOND
-  loop beside the custody one:
+  ▢ **2 AND 3 REMAIN — and the sketch this row carried on 2026-08-19 WAS WRONG,
+  corrected the same day by running it.** It said to add `AuthoredOccurrences` to
+  `restore_custody_to_checkpoint` and loop over `Placed` rows there. That was
+  built, and it does not work: **`ResetToCheckpoint` is processed while the
+  active room is still the one the player died in** (measured: the ledger says
+  `central_hub_complex`, the active room at restore is `duel_arena`), so the
+  row's room is not loaded and nothing may be spawned into it. The attempt is
+  reverted; the finding is written at the site so the next reader does not
+  rebuild it.
 
 ```text
-for each ledger row  Placed { room, at }
-    where room == the ACTIVE room's id           (a row for an unloaded room is
-                                                  not this restore's business)
-      and the occurrence is NOT live             (absent, not merely unheld)
-      and `minted.description_of(id)` is Some    (authored ones are rebuilt by
-                                                  the room build + suppression)
-    spawn_room_in_session with the occurrence's OWN SimId + SpawnOrigin,
-    `GroundItem { pos: at, .. }` and `ItemCustody::InWorld`
+what the falsifier proved EXISTS after the death (both halves of the memory):
+  Placed { room: "central_hub_complex", at: (1323.3, 954.8) }   the ledger row
+  minted.description_of("slot:0/0") == Some                      the describer
+what is missing:                                                 the REBUILD
 ```
 
-  ⛔⛔ **the three conditions are the safety, not ceremony.** Drop any one and a
-  death duplicates every dropped object in the room — which is the exact class
-  D133 already shipped once and only an end-to-end fixture caught (*"a session
-  builds its start room before any file is read, so `record_placed_ground_items`
-  republished the stale position over the loaded row"*).
-  ⚠ **the falsifier this needs is end-to-end and does not exist yet**: mint an
-  item, DROP it, die, and assert it is back at the position it fell — with the
-  poison being that removing the new loop leaves ZERO, and removing the
-  active-room condition leaves TWO. Until that runs, 2 and 3 are not done however
-  green the unit tests are.
+  ⇒ **the debt belongs to the ROOM BUILD**, which already settles exactly this
+  obligation: `outlook.reinstatements()` in `features/ecs/spawn` relocates an
+  AUTHORED record to where the ledger says the object lies, and a runtime mint
+  falls through it to the `"no room in this world authors a record that can
+  rebuild it"` warn. **The remaining work is a describer arm at that warn**,
+  which needs the `MintedItemBaseline` threaded into the room-construction
+  context — real plumbing, not a patch, which is why it is not half-landed here.
+  ⭐ **the falsifier EXISTS and is `#[ignore]`d, not absent**:
+  `death_restores_the_checkpoint::a_mint_banked_where_it_fell_comes_back_where_it_fell`.
+  It mints on the production road, picks up, drops, banks, unloads the room and
+  dies — and asserts both that the object is back and that it is back WHERE IT
+  FELL. ⚠ it also had to be retargeted once: a mint thrown and never touched has
+  no ledger row at all, because `record_placed_ground_items` tracks only what the
+  ledger already `remembers` — i.e. things somebody CARRIED — and its doc refuses
+  to become the universal instance registry that would change. So the case with a
+  customer is Jon's: a weapon you HAD and dropped.
+
   ⇒ **1 and 3 are exact complements and that is the shape of the fix**: an
   in-custody mint is DESCRIBED but unplaced (the hand supplies where); an
   in-world mint is PLACED but undescribed. Each half already exists; neither

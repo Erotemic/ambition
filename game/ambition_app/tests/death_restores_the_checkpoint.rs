@@ -869,3 +869,106 @@ fn a_runtime_mint_the_checkpoint_never_saw_is_not_resurrected_by_a_death() {
         "and nothing was put into the hand either"
     );
 }
+
+/// **B: A RUNTIME-MINTED INSTANCE BANKED WHERE IT FELL COMES BACK THERE —
+/// the complement of A, and the case that was silently lost.**
+///
+/// ```text
+/// mint      throw a javelin on the production road; it lands and stays there
+/// bank      a real shrine rest, with it lying in the room and in NOBODY's hand
+/// destroy   walk next door so the room unloads and the object is destroyed
+/// die       and it is back, same identity, exactly once, where it fell
+/// ```
+///
+/// ⛔⛔ **A and B are exact complements, and only A worked.** An in-custody mint
+/// is DESCRIBED (`live_minted_descriptions`) and unplaced, because the hand
+/// supplies where it is. An in-world mint is PLACED (`OccurrenceWhereabouts::
+/// Placed { room, at }`) and, until 2026-08-19, described by nobody — the
+/// capture filtered `!custody.in_world()`. So the checkpoint knew exactly where
+/// this object lay and had no way to make it again.
+///
+/// ⭐ **Jon's dropped-weapon ruling is the product requirement**: a unique weapon
+/// stays where it fell. That is not expressible while the only mints that
+/// survive a death are the ones somebody was holding.
+///
+/// ⚠ **the room unload is load-bearing, not scene-setting.** Without it the
+/// object is never destroyed, the restore has nothing to rebuild, and this test
+/// passes while measuring nothing — the same vacuity A avoids the same way.
+///
+/// ⛔⛔ **`#[ignore]`d BECAUSE IT IS A REAL PENDING FALSIFIER, not a flake.**
+/// Half the fix landed 2026-08-19: the checkpoint now DESCRIBES a dropped mint
+/// (`live_minted_descriptions` no longer filters `!in_world()`), and this test's
+/// own probe confirms both halves of the memory exist after the death — a
+/// `Placed { room: "central_hub_complex", at: … }` row AND a minted description.
+///
+/// What is missing is the REBUILD, and measuring it corrected where the fix
+/// goes. Putting a second materializer in `restore_custody_to_checkpoint` does
+/// not work: `ResetToCheckpoint` is processed while the active room is still the
+/// one the player died in (measured: `duel_arena`), so the row's room is not
+/// loaded and nothing can be spawned into it. ⇒ the debt belongs to the ROOM
+/// BUILD, which already settles exactly this obligation via
+/// `outlook.reinstatements()` by relocating an AUTHORED record — and a runtime
+/// mint falls through to a warn because no room authors a record for it. The
+/// remaining work is a describer arm there, which needs the minted baseline
+/// threaded into the room-construction context.
+#[test]
+#[ignore = "PENDING: the describer half landed 2026-08-19; the room build cannot \
+            yet settle a minted reinstatement debt. See the module note and D133."]
+fn a_mint_banked_where_it_fell_comes_back_where_it_fell() {
+    let mut sim = fixed_60hz_room_sim(ROOM);
+    sim.step_n(base(), 8);
+
+    let minted = mint_a_dynamic_item(&mut sim);
+
+    // ⚠ **PICKED UP AND PUT DOWN AGAIN, and that is not ceremony.** The
+    // whereabouts ledger tracks only occurrences it ALREADY remembers — the
+    // condition is `remembers(sim_id)`, so the population is exactly "things
+    // somebody carried", never "every object in the room". Its own doc refuses
+    // to be the universal instance registry that would take. So a mint thrown
+    // and never touched again has no row anywhere, by design; the case with a
+    // customer is the one Jon named — a weapon you HAD and dropped.
+    let landed = resting_place(&mut sim, &minted);
+    pick_up(&mut sim, landed, &minted);
+    assert_still_held(&mut sim, &minted, "the mint is picked up like any object");
+    sim.step_frame(ControlFrame {
+        attack_pressed: true,
+        shield_held: true,
+        ..ControlFrame::default()
+    });
+    sim.step_n(base(), 30);
+    assert_returned(
+        &mut sim,
+        &minted,
+        "putting it down must RETURN the object, not mint a second one",
+    );
+    let fell_at = resting_place(&mut sim, &minted);
+
+    // Banked while it lies there: the checkpoint sees an object in nobody's
+    // custody and must still be able to describe it.
+    commit_a_checkpoint(&mut sim);
+
+    // Destroyed: the room that holds it unloads.
+    walk_to(&mut sim, NEIGHBOUR);
+    assert!(
+        occurrences(&mut sim, &minted).is_empty(),
+        "the room did not unload, so nothing was destroyed and this test would \
+         pass without restoring anything"
+    );
+
+    die(&mut sim);
+    sim.step_n(base(), 30);
+    assert_returned(
+        &mut sim,
+        &minted,
+        "a mint banked where it fell must come back where it fell — it is \
+         described by nobody else, and no authored record can rebuild what the \
+         simulation invented",
+    );
+    let back_at = resting_place(&mut sim, &minted);
+    assert!(
+        (back_at.0 - fell_at.0).abs() < 8.0 && (back_at.1 - fell_at.1).abs() < 8.0,
+        "it came back at {back_at:?} rather than where it fell, {fell_at:?} — a \
+         rebuild at the origin is the materializer's `Vec2::ZERO` arm, which is \
+         honest only for something a hand supplies the position for"
+    );
+}

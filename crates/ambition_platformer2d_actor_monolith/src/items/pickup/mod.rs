@@ -879,6 +879,20 @@ pub fn restore_custody_to_checkpoint(
             Some((occurrence.clone(), by_identity.get(custodian).copied()?))
         })
         .collect();
+    // ⛔⛔ **A MINT LEFT LYING IS NOT THIS SYSTEM'S TO REBUILD, and trying it
+    // here was measured wrong on 2026-08-19.** A dropped occurrence has no
+    // custodian, so it is structurally absent from `CustodyBaseline`; the
+    // obvious repair is a second loop over `Placed { room, at }` rows. It does
+    // not work, and the reason is TIMING: `ResetToCheckpoint` is processed while
+    // the active room is still the one the player died in, so the row's room is
+    // not loaded and nothing may be spawned into it.
+    //
+    // ⇒ **the debt belongs to the ROOM BUILD**, which already settles exactly
+    // this obligation — `outlook.reinstatements()` in `features/ecs/spawn`,
+    // relocating an authored record to where the ledger says the object lies. A
+    // runtime mint falls through it to a warn because no room authors a record
+    // for it. See D133; the fix is a describer arm there, not a second
+    // materializer here.
     if missing.is_empty() {
         return;
     }

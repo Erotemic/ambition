@@ -66,6 +66,7 @@ serde = { version = "1", features = ["derive"] }
 # capability's real closure is foundations only — and the test that proves the
 # registration works still runs.
 [dev-dependencies]
+ambition_platformer2d_rollback_ggrs = { path = "../../crates/ambition_platformer2d_rollback_ggrs" }
 ambition_platformer2d_runtime = { path = "../../crates/ambition_platformer2d_runtime" }
 # The harness, for the GGRS round-trip in `tests/rollback_round_trip.rs`. Also a
 # dev-dependency: the queue deferred that test because "building a host inside
@@ -86,11 +87,12 @@ ambition_platformer2d = { path = "../../crates/ambition_platformer2d", features 
 # ⛔ **AN OUTSIDE WORKSPACE DOES NOT INHERIT THE ENGINE'S PATCHES**, and this is
 # the first thing that broke when this crate moved out of `crates/`
 # (2026-08-01): `cargo test` here resolved the RELEASED `bevy_ggrs 0.21`, which
-# has no `GgrsFrameTiming`, and `ambition_platformer2d_runtime` failed to compile.
+# has no `GgrsFrameTiming`, and the rollback backend failed to compile.
 #
 # The engine pins a forked rev in its own `[patch.crates-io]`. Any consumer that
-# reaches `ambition_platformer2d_runtime` — which this crate does, as a DEV-dependency, to
-# prove a host can install its rollback state — has to repeat it. That is a real
+# selects `ambition_platformer2d/rollback` or names the GGRS backend directly — as
+# this crate does in dev-dependencies to prove a host can install its rollback
+# state — has to repeat it. That is a real
 # cost of the fork, and it was invisible while this crate lived inside the
 # workspace and inherited the patch for free.
 #

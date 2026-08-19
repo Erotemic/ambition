@@ -25,9 +25,7 @@ use ambition_platformer2d_actor_monolith::world::rooms::RoomConstructionPlan;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::ConfirmedFrameBoundary;
 
-use crate::rollback::{
-    build_sync_test_session, install_rebased_sync_test_session, RollbackSessionOwnership,
-};
+use crate::{build_sync_test_session, install_rebased_sync_test_session, RollbackSessionOwnership};
 
 /// Execute a confirmed deferred lifecycle op in the exclusive world and rebase.
 ///
@@ -69,7 +67,7 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
     // ⚠ `_once`: an unhealthy timeline stays unhealthy, and this runs per frame.
     // The line names the transition it is holding, because "which one" is the
     // first thing anybody reading this asks.
-    if let Err(error) = crate::rollback::session_health(world) {
+    if let Err(error) = crate::session_health(world) {
         bevy::log::error_once!(
             "a confirmed lifecycle commit is being HELD because the rollback \
              session is unhealthy ({error:?}) — until this clears, doors and \
@@ -250,7 +248,7 @@ fn authorized_plan(
     // the checks below query the world, and a live borrow of the load state
     // would make that impossible.
     let epoch = world
-        .get_resource::<crate::room_transition::RoomTransitionContentEpoch>()
+        .get_resource::<ambition_platformer2d_runtime::room_transition::RoomTransitionContentEpoch>()
         .map(|epoch| epoch.get());
     let session_scope = world
         .get_resource::<ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>()
@@ -259,14 +257,14 @@ fn authorized_plan(
         let mut rooms = world.query::<&ambition_platformer2d_actor_monolith::rooms::RoomSet>();
         rooms.iter(world).next().map(|set| set.active)
     };
-    let Some(state) = world.get_resource::<crate::room_transition::RoomTransitionLoadState>()
+    let Some(state) = world.get_resource::<ambition_platformer2d_runtime::room_transition::RoomTransitionLoadState>()
     else {
         return AuthorizedPlan::Wait;
     };
     let Some(active) = state.active.as_ref() else {
         return AuthorizedPlan::Wait;
     };
-    if active.phase != crate::room_transition::RoomTransitionLoadPhase::CommitAuthorized {
+    if active.phase != ambition_platformer2d_runtime::room_transition::RoomTransitionLoadPhase::CommitAuthorized {
         return AuthorizedPlan::Wait;
     }
     if &active.intent != intent {
@@ -361,7 +359,7 @@ fn authorized_plan(
 /// would hold a black screen instead of revealing with the warning.
 fn retire_committed_room_transition(world: &mut World, commit_duration: std::time::Duration) {
     let Some((barrier, cover_required)) = world
-        .get_resource::<crate::room_transition::RoomTransitionLoadState>()
+        .get_resource::<ambition_platformer2d_runtime::room_transition::RoomTransitionLoadState>()
         .and_then(|state| state.active.as_ref())
         .map(|active| (active.barrier.load_id.clone(), active.cover_required))
     else {
@@ -373,12 +371,12 @@ fn retire_committed_room_transition(world: &mut World, commit_duration: std::tim
             .get_resource::<bevy::prelude::Time<bevy::prelude::Real>>()
             .map(|time| time.elapsed());
         if let Some(mut state) =
-            world.get_resource_mut::<crate::room_transition::RoomTransitionLoadState>()
+            world.get_resource_mut::<ambition_platformer2d_runtime::room_transition::RoomTransitionLoadState>()
         {
             if let Some(active) = state.active.as_mut() {
                 active.commit_duration = Some(commit_duration);
                 active.committed_at = now;
-                active.phase = crate::room_transition::RoomTransitionLoadPhase::Committed;
+                active.phase = ambition_platformer2d_runtime::room_transition::RoomTransitionLoadPhase::Committed;
             }
         }
         // ⚠ **no `GameMode` restore here, and none is owed.** A rollback host is
@@ -395,7 +393,7 @@ fn retire_committed_room_transition(world: &mut World, commit_duration: std::tim
         loads.retire(&barrier);
     }
     if let Some(mut state) =
-        world.get_resource_mut::<crate::room_transition::RoomTransitionLoadState>()
+        world.get_resource_mut::<ambition_platformer2d_runtime::room_transition::RoomTransitionLoadState>()
     {
         state.active = None;
     }
@@ -430,7 +428,7 @@ fn retire_cancelled_room_transition(
     intent: &ambition_platformer2d_actor_monolith::session::lifecycle_commit::RoomTransitionIntent,
 ) {
     let Some(barrier) = world
-        .get_resource::<crate::room_transition::RoomTransitionLoadState>()
+        .get_resource::<ambition_platformer2d_runtime::room_transition::RoomTransitionLoadState>()
         .and_then(|state| state.active.as_ref())
         .filter(|active| &active.intent == intent)
         .map(|active| active.barrier.load_id.clone())
@@ -441,7 +439,7 @@ fn retire_cancelled_room_transition(
         loads.retire(&barrier);
     }
     if let Some(mut state) =
-        world.get_resource_mut::<crate::room_transition::RoomTransitionLoadState>()
+        world.get_resource_mut::<ambition_platformer2d_runtime::room_transition::RoomTransitionLoadState>()
     {
         state.active = None;
     }
@@ -581,12 +579,12 @@ fn commit_transition(
     // as a plain system all along. A host that could panic here could not have
     // produced the authorization that got here.
     let mut state: bevy::ecs::system::SystemState<
-        crate::room_transition::RoomTransitionApplication,
+        ambition_platformer2d_runtime::room_transition::RoomTransitionApplication,
     > = bevy::ecs::system::SystemState::new(world);
     let outcome = {
         let mut application = state.get_mut(world);
         match application.subject_entity(subject) {
-            None => Err(crate::room_transition::RoomTransitionApplyError::SubjectGone),
+            None => Err(ambition_platformer2d_runtime::room_transition::RoomTransitionApplyError::SubjectGone),
             Some(entity) => {
                 application.apply(plan, entity, target_index, arrival, edge_exit, zone_sfx)
             }
@@ -628,7 +626,7 @@ mod tests {
     use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
     use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
-    use crate::room_transition::{
+    use ambition_platformer2d_runtime::room_transition::{
         ActiveRoomTransitionLoad, RoomTransitionLoadPhase, RoomTransitionLoadState,
     };
     /// GPT review #1/#2: the deferred transition transports the body that CROSSED
@@ -842,7 +840,7 @@ mod tests {
         // bare `World` can host it. Building the full application here would
         // demand a dozen unrelated resources — a fixture that models nothing.
         // `RoomTransitionApplication::subject_entity` delegates straight to this.
-        let mut state: bevy::ecs::system::SystemState<crate::room_transition::TransitBodies> =
+        let mut state: bevy::ecs::system::SystemState<ambition_platformer2d_runtime::room_transition::TransitBodies> =
             bevy::ecs::system::SystemState::new(&mut world);
         let bodies = state.get_mut(&mut world);
 

@@ -26,7 +26,6 @@
 
 use std::collections::{HashMap, HashSet};
 
-use ambition_platformer2d::runtime::rollback::AmbitionRollbackApp as _;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use bevy::prelude::*;
@@ -82,6 +81,16 @@ struct FallingSandSpoutNozzle {
     id: &'static str,
 }
 
+pub fn register_rollback_state(
+    registrar: &mut impl ambition_platformer2d_core::snapshot::RollbackRegistrar,
+) {
+    registrar.declare_rollback_derived_resource::<FallingSandProjectionReport>(
+        "ambition_content",
+        "content.falling_sand_projection_report",
+        "wholly overwritten each tick by the projection that runs before any reader; a rewind reproduces it from the restored particles",
+    );
+}
+
 pub struct FallingSandRoomPlugin;
 
 impl Plugin for FallingSandRoomPlugin {
@@ -91,6 +100,10 @@ impl Plugin for FallingSandRoomPlugin {
         // the ungated `FallingSandSimPlugin` (registered by
         // `AmbitionContentPlugin` in every composition). This plugin is the
         // water/oil bridge + presentation, ordered after the sim half.
+        {
+            let mut registrar = ambition_platformer2d_runtime::rollback::SchemaRollbackRegistrar::new(app);
+            register_rollback_state(&mut registrar);
+        }
         app.init_resource::<FallingSandProjectionReport>()
             .add_plugins(
                 FallingSandPlugin::default()
@@ -110,12 +123,6 @@ impl Plugin for FallingSandRoomPlugin {
             // restores the particles, the next projection recomputes the report
             // from them, and nothing reads it in between. That is derived state,
             // not a memo — and a memo that gated behaviour would NOT qualify.
-            .declare_rollback_derived_resource::<FallingSandProjectionReport>(
-                "ambition_content",
-                "content.falling_sand_projection_report",
-                "wholly overwritten each tick by the projection that runs before \
-                 any reader; a rewind reproduces it from the restored particles",
-            )
             .add_systems(
                 sim,
                 (

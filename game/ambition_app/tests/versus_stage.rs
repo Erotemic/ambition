@@ -1875,7 +1875,7 @@ fn a_round_boundary_leaves_the_last_rounds_attacks_behind() {
 /// and says so in its own docs — it cannot see `VersusMatch`, which the shell app
 /// registers. That doc also said the shipped host "runs its sim on the render
 /// frame, so there is no render-only frame there to probe", and that was WRONG:
-/// `build_visible_app` sets `SimulationHost::Ggrs` under `dev_tools`, so the sim
+/// `build_visible_app` sets `SimulationHost::Rollback` under `dev_tools`, so the sim
 /// lives in `GgrsSchedule` and a frame whose fixed-step accumulator gets nothing
 /// runs `Update` while the simulation stands still. Reasoned once, checked here.
 ///

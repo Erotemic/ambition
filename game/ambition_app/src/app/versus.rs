@@ -718,7 +718,7 @@ fn track_versus_roster(
             // route's scope hands it back on the way out, so the next
             // experience's session is not sized by a match that has ended.
             commands.insert_resource(
-                ambition_platformer2d::runtime::rollback::local_session::SessionSeatingSource::decided(
+                ambition_platformer2d::rollback::local_session::SessionSeatingSource::decided(
                     VERSUS_EXPERIENCE,
                     // CHANNELS, not participants — the versus stage published
                     // the same conflation Smash did. See
@@ -909,7 +909,7 @@ pub fn compose_versus_experience(app: &mut App) {
     // The scoreboard is SIMULATION state: a rewind that restores the fighters
     // and not the score leaves the two disagreeing about what round it is.
     {
-        use ambition_platformer2d::runtime::rollback::AmbitionRollbackApp;
+        use ambition_platformer2d::rollback::AmbitionRollbackApp;
         // ⭐ **a value checksum over the match, not merely its presence**
         // (2026-08-06). `VersusMatch` decides the round, the phase and who has
         // won — two timelines that disagree about the phase disagree about
@@ -1030,7 +1030,7 @@ pub fn compose_versus_experience(app: &mut App) {
             // plugged in. Same schedule, so this is a real edge; a cross-
             // schedule `.after` would be silently vacuous.
             .before(
-                ambition_platformer2d::runtime::rollback::local_session::LocalSessionSet::Maintain,
+                ambition_platformer2d::rollback::local_session::LocalSessionSet::Maintain,
             ),
     );
 
@@ -1092,7 +1092,7 @@ fn declare_versus_experience_scope(app: &mut App) {
             )
             .releasing_with("SessionSeatingSource", |world, owner| {
                 if let Some(mut seating) = world.get_resource_mut::<
-                    ambition_platformer2d::runtime::rollback::local_session::SessionSeatingSource,
+                    ambition_platformer2d::rollback::local_session::SessionSeatingSource,
                 >() {
                     seating.release(owner.as_str());
                 }

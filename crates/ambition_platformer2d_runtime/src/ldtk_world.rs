@@ -21,7 +21,7 @@
 //! owns the rollback declaration itself through the backend-neutral
 //! `RollbackRegistrar`; this plugin owns only host composition. A game adds one
 //! thing to say *"I have an LDtk world"*: install the runtime spine, borrow the
-//! host's GGRS registrar, and hand it to the format-owned declaration.
+//! host's rollback registrar, and hand it to the format-owned declaration.
 
 use bevy::app::{App, Plugin};
 
@@ -31,15 +31,14 @@ use bevy::app::{App, Plugin};
 /// and registers the LDtk runtime index's rollback row. Deliberately NOT part
 /// of [`crate::PlatformerEnginePlugins`] — see the module doc.
 ///
-/// ⚠ add it AFTER the engine group. The rollback registrar reads
-/// [`crate::SimulationHost`] to decide whether a recorded descriptor also
-/// becomes live `bevy_ggrs` machinery, and the group is what sets it.
+/// Add it after the engine group so its schema contribution joins the same
+/// prepared-content identity assembled by the runtime.
 pub struct LdtkWorldPlugin;
 
 impl Plugin for LdtkWorldPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(ambition_platformer2d_ldtk::LdtkRuntimeSpinePlugin);
-        let mut registrar = crate::rollback::GgrsRollbackRegistrar::new(app);
+        let mut registrar = crate::rollback::SchemaRollbackRegistrar::new(app);
         ambition_platformer2d_ldtk::register_rollback_state(&mut registrar);
     }
 }

@@ -145,7 +145,7 @@ fn the_capability_registers_its_own_semantic_action() {
 /// is in scope here and absent from the crate's real closure.
 #[test]
 fn a_composition_installs_the_rollback_state_the_capability_offers() {
-    use ambition_platformer2d_runtime::rollback::AmbitionRollbackApp;
+    use ambition_platformer2d_rollback_ggrs::AmbitionRollbackApp;
 
     let mut app = App::new();
     app.add_plugins(PulsePlugin::default());
@@ -344,7 +344,8 @@ fn firing_arms_the_cooldown_and_it_ages() {
 /// content compiler uses for "a `Runtime` schema must lower an artifact".
 #[test]
 fn a_composition_that_forgets_the_rollback_state_is_told_which_and_why() {
-    use ambition_platformer2d_runtime::rollback::{AmbitionRollbackApp, RollbackRegistry};
+    use ambition_platformer2d_rollback_ggrs::AmbitionRollbackApp;
+    use ambition_platformer2d_runtime::rollback::RollbackRegistry;
 
     // A host that installed the mechanic and nothing else.
     let mut forgetful = App::new();
@@ -401,7 +402,8 @@ fn a_composition_that_forgets_the_rollback_state_is_told_which_and_why() {
 /// pass — one that reports safety while the desync is still there.
 #[test]
 fn another_capabilitys_registration_does_not_satisfy_this_one() {
-    use ambition_platformer2d_runtime::rollback::{AmbitionRollbackApp, RollbackRegistry};
+    use ambition_platformer2d_rollback_ggrs::AmbitionRollbackApp;
+    use ambition_platformer2d_runtime::rollback::RollbackRegistry;
 
     let mut app = App::new();
     app.add_plugins(PulsePlugin::default());

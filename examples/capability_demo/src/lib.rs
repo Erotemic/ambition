@@ -231,7 +231,7 @@ impl Plugin for PulsePlugin {
 /// so it says what it needs instead. A composition does:
 ///
 /// ```ignore
-/// use ambition_platformer2d_runtime::rollback::AmbitionRollbackApp;
+/// use ambition_platformer2d_rollback_ggrs::AmbitionRollbackApp;
 /// app.rollback_component_clone_probed::<PulseCooldown>(
 ///     capability_demo::PULSE_CAPABILITY,
 ///     capability_demo::ROLLBACK_STATE,

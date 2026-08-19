@@ -1694,8 +1694,8 @@ fn a_fighter_picked_in_smash_does_not_follow_the_player_into_ambition() {
     );
     assert_eq!(
         app.world()
-            .resource::<ambition_platformer2d::runtime::rollback::local_session::SessionSeatingSource>(),
-        &ambition_platformer2d::runtime::rollback::local_session::SessionSeatingSource::Devices,
+            .resource::<ambition_platformer2d::rollback::local_session::SessionSeatingSource>(),
+        &ambition_platformer2d::rollback::local_session::SessionSeatingSource::Devices,
         "the seat count Smash decided outlived the match, so the next \
          experience's session is sized by a match that has ended"
     );

@@ -7,7 +7,7 @@
 //! registry, so the demo is GGRS-ready rather than silently outside the
 //! envelope.
 
-use ambition_platformer2d::runtime::rollback::RollbackRegistry;
+use ambition_platformer2d::rollback::RollbackRegistry;
 use ambition_demo_mary_o_app::build_demo_app;
 
 #[test]

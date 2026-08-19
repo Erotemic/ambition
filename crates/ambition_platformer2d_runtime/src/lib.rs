@@ -53,18 +53,24 @@ pub mod content_identity;
 /// Holding external effects (audio, VFX) at the host's confirmed-frame boundary
 /// so a rollback cannot duplicate one or leave a mispredicted one standing.
 pub mod external_effects;
+pub mod input_drive;
 pub mod input_stream;
+#[cfg(test)]
+mod host_invariant_tests;
 /// The opt-in LDtk world install: the format's runtime spine + its rollback row.
 pub mod ldtk_world;
-pub mod lifecycle_commit;
 mod mode_scope;
 mod player_schedule;
 #[cfg(feature = "portal")]
 mod portal_schedule;
 mod progression_schedule;
 pub mod projectile_schedule;
-/// GGRS rollback integration: typed state registration, input/session bridge, and exact schema identity.
+/// Backend-neutral rollback schema composition and exact prepared-content identity.
 pub mod rollback;
+/// Stable simulation identity maintenance shared by every host.
+pub mod sim_identity;
+#[cfg(test)]
+mod sim_identity_tests;
 mod room_schedule;
 pub mod room_transition;
 /// The reset horizon's composition: where checkpoint capture and restore sit in
@@ -177,18 +183,44 @@ pub const SIM_TICK_HZ: f64 = 60.0;
 /// This is deliberately not a runtime toggle: Bevy systems register into one
 /// concrete schedule while plugins build. A game that does not need rollback
 /// chooses [`Fixed60Hz`](Self::Fixed60Hz) or [`RenderFrame`](Self::RenderFrame)
-/// and does not install GGRS snapshot/session machinery at all.
+/// and does not install rollback-backend snapshot/session machinery at all.
 #[derive(Resource, Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum SimulationHost {
     #[default]
     RenderFrame,
     Fixed60Hz,
-    Ggrs,
+    Rollback,
 }
 
 impl SimulationHost {
-    pub fn is_ggrs(self) -> bool {
-        matches!(self, Self::Ggrs)
+    pub fn is_rollback(self) -> bool {
+        matches!(self, Self::Rollback)
+    }
+}
+
+/// Marker installed by a concrete rollback backend once it has selected its
+/// schedule and installed the host machinery the generic engine relies on.
+///
+/// This is composition state, not simulation state. It lets the runtime refuse a
+/// semantic `SimulationHost::Rollback` declaration that forgot to install an
+/// actual backend, without naming that backend or its schedule label.
+#[derive(Resource, Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct RollbackHostReady;
+
+/// Backend-neutral availability/health of confirmation authority for a rollback
+/// host. The concrete backend publishes this state; room/lifecycle policy only
+/// needs to know whether a speculative intent may be promoted to host-side work.
+#[derive(Resource, Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum RollbackConfirmationState {
+    #[default]
+    Unavailable,
+    Healthy,
+    Unhealthy,
+}
+
+impl RollbackConfirmationState {
+    pub fn is_healthy(self) -> bool {
+        matches!(self, Self::Healthy)
     }
 }
 
@@ -205,17 +237,28 @@ impl SimulationHostAppExt for App {
             .world()
             .get_resource::<SimulationHost>()
             .is_some_and(|current| *current == host);
+        let rollback_backend_ready = self.world().contains_resource::<RollbackHostReady>();
         let same_schedule = match host {
             SimulationHost::RenderFrame => self.sim_is(Update),
             SimulationHost::Fixed60Hz => self.sim_is(FixedUpdate),
-            SimulationHost::Ggrs => self.sim_is(bevy_ggrs::GgrsSchedule),
+            // A concrete rollback backend owns its schedule label. The generic
+            // runtime only requires that the backend chose one before this
+            // foundation is assembled.
+            SimulationHost::Rollback => rollback_backend_ready,
         };
         if !same_host || !same_schedule {
             match host {
-                SimulationHost::RenderFrame => self.set_sim_schedule(Update),
-                SimulationHost::Fixed60Hz => self.set_sim_schedule(FixedUpdate),
-                SimulationHost::Ggrs => self.set_sim_schedule(bevy_ggrs::GgrsSchedule),
-            };
+                SimulationHost::RenderFrame => {
+                    self.set_sim_schedule(Update);
+                }
+                SimulationHost::Fixed60Hz => {
+                    self.set_sim_schedule(FixedUpdate);
+                }
+                // Declaring rollback host semantics may happen before the backend
+                // plugin is added. The foundation below is the deadline: by then
+                // the backend must have selected its concrete schedule.
+                SimulationHost::Rollback => {}
+            }
         }
         self.insert_resource(host);
         self
@@ -243,6 +286,12 @@ pub struct Platformer2dSimulationFoundationPlugin {
 impl Plugin for Platformer2dSimulationFoundationPlugin {
     fn build(&self, app: &mut App) {
         app.set_simulation_host(self.host);
+        if self.host == SimulationHost::Rollback {
+            assert!(
+                app.world().contains_resource::<RollbackHostReady>(),
+                "SimulationHost::Rollback requires a concrete rollback backend before the engine foundation builds"
+            );
+        }
         if self.host == SimulationHost::Fixed60Hz {
             // `set_simulation_host` committed FixedUpdate before
             // `configure_platformer2d_simulation_phases` can seal the schedule. Bevy's default
@@ -285,9 +334,9 @@ impl Plugin for Platformer2dSimulationFoundationPlugin {
         app.add_systems(
             sim,
             (
-                rollback::ensure_sim_id,
-                rollback::mint_spawned_sim_ids,
-                rollback::heal_projectile_owners,
+                sim_identity::ensure_sim_id,
+                sim_identity::mint_spawned_sim_ids,
+                sim_identity::heal_projectile_owners,
             )
                 .chain()
                 .in_set(ambition_platformer2d_shared_tangle::schedule::GameplaySimulationRoot)
@@ -303,9 +352,9 @@ impl Plugin for Platformer2dSimulationFoundationPlugin {
         app.add_systems(
             sim,
             (
-                rollback::ensure_sim_id,
-                rollback::mint_spawned_sim_ids,
-                rollback::heal_projectile_owners,
+                sim_identity::ensure_sim_id,
+                sim_identity::mint_spawned_sim_ids,
+                sim_identity::heal_projectile_owners,
             )
                 .chain()
                 .in_set(ambition_platformer2d_shared_tangle::schedule::GameplaySimulationRoot)
@@ -327,9 +376,9 @@ impl Plugin for Platformer2dSimulationFoundationPlugin {
 ///
 /// The default [`SimulationHost::RenderFrame`] advances once per rendered frame
 /// in `Update`. [`Self::fixed_tick`] advances at [`SIM_TICK_HZ`] in
-/// `FixedUpdate`. [`Self::rollback`] advances only through GGRS requests and is
-/// the only mode that installs GGRS schedules, snapshots, checksums, and session
-/// machinery.
+/// `FixedUpdate`. [`SimulationHost::Rollback`] is reserved for a concrete
+/// rollback backend, which chooses the schedule and installs snapshot/session
+/// machinery outside this generic runtime crate.
 ///
 /// Every member plugin registers into
 /// [`SimSchedule`](ambition_platformer2d_shared_tangle::schedule::SimSchedule) rather
@@ -363,10 +412,6 @@ impl PlatformerEnginePlugins {
         Self::new(SimulationHost::Fixed60Hz)
     }
 
-    /// The GGRS-driven engine. The sim advances only through GGRS requests.
-    pub fn rollback() -> Self {
-        Self::new(SimulationHost::Ggrs)
-    }
 }
 
 impl PluginGroup for PlatformerEnginePlugins {
@@ -374,18 +419,11 @@ impl PluginGroup for PlatformerEnginePlugins {
         let builder = PluginGroupBuilder::start::<Self>()
             // Sets + engine resources FIRST (see Platformer2dSimulationFoundationPlugin docs).
             .add(Platformer2dSimulationFoundationPlugin { host: self.host });
-        // Non-rollback games do not pay for GGRS schedules, snapshot storage,
-        // checksums, entity recreation, or session/request handling.
-        let builder = if self.host.is_ggrs() {
-            builder.add(crate::rollback::AmbitionRollbackPlugin)
-        } else {
-            builder
-        };
         let builder = builder
             // Prepared content always carries the exact typed rollback-schema
-            // fingerprint, even when this composition does not execute GGRS.
-            // The schema plugin is metadata-only on non-GGRS hosts because the
-            // registration vocabulary gates runtime installation on host kind.
+            // fingerprint. This plugin is metadata-only for every host; a
+            // concrete rollback backend invokes the same declarations through
+            // its own registrar to install executable snapshot machinery.
             .add(crate::rollback::AmbitionRollbackSchemaPlugin)
             // The engine sim messages + resource defaults (E5 step 6) —
             // hosts override by insert-before-add (init never clobbers).
@@ -580,7 +618,8 @@ pub fn add_headless_foundation(app: &mut App) {
 /// context switches per run — hundreds per tick — with gameplay systems at
 /// <2% of CPU while executor bookkeeping + thread parking took ~40%+. With
 /// system bodies this small, cross-thread dispatch costs far more than it
-/// buys; `GgrsSchedule` already runs `SingleThreaded` for determinism.
+/// buys; rollback backends likewise own deterministic execution policy for
+/// their concrete simulation schedules.
 pub fn serialize_frame_schedules(app: &mut App) {
     use bevy::app::{First, Last, PostUpdate, PreUpdate, Update};
     use bevy::ecs::schedule::ExecutorKind;

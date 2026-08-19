@@ -68,6 +68,9 @@ scope = "engine"
 path = "crates/ambition_platformer2d_runtime"
 scope = "engine"
 [[root]]
+path = "crates/ambition_platformer2d_rollback_ggrs"
+scope = "engine"
+[[root]]
 path = "game/ambition_content"
 scope = "game"
 
@@ -93,13 +96,13 @@ bridge = "device-to-frame"
 why = "THE device→frame bridge: leafwing ActionState → ControlFrame. If any system may hold this resource, it is this one."
 
 [[allow]]
-file = "crates/ambition_platformer2d_runtime/src/rollback/session.rs"
+file = "crates/ambition_platformer2d_rollback_ggrs/src/session.rs"
 func = "publish_ggrs_input"
 bridge = "device-to-frame"
 why = "GGRS/network input ingress: publishes the synchronized local-player frame at the head of GgrsSchedule so the existing frame-to-slot bridge fans it into SlotControls before simulation reads any actor input."
 
 [[allow]]
-file = "crates/ambition_platformer2d_runtime/src/rollback/session.rs"
+file = "crates/ambition_platformer2d_rollback_ggrs/src/session.rs"
 func = "report_input_written_to_the_wrong_seam"
 bridge = "device-to-frame"
 why = "READS it as EVIDENCE, routes nothing. This rule exists because a sim holder is silently slot-0-only and so breaks possession and co-op; this system does not route input to anybody — it compares ControlFrame against PendingLocalInput to detect a consumer writing the seam a GGRS host does not read, which is silently discarded today. It is the diagnostic FOR this rule's failure mode one layer down, and it cannot do its job without holding the resource it is reporting on."

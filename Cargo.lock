@@ -677,6 +677,7 @@ dependencies = [
  "ambition_platformer2d_host",
  "ambition_platformer2d_ldtk",
  "ambition_platformer2d_provider",
+ "ambition_platformer2d_rollback_ggrs",
  "ambition_platformer2d_runtime",
  "ambition_platformer2d_shared_tangle",
  "ambition_platformer2d_world",
@@ -828,6 +829,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_platformer2d_rollback_ggrs"
+version = "0.1.0"
+dependencies = [
+ "ambition_characters",
+ "ambition_input",
+ "ambition_load",
+ "ambition_platformer2d_actor_monolith",
+ "ambition_platformer2d_core",
+ "ambition_platformer2d_runtime",
+ "ambition_platformer2d_shared_tangle",
+ "ambition_sim_view",
+ "bevy",
+ "bevy_ggrs",
+]
+
+[[package]]
 name = "ambition_platformer2d_runtime"
 version = "0.1.0"
 dependencies = [
@@ -860,7 +877,6 @@ dependencies = [
  "ambition_vfx",
  "bevy",
  "bevy_common_assets",
- "bevy_ggrs",
  "blake3",
 ]
 

@@ -65,6 +65,12 @@ use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 /// Installed by [`super::AmbitionBossContentPlugin`].
 mod rollback;
 
+pub(super) fn register_rollback_state(
+    registrar: &mut impl ambition_platformer2d_core::snapshot::RollbackRegistrar,
+) {
+    rollback::register(registrar);
+}
+
 pub struct BossSpecialContentPlugin;
 
 impl Plugin for BossSpecialContentPlugin {
@@ -85,10 +91,13 @@ impl Plugin for BossSpecialContentPlugin {
         app.register_required_components::<BossConfig, SeismicStompState>();
         app.register_required_components::<BossConfig, EchoFanState>();
 
-        // This content crate owns eleven rollback state types. The App-level
-        // adapter installs the actual bevy_ggrs plugins and records exact schema
-        // ownership; no second snapshot registry exists.
-        rollback::register(app);
+        // This content crate owns eleven rollback state types. Record their
+        // host-independent schema here; a rollback composition installs the same
+        // declarations through its backend registrar.
+        {
+            let mut registrar = ambition_platformer2d_runtime::rollback::SchemaRollbackRegistrar::new(app);
+            rollback::register(&mut registrar);
+        }
 
         // The 11 Technique systems, hung on the engine's combat extension
         // slot. They read `ActorActionMessage::Special` and emit

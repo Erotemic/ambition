@@ -241,9 +241,10 @@ oboe = { version = "0.6", features = ["shared-stdcxx"] }
 # supplied the `getrandom/js` half from the top of the graph and nothing supplied
 # the `instant/wasm-bindgen` half, so the RNG worked and the CLOCK did not: the
 # web build compiled and then died at `rust-lld: undefined symbol: now`. The
-# runtime crate that owns `bevy_ggrs` now enables the whole feature through its
-# own `web_platform` (2026-08-14), which supplies both — so this line's job is
-# done by its rightful owner and the line is gone.
+# dedicated rollback-backend crate that owns `bevy_ggrs` enables the whole
+# feature through the facade's weak `web_platform` forwarding, which supplies
+# both when rollback is selected — so this line's job is done by its rightful
+# owner and the line is gone.
 #
 # ⚠ the 0.3/0.4 entries stay: their `wasm_js` comes from deps that publish no
 # equivalent forwarding feature, so this IS their nearest owner. That they read

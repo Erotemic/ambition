@@ -8,7 +8,6 @@
 
 use ambition_platformer2d_core::snapshot::{put_str, Reader, SnapshotState};
 use ambition_platformer2d_core::BodyKinematics;
-use ambition_platformer2d_runtime::rollback::AmbitionRollbackApp;
 use ambition_platformer2d_shared_tangle::lifecycle::SessionRoot;
 use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith;
 use ambition_relativity::{
@@ -63,18 +62,20 @@ pub struct RelativisticTargetingView2d {
     pub targets: Vec<RelativisticTargetObservation2d>,
 }
 
-pub(crate) fn install_targeting_systems(app: &mut App, sim: InternedScheduleLabel) {
-    app.init_resource::<RelativisticTargetingView2d>();
-    app.declare_rollback_derived_resource::<RelativisticTargetingView2d>(
+pub(crate) fn register_rollback_state(registrar: &mut impl ambition_platformer2d_core::snapshot::RollbackRegistrar) {
+    registrar.declare_rollback_derived_resource::<RelativisticTargetingView2d>(
         "ambition_relativity2d",
         "relativity.targeting_view_2d",
         "constant-velocity null-intercept facts rebuilt from canonical bodies and the optical view",
     );
-    app.rollback_component_canonical::<RelativisticTarget2d>(
+    registrar.rollback_component_canonical::<RelativisticTarget2d>(
         "ambition_relativity2d",
         "relativity.target_marker_2d",
     );
+}
 
+pub(crate) fn install_targeting_systems(app: &mut App, sim: InternedScheduleLabel) {
+    app.init_resource::<RelativisticTargetingView2d>();
     app.add_systems(
         sim,
         publish_targeting_view

@@ -74,7 +74,7 @@ fn hall_sim() -> Platformer2dSimHarness {
 /// advances.
 fn load_runs(sim: &mut Platformer2dSimHarness) -> u64 {
     sim.world_mut()
-        .get_resource::<ambition_platformer2d::runtime::rollback::RollbackExecutionStats>()
+        .get_resource::<ambition_platformer2d::rollback::RollbackExecutionStats>()
         .map(|stats| stats.lifetime_load_runs)
         .expect("the GGRS session publishes execution stats")
 }

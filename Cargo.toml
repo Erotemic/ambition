@@ -55,6 +55,7 @@ members = [
     "crates/ambition_portal2d_presentation",
     "crates/ambition_platformer2d_actor_monolith",
     "crates/ambition_platformer2d_runtime",
+    "crates/ambition_platformer2d_rollback_ggrs",
     "crates/ambition_platformer2d_host",
     "crates/ambition_sfx",
     "crates/ambition_sim_view",

@@ -7,8 +7,8 @@
 //! * how many times a deferred `PendingLifecycleCommit` intent was recorded.
 //!
 //! Run under both hosts. The rollback host is the one the shipped desktop binary
-//! composes (`cli.rs` sets `SimulationHost::Ggrs` unconditionally and
-//! `runtime::rollback::local_session` autostarts a `LocalSyncTest` session), so
+//! composes (`cli.rs` sets `SimulationHost::Rollback` unconditionally and
+//! the rollback backend's `local_session` autostarts a `LocalSyncTest` session), so
 //! its numbers are the ones Jon's play produced.
 //!
 //! # ⭐ THE ANSWER, measured 2026-08-09 (D71 is REPRODUCIBLE, and NAMED)
@@ -30,7 +30,7 @@
 //! `RoomTransitionRequested`**. So `begin_room_transition_load_system` never
 //! runs, no `ambition_load` barrier opens, `GameMode::RoomTransition` is never
 //! requested, and no cover is ever presented. The room is instead rebuilt by
-//! `runtime::lifecycle_commit::commit_confirmed_lifecycle` in `PreUpdate`,
+//! the rollback backend's `lifecycle_commit::commit_confirmed_lifecycle` in `PreUpdate`,
 //! outside `GgrsSchedule` — a second, transaction-free room-change route.
 //!
 //! Two independent signals agree, neither of them the sampled resource above:
@@ -203,7 +203,7 @@ fn d71_probe_shipped_app_host() {
             ownership = format!(
                 "{:?}",
                 app.world()
-                    .get_resource::<ambition_platformer2d::runtime::rollback::RollbackSessionOwnership>()
+                    .get_resource::<ambition_platformer2d::rollback::RollbackSessionOwnership>()
             );
             break;
         }

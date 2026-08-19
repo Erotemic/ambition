@@ -32,7 +32,7 @@ use ambition_platformer2d_runtime::SimulationHost;
 /// observatory. `SimulationHost` is inserted rather than set through
 /// `set_simulation_host`, because that seals the GGRS schedule and this crate
 /// deliberately does not depend on `bevy_ggrs` — the plugin asks the same
-/// question the same way (`SimulationHost::is_ggrs`).
+/// question the same way (`SimulationHost::is_rollback`).
 fn host_with_device(sim_host: SimulationHost) -> App {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
@@ -43,7 +43,7 @@ fn host_with_device(sim_host: SimulationHost) -> App {
 
 #[test]
 fn a_rollback_host_owns_the_primary_device_latch_without_any_developer_tooling() {
-    let app = host_with_device(SimulationHost::Ggrs);
+    let app = host_with_device(SimulationHost::Rollback);
 
     assert!(
         app.world().contains_resource::<ControlFrameLatch>(),

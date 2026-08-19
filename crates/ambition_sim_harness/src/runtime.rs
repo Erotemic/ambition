@@ -65,7 +65,7 @@ impl Platformer2dSimHarness {
         {
             use ambition_platformer2d::runtime::SimulationHostAppExt as _;
             let host = if options.rollback.enabled() {
-                ambition_platformer2d::runtime::SimulationHost::Ggrs
+                ambition_platformer2d::runtime::SimulationHost::Rollback
             } else if options.fixed_tick {
                 ambition_platformer2d::runtime::SimulationHost::Fixed60Hz
             } else {
@@ -195,9 +195,9 @@ impl Platformer2dSimHarness {
                     );
                 }
             }
-            ambition_platformer2d::runtime::rollback::start_sync_test_session(
+            ambition_platformer2d::rollback::start_sync_test_session(
                 app.world_mut(),
-                ambition_platformer2d::runtime::rollback::SyncTestSettings {
+                ambition_platformer2d::rollback::SyncTestSettings {
                     check_distance,
                     max_prediction_window,
                     players,
@@ -297,7 +297,7 @@ impl Platformer2dSimHarness {
     /// not hold is written and never asked for, which is inert rather than
     /// wrong — the same as a pad plugged into a one-player game.
     pub fn drive_seat(&mut self, slot: u8, frame: ControlFrame) {
-        ambition_platformer2d::runtime::rollback::drive_seat_frame(
+        ambition_platformer2d::rollback::drive_seat_frame(
             self.app.world_mut(),
             ambition_platformer2d::characters::brain::PlayerSlot(slot),
             frame,
@@ -310,7 +310,7 @@ impl Platformer2dSimHarness {
         // (`rollback::drive_control_frame`), because every driver that grew its
         // own copy grew the same bug: writing the wrong resource is silently
         // ignored, and the sim simply never moves.
-        ambition_platformer2d::runtime::rollback::drive_control_frame(self.app.world_mut(), frame);
+        ambition_platformer2d::rollback::drive_control_frame(self.app.world_mut(), frame);
         self.app.update();
         self.tick = self.tick.saturating_add(1);
         self.observation()
@@ -512,14 +512,14 @@ impl Platformer2dSimHarness {
 
     fn sync_test_settings(
         &self,
-    ) -> Option<ambition_platformer2d::runtime::rollback::SyncTestSettings> {
+    ) -> Option<ambition_platformer2d::rollback::SyncTestSettings> {
         match self.rollback {
             RollbackMode::Disabled => None,
             RollbackMode::SyncTest {
                 check_distance,
                 max_prediction_window,
                 players,
-            } => Some(ambition_platformer2d::runtime::rollback::SyncTestSettings {
+            } => Some(ambition_platformer2d::rollback::SyncTestSettings {
                 check_distance,
                 max_prediction_window,
                 players,
@@ -538,8 +538,8 @@ impl Platformer2dSimHarness {
         let Some(settings) = self.sync_test_settings() else {
             return Ok(());
         };
-        ambition_platformer2d::runtime::rollback::stop_session(self.app.world_mut());
-        ambition_platformer2d::runtime::rollback::start_sync_test_session(
+        ambition_platformer2d::rollback::stop_session(self.app.world_mut());
+        ambition_platformer2d::rollback::start_sync_test_session(
             self.app.world_mut(),
             settings,
         )
@@ -557,18 +557,18 @@ impl Platformer2dSimHarness {
             return Ok(());
         };
 
-        ambition_platformer2d::runtime::rollback::stop_session(self.app.world_mut());
-        ambition_platformer2d::runtime::rollback::start_sync_test_session(
+        ambition_platformer2d::rollback::stop_session(self.app.world_mut());
+        ambition_platformer2d::rollback::start_sync_test_session(
             self.app.world_mut(),
-            ambition_platformer2d::runtime::rollback::SyncTestSettings {
+            ambition_platformer2d::rollback::SyncTestSettings {
                 check_distance: 0,
                 max_prediction_window: settings.max_prediction_window,
-                ..ambition_platformer2d::runtime::rollback::SyncTestSettings::for_players(1)
+                ..ambition_platformer2d::rollback::SyncTestSettings::for_players(1)
             },
         )
         .map_err(|error| format!("failed to start GGRS setup frame: {error}"))?;
         self.app.update();
-        ambition_platformer2d::runtime::rollback::session_health(self.app.world())
+        ambition_platformer2d::rollback::session_health(self.app.world())
             .map_err(|error| format!("GGRS setup frame failed: {error}"))?;
         self.rebase_rollback_history()
     }
@@ -587,25 +587,25 @@ impl Platformer2dSimHarness {
     /// save/load/resimulation work beneath a harness step.
     pub fn rollback_execution_stats(
         &self,
-    ) -> Option<ambition_platformer2d::runtime::rollback::RollbackExecutionStats> {
+    ) -> Option<ambition_platformer2d::rollback::RollbackExecutionStats> {
         self.app
             .world()
-            .get_resource::<ambition_platformer2d::runtime::rollback::RollbackExecutionStats>()
+            .get_resource::<ambition_platformer2d::rollback::RollbackExecutionStats>()
             .copied()
     }
 
     pub fn rollback_status(
         &self,
-    ) -> Option<&ambition_platformer2d::runtime::rollback::RollbackSessionStatus> {
+    ) -> Option<&ambition_platformer2d::rollback::RollbackSessionStatus> {
         self.app
             .world()
-            .get_resource::<ambition_platformer2d::runtime::rollback::RollbackSessionStatus>()
+            .get_resource::<ambition_platformer2d::rollback::RollbackSessionStatus>()
     }
 
     /// Return an actionable error if the active GGRS session invalidated its
     /// content/schema contract or the sync-test detected divergent resimulation.
     pub fn rollback_health(&self) -> Result<(), String> {
-        ambition_platformer2d::runtime::rollback::session_health(self.app.world())
+        ambition_platformer2d::rollback::session_health(self.app.world())
     }
 
     /// Tick count: number of `step` calls executed.

@@ -39,7 +39,7 @@ use ambition_platformer2d::relativity2d::{
 use ambition_platformer2d::runtime::demo_fixture::{
     ActiveRoomMetadata, RoomSet, StartingCharacter,
 };
-use ambition_platformer2d::runtime::rollback::AmbitionRollbackApp;
+use ambition_platformer2d::rollback::AmbitionRollbackApp;
 use ambition_platformer2d::runtime::PreparedPlatformerSource;
 use ambition_platformer2d::world::rooms::{
     CameraClampMode, CameraScrollPolicy, CameraZoneSpec, RoomSpec,
@@ -520,6 +520,15 @@ impl Plugin for TwinTrackExperiencePlugin {
         install_twintrack_content(app);
         if !app.is_plugin_added::<Relativity2dPlugin>() {
             app.add_plugins(Relativity2dPlugin);
+        }
+        if app
+            .world()
+            .get_resource::<ambition_platformer2d::runtime::SimulationHost>()
+            .copied()
+            .is_some_and(|host| host.is_rollback())
+        {
+            let mut registrar = ambition_platformer2d::rollback::GgrsRollbackRegistrar::new(app);
+            ambition_platformer2d::relativity2d::register_rollback_state(&mut registrar);
         }
         app.rollback_component_canonical::<TwinTrackExperiment>(
             "ambition_demo_twintrack",

@@ -400,10 +400,10 @@ fn every_state_bearing_rollback_registration_owns_a_localization_probe() {
     let sim = oracle_sim();
     let registry = sim
         .world()
-        .resource::<ambition_platformer2d::runtime::rollback::RollbackRegistry>();
+        .resource::<ambition_platformer2d::rollback::RollbackRegistry>();
     let probed = sim
         .world()
-        .resource::<ambition_platformer2d::runtime::rollback::RollbackChecksumProbes>()
+        .resource::<ambition_platformer2d::rollback::RollbackChecksumProbes>()
         .type_names();
 
     let mut state_bearing = 0usize;
@@ -787,10 +787,10 @@ fn every_presence_only_probe_is_named_with_its_reason() {
     let sim = oracle_sim();
     let registry = sim
         .world()
-        .resource::<ambition_platformer2d::runtime::rollback::RollbackRegistry>();
+        .resource::<ambition_platformer2d::rollback::RollbackRegistry>();
     let probes = sim
         .world()
-        .resource::<ambition_platformer2d::runtime::rollback::RollbackChecksumProbes>();
+        .resource::<ambition_platformer2d::rollback::RollbackChecksumProbes>();
     let presence_only = probes.presence_only_type_names();
     let derived: std::collections::BTreeSet<&str> = probes
         .probes()
@@ -824,7 +824,7 @@ fn every_presence_only_probe_is_named_with_its_reason() {
     // declaration makes. Empty or perfunctory is a declaration nobody wrote.
     let declared_reason: std::collections::BTreeMap<&str, &str> = registry
         .descriptors()
-        .filter(|d| d.kind == ambition_platformer2d::runtime::rollback::RollbackEntryKind::Derived)
+        .filter(|d| d.kind == ambition_platformer2d::rollback::RollbackEntryKind::Derived)
         .map(|d| (d.type_name.as_str(), d.detail.as_str()))
         .collect();
     let mut unpromised: Vec<&str> = derived
@@ -902,8 +902,8 @@ fn every_presence_only_probe_is_named_with_its_reason() {
         .filter(|d| {
             matches!(
                 d.kind,
-                ambition_platformer2d::runtime::rollback::RollbackEntryKind::EntityMapping
-                    | ambition_platformer2d::runtime::rollback::RollbackEntryKind::ResourceEntityMapping
+                ambition_platformer2d::rollback::RollbackEntryKind::EntityMapping
+                    | ambition_platformer2d::rollback::RollbackEntryKind::ResourceEntityMapping
             )
         })
         .map(|d| d.type_name.as_str())
@@ -1089,7 +1089,7 @@ fn the_calibration_lab_is_checksum_stable_at_rest() {
 #[allow(dead_code)]
 struct GgrsStall {
     frame: usize,
-    stats: Option<ambition_platformer2d::runtime::rollback::RollbackExecutionStats>,
+    stats: Option<ambition_platformer2d::rollback::RollbackExecutionStats>,
     session_active: bool,
 }
 
@@ -1679,13 +1679,13 @@ fn which_population_does_the_rollback_divergence_need() {
 fn which_component_does_the_rollback_divergence_live_in() {
     let mut sim = oracle_sim();
     sim.world_mut()
-        .insert_resource(ambition_platformer2d::runtime::rollback::RollbackRestoreAudit::enabled());
+        .insert_resource(ambition_platformer2d::rollback::RollbackRestoreAudit::enabled());
     wear_oracle_armor(&mut sim);
     stage_player_on_arena_floor(&mut sim);
 
     let probes = sim
         .world()
-        .resource::<ambition_platformer2d::runtime::rollback::RollbackChecksumProbes>()
+        .resource::<ambition_platformer2d::rollback::RollbackChecksumProbes>()
         .len();
     assert!(
         probes > 0,
@@ -1698,7 +1698,7 @@ fn which_component_does_the_rollback_divergence_live_in() {
 
     let audit = sim
         .world()
-        .resource::<ambition_platformer2d::runtime::rollback::RollbackRestoreAudit>();
+        .resource::<ambition_platformer2d::rollback::RollbackRestoreAudit>();
     // Vacuity guard FIRST. A localizer that reports "nothing diverged" while never
     // comparing anything launders an absence of evidence into evidence of absence,
     // which is the single most useless thing a diagnostic can do.
@@ -1880,10 +1880,10 @@ fn every_gameplay_message_channel_is_rewound_on_rollback_or_named() {
     let mut sim = oracle_sim();
     let registered: std::collections::BTreeSet<String> = sim
         .world()
-        .resource::<ambition_platformer2d::runtime::rollback::RollbackRegistry>()
+        .resource::<ambition_platformer2d::rollback::RollbackRegistry>()
         .descriptors()
         .filter(|d| {
-            d.kind == ambition_platformer2d::runtime::rollback::RollbackEntryKind::MessageClear
+            d.kind == ambition_platformer2d::rollback::RollbackEntryKind::MessageClear
         })
         .map(|d| d.type_name.clone())
         .collect();

@@ -3,7 +3,6 @@
 use std::collections::{BTreeMap, VecDeque};
 
 use ambition_platformer2d_core::BodyKinematics;
-use ambition_platformer2d_runtime::rollback::AmbitionRollbackApp;
 use ambition_platformer2d_shared_tangle::lifecycle::SessionRoot;
 use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith;
 use ambition_time::SimTick;
@@ -119,25 +118,21 @@ pub(crate) fn hash_label(label: &str) -> u64 {
     hasher.finish()
 }
 
-pub(crate) fn install_telemetry_systems(app: &mut App, sim: InternedScheduleLabel) {
-    app.init_resource::<WorldlineHistoryView2d>();
-    app.declare_rollback_derived_resource::<WorldlineHistoryView2d>(
+pub(crate) fn register_rollback_state(registrar: &mut impl ambition_platformer2d_core::snapshot::RollbackRegistrar) {
+    registrar.declare_rollback_derived_resource::<WorldlineHistoryView2d>(
         "ambition_relativity2d",
         "relativity.worldline_history_view_2d",
         "bounded tick-keyed telemetry that truncates abandoned rollback futures and rebuilds on resimulation",
     );
-    // ⭐ **a value probe over the LABEL, not merely its presence** (2026-08-06).
-    // The label IS the whole component, and it is the join key the telemetry
-    // owner-election uses — two timelines that disagree about which track an
-    // entity belongs to write each other's history. A presence probe saw none of
-    // that. See the sibling probes in `ambition_demo_mary_o::rollback_probes`
-    // for why eighteen of these surfaced at once.
-    app.rollback_component_clone_probed::<WorldlineTracked2d>(
+    registrar.rollback_component_clone_probed::<WorldlineTracked2d>(
         "ambition_relativity2d",
         "relativity.worldline_tracked_2d",
         |tracked| hash_label(tracked.track.as_str()),
     );
+}
 
+pub(crate) fn install_telemetry_systems(app: &mut App, sim: InternedScheduleLabel) {
+    app.init_resource::<WorldlineHistoryView2d>();
     app.add_systems(
         sim,
         publish_worldline_history

@@ -9,7 +9,6 @@ use std::collections::VecDeque;
 
 use ambition_platformer2d_core::snapshot::{put_f32, put_str, put_u64, Reader, SnapshotState};
 use ambition_platformer2d_core::BodyKinematics;
-use ambition_platformer2d_runtime::rollback::AmbitionRollbackApp;
 use ambition_platformer2d_shared_tangle::lifecycle::SessionRoot;
 use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith;
 use ambition_relativity::{
@@ -140,14 +139,13 @@ pub struct RelativisticOpticalView2d {
     pub missed_sources: usize,
 }
 
-pub(crate) fn install_optics_systems(app: &mut App, sim: InternedScheduleLabel) {
-    app.init_resource::<RelativisticOpticalView2d>();
-    app.declare_rollback_derived_resource::<RelativisticOpticalView2d>(
+pub(crate) fn register_rollback_state(registrar: &mut impl ambition_platformer2d_core::snapshot::RollbackRegistrar) {
+    registrar.declare_rollback_derived_resource::<RelativisticOpticalView2d>(
         "ambition_relativity2d",
         "relativity.optical_view_2d",
         "observer past-light-cone view rebuilt from canonical bodies and bounded worldline telemetry",
     );
-    app.rollback_component_canonical::<OpticalSource2d>(
+    registrar.rollback_component_canonical::<OpticalSource2d>(
         "ambition_relativity2d",
         "relativity.optical_source_2d",
     )
@@ -155,7 +153,10 @@ pub(crate) fn install_optics_systems(app: &mut App, sim: InternedScheduleLabel) 
         "ambition_relativity2d",
         "relativity.optical_observer_2d",
     );
+}
 
+pub(crate) fn install_optics_systems(app: &mut App, sim: InternedScheduleLabel) {
+    app.init_resource::<RelativisticOpticalView2d>();
     app.add_systems(
         sim,
         publish_optical_view

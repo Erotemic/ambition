@@ -458,7 +458,7 @@ fn schedule_the_roster_once_the_window_is_open(sim: &mut Platformer2dSimHarness)
 fn rewinds_across_the_activation_frame_and_reconstructs_the_same_match() {
     let mut sim = late_arriving_roster_sim();
     sim.world_mut()
-        .insert_resource(ambition_platformer2d::runtime::rollback::RollbackRestoreAudit::enabled());
+        .insert_resource(ambition_platformer2d::rollback::RollbackRestoreAudit::enabled());
     schedule_the_roster_once_the_window_is_open(&mut sim);
 
     for tick in 0..(ROSTER_ARRIVES_AFTER_THE_WINDOW_OPENS as usize + 40) {
@@ -470,7 +470,7 @@ fn rewinds_across_the_activation_frame_and_reconstructs_the_same_match() {
         if let Err(error) = sim.rollback_health() {
             let audit = sim
                 .world()
-                .resource::<ambition_platformer2d::runtime::rollback::RollbackRestoreAudit>();
+                .resource::<ambition_platformer2d::rollback::RollbackRestoreAudit>();
             let mut seen: Vec<String> = audit
                 .divergences
                 .iter()

@@ -671,7 +671,7 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
         #
         # ⛔ moving it also broke it, which is the argument for the job: an
         # outside workspace does not inherit the engine's `[patch.crates-io]`,
-        # so `ambition_platformer2d_runtime` compiled against the RELEASED `bevy_ggrs` and
+        # so the rollback backend compiled against the RELEASED `bevy_ggrs` and
         # failed on a missing `GgrsFrameTiming`. Invisible for as long as the
         # crate lived inside and inherited the patch for free.
         jobs.append(Job("external consumer: capability demo",
@@ -688,7 +688,7 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
     # missing compiles perfectly and then dies at the link with `undefined
     # symbol`. `ggrs` reaches `instant`, whose `now()` on wasm32 has no body
     # unless `instant/wasm-bindgen` is on, and the `web_platform` feature chain
-    # stopped one crate short of the runtime that owns `bevy_ggrs` (2026-08-14).
+    # stopped one crate short of the rollback backend that owns `bevy_ggrs` (2026-08-14).
     # A check cannot see that. A build can.
     #
     # ⚠ **RELEASE, and only the primary persona.** Release because that is what

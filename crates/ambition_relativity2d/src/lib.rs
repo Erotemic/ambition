@@ -10,10 +10,9 @@ use std::fmt;
 use std::sync::Arc;
 
 use ambition_platformer2d_core::snapshot::{
-    put_f32, put_u64, put_u8, put_vec2, Reader, SnapshotState, StateHasher,
+    put_f32, put_u64, put_u8, put_vec2, Reader, RollbackRegistrar, SnapshotState, StateHasher,
 };
 use ambition_platformer2d_core::BodyKinematics;
-use ambition_platformer2d_runtime::rollback::AmbitionRollbackApp;
 use ambition_platformer2d_shared_tangle::lifecycle::SessionRoot;
 use ambition_platformer2d_shared_tangle::schedule::{
     Platformer2dSimulationPhaseMonolith, SimScheduleExt, WorldPrepSet,
@@ -322,54 +321,69 @@ pub enum Relativity2dSet {
     PublishTargeting,
 }
 
+/// Declare every rollback-relevant Relativity2d value through the backend-neutral registrar.
+/// Composition may run this once for schema metadata and again through a concrete
+/// rollback backend without the domain depending on that backend.
+pub fn register_rollback_state(registrar: &mut impl RollbackRegistrar) {
+    // ⭐ **DERIVED, not snapshot state.** `publish_clock_view` clears the map
+    // and rebuilds every entry each tick out of `RelativityState2d` and
+    // `ProperTimeElapsed`, both registered below — so a rewind that restores
+    // those restores this on the next publish, and snapshotting it would
+    // store a second copy of state the schema already owns.
+    //
+    // ⚠ this is the shape worth being careful about: a "derived" resource
+    // that also carried an accumulator or an already-applied gate would be
+    // rollback state wearing a cache's name. This one has neither — the
+    // first statement in its writer is `clocks.clear()`, and the only other
+    // writer resets it wholesale when no spacetime is live.
+registrar.declare_rollback_derived_resource::<RelativityClockView2d>(
+        "ambition_relativity2d",
+        "relativity.clock_view_2d",
+        "presentation read model rebuilt every tick from RelativityState2d + ProperTimeElapsed",
+    );
+registrar.rollback_component_canonical::<ProperTimeElapsed>(
+        "ambition_relativity2d",
+        "relativity.proper_time_elapsed",
+    )
+    .rollback_component_clone_checksum_with_schema_detail::<ActiveSpacetime2d>(
+        "ambition_relativity2d",
+        "relativity.active_spacetime_2d",
+        "provider-authored spacetime model and invariant-speed fingerprint",
+        active_spacetime_checksum,
+    )
+    // ⭐ **a value probe over the LABEL** (2026-08-06). The label is the whole
+    // component and the identity a clock readout is joined by; a presence
+    // probe saw none of it.
+    .rollback_component_clone_probed::<RelativityClockLabel>(
+        "ambition_relativity2d",
+        "relativity.clock_label_2d",
+        |label| crate::telemetry::hash_label(&label.0),
+    )
+    .rollback_component_clone::<RelativisticClock2d>(
+        "ambition_relativity2d",
+        "relativity.clock_marker_2d",
+    )
+    .declare_rollback_derived_component_state::<RelativityState2d>(
+        "ambition_relativity2d",
+        "relativity.state_2d",
+        "recomputed from canonical body kinematics and the session spacetime",
+    );
+
+    signals::register_rollback_state(registrar);
+    telemetry::register_rollback_state(registrar);
+    optics::register_rollback_state(registrar);
+    targeting::register_rollback_state(registrar);
+}
+
 pub struct Relativity2dPlugin;
 
 impl Plugin for Relativity2dPlugin {
     fn build(&self, app: &mut App) {
+        {
+            let mut registrar = ambition_platformer2d_runtime::rollback::SchemaRollbackRegistrar::new(app);
+            register_rollback_state(&mut registrar);
+        }
         app.init_resource::<RelativityClockView2d>();
-        // ⭐ **DERIVED, not snapshot state.** `publish_clock_view` clears the map
-        // and rebuilds every entry each tick out of `RelativityState2d` and
-        // `ProperTimeElapsed`, both registered below — so a rewind that restores
-        // those restores this on the next publish, and snapshotting it would
-        // store a second copy of state the schema already owns.
-        //
-        // ⚠ this is the shape worth being careful about: a "derived" resource
-        // that also carried an accumulator or an already-applied gate would be
-        // rollback state wearing a cache's name. This one has neither — the
-        // first statement in its writer is `clocks.clear()`, and the only other
-        // writer resets it wholesale when no spacetime is live.
-        app.declare_rollback_derived_resource::<RelativityClockView2d>(
-            "ambition_relativity2d",
-            "relativity.clock_view_2d",
-            "presentation read model rebuilt every tick from RelativityState2d + ProperTimeElapsed",
-        );
-        app.rollback_component_canonical::<ProperTimeElapsed>(
-            "ambition_relativity2d",
-            "relativity.proper_time_elapsed",
-        )
-        .rollback_component_clone_checksum::<ActiveSpacetime2d>(
-            "ambition_relativity2d",
-            "relativity.active_spacetime_2d",
-            "provider-authored spacetime model and invariant-speed fingerprint",
-            active_spacetime_checksum,
-        )
-        // ⭐ **a value probe over the LABEL** (2026-08-06). The label is the whole
-        // component and the identity a clock readout is joined by; a presence
-        // probe saw none of it.
-        .rollback_component_clone_probed::<RelativityClockLabel>(
-            "ambition_relativity2d",
-            "relativity.clock_label_2d",
-            |label| crate::telemetry::hash_label(&label.0),
-        )
-        .rollback_component_clone::<RelativisticClock2d>(
-            "ambition_relativity2d",
-            "relativity.clock_marker_2d",
-        )
-        .declare_rollback_derived_component_state::<RelativityState2d>(
-            "ambition_relativity2d",
-            "relativity.state_2d",
-            "recomputed from canonical body kinematics and the session spacetime",
-        );
 
         let sim = app.sim_schedule();
         signals::install_signal_systems(app, sim);

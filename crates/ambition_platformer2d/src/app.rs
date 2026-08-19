@@ -699,6 +699,7 @@ impl ModuleDraft {
     ///
     /// Contributions are applied only when the composition declared
     /// `rollback(n)`; a fixed-step game carries no registry to write into.
+    #[cfg(feature = "rollback")]
     pub fn provides_rollback<T>(
         &mut self,
         owner: &'static str,
@@ -709,7 +710,7 @@ impl ModuleDraft {
         T: bevy::prelude::Component<Mutability = bevy::ecs::component::Mutable> + Clone,
     {
         self.provided_rollback.push(Box::new(move |app: &mut App| {
-            use crate::runtime::rollback::AmbitionRollbackApp;
+            use crate::rollback::AmbitionRollbackApp;
             app.rollback_component_clone_probed::<T>(owner, name, projection);
         }));
         self
@@ -1237,24 +1238,17 @@ impl PlatformerApp {
         }
 
         // ── Rule 5 ── engine, then host, then shell.
+        #[cfg(feature = "rollback")]
         if let Some(participants) = rollback_participants {
-            app.add_plugins(crate::engine::PlatformerEnginePlugins::rollback());
+            app.add_plugins(crate::rollback::RollbackEnginePlugin);
             // The declaration travels with the composition, so a restart reads
             // the count the game stated rather than re-sampling live devices.
             app.insert_resource(crate::rollback::DeclaredParticipants(participants));
-            // ⛔ **THE CALLER STARTS THE SESSION HERE, so the engine's local
-            // session owner must not.** This builder's contract is explicit —
-            // "it does not start a session, because a session rebases frame
-            // zero onto a world that has to be CONSTRUCTED first. Call
-            // `rollback::start`" — and the owner cannot defer to a session that
-            // does not exist yet. Left autostarting, it installs one the moment
-            // the gameplay world appears, so `rollback::start`'s activation and
-            // settle ticks ADVANCE THE SIMULATION and this host stops running
-            // the same timeline as the fixed-tick host built from the same
-            // content.
+            // The public builder owns session start after construction, so keep
+            // the backend's local maintainer from racing it.
             let mut policy = app
                 .world()
-                .get_resource::<ambition_platformer2d_runtime::rollback::local_session::LocalSessionPolicy>()
+                .get_resource::<crate::rollback::local_session::LocalSessionPolicy>()
                 .copied()
                 .unwrap_or_default();
             policy.autostart = false;
@@ -1262,6 +1256,8 @@ impl PlatformerApp {
         } else {
             app.add_plugins(crate::engine::PlatformerEnginePlugins::fixed_tick());
         }
+        #[cfg(not(feature = "rollback"))]
+        app.add_plugins(crate::engine::PlatformerEnginePlugins::fixed_tick());
         app.add_plugins(crate::windowed_host::PlatformerHostPlugins);
 
         // Every experience's authoring, lowered into one capability bundle so
@@ -1615,6 +1611,7 @@ impl PlatformerApp {
     /// participants over a session GGRS built with one. A public API that
     /// reports a topology the running session does not have is worse than one
     /// that refuses, so this refuses.
+    #[cfg(feature = "rollback")]
     pub fn rollback(mut self, participants: usize) -> Self {
         let seats = crate::characters::brain::SlotControls::MAX_SLOTS;
         if participants == 0 || participants > seats {

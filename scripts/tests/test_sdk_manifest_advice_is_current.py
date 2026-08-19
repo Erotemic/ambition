@@ -2,7 +2,7 @@
 
 `docs/sdk/README.md` tells a third party to copy a `bevy_ggrs` git pin out of the
 workspace root, because Cargo patch tables do not cross a workspace boundary and
-without it the engine does not compile for them at all. The 2026-07-30 blind
+without it a consumer that selects the rollback backend does not compile. The 2026-07-30 blind
 agent run found that gap the expensive way: it hit `cannot find type
 GgrsFrameTiming` before it could ask a single API question.
 
@@ -73,7 +73,7 @@ def test_the_sdk_pins_the_same_bevy_ggrs_revision_as_the_workspace():
 
     assert readme_rev is not None, (
         "the workspace patches `bevy_ggrs` to a git fork, and docs/sdk/README.md "
-        "does not say so. Without that paragraph a third party gets `cannot find "
+        "does not say so. A third party selecting rollback gets `cannot find "
         "type GgrsFrameTiming` with no path back to the cause — the exact failure "
         "the 2026-07-30 blind agent run ranked as this engine's highest-cost leak."
     )

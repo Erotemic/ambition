@@ -1,0 +1,28 @@
+[package]
+name = "ambition_platformer2d_rollback_ggrs"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "GGRS rollback backend for the Ambition platformer runtime."
+
+[dependencies]
+ambition_platformer2d_runtime = { path = "../ambition_platformer2d_runtime" }
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_monolith", default-features = false, features = ["headless", "input"] }
+ambition_characters = { path = "../ambition_characters" }
+ambition_input = { path = "../ambition_input" }
+ambition_load = { path = "../ambition_load" }
+ambition_sim_view = { path = "../ambition_sim_view", features = ["input"] }
+bevy_ggrs = "0.21"
+bevy = { version = "0.18.1", default-features = false, features = [
+    "bevy_asset",
+    "bevy_image",
+    "bevy_state",
+] }
+
+[features]
+default = []
+# The crate that owns `bevy_ggrs` owns its target-specific clock forwarding.
+web_platform = ["bevy_ggrs/wasm-bindgen"]

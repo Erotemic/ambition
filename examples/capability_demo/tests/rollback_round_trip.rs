@@ -31,7 +31,7 @@ use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::input::ControlFrame;
 use ambition_platformer2d::platformer::lifecycle::insert_session_world_component;
 use ambition_platformer2d::world::rooms::{RoomSet, RoomSpec};
-use ambition_platformer2d_runtime::rollback::AmbitionRollbackApp;
+use ambition_platformer2d_rollback_ggrs::AmbitionRollbackApp;
 use ambition_sim_harness::{
     AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
 };
@@ -73,7 +73,7 @@ fn compose(
     // rollback-marked entity spawned panics inside bevy_ggrs on a resource
     // nobody added — which is a composition error wearing an engine's error
     // message.
-    app.add_plugins(ambition_platformer2d_runtime::rollback::AmbitionRollbackPlugin);
+    app.add_plugins(ambition_platformer2d_rollback_ggrs::AmbitionRollbackPlugin);
     // The rollback host publishes its intra-tick phase for the presented-pose
     // layer. A headless capability host has no presentation and still has to
     // provide the resource that plugin writes into — otherwise

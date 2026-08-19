@@ -7,7 +7,7 @@
 
 #![cfg(feature = "rl_sim")]
 
-use ambition_platformer2d::runtime::rollback::{Rollback, RollbackRegistry};
+use ambition_platformer2d::rollback::{Rollback, RollbackRegistry};
 use ambition_app::rl_sim::{AgentAction, AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
 use bevy::prelude::With;
 

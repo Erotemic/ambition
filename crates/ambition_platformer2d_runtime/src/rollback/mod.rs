@@ -1,227 +1,57 @@
-//! Ambition's integration boundary for `ggrs` + `bevy_ggrs`.
+//! Backend-neutral rollback schema composition.
 //!
-//! GGRS is the sole rollback authority. It owns frame requests, prediction,
-//! snapshot history, entity recreation, load ordering, resimulation, confirmed
-//! frames, and checksum comparison. Ambition contributes only:
-//!
-//! - the typed list of authoritative components/resources;
-//! - deterministic checksum projections for float-heavy domain values;
-//! - exact registration/content identity;
-//! - the input bridge and session lifecycle policy.
+//! Gameplay domains own their concrete declarations through
+//! [`RollbackRegistrar`].  This module composes those declarations into stable
+//! schema metadata for every simulation host. A concrete rollback backend may
+//! call the same composition function with its own registrar to install storage,
+//! checksums, mapping, and load behavior without making the generic runtime
+//! depend on that backend.
 
-use bevy::{
-    ecs::schedule::{ExecutorKind, LogLevel, ScheduleBuildSettings},
-    prelude::*,
-};
-use bevy_ggrs::{GgrsPlugin, RollbackFrameRate};
+use bevy::prelude::*;
+use ambition_platformer2d_core::snapshot::{checksum_bytes, RollbackRegistrar};
 
-pub use bevy_ggrs::{
-    AdvanceWorld, AdvanceWorldSystems, ConfirmedFrameCount, GgrsSchedule, LoadWorld,
-    LoadWorldSystems, Rollback, RollbackFrameCount, RunGgrsSystems, SaveWorld,
-};
-
-/// Ambition-owned work that must run after every `bevy_ggrs` entity/data/map restore.
-#[derive(SystemSet, Clone, Debug, Hash, PartialEq, Eq)]
-pub enum AmbitionLoadWorldSet {
-    /// Reconcile authored/runtime pairs after all raw `Entity` handles have been remapped.
-    Reconcile,
-}
-
-mod codec;
-mod codecs;
-#[cfg(test)]
-mod host_invariant_tests;
-pub mod local_session;
-mod probes;
-#[cfg(test)]
-mod provenance_tests;
 pub mod registrar;
-mod registry;
-mod session;
+pub mod registry;
 
-pub use codec::*;
-pub use codecs::{ensure_sim_id, heal_projectile_owners, mint_spawned_sim_ids};
-pub use probes::*;
-pub use registrar::GgrsRollbackRegistrar;
+pub use registrar::SchemaRollbackRegistrar;
 pub use registry::*;
-pub use session::*;
 
-/// Installs the host-independent typed rollback schema used by prepared
-/// content identity. Non-GGRS games retain this lightweight registry without
-/// installing snapshot history, schedules, checksums, or session machinery.
+/// Install the host-independent typed rollback schema used by prepared-content
+/// identity. This plugin records metadata only; rollback hosts install their
+/// backend machinery through the same declarations in their owning crate.
 pub struct AmbitionRollbackSchemaPlugin;
 
 impl Plugin for AmbitionRollbackSchemaPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<RollbackRegistry>();
-        register_engine_rollback_state(app);
-    }
-}
-
-/// FORK(ggrs-frame-timing): recover the intra-tick phase from the GGRS
-/// driver's own fixed-timestep timing.
-///
-/// Presentation draws on the render clock while the sim advances on a fixed
-/// tick, so a published pose is a step function; drawing it directly makes
-/// anything that moves shudder against a smoothly-easing camera. Removing that
-/// needs to know how far through the current tick this frame sits, and under
-/// GGRS the only truthful source is the driver's own accumulator — the one
-/// that decides when to advance. `Time<Fixed>::overstep_fraction()` answers it
-/// for the plain fixed host and is unavailable here precisely because GGRS
-/// banks its own time.
-///
-/// `GgrsFrameTiming` publishes that quantity as a supported accessor:
-/// `overstep_fraction()` is the accumulator as a fraction of the *actual*
-/// timestep the last driver pass used, so it stays correct during run-slow
-/// catch-up where that timestep widens — better than dividing by the nominal
-/// rate. This compiles against a `bevy_ggrs` fork that backports the accessor
-/// onto the v0.21.0 / bevy-0.18 line; the `[patch.crates-io]` entry in the
-/// workspace manifest carries the rationale and the condition that retires it.
-///
-/// A parallel accumulator was considered and rejected: it would agree only
-/// while nothing interesting happened, and diverge during run-slow catch-up,
-/// stalls, several advances in one frame, and rollback resimulation — exactly
-/// when a wrong phase shows most. A presentation clock that lies during a
-/// rollback is worse than no smoothing at all.
-///
-/// Retire when the accessor ships in a released `bevy_ggrs`: drop the
-/// `[patch.crates-io]` entry, bump the requirement, and use the released type.
-fn sample_ggrs_accumulator_phase(
-    timing: Res<bevy_ggrs::GgrsFrameTiming>,
-    mut phase: ResMut<ambition_sim_view::PresentationPhase>,
-) {
-    // `overstep_fraction` reports the accumulator as a fraction of the driver's
-    // timestep in `[0, 1)`, and yields 0 before the first driver pass.
-    phase.set(timing.overstep_fraction());
-}
-
-/// Installs GGRS schedules, snapshot storage, and session/request handling.
-pub struct AmbitionRollbackPlugin;
-
-impl Plugin for AmbitionRollbackPlugin {
-    fn build(&self, app: &mut App) {
-        // ⛔ **THE HOST IS AN AUTHORITY, AND THIS PLUGIN USED TO ASSUME IT.**
-        // `register_app_descriptor` ASKS `SimulationHost` before it installs any
-        // bevy_ggrs machinery, so a Fixed/render-frame game records the schema
-        // and pays for nothing. This plugin asked nothing: it installed GGRS
-        // wherever it was added, and the only thing keeping the two halves
-        // agreeing was one `if self.host.is_ggrs()` in
-        // `PlatformerEnginePlugins::build`.
-        //
-        // A composition that added this plugin under any other host got a
-        // running GGRS session over a world whose registrations were all
-        // `RecordedOnly` — every rollback restoring nothing, silently and
-        // deterministically. Nothing in the repo does that today; nothing
-        // stopped it either.
-        //
-        // ⭐ and the convention was load-bearing far outside this file: every
-        // "that system is in literal `Update`, so it is outside the rollback
-        // window" judgement in the schema triage depends on rollback implying
-        // `GgrsSchedule`. That reasoning is sound only if this holds, so it is
-        // stated here rather than assumed there.
-        let host = app.world().get_resource::<crate::SimulationHost>().copied();
-        assert_eq!(
-            host,
-            Some(crate::SimulationHost::Ggrs),
-            "AmbitionRollbackPlugin installs GGRS and may only be added to a \
-             composition whose simulation host is Ggrs (found {host:?}). Set it \
-             with `app.set_simulation_host(SimulationHost::Ggrs)` before adding \
-             this plugin — under any other host the rollback registrations are \
-             recorded-only, so the session would rewind a world with nothing \
-             registered in it."
-        );
-
-        app.add_plugins(GgrsPlugin::<AmbitionGgrsConfig>::default())
-            .insert_resource(RollbackFrameRate(crate::SIM_TICK_HZ as usize));
-
-        // Publish the rollback host's intra-tick phase for the presented-pose
-        // layer. Same set as the fixed-tick sampler `ambition_sim_view` installs
-        // for itself — only the clock's hiding place differs.
-        //
-        // Joining `SamplePhase` is the whole contract: the set is ordered before
-        // every resampler by the owning plugin. This used to name ONE resampler
-        // with a `.before`, which silently left the feature/actor poses racing
-        // the phase they were supposed to be resampled against.
-        app.add_systems(
-            Update,
-            sample_ggrs_accumulator_phase
-                .in_set(ambition_sim_view::presented_pose::PresentedPoseStage::SamplePhase),
-        );
-
-        // Ambition's gameplay schedule is composed from explicit ordered phase
-        // sets, but systems within a phase intentionally rely on deterministic
-        // App construction order rather than hundreds of meaningless pairwise
-        // edges. GGRS is a managed same-build contract: every peer runs the
-        // same plugin graph. Execute that graph serially so conflicting systems
-        // cannot race, and disable Bevy's ambiguity diagnostic for this one
-        // schedule; the real determinism oracle is SyncTestSession resimulation.
-        app.edit_schedule(GgrsSchedule, |schedule| {
-            schedule.set_executor_kind(ExecutorKind::SingleThreaded);
-            schedule.set_build_settings(ScheduleBuildSettings {
-                ambiguity_detection: LogLevel::Ignore,
-                ..default()
-            });
-        });
-
-        app.configure_sets(
-            bevy_ggrs::LoadWorld,
-            AmbitionLoadWorldSet::Reconcile.after(bevy_ggrs::LoadWorldSystems::Mapping),
-        )
-        .add_systems(
-            bevy_ggrs::LoadWorld,
-            codecs::reconcile_brain_bindings.in_set(AmbitionLoadWorldSet::Reconcile),
-        );
-
-        // ── Per-component restore localization (opt-in) ──
-        //
-        // Census every registered component's checksum projection at SAVE, and
-        // again at LOAD of the same frame, so a divergence NAMES the component
-        // instead of naming a frame. Inert unless `RollbackRestoreAudit::enabled`,
-        // because censusing every registered type on every save and load is far
-        // too expensive to leave on — but installed unconditionally, so a
-        // diagnostic session is one resource insert away rather than a rebuild.
-        app.add_systems(bevy_ggrs::SaveWorld, probes::record_saved_census);
-        app.add_systems(
-            bevy_ggrs::LoadWorld,
-            probes::compare_restored_census.after(AmbitionLoadWorldSet::Reconcile),
-        );
-        session::install_session_bridge(app);
+        let mut registrar = SchemaRollbackRegistrar::new(app);
+        register_engine_rollback_state(&mut registrar);
     }
 }
 
 const ENGINE: &str = "ambition_platformer2d_runtime";
 
-/// Compose the rollback schema for the engine host.
-///
-/// Gameplay domains own their concrete declarations through
-/// [`ambition_platformer2d_core::snapshot::RollbackRegistrar`]. This function
-/// installs those public offers, then records the runtime/foundation state whose
-/// ownership genuinely belongs at this host boundary.
-pub fn register_engine_rollback_state(app: &mut App) {
+pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
     use ambition_platformer2d_core::body_clusters as bc;
-    use AmbitionRollbackApp as _;
 
-    // **DOMAIN-OWNED ROLLBACK DECLARATIONS.** The runtime supplies one GGRS
+    // **DOMAIN-OWNED ROLLBACK DECLARATIONS.** The composition supplies one backend-neutral
     // registrar; each capability names its own concrete types and projections.
     // This is composition, not a type census: adding state to an existing domain
     // edits only that domain, and the runtime contains no gameplay type paths.
-    {
-        let mut registrar = registrar::GgrsRollbackRegistrar::new(&mut *app);
-        ambition_encounter::register_rollback_state(&mut registrar);
-        ambition_combat::register_rollback_state(&mut registrar);
-        ambition_platformer2d_actor_monolith::register_rollback_state(&mut registrar);
-        ambition_characters::register_rollback_state(&mut registrar);
-        ambition_boss_encounter::register_rollback_state(&mut registrar);
-        ambition_conversation::register_rollback_state(&mut registrar);
-        ambition_sprite_sheet::register_rollback_state(&mut registrar);
-        ambition_platformer2d_shared_tangle::register_rollback_state(&mut registrar);
-        ambition_vfx::register_rollback_state(&mut registrar);
-        ambition_items::register_rollback_state(&mut registrar);
-        ambition_portal2d::register_rollback_state(&mut registrar);
-        ambition_cutscene::register_rollback_state(&mut registrar);
-        ambition_projectiles::register_rollback_state(&mut registrar);
-        ambition_platformer2d_world::rooms::register_gate_portal_rollback_state(&mut registrar);
-    }
+    ambition_encounter::register_rollback_state(registrar);
+    ambition_combat::register_rollback_state(registrar);
+    ambition_platformer2d_actor_monolith::register_rollback_state(registrar);
+    ambition_characters::register_rollback_state(registrar);
+    ambition_boss_encounter::register_rollback_state(registrar);
+    ambition_conversation::register_rollback_state(registrar);
+    ambition_sprite_sheet::register_rollback_state(registrar);
+    ambition_platformer2d_shared_tangle::register_rollback_state(registrar);
+    ambition_vfx::register_rollback_state(registrar);
+    ambition_items::register_rollback_state(registrar);
+    ambition_portal2d::register_rollback_state(registrar);
+    ambition_cutscene::register_rollback_state(registrar);
+    ambition_projectiles::register_rollback_state(registrar);
+    ambition_platformer2d_world::rooms::register_gate_portal_rollback_state(registrar);
 
     // Rollback participation. These anchors cover the canonical session root,
     // every simulated body, projectile-only entities, encounter authorities,
@@ -245,13 +75,13 @@ pub fn register_engine_rollback_state(app: &mut App) {
     // ⚠ actor-owned members moved to
     // `ambition_platformer2d_actor_monolith::register_rollback_state`; the
     // geometry is `ambition_platformer2d_core`'s and stays.
-    app.rollback_component_clone::<ambition_platformer2d_core::RoomGeometry>(
+    registrar.rollback_component_clone::<ambition_platformer2d_core::RoomGeometry>(
         ENGINE,
         "root.geometry",
     );
 
     // Global authoritative resources.
-    app.rollback_resource_canonical::<ambition_time::SimTick>(ENGINE, "resource.sim_tick")
+    registrar.rollback_resource_canonical::<ambition_time::SimTick>(ENGINE, "resource.sim_tick")
         // **The match activation latch.** (AA2 / AC2)
         //
         // Published from inside the sim schedule on the tick the last seat is
@@ -335,7 +165,7 @@ pub fn register_engine_rollback_state(app: &mut App) {
     // carries both since Phase 4; losing the stamp across a rewind would read
     // as OwnershipLost at the next boundary verification.
     // ⚠ this chain's gameplay-owned head moved to its domain-owned rollback declaration.
-    app.rollback_component_canonical::<bc::BodyAbilities>(ENGINE, "body.abilities")
+    registrar.rollback_component_canonical::<bc::BodyAbilities>(ENGINE, "body.abilities")
         .rollback_component_canonical::<bc::BodyGroundState>(ENGINE, "body.ground")
         .rollback_component_canonical::<bc::BodyWallState>(ENGINE, "body.wall")
         .rollback_component_canonical::<bc::BodyJumpState>(ENGINE, "body.jump")
@@ -398,7 +228,7 @@ pub fn register_engine_rollback_state(app: &mut App) {
     // survives it would swallow the re-announcement on the replay and the
     // ruleset would never hear that the match ended.
     // ⚠ this chain's gameplay-owned head moved to its domain-owned rollback declaration.
-    app.rollback_component_canonical::<ambition_platformer2d_core::geometry::CenteredAabb>(
+    registrar.rollback_component_canonical::<ambition_platformer2d_core::geometry::CenteredAabb>(
         ENGINE,
         "actor.centered_aabb",
     )
@@ -419,7 +249,7 @@ pub fn register_engine_rollback_state(app: &mut App) {
     // GGRS recreates entities, so every marker, authored/config component, and
     // mutable controller that a recreated actor needs is explicitly stored.
     // The transformation beat's VALUE, not just its participation. The anchor
-    // above only installs `bevy_ggrs::Rollback`; without this the beat's
+    // declaration above only carries the participation marker; without this the beat's
     // `remaining` and — worse — the `was_invulnerable` it borrowed never
     // restore, so a rewind into the middle of a transformation can leave a body
     // permanently untouchable.
@@ -571,7 +401,7 @@ pub fn register_engine_rollback_state(app: &mut App) {
     // re-creates — dropping it would leave the resimulated loot invisible while
     // the original was drawn, which is the bug this component exists to fix.
     // ⚠ this chain's gameplay-owned head moved to its domain-owned rollback declaration.
-    app.rollback_component_clone::<ambition_platformer2d_core::body_clusters::AbilityBase>(
+    registrar.rollback_component_clone::<ambition_platformer2d_core::body_clusters::AbilityBase>(
         ENGINE,
         "body.ability_base",
     )
@@ -632,7 +462,7 @@ pub fn register_engine_rollback_state(app: &mut App) {
     // it would invite someone to MUTATE it, which is how a hurtbox stops being a
     // pure function of authoritative state (§4.11).
     // ⚠ this chain's gameplay-owned head moved to its domain-owned rollback declaration.
-    app.declare_rollback_derived_component::<bevy::prelude::GlobalTransform>(
+    registrar.declare_rollback_derived_component::<bevy::prelude::GlobalTransform>(
         ENGINE,
         "derived.global_transform",
         "Bevy transform propagation rebuilds it from Transform and hierarchy",
@@ -677,35 +507,35 @@ pub fn register_engine_rollback_state(app: &mut App) {
     // put back the right number of owners and pointed a bolt at the wrong body —
     // which is the failure mode this registration exists to prevent, so the probe
     // was blind to precisely the thing it was added for.
-    app    .declare_rollback_derived_component::<ambition_platformer2d_core::body_clusters::BodyEnvironmentContact>(
-        ENGINE,
-        "derived.body_environment_contact",
-        "rewritten every movement step from body geometry and the live world",
-    )
-    .declare_rollback_derived_component::<ambition_platformer2d_core::BodyMotionFacts>(
-        ENGINE,
-        "derived.body_motion_facts",
-        "republished from MotionModel every movement step",
-    )
-    .declare_rollback_derived_component::<ambition_sim_view::BodyPoseView>(
-        ENGINE,
-        "derived.body_pose_view",
-        "SimView projection rebuilt every tick",
-    )
-    .declare_rollback_derived_component::<ambition_sim_view::ProjectileView>(
-        ENGINE,
-        "derived.projectile_view",
-        "SimView projection rebuilt every tick",
-    )
-    // Frame-derived RESOURCES (Phase 5 resource-coverage pass): each is
-    // republished by its ordinary maintenance system before anything reads it,
-    // so a rewind that keeps a stale value is overwritten before it matters.
-    .declare_rollback_derived_resource::<ambition_platformer2d_core::control_frame::ControlFrame>(
-        ENGINE,
-        "derived.control_frame",
-        "per-tick input frame regenerated from the synchronized input stream",
-    )
-;
+    registrar
+        .declare_rollback_derived_component::<ambition_platformer2d_core::body_clusters::BodyEnvironmentContact>(
+            ENGINE,
+            "derived.body_environment_contact",
+            "rewritten every movement step from body geometry and the live world",
+        )
+        .declare_rollback_derived_component::<ambition_platformer2d_core::BodyMotionFacts>(
+            ENGINE,
+            "derived.body_motion_facts",
+            "republished from MotionModel every movement step",
+        )
+        .declare_rollback_derived_component::<ambition_sim_view::BodyPoseView>(
+            ENGINE,
+            "derived.body_pose_view",
+            "SimView projection rebuilt every tick",
+        )
+        .declare_rollback_derived_component::<ambition_sim_view::ProjectileView>(
+            ENGINE,
+            "derived.projectile_view",
+            "SimView projection rebuilt every tick",
+        )
+        // Frame-derived RESOURCES (Phase 5 resource-coverage pass): each is
+        // republished by its ordinary maintenance system before anything reads it,
+        // so a rewind that keeps a stale value is overwritten before it matters.
+        .declare_rollback_derived_resource::<ambition_platformer2d_core::control_frame::ControlFrame>(
+            ENGINE,
+            "derived.control_frame",
+            "per-tick input frame regenerated from the synchronized input stream",
+        );
 
     // Abandoned-future transient ingress must be empty after LoadWorld. Replayed
     // inputs and deterministic systems regenerate the correct messages.
@@ -715,7 +545,7 @@ pub fn register_engine_rollback_state(app: &mut App) {
     // the replay and spend a second stock for one knockout, and a stale
     // `FighterStockSpent` would have a ruleset respawn a fighter that never fell.
     // ⚠ this chain's gameplay-owned head moved to its domain-owned rollback declaration.
-    app.clear_message_on_rollback::<ambition_platformer2d_world::rooms::RoomLoaded>(
+    registrar.clear_message_on_rollback::<ambition_platformer2d_world::rooms::RoomLoaded>(
         ENGINE,
         "message.room_loaded",
     )

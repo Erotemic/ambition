@@ -6,7 +6,6 @@ use ambition_platformer2d_core::snapshot::{
     put_bool, put_str, put_u32, put_u64, put_u8, put_vec2, Reader, SnapshotState,
 };
 use ambition_platformer2d_core::BodyKinematics;
-use ambition_platformer2d_runtime::rollback::AmbitionRollbackApp;
 use ambition_platformer2d_shared_tangle::lifecycle::SessionRoot;
 use ambition_platformer2d_shared_tangle::schedule::{
     CombatSet, Platformer2dSimulationPhaseMonolith, WorldPrepSet,
@@ -683,24 +682,21 @@ pub struct RelativitySignalView2d {
     pub recent_arrivals: Vec<SignalArrivalRecord2d>,
 }
 
-pub(crate) fn install_signal_systems(app: &mut App, sim: InternedScheduleLabel) {
-    app.add_message::<LightEmissionRequest2d>();
-    app.add_message::<SignalArrival2d>();
-    app.clear_message_on_rollback::<LightEmissionRequest2d>(
+pub(crate) fn register_rollback_state(registrar: &mut impl ambition_platformer2d_core::snapshot::RollbackRegistrar) {
+    registrar.clear_message_on_rollback::<LightEmissionRequest2d>(
         "ambition_relativity2d",
         "message.light_emission_request_2d",
     )
     .clear_message_on_rollback::<SignalArrival2d>(
         "ambition_relativity2d",
         "message.signal_arrival_2d",
-    );
-    app.init_resource::<RelativitySignalView2d>();
-    app.declare_rollback_derived_resource::<RelativitySignalView2d>(
+    )
+    .declare_rollback_derived_resource::<RelativitySignalView2d>(
         "ambition_relativity2d",
         "relativity.signal_view_2d",
         "presentation read model rebuilt from signal slots, receivers, emitters, and arrival history",
-    );
-    app.rollback_component_canonical::<SpacetimeCoordinateTime2d>(
+    )
+    .rollback_component_canonical::<SpacetimeCoordinateTime2d>(
         "ambition_relativity2d",
         "relativity.coordinate_time_2d",
     )
@@ -728,7 +724,12 @@ pub(crate) fn install_signal_systems(app: &mut App, sim: InternedScheduleLabel) 
         "ambition_relativity2d",
         "relativity.signal_arrival_history_2d",
     );
+}
 
+pub(crate) fn install_signal_systems(app: &mut App, sim: InternedScheduleLabel) {
+    app.add_message::<LightEmissionRequest2d>();
+    app.add_message::<SignalArrival2d>();
+    app.init_resource::<RelativitySignalView2d>();
     app.add_systems(
         sim,
         advance_coordinate_time

@@ -150,7 +150,7 @@ pub fn compose_ambition_visible_game(
         // developer convenience but a COUPLING: the only thing that installed a
         // GGRS session was the dev observatory, and a GGRS host with no session
         // composes, boots, renders and never simulates. The engine owns the
-        // session now (`runtime::rollback::local_session`), so every build can
+        // session now (the rollback backend's local-session owner), so every build can
         // have one.
         //
         // ⛔ the browser entry once set NO host, so it fell to the render-frame
@@ -166,7 +166,7 @@ pub fn compose_ambition_visible_game(
         // simulation deterministically and rollback stays dormant. F9 raises the
         // check distance for one bounded proof pulse and drops it back.
         use ambition_platformer2d::runtime::SimulationHostAppExt as _;
-        app.set_simulation_host(ambition_platformer2d::runtime::SimulationHost::Ggrs);
+        app.set_simulation_host(ambition_platformer2d::runtime::SimulationHost::Rollback);
     }
 
     if spec.startup_loading_curtain {

@@ -407,20 +407,23 @@ pub mod sim {
 
     /// One frame of input, and the one seam that delivers it.
     ///
-    /// ⚠ `drive_control_frame` lives in `ambition_platformer2d_runtime::rollback` and that is
+    /// ⚠ `drive_control_frame` used to live in the runtime rollback module and that is
     /// where a consumer used to reach for it — which meant driving INPUT
     /// required naming the ROLLBACK module even on a fixed-tick host. It is
     /// re-exported here because it is a simulation seam, not a rollback one:
     /// its whole purpose (LEAK CLOSED 2026-07-27) is that a consumer no longer
     /// has to know which host it is on.
     pub use ambition_input::ControlFrame;
-    pub use ambition_platformer2d_runtime::rollback::drive_control_frame;
+    #[cfg(feature = "rollback")]
+    pub use ambition_platformer2d_rollback_ggrs::drive_control_frame;
+    #[cfg(not(feature = "rollback"))]
+    pub use ambition_platformer2d_runtime::input_drive::drive_control_frame;
 
     /// **Drive input to a NAMED seat** — the twin of
-    /// [`drive_control_frame`](ambition_platformer2d_runtime::rollback::drive_control_frame),
+    /// [`drive_control_frame`],
     /// and the half blind run 7's finding (g) recorded as missing.
     ///
-    /// ⚠ the seam has existed in `ambition_platformer2d_runtime::rollback` since queue Y1; it
+    /// ⚠ the seam existed in the old runtime rollback module since queue Y1; it
     /// was never re-exported, so from a consumer's side "no public seam drives
     /// input to a named seat" was true of the SDK while being false of the
     /// engine. That is a worse shape than a missing feature: the capability was
@@ -438,7 +441,10 @@ pub mod sim {
     /// pending seat input directly, which is what a headless or replay driver
     /// wants.
     pub use ambition_characters::brain::PlayerSlot;
-    pub use ambition_platformer2d_runtime::rollback::drive_seat_frame;
+    #[cfg(feature = "rollback")]
+    pub use ambition_platformer2d_rollback_ggrs::drive_seat_frame;
+    #[cfg(not(feature = "rollback"))]
+    pub use ambition_platformer2d_runtime::input_drive::drive_seat_frame;
 }
 
 /// **What is drawn, as a game observes it.**
@@ -473,6 +479,7 @@ pub mod view {
 ///
 /// The six properties ADR 0031 required before this could be a promise, and a
 /// test for each — see the module docs.
+#[cfg(feature = "rollback")]
 pub mod rollback;
 
 /// **The authored world: rooms, geometry, placements, collision.**

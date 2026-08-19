@@ -1071,6 +1071,47 @@ guards to measure something a mirrored match can show; (d) revisit whether the
 legality filter should admit an action the body could begin within N frames
 (`BufferableSoon`, which `39b5a739a` names and defers to `BodyActionBuffer`).
 
+⭐⭐ **MEASURED 2026-08-19, and it changes what the answer can be: they are NOT
+one mind played twice.** The phrase in the failing assertion is wrong, and the
+options below should be read with these numbers rather than with it. Probed on
+the real demo app, two `smash_duelist_a` CPUs at rung 5:
+
+```text
+seat 0 noise  0x1fe5e72e2d1e8e0a   seat 1 noise  0x20e5e8c52d1e8e0a
+                    ^ the streams DIFFER — and only in the high 32 bits, so the
+                      low half printing identical is the seeding, not a bug
+|sample| 0.511 / 0.104 · 0.491 / 0.464 · 0.703 / 0.933 · 0.150 / 0.458
+                    ^ genuinely different draws, at the SAME tick count: the two
+                      states stay a constant offset apart all match, so both
+                      seats consume one sample per decision, together
+```
+
+⇒ **the seeding works and the noise is live. What is one frame wide is its
+EFFECT.** `jitter = (|sample| · execution_noise · interval).round()`, clamped to
+`interval - 1`. At rung 5 the engine formula gives `execution_noise = 0.275`
+(not the ladder's 0.20 — the demo composes no ladder) and
+`DEFAULT_DECISION_INTERVAL_TICKS = 5`, so the expression is
+`round(|sample| · 1.375)` ∈ **{0, 1}**. The whole execution-noise budget of a
+level-5 fighter is ONE FRAME of press delay, differing between the seats on
+roughly half the draws.
+
+⚠ **and the match really is a fight, which rules out the whiff explanations.**
+Over ~580 ticks the two close to **1.32 px** apart (attack range is 48), live
+hitboxes exist on **46** ticks with **2** at once, and `HitboxHits` records
+**2 landed hits**. Teams are `seat 1` / `seat 2` — different, so `MatchTeam`
+correctly says Foe — while both bodies are `ActorFaction::Player`, which is the
+case `team_allows_damage` exists for and it is working. Nothing is being
+refused: they approach, swing, connect, and take mirrored knockback, so the
+reflection survives combat rather than never reaching it.
+
+⇒ **so option (b) is worse than the note already says.** It is not merely banned;
+the evidence says a third randomness fix would buy at most a frame against a
+symmetry that survives two fighters hitting each other. The live question is
+whether the asymmetry comes from CIRCUMSTANCES — option (a) — or whether the
+guards should stop asking a symmetric stage for an asymmetric outcome —
+option (c). ⛔ I did not touch `respawn_placement`: that is the fairness property
+somebody chose, and choosing against it is yours.
+
 ⚠ **and one process finding regardless of the answer**: `smash_it` is not in the
 per-turn gate, so a behavioural suite went five-red across at least two
 regressions without anything saying so. `cargo test --workspace --lib` and

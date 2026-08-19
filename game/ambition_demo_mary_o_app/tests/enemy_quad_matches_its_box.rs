@@ -46,9 +46,27 @@ const TILE: f32 = 32.0;
 /// its body should describe the same animal is not.
 ///
 /// ⚠ **a RATCHET at the measured value, not a target.** The disagreement is real
-/// and unfixed — fixing it is either an art-pipeline crop or sizing the quad
-/// from the body — so this pins today's number so it cannot grow, and fails when
-/// it shrinks so the constant cannot go stale behind a fix.
+/// and unfixed, so this pins today's number so it cannot grow, and fails when it
+/// shrinks so the constant cannot go stale behind a fix.
+///
+/// ⛔⛔ **AND THE FIX IS NOT "size the quad from the body" — that half of the
+/// sentence above was wrong and is corrected here (2026-08-19).** The trim
+/// already exists and is LIVE: `trimmed_render` + `FrameTrim` are consumed by
+/// `character/animator.rs`, and a sheet opts in simply by publishing per-frame
+/// rects with a non-zero `off`. `SheetRow::is_trimmed` says so outright —
+/// *"False for legacy uniform sheets, which keep the cheap fixed-anchor path"*.
+///
+/// ⇒ **the snake is on the legacy path and the AI Slop is not**, which is the
+/// whole of the difference this file has been measuring:
+///
+/// ```text
+/// snakes_on_a_cartesian_plane    0 per-frame rects   -> quad is the whole frame
+/// ai_slop                       44 per-frame rects   -> quad is the frame's rect
+/// ```
+///
+/// So the remaining work is REGENERATION, not engineering: 63 of 196 sheets
+/// never opted in, ranked worst-first in D165. ⛔ do not build a quad-from-body
+/// road; it would be a second answer to a question already answered.
 const QUAD_OVERHANG_LIMIT: f32 = 2.47;
 
 #[test]

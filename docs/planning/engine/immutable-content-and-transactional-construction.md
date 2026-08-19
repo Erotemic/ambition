@@ -86,8 +86,15 @@ there plus a parameter on the six systems that call it.
   Room-transition use of `RoomConstructionPlan::apply_to_world` does not by itself
   prove this operation.
 
-- ▢ **Prove possession → transition → carried body end to end.** The controlled
-  subject/carry plumbing is implemented; the full orchestration exercise is not.
+- ✔ **Prove possession → transition → carried body end to end (2026-08-19).**
+  `carried_item_crosses_rooms::an_item_carried_by_a_possessed_body_survives_the_door_too`
+  possesses an actor, has THAT body take custody of the authored item, and walks
+  it through a real `Door`. ⭐ the finding is a COUPLING nothing had written
+  down: `project_custody_onto_residency` decides whether a held object travels by
+  asking whether its HOLDER is room-scoped, and what makes that true of a
+  possessed body is `possess_target` promoting it out of room scope — a write
+  made to save the BODY that also decides the ITEM. Poison-verified in both
+  directions; the possession code now carries the reverse pointer.
 
 - ▢ **Prove corrected-input cancellation and peer-coordinated lifecycle commit
   when external/P2P rollback becomes real.** Local sync testing cannot

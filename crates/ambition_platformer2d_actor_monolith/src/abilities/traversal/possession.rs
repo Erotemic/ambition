@@ -511,6 +511,12 @@ pub fn project_driven_body_custody(
     mut commands: Commands,
     state: Res<PossessionState>,
     riders: Query<(Entity, &crate::features::RidingOn)>,
+    // ⭐ **the third edge kind, and the reason this closes a CLOSURE rather than
+    // walking a fixed depth.** A boss rides a mount and that mount has hands:
+    // rider → mount → limbs is three links, and `gnu_ton_arena` authors exactly
+    // that. Measured before the fix: the rider and mount crossed into
+    // `hall_of_bosses` and the mount arrived HANDLESS.
+    limbs: Query<(Entity, &crate::features::Limb)>,
     // ⛔ **`RoomScopedEntity`, NOT `RoomResident`, and the difference is a TICK.**
     // `RoomResident` excludes anything wearing `InCustodyOf` — the very marker
     // this system writes — so reading it here makes the rule depend on its own
@@ -547,15 +553,42 @@ pub fn project_driven_body_custody(
             wanted.insert(possessed, home);
         }
     }
-    // ⭐ ONE LINK FURTHER: a mount whose rider is travelling. A rider travels if
-    // this pass already put it in somebody's custody, or if it has no room scope
-    // at all (the session-scoped home avatar).
-    for (rider, riding) in &riders {
-        if existing.get(rider).is_err() || existing.get(riding.mount).is_err() {
-            continue;
+    // ⭐⭐ **EVERYTHING ATTACHED TO A TRAVELLER TRAVELS, TO ANY DEPTH.** The
+    // attachments are edges `(attachment → anchor)`; an attachment travels when
+    // its anchor does, and an anchor travels when it is already in this pass's
+    // set or has no room scope at all (the session-scoped home avatar).
+    //
+    // ⛔ **a FIXPOINT and not an ordered pass, because the depth is content's to
+    // choose.** `gnu_ton_arena` authors a boss riding a mount that has hands —
+    // three links — and an ordered pass encodes the depth it happened to be
+    // written for. Iterating until nothing changes cannot be wrong about a chain
+    // somebody authors later. Bounded by the edge count, so it terminates
+    // whatever the content says; a cycle simply stops adding.
+    //
+    // ⚠ **`CapturedBy` is deliberately NOT an edge here.** A captive is attached
+    // to its captor by exactly this rule, but no composition can express a
+    // captor carrying one through a door — capture is the platform fighter's,
+    // and a versus stage has no room changes. Adding the edge would be a rule
+    // for a state nothing can reach, which is how a carry list grows entries
+    // nobody can test.
+    let edges: Vec<(Entity, Entity)> = riders
+        .iter()
+        .map(|(rider, riding)| (riding.mount, rider))
+        .chain(limbs.iter().map(|(limb, attached)| (limb, attached.of)))
+        .filter(|(attachment, anchor)| {
+            existing.get(*attachment).is_ok() && existing.get(*anchor).is_ok()
+        })
+        .collect();
+    loop {
+        let mut grew = false;
+        for (attachment, anchor) in &edges {
+            let anchor_travels = wanted.contains_key(anchor) || room_scoped.get(*anchor).is_err();
+            if anchor_travels && wanted.insert(*attachment, *anchor).is_none() {
+                grew = true;
+            }
         }
-        if wanted.contains_key(&rider) || room_scoped.get(rider).is_err() {
-            wanted.insert(riding.mount, rider);
+        if !grew {
+            break;
         }
     }
 

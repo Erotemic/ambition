@@ -1513,3 +1513,140 @@ fn a_mount_you_are_riding_crosses_the_door_with_you() {
         "exactly one occurrence claims the mount's authored identity after the crossing"
     );
 }
+
+/// **EVERYTHING ATTACHED TO A TRAVELLER CROSSES WITH IT, THREE LINKS DEEP.**
+///
+/// `gnu_ton_arena` authors a boss riding a mount, and that mount has hands. So
+/// possessing the boss makes the chain **rider → mount → limbs**, and each link
+/// is a separate relation (`RidingOn`, then `Limb`). Measured before this test
+/// passed: the rider and the mount crossed into `hall_of_bosses` and the mount
+/// arrived HANDLESS — `limbs_alive=[false, false]`.
+///
+/// ⭐ **this is the test that forced a FIXPOINT rather than a third ordered
+/// arm.** An ordered pass (possessed, then mounts, then limbs) happens to be
+/// right for this depth and encodes it; content chooses the depth, so the
+/// closure iterates until nothing changes.
+///
+/// ⚠ the fixture aims the MOUNT so the RIDER lands in the door — the transition
+/// tests the controlled subject's box and the rider is snapped to a saddle above
+/// the mount.
+#[test]
+fn a_limbed_mount_crosses_the_door_with_all_of_its_parts() {
+    use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
+    use ambition_platformer2d::actors::actor::BodyKinematics;
+    use ambition_platformer2d::actors::features::{LimbRig, RidingOn};
+    use ambition_platformer2d::characters::brain::Brain;
+
+    let mut sim = fixed_60hz_room_sim("gnu_ton_arena");
+    for _ in 0..30 {
+        sim.step(base());
+    }
+    let (rider, mount) = {
+        let world = sim.world_mut();
+        let mut q = world.query::<(Entity, &RidingOn, &Brain)>();
+        q.iter(world)
+            .next()
+            .map(|(entity, riding, _)| (entity, riding.mount))
+            .expect("'gnu_ton_arena' authors a rider on a mount")
+    };
+    let limbs: Vec<Entity> = sim
+        .world()
+        .get::<LimbRig>(mount)
+        .map(|rig| rig.limbs.values().copied().collect())
+        .unwrap_or_default();
+    assert_eq!(
+        limbs.len(),
+        2,
+        "setup: the mount must have limbs, or this test is the mount test again"
+    );
+
+    let mut possessed = false;
+    for i in 0..900 {
+        if let Some(here) = sim
+            .world()
+            .get::<BodyKinematics>(rider)
+            .map(|k| (k.pos.x, k.pos.y))
+        {
+            sim.teleport_player(here);
+        }
+        sim.step(AgentAction {
+            move_y: 1.0,
+            interact: i == 0,
+            interact_held: true,
+            ..base()
+        });
+        if sim.world_mut().resource::<PossessionState>().possessed == Some(rider) {
+            possessed = true;
+            break;
+        }
+    }
+    assert!(possessed, "setup: the rider was never possessed");
+
+    let before = sim.observation().active_room.clone();
+    let door = {
+        let world = sim.world_mut();
+        let mut q = world.query::<&ambition_platformer2d::actors::rooms::RoomSet>();
+        let set = q.iter(world).next().expect("a room set");
+        set.active_loading_zones()
+            .iter()
+            .find(|zone| {
+                zone.activation == ambition_platformer2d::world::rooms::LoadingZoneActivation::Door
+            })
+            .cloned()
+            .expect("'gnu_ton_arena' authors a door")
+    };
+    let centre = door.aabb.center();
+    place_body(&mut sim, mount, (centre.x, centre.y));
+    sim.step(base());
+    let saddle = {
+        let m = sim
+            .world()
+            .get::<BodyKinematics>(mount)
+            .map(|k| k.pos)
+            .unwrap();
+        let r = sim
+            .world()
+            .get::<BodyKinematics>(rider)
+            .map(|k| k.pos)
+            .unwrap();
+        (r.x - m.x, r.y - m.y)
+    };
+    let aim = (centre.x - saddle.0, centre.y - saddle.1);
+    let mut arrived = None;
+    for _ in 0..120 {
+        place_body(&mut sim, mount, aim);
+        let room = sim
+            .step(AgentAction {
+                interact: true,
+                interact_held: true,
+                ..base()
+            })
+            .active_room;
+        if room != before {
+            arrived = Some(room);
+            break;
+        }
+    }
+    let arrived = arrived.expect("the piloted mount never left the room");
+
+    assert!(
+        sim.world().get_entity(rider).is_ok(),
+        "the rider did not survive"
+    );
+    assert!(
+        sim.world().get_entity(mount).is_ok(),
+        "the mount did not survive into '{arrived}'"
+    );
+    let lost: Vec<Entity> = limbs
+        .iter()
+        .copied()
+        .filter(|limb| sim.world().get_entity(*limb).is_err())
+        .collect();
+    assert!(
+        lost.is_empty(),
+        "the mount crossed into '{arrived}' and {} of its limbs did not ({lost:?}). \
+         An attachment travels with its anchor, and the chain here is three links — \
+         rider, mount, limbs — so a rule that walks a fixed depth arrives handless",
+        lost.len()
+    );
+}

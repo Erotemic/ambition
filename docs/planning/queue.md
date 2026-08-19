@@ -2547,6 +2547,27 @@ portal_leak       -> vfx.oiler.portal_leak         packed .loop only   no move e
 - ▢ **D125 — The systemic world substrate: what a thing IS, which occurrence it
   is, why it exists, and how long it lasts.**
 
+⭐⭐ **AND THE RULE HAS A FOURTH LINK: A LIMBED MOUNT ARRIVED HANDLESS.**
+`gnu_ton_arena` authors a boss riding a mount that HAS HANDS, so possessing the
+boss makes the chain **rider → mount → limbs** — three links, two relation kinds
+(`RidingOn`, then `Limb`). Measured: the rider and the mount crossed into
+`hall_of_bosses` and `limbs_alive=[false, false]`.
+
+⇒ **the closure iterates to a FIXPOINT instead of walking a fixed depth.** An
+ordered pass (possessed, then mounts, then limbs) is right for exactly the depth
+it was written for, and content chooses the depth. Edges are
+`(attachment → anchor)`; an attachment travels when its anchor does; iterate
+until nothing changes. Bounded by the edge count, so a cycle simply stops adding.
+Poison-verified and precisely scoped: dropping the limb edge fails ONLY the limb
+test and leaves the mount test green.
+
+⚠ **`CapturedBy` is deliberately NOT an edge.** A captive is attached to its
+captor by exactly this rule, but no composition can express a captor carrying one
+through a door — capture is the platform fighter's, and a versus stage has no
+room changes. ⛔ adding it would be a rule for a state nothing can reach, which is
+how a carry list grows entries nobody can test. ⇒ **if a room-based game ever
+gets grabs, that is the edge to add, and this clause is the note that says so.**
+
 ⭐⭐ **A POSSESSED ACTOR WAS DUPLICATING ITSELF, AND THE FIX UNIFIED TWO
 MECHANISMS FOR ONE FACT — 2026-08-19, MEASURED.** Possess an authored enemy in
 `vertical_shaft`, walk it through the door to `central_hub_complex` and back:

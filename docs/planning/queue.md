@@ -2392,7 +2392,32 @@ answer.
   landed outside the circle, the IK clamped it, and all eight "big" swings collapsed
   onto the same 45° pose.
   ⚠ **remaining, both small**: four cues pack with a `.loop` suffix the sprite row
-  does not carry, so the derived cue misses the bank; the sheet has one upward and
+  does not carry, so the derived cue misses the bank
+  — ⭐ **MEASURED 2026-08-18 and it is ONE live, THREE latent, and a DESIGN
+  QUESTION rather than a fix.** `authored_effect(row).cue` derives the plain id
+  for all four while the bank ships only the suffixed one:
+
+```text
+oil_geyser_stream -> vfx.oiler.oil_geyser_stream   packed .loop only   OVERRIDDEN ✔
+invariant_loop    -> vfx.oiler.invariant_loop      packed .loop only   no move emits it
+gate_calibration  -> vfx.oiler.gate_calibration    packed .loop only   no move emits it
+portal_leak       -> vfx.oiler.portal_leak         packed .loop only   no move emits it
+```
+
+  ⇒ nothing is silent TODAY: the one live row already names its cue through
+  `vfx_cued`, and the other three have zero Rust references. The trap is armed
+  for whoever authors them — and for the other seven `.loop`-only rows
+  `a_sustained_burst_keeps_its_looping_cue` counts.
+  ⛔⛔ **and the two obvious fixes both cost something, which is why this is
+  recorded rather than taken.** (a) a guard *"every derived cue must be one the
+  bank ships"* fails on Oiler's own two geyser re-strikes, which emit a burst
+  with no cue ON PURPOSE because the loop is still running — so it needs an
+  exemption list, and an exemption list is a TODO list. (b) making the derivation
+  fall back to `{cue}.loop` when the plain id is unshipped removes the trap
+  entirely, and would retrigger the loop on each of those same re-strikes — the
+  doubled-burst class `moveset_sound` exists to catch.
+  ⚠ the existing guard is the INVERSE of the gap: it checks bursts that already
+  carry an override, never one that should and does not; the sheet has one upward and
   one downward swing, so tilt/smash share a row — honest, and thinner than the
   table. And a BALANCE pass with real eyes: he lost the observed match 36% to 5%,
   the design's direction but a bigger margin than intended.

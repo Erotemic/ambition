@@ -12,6 +12,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;
 use bevy::prelude::Commands;
 use std::collections::BTreeSet;
 
+mod gravity_construction;
 #[cfg(feature = "portal")]
 mod portal_construction;
 
@@ -98,6 +99,11 @@ pub struct RoomFeatureConstructionPlan {
     construction: crate::construction::ActorConstructionPlan,
     #[cfg(feature = "portal")]
     portal_construction: ambition_portal2d::PortalGunConstructionPlan,
+    /// The gravity capability's lane. ⭐ **not optional and not feature-gated**:
+    /// every composition has gravity, so this lane proves the federation shape
+    /// works for a capability that is simply always present.
+    gravity_construction:
+        ambition_platformer2d_shared_tangle::gravity::construction::GravityZoneConstructionPlan,
     /// The frozen catalogs this plan reads — character catalog, hostile roster,
     /// boss profiles. THE copy: actor recipes read it through
     /// `ConstructionExecCtx`, so a cached plan holds one coherent snapshot.
@@ -160,8 +166,7 @@ pub struct OccurrenceContinuity<'a> {
     /// the capture takes only `SpawnOrigin::Dynamic` rows and an authored record
     /// can never spell one. `None` is the honest answer for a composition with
     /// no checkpoint behind it.
-    pub minted:
-        Option<&'a crate::items::pickup::minted_horizon::MintedItemBaseline>,
+    pub minted: Option<&'a crate::items::pickup::minted_horizon::MintedItemBaseline>,
 }
 
 /// What construction planning needs beyond the room's authored content: the
@@ -301,6 +306,7 @@ pub struct RoomFeatureConstructionReceipt {
     construction: ambition_platformer2d_shared_tangle::construction::ConstructionReceipt,
     #[cfg(feature = "portal")]
     portal_construction: ambition_platformer2d_shared_tangle::construction::ConstructionReceipt,
+    gravity_construction: ambition_platformer2d_shared_tangle::construction::ConstructionReceipt,
 }
 
 impl RoomFeatureConstructionReceipt {
@@ -330,6 +336,30 @@ impl std::fmt::Debug for RoomFeatureConstructionPlan {
             .field("construction", &self.construction_deterministic_dump())
             .finish()
     }
+}
+
+/// **Claim one lane's planned identities into the room's roster, refusing a
+/// collision with any lane already claimed.**
+///
+/// ⛔ cross-lane identity collisions are the one thing independently typed lanes
+/// cannot check for themselves: each lane's own preparation refuses duplicates
+/// WITHIN it, and nothing inside a lane can see another lane's `SimId`s. This is
+/// that check, and it is a fold rather than a pairwise intersection so a third
+/// lane does not owe the room a third comparison.
+fn claim_lane_ids(
+    room: &str,
+    ids: &BTreeSet<ambition_platformer2d_shared_tangle::sim_id::SimId>,
+    roster: &mut BTreeSet<String>,
+) -> Result<(), RoomFeatureConstructionError> {
+    for id in ids {
+        if !roster.insert(id.to_string()) {
+            return Err(RoomFeatureConstructionError::DuplicateAuthoritativeId {
+                room: room.to_string(),
+                id: id.to_string(),
+            });
+        }
+    }
+    Ok(())
 }
 
 impl RoomFeatureConstructionPlan {
@@ -666,6 +696,22 @@ impl RoomFeatureConstructionPlan {
         )
         .map_err(RoomFeatureConstructionError::Construction)?;
 
+        let gravity_construction = {
+            let mut ctx = ambition_platformer2d_shared_tangle::construction::ConstructionExecCtx {
+                commands,
+                scope: self.gravity_construction.scope(),
+                session: session_scope,
+                services: &(),
+            };
+            let receipt = self.gravity_construction.commit(&mut ctx);
+            debug_assert_eq!(
+                receipt.committed_ids(),
+                self.gravity_construction.planned_ids(),
+                "gravity-zone construction diverged from its prepared roster",
+            );
+            receipt
+        };
+
         #[cfg(feature = "portal")]
         let portal_construction = {
             let portal_registry = ambition_portal2d::portal_gun_construction_registry();
@@ -681,26 +727,40 @@ impl RoomFeatureConstructionPlan {
             .map_err(RoomFeatureConstructionError::Construction)?
         };
 
+        let gravity_construction = {
+            let gravity_registry = ambition_platformer2d_shared_tangle::gravity::construction::gravity_zone_construction_registry();
+            ambition_platformer2d_shared_tangle::gravity::construction::GravityZoneConstructionPlan::prepare_in_lane(
+                construction_scope.clone(),
+                ambition_platformer2d_shared_tangle::construction::ConstructionLane::named(
+                    ambition_platformer2d_shared_tangle::gravity::construction::GRAVITY_ZONE_CONSTRUCTION_DOMAIN,
+                ),
+                gravity_construction::authored_requests(room, &outlook),
+                &suppressed,
+                &gravity_registry,
+            )
+            .map_err(RoomFeatureConstructionError::Construction)?
+        };
+
         let actor_ids = construction_plan.planned_ids();
         #[cfg(feature = "portal")]
         let portal_ids = portal_construction.planned_ids();
-        #[cfg(feature = "portal")]
-        if let Some(duplicate) = actor_ids.intersection(&portal_ids).next() {
-            return Err(RoomFeatureConstructionError::DuplicateAuthoritativeId {
-                room: room.id.clone(),
-                id: duplicate.to_string(),
-            });
-        }
+        let gravity_ids = gravity_construction.planned_ids();
 
         // The authoritative roster the room PREDICTS, derived from every typed
         // construction lane. Lanes remain independently typed and verified; the
         // room composes only their stable identities.
-        let mut expected_authoritative_ids: BTreeSet<String> =
-            actor_ids.iter().map(std::string::ToString::to_string).collect();
+        //
+        // ⭐ **collision detection is now the SAME LINE that composes the
+        // roster.** It used to be a hand-written pairwise intersection — fine
+        // for two lanes, quadratic in the number of lanes, and the second thing
+        // a third lane had to remember to edit. Claiming into one set answers
+        // both questions at once and cannot be half-updated: a lane that is
+        // composed is a lane that is checked.
+        let mut expected_authoritative_ids: BTreeSet<String> = BTreeSet::new();
+        claim_lane_ids(&room.id, &actor_ids, &mut expected_authoritative_ids)?;
         #[cfg(feature = "portal")]
-        expected_authoritative_ids.extend(
-            portal_ids.iter().map(std::string::ToString::to_string),
-        );
+        claim_lane_ids(&room.id, &portal_ids, &mut expected_authoritative_ids)?;
+        claim_lane_ids(&room.id, &gravity_ids, &mut expected_authoritative_ids)?;
 
         let mut placement_context =
             crate::world::placements::ActorPlacementContext::new(catalog, sheets);
@@ -720,6 +780,7 @@ impl RoomFeatureConstructionPlan {
             construction: construction_plan,
             #[cfg(feature = "portal")]
             portal_construction,
+            gravity_construction,
             expected_authoritative_ids,
             binding_report,
             outlook,
@@ -788,6 +849,16 @@ impl RoomFeatureConstructionPlan {
             );
             out.push_str(&portal);
         }
+        {
+            let gravity = self.gravity_construction.deterministic_dump();
+            let _ = writeln!(
+                out,
+                "domain\t{}\t{}",
+                ambition_platformer2d_shared_tangle::gravity::construction::GRAVITY_ZONE_CONSTRUCTION_DOMAIN,
+                gravity.len()
+            );
+            out.push_str(&gravity);
+        }
         out
     }
 
@@ -797,6 +868,7 @@ impl RoomFeatureConstructionPlan {
         let binding = self.construction.scope().binding;
         #[cfg(feature = "portal")]
         debug_assert_eq!(self.portal_construction.scope().binding, binding);
+        debug_assert_eq!(self.gravity_construction.scope().binding, binding);
         binding
     }
 
@@ -830,6 +902,21 @@ impl RoomFeatureConstructionPlan {
             &receipt.construction,
             world,
         ));
+
+        {
+            let gravity_transaction = self.gravity_construction.transaction(session);
+            let gravity_scope = AuthoritativeScope::gather(world, &gravity_transaction);
+            violations.extend(
+                verify_committed_roster(
+                    &self.gravity_construction,
+                    &receipt.gravity_construction,
+                    baseline,
+                    &gravity_scope,
+                    world,
+                )
+                .err(),
+            );
+        }
 
         #[cfg(feature = "portal")]
         {
@@ -930,11 +1017,34 @@ impl RoomFeatureConstructionPlan {
             };
         }
 
+        if self.gravity_construction.get(sim_id).is_some() {
+            let closure = self
+                .gravity_construction
+                .relation_closure(&std::collections::BTreeSet::from([sim_id.clone()]));
+            let mut ctx = ambition_platformer2d_shared_tangle::construction::ConstructionExecCtx {
+                commands,
+                scope: self.gravity_construction.scope(),
+                session: session_scope,
+                services: &(),
+            };
+            return match self.gravity_construction.commit_subset(&closure, &mut ctx) {
+                Ok(_) => true,
+                Err(error) => {
+                    bevy::log::error!(
+                        target: "ambition_platformer2d::construction",
+                        "`{sim_id}` is planned in the gravity-zone lane but could not be \
+                         rebuilt: {error}"
+                    );
+                    false
+                }
+            };
+        }
+
         #[cfg(feature = "portal")]
         if self.portal_construction.get(sim_id).is_some() {
-            let closure = self.portal_construction.relation_closure(
-                &std::collections::BTreeSet::from([sim_id.clone()]),
-            );
+            let closure = self
+                .portal_construction
+                .relation_closure(&std::collections::BTreeSet::from([sim_id.clone()]));
             let mut ctx = ambition_platformer2d_shared_tangle::construction::ConstructionExecCtx {
                 commands,
                 scope: self.portal_construction.scope(),
@@ -1022,6 +1132,12 @@ impl RoomFeatureConstructionPlan {
             .iter()
             .map(std::string::ToString::to_string)
             .collect();
+        authoritative_ids.extend(
+            gravity_construction
+                .committed_ids()
+                .iter()
+                .map(std::string::ToString::to_string),
+        );
         #[cfg(feature = "portal")]
         authoritative_ids.extend(
             portal_construction
@@ -1035,6 +1151,7 @@ impl RoomFeatureConstructionPlan {
             construction,
             #[cfg(feature = "portal")]
             portal_construction,
+            gravity_construction,
         }
     }
 }

@@ -491,39 +491,6 @@ pub(crate) fn spawn_shrine_into(
     );
 }
 
-/// Populate one gravity zone onto a root the construction executor allocated.
-pub(crate) fn spawn_gravity_zone_into(
-    commands: &mut Commands,
-    session_scope: SessionSpawnScope,
-    root: bevy::ecs::entity::Entity,
-    spec: &crate::rooms::GravityZoneSpec,
-) {
-    let mut entity = commands.insert_room_in_session(
-        session_scope,
-        root,
-        (
-            Name::new(format!("Gravity zone: {}", spec.name)),
-            ambition_platformer2d_shared_tangle::gravity::GravityZone {
-                aabb: ambition_platformer2d_core::Aabb::new(spec.center, spec.half_extent),
-                dir: spec.dir,
-            },
-        ),
-    );
-    // A non-zero amplitude makes the column slide horizontally (the sliding
-    // gravity demo); a static column omits the OscillatingZone.
-    if spec.oscillate_amplitude > 0.0 {
-        entity.insert(
-            ambition_platformer2d_shared_tangle::gravity::OscillatingZone {
-                base_center: spec.center,
-                half: spec.half_extent,
-                amplitude_x: spec.oscillate_amplitude,
-                freq: spec.oscillate_freq,
-                phase: 0.0,
-            },
-        );
-    }
-}
-
 pub(crate) fn lower_chest_placement(
     record: &crate::world::placements::PlacementRecord,
     ctx: &mut crate::world::placements::LoweringCtx<'_, '_, '_>,

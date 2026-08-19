@@ -1188,6 +1188,47 @@ amount of re-wiring who publishes the size changes it; what changes it is
 drawing the body's SUB-RECT, which is the art-crop the row already records as
 tried-and-reverted for stretching the art.
 
+⭐⭐ **THE TRIM MECHANISM ALREADY EXISTS AND IS LIVE — measured 2026-08-19, and
+it moves this row from "build the trim" to "REGENERATE 61 SHEETS".**
+`trimmed_render` + `FrameTrim` are built, exported and consumed by
+`character/animator.rs`; a sheet opts in simply by publishing per-frame rects
+with a non-zero `off`, and `SheetRow::is_trimmed` says *"False for legacy
+uniform sheets, which keep the cheap fixed-anchor path"*.
+
+```text
+TRIMMED sheets    133   quad is the frame's own rect
+UNTRIMMED sheets   63   quad is the WHOLE frame — the legacy path
+```
+
+⛔⛔ **the snake is in the untrimmed 63 and the AI Slop is NOT**, which is the
+whole of why they measured differently: `snakes_on_a_cartesian_plane` publishes
+ZERO per-frame rects, while `ai_slop` publishes 44, every one with a non-zero
+offset. ⇒ *"the honest next step is the trim"* was right about the answer and
+wrong about the work: nothing needs building.
+
+The 61 untrimmed sheets that publish a body bbox, worst frame-vs-body area
+first — this is the regeneration queue:
+
+```text
+ 10.8x  super_mary_o_coin           frame  96x96   body  23x37
+  6.5x  mary_o_v2                   frame 160x192  body  56x84
+  5.3x  super_mary_o_milk_carton    frame  96x96   body  33x53
+  4.0x  sandbag                     frame 128x128  body  48x85
+  3.7x  carl_stargan                frame 155x157  body  58x114
+  3.3x  snakes_on_a_cartesian_plane frame 160x128  body 123x50
+  3.3x  mary_o_v2_tall / _fire      frame 160x192  body  56x168
+```
+
+⚠ **AND THE SENTENCE AFTER THE MEASUREMENT, stated so this is not over-claimed.**
+A frame-sized quad is extra TRANSPARENT margin, which on its own is invisible —
+`collision` comes from `body_pixel_bbox` and is unaffected. It becomes visible
+exactly when something SCALES the quad, which is what the height contract (this
+row's own slice 2) does: scale the frame to a declared height and the body inside
+lands at `1/overhang` of the size intended. ⇒ **the untrimmed 63 are a
+prerequisite for the height contract, not an independent defect** — and Mary-O
+v2 at 6.5x is first in line, because she is the character the contract is being
+proven on.
+
 ⇒ **the honest next step is the trim**, not a road change: the sheets already
 publish per-frame rects with `off`, so the quad can be the rect and the offset
 can place it — which is also why the earlier attempt stretched, having done the

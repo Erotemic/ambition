@@ -57,7 +57,7 @@ fn the_rollback_schema_matches_its_recorded_baseline() {
 
     let dump = sim
         .world()
-        .get_resource::<ambition_platformer2d::runtime::rollback::RollbackRegistry>()
+        .get_resource::<ambition_platformer2d::rollback::RollbackRegistry>()
         .expect("rollback registry is installed by the engine plugins")
         .schema_dump();
 
@@ -130,7 +130,7 @@ fn the_schema_is_the_same_from_a_second_build() {
         }
         let sim = Platformer2dSimHarness::new_with_options(options).expect("sandbox sim builds");
         sim.world()
-            .get_resource::<ambition_platformer2d::runtime::rollback::RollbackRegistry>()
+            .get_resource::<ambition_platformer2d::rollback::RollbackRegistry>()
             .expect("rollback registry is installed")
             .deterministic_dump()
     };

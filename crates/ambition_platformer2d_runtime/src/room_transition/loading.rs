@@ -400,22 +400,22 @@ pub fn fail_room_transition_commit_precondition(
 /// **The confirmed crossing waiting to be loaded**, or nothing.
 ///
 /// Three resources answer one question: the pending intent, the app's STABLE
-/// simulation host, and (for GGRS) how far the CURRENT session has confirmed.
+/// simulation host, and (for rollback) how far the CURRENT session has confirmed.
 /// Bundled because [`begin_room_transition_load_system`] sits at Bevy's
 /// 16-parameter ceiling and because "is this crossing safe to act on yet" is one
 /// question, not three.
 ///
 /// ⛔ **`ConfirmedFrameBoundary` PRESENCE IS SESSION STATE, NOT HOST IDENTITY.**
 /// `rollback::stop_session` deliberately removes it while leaving
-/// [`crate::SimulationHost::Ggrs`] installed. Treating an absent boundary as an
-/// eager host therefore turns a stopped / invalidated GGRS timeline into a
+/// [`crate::SimulationHost::Rollback`] installed. Treating an absent boundary as an
+/// eager host therefore turns a stopped / invalidated rollback timeline into a
 /// fixed-tick one for this system only: a pending crossing opens a loading cover,
-/// but no GGRS schedule remains to perform the room commit. That is a permanent
+/// but no rollback schedule remains to perform the room commit. That is a permanent
 /// loading screen.
 ///
 /// The stable host owns the policy instead:
 /// - render/fixed hosts confirm on arrival;
-/// - a GGRS host requires both a live boundary and a healthy rollback status;
+/// - a rollback host requires both a live boundary and healthy confirmation authority;
 ///   absence or invalidation means confirmation authority is unavailable, so no
 ///   transition may begin or continue toward commit.
 #[derive(bevy::ecs::system::SystemParam)]
@@ -426,18 +426,17 @@ pub struct ConfirmedRoomTransitionIntent<'w> {
     >,
     host: Res<'w, crate::SimulationHost>,
     boundary: Option<Res<'w, ambition_platformer2d_core::ConfirmedFrameBoundary>>,
-    rollback_status: Option<Res<'w, crate::rollback::RollbackSessionStatus>>,
+    confirmation: Option<Res<'w, crate::RollbackConfirmationState>>,
 }
 
 fn confirmation_frame_for_host(
     host: crate::SimulationHost,
     boundary: Option<&ambition_platformer2d_core::ConfirmedFrameBoundary>,
-    rollback_status: Option<&crate::rollback::RollbackSessionStatus>,
+    confirmation: Option<&crate::RollbackConfirmationState>,
 ) -> Option<i32> {
     match host {
-        crate::SimulationHost::Ggrs => {
-            let status = rollback_status?;
-            if !status.is_healthy() {
+        crate::SimulationHost::Rollback => {
+            if !confirmation.copied().is_some_and(crate::RollbackConfirmationState::is_healthy) {
                 return None;
             }
             boundary.map(|boundary| boundary.confirmed)
@@ -450,17 +449,17 @@ impl ConfirmedRoomTransitionIntent<'_> {
     /// Whether this APP is a rollback host. The boundary may disappear when its
     /// current session stops; that does not change the app's simulation host.
     fn is_rollback_host(&self) -> bool {
-        self.host.is_ggrs()
+        self.host.is_rollback()
     }
 
-    /// A stopped GGRS session has no authority to promote a speculative intent
+    /// A stopped rollback session has no authority to promote a speculative intent
     /// into host-side loading work. Crucially, it is NOT an eager host.
     fn rollback_confirmation_unavailable(&self) -> bool {
         self.is_rollback_host()
             && confirmation_frame_for_host(
                 *self.host,
                 self.boundary.as_deref(),
-                self.rollback_status.as_deref(),
+                self.confirmation.as_deref(),
             )
             .is_none()
     }
@@ -469,7 +468,7 @@ impl ConfirmedRoomTransitionIntent<'_> {
         let confirmed = confirmation_frame_for_host(
             *self.host,
             self.boundary.as_deref(),
-            self.rollback_status.as_deref(),
+            self.confirmation.as_deref(),
         )?;
         match &self.pending.confirmed(confirmed)?.kind {
             ambition_platformer2d_actor_monolith::session::lifecycle_commit::LifecycleIntent::Transition(transition) => Some(transition),
@@ -498,7 +497,7 @@ pub fn begin_room_transition_load_system(
     // recorded intents that nothing opened a transaction for, and every room
     // change in the game happened with no cover, no failure reporting and no
     // asset accounting (D71). Host identity comes from `SimulationHost`; an
-    // eager host confirms on arrival, while a GGRS host with no current boundary
+    // eager host confirms on arrival, while a rollback host with no current boundary
     // or an unhealthy timeline has no confirmation authority and must not open a
     // transaction.
     pending: ConfirmedRoomTransitionIntent,
@@ -573,7 +572,7 @@ pub fn begin_room_transition_load_system(
 ) {
     let (prepared_characters, brain_profiles) = character_authorities;
 
-    // A GGRS app stays a GGRS app when its session is stopped. The boundary is
+    // A rollback app stays a rollback app when its session is stopped. The boundary is
     // intentionally removed by `stop_session`; using that absence as the eager
     // host discriminator is what opened an uncommittable transaction after a
     // rollback-contract invalidation. If readiness was already in flight, retire
@@ -609,10 +608,10 @@ pub fn begin_room_transition_load_system(
             bevy::log::error!(
                 target: "ambition_platformer2d::room_transition",
                 "retired room transition {sequence} ({source_room_id} -> {target_room_id}) because \
-                 GGRS confirmation authority is unavailable (boundary_present={}, status={:?}); \
+                 rollback confirmation authority is unavailable (boundary_present={}, confirmation={:?}); \
                  refusing to reinterpret a stopped or unhealthy rollback timeline as an eager host",
                 pending.boundary.is_some(),
-                pending.rollback_status.as_deref(),
+                pending.confirmation.as_deref(),
             );
         }
         return;
@@ -1310,15 +1309,15 @@ mod tests {
     }
 
     #[test]
-    fn stopped_ggrs_session_is_not_reclassified_as_eager() {
+    fn stopped_rollback_session_is_not_reclassified_as_eager() {
         assert_eq!(
             confirmation_frame_for_host(
-                crate::SimulationHost::Ggrs,
+                crate::SimulationHost::Rollback,
                 None,
-                Some(&crate::rollback::RollbackSessionStatus::default()),
+                Some(&crate::RollbackConfirmationState::Healthy),
             ),
             None,
-            "a GGRS app without a live boundary has no confirmation authority"
+            "a rollback app without a live boundary has no confirmation authority"
         );
         assert_eq!(
             confirmation_frame_for_host(crate::SimulationHost::Fixed60Hz, None, None),
@@ -1333,7 +1332,7 @@ mod tests {
     }
 
     #[test]
-    fn live_ggrs_session_uses_its_confirmed_frame() {
+    fn live_rollback_session_uses_its_confirmed_frame() {
         let boundary = ambition_platformer2d_core::ConfirmedFrameBoundary {
             current: 17,
             confirmed: 12,
@@ -1341,28 +1340,25 @@ mod tests {
         };
         assert_eq!(
             confirmation_frame_for_host(
-                crate::SimulationHost::Ggrs,
+                crate::SimulationHost::Rollback,
                 Some(&boundary),
-                Some(&crate::rollback::RollbackSessionStatus::default()),
+                Some(&crate::RollbackConfirmationState::Healthy),
             ),
             Some(12)
         );
     }
 
     #[test]
-    fn unhealthy_ggrs_session_has_no_confirmation_authority_even_with_a_boundary() {
+    fn unhealthy_rollback_session_has_no_confirmation_authority_even_with_a_boundary() {
         let boundary = ambition_platformer2d_core::ConfirmedFrameBoundary {
             current: 17,
             confirmed: 12,
             session: 4,
         };
-        let unhealthy = crate::rollback::RollbackSessionStatus {
-            mismatch_frames: Vec::new(),
-            invalidation: Some("prepared content disappeared".to_string()),
-        };
+        let unhealthy = crate::RollbackConfirmationState::Unhealthy;
         assert_eq!(
             confirmation_frame_for_host(
-                crate::SimulationHost::Ggrs,
+                crate::SimulationHost::Rollback,
                 Some(&boundary),
                 Some(&unhealthy),
             ),

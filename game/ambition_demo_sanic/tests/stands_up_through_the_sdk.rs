@@ -157,7 +157,7 @@ fn sanic_has_the_same_identities_standalone_and_embedded() {
         let schema = format!(
             "{:?}",
             app.world()
-                .get_resource::<ambition_platformer2d::runtime::rollback::RollbackRegistry>()
+                .get_resource::<ambition_platformer2d::rollback::RollbackRegistry>()
                 .expect("the rollback registry exists")
                 .schema_fingerprint()
         );

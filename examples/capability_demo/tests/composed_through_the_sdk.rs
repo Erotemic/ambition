@@ -175,7 +175,7 @@ fn one_module_mounts_the_capability_and_the_composition_installs_everything() {
     // And the ROLLBACK state is really registered — not merely required.
     let registry = app
         .world()
-        .get_resource::<ambition_platformer2d::runtime::rollback::RollbackRegistry>()
+        .get_resource::<ambition_platformer2d::rollback::RollbackRegistry>()
         .expect("a rollback composition builds a registry");
     assert!(
         registry

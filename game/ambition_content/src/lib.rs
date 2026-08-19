@@ -130,3 +130,18 @@ pub const AMBITION_CONTENT_PROVIDER: &str = "ambition";
 /// moved to [`ambition_platformer2d_actor_monolith::session::data`]; the authored RON it loads is the
 /// content. Inbound `crate::data::…` paths keep working.
 pub use ambition_platformer2d_actor_monolith::session::data;
+
+/// Declare every rollback row owned by Ambition-specific content.
+///
+/// Content plugins record the same declarations into host-independent schema
+/// metadata. The application composition calls this with its concrete rollback
+/// registrar after selecting a backend, keeping content independent of GGRS.
+pub fn register_rollback_state(
+    registrar: &mut impl ambition_platformer2d_core::snapshot::RollbackRegistrar,
+) {
+    bosses::register_rollback_state(registrar);
+    #[cfg(feature = "falling_sand")]
+    falling_sand::register_rollback_state(registrar);
+    #[cfg(feature = "portal")]
+    portal::register_rollback_state(registrar);
+}

@@ -53,10 +53,11 @@ bevy = "0.18"
 [profile.dev]
 debug = 0
 
-# ⚠ REQUIRED. Ambition builds against a fork of bevy_ggrs (a backported
-# `GgrsFrameTiming` accessor). Cargo patch tables do NOT cross a workspace
-# boundary, so you must repeat this one yourself — copy the current value from
-# the engine's workspace-root Cargo.toml.
+# ⚠ REQUIRED WHEN YOU SELECT ROLLBACK (the default `all_capabilities` does).
+# Ambition's GGRS backend uses a fork with a backported `GgrsFrameTiming`
+# accessor. Cargo patch tables do NOT cross a workspace boundary, so a rollback
+# consumer must repeat this entry. A `default-features = false` fixed-step game
+# that does not select `rollback` does not link bevy_ggrs and needs no patch.
 [patch.crates-io]
 bevy_ggrs = { git = "https://github.com/Erotemic/bevy_ggrs", rev = "4d2eff2a89f00c127e17fd26dd3f25d3a1113fa2" }
 ```
@@ -76,10 +77,10 @@ Blind run 5 had to open the engine's own `.cargo/config.toml` to find this —
 the same class of leak as the patch table, and the last file any blind run has
 needed.
 
-Without the patch table a fresh lockfile resolves `bevy_ggrs` from crates.io and the build
-dies in `ambition_platformer2d_runtime` with `cannot find type GgrsFrameTiming in crate
-bevy_ggrs` — an error with no visible connection to a patch table you have never
-seen.
+When rollback is selected, omitting the patch table lets a fresh lockfile resolve
+`bevy_ggrs` from crates.io and the rollback backend fails with `cannot find type
+GgrsFrameTiming in crate bevy_ggrs` — an error with no visible connection to a
+patch table you have never seen. Fixed-step consumers no longer pay this cost.
 
 You do **not** need to declare `bevy` yourself for ordinary use: `ambition_platformer2d`
 re-exports it (`ambition_platformer2d::bevy`). You *do* need it in your own manifest if you

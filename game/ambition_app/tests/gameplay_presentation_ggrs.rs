@@ -177,7 +177,7 @@ fn ggrs_flagship_keeps_one_layout_across_a_resize() {
 /// Schedule membership IS the invariant here, so that is what is checked.
 #[test]
 fn the_camera_resolve_is_not_inside_the_rollback_schedule() {
-    use ambition_platformer2d::runtime::rollback::GgrsSchedule;
+    use ambition_platformer2d::rollback::GgrsSchedule;
     use ambition_platformer2d::sim_view::camera_snapshot::CameraObservationSet;
     use bevy::ecs::schedule::Schedules;
 

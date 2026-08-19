@@ -51,13 +51,13 @@ pub(super) fn handle_debug_hotkeys(
 // made a preset change reach nobody, and no demo app had any resync at all.
 
 fn local_ggrs_restart_policy(
-    ownership: Option<ambition_platformer2d::runtime::rollback::RollbackSessionOwnership>,
-) -> Result<Option<ambition_platformer2d::runtime::rollback::SyncTestSettings>, &'static str> {
+    ownership: Option<ambition_platformer2d::rollback::RollbackSessionOwnership>,
+) -> Result<Option<ambition_platformer2d::rollback::SyncTestSettings>, &'static str> {
     match ownership {
-        Some(ambition_platformer2d::runtime::rollback::RollbackSessionOwnership::External) => Err(
+        Some(ambition_platformer2d::rollback::RollbackSessionOwnership::External) => Err(
             "LDtk hot reload cannot replace an external/P2P GGRS session; peers need a coordinated content barrier",
         ),
-        Some(ambition_platformer2d::runtime::rollback::RollbackSessionOwnership::LocalSyncTest { settings, .. }) => {
+        Some(ambition_platformer2d::rollback::RollbackSessionOwnership::LocalSyncTest { settings, .. }) => {
             // THE SAME SESSION, RESTARTED — so it inherits from the session it
             // replaces, and only the deliberate override is spelled out.
             //
@@ -73,7 +73,7 @@ fn local_ggrs_restart_policy(
             // `..settings` inverts it: preservation is the default and dropping
             // something is the thing you have to type. `check_distance: 0` is
             // that thing — a rebase is not a proof pulse.
-            Ok(Some(ambition_platformer2d::runtime::rollback::SyncTestSettings {
+            Ok(Some(ambition_platformer2d::rollback::SyncTestSettings {
                 check_distance: 0,
                 ..settings
             }))
@@ -148,8 +148,8 @@ pub(super) fn handle_ldtk_hot_reload(
             ambition_platformer2d::runtime::PreparedContentIdentity,
         >,
         ResMut<ambition_platformer2d::runtime::ContentEpochSequence>,
-        Option<Res<ambition_platformer2d::runtime::rollback::RollbackRegistry>>,
-        Option<Res<ambition_platformer2d::runtime::rollback::RollbackSessionOwnership>>,
+        Option<Res<ambition_platformer2d::rollback::RollbackRegistry>>,
+        Option<Res<ambition_platformer2d::rollback::RollbackSessionOwnership>>,
     ),
 ) {
     let mut requested = false;
@@ -204,7 +204,7 @@ pub(super) fn handle_ldtk_hot_reload(
     // holds the policy, and a content reload does not change it. What this marks
     // is only "the world under the session was replaced, rebase it".
     if restart_local_ggrs.is_some() {
-        ambition_platformer2d::runtime::rollback::stop_session_deferred(&mut commands);
+        ambition_platformer2d::rollback::stop_session_deferred(&mut commands);
         commands.insert_resource(RestartLocalGgrsAfterLdtkReload);
     }
     if let Ok((mut cluster_item, mut motion_model, mut combat, mut safety)) = player_q.single_mut()
@@ -284,18 +284,18 @@ pub(super) fn restart_local_ggrs_after_hot_reload(world: &mut World) {
 
     #[cfg(feature = "dev_tools")]
     crate::dev::rollback_observatory::reset_for_content_reload(world);
-    if ambition_platformer2d::runtime::rollback::session_is_active(world) {
-        ambition_platformer2d::runtime::rollback::stop_session(world);
+    if ambition_platformer2d::rollback::session_is_active(world) {
+        ambition_platformer2d::rollback::stop_session(world);
     }
     // ⭐ **STOP, and let the OWNER rebuild.** This used to call
     // `start_sync_test_session` itself, which made the hot-reload path a third
     // place that installed a session — beside the observatory and, now, beside
-    // `runtime::rollback::local_session`. Releasing ownership is the whole of
+    // the rollback backend's `local_session`. Releasing ownership is the whole of
     // what this path owes: `maintain_local_session` sees no session on the next
     // frame and starts one, with the SAME policy and the SAME frozen seating,
     // because neither of those is what a content reload changed.
     world
-        .resource_mut::<ambition_platformer2d::runtime::rollback::local_session::LocalSessionOwnership>()
+        .resource_mut::<ambition_platformer2d::rollback::local_session::LocalSessionOwnership>()
         .release();
     info!("LDtk hot reload released the local GGRS baseline; the session owner will rebase it");
 }
@@ -535,7 +535,7 @@ pub(super) fn reload_ldtk_world_from_disk(
 #[cfg(test)]
 mod hot_reload_session_tests {
     use super::*;
-    use ambition_platformer2d::runtime::rollback::{RollbackSessionOwnership, SyncTestSettings};
+    use ambition_platformer2d::rollback::{RollbackSessionOwnership, SyncTestSettings};
 
     #[test]
     fn f1_action_toggles_the_app_debug_overlay_both_directions() {
@@ -572,7 +572,7 @@ mod hot_reload_session_tests {
     #[test]
     fn local_sync_test_reload_returns_to_a_zero_distance_baseline() {
         let restart = local_ggrs_restart_policy(Some(RollbackSessionOwnership::LocalSyncTest {
-            owner: ambition_platformer2d::runtime::rollback::SyncTestOwner::LocalMaintainer,
+            owner: ambition_platformer2d::rollback::SyncTestOwner::LocalMaintainer,
             settings: SyncTestSettings {
                 check_distance: 6,
                 max_prediction_window: 8,
@@ -597,7 +597,7 @@ mod hot_reload_session_tests {
     #[test]
     fn a_reload_keeps_every_local_player_in_the_session() {
         let restart = local_ggrs_restart_policy(Some(RollbackSessionOwnership::LocalSyncTest {
-            owner: ambition_platformer2d::runtime::rollback::SyncTestOwner::LocalMaintainer,
+            owner: ambition_platformer2d::rollback::SyncTestOwner::LocalMaintainer,
             settings: SyncTestSettings {
                 check_distance: 6,
                 max_prediction_window: 8,

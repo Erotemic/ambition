@@ -350,7 +350,7 @@ fn assert_in_game(
     assert_eq!(
         prepared.snapshot_schema(),
         app.world()
-            .resource::<ambition_platformer2d::runtime::rollback::RollbackRegistry>()
+            .resource::<ambition_platformer2d::rollback::RollbackRegistry>()
             .schema_fingerprint(),
         "{context}: prepared content is bound to the active GGRS rollback schema",
     );

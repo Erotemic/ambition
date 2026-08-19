@@ -1612,7 +1612,7 @@ pub fn install_mary_o_content(app: &mut App) {
     // fingerprints the App, so the schema fingerprint (part of the content
     // identity) includes these rows; a non-GGRS shell records metadata only.
     {
-        use ambition_platformer2d::runtime::rollback::AmbitionRollbackApp;
+        use ambition_platformer2d::rollback::AmbitionRollbackApp;
         // The ANCHOR comes first: the mode owner is a bare state-holder entity
         // — no body, no projectile, no feature marker — so none of the
         // engine's rollback anchors reach it, and a registered-but-unanchored

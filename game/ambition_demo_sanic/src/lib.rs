@@ -829,7 +829,7 @@ pub fn install_sanic_content(app: &mut App) {
     // fingerprints the App, so the schema fingerprint (part of the content
     // identity) includes these rows; a non-GGRS shell records metadata only.
     {
-        use ambition_platformer2d::runtime::rollback::AmbitionRollbackApp;
+        use ambition_platformer2d::rollback::AmbitionRollbackApp;
         // The act-state ANCHOR comes first: the mode owner is a bare
         // state-holder entity no engine rollback anchor reaches, and a
         // registered-but-unanchored component silently never snapshots (the

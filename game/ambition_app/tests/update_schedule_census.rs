@@ -26,7 +26,7 @@
 //! answer from above: an unsetted system is certainly not set-gated.
 //!
 //! ⚠ **this counts the DEV composition, and that is not a detail.** The shipped
-//! desktop build sets `SimulationHost::Ggrs` inside
+//! desktop build sets `SimulationHost::Rollback` inside
 //! `#[cfg(feature = "dev_tools")]`, so its ~242 `CoreSimulation` systems live in
 //! `GgrsSchedule` and are NOT in the number below. A build without `dev_tools` —
 //! the browser entry sets no host at all — resolves to the render-frame default
@@ -135,7 +135,7 @@ fn census_of_how_much_of_update_is_inside_a_set() {
     let (update_in_set, update_orphan, update_tally) = set_membership(&mut app, Update);
     let (ggrs_in_set, ggrs_orphan, _) = set_membership(
         &mut app,
-        ambition_platformer2d::runtime::rollback::GgrsSchedule,
+        ambition_platformer2d::rollback::GgrsSchedule,
     );
 
     let update_total = update_in_set + update_orphan;

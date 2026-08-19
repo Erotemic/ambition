@@ -85,8 +85,8 @@ happens, not which crate owns the list of types.
   **2,688 lines** from the runtime. The gate-portal projection now lives with its
   domain, so adding a phase variant breaks an exhaustive match beside the type.
 - ✔ **INSTALLATION federates through a generic trait call.** The domain invokes a
-  backend-neutral `RollbackRegistrar` method with its concrete `T`; the runtime's
-  `GgrsRollbackRegistrar` implementation performs the generic `bevy_ggrs` call.
+  backend-neutral `RollbackRegistrar` method with its concrete `T`; the dedicated
+  rollback backend's `GgrsRollbackRegistrar` performs the generic `bevy_ggrs` call.
   The domain therefore supplies the monomorphized type without gaining a netcode
   dependency.
 
@@ -132,10 +132,17 @@ component and resource state, cursor/resolved projections, entity-reference
 localization and remapping, rollback anchors, message clearing, derived-state
 claims, and value probes). Each gameplay crate owns one
 `register_rollback_state` declaration beside its types. The former
-`runtime/rollback/domains/*` adapter census is deleted; the runtime retains only
-GGRS implementation/session machinery, runtime-adjacent registrations, and the
-composition calls that hand installed domains a registrar. No gameplay crate
-gains `bevy_ggrs` or a runtime dependency.
+`runtime/rollback/domains/*` adapter census is deleted; the runtime retains
+backend-neutral schema composition plus runtime-adjacent declarations. No gameplay
+crate gains `bevy_ggrs` or a runtime dependency.
+
+✔ **BACKEND OWNERSHIP EXTRACTED 2026-08-19.** The concrete GGRS schedule,
+snapshot/history installation, session lifecycle, checksum/restore probes, and
+load-world repair now live in `ambition_platformer2d_rollback_ggrs`. The generic
+`ambition_platformer2d_runtime` no longer depends on `bevy_ggrs`. The facade's
+`rollback` feature selects that backend explicitly, while a fixed-step minimal
+consumer can omit it entirely. Schema metadata remains in the generic runtime so
+prepared-content identity does not depend on whether a netcode backend is linked.
 
 ⭐ **the boundary after completion:** the host may know that an installed domain
 offers rollback state; it does not know the concrete types or projections inside

@@ -599,9 +599,9 @@ pub fn commit_ready_room_transition_system(
         ResMut<bevy::prelude::NextState<ambition_platformer2d_shared_tangle::schedule::GameMode>>,
         Option<Res<bevy::prelude::Time<bevy::prelude::Real>>>,
         // **Whose commit this is.** The STABLE simulation host, not the
-        // optional boundary of its current session. A GGRS session teardown
+        // optional boundary of its current session. A rollback session teardown
         // removes `ConfirmedFrameBoundary` but does not turn the app into an
-        // eager host. GGRS room changes must always go through
+        // eager host. Rollback-host room changes must always go through
         // `commit_confirmed_lifecycle`'s rebase; this system would mutate the
         // world inside the rewound schedule and the next restore would put the
         // old room back.
@@ -631,11 +631,11 @@ pub fn commit_ready_room_transition_system(
     // allowed to mutate the world at all.
     //
     // Host identity is deliberately NOT inferred from `ConfirmedFrameBoundary`.
-    // `stop_session` removes that boundary while `SimulationHost::Ggrs` remains
+    // `stop_session` removes that boundary while `SimulationHost::Rollback` remains
     // installed. Reclassifying that state as eager is exactly how an invalidated
     // rollback session acquired a loading transaction that no schedule could
     // ever commit.
-    if simulation_host.is_ggrs() {
+    if simulation_host.is_rollback() {
         return;
     }
 

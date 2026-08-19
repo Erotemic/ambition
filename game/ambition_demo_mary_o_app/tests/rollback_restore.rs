@@ -21,7 +21,7 @@ use bevy::prelude::*;
 fn build_rollback_demo_app() -> App {
     let mut app = App::new();
     ambition_platformer2d::engine::add_headless_foundation(&mut app);
-    app.add_plugins(ambition_platformer2d::engine::PlatformerEnginePlugins::rollback());
+    app.add_plugins(ambition_platformer2d::rollback::RollbackEnginePlugin);
     app.add_plugins(ambition_platformer2d::windowed_host::PlatformerHostPlugins);
     app.add_plugins(ambition_platformer2d::game_shell::MinimalShellPlugins);
     app.insert_resource(
@@ -85,13 +85,13 @@ fn a_dirty_level_state_mutation_is_rolled_back_by_restore() {
     // A real sync-test session over the activated world: every update saves,
     // rolls back `check_distance` frames, and resimulates. GGRS now drives
     // the sim, which finishes staging the room and spawns the mode owner.
-    ambition_platformer2d::runtime::rollback::start_sync_test_session(
+    ambition_platformer2d::rollback::start_sync_test_session(
         app.world_mut(),
-        ambition_platformer2d::runtime::rollback::SyncTestSettings {
+        ambition_platformer2d::rollback::SyncTestSettings {
             check_distance: 4,
             max_prediction_window: 10,
             // Single-player demo, stated rather than inherited (2026-07-29).
-            ..ambition_platformer2d::runtime::rollback::SyncTestSettings::for_players(1)
+            ..ambition_platformer2d::rollback::SyncTestSettings::for_players(1)
         },
     )
     .expect("the demo composition starts a GGRS sync-test session");
@@ -121,7 +121,7 @@ fn a_dirty_level_state_mutation_is_rolled_back_by_restore() {
         before.time_remaining,
         running.time_remaining
     );
-    ambition_platformer2d::runtime::rollback::session_health(app.world())
+    ambition_platformer2d::rollback::session_health(app.world())
         .expect("the demo's registered state resimulates checksum-identical");
 
     // Save → MUTATE → restore: poke a score no gameplay produced, outside any
@@ -145,6 +145,6 @@ fn a_dirty_level_state_mutation_is_rolled_back_by_restore() {
         "a dirty out-of-band score must be OVERWRITTEN by the rollback restore \
          — surviving it means MaryOLevelState is not actually snapshot/restored"
     );
-    ambition_platformer2d::runtime::rollback::session_health(app.world())
+    ambition_platformer2d::rollback::session_health(app.world())
         .expect("the run stays checksum-identical after the dirty write is rolled back");
 }

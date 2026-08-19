@@ -48,7 +48,19 @@ pub use ambition_platformer2d_core::snapshot::{
     Reader, SnapshotCursor, SnapshotResolve, SnapshotState, StateHasher,
 };
 pub use ambition_platformer2d_runtime::rollback::{
-    AmbitionRollbackApp, RollbackRegistrationDescriptor, RollbackRegistry,
+    RollbackEntryKind, RollbackRegistrationDescriptor, RollbackRegistry,
+};
+pub use ambition_platformer2d_rollback_ggrs::{
+    AdvanceWorld, AdvanceWorldSystems, AmbitionGgrsSession, AmbitionRollbackApp,
+    AmbitionRollbackPlugin, ConfirmedFrameCount, GgrsRollbackRegistrar, GgrsSchedule, LoadWorld,
+    LoadWorldSystems, Rollback, RollbackChecksumProbes, RollbackEnginePlugin, RollbackFrameCount,
+    RollbackRestoreAudit, RunGgrsSystems, SaveWorld,
+};
+pub use ambition_platformer2d_rollback_ggrs::local_session;
+pub use ambition_platformer2d_rollback_ggrs::session::{
+    drive_control_frame, drive_seat_frame, session_health, session_is_active,
+    start_sync_test_session, stop_session, stop_session_deferred, RollbackExecutionStats,
+    RollbackSessionOwnership, RollbackSessionStatus, SyncTestOwner, SyncTestSettings,
 };
 
 /// How a rollback session should be brought up.
@@ -389,11 +401,11 @@ impl RollbackHealth {
 /// to prevent — the reason is the part a reader acts on, and it is the same
 /// prose the NEXT session would inherit.
 pub fn health(app: &App) -> RollbackHealth {
-    use ambition_platformer2d_runtime::rollback::{RollbackFrameCount, RollbackSessionStatus};
+    use ambition_platformer2d_rollback_ggrs::{RollbackFrameCount, RollbackSessionStatus};
 
     let world = app.world();
     let status = world.get_resource::<RollbackSessionStatus>();
-    if !ambition_platformer2d_runtime::rollback::session_is_active(world) {
+    if !ambition_platformer2d_rollback_ggrs::session_is_active(world) {
         // No live session: the only honest report is what is left to say about
         // the timeline that ended, which is its diagnosis or nothing.
         return match RollbackSessionStatus::carried_from(status).invalidation {
@@ -445,7 +457,7 @@ pub fn health(app: &App) -> RollbackHealth {
 ///
 /// Calling this on a host with no session is a no-op, not an error.
 pub fn stop(app: &mut App) {
-    ambition_platformer2d_runtime::rollback::stop_session(app.world_mut());
+    ambition_platformer2d_rollback_ggrs::stop_session(app.world_mut());
 }
 
 /// Bring a composed rollback host up to a running session.
@@ -461,7 +473,7 @@ pub fn start(app: &mut App, plan: RollbackPlan) -> Result<RollbackSession, Rollb
     let is_rollback_host = app
         .world()
         .get_resource::<ambition_platformer2d_runtime::SimulationHost>()
-        .is_some_and(|host| host.is_ggrs());
+        .is_some_and(|host| host.is_rollback());
     let declared = app.world().get_resource::<DeclaredParticipants>().copied();
     let (true, Some(DeclaredParticipants(participants))) = (is_rollback_host, declared) else {
         return Err(RollbackRefused::NotComposedForRollback);
@@ -511,10 +523,10 @@ pub fn start(app: &mut App, plan: RollbackPlan) -> Result<RollbackSession, Rollb
         return Err(RollbackRefused::NoAuthoritativeState);
     }
 
-    let settings = ambition_platformer2d_runtime::rollback::SyncTestSettings {
+    let settings = ambition_platformer2d_rollback_ggrs::SyncTestSettings {
         check_distance: plan.check_distance,
         max_prediction_window: plan.prediction_window,
-        ..ambition_platformer2d_runtime::rollback::SyncTestSettings::for_players(participants)
+        ..ambition_platformer2d_rollback_ggrs::SyncTestSettings::for_players(participants)
     };
     // ⚠ The EFFECTIVE count, not the requested one. `player_count` clamps into
     // what a session can build, and reporting the request back would let this
@@ -522,7 +534,7 @@ pub fn start(app: &mut App, plan: RollbackPlan) -> Result<RollbackSession, Rollb
     // refuses out-of-range counts so the clamp should now be a no-op — reading
     // it here is what keeps that true rather than assumed.
     let participants = settings.player_count();
-    ambition_platformer2d_runtime::rollback::start_sync_test_session(app.world_mut(), settings)
+    ambition_platformer2d_rollback_ggrs::start_sync_test_session(app.world_mut(), settings)
         .map_err(|error| RollbackRefused::SessionRejected(error.to_string()))?;
     app.update();
 

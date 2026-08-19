@@ -358,7 +358,7 @@ pub struct RequiredRollbackState {
 /// TRAIT METHOD the domain invokes, not a line in the netcode crate. The
 /// implementor supplies the machinery and names `bevy_ggrs`; the domain supplies
 /// `T` and the projection. Generic-over-`T` was never an argument for owning the
-/// list of `T`s: `ambition_platformer2d_runtime::rollback::AmbitionRollbackApp`
+/// list of `T`s: `ambition_platformer2d_rollback_ggrs::AmbitionRollbackApp`
 /// already demonstrated the typed façade, one crate too high up.
 ///
 /// ⚠ **methods are generic, so this trait is NOT object-safe, and must not
@@ -507,6 +507,28 @@ pub trait RollbackRegistrar {
         panic!("RollbackRegistrar does not support rollback_component_clone_checksum for {name}")
     }
 
+    /// Clone-snapshot a component and checksum a domain projection while preserving
+    /// an exact, domain-owned schema description.
+    ///
+    /// Unlike [`Self::rollback_component_clone_checksum`], `detail` is already the
+    /// complete schema detail and is recorded verbatim. Use this when the stable
+    /// schema identity intentionally owns its prose rather than composing a
+    /// backend storage description with a projection description.
+    fn rollback_component_clone_checksum_with_schema_detail<T>(
+        &mut self,
+        _owner: &'static str,
+        name: &'static str,
+        _detail: &'static str,
+        _checksum: for<'a> fn(&'a T) -> u64,
+    ) -> &mut Self
+    where
+        T: bevy_ecs::component::Component<Mutability = bevy_ecs::component::Mutable> + Clone,
+    {
+        panic!(
+            "RollbackRegistrar does not support rollback_component_clone_checksum_with_schema_detail for {name}"
+        )
+    }
+
     fn rollback_resource_canonical<T>(
         &mut self,
         _owner: &'static str,
@@ -579,6 +601,23 @@ pub trait RollbackRegistrar {
     where
         T: bevy_ecs::resource::Resource + Clone;
 
+    /// Resource twin of
+    /// [`Self::rollback_component_clone_checksum_with_schema_detail`].
+    fn rollback_resource_clone_checksum_with_schema_detail<T>(
+        &mut self,
+        _owner: &'static str,
+        name: &'static str,
+        _detail: &'static str,
+        _checksum: for<'a> fn(&'a T) -> u64,
+    ) -> &mut Self
+    where
+        T: bevy_ecs::resource::Resource + Clone,
+    {
+        panic!(
+            "RollbackRegistrar does not support rollback_resource_clone_checksum_with_schema_detail for {name}"
+        )
+    }
+
     fn rollback_map_entities<T>(
         &mut self,
         _owner: &'static str,
@@ -636,6 +675,21 @@ pub trait RollbackRegistrar {
         panic!("RollbackRegistrar does not support declare_rollback_derived_component for {name}")
     }
 
+    /// Declare derived component state with a canonical value projection for
+    /// restore localization. The backend may use the projection for diagnostics
+    /// without snapshotting the derived value itself.
+    fn declare_rollback_derived_component_state<T>(
+        &mut self,
+        _owner: &'static str,
+        name: &'static str,
+        _reason: &'static str,
+    ) -> &mut Self
+    where
+        T: bevy_ecs::component::Component + SnapshotState,
+    {
+        panic!("RollbackRegistrar does not support declare_rollback_derived_component_state for {name}")
+    }
+
     fn declare_rollback_derived_resource<T>(
         &mut self,
         _owner: &'static str,
@@ -646,6 +700,19 @@ pub trait RollbackRegistrar {
         T: bevy_ecs::resource::Resource,
     {
         panic!("RollbackRegistrar does not support declare_rollback_derived_resource for {name}")
+    }
+
+    /// Resource twin of [`Self::declare_rollback_derived_component_state`].
+    fn declare_rollback_derived_resource_state<T>(
+        &mut self,
+        _owner: &'static str,
+        name: &'static str,
+        _reason: &'static str,
+    ) -> &mut Self
+    where
+        T: bevy_ecs::resource::Resource + SnapshotState,
+    {
+        panic!("RollbackRegistrar does not support declare_rollback_derived_resource_state for {name}")
     }
 
     fn declare_dynamic_anchor<T>(

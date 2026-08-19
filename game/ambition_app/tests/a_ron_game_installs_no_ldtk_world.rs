@@ -136,7 +136,7 @@ const LDTK_ROLLBACK_ROW: &str = "root.ldtk_runtime_index";
 /// Does this composition's snapshot schema contain the LDtk world's row?
 fn schema_names_the_ldtk_row(world: &ambition_platformer2d::bevy::prelude::World) -> bool {
     world
-        .get_resource::<ambition_platformer2d::runtime::rollback::RollbackRegistry>()
+        .get_resource::<ambition_platformer2d::rollback::RollbackRegistry>()
         .expect(
             "no RollbackRegistry in this composition, so the schema question was never \
              actually asked — the engine group installs one in every game",
@@ -196,7 +196,7 @@ fn a_ron_authored_composition_installs_no_ldtk_spine_and_no_ldtk_rollback_row() 
     // engine group, and a populated one is proof the group ran.
     let registry_rows = app
         .world()
-        .get_resource::<ambition_platformer2d::runtime::rollback::RollbackRegistry>()
+        .get_resource::<ambition_platformer2d::rollback::RollbackRegistry>()
         .expect("the RON-authored composition installed no RollbackRegistry, so it never \
                  reached the state where a stray LDtk registration could be observed")
         .descriptors()

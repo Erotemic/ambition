@@ -302,7 +302,7 @@ fn a_confirmed_commit_refuses_to_rebase_over_a_diverged_session() {
 
     // Poison: as if the sim diverged this window.
     sim.world_mut()
-        .resource_mut::<ambition_platformer2d::runtime::rollback::RollbackSessionStatus>()
+        .resource_mut::<ambition_platformer2d::rollback::RollbackSessionStatus>()
         .mismatch_frames
         .push(-999);
 

@@ -1867,7 +1867,12 @@ severity = "error"
 # ⭐ `bevy_ecs_ldtk` STAYS DENIED, and that is the half with teeth: the runtime
 # may compose the adapter crate; it may not name the third-party backend the
 # adapter exists to contain.
-deny = ["ambition_app", "ambition_content", "ambition_platformer2d_host", "ambition_render", "ambition_touch_input", "ambition_inventory_ui", "bevy_ecs_ldtk"]
+# 2026-08-19: concrete rollback hosting moved out as well. The generic runtime
+# owns backend-neutral schema/composition metadata; selecting a concrete rollback
+# backend is an upper composition decision. Naming either the dedicated backend
+# crate or `bevy_ggrs` here would recreate the dependency inversion the carve
+# removed.
+deny = ["ambition_app", "ambition_content", "ambition_platformer2d_host", "ambition_render", "ambition_touch_input", "ambition_inventory_ui", "ambition_platformer2d_rollback_ggrs", "bevy_ecs_ldtk", "bevy_ggrs"]
 manifest = "crates/ambition_platformer2d_runtime/Cargo.toml"
 
 [[policy]]
@@ -1892,7 +1897,35 @@ roots = ["crates/ambition_platformer2d_runtime/src"]
 # as the rule has been red. So it was a waiver exempting nothing, sitting under a
 # rule that was failing on five lines it did not cover: the exact shape of a
 # waiver that reassures a reader without checking anything.
-forbid = ["ambition_render::", "ambition_platformer2d_host::", "ambition_content::", "ambition_app::", "ambition_touch_input::", "ambition_inventory_ui::", "bevy_ecs_ldtk::"]
+forbid = ["ambition_render::", "ambition_platformer2d_host::", "ambition_content::", "ambition_app::", "ambition_touch_input::", "ambition_inventory_ui::", "ambition_platformer2d_rollback_ggrs::", "bevy_ecs_ldtk::", "bevy_ggrs::"]
+# The registrar deliberately preserves the historical descriptor text because
+# descriptors are part of the stable rollback schema fingerprint. This is inert
+# metadata, not a Rust path or backend dependency; changing it merely to satisfy
+# the source scanner would churn prepared-content identity.
+allow_lines = ["component presence automatically installs bevy_ggrs::Rollback"]
+
+[[policy]]
+id = "engine.rollback-ggrs-backend-member"
+scope = "engine"
+kind = "workspace-member"
+owners = ["ambition_platformer2d_rollback_ggrs"]
+watch_paths = ["Cargo.toml"]
+rationale = "The concrete GGRS host is a dedicated composition/backend crate rather than an implementation detail owned by the generic platformer runtime."
+source_doc = "docs/planning/engine/simulation-authority-and-determinism.md"
+severity = "error"
+members = ["ambition_platformer2d_rollback_ggrs"]
+
+[[policy]]
+id = "engine.rollback-ggrs-backend-no-product-deps"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_platformer2d_rollback_ggrs"]
+watch_paths = ["crates/ambition_platformer2d_rollback_ggrs/Cargo.toml"]
+rationale = "The rollback backend adapts the engine simulation to GGRS. It may depend downward on simulation/domain vocabulary, but never upward on the public facade, product content, app shell, renderer, or windowed host."
+source_doc = "docs/planning/engine/simulation-authority-and-determinism.md"
+severity = "error"
+manifest = "crates/ambition_platformer2d_rollback_ggrs/Cargo.toml"
+deny = ["ambition_platformer2d", "ambition_content", "ambition_app", "ambition_render", "ambition_platformer2d_host"]
 
 
 # was: architecture_boundaries_control_frame_lives_with_engine_body_contract

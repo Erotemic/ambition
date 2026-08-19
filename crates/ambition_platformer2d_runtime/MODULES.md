@@ -20,7 +20,7 @@
 | [`portal_schedule`](src/portal_schedule.rs) | Portal simulation assembly (E5 step 5, behind the `portal` feature): [`ambition_portal2d::PortalPlugin`] plus the schedule placement for portal's internal sets — each mapped to its sandbox phase, cross-set ordering edge, and gameplay run condition. |
 | [`progression_schedule`](src/progression_schedule.rs) | Progression-phase schedule plugin. |
 | [`projectile_schedule`](src/projectile_schedule.rs) | Projectile schedule seams owned by the runtime composition tier. |
-| [`rollback`](src/rollback/mod.rs) | Ambition's integration boundary for `ggrs` + `bevy_ggrs`. |
+| [`rollback`](src/rollback/mod.rs) | Backend-neutral rollback schema composition. Concrete GGRS hosting lives in `ambition_platformer2d_rollback_ggrs`. |
 | [`room_schedule`](src/room_schedule.rs) | The engine half of the room-transition phase (E5 step 5): detection emits `RoomTransitionRequested`; the feature-side `reset_ecs_room_features` system tears down per-room ECS state. |
 | [`room_transition`](src/room_transition/mod.rs) | Ordinary room transitions, end to end — the ENGINE's copy. |
 | [`sandbox_reset`](src/sandbox_reset.rs) | The sandbox reset authority and its room-replay consumer. |

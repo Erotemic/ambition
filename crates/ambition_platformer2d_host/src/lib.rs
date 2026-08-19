@@ -165,7 +165,7 @@ impl Plugin for HostInputBindingsPlugin {
         let rollback_host = app
             .world()
             .get_resource::<ambition_platformer2d_runtime::SimulationHost>()
-            .is_some_and(|host| host.is_ggrs());
+            .is_some_and(|host| host.is_rollback());
         // BOTH LATCHES, for a fixed-tick host AND a rollback one.
         //
         // `SlotControlLatches` needs no system of its own:

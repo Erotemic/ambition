@@ -196,11 +196,11 @@ fn living_enemies(sim: &mut Platformer2dSimHarness) -> Vec<(f32, f32)> {
 fn which_component_does_the_lifecycle_reset_divergence_live_in() {
     let mut sim = repro_sim();
     sim.world_mut()
-        .insert_resource(ambition_platformer2d::runtime::rollback::RollbackRestoreAudit::enabled());
+        .insert_resource(ambition_platformer2d::rollback::RollbackRestoreAudit::enabled());
 
     let probes = sim
         .world()
-        .resource::<ambition_platformer2d::runtime::rollback::RollbackChecksumProbes>()
+        .resource::<ambition_platformer2d::rollback::RollbackChecksumProbes>()
         .len();
     assert!(
         probes > 0,
@@ -227,7 +227,7 @@ fn which_component_does_the_lifecycle_reset_divergence_live_in() {
 
     let audit = sim
         .world()
-        .resource::<ambition_platformer2d::runtime::rollback::RollbackRestoreAudit>();
+        .resource::<ambition_platformer2d::rollback::RollbackRestoreAudit>();
     // Vacuity guard FIRST: a localizer that compared nothing must not read as
     // "nothing diverged".
     assert!(

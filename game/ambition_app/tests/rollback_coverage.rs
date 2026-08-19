@@ -97,14 +97,6 @@ const WAIVED: &[(&str, &str)] = &[
         "ambition_entity_catalog::",
         "authored contract, immutable during a session",
     ),
-    (
-        "ambition_platformer2d_shared_tangle::construction::schema_catalog::ConstructionSchemaCatalog",
-        "composition-time construction schema descriptors, assembled before a session \
-         starts and immutable for its lifetime. The prepared-content fingerprint \
-         already binds these descriptors into session identity; changing the \
-         installed construction schemas creates a different composition/session \
-         rather than state a rollback could reach",
-    ),
     // ── The SESSION ROOT entity ──────────────────────────────────────────────
     //
     // Pulled into the population once it was derived from the rollback vocabulary:
@@ -210,7 +202,7 @@ fn waiver(type_name: &str) -> Option<&'static str> {
 /// participates in, and therefore one whose every component has to be accounted for.
 fn rollback_vocabulary(sim: &mut Platformer2dSimHarness) -> BTreeSet<String> {
     sim.world()
-        .get_resource::<ambition_platformer2d::runtime::rollback::RollbackRegistry>()
+        .get_resource::<ambition_platformer2d::rollback::RollbackRegistry>()
         .expect("rollback registry is installed by the engine plugins")
         .descriptors()
         .map(|d| d.type_name.clone())
@@ -338,11 +330,11 @@ pub(crate) fn unaccounted_components(sim: &mut Platformer2dSimHarness) -> BTreeM
     // kind here costs nothing and closes that hole.
     let known: BTreeSet<String> = sim
         .world()
-        .get_resource::<ambition_platformer2d::runtime::rollback::RollbackRegistry>()
+        .get_resource::<ambition_platformer2d::rollback::RollbackRegistry>()
         .expect("rollback registry is installed by the engine plugins")
         .descriptors()
         .filter(|d| {
-            d.kind != ambition_platformer2d::runtime::rollback::RollbackEntryKind::RequiredRollback
+            d.kind != ambition_platformer2d::rollback::RollbackEntryKind::RequiredRollback
         })
         .map(|d| d.type_name.clone())
         .collect();
@@ -385,7 +377,7 @@ pub(crate) fn waived_components(
 ) -> BTreeMap<String, &'static str> {
     let known: BTreeSet<String> = sim
         .world()
-        .get_resource::<ambition_platformer2d::runtime::rollback::RollbackRegistry>()
+        .get_resource::<ambition_platformer2d::rollback::RollbackRegistry>()
         .expect("rollback registry is installed by the engine plugins")
         .descriptors()
         .map(|d| d.type_name.clone())
@@ -1031,7 +1023,7 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     // Waived rather than exempted: this sweep caught the localizer the moment it
     // was added, which is the sweep working correctly on its own author.
     (
-        "ambition_platformer2d_runtime::rollback::probes::",
+        "ambition_platformer2d_rollback_ggrs::probes::",
         "rollback diagnostics: measures the rewind, is not reproduced by it",
     ),
     // **Whether the twintrack spacetime MINIMAP is showing.** A viewer's toggle
@@ -1401,12 +1393,28 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "the presentation PROFILE stack: HUD declarations and readouts, safe-area          insets, control footprints, the resolved profile. Every one is a          statement about the display, and the display is not rewound",
     ),
     (
+        "ambition_platformer2d_shared_tangle::construction::schema_catalog::ConstructionSchemaCatalog",
+        "descriptor-only construction metadata assembled during composition and bound into prepared-content identity. It records which typed construction schemas this App was built with; simulation ticks do not mutate it, and rewinding it would change composition identity rather than restore world state",
+    ),
+    (
         "ambition_persistence::",
         "where this App keeps its files and what it last wrote. Disk, not world",
     ),
     (
-        "ambition_platformer2d_runtime::rollback::session::",
+        "ambition_platformer2d_rollback_ggrs::session::",
         "the ROLLBACK DRIVER's own state — pending inputs, session status,          execution stats. This is the machinery doing the rewinding, and it is          the one thing a rewind must not rewind",
+    ),
+    (
+        "ambition_platformer2d_rollback_ggrs::registration::GgrsInstalledRegistrations",
+        "backend-install idempotence bookkeeping: populated while rollback declarations are installed into the App, never by the simulation. Rewinding it would mutate which snapshot plugins the process believes are installed rather than restore world state",
+    ),
+    (
+        "ambition_platformer2d_runtime::RollbackHostReady",
+        "composition marker installed once by the selected rollback backend before the simulation runs. It says which host machinery this App was assembled with; no simulation tick can change that fact",
+    ),
+    (
+        "ambition_platformer2d_runtime::RollbackConfirmationState",
+        "current rollback-driver confirmation health. It is host authority ABOUT whether speculative work may be promoted, updated by session lifecycle/mismatch handling outside the rewound world; rewinding the authority doing the rewind would be backwards",
     ),
     (
         "ambition_platformer2d_actor_monolith::audio::environment::AudioEnvironment",
@@ -1513,7 +1521,7 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "the announcement that a session scope ENDED — the same authority and the          same writer as `ActiveSessionScope` above (`translate_shell_session_lifecycle`,          registered in literal `Update`, verified 2026-08-06), so a rewind cannot          re-run it. It arrived on the census with K2b edit 2: a build-time root          never retired a scope because it never had an activation to retire.          ⚠ this waiver goes stale with its sibling's, and for the same reason — if          that system ever moves into `app.sim_schedule()`, BOTH arguments fail          together",
     ),
     (
-        "ambition_platformer2d_runtime::rollback::local_session::",
+        "ambition_platformer2d_rollback_ggrs::local_session::",
         "WHO OWNS the local session and how deeply it verifies — the policy and          the ownership record. Same argument as the driver state above and the          same module family in spirit: this decides whether a session EXISTS,          so a rewind that restored it would be restoring the thing doing the          restoring. ⚠ it is also not per-tick state: the policy changes when a          developer asks for a proof pulse, and the ownership record when          gameplay starts or ends",
     ),
     // The struck-block flinch, which is presentation and is keyed to nothing the
@@ -1596,7 +1604,7 @@ fn unwrap_message_buffer(name: &str) -> &str {
 /// declared derived, nor waived.
 fn unaccounted_resources(world: &World) -> Vec<String> {
     let known: BTreeSet<String> = world
-        .get_resource::<ambition_platformer2d::runtime::rollback::RollbackRegistry>()
+        .get_resource::<ambition_platformer2d::rollback::RollbackRegistry>()
         .expect("rollback registry is installed by the engine plugins")
         .descriptors()
         .map(|d| d.type_name.clone())
@@ -1848,9 +1856,9 @@ fn sim_with_a_stopped_clock() -> Platformer2dSimHarness {
 
 /// Every RESTORED resource — not the derived ones — the registry knows about.
 pub(crate) fn restored_resource_type_names(world: &World) -> BTreeSet<String> {
-    use ambition_platformer2d::runtime::rollback::RollbackEntryKind;
+    use ambition_platformer2d::rollback::RollbackEntryKind;
     world
-        .get_resource::<ambition_platformer2d::runtime::rollback::RollbackRegistry>()
+        .get_resource::<ambition_platformer2d::rollback::RollbackRegistry>()
         .expect("rollback registry is installed by the engine plugins")
         .descriptors()
         .filter(|descriptor| {
@@ -1964,7 +1972,7 @@ fn the_render_frame_sweep_actually_catches_a_write_from_outside_the_sim() {
 /// frame, so there is no such thing as a render-only frame there to probe", and
 /// that was WRONG — reasoned rather than checked, hours after a whole session
 /// spent on exactly that mistake. `build_visible_app` sets
-/// `SimulationHost::Ggrs` under `dev_tools`, so the shell app's sim lives in
+/// `SimulationHost::Rollback` under `dev_tools`, so the shell app's sim lives in
 /// `GgrsSchedule` and stopping the fixed-step clock leaves `Update` running over
 /// a still simulation, same as here. `versus_stage::
 /// no_render_only_frame_of_the_shipped_host_writes_rollback_state` is that
@@ -2092,9 +2100,9 @@ fn inert_waiver(components: &BTreeSet<String>) -> Option<&'static str> {
 /// Type names registered as SNAPSHOT state for a component (not resources, not
 /// anchors, not derived declarations).
 fn component_state_registrations(sim: &mut Platformer2dSimHarness) -> BTreeSet<String> {
-    use ambition_platformer2d::runtime::rollback::RollbackEntryKind as K;
+    use ambition_platformer2d::rollback::RollbackEntryKind as K;
     sim.world()
-        .get_resource::<ambition_platformer2d::runtime::rollback::RollbackRegistry>()
+        .get_resource::<ambition_platformer2d::rollback::RollbackRegistry>()
         .expect("rollback registry is installed by the engine plugins")
         .descriptors()
         .filter(|d| {
@@ -2114,9 +2122,9 @@ fn component_state_registrations(sim: &mut Platformer2dSimHarness) -> BTreeSet<S
 
 /// Type names whose PRESENCE puts an entity in the rollback envelope.
 fn rollback_anchors(sim: &mut Platformer2dSimHarness) -> BTreeSet<String> {
-    use ambition_platformer2d::runtime::rollback::RollbackEntryKind as K;
+    use ambition_platformer2d::rollback::RollbackEntryKind as K;
     sim.world()
-        .get_resource::<ambition_platformer2d::runtime::rollback::RollbackRegistry>()
+        .get_resource::<ambition_platformer2d::rollback::RollbackRegistry>()
         .expect("rollback registry is installed by the engine plugins")
         .descriptors()
         .filter(|d| matches!(d.kind, K::RequiredRollback | K::DynamicAnchor))
@@ -2306,7 +2314,7 @@ fn playing_the_shipped_composition_introduces_no_unaccounted_resource() {
     );
     assert!(
         app.world()
-            .get_resource::<ambition_platformer2d::runtime::rollback::AmbitionGgrsSession>()
+            .get_resource::<ambition_platformer2d::rollback::AmbitionGgrsSession>()
             .is_some(),
         "no GGRS session after activating the gameplay route — the simulation did \
          not run, so this sweep is measuring the composed world twice"

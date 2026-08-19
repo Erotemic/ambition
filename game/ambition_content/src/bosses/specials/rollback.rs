@@ -3,8 +3,9 @@
 //! `docs/planning/engine/netcode.md` N3.1: *"each sim crate registers its components'
 //! serialization."* These eleven Technique states are sim state — a `fired_this_strike`
 //! latch that survives a rollback is a strike that fires twice — and no crate below
-//! `ambition_content` can name them. `AmbitionRollbackApp` installs the real `bevy_ggrs` snapshot/checksum plugins and
-//! records the exact schema identity owned by this content crate.
+//! `ambition_content` can name them. The content domain declares them through
+//! the backend-neutral `RollbackRegistrar`; the selected host decides whether
+//! that means schema metadata only or concrete snapshot/checksum machinery.
 //!
 //! That is the whole seam. It needed a resource, not a trait relocation: the codec
 //! trait must live where `ambition_platformer2d_runtime` can implement it for `ambition_time` and
@@ -12,8 +13,8 @@
 //! `ambition_content` names. Moving the trait down would trade one orphan-rule problem
 //! for a worse one.
 
-use ambition_platformer2d_runtime::rollback::{
-    put_bool, put_f32, put_u32, put_vec2, AmbitionRollbackApp, Reader, SnapshotCursor,
+use ambition_platformer2d_core::snapshot::{
+    put_bool, put_f32, put_u32, put_vec2, Reader, RollbackRegistrar, SnapshotCursor,
     SnapshotState,
 };
 use bevy::prelude::*;
@@ -24,11 +25,10 @@ use super::{
     SeismicStompState,
 };
 
-/// Add every boss-special state to the GGRS rollback contract. Called from
-/// `BossSpecialContentPlugin::build`; registration is plugin-order independent.
-pub(super) fn register(app: &mut App) {
+/// Add every boss-special state to the rollback contract.
+pub(super) fn register(registrar: &mut impl RollbackRegistrar) {
     const OWNER: &str = "ambition_content::bosses::specials";
-    app.rollback_component_canonical::<EchoFanState>(OWNER, "content.echo_fan_state")
+    registrar.rollback_component_canonical::<EchoFanState>(OWNER, "content.echo_fan_state")
         .rollback_component_canonical::<SeismicStompState>(OWNER, "content.seismic_stomp_state")
         .rollback_component_canonical::<ExplodingGradientState>(
             OWNER,

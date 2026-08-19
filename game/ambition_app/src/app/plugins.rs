@@ -96,6 +96,15 @@ pub fn add_simulation_plugins(app: &mut App) {
         .copied()
         .unwrap_or_default();
 
+    // A semantic rollback host does not itself name a concrete Bevy schedule.
+    // Install the selected backend BEFORE any content/simulation plugin can ask
+    // `app.sim_schedule()` where to register. The generic engine group below
+    // then verifies `RollbackHostReady` and assembles against the schedule the
+    // backend selected.
+    if simulation_host.is_rollback() {
+        app.add_plugins(ambition_platformer2d::rollback::AmbitionRollbackPlugin);
+    }
+
     app.add_plugins(super::sim_resources::AmbitionGameSimulationSetupPlugin);
 
     // Named Ambition game content: quests, bosses, dialogue/cutscenes, intro
@@ -119,7 +128,9 @@ pub fn add_simulation_plugins(app: &mut App) {
     // collection/interaction/effects/view-sync, room reset, traces,
     // affordances, and the combat-phase chain. Ordering is set-based, so
     // group membership does not change the resolved schedule.
-    app.add_plugins(ambition_platformer2d::runtime::PlatformerEnginePlugins::new(simulation_host));
+    app.add_plugins(ambition_platformer2d::runtime::PlatformerEnginePlugins::new(
+        simulation_host,
+    ));
 
     // ⭐ **Ambition is the game that HAS an LDtk world, so Ambition says so.**
     // The spine and its rollback row used to ride the engine group, which meant
@@ -127,6 +138,16 @@ pub fn add_simulation_plugins(app: &mut App) {
     // is the composition statement that replaced it; it must come after the
     // group, which is what sets `SimulationHost` for the rollback registrar.
     app.add_plugins(ambition_platformer2d::runtime::LdtkWorldPlugin);
+
+    // Ambition-specific content and the selected LDtk backend live above the
+    // content-free engine and therefore are not part of its declaration list.
+    // Under rollback, install those same domain-owned declarations through the
+    // concrete backend registrar after the backend has built.
+    if simulation_host.is_rollback() {
+        let mut registrar = ambition_platformer2d::rollback::GgrsRollbackRegistrar::new(app);
+        ambition_content::register_rollback_state(&mut registrar);
+        ambition_platformer2d::ldtk_map::register_rollback_state(&mut registrar);
+    }
 
     // App-LOCAL residue the E5 step-5 carve deliberately left behind. The
     // engine group above registers the shared per-frame wiring (player input

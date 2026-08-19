@@ -277,6 +277,26 @@ pub fn register(app: &mut App) {
 /// registry resource, and installs the cut-rope Yarn vocabulary + mirror feed.
 pub struct AmbitionBossContentPlugin;
 
+
+pub fn register_rollback_state(registrar: &mut impl ambition_platformer2d_core::snapshot::RollbackRegistrar) {
+    registrar
+        .rollback_resource_clone::<CutRopeHeavyObjectCycle>(
+            "ambition_content::bosses",
+            "content.cut_rope_heavy_object_cycle",
+        )
+        .rollback_resource_clone_checksum_with_schema_detail::<PendingCutRopeRoomReplay>(
+            "ambition_content::bosses",
+            "content.pending_cut_rope_room_replay",
+            "the dialogue-authored room replay, latched until the conversation ends",
+            |pending| u64::from(pending.requested),
+        )
+        .clear_message_on_rollback::<CutRopeRoomReplayRequested>(
+            "ambition_content::bosses",
+            "message.cut_rope_room_replay_requested",
+        );
+    specials::register_rollback_state(registrar);
+}
+
 impl Plugin for AmbitionBossContentPlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
@@ -302,40 +322,12 @@ impl Plugin for AmbitionBossContentPlugin {
         app.add_plugins(ambition_conversation::NarrativeInputPlugin::<
             CutRopeRoomReplayRequested,
         >::default());
-        // The cycle advances on room reset, and a reset can be sim-triggered
-        // (`NewGameResetRequested` is rollback state) — so a rewound reset that
-        // replays must not advance the choice twice. Copy-cheap; registered
-        // through the same content seam the specials use.
+        // The cycle/replay state is content-owned rollback state. Record its
+        // host-independent schema here; the selected rollback host installs the
+        // same declarations later from the application composition layer.
         {
-            use ambition_platformer2d_runtime::rollback::AmbitionRollbackApp;
-            app.rollback_resource_clone::<CutRopeHeavyObjectCycle>(
-                "ambition_content::bosses",
-                "content.cut_rope_heavy_object_cycle",
-            );
-            // ⛔ **the replay latch was WAIVED as "presentation-gated", and it
-            // spans ticks.** The choice is recorded while the last line is still
-            // on screen; the reset fires whenever the player dismisses it, an
-            // unbounded number of ticks later. A rewind across the choice kept
-            // the intention and a rewind across the reset lost it. Now that both
-            // ends are simulation systems, it is ordinary sim state.
-            //
-            // ⭐ **CHECKSUMMED, unlike the `SaveRestored` latch it looks
-            // like.** That one is set in literal `Update`, outside resimulation,
-            // so projecting it into the checksum made it disagree with the ticks
-            // the checksum covers. Both ends of this one are simulation systems
-            // now, so it moves in step — and a one-bool resource whose only
-            // probe is PRESENCE is probed by nothing at all, because presence is
-            // `true` from `init_resource` onwards.
-            app.rollback_resource_clone_checksum::<PendingCutRopeRoomReplay>(
-                "ambition_content::bosses",
-                "content.pending_cut_rope_room_replay",
-                "the dialogue-authored room replay, latched until the conversation ends",
-                |pending| u64::from(pending.requested),
-            );
-            app.clear_message_on_rollback::<CutRopeRoomReplayRequested>(
-                "ambition_content::bosses",
-                "message.cut_rope_room_replay_requested",
-            );
+            let mut registrar = ambition_platformer2d_runtime::rollback::SchemaRollbackRegistrar::new(app);
+            register_rollback_state(&mut registrar);
         }
 
         // The named per-boss special-attack Techniques (state attachment +

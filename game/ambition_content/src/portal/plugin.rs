@@ -36,6 +36,15 @@ use super::transit_body_adapter::{
 };
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
+pub fn register_rollback_state(
+    registrar: &mut impl ambition_platformer2d_core::snapshot::RollbackRegistrar,
+) {
+    registrar.rollback_component_clone::<crate::portal::host_adapter::PortalHostScanned>(
+        "ambition_content",
+        "portal.host_scanned",
+    );
+}
+
 /// Installs the Ambition-specific portal input/inventory adapters.
 pub struct AmbitionPortalAdaptersPlugin;
 
@@ -107,9 +116,10 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         //
         // This is the same shape as the unregistered `Collected` latch the rollback
         // oracle caught earlier: a marker whose ABSENCE is a decision.
-        ambition_platformer2d::runtime::rollback::AmbitionRollbackApp::rollback_component_clone::<
-            crate::portal::host_adapter::PortalHostScanned,
-        >(app, "ambition_content", "portal.host_scanned");
+        {
+            let mut registrar = ambition_platformer2d_runtime::rollback::SchemaRollbackRegistrar::new(app);
+            register_rollback_state(&mut registrar);
+        }
 
         // Bridge portal-owned carves → the host collision overlay. Runs in
         // `PortalSet::Carves` (which is `.before(CoreSimulation)`), after

@@ -361,7 +361,7 @@ pub fn build_sync_test_session(
     let players = settings.player_count();
     let mut builder = SessionBuilder::<AmbitionGgrsConfig>::new()
         .with_num_players(players)?
-        .with_fps(crate::SIM_TICK_HZ as usize)?
+        .with_fps(ambition_platformer2d_runtime::SIM_TICK_HZ as usize)?
         .with_max_prediction_window(settings.max_prediction_window)
         .with_check_distance(settings.check_distance);
     for handle in 0..players {
@@ -507,7 +507,13 @@ fn install_session_with_ownership(
     // remembering — one of the four remembered.
     let carried_status =
         RollbackSessionStatus::carried_from(world.get_resource::<RollbackSessionStatus>());
+    let confirmation = if carried_status.is_healthy() {
+        ambition_platformer2d_runtime::RollbackConfirmationState::Healthy
+    } else {
+        ambition_platformer2d_runtime::RollbackConfirmationState::Unhealthy
+    };
     world.insert_resource(carried_status);
+    world.insert_resource(confirmation);
     // Per-session counters restart; lifetime totals do not. A caller measuring
     // a whole run must not have its measurement silently zeroed by a rebase it
     // did not ask for and cannot see (AC18).
@@ -553,6 +559,7 @@ pub fn stop_session(world: &mut World) {
     // to their non-rollback behavior immediately. Leaving this installed would
     // strand pending effects and keep confirmed-state save gates closed forever.
     world.remove_resource::<ConfirmedFrameBoundary>();
+    world.insert_resource(ambition_platformer2d_runtime::RollbackConfirmationState::Unavailable);
 }
 
 /// Queue the exact same teardown from a regular Bevy system.
@@ -665,7 +672,7 @@ pub(crate) fn install_session_bridge(app: &mut App) {
     // Only a speculating host quarantines external effects, so the whole
     // mechanism is installed HERE rather than in the engine group: a fixed-tick
     // or render-frame game carries none of these systems at all.
-    crate::external_effects::quarantine_presentation_effects(app, LoadWorld);
+    ambition_platformer2d_runtime::external_effects::quarantine_presentation_effects(app, LoadWorld);
 
     // ⭐ **THE SESSION OWNER, and it is the engine's.** A GGRS host that never
     // installs a session never simulates; before this the only installer was the
@@ -746,7 +753,7 @@ pub(crate) fn install_session_bridge(app: &mut App) {
                 // Publishes the restored frame, which the abandoned-branch
                 // discard reads. The edge is required, not incidental.
                 mark_historical_replay
-                    .before(crate::external_effects::ExternalEffectSet::DiscardAbandoned),
+                    .before(ambition_platformer2d_runtime::external_effects::ExternalEffectSet::DiscardAbandoned),
                 count_load_run.in_set(super::AmbitionLoadWorldSet::Reconcile),
             ),
         )
@@ -765,7 +772,7 @@ pub(crate) fn install_session_bridge(app: &mut App) {
                 crate::lifecycle_commit::commit_confirmed_lifecycle
                     .after(RunGgrsSystems)
                     .after(clear_historical_replay)
-                    .after(crate::external_effects::ExternalEffectSet::Release),
+                    .after(ambition_platformer2d_runtime::external_effects::ExternalEffectSet::Release),
             ),
         )
         // Effects may only be released once this render frame's advances are
@@ -774,7 +781,7 @@ pub(crate) fn install_session_bridge(app: &mut App) {
         // presentation — silently, since the journal has already counted it.
         .configure_sets(
             PreUpdate,
-            crate::external_effects::ExternalEffectSet::Release.after(RunGgrsSystems),
+            ambition_platformer2d_runtime::external_effects::ExternalEffectSet::Release.after(RunGgrsSystems),
         )
         .add_observer(record_sync_test_mismatch);
 }
@@ -885,7 +892,7 @@ fn publish_ggrs_input(
 /// External effects (audio, VFX) no longer read it at all: "ran before" is not
 /// "is settled", and answering the wrong question is what made the old
 /// `SfxEmissionGate` keep phantoms and drop corrections. They now go through
-/// [`crate::external_effects`], which defers rather than suppresses.
+/// [`ambition_platformer2d_runtime::external_effects`], which defers rather than suppresses.
 ///
 /// What remains are consumers that genuinely need to know a frame is being
 /// revisited: the forensic trace uses it to avoid consuming per-logical-frame
@@ -963,10 +970,12 @@ fn count_load_run(mut stats: ResMut<RollbackExecutionStats>) {
 fn record_sync_test_mismatch(
     trigger: On<SyncTestMismatch>,
     mut status: ResMut<RollbackSessionStatus>,
+    mut confirmation: ResMut<ambition_platformer2d_runtime::RollbackConfirmationState>,
 ) {
     status
         .mismatch_frames
         .extend(trigger.event().mismatched_frames.iter().copied());
+    *confirmation = ambition_platformer2d_runtime::RollbackConfirmationState::Unhealthy;
 }
 
 fn enforce_session_contract(world: &mut World) {
@@ -1031,6 +1040,7 @@ fn invalidate_session(world: &mut World, reason: String) {
     world
         .get_resource_or_insert_with::<RollbackSessionStatus>(Default::default)
         .invalidation = Some(reason);
+    world.insert_resource(ambition_platformer2d_runtime::RollbackConfirmationState::Unhealthy);
 }
 
 fn live_content_identity(world: &mut World) -> Option<PreparedContentIdentity> {

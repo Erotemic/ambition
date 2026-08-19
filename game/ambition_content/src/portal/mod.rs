@@ -34,7 +34,7 @@ pub use input_adapter::{pick_aim, portal_input_adapter_system};
 pub use inventory_adapter::{
     drop_portal_gun_system, equip_portal_gun, pickup_portal_gun_system, unequip_portal_gun,
 };
-pub use plugin::AmbitionPortalAdaptersPlugin;
+pub use plugin::{register_rollback_state, AmbitionPortalAdaptersPlugin};
 pub use reset_adapter::bridge_room_reset_to_clear_portals;
 pub use sfx_adapter::play_portal_sfx;
 pub use shot_adapter::portal_projectile_step;

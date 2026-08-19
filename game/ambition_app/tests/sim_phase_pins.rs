@@ -66,7 +66,7 @@ use bevy::ecs::schedule::{ScheduleLabel, Schedules, SystemSet};
 use bevy::prelude::*;
 
 use ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith as Phase;
-use ambition_platformer2d::runtime::rollback::GgrsSchedule;
+use ambition_platformer2d::rollback::GgrsSchedule;
 
 /// How many systems the set owns in that schedule, or `None` when the set has no
 /// node there at all.

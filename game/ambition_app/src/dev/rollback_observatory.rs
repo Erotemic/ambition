@@ -23,7 +23,7 @@ use bevy::prelude::*;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::developer_hotkeys::DeveloperAction;
 use ambition_platformer2d::render::ui_fonts::{UiFontWeight, UiFonts};
-use ambition_platformer2d::runtime::rollback::{
+use ambition_platformer2d::rollback::{
     self, AdvanceWorld, AdvanceWorldSystems, AmbitionGgrsSession, ConfirmedFrameCount, LoadWorld,
     LoadWorldSystems, Rollback, RollbackFrameCount, RollbackSessionStatus, RunGgrsSystems,
 };
@@ -189,7 +189,7 @@ impl Plugin for RollbackObservatoryPlugin {
             .world()
             .get_resource::<ambition_platformer2d::runtime::SimulationHost>()
             .copied()
-            != Some(ambition_platformer2d::runtime::SimulationHost::Ggrs)
+            != Some(ambition_platformer2d::runtime::SimulationHost::Rollback)
         {
             return;
         }
@@ -264,7 +264,7 @@ impl Plugin for RollbackObservatoryPlugin {
 /// so the GGRS host itself had to be gated on the same feature and a shipped
 /// build without dev tooling could not use one.
 ///
-/// The lifecycle moved to `runtime::rollback::local_session`, which owns it for
+/// The lifecycle moved to the rollback backend's `local_session`, which owns it for
 /// every composition. What is left here is the part that really is a developer's:
 /// **how many frames the session should verify**, raised for a proof pulse and
 /// dropped back afterwards. The owner notices the policy changed and restarts.

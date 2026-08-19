@@ -210,7 +210,7 @@ open smells; entry kept for the analysis below.
 - **Suggested fix / size:** S per facade — repoint consumers at canonical homes (`ambition_platformer2d_shared_tangle` for `PrimaryPlayer`/`GravityField` etc.), delete the re-exports. Mechanical, sonnet-gradable.
 
 ## 2026-07-19 `enforce_session_contract` re-fingerprints the whole rollback registry every frame
-- **Where:** `crates/ambition_platformer2d_runtime/src/rollback/session.rs:282-300`.
+- **Where:** `crates/ambition_platformer2d_rollback_ggrs/src/session.rs`.
 - **Smell:** clones the entire `RollbackRegistry` (~165 String-heavy descriptors) and recomputes a blake3 schema fingerprint in `PreUpdate` while any session is active — every frame of every dev build. Correct but wasteful.
 - **Suggested fix / size:** S — compute the fingerprint once at session start (registry is immutable while a session is active) and compare the cached value.
 

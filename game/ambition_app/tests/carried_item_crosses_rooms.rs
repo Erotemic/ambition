@@ -856,3 +856,188 @@ fn an_untouched_placement_is_authored_on_every_entry_and_a_reset_rebuilds_it() {
          authors it — not in somebody's hand"
     );
 }
+
+// ---------------------------------------------------------------------------
+// **The three-way composition nothing exercised** (2026-08-19).
+//
+// Every test above drives the HOME AVATAR: it picks the item up, walks it
+// through the door, and the object survives because
+// `project_custody_onto_residency` makes a held object non-resident when its
+// holder is not `RoomScopedEntity` — which the session-scoped home avatar never
+// is.
+//
+// ⚠ **I predicted this would FAIL for a possessed body and I was wrong**, which
+// is worth writing down because the wrong prediction is the reason the test
+// exists and the right answer is the thing it now guards. The reasoning was: an
+// authored actor is room-scoped, so the projection would read it as *"a room
+// fixture's hand"*, leave the object RESIDENT, and let the room change retire it
+// while `carry_body` carried the body itself.
+//
+// ⭐ **what actually happens is that POSSESSION PROMOTES THE BODY'S LIFETIME.**
+// `possess_target` removes `RoomScopedEntity` and inserts `SessionScopedEntity`,
+// for its own reason — *"a room-scoped actor despawns on every room load; the
+// home avatar you drive is session-scoped precisely so it survives transitions"*
+// — and that promotion is what makes the custody projection's rule true of a
+// possessed holder as well.
+//
+// ⛔⛔ **so two subsystems that never name each other agree by way of a third
+// fact, and NOTHING said so.** Possession promotes a scope to save the BODY;
+// custody reads that scope to decide the ITEM. Poison-verified: delete the
+// promotion and this test reports the carried object destroyed at the door. That
+// coupling is the thing under guard here — not the happy path.
+// ---------------------------------------------------------------------------
+
+const POSSESS_TARGET_ID: &str = "carry_while_possessed";
+
+/// Possess an actor standing beside the home avatar, and return its entity.
+///
+/// Hold Down+Interact across several commit windows — the mechanic commits on a
+/// whole hold window, and the target weaves around its own attack range, so a
+/// single window can land just out of the possession radius.
+fn possess_an_actor(sim: &mut Platformer2dSimHarness) -> Entity {
+    use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
+    use ambition_platformer2d::actors::features::FeatureId;
+    use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
+
+    let here = {
+        let world = sim.world_mut();
+        let mut q = world
+            .query_filtered::<&ambition_platformer2d::actors::actor::BodyKinematics,
+                ambition_platformer2d::actors::actor::PrimaryPlayerOnly>();
+        q.single(world).expect("primary player").pos
+    };
+    sim.spawn_enemy_character_at(
+        POSSESS_TARGET_ID,
+        "Carry Target",
+        (here.x + 60.0, here.y),
+        (14.0, 23.0),
+        CharacterBrain::Custom("cellular_automaton_fighter".to_string()),
+        "perfect_cellular_automaton",
+    );
+    let actor = {
+        let world = sim.world_mut();
+        let mut q = world.query::<(Entity, &FeatureId)>();
+        q.iter(world)
+            .find(|(_, id)| id.as_str() == POSSESS_TARGET_ID)
+            .map(|(entity, _)| entity)
+            .expect("the spawned actor is present")
+    };
+    for i in 0..900 {
+        sim.step(AgentAction {
+            move_y: 1.0,
+            interact: i == 0,
+            interact_held: true,
+            ..base()
+        });
+        if sim.world_mut().resource::<PossessionState>().possessed == Some(actor) {
+            return actor;
+        }
+    }
+    panic!("setup: holding Down+Interact never possessed the actor");
+}
+
+/// Put a body somewhere, through its kinematics — the possessed body is not the
+/// primary player, so `teleport_player` moves the wrong entity.
+fn place_body(sim: &mut Platformer2dSimHarness, body: Entity, at: (f32, f32)) {
+    let world = sim.world_mut();
+    let mut kin = world
+        .get_mut::<ambition_platformer2d::actors::actor::BodyKinematics>(body)
+        .expect("the body has kinematics");
+    kin.pos = ambition_platformer2d::engine_core::Vec2::new(at.0, at.1);
+    kin.vel = ambition_platformer2d::engine_core::Vec2::ZERO;
+}
+
+/// **An object carried by a POSSESSED body goes through the door with it.**
+///
+/// ⛔ the failure this catches is silent and asymmetric: the body arrives, the
+/// room is right, the hand still says it is holding something, and the OBJECT is
+/// gone — retired by the room change because its holder was room-scoped. A test
+/// asserting only "the room changed" or only "the body arrived" passes straight
+/// through it, which is why both of those are asserted here as SETUP and the
+/// object's survival is the claim.
+#[test]
+fn an_item_carried_by_a_possessed_body_survives_the_door_too() {
+    use ambition_platformer2d::actors::items::pickup::ItemCustody;
+
+    let mut sim = fixed_60hz_room_sim(SOURCE_ROOM);
+    for _ in 0..10 {
+        sim.step(base());
+    }
+    assert_eq!(sim.observation().active_room.as_str(), SOURCE_ROOM);
+
+    let (item, authored) = authored_item(&mut sim);
+    let actor = possess_an_actor(&mut sim);
+
+    // ── THE POSSESSED BODY picks it up ──────────────────────────────────────
+    let (x, y) = item_pos(&sim, item);
+    place_body(&mut sim, actor, (x, y));
+    sim.step(AgentAction {
+        attack: true,
+        ..base()
+    });
+    sim.step(base());
+    let holder = match custody(&sim, item) {
+        Some(ItemCustody::Held { holder }) => holder,
+        other => panic!(
+            "the possessed body pressed Attack on the item and did not take custody \
+             ({other:?}) — the pickup resolves through `ControlledSubject`, so this is \
+             a different defect from the one under test and must not be read as one"
+        ),
+    };
+    assert_eq!(
+        holder, actor,
+        "the POSSESSED body must be the custodian, not the vacated home avatar — \
+         otherwise this test crosses the door holding the wrong thing and proves \
+         nothing about a room-scoped holder"
+    );
+
+    // ── AND CARRIES IT THROUGH A REAL DOOR ──────────────────────────────────
+    let before = sim.observation().active_room.clone();
+    let door = door_to(&mut sim, TARGET_ROOM);
+    let centre = door.aabb.center();
+    place_body(&mut sim, actor, (centre.x, centre.y));
+    let mut arrived = None;
+    for _ in 0..60 {
+        let room = sim
+            .step(AgentAction {
+                interact: true,
+                interact_held: true,
+                ..base()
+            })
+            .active_room;
+        if room != before {
+            arrived = Some(room);
+            break;
+        }
+    }
+    let arrived = arrived.expect(
+        "the possessed body held interact in the door for 60 frames and the room never \
+         changed; it cannot use a door at all while carrying, which is a different bug",
+    );
+    assert_eq!(arrived, TARGET_ROOM);
+
+    // CLAIM: the object survived, as itself, still held.
+    assert!(
+        sim.world().get_entity(item).is_ok(),
+        "the object a POSSESSED body carried was destroyed by the room transition. \
+         `project_custody_onto_residency` makes a held object non-resident only when \
+         its holder is NOT `RoomScopedEntity`, and what makes that true of a possessed \
+         body is `possess_target` PROMOTING it out of room scope. If that promotion \
+         moved or went away, the body still crosses (carry_body carries it) and the \
+         thing in its hand is retired at the door"
+    );
+    assert_eq!(
+        sim.world().get::<SimId>(item),
+        Some(&authored),
+        "and it is the object it was authored as — no despawn, no re-mint"
+    );
+    assert!(
+        matches!(custody(&sim, item), Some(ItemCustody::Held { holder: h }) if h == actor),
+        "it arrived still in the possessed body's custody"
+    );
+    assert_eq!(
+        occurrences(&mut sim, &authored).len(),
+        1,
+        "exactly one occurrence claims the authored identity after the crossing"
+    );
+}

@@ -327,7 +327,18 @@ pub fn possession_trigger_system(
         });
     // PROMOTE the possessed body out of room scope. A room-scoped actor despawns
     // on every room load; the home avatar you drive is session-scoped precisely so
-    // it survives transitions and can navigate anywhere. Possession makes the
+    // it survives transitions and can navigate anywhere.
+    //
+    // ⛔⛔ **AND THE ITEM DOMAIN DEPENDS ON THIS WITHOUT NAMING IT (2026-08-19).**
+    // `items::pickup::project_custody_onto_residency` decides whether a HELD
+    // object travels by asking whether its HOLDER is room-scoped — so this
+    // promotion, made to save the body, is also the only reason an object in a
+    // possessed body's hand is not retired at the door. Two subsystems that never
+    // reference each other agree by way of this one component write.
+    // `an_item_carried_by_a_possessed_body_survives_the_door_too` is the guard:
+    // delete the three lines below and it reports the carried object destroyed at
+    // the door (poison-verified). ⇒ if this promotion ever moves, that projection
+    // needs a different question, not a patch. Possession makes the
     // target the body you drive, so it takes the same lifetime — otherwise it
     // would vanish the instant you carried it through an exit (or die during a
     // rollback-confirmed transition's delay, which is exactly the substitution

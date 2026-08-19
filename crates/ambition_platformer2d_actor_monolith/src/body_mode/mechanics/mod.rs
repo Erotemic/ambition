@@ -94,7 +94,7 @@ pub fn update_body_mode(
         };
         // Intent comes from the body's own `ActorControl` (already gravity/mode
         // resolved by the brain), and the double-tap-down morph gesture from the
-        // controller's slot — never raw `ControlFrame` or a `PlayerInputFrame`.
+        // controller's slot — never raw device input or an entity-local copy.
         let control = &control.0;
 
         // Mid-action mechanics own the body shape — don't fight them.
@@ -114,7 +114,7 @@ pub fn update_body_mode(
         // "Descend" gate: crouch is "press toward the controlled body's feet".
         // The brain already resolved raw device axes into `locomotion` (local frame,
         // gravity- and input-mode-relative), so we consume THAT directly — no second
-        // resolve, no `PlayerInputFrame`. `up_held` replaces the old raw up-edge for
+        // resolve, no entity-local input copy. `up_held` replaces the old raw up-edge for
         // the unmorph gesture: a held-up (or jump) stands the body up.
         // The body's OWN per-tick resolved frame (ADR 0024) — never a global
         // field: a possessed body inside a rotated-gravity zone crouches and

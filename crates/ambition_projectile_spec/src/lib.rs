@@ -3,56 +3,52 @@
 //! Carved out of `ambition_platformer2d_shared_tangle` (2026-08-02) for one
 //! measured reason: `ambition_vfx` imported exactly ONE item from that 16,927-line
 //! crate — [`ProjectileSpawn`] — and that single edge was the last thing keeping
-//! `ambition_platformer2d_core` in its build closure.
+//! `ambition_platformer2d_core` in its build closure. The projectile spawn-road
+//! migration later removed projectile transport from `ambition_vfx` entirely;
+//! this crate remains the lower authored-intent vocabulary consumed by the
+//! projectile domain and re-exported by the shared projectile primitive.
 //!
 //! ## Why this is the first carve that actually decouples anything
 //!
 //! Four crates had been carved off the core crate before this one, and every one
 //! of them still reached core transitively through a SECOND platformer
 //! dependency (`cargo tree --edges normal -i` says so). They bought honest
-//! manifests, not decoupling. `ambition_vfx` had two edges — core, dropped when
-//! `ambition_geometry` appeared, and `shared_tangle`, dropped here — and its
-//! other two dependencies (`ambition_geometry`, `ambition_sfx`) are already
-//! core-free. So it is the first crate to genuinely leave.
+//! manifests, not decoupling. At the time, `ambition_vfx` had two edges — core,
+//! dropped when `ambition_geometry` appeared, and `shared_tangle`, dropped here.
+//! The later spawn-road migration removed its projectile edge entirely; that is
+//! the intended success condition of a carve like this, not a reason to move the
+//! vocabulary back upward.
 //!
-//! ## ⛔ Why its two siblings could NOT come with it
+//! ## The remaining physics vocabulary
 //!
-//! `ProjectileSpec` and `WorldHitPolicy` are equally content-free and belong
-//! here on every other measure. They are blocked, and not by the rollback
-//! FINGERPRINT that blocks the snapshot codec — by the **orphan rule**:
+//! `ProjectileSpec` and `WorldHitPolicy` still live in the shared projectile
+//! primitive because their `SnapshotState` implementations are owned there today.
+//! When `ProjectileSpawn` was first carved out, moving either sibling would also
+//! have pulled the rollback/core edge into every consumer of this crate — including
+//! the old VFX projectile transport. This migration removes that VFX dependency, so
+//! that historical blocker no longer determines the effect crate's closure.
 //!
-//! ```text
-//! snapshot_impls.rs:  snapshot_unit_enum!(crate::projectile::WorldHitPolicy { … })
-//! ```
-//!
-//! That macro implements core's `SnapshotState` for `WorldHitPolicy` from inside
-//! `shared_tangle`. Move the type here and that impl becomes a foreign trait on a
-//! foreign type — it stops compiling. Moving the impl too would make THIS crate
-//! depend on core for `SnapshotState`, which puts core straight back into
-//! `ambition_vfx`'s closure and defeats the carve entirely. `ProjectileSpec`
-//! follows it, because it carries a `world_hit: WorldHitPolicy` field.
-//!
-//! ⭐ **so the snapshot codec's home blocks carve-outs TWICE over**, by two
-//! independent mechanisms: it moves the rollback fingerprint (queue S30), and it
-//! anchors trait impls to whichever crate owns the trait. Only the first was
-//! written down. Both are arguments for the same decision.
-//!
-//! When S30 lands and the codec leaves core, `ProjectileSpec` and
-//! `WorldHitPolicy` should join this crate — that is what it is shaped for, and
-//! why it is named for the vocabulary rather than for the one type it holds today.
+//! Moving the remaining physics vocabulary is therefore a separate ownership
+//! decision, not unfinished spawn-road work: it should happen only with its codec
+//! ownership so there is still one source of projectile physics truth. This crate
+//! stays the lower authored-intent vocabulary until that boundary is deliberately
+//! changed.
 
 use bevy_math::Vec2;
 
 /// A request to spawn one in-flight projectile: origin, direction, speed,
-/// damage, lifetime, size, owner id, gravity.
+/// damage, lifetime, size, gravity, and presentation id. Ownership is carried by
+/// the projectile domain's `ProjectileSpawnRequest`, not duplicated as a string.
 ///
-/// Substrate-neutral data — the effect vocabulary and both projectile pools
-/// build bodies from it, and nothing here knows what a platform is.
+/// Substrate-neutral data — projectile producers lower this through the
+/// projectile domain's single spawn-request seam, and nothing here knows what a
+/// platform is or which side fired it.
 ///
 /// ⚠ was `EnemyProjectileSpawn`, named for a historical enemy-pool origin it
-/// outgrew: the player pool builds these too, and its own doc already said "it
-/// is pool-agnostic". A type whose name contradicts its documentation is a
-/// standing invitation to add an enemy-only assumption to it.
+/// outgrew. The pool distinction is gone now; open-visual projectile producers
+/// use the same authoritative request/materialization road as named body fire.
+/// A type whose name contradicts its documentation is a standing invitation to
+/// add an enemy-only assumption to it.
 #[derive(Clone, Debug)]
 pub struct ProjectileSpawn {
     pub origin: Vec2,
@@ -60,9 +56,6 @@ pub struct ProjectileSpawn {
     pub speed: f32,
     pub damage: i32,
     pub max_lifetime: f32,
-    /// Id of the spawning actor — self-friendly-fire ignore lists, sprite
-    /// routing in the visuals layer, debug traces.
-    pub owner_id: String,
     pub half_extent: Vec2,
     /// Per-second downward acceleration each tick. Zero for hitscan-like
     /// volleys; positive for arcing/falling projectiles (e.g. apple rain).

@@ -258,9 +258,8 @@ pub fn apply_effects(mut commands: Commands, mut requests: MessageReader<EffectR
                     },
                 );
             }
-            // Materialized by lib-side executors next to their substrate
-            // (`apply_summon_effects` / projectile effect-request executor).
-            Effect::Summon(_) | Effect::Projectiles { .. } => {}
+            // Materialized by the actor-construction executor beside its substrate.
+            Effect::Summon(_) => {}
         }
     }
 }

@@ -8,6 +8,7 @@ use ambition_characters::actor::attack_gesture::{
     AttackGestureState, AttackGestureTuning, ResolvedAttackGesture,
 };
 use ambition_combat::moveset::{ActorMoveset, MovePlayback};
+use ambition_input::ControlFrame;
 use ambition_entity_catalog::{
     ClipBinding, MoveGates, MoveSpec, MoveWindow, MovesetContract, WindowTag,
 };
@@ -19,7 +20,6 @@ fn spawn_player(app: &mut App, pos: Vec2) -> Entity {
         .spawn((
             PlayerEntity,
             PrimaryPlayer,
-            PlayerInputFrame::default(),
             BodyKinematics {
                 pos,
                 vel: Vec2::ZERO,
@@ -56,17 +56,10 @@ fn items_in_world(app: &mut App) -> usize {
         .count()
 }
 
-/// Stamp the input onto BOTH the actor-local `PlayerInputFrame` (read by
-/// pickup/throw) and the `ActorControl` brain frame (read by the now
-/// subject-generic `fire_held_ranged_system`). In production
-/// `sync_local_player_input_frame` + `tick_controlled_brains` keep these coherent
-/// from the one `ControlFrame`; here we set both directly.
+/// Stamp the body-facing semantic control frame directly. Production reaches
+/// this state through `SlotControls -> Brain::Player -> ActorControl`; pickup and
+/// held-item mechanics consume only the body-facing end of that seam.
 fn set_control(app: &mut App, player: Entity, attack: bool, shield: bool) {
-    {
-        let mut input = app.world_mut().get_mut::<PlayerInputFrame>(player).unwrap();
-        input.frame.attack_pressed = attack;
-        input.frame.shield_held = shield;
-    }
     let mut control = app
         .world_mut()
         .get_mut::<ambition_characters::brain::ActorControl>(player)
@@ -382,11 +375,9 @@ fn gunsword_pickup_swaps_to_ranged_and_attack_fires_a_bolt() {
 
 #[test]
 fn pickup_consumes_the_attack_press() {
-    // Picking an item up must EAT the Attack press, so the same press does
-    // NOT also fire the just-equipped item this frame (the gauntlet/weapon
-    // attack systems all gate on `ControlFrame::attack_pressed`).
+    // Picking an item up must EAT the body-semantic Attack edge, so the same
+    // edge does NOT also fire the just-equipped item this frame.
     let mut app = App::new();
-    app.insert_resource(ControlFrame::default());
     app.add_systems(Update, pickup_held_item_system);
     let player = spawn_player(&mut app, Vec2::new(100.0, 100.0));
     app.world_mut().spawn(GroundItem {
@@ -403,12 +394,12 @@ fn pickup_consumes_the_attack_press() {
     );
     assert!(
         !app.world()
-            .get::<PlayerInputFrame>(player)
+            .get::<ambition_characters::brain::ActorControl>(player)
             .unwrap()
-            .frame
-            .attack_pressed,
-        "pickup must clear the actor-local attack_pressed so the same press \
-         doesn't also fire the just-equipped item (throw/fire/portal gun)"
+            .0
+            .melee_pressed,
+        "pickup must spend the body-semantic attack edge so the same press \
+         cannot also fire the just-equipped item (throw/fire/portal gun)"
     );
 }
 
@@ -422,7 +413,7 @@ fn pickup_targets_the_controlled_subject_not_a_primary_player_marker() {
     let mut app = App::new();
     app.insert_resource(ControlFrame::default());
     app.add_systems(Update, (pickup_held_item_system, throw_held_item_system));
-    // A driven body with NO PlayerEntity / PrimaryPlayer / PlayerInputFrame — just
+    // A driven body with NO PlayerEntity / PrimaryPlayer — just
     // the body-generic control + kinematics + action set.
     let body = app
         .world_mut()
@@ -446,7 +437,7 @@ fn pickup_targets_the_controlled_subject_not_a_primary_player_marker() {
         vel: Vec2::ZERO,
         half_extent: Vec2::splat(PICKUP_HALF),
     });
-    // Drive an Attack on the body's OWN control frame (not a PlayerInputFrame).
+    // Drive an Attack on the body's own semantic control frame.
     app.world_mut()
         .get_mut::<ambition_characters::brain::ActorControl>(body)
         .unwrap()
@@ -868,29 +859,6 @@ fn an_item_stowed_from_the_menu_returns_to_the_world_and_can_be_taken_again() {
         Some(&authored),
         "with the identity it was authored with — a stow does not mint a replacement",
     );
-}
-
-#[test]
-fn held_shot_aim_resolves_screen_input_through_the_controlled_body_frame() {
-    let mut control = ControlFrame::default();
-    control.aim_x = 0.0;
-    control.aim_y = -1.0; // screen/world up on the right stick
-    let down = ae::Vec2::new(0.0, 1.0);
-    let left = ae::Vec2::new(-1.0, 0.0);
-
-    let down_frame = ae::AccelerationFrame::new(down);
-    let left_frame = ae::AccelerationFrame::new(left);
-    let screen = ae::ControlFrameModes {
-        movement: ae::InputFrameMode::ScreenRelative,
-        aim: ae::InputFrameMode::ScreenRelative,
-    };
-    let down_local = held_shot_aim_local(&control, 1.0, down_frame, screen);
-    let left_local = held_shot_aim_local(&control, 1.0, left_frame, screen);
-
-    assert_eq!(down_local, ae::Vec2::new(0.0, -1.0));
-    assert_eq!(left_local, ae::Vec2::new(-1.0, 0.0));
-    assert_eq!(down_frame.to_world(down_local), ae::Vec2::new(0.0, -1.0));
-    assert_eq!(left_frame.to_world(left_local), ae::Vec2::new(0.0, -1.0));
 }
 
 // ---------------------------------------------------------------------------

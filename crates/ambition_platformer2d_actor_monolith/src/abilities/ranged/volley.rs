@@ -1,8 +1,8 @@
 //! Volley — a player-wielded **ranged** boss attack: a fan of bolts that damage
-//! enemies, fired through the shared projectile pool.
+//! enemies, fired through the shared projectile request/materialization road.
 //!
 //! This is the ranged counterpart to `crate::abilities::ranged::shockwave` (the wielded AOE). The
-//! pool used to be faction-segregated — `update_enemy_projectiles` only ever
+//! old pool used to be faction-segregated — its enemy-only stepper only ever
 //! damaged the player — so a player-fired bolt in it would hit the player. Now
 //! damage routes off the FIRER's real `ActorFaction` (looked up from the
 //! projectile's owner entity): a player-owned shot damages enemies/bosses and
@@ -14,7 +14,7 @@ use bevy::prelude::*;
 
 use crate::actor::BodyKinematics;
 use crate::actor::BodyMana;
-use crate::enemy_projectile::ProjectileSpawn;
+use crate::projectile::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
 use crate::features::HeldItem;
 use ambition_characters::brain::ActorControl;
 use ambition_platformer2d_core as ae;
@@ -55,8 +55,8 @@ fn volley_origin_world(
 }
 
 /// `Attack` while holding the volley gauntlet fires a fan of **player-faction**
-/// bolts along the aim direction (right-stick / movement axis / facing, via the
-/// shared `held_shot_aim`). Plain Attack only — `Shield + Attack` drops the item
+/// bolts along the body-semantic aim direction (`ActorControl` aim / locomotion /
+/// facing). Plain Attack only — `Shield + Attack` drops the item
 /// (the id is excluded from throw-on-plain-Attack in `throw_held_item_system`).
 pub fn fire_volley_system(
     // Ability ORIGIN = the controlled subject, not a `PrimaryPlayer` filter.
@@ -69,7 +69,7 @@ pub fn fire_volley_system(
         &HeldItem,
         &mut BodyMana,
     )>,
-    mut effects: MessageWriter<ambition_vfx::EffectRequest>,
+    mut projectiles: MessageWriter<ProjectileSpawnRequest>,
     mut sfx: ambition_sfx::BodySfxWriter,
 ) {
     let Some(subject) = controlled.0 else {
@@ -109,27 +109,25 @@ pub fn fire_volley_system(
         };
         let angle = base_angle + t * spread;
         let dir = ae::Vec2::new(angle.cos(), angle.sin());
-        effects.write(ambition_vfx::EffectRequest {
+        projectiles.write(ProjectileSpawnRequest::open(
             // The firing actor owns every bolt, so a kill attributes back to the
-            // player (the executor stamps `ProjectileOwner` from this entity).
-            owner: entity,
-            effect: ambition_vfx::Effect::Projectiles {
-                shots: vec![ProjectileSpawn {
-                    origin,
-                    dir,
-                    speed: VOLLEY_SPEED,
-                    damage: VOLLEY_DAMAGE,
-                    max_lifetime: VOLLEY_LIFETIME,
-                    half_extent: VOLLEY_HALF,
-                    owner_id: "player_volley".into(),
-                    gravity: 0.0,
-                    visual_id: String::new(),
-                    // Straight volley: this ability authors no bounce.
-                    bounces: 0,
-                    bounce_on_world_contact: false,
-                }],
+            // player (materialization stamps `ProjectileOwner` from this entity).
+            entity,
+            ProjectileSpawn {
+                origin,
+                dir,
+                speed: VOLLEY_SPEED,
+                damage: VOLLEY_DAMAGE,
+                max_lifetime: VOLLEY_LIFETIME,
+                half_extent: VOLLEY_HALF,
+                gravity: 0.0,
+                visual_id: String::new(),
+                // Straight volley: this ability authors no bounce.
+                bounces: 0,
+                bounce_on_world_contact: false,
             },
-        });
+            ProjectileStart::StepThisTick,
+        ));
     }
     sfx.write_for(
         entity,

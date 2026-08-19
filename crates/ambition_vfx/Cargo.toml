@@ -19,20 +19,6 @@ bevy = { version = "0.18.1", default-features = false }
 # Geometry (Vec2 / Aabb) — the pure-logic foundation.
 ambition_geometry = { path = "../ambition_geometry" }
 
-# The ProjectileSpawn request carried by Effect::Projectiles — and ONLY that.
-#
-# ⭐ this was `ambition_platformer2d_shared_tangle`, a 16,927-line crate from
-# which this one imported exactly ONE type. That single edge was the last path
-# from here to `ambition_platformer2d_core`; dropping the shared-tangle edge is
-# what made this crate headless and presentation-neutral. The direct
-# `ambition_platformer2d_core` edge above is
-# only the backend-neutral rollback vocabulary; it pulls no render/audio host.
-#
-# ⚠ the comment that stood here also claimed `ProjectileFaction`, which this
-# crate has never used — a manifest describing a dependency it does not have,
-# which is the same defect one level down.
-ambition_projectile_spec = { path = "../ambition_projectile_spec" }
-
 # SfxId for FxRequest's OPTIONAL cue override. ⚠ the effect's OWN cue is no
 # longer named here: it is derived from the authored effect name by the
 # presentation layer, because the bank already ships one `vfx.<family>.<row>`

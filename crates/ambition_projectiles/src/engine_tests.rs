@@ -438,7 +438,7 @@ fn motion_direction_uses_y_down_like_sandbox() {
 }
 
 /// End-to-end: a Down → Right sequence pushed using the same
-/// convention sandbox/`update_projectiles` uses must be
+/// convention `charge_projectile_input` uses must be
 /// recognized as the grace QCF. This is the test that would
 /// have failed (and caught the sign-flip bug) before the fix.
 #[test]

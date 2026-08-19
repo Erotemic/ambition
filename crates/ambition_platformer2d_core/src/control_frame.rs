@@ -19,10 +19,10 @@ use crate::RawDirectionEdges;
 /// `ambition_input`; headless tests, replay, and future netcode can populate it
 /// directly.
 ///
-/// **Multiplayer caveat (primary-player compatibility):** the legacy app still
-/// keeps one global `ControlFrame` resource for the local primary input before
-/// mirroring it into per-slot brain state. The type itself is slot-neutral and
-/// is also used by `ambition_characters::brain::SlotControls`.
+/// **Local-primary adapter:** the host still keeps one global `ControlFrame`
+/// resource at the device edge for the local primary input, then publishes that
+/// finalized value into `ambition_characters::brain::SlotControls`. The type
+/// itself is slot-neutral; no copy is stored on the controlled body.
 /// `#[serde(default)]`: an input stream recorded before a field existed loads
 /// with that field NEUTRAL, which is what the old recording meant by it. This
 /// is why adding a `ControlFrame` field does not bump `INPUT_STREAM_VERSION`.

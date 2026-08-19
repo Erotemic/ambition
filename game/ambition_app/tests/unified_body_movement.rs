@@ -7,25 +7,19 @@
 //! (WorldPrep), that integrates every non-boss sim body — home and actor — through
 //! the same engine entry. These tests prove (1) both species move under their
 //! `ActorControl` through the real schedule, (2) the old `player_body_tick` route
-//! is not registered, and (3) `Brain::Player` input authority is `SlotControls`,
-//! not the `PlayerInputFrame` compat mirror.
+//! is not registered, and (3) real participant input reaches the home body
+//! through the canonical slot-owned control path.
 
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
 use ambition_platformer2d::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
-use ambition_platformer2d::actors::control::PlayerInputFrame;
 use ambition_platformer2d::actors::features::FeatureId;
 use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
 use bevy::prelude::{Entity, World};
 
 const ENEMY_ID: &str = "unified_move_enemy";
-
-fn primary_player(world: &mut World) -> Entity {
-    let mut q = world.query_filtered::<Entity, PrimaryPlayerOnly>();
-    q.single(world).expect("primary player")
-}
 
 fn player_x(world: &mut World) -> f32 {
     let mut q = world.query_filtered::<&BodyKinematics, PrimaryPlayerOnly>();
@@ -147,59 +141,33 @@ fn player_body_tick_is_not_the_gameplay_movement_route() {
     );
 }
 
-/// `Brain::Player` gameplay input authority is `SlotControls` (the body's own
-/// slot), NOT `PlayerInputFrame`. Stamping a bogus rightward `PlayerInputFrame`
-/// directly onto the home body while the actual controller frame stays neutral must
-/// NOT move it; driving the SLOT (real input) does.
+/// Real participant input reaches `Brain::Player` through the canonical slot
+/// publication path and becomes body-facing `ActorControl`. Neutral slot input
+/// leaves the body at rest; driving the slot moves it.
 #[test]
-fn player_input_frame_is_not_brain_player_authority() {
-    use ambition_platformer2d::input::ControlFrame;
-
+fn brain_player_uses_the_slot_owned_control_path() {
     let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
         .expect("sandbox sim builds");
-    // Settle a frame so the body is grounded and at rest.
     sim.step(AgentAction::default());
-    let player = primary_player(sim.world_mut());
     let x_before = player_x(sim.world_mut());
 
-    // Stamp a full-rightward STALE PlayerInputFrame on the body. If gameplay still
-    // read PlayerInputFrame as brain authority, this would drive the body right.
-    {
-        let mut frame = ControlFrame::default();
-        frame.axis_x = 1.0;
-        let mut input = sim
-            .world_mut()
-            .get_mut::<PlayerInputFrame>(player)
-            .expect("home body carries a PlayerInputFrame compat mirror");
-        input.frame = frame;
-    }
-    // Neutral controller input → SlotControls[PRIMARY] neutral. Note: the input
-    // sync mirror overwrites PlayerInputFrame each frame, so we re-stamp it to prove
-    // that even a present stale value is inert as brain authority.
     for _ in 0..20 {
-        {
-            let mut frame = ControlFrame::default();
-            frame.axis_x = 1.0;
-            if let Some(mut input) = sim.world_mut().get_mut::<PlayerInputFrame>(player) {
-                input.frame = frame;
-            }
-        }
         sim.step(AgentAction::default());
     }
-    let x_after_stale = player_x(sim.world_mut());
+    let x_after_neutral = player_x(sim.world_mut());
     assert!(
-        (x_after_stale - x_before).abs() < 5.0,
-        "a rightward PlayerInputFrame must NOT move the body — SlotControls is the \
-         Brain::Player authority; x {x_before} -> {x_after_stale}",
+        (x_after_neutral - x_before).abs() < 5.0,
+        "neutral participant input must not manufacture horizontal body intent: \
+         x {x_before} -> {x_after_neutral}",
     );
 
-    // Positive control: driving the SLOT (real controller frame) DOES move it right.
     for _ in 0..20 {
         sim.step(AgentAction::move_x(1.0));
     }
     let x_after_slot = player_x(sim.world_mut());
     assert!(
-        x_after_slot > x_after_stale + 5.0,
-        "driving the slot input moves the home body right: {x_after_stale} -> {x_after_slot}",
+        x_after_slot > x_after_neutral + 5.0,
+        "driving the canonical slot input moves the home body right: \
+         {x_after_neutral} -> {x_after_slot}",
     );
 }

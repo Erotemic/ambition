@@ -13,8 +13,7 @@ use ambition_platformer2d_actor_monolith::actor::{BodyKinematics, PlayerEntity};
 use ambition_boss_encounter::BossClusterRef;
 use ambition_platformer2d_actor_monolith::features::{ActorTarget, FeatureSimEntity};
 use ambition_platformer2d_core::{self as ae, AabbExt};
-use ambition_projectiles::enemy::ProjectileSpawn;
-use ambition_vfx::{Effect, EffectRequest};
+use ambition_projectiles::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
 
 /// approximate target point and the strike spawns a single line of fast
 /// projectile boxes toward it. Content-owned; attached via
@@ -24,10 +23,6 @@ pub struct EyeBeamState {
     pub locked_target: Option<ae::Vec2>,
     pub fired_this_strike: bool,
 }
-
-/// Owner-id prefix for this technique's beam projectiles (self / friendly-fire
-/// filtering + traces ONLY). Named for the technique, not the boss that wields it.
-const EYE_BEAM_OWNER_PREFIX: &str = "eye_beam";
 
 /// The eye-beam special's content key (matches the boss-schedule
 /// `Special("eye_beam")` beats in `boss_profiles.ron`).
@@ -52,7 +47,7 @@ const LIFETIME_S: f32 = 0.58;
 /// because the cut-rope boss needs one readable beam rather than a cloud of
 /// slow memorized shots. Params are content-owned consts (above).
 pub fn spawn_eye_beam_from_special_messages(
-    mut effects: MessageWriter<EffectRequest>,
+    mut projectiles: MessageWriter<ProjectileSpawnRequest>,
     mut messages: MessageReader<ActorActionMessage>,
     player_query: Query<&BodyKinematics, With<PlayerEntity>>,
     mut bosses: Query<
@@ -140,25 +135,23 @@ pub fn spawn_eye_beam_from_special_messages(
         let spacing = box_spacing.max(1.0);
         for i in 0..count {
             let beam_origin = origin + dir * spacing * f32::from(i);
-            effects.write(EffectRequest {
-                owner: entity,
-                effect: Effect::Projectiles {
-                    shots: vec![ProjectileSpawn {
-                        origin: beam_origin,
-                        dir,
-                        speed: shot_speed.max(1.0),
-                        damage,
-                        max_lifetime: lifetime_s.max(0.05),
-                        half_extent: ae::Vec2::new(half_x.max(1.0), half_y.max(1.0)),
-                        owner_id: format!("{}:{}", EYE_BEAM_OWNER_PREFIX, boss.config.id),
-                        gravity: 0.0,
-                        visual_id: String::new(),
-                        // Straight shot: this ability authors no bounce.
-                        bounces: 0,
-                        bounce_on_world_contact: false,
-                    }],
+            projectiles.write(ProjectileSpawnRequest::open(
+                entity,
+                ProjectileSpawn {
+                    origin: beam_origin,
+                    dir,
+                    speed: shot_speed.max(1.0),
+                    damage,
+                    max_lifetime: lifetime_s.max(0.05),
+                    half_extent: ae::Vec2::new(half_x.max(1.0), half_y.max(1.0)),
+                    gravity: 0.0,
+                    visual_id: String::new(),
+                    // Straight shot: this ability authors no bounce.
+                    bounces: 0,
+                    bounce_on_world_contact: false,
                 },
-            });
+                ProjectileStart::StepThisTick,
+            ));
         }
         state.fired_this_strike = true;
         state.locked_target = None;

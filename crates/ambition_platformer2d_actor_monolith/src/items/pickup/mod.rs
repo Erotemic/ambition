@@ -16,14 +16,12 @@ pub mod minted_horizon;
 use bevy::prelude::*;
 
 use crate::actor::BodyKinematics;
-use crate::control::PlayerInputFrame;
 use crate::features::HeldItem;
 use crate::platformer_runtime::prelude::SpawnScopedExt;
 use ambition_characters::brain::ActorControl;
 use ambition_characters::brain::{
     ActionSet, HeldItemSpec, HeldUseBehavior, MeleeActionSpec, SwipeSpec,
 };
-use ambition_input::ControlFrame;
 use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_platformer2d_shared_tangle::lifecycle::SpawnSessionScopedExt;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
@@ -1388,7 +1386,7 @@ pub fn unequip_portal_gun(
 /// SUBJECT-GENERIC (like `fire_held_ranged_system`): it acts on the
 /// [`ControlledSubject`](ambition_platformer2d_shared_tangle::markers::ControlledSubject)
 /// — the body you are DRIVING physically grabs the item — reading that body's own
-/// `ActorControl` (brain output), NOT `PlayerInputFrame` + `PrimaryPlayer`. The
+/// `ActorControl` (brain output), not a player-identity-specific input path. The
 /// held item is EXPLICITLY owned by the controlled body; the catalog grant lands
 /// on the global `OwnedItems` home inventory. One item at a time: a body already
 /// holding an item (or the portal gun) can't grab another.
@@ -1409,7 +1407,6 @@ pub fn pickup_held_item_system(
         &BodyKinematics,
         &mut ActionSet,
         Option<&HeldItem>,
-        Option<&mut PlayerInputFrame>,
     )>,
     // Holding the portal gun blocks a pickup (portal builds only).
     #[cfg(feature = "portal")] portal_guns: Query<&PortalGun>,
@@ -1419,7 +1416,7 @@ pub fn pickup_held_item_system(
     let Some(player) = controlled.0 else {
         return;
     };
-    let Ok((mut control, kin, mut action_set, held, input)) = bodies.get_mut(player) else {
+    let Ok((mut control, kin, mut action_set, held)) = bodies.get_mut(player) else {
         return;
     };
     // One item at a time: already holding a physical item, or the portal gun.
@@ -1430,13 +1427,11 @@ pub fn pickup_held_item_system(
     if portal_guns.get(player).is_ok() {
         return;
     }
-    // Gameplay authority is the body's brain-resolved `ActorControl`, not the
-    // `PlayerInputFrame` compat mirror.
+    // Gameplay authority is the body's brain-resolved `ActorControl`.
     if !control.0.melee_pressed {
         return;
     }
     let player_aabb = ae::Aabb::new(kin.pos, kin.size * 0.5);
-    let mut input = input;
     for (mut ground, mut custody) in &mut grounds {
         // Only an item that is IN THE WORLD can be grabbed. Without this a
         // second body could take an item straight out of the first body's hand,
@@ -1482,13 +1477,10 @@ pub fn pickup_held_item_system(
             // The Attack press is *consumed* by the pickup so the same press
             // doesn't also fire the just-equipped item this frame. Clear the
             // brain-resolved `ActorControl` (the subject-generic held-item / ability
-            // systems — blink/grapple/gun — read `melee_pressed` there) AND, if this
-            // body carries one, the `PlayerInputFrame` compat mirror (the portal-gun
-            // gesture adapter still reads it).
+            // systems — blink/grapple/gun — read `melee_pressed` there). Raw slot
+            // input is immutable intent for this tick; action consumers arbitrate
+            // on body state and commit by spending the semantic control edge.
             control.0.melee_pressed = false;
-            if let Some(input) = input.as_deref_mut() {
-                input.frame.attack_pressed = false;
-            }
             // ⭐ **THE ITEM IS NOT DESTROYED — its custody changes.** This used
             // to be `commands.entity(ground_entity).despawn()`, and with it went
             // the item's `SimId`, its `SpawnOrigin`, and any possibility of the
@@ -1520,7 +1512,7 @@ pub fn pickup_held_item_system(
 /// SUBJECT-GENERIC: acts on the
 /// [`ControlledSubject`](ambition_platformer2d_shared_tangle::markers::ControlledSubject)
 /// — the body you drive throws the item it holds — reading that body's own
-/// `ActorControl`, not `PlayerInputFrame` + `PrimaryPlayer`.
+/// `ActorControl`, not a player-identity-specific input path.
 ///
 /// ⭐ **and it CONSUMES the press, exactly as the pickup does.** A held weapon
 /// owns the Attack press (`trigger_moveset_moves` arbitrates that from
@@ -1752,67 +1744,17 @@ fn emit_fireball_explosion(
     });
 }
 
-/// Legacy screen/raw aim helper. Prefer [`held_shot_aim_local`] or
-/// [`held_shot_aim_world`] in gameplay systems so aiming crosses the input seam
-/// once and then lives in the controlled body's frame.
-pub fn held_shot_aim(control: &ControlFrame, facing: f32) -> Vec2 {
-    let aim = Vec2::new(control.aim_x, control.aim_y);
-    if aim.length() > 0.3 {
-        return aim.normalize_or_zero();
-    }
-    let mv = Vec2::new(control.axis_x, control.axis_y);
-    if mv.length() > 0.3 {
-        return mv.normalize_or_zero();
-    }
-    Vec2::new(if facing >= 0.0 { 1.0 } else { -1.0 }, 0.0)
-}
-
-/// Resolve held-item aim into the controlled body's local frame, choosing the
-/// frame policy by INPUT SOURCE per [`ae::ControlFrameModes`]: the precision-aim
-/// stick wins (precision aiming → `modes.aim`), then the movement stick
-/// (locomotion → `modes.movement`), then local facing. Thin `ControlFrame`
-/// adapter over [`ae::AccelerationFrame::resolve_aim_local`].
-pub fn held_shot_aim_local(
-    control: &ControlFrame,
-    facing: f32,
-    frame: ae::AccelerationFrame,
-    modes: ae::ControlFrameModes,
-) -> Vec2 {
-    frame
-        .resolve_aim_local(
-            modes,
-            ae::ScreenAxes::new(control.aim_x, control.aim_y),
-            ae::ScreenAxes::new(control.axis_x, control.axis_y),
-            facing,
-        )
-        .vec()
-}
-
-/// Resolve held-item aim into world space after crossing the input seam through
-/// [`held_shot_aim_local`].
-pub fn held_shot_aim_world(
-    control: &ControlFrame,
-    facing: f32,
-    gravity_dir: Vec2,
-    modes: ae::ControlFrameModes,
-) -> Vec2 {
-    let frame = ae::AccelerationFrame::new(gravity_dir);
-    frame.to_world(held_shot_aim_local(control, facing, frame, modes))
-}
-
 /// Body-generic ability aim in the CONTROLLED BODY'S LOCAL frame, taken from the
 /// brain-resolved [`ActorControlFrame::aim`] (the brain already crossed the input
-/// seam via the aim frame mode), falling back to local facing when neutral. This
-/// is the subject-generic counterpart to [`held_shot_aim_local`]: it reads the
-/// body's `ActorControl` (present on ANY controlled body — player or possessed
-/// actor) rather than a player-only `ControlFrame`, so an ability fires from
-/// whichever body is being driven.
+/// seam via the aim frame mode), falling back to local facing when neutral. It reads
+/// the body's `ActorControl` (present on any controlled body — home body or
+/// possessed actor), so an ability fires from whichever body is being driven.
 pub fn ability_aim_local(
     control: &ambition_characters::actor::control::ActorControlFrame,
     facing: f32,
 ) -> Vec2 {
-    // Match `held_shot_aim_local`'s fallback chain, but off the brain-resolved
-    // frame: the aim stick, else the movement stick (`locomotion` — so you can
+    // Resolve the brain-authored fallback chain: the aim stick, else the movement
+    // stick (`locomotion` — so you can
     // steer a held-item cast with the direction you're moving), else facing.
     if control.aim.length() > 0.1 {
         control.aim.vec()
@@ -1832,27 +1774,13 @@ pub fn ability_aim_world(
     ae::AccelerationFrame::new(gravity_dir).to_world(ability_aim_local(control, facing))
 }
 
-// Pending wiring point for the OPEN input reference-frame design (gravity-relative
-// vs screen-relative joystick mapping — see frame-of-reference.md): reads the user's
-// control-frame preference, but nothing applies it YET. Kept (not deleted) as the
-// seam the reference-frame slice wires in; `allow(dead_code)` so the -D-warnings CI
-// build stays clean until then. See code_smells 2026-07-03.
-#[allow(dead_code)]
-pub(crate) fn control_frame_modes_from_settings(
-    settings: Option<&ambition_persistence::settings::UserSettings>,
-) -> ae::ControlFrameModes {
-    settings.map_or(ae::ControlFrameModes::default(), |s| {
-        s.gameplay.control_frame_modes()
-    })
-}
-
 /// `Attack` while holding a *ranged* item fires a laser bolt along the aim
 /// direction. `Shield + Attack` is the throw/drop gesture, so don't fire on it.
 pub fn fire_held_ranged_system(
     mut commands: Commands,
     // SUBJECT-GENERIC held-weapon fire: acts on the `ControlledSubject`, reading
     // that body's OWN `ActorControl` (brain output) + `HeldItem`. No
-    // `With<PlayerEntity>` filter, no `PlayerInputFrame` — a possessed body firing
+    // `With<PlayerEntity>` filter or entity-local input copy — a possessed body firing
     // its held gun works exactly like the home avatar.
     controlled: Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>,
     bodies: Query<(
@@ -1912,7 +1840,7 @@ pub fn fire_held_ranged_system(
         // The projectile *marker*: excludes the bolt from actor-generic queries
         // (auto-righting, actor portal tagging). Its kinematics are driven by
         // `held_projectile_step` (keyed on `HeldProjectile`), not the ECS
-        // projectile step (keyed on `PlayerProjectile`), so this marker never
+        // projectile step (keyed on `LiveProjectile`), so this marker never
         // double-steps the bolt.
         crate::projectile::ProjectileGameplay {
             age: 0.0,
@@ -2041,7 +1969,7 @@ pub fn held_projectile_step(
         let pos = kin.pos;
         let vel = kin.vel;
         // Damage check against actors / bosses / breakables via the shared
-        // attacker-side channel. `PlayerProjectile` broadcasts to features.
+        // attacker-side channel. Projectile hit events broadcast to features.
         let hit_event = crate::features::HitEvent {
             strike_sfx: None,
             volume: HeldProjectile::contact_aabb(pos).into(),

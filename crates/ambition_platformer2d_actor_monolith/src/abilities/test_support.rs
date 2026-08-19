@@ -6,7 +6,6 @@
 
 use crate::actor::BodyKinematics;
 use crate::actor::{PlayerEntity, PrimaryPlayer};
-use crate::control::PlayerInputFrame;
 use crate::features::HeldItem;
 use ambition_characters::brain::{held_item_by_id, ActionSet, ActorControl};
 use ambition_platformer2d_core as ae;
@@ -26,7 +25,6 @@ pub(crate) fn spawn_primary_player_holding(app: &mut App, held_item_id: &str) ->
                 size: ae::Vec2::new(24.0, 40.0),
                 facing: 1.0,
             },
-            PlayerInputFrame::default(),
             ActorControl::default(),
             ActionSet::default(),
             HeldItem::new(spec),
@@ -72,7 +70,6 @@ pub(crate) fn spawn_primary_player_holding_at(
                 size: ae::Vec2::new(24.0, 40.0),
                 facing,
             },
-            PlayerInputFrame::default(),
             ActorControl::default(),
             ActionSet::default(),
             HeldItem::new(spec),

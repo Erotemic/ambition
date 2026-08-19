@@ -5,22 +5,20 @@
 
 use super::*;
 use crate::abilities::test_support::spawn_primary_player_holding;
-use crate::enemy_projectile::test_support::enemy_projectile_bodies;
-use crate::enemy_projectile::EnemyProjectileState;
+use crate::enemy_projectile::test_support::live_projectile_bodies;
 use crate::projectile::ProjectileSeqCounter;
 
 fn test_app() -> App {
     let mut app = App::new();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.add_message::<ambition_vfx::EffectRequest>();
-    app.init_resource::<EnemyProjectileState>();
+    app.add_message::<crate::projectile::ProjectileSpawnRequest>();
     app.init_resource::<ProjectileSeqCounter>();
-    // Chain the enemy-pool spawn consumer after the fire system.
+    // Chain the immediate projectile materializer after the fire system.
     app.add_systems(
         Update,
         (
             fire_volley_system,
-            crate::enemy_projectile::apply_projectile_effects,
+            ambition_projectiles::materialize_projectiles_for_this_tick,
         )
             .chain(),
     );
@@ -37,7 +35,7 @@ fn attack_with_the_volley_spawns_a_fan_of_player_faction_bolts() {
         .0
         .melee_pressed = true;
     app.update();
-    let bodies = enemy_projectile_bodies(&mut app);
+    let bodies = live_projectile_bodies(&mut app);
     assert_eq!(bodies.len(), VOLLEY_SHOT_COUNT, "one bolt per fan slot");
     // Every bolt is owned by the firing player entity, so a kill attributes
     // back to them (the executor stamps `ProjectileOwner` from the request).
@@ -72,7 +70,7 @@ fn no_volley_without_attack() {
     let mut app = test_app();
     spawn_primary_player_holding(&mut app, VOLLEY_ID);
     app.update();
-    assert_eq!(enemy_projectile_bodies(&mut app).len(), 0);
+    assert_eq!(live_projectile_bodies(&mut app).len(), 0);
 }
 
 #[test]

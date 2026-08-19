@@ -5,22 +5,20 @@
 
 use super::*;
 use crate::abilities::test_support::spawn_primary_player_holding;
-use crate::enemy_projectile::test_support::enemy_projectile_bodies;
-use crate::enemy_projectile::EnemyProjectileState;
+use crate::enemy_projectile::test_support::live_projectile_bodies;
 use crate::projectile::ProjectileSeqCounter;
 
 fn test_app() -> App {
     let mut app = App::new();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.add_message::<ambition_vfx::EffectRequest>();
-    app.init_resource::<EnemyProjectileState>();
+    app.add_message::<crate::projectile::ProjectileSpawnRequest>();
     app.init_resource::<ProjectileSeqCounter>();
-    // fire emits Effect::Projectiles; apply_projectile_effects spawns the entity.
+    // Fire emits a request; the immediate materializer creates the live projectile.
     app.add_systems(
         Update,
         (
             fire_meteor_system,
-            crate::enemy_projectile::apply_projectile_effects,
+            ambition_projectiles::materialize_projectiles_for_this_tick,
         )
             .chain(),
     );
@@ -37,7 +35,7 @@ fn attack_rains_player_faction_meteors() {
         .0
         .melee_pressed = true;
     app.update();
-    let bodies = enemy_projectile_bodies(&mut app);
+    let bodies = live_projectile_bodies(&mut app);
     assert_eq!(
         bodies.len(),
         METEOR_COUNT,
@@ -50,7 +48,7 @@ fn no_meteor_without_attack_or_item() {
     let mut app = test_app();
     spawn_primary_player_holding(&mut app, METEOR_ID);
     app.update(); // no attack pressed
-    assert!(enemy_projectile_bodies(&mut app).is_empty());
+    assert!(live_projectile_bodies(&mut app).is_empty());
 }
 
 #[test]
@@ -69,7 +67,7 @@ fn meteor_costs_mana_and_is_blocked_when_empty() {
         .melee_pressed = true;
     app.update();
     assert!(
-        enemy_projectile_bodies(&mut app).is_empty(),
+        live_projectile_bodies(&mut app).is_empty(),
         "no meteors when mana < cost"
     );
     app.world_mut()
@@ -79,7 +77,7 @@ fn meteor_costs_mana_and_is_blocked_when_empty() {
         .current = 100.0;
     app.update();
     assert_eq!(
-        enemy_projectile_bodies(&mut app).len(),
+        live_projectile_bodies(&mut app).len(),
         METEOR_COUNT,
         "fires once there's mana"
     );

@@ -7,8 +7,8 @@ use bevy::prelude::*;
 
 use super::allegiance::ProjectileAllegiance;
 use super::diagnostics::log_press_diagnostics;
-use super::entity::{LiveProjectile, ProjectileOwner, ProjectileOwnerId, ProjectileSeq};
-use super::spawn_message::{ProjectilePool, SpawnProjectile};
+use super::entity::{LiveProjectile, ProjectileOwner, ProjectileSeq};
+use super::{ProjectileSpawnRequest, ProjectileStart};
 use super::state::{PlayerProjectileState, ProjectileTraceEvent};
 use super::{resolve_world_collision, WorldHitOutcome};
 use crate::actor::BodyKinematics;
@@ -115,7 +115,7 @@ fn player_projectile_muzzle_local_offset(
 }
 
 /// Charge-projectile INPUT: per-BODY charge / Hadouken-motion recognition / fire.
-/// Emits [`SpawnProjectile`] into the shared pool; the actual flight is stepped by
+/// Emits a [`ProjectileSpawnRequest`]; the actual flight is stepped by
 /// [`step_projectiles`] (the unified faction-general stepper).
 ///
 /// Body/ability-subject, NOT player-marker: it iterates any body carrying the
@@ -148,9 +148,9 @@ pub fn charge_projectile_input(
     // policy below asks the catalog whether each fired.
     technique_catalog: Res<ambition_projectiles::MotionTechniqueCatalog>,
     mut trace: ResMut<GameplayTraceBuffer>,
-    // Firing emits `SpawnProjectile`; the player-pool consumer runs after this
+    // Firing emits a next-tick `ProjectileSpawnRequest`; its materializer runs after this
     // system so newly-fired projectiles first tick next frame.
-    mut spawn_projectiles: MessageWriter<SpawnProjectile>,
+    mut spawn_projectiles: MessageWriter<ProjectileSpawnRequest>,
 ) {
     // Sim clock: spawner pacing freezes in bullet-time alongside the world.
     let dt = world_time.sim_dt();
@@ -320,7 +320,7 @@ pub fn charge_projectile_input(
 }
 
 /// Run spawn checks for `kind`, apply the Fireball charge tier, and emit a
-/// player-pool [`SpawnProjectile`] on success. Shared by press and release
+/// next-tick [`ProjectileSpawnRequest`] on success. Shared by press and release
 /// paths; returns whether the shoot animation should pulse.
 #[allow(clippy::too_many_arguments)]
 fn try_fire_projectile(
@@ -332,7 +332,7 @@ fn try_fire_projectile(
     damage_mult: f32,
     charge_tier: u8,
     events: &mut Vec<ProjectileTraceEvent>,
-    spawn_projectiles: &mut MessageWriter<SpawnProjectile>,
+    spawn_projectiles: &mut MessageWriter<ProjectileSpawnRequest>,
 ) -> bool {
     match state
         .spawner
@@ -340,14 +340,14 @@ fn try_fire_projectile(
     {
         Ok(spec) => {
             let spec = kind.charged_spec(spec, charge_tier);
-            spawn_projectiles.write(SpawnProjectile {
-                pool: ProjectilePool::Player { owner },
-                projectile: crate::projectile::InFlightProjectile {
+            spawn_projectiles.write(ProjectileSpawnRequest::named(
+                owner,
+                crate::projectile::InFlightProjectile {
                     body: crate::projectile::ProjectileBody::from_spec(spec),
-                    owner_id: String::new(),
                 },
-                kind: Some(kind),
-            });
+                kind,
+                ProjectileStart::StepNextTick,
+            ));
             events.push(ProjectileTraceEvent::Fired { kind });
             true
         }
@@ -360,7 +360,7 @@ fn try_fire_projectile(
 }
 
 /// Flattened view of the `PlayerProjectileTick` request — used inside
-/// `update_projectiles` after destructuring the matched
+/// `step_projectiles` after destructuring the matched
 /// `ActorActionMessage`. A separate type so the "no message arrived
 /// this tick" fallback can rely on `Default`.
 #[derive(Clone, Copy, Debug, Default)]
@@ -374,8 +374,8 @@ struct PlayerProjectileTickInfo {
 
 /// The unified projectile step pipeline. Processes EVERY in-flight projectile —
 /// player- and enemy-spawned alike (one `LiveProjectile` query) — sorted by
-/// the global [`ProjectileSeq`], routing behavior by
-/// [`ProjectileGameplay::faction`]:
+/// the global [`ProjectileSeq`], routing behavior by the shot's frozen
+/// [`ProjectileAllegiance`]:
 ///
 /// - **Player-faction** shots damage enemies / bosses / breakables (one hit =
 ///   one despawn) and bounce on solids per `WorldHitPolicy::Bouncing`.
@@ -384,9 +384,9 @@ struct PlayerProjectileTickInfo {
 ///   solid contact.
 ///
 /// Lasersword shots detonate (rendered explosion) on death / wall-hit either
-/// way. This replaces the former separate `update_projectiles` step loop and
-/// `update_enemy_projectiles`; the player INPUT / charge / fire stays in
-/// [`update_projectiles`], which now only spawns into this shared pool.
+/// way. This replaces the former separate player/enemy step loops; body input /
+/// charge / fire policy stays in [`charge_projectile_input`], which emits the
+/// same `ProjectileSpawnRequest` as every other projectile producer.
 #[allow(clippy::too_many_arguments)]
 /// **The set `step_projectiles` runs in.**
 ///
@@ -399,7 +399,7 @@ struct PlayerProjectileTickInfo {
 /// late"); what was missing was a name to hang it on.
 ///
 /// ⚠ ONE member. The two systems beside it in the tuple —
-/// `charge_projectile_input` and `apply_player_spawn_projectile_messages` — are
+/// `charge_projectile_input` and `materialize_projectiles_for_next_tick` — are
 /// deliberately AFTER the step ("so the new body first ticks next frame"), so a
 /// set spanning them would push presentation past a spawn it is not waiting for.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -416,11 +416,10 @@ pub fn step_projectiles(
             &mut BodyKinematics,
             &mut ProjectileGameplay,
             Option<&ProjectileOwner>,
-            // D150: the shot's OWN side of the fight, stamped the first tick it
-            // flies and read every tick after. `None` only for a bolt that has
-            // never had a living owner to freeze — a genuinely ownerless volley.
+            // D150: the shot's OWN side of the fight, stamped immediately after
+            // materialization and read every tick after. `None` is reserved for
+            // a genuinely ownerless/environmental volley.
             Option<&ProjectileAllegiance>,
-            Option<&ProjectileOwnerId>,
             &ProjectileSeq,
             Option<&crate::projectile::ProjectileKind>,
             Option<&crate::projectile::ProjectileVisualId>,
@@ -539,7 +538,7 @@ pub fn step_projectiles(
     // across both factions; the seq counter is shared at spawn).
     let mut ordered: Vec<(Entity, ProjectileSeq)> = projectiles
         .iter()
-        .map(|(entity, _, _, _, _, _, seq, _, _, _)| (entity, *seq))
+        .map(|(entity, _, _, _, _, seq, _, _, _)| (entity, *seq))
         .collect();
     ordered.sort_by_key(|(_, seq)| *seq);
 
@@ -550,7 +549,6 @@ pub fn step_projectiles(
             mut game,
             owner,
             stamped_allegiance,
-            _owner_id,
             _,
             kind,
             visual_id,
@@ -561,19 +559,20 @@ pub fn step_projectiles(
         };
         let stamped_allegiance = stamped_allegiance.cloned();
         let bolt_source = bolt_source.map(|source| source.id().clone());
-        // Named kind for player shots (None for kind-less enemy volleys).
+        // Named kind when the shot uses the named vocabulary; open-visual
+        // volleys deliberately remain kind-less.
         let kind = kind.copied();
         // Open visual id (every spawned shot carries one; empty reads as the
-        // generic hostile look). Drives the detonation FX pick via the
-        // content-owned catalog — by id, not by sniffing the owner-id string.
+        // generic look). Drives the detonation FX pick via the content-owned
+        // catalog; ownership and allegiance are separate facts.
         let expiry_burst = visual_id
             .map(|v| v.0.as_str())
             .and_then(|id| visual_catalog.get(id))
             .and_then(|art| art.expiry_vfx);
         let owner_entity = owner.map(|o| o.0);
         let owner_combat_data = owner_entity.and_then(|e| owner_combat.get(e).ok());
-        // **The shot's side, CARRIED BY THE SHOT** (D150). Stamped the first tick
-        // this bolt is stepped and read on every tick after, so the answer stops
+        // **The shot's side, CARRIED BY THE SHOT** (D150). Stamped immediately
+        // after materialization and read on every tick after, so the answer stops
         // depending on whether the firer is still resident.
         //
         // ⛔⛔ **it used to be re-derived every tick from the owner ENTITY, and a

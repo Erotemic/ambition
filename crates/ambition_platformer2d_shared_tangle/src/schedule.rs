@@ -363,9 +363,9 @@ pub enum Platformer2dSimulationPhaseMonolith {
 /// `.in_set(PlayerInputSet::Persona)` is a complete statement of intent.
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum PlayerInputSet {
-    /// This frame's device input reaches the slot model: timers, interaction
-    /// buffer, the controlled subject, `SlotControls`, the input-stream
-    /// recorder, and the per-body `PlayerInputFrame` mirror.
+    /// This frame's device input reaches the canonical slot model: timers,
+    /// interaction buffer, the controlled subject, `SlotControls`, and the
+    /// input-stream recorder. No input state is copied onto bodies.
     Device,
     /// Content-declared character data lands on the body — a registered
     /// `CharacterDefinition`'s moveset and silhouette — BEFORE the persona is

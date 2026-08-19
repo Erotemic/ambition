@@ -202,9 +202,9 @@ impl Plugin for AffordancesPlugin {
                     // body's slot frame (`SlotControls`, published by
                     // `populate_slot_controls` inside the `PlayerInput` set)
                     // rather than the global `Res<ControlFrame>`. Pin the
-                    // chain after the slot→body sync (which itself runs after
-                    // the publish) so the intent reflects this frame's input.
-                    .after(crate::control::sync_local_player_input_frame)
+                    // chain after primary-slot publication so the intent reflects
+                    // this frame's finalized input without an entity-local copy.
+                    .after(crate::control::PrimarySlotInputCommit)
                     .in_set(AffordancesSystemSet::Compute),
             );
         // The device-presentation half that lived here (`ActiveInputMethod`,

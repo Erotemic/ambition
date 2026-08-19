@@ -1020,7 +1020,7 @@ fn capture_twintrack_interaction(
     traveler: Query<
         (
             Entity,
-            &ambition_platformer2d::actors::control::PlayerInputFrame,
+            &ambition_platformer2d::characters::brain::ActorControl,
             &ae::BodyKinematics,
             &ProperTimeElapsed,
         ),
@@ -1033,7 +1033,7 @@ fn capture_twintrack_interaction(
     mut requests: MessageWriter<LightEmissionRequest2d>,
 ) {
     let (
-        Ok((traveler_entity, input, traveler_body, traveler_clock)),
+        Ok((traveler_entity, control, traveler_body, traveler_clock)),
         Ok(mut experiment),
         Ok((lab_body, lab_clock)),
     ) = (traveler.single(), experiment.single_mut(), lab.single())
@@ -1041,8 +1041,8 @@ fn capture_twintrack_interaction(
         return;
     };
 
-    let direct_aim = Vec2::new(input.frame.aim_x, -input.frame.aim_y);
-    let movement_aim = Vec2::new(input.frame.axis_x, input.frame.axis_y);
+    let direct_aim = Vec2::new(control.0.aim.x, -control.0.aim.y);
+    let movement_aim = Vec2::new(control.0.locomotion.x, control.0.locomotion.y);
     if direct_aim.length_squared() > 0.04 {
         experiment.aim_direction = direct_aim.normalize();
     } else if movement_aim.length_squared() > 0.04 {
@@ -1051,15 +1051,15 @@ fn capture_twintrack_interaction(
         experiment.aim_direction = traveler_body.vel.normalize();
     }
 
-    if experiment.phase == TwinTrackPhase::Complete && input.frame.axis_x.abs() > 0.08 {
+    if experiment.phase == TwinTrackPhase::Complete && control.0.locomotion.x.abs() > 0.08 {
         experiment.replay_cursor =
-            (experiment.replay_cursor + input.frame.axis_x * 0.008).clamp(0.0, 1.0);
+            (experiment.replay_cursor + control.0.locomotion.x * 0.008).clamp(0.0, 1.0);
     }
 
     if experiment.phase == TwinTrackPhase::Introduction {
         match experiment.intro_step {
             TwinTrackIntroStep::Synchronize => {
-                if input.frame.interact_pressed
+                if control.0.interact_pressed
                     && traveler_body.pos.distance(lab_body.pos) <= LAB_REUNION_RADIUS
                 {
                     experiment.intro_step = TwinTrackIntroStep::Drift;
@@ -1082,7 +1082,7 @@ fn capture_twintrack_interaction(
         return;
     }
 
-    if !input.frame.interact_pressed {
+    if !control.0.interact_pressed {
         return;
     }
 

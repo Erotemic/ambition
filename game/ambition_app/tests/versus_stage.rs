@@ -1776,10 +1776,10 @@ fn a_round_boundary_leaves_the_last_rounds_attacks_behind() {
     // Now a shot's round membership is stamped by its SPAWNER (Campaign 3A), so
     // a fixture that skips the spawner is testing a population the game never
     // produces — and it would have reported a leak that does not exist.
-    app.world_mut()
-        .write_message(ambition_platformer2d::projectiles::SpawnProjectile {
-            pool: ambition_platformer2d::projectiles::ProjectilePool::Player { owner: seat_zero },
-            projectile: ambition_platformer2d::projectiles::InFlightProjectile {
+    app.world_mut().write_message(
+        ambition_platformer2d::projectiles::ProjectileSpawnRequest::named(
+            seat_zero,
+            ambition_platformer2d::projectiles::InFlightProjectile {
                 body: ambition_platformer2d::projectiles::ProjectileBody::from_spec(
                     ambition_platformer2d::projectiles::ProjectileSpec {
                         origin: ambition_platformer2d::engine_core::Vec2::new(400.0, 300.0),
@@ -1797,10 +1797,11 @@ fn a_round_boundary_leaves_the_last_rounds_attacks_behind() {
                         charge_tier: 0,
                     },
                 ),
-                owner_id: String::new(),
             },
-            kind: None,
-        });
+            ambition_platformer2d::projectiles::ProjectileKind::Fireball,
+            ambition_platformer2d::projectiles::ProjectileStart::StepNextTick,
+        ),
+    );
     app.update();
     let shot = {
         let world = app.world_mut();
@@ -1808,7 +1809,7 @@ fn a_round_boundary_leaves_the_last_rounds_attacks_behind() {
             .query_filtered::<Entity, With<ambition_platformer2d::projectiles::LiveProjectile>>();
         q.iter(world)
             .next()
-            .expect("the player pool materialized the shot this fixture fired")
+            .expect("the projectile request materialized the shot this fixture fired")
     };
 
     app.world_mut()

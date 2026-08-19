@@ -398,9 +398,10 @@ pub struct HitEvent {
     /// carries the boss, `EnemyBody` / `EnemyChargeCrash` the
     /// enemy — so the victim's `DeathCause` records who killed it (the
     /// compact causality seam for replay / RL / future netcode). Sources
-    /// with no entity attacker stay `None`: `Hazard` (environmental) and
-    /// `EnemyProjectile` (string-`ProjectileOwnerId`-owned, not entity-
-    /// tracked).
+    /// with no entity attacker stay `None`, such as an environmental `Hazard`
+    /// or an ownerless authored projectile. Projectiles with a firing body stamp
+    /// that body's entity through `ProjectileOwner`, regardless of presentation
+    /// family or allegiance.
     pub attacker: Option<bevy::prelude::Entity>,
     /// Hint for how the consumer resolves the victim. See
     /// [`HitTarget`].

@@ -11,8 +11,7 @@ use ambition_characters::brain::{
 use ambition_boss_encounter::BossClusterRef;
 use ambition_platformer2d_actor_monolith::features::FeatureSimEntity;
 use ambition_platformer2d_core as ae;
-use ambition_projectiles::enemy::ProjectileSpawn;
-use ambition_vfx::{Effect, EffectRequest};
+use ambition_projectiles::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
 
 // ---- Exploding Gradient's runaway nova (content-only, open-seam special) ----
 
@@ -26,7 +25,6 @@ const NOVA_DAMAGE: i32 = 1;
 const NOVA_HALF_EXTENT: ae::Vec2 = ae::Vec2::new(9.0, 9.0);
 const NOVA_LIFETIME: f32 = 1.6;
 const NOVA_SPAWN_RADIUS: f32 = 28.0;
-const NOVA_OWNER_PREFIX: &str = "gradient_nova";
 
 /// Per-boss gate for the Exploding Gradient nova. One omnidirectional burst per
 /// strike — no target lock; the runaway gradients explode outward from the boss.
@@ -54,7 +52,7 @@ fn gradient_nova(count: u32, base_speed: f32) -> Vec<(ae::Vec2, f32)> {
 
 /// Technique: Exploding Gradient nova (content-only; open-seam special).
 pub fn spawn_gradient_nova_from_special_messages(
-    mut effects: MessageWriter<EffectRequest>,
+    mut projectiles: MessageWriter<ProjectileSpawnRequest>,
     mut messages: MessageReader<ActorActionMessage>,
     mut bosses: Query<
         (
@@ -89,25 +87,23 @@ pub fn spawn_gradient_nova_from_special_messages(
         }
         let origin = boss.kin.pos + boss.config.behavior.projectile_origin_offset;
         for (dir, speed) in gradient_nova(NOVA_COUNT, NOVA_BASE_SPEED) {
-            effects.write(EffectRequest {
-                owner: entity,
-                effect: Effect::Projectiles {
-                    shots: vec![ProjectileSpawn {
-                        origin: origin + dir * NOVA_SPAWN_RADIUS,
-                        dir,
-                        speed,
-                        damage: NOVA_DAMAGE,
-                        max_lifetime: NOVA_LIFETIME,
-                        half_extent: NOVA_HALF_EXTENT,
-                        owner_id: format!("{}:{}", NOVA_OWNER_PREFIX, boss.config.id),
-                        gravity: 0.0,
-                        visual_id: String::new(),
-                        // Straight shot: this ability authors no bounce.
-                        bounces: 0,
-                        bounce_on_world_contact: false,
-                    }],
+            projectiles.write(ProjectileSpawnRequest::open(
+                entity,
+                ProjectileSpawn {
+                    origin: origin + dir * NOVA_SPAWN_RADIUS,
+                    dir,
+                    speed,
+                    damage: NOVA_DAMAGE,
+                    max_lifetime: NOVA_LIFETIME,
+                    half_extent: NOVA_HALF_EXTENT,
+                    gravity: 0.0,
+                    visual_id: String::new(),
+                    // Straight shot: this ability authors no bounce.
+                    bounces: 0,
+                    bounce_on_world_contact: false,
                 },
-            });
+                ProjectileStart::StepThisTick,
+            ));
         }
         state.fired_this_strike = true;
     }
@@ -121,25 +117,25 @@ mod tests {
 
     /// End-to-end wiring check (public-API only): drive a boss to fire the
     /// gradient nova and confirm the full burst of projectile entities
-    /// materializes through `Effect::Projectiles` → the engine's projectile
-    /// executor. Validates the consumer → effect → spawn pipeline that all five
-    /// new content specials share — catching a wiring/registration mistake the
+    /// materializes through `ProjectileSpawnRequest` → the projectile-domain
+    /// materializer. Validates the consumer → request → spawn pipeline that the
+    /// projectile specials share — catching a wiring/registration mistake the
     /// pure-core tests can't. Builds the boss via `BossClusterScratch` (public),
     /// so no engine `test-support` plumbing is needed.
     #[test]
     fn gradient_nova_consumer_materializes_a_full_burst_of_projectiles() {
         use ambition_entity_catalog::placements::BossBrain;
         use ambition_boss_encounter::BossClusterScratch;
-        use ambition_projectiles::enemy::apply_enemy_projectile_effect_requests;
-        use ambition_projectiles::enemy::{EnemyProjectile, EnemyProjectileState};
-        use ambition_projectiles::ProjectileSeqCounter;
+        use ambition_projectiles::{
+            materialize_projectiles_for_this_tick, ProjectileSeqCounter,
+            ProjectileSpawnRequest,
+        };
 
         // Use the same App-local provider catalog production composition builds.
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
         app.add_message::<ActorActionMessage>();
-        app.add_message::<EffectRequest>();
-        app.init_resource::<EnemyProjectileState>();
+        app.add_message::<ProjectileSpawnRequest>();
         app.init_resource::<ProjectileSeqCounter>();
         app.init_resource::<WorldTime>();
         {
@@ -151,7 +147,7 @@ mod tests {
             Update,
             (
                 spawn_gradient_nova_from_special_messages,
-                apply_enemy_projectile_effect_requests,
+                materialize_projectiles_for_this_tick,
             )
                 .chain(),
         );
@@ -184,7 +180,7 @@ mod tests {
 
         let count = app
             .world_mut()
-            .query_filtered::<(), With<EnemyProjectile>>()
+            .query_filtered::<(), With<ambition_projectiles::LiveProjectile>>()
             .iter(app.world())
             .count();
         assert_eq!(

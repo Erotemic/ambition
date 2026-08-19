@@ -33,15 +33,6 @@ impl SnapshotState for crate::ProjectileSeq {
     }
 }
 
-impl SnapshotState for crate::ProjectileOwnerId {
-    fn encode(&self, out: &mut Vec<u8>) {
-        put_str(out, &self.0);
-    }
-    fn decode(r: &mut Reader<'_>) -> Option<Self> {
-        Some(Self(r.str()?.to_string()))
-    }
-}
-
 impl SnapshotState for crate::ProjectileVisualId {
     fn encode(&self, out: &mut Vec<u8>) {
         put_str(out, &self.0);
@@ -53,9 +44,6 @@ impl SnapshotState for crate::ProjectileVisualId {
 
 snapshot_marker!(crate::LiveProjectile);
 
-snapshot_marker!(crate::PlayerProjectile);
-
-snapshot_marker!(crate::enemy::EnemyProjectile);
 
 /// The global spawn-order stamp source. Two sims that stamped a different
 /// number of projectiles are not in the same state; a restore that left the
@@ -142,13 +130,6 @@ impl SnapshotState for crate::PlayerProjectileState {
     }
 }
 
-impl SnapshotState for crate::enemy::EnemyProjectileState {
-    fn encode(&self, _out: &mut Vec<u8>) {}
-
-    fn decode(_r: &mut Reader<'_>) -> Option<Self> {
-        Some(Self)
-    }
-}
 
 fn put_motion_direction(out: &mut Vec<u8>, value: crate::MotionDirection) {
     use crate::MotionDirection::*;

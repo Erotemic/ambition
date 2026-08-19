@@ -12,7 +12,7 @@
 //! yourself ("every boss a failed objective function, learn its attack").
 //!
 //! Mechanically it reuses the faction-aware projectile pool the sentry/volley
-//! use (`EnemyProjectileState::spawn_with_faction(..., Player)`), spawning each
+//! use (a `ProjectileSpawnRequest` owned by the wielder), spawning each
 //! meteor high above the strike zone with a downward heading + gravity so it
 //! accelerates into the ground — a readable rain, not a hitscan. Player faction,
 //! so the meteors damage enemies/bosses and spare the player.
@@ -21,7 +21,7 @@ use bevy::prelude::*;
 
 use crate::actor::BodyKinematics;
 use crate::actor::BodyMana;
-use crate::enemy_projectile::ProjectileSpawn;
+use crate::projectile::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
 use crate::features::HeldItem;
 use ambition_characters::brain::ActorControl;
 use ambition_platformer2d_core as ae;
@@ -93,7 +93,7 @@ pub fn fire_meteor_system(
         &HeldItem,
         &mut BodyMana,
     )>,
-    mut effects: MessageWriter<ambition_vfx::EffectRequest>,
+    mut projectiles: MessageWriter<ProjectileSpawnRequest>,
     mut sfx: ambition_sfx::BodySfxWriter,
 ) {
     let Some(subject) = controlled.0 else {
@@ -117,28 +117,26 @@ pub fn fire_meteor_system(
     let gravity_dir = resolved_frame.down();
     let aim = crate::items::pickup::ability_aim_local(&c, kin.facing);
     for origin in meteor_strike_origins(kin.pos, aim, kin.facing, gravity_dir) {
-        effects.write(ambition_vfx::EffectRequest {
+        projectiles.write(ProjectileSpawnRequest::open(
             // The firing actor owns every meteor, so a kill attributes back to
-            // the player (the executor stamps `ProjectileOwner` from this entity).
-            owner: entity,
-            effect: ambition_vfx::Effect::Projectiles {
-                shots: vec![ProjectileSpawn {
-                    origin,
-                    // Straight toward local feet/down; gravity accelerates it in the same frame.
-                    dir: gravity_dir,
-                    speed: METEOR_SPEED,
-                    damage: METEOR_DAMAGE,
-                    max_lifetime: METEOR_LIFETIME,
-                    half_extent: METEOR_HALF,
-                    owner_id: "player_meteor".into(),
-                    gravity: METEOR_GRAVITY,
-                    visual_id: String::new(),
-                    // Straight volley: this ability authors no bounce.
-                    bounces: 0,
-                    bounce_on_world_contact: false,
-                }],
+            // the player (materialization stamps `ProjectileOwner` from this entity).
+            entity,
+            ProjectileSpawn {
+                origin,
+                // Straight toward local feet/down; gravity accelerates it in the same frame.
+                dir: gravity_dir,
+                speed: METEOR_SPEED,
+                damage: METEOR_DAMAGE,
+                max_lifetime: METEOR_LIFETIME,
+                half_extent: METEOR_HALF,
+                gravity: METEOR_GRAVITY,
+                visual_id: String::new(),
+                // Straight volley: this ability authors no bounce.
+                bounces: 0,
+                bounce_on_world_contact: false,
             },
-        });
+            ProjectileStart::StepThisTick,
+        ));
     }
     sfx.write_for(
         entity,

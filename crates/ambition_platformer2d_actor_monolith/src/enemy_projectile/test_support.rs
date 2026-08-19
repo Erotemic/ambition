@@ -1,30 +1,27 @@
-//! Test-only helpers for the entity-era enemy projectile pool.
+//! Test-only helpers for open-visual projectile entities.
 //!
-//! The enemy pool's in-flight bodies are ECS entities now, so the ~15 unit
-//! tests that used to read `EnemyProjectileState.bodies` and inject via
-//! `EnemyProjectileState::spawn(..)` go through these instead. Mirrors the
-//! player pool's `spawn_player_projectile` / `projectile_bodies` test helpers.
+//! Open-visual projectiles are ECS entities. These helpers inject the same
+//! body shape production materialization uses while keeping collision/routing
+//! tests independent of message scheduling.
 
 use crate::combat::components::ActorFaction;
-use crate::enemy_projectile::entity::EnemyProjectile;
-use crate::enemy_projectile::{EnemyProjectileState, ProjectileSpawn};
+use crate::projectile::ProjectileSpawn;
 use crate::projectile::{
-    ProjectileGameplay, ProjectileOwner, ProjectileOwnerId, ProjectileSeq, ProjectileSeqCounter,
+    build_in_flight_projectile, ProjectileGameplay, ProjectileOwner, ProjectileSeq,
+    ProjectileSeqCounter,
 };
 use bevy::prelude::*;
 
-/// Directly spawn an in-flight enemy projectile entity — the entity-era
-/// equivalent of the old `EnemyProjectileState::spawn(..)` /
-/// `spawn_with_faction(..)` test setup. Builds the body via the shared
-/// `EnemyProjectileState::build` mapping (so it matches the production
-/// `SpawnProjectile` path exactly) and assigns the next monotonic
-/// `ProjectileSeq` so injected bodies keep a stable order.
-pub(crate) fn spawn_enemy_projectile(
+/// Directly spawn an open-visual projectile entity for collision/routing tests.
+/// Builds the body via the same request lowering production materialization uses
+/// and assigns the next monotonic `ProjectileSeq` so injected bodies keep a
+/// stable order.
+pub(crate) fn spawn_test_projectile(
     app: &mut App,
     request: ProjectileSpawn,
     faction: ActorFaction,
 ) {
-    let projectile = EnemyProjectileState::build(request);
+    let projectile = build_in_flight_projectile(request);
     let seq = {
         let mut counter = app
             .world_mut()
@@ -40,11 +37,9 @@ pub(crate) fn spawn_enemy_projectile(
         projectile.body.kin,
         projectile.body.game,
         seq,
-        ProjectileOwnerId(projectile.owner_id),
         ProjectileOwner(owner),
         crate::projectile::LiveProjectile,
-        EnemyProjectile,
-        Name::new("Enemy projectile (test)"),
+        Name::new("Test projectile"),
     ));
 }
 
@@ -53,7 +48,7 @@ pub(crate) fn spawn_enemy_projectile(
 /// body it overlaps, friend or foe), since there is no firer faction to be friendly
 /// to. Used to pin that behavior distinct from a faction-owned shot.
 pub(crate) fn spawn_ownerless_projectile(app: &mut App, request: ProjectileSpawn) {
-    let projectile = EnemyProjectileState::build(request);
+    let projectile = build_in_flight_projectile(request);
     let seq = {
         let mut counter = app
             .world_mut()
@@ -64,41 +59,35 @@ pub(crate) fn spawn_ownerless_projectile(app: &mut App, request: ProjectileSpawn
         projectile.body.kin,
         projectile.body.game,
         seq,
-        ProjectileOwnerId(projectile.owner_id),
         crate::projectile::LiveProjectile,
-        EnemyProjectile,
         Name::new("Ownerless projectile (test)"),
     ));
 }
 
-/// Collect the in-flight enemy projectile bodies, sorted by spawn sequence
-/// (oldest first) — the same order the old `EnemyProjectileState.bodies` Vec
-/// presented. Recomposes an [`crate::projectile::InFlightProjectile`] from the
-/// entity's split `BodyKinematics` + `ProjectileGameplay` + `ProjectileOwnerId`
-/// so the tests keep asserting on `.body.kin` / `.body.game` / `.owner_id`
-/// exactly as before.
-pub(crate) fn enemy_projectile_bodies(app: &mut App) -> Vec<crate::projectile::InFlightProjectile> {
+/// Collect the in-flight test projectile bodies, sorted by spawn sequence
+/// (oldest first), matching production sequence ordering. Recomposes an [`crate::projectile::InFlightProjectile`] from the
+/// entity's split `BodyKinematics` + `ProjectileGameplay` so the historical
+/// collision tests can keep asserting on the reconstructed flight body.
+pub(crate) fn live_projectile_bodies(app: &mut App) -> Vec<crate::projectile::InFlightProjectile> {
     let world = app.world_mut();
     // `try_query_filtered` returns `Err` when the projectile component types
-    // were never registered in this World — which is exactly the "no enemy
-    // projectile ever spawned" case the empty-pool tests assert. Treat that as
-    // an empty pool rather than panicking.
+    // were never registered in this World — exactly the "no projectile ever
+    // spawned" case some historical collision fixtures assert. Treat that as
+    // an empty set rather than panicking.
     let Some(mut q) = world.try_query_filtered::<(
         &crate::actor::BodyKinematics,
         &ProjectileGameplay,
-        &ProjectileOwnerId,
         &ProjectileSeq,
-    ), With<EnemyProjectile>>() else {
+    ), With<crate::projectile::LiveProjectile>>() else {
         return Vec::new();
     };
     let mut rows: Vec<(ProjectileSeq, crate::projectile::InFlightProjectile)> = q
         .iter(world)
-        .map(|(kin, game, owner, seq)| {
+        .map(|(kin, game, seq)| {
             (
                 *seq,
                 crate::projectile::InFlightProjectile {
                     body: crate::projectile::ProjectileBody::from_parts(*kin, *game),
-                    owner_id: owner.0.clone(),
                 },
             )
         })

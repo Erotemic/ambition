@@ -90,7 +90,7 @@ pub fn blink_system(
     // Ability execution is SUBJECT-GENERIC: it acts on the CONTROLLED SUBJECT (the
     // body carrying `Brain::Player`) reading that body's OWN `ActorControl` (the
     // brain output — present on ANY controlled body, player or possessed actor)
-    // and its OWN `HeldItem`. No `With<PlayerEntity>` filter, no `PlayerInputFrame`
+    // and its OWN `HeldItem`. No `With<PlayerEntity>` filter and no entity-local input copy
     // (a possessed actor has neither). A possessed body blinks iff IT holds the
     // blink item; the vacated home avatar is not the subject, so it never blinks.
     //

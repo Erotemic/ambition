@@ -4,7 +4,7 @@ version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "Reusable, content-free projectile MODEL: the player/enemy faction shot vocabulary (ProjectileKind / visual-kind art descriptors / PlayerProjectileState charge machine), the ECS shot components (LiveProjectile / ProjectileOwner / ProjectileSeq), the SpawnProjectile pool message + player-pool spawner, and the pure portal-aperture transit. Pure logic over the projectile-physics primitive; the game's ECS steppers (victim-side hit routing, charge input) consume it. Extracted from ambition_platformer2d_actor_monolith (E2)."
+description = "Reusable, content-free projectile MODEL: shot vocabulary, charge state, ECS projectile components, the unified ProjectileSpawnRequest materialization seam, and pure portal transit. Pure logic over the projectile-physics primitive; game ECS steppers consume it."
 
 [lib]
 crate-type = ["rlib"]
@@ -25,9 +25,12 @@ ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
 ambition_gameplay_trace = { path = "../ambition_gameplay_trace" }
 # Motion-gesture recognition (Hadouken input buffer) — pure input logic.
 ambition_input = { path = "../ambition_input" }
-# Effect-request vocabulary consumed by the enemy-pool projectile spawn executor.
-ambition_vfx = { path = "../ambition_vfx" }
+# Substrate-neutral authored spawn data carried by open projectile requests.
+ambition_projectile_spec = { path = "../ambition_projectile_spec" }
 ambition_sfx = { path = "../ambition_sfx" }
+# Presentation-only expiry vocabulary (`ProjectileExpiryBurst` -> Fx/VfxMessage).
+# Projectile spawning itself no longer travels through this crate.
+ambition_vfx = { path = "../ambition_vfx" }
 # Serde derives on the shot kind + visual-kind art descriptors (ron-room bake).
 serde = { workspace = true }
 # ECS component/message/resource derives.

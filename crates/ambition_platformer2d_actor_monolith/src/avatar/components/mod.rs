@@ -1,8 +1,8 @@
 //! Player POLICY components — the state that is genuinely slot-0's, not any
 //! body's.
 //!
-//! The control seam (`LocalPlayer`, `PlayerInputFrame`, the slot gesture state)
-//! left for `crate::control` in the S5/S6 fold; the body vocabulary
+//! The control seam (`LocalPlayer`, `SlotControls`, the slot gesture state)
+//! left for `crate::control` / `ambition_characters::brain` in the S5/S6 fold; the body vocabulary
 //! (`BodyAnimFacts`, `BodyMelee`) left for `crate::actor`. What remains is
 //! camera easing and respawn safety — decisions about the local human's
 //! experience, which no other body has.

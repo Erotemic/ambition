@@ -613,6 +613,7 @@ dependencies = [
  "ambition_platformer2d_shared_tangle",
  "ambition_platformer2d_world",
  "ambition_portal2d",
+ "ambition_projectile_spec",
  "ambition_sfx",
  "ambition_vfx",
  "bevy",
@@ -735,7 +736,6 @@ version = "0.1.0"
 dependencies = [
  "ambition_geometry",
  "ambition_platformer2d_core",
- "ambition_projectile_spec",
  "ambition_sfx",
  "bevy",
 ]

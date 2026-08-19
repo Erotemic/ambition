@@ -326,7 +326,28 @@ use super::{
 /// reason — one construct had been noticed and the other had not. Re-recording
 /// it also moved `ambition_cutscene` and `ambition_demo_twintrack`, which is the
 /// instrument CHANGING and NOT a wire change in either: neither file was edited.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 37;
+///
+/// ⚠ **2026-08-19 FINISHES the slot-owned control migration, with NO version
+/// bump.** It removes only `derived.player_input_frame`: the entity-local frame
+/// was a declared-derived copy of `derived.slot_controls`, not snapshot payload.
+/// `Brain::Player(slot)` now reads the slot snapshot directly and body mechanics
+/// consume `ActorControl`. Removing a stable descriptor changes the schema
+/// fingerprint by itself; v38 remains correct because no payload changed behind
+/// an unchanged stable key.
+/// ⚠ **v38 (2026-08-18) FINISHES the projectile spawn-road migration.** It
+/// prunes `resource.enemy_projectile_state`, `projectile.player_marker`,
+/// `projectile.enemy_marker`, and `projectile.owner_id`: the resource was a
+/// field-less compatibility handle
+/// from the pre-ECS pool, while the two family markers merely remembered which
+/// historical spawn road selected the shot's presentation. The string owner id
+/// duplicated `ProjectileOwner(Entity)` and had no production reader. The
+/// permanent facts are `LiveProjectile` occurrence identity, `ProjectileOwner`,
+/// optional `ProjectileKind`, `ProjectileVisualId`, and the actor-domain
+/// `ProjectileAllegiance`.
+/// `message.spawn_projectile` keeps its stable key while its concrete message
+/// becomes `ProjectileSpawnRequest`, so abandoned-future spawn requests remain
+/// cleared on load through the same wire identity.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 38;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

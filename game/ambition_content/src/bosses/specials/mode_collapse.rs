@@ -13,8 +13,7 @@ use ambition_platformer2d_actor_monolith::actor::{BodyKinematics, PlayerEntity};
 use ambition_boss_encounter::BossClusterRef;
 use ambition_platformer2d_actor_monolith::features::{ActorTarget, FeatureSimEntity};
 use ambition_platformer2d_core::{self as ae, AabbExt};
-use ambition_projectiles::enemy::ProjectileSpawn;
-use ambition_vfx::{Effect, EffectRequest};
+use ambition_projectiles::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
 
 // ===================================================================
 // NEW boss special authored entirely on the open `Special(key)` seam —
@@ -36,7 +35,6 @@ const MC_RING_SPEED: f32 = 320.0;
 const MC_RING_DAMAGE: i32 = 1;
 const MC_RING_HALF_EXTENT: ae::Vec2 = ae::Vec2::new(10.0, 10.0);
 const MC_RING_LIFETIME: f32 = 1.5;
-const MC_OWNER_PREFIX: &str = "mode_collapse_converge";
 
 /// Per-boss state for the Mode Collapse converging ring. The telegraph locks the
 /// player's position; the strike spawns a ring of inward-aimed projectiles around
@@ -65,7 +63,7 @@ fn converge_ring(center: ae::Vec2, count: u32, radius: f32) -> Vec<(ae::Vec2, ae
 
 /// Technique: Mode Collapse converging ring (content-only; open-seam special).
 pub fn spawn_mode_collapse_converge_from_special_messages(
-    mut effects: MessageWriter<EffectRequest>,
+    mut projectiles: MessageWriter<ProjectileSpawnRequest>,
     mut messages: MessageReader<ActorActionMessage>,
     player_query: Query<&BodyKinematics, With<PlayerEntity>>,
     mut bosses: Query<
@@ -130,25 +128,23 @@ pub fn spawn_mode_collapse_converge_from_special_messages(
             if dir.length_squared() < 1e-4 {
                 continue;
             }
-            effects.write(EffectRequest {
-                owner: entity,
-                effect: Effect::Projectiles {
-                    shots: vec![ProjectileSpawn {
-                        origin,
-                        dir,
-                        speed: MC_RING_SPEED,
-                        damage: MC_RING_DAMAGE,
-                        max_lifetime: MC_RING_LIFETIME,
-                        half_extent: MC_RING_HALF_EXTENT,
-                        owner_id: format!("{}:{}", MC_OWNER_PREFIX, boss.config.id),
-                        gravity: 0.0,
-                        visual_id: String::new(),
-                        // Straight shot: this ability authors no bounce.
-                        bounces: 0,
-                        bounce_on_world_contact: false,
-                    }],
+            projectiles.write(ProjectileSpawnRequest::open(
+                entity,
+                ProjectileSpawn {
+                    origin,
+                    dir,
+                    speed: MC_RING_SPEED,
+                    damage: MC_RING_DAMAGE,
+                    max_lifetime: MC_RING_LIFETIME,
+                    half_extent: MC_RING_HALF_EXTENT,
+                    gravity: 0.0,
+                    visual_id: String::new(),
+                    // Straight shot: this ability authors no bounce.
+                    bounces: 0,
+                    bounce_on_world_contact: false,
                 },
-            });
+                ProjectileStart::StepThisTick,
+            ));
         }
         state.fired_this_strike = true;
         state.locked_target = None;

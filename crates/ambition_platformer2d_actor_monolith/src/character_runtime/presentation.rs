@@ -203,11 +203,10 @@ pub fn publish_body_presentation_sources(
 /// died still lands in that character's voice, which is the whole reason
 /// `ProjectileOwner` being `Option` is not an accident.
 ///
-/// Both materializers now stamp it themselves
-/// (`ambition_projectiles::{spawn_systems, enemy::effect_spawn_systems}`), because
+/// Both schedule-facing projectile materializers stamp it themselves, because
 /// this system alone was not enough and could not be: it runs before the move clock,
-/// while `apply_enemy_projectile_effects` spawns LATER in the same `Combat` set and
-/// `step_projectiles` runs immediately after it. An enemy bolt that spawned and hit
+/// while `materialize_projectiles_for_this_tick` spawns LATER in the same `Combat` set
+/// and `step_projectiles` runs immediately after it. A bolt that spawned and hit
 /// a wall inside one tick emitted its impact before this could ever see it (GPT 5.6,
 /// 2026-07-26). Attribution belongs where the entity is born.
 ///

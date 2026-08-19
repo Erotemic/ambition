@@ -1576,9 +1576,9 @@ pub fn mark_move_playback_landed_hits(
 ///   exact seam the boss's `Special(key)` profiles reuse once the boss folds onto
 ///   the moveset — a data-driven move fires a content technique with zero new
 ///   plumbing (fable review §A1, Path B).
-/// - `Ranged` → BRIDGE to the existing enemy-projectile seam by writing the SAME
+/// - `Ranged` → BRIDGE to the shared projectile request seam by writing the SAME
 ///   `ActorActionMessage::Ranged` the flat `frame.fire` resolver emits, so the
-///   mature `spawn_enemy_projectiles_from_brain_actions` consumer (body-side
+///   mature `spawn_projectiles_from_brain_actions` consumer (body-side
 ///   fire-rate, recoil, muzzle, visual kind) fires the shot unchanged. The shot's
 ///   direction is SAMPLED LIVE from the owner's current `fire` intent at THIS event
 ///   frame (option A — a moveset shot still tracks a strafing target, unlike a

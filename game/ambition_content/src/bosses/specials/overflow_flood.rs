@@ -13,8 +13,7 @@ use ambition_platformer2d_actor_monolith::actor::{BodyKinematics, PlayerEntity};
 use ambition_boss_encounter::BossClusterRef;
 use ambition_platformer2d_actor_monolith::features::{ActorTarget, FeatureSimEntity};
 use ambition_platformer2d_core::{self as ae, AabbExt};
-use ambition_projectiles::enemy::ProjectileSpawn;
-use ambition_vfx::{Effect, EffectRequest};
+use ambition_projectiles::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
 
 // ---- Overflow's boundary flood (content-only, open-seam special) ----
 
@@ -31,7 +30,6 @@ const FLOOD_DAMAGE: i32 = 1;
 const FLOOD_HALF_EXTENT: ae::Vec2 = ae::Vec2::new(12.0, 14.0);
 const FLOOD_LIFETIME: f32 = 6.0;
 const FLOOD_SPAWN_HEIGHT_ABOVE_BOSS: f32 = 300.0;
-const FLOOD_OWNER_PREFIX: &str = "overflow_flood";
 
 /// Per-boss state for the Overflow flood. The telegraph locks the player's x
 /// (their safe lane); the strike floods every other column from above. One burst
@@ -66,7 +64,7 @@ pub fn spawn_overflow_flood_from_special_messages(
     world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
         ambition_platformer2d_core::RoomGeometry,
     >,
-    mut effects: MessageWriter<EffectRequest>,
+    mut projectiles: MessageWriter<ProjectileSpawnRequest>,
     mut messages: MessageReader<ActorActionMessage>,
     player_query: Query<&BodyKinematics, With<PlayerEntity>>,
     mut bosses: Query<
@@ -129,25 +127,23 @@ pub fn spawn_overflow_flood_from_special_messages(
         let spawn_y =
             (boss.kin.pos.y - FLOOD_SPAWN_HEIGHT_ABOVE_BOSS).max(FLOOD_HALF_EXTENT.y + 8.0);
         for x in overflow_columns(world.0.size.x, FLOOD_SPACING, gap_x, FLOOD_GAP_HALF) {
-            effects.write(EffectRequest {
-                owner: entity,
-                effect: Effect::Projectiles {
-                    shots: vec![ProjectileSpawn {
-                        origin: ae::Vec2::new(x, spawn_y),
-                        dir: ae::Vec2::new(0.0, 1.0),
-                        speed: FLOOD_SPEED,
-                        damage: FLOOD_DAMAGE,
-                        max_lifetime: FLOOD_LIFETIME,
-                        half_extent: FLOOD_HALF_EXTENT,
-                        owner_id: format!("{}:{}", FLOOD_OWNER_PREFIX, boss.config.id),
-                        gravity: FLOOD_GRAVITY,
-                        visual_id: String::new(),
-                        // Straight shot: this ability authors no bounce.
-                        bounces: 0,
-                        bounce_on_world_contact: false,
-                    }],
+            projectiles.write(ProjectileSpawnRequest::open(
+                entity,
+                ProjectileSpawn {
+                    origin: ae::Vec2::new(x, spawn_y),
+                    dir: ae::Vec2::new(0.0, 1.0),
+                    speed: FLOOD_SPEED,
+                    damage: FLOOD_DAMAGE,
+                    max_lifetime: FLOOD_LIFETIME,
+                    half_extent: FLOOD_HALF_EXTENT,
+                    gravity: FLOOD_GRAVITY,
+                    visual_id: String::new(),
+                    // Straight shot: this ability authors no bounce.
+                    bounces: 0,
+                    bounce_on_world_contact: false,
                 },
-            });
+                ProjectileStart::StepThisTick,
+            ));
         }
         state.fired_this_strike = true;
         state.locked_x = None;

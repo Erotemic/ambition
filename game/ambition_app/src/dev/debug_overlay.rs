@@ -251,8 +251,7 @@ pub(crate) fn draw_debug_overlay(
         draw_projectile_debug(
             &mut gizmos,
             world,
-            feature_q.player_projectiles.iter(),
-            feature_q.enemy_projectiles.iter(),
+            feature_q.live_projectiles.iter(),
             &developer_tools,
         );
         draw_held_projectiles(

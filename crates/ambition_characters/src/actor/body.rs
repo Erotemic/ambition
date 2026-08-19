@@ -426,10 +426,10 @@ pub struct BodyAnimFacts {
     /// Previous frame's `dashing` fact; used to detect the dash rising edge.
     pub anim_prev_dashing: bool,
     /// Time remaining for the projectile-release `Shoot` pose. Armed by
-    /// `update_projectiles` whenever a projectile body is spawned (any
+    /// `charge_projectile_input` whenever a projectile request is accepted (any
     /// kind — Fireball/Hadouken/HadoukenSuper). Single-shot, short.
     pub shoot_anim_timer: f32,
-    /// Set each frame by `update_projectiles` to mirror
+    /// Set each frame by `charge_projectile_input` to mirror
     /// `PlayerProjectileState.charging.is_some()`. While true the
     /// player is holding a charge and the `Aim` row plays.
     pub aim_anim_active: bool,

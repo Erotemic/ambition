@@ -12,7 +12,7 @@ use ambition_characters::brain::{
 use ambition_boss_encounter::BossClusterRef;
 use ambition_platformer2d_actor_monolith::features::FeatureSimEntity;
 use ambition_platformer2d_core::{self as ae, AabbExt};
-use ambition_projectiles::enemy::ProjectileSpawn;
+use ambition_projectiles::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
 use ambition_time::WorldTime;
 
 // ===================================================================
@@ -77,12 +77,9 @@ const APPLE_RAIN_HALF_EXTENT: ae::Vec2 = ae::Vec2::new(14.0, 16.0);
 const APPLE_RAIN_GRAVITY: f32 = 540.0;
 const APPLE_RAIN_LIFETIME: f32 = 6.0;
 const APPLE_RAIN_SPAWN_HEIGHT_ABOVE_PLAYER: f32 = 320.0;
-/// Owner-id prefix for this technique's apple projectiles (self / friendly-fire
-/// filtering + traces ONLY — art is data-driven via the `"apple"` visual id
-/// registered in the projectile visual catalog).
-/// Named for the technique, not the boss that wields it: the engine names no
-/// boss's projectiles (crit 3), and neither does the technique name a boss.
-const APPLE_RAIN_OWNER_PREFIX: &str = "apple_rain";
+/// Apple art is data-driven via the `"apple"` visual id registered in the
+/// projectile visual catalog; ownership and friendly-fire come from the firing
+/// body and its frozen projectile allegiance instead of an id convention.
 const PHI_FRAC: f32 = 0.618_033_99;
 
 /// Horizontal spawn lane (world x) for the `spawn_index`-th apple.
@@ -134,7 +131,7 @@ pub fn spawn_apple_rain_from_special_messages(
         ambition_platformer2d_core::RoomGeometry,
     >,
     mut messages: MessageReader<ActorActionMessage>,
-    mut effects: MessageWriter<ambition_vfx::EffectRequest>,
+    mut projectiles: MessageWriter<ProjectileSpawnRequest>,
     mut bosses: Query<
         (
             Entity,
@@ -190,31 +187,29 @@ pub fn spawn_apple_rain_from_special_messages(
             let spawn_x = apple_rain_spawn_x(state.spawn_index, world.0.size.x, self_aabb);
             let spawn_y = (boss.kin.pos.y - APPLE_RAIN_SPAWN_HEIGHT_ABOVE_PLAYER)
                 .max(APPLE_RAIN_HALF_EXTENT.y + 8.0);
-            effects.write(ambition_vfx::EffectRequest {
-                owner: entity,
-                effect: ambition_vfx::Effect::Projectiles {
-                    shots: vec![ProjectileSpawn {
-                        origin: ae::Vec2::new(spawn_x, spawn_y),
-                        // Downward initial velocity so the apple commits to
-                        // its lane immediately instead of hanging at zero
-                        // until gravity catches up.
-                        dir: ae::Vec2::new(0.0, 1.0),
-                        speed: spawn_speed,
-                        damage,
-                        max_lifetime: APPLE_RAIN_LIFETIME,
-                        half_extent: APPLE_RAIN_HALF_EXTENT,
-                        owner_id: format!("{}:{}", APPLE_RAIN_OWNER_PREFIX, boss.config.id),
-                        gravity: APPLE_RAIN_GRAVITY,
-                        // The apple-rain fruit renders as the generated apple
-                        // sprite (kept upright vs gravity) — keyed by kind, not
-                        // by the owner-id substring the visuals layer once read.
-                        visual_id: "apple".to_string(),
-                        // Straight shot: this ability authors no bounce.
-                        bounces: 0,
-                        bounce_on_world_contact: false,
-                    }],
+            projectiles.write(ProjectileSpawnRequest::open(
+                entity,
+                ProjectileSpawn {
+                    origin: ae::Vec2::new(spawn_x, spawn_y),
+                    // Downward initial velocity so the apple commits to
+                    // its lane immediately instead of hanging at zero
+                    // until gravity catches up.
+                    dir: ae::Vec2::new(0.0, 1.0),
+                    speed: spawn_speed,
+                    damage,
+                    max_lifetime: APPLE_RAIN_LIFETIME,
+                    half_extent: APPLE_RAIN_HALF_EXTENT,
+                    gravity: APPLE_RAIN_GRAVITY,
+                    // The apple-rain fruit renders as the generated apple
+                    // sprite (kept upright vs gravity) — keyed by kind, not
+                    // by the retired owner-string convention the visuals layer once read.
+                    visual_id: "apple".to_string(),
+                    // Straight shot: this ability authors no bounce.
+                    bounces: 0,
+                    bounce_on_world_contact: false,
                 },
-            });
+                ProjectileStart::StepThisTick,
+            ));
             state.spawn_index = state.spawn_index.wrapping_add(1);
         }
     }
@@ -310,7 +305,6 @@ pub struct GradientCascadeState {
 /// `ambition_platformer2d_actor_monolith::features::bosses` — these are local mirrors.
 const OVERFIT_VOLLEY_BOLT_HALF_EXTENT: ae::Vec2 = ae::Vec2::new(8.0, 8.0);
 const OVERFIT_VOLLEY_BOLT_LIFETIME: f32 = 2.4;
-const OVERFIT_VOLLEY_OWNER_PREFIX: &str = "gradient_sentinel_overfit";
 
 /// EFFECTS consumer: `overfit_volley` position-sampling bolt barrage.
 ///
@@ -330,7 +324,7 @@ const OVERFIT_VOLLEY_OWNER_PREFIX: &str = "gradient_sentinel_overfit";
 /// from zero.
 pub fn spawn_overfit_volley_from_special_messages(
     world_time: Res<WorldTime>,
-    mut effects: MessageWriter<ambition_vfx::EffectRequest>,
+    mut projectiles: MessageWriter<ProjectileSpawnRequest>,
     mut messages: MessageReader<ActorActionMessage>,
     // Per-actor target: each boss carries an `ActorTarget` populated
     // upstream by `select_actor_targets` (nearest-player resolution).
@@ -428,28 +422,23 @@ pub fn spawn_overfit_volley_from_special_messages(
                     if dir.length_squared() < 1e-4 {
                         continue;
                     }
-                    effects.write(ambition_vfx::EffectRequest {
-                        owner: entity,
-                        effect: ambition_vfx::Effect::Projectiles {
-                            shots: vec![ProjectileSpawn {
-                                origin,
-                                dir,
-                                speed: shot_speed,
-                                damage,
-                                max_lifetime: OVERFIT_VOLLEY_BOLT_LIFETIME,
-                                half_extent: OVERFIT_VOLLEY_BOLT_HALF_EXTENT,
-                                owner_id: format!(
-                                    "{}:{}",
-                                    OVERFIT_VOLLEY_OWNER_PREFIX, boss.config.id
-                                ),
-                                gravity: 0.0,
-                                visual_id: String::new(),
-                                // Straight shot: this ability authors no bounce.
-                                bounces: 0,
-                                bounce_on_world_contact: false,
-                            }],
+                    projectiles.write(ProjectileSpawnRequest::open(
+                        entity,
+                        ProjectileSpawn {
+                            origin,
+                            dir,
+                            speed: shot_speed,
+                            damage,
+                            max_lifetime: OVERFIT_VOLLEY_BOLT_LIFETIME,
+                            half_extent: OVERFIT_VOLLEY_BOLT_HALF_EXTENT,
+                            gravity: 0.0,
+                            visual_id: String::new(),
+                            // Straight shot: this ability authors no bounce.
+                            bounces: 0,
+                            bounce_on_world_contact: false,
                         },
-                    });
+                        ProjectileStart::StepThisTick,
+                    ));
                 }
                 state.fired_this_strike = true;
                 state.samples.clear();

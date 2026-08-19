@@ -275,7 +275,7 @@ pub fn simple_melee(p: &SimpleMeleeParams) -> MoveSpec {
 /// [`MoveEventKind::Ranged`] fire event at release (which spawns the projectile,
 /// sampling LIVE aim), and a `Recovery` settle window — all on the owner's
 /// proper-time clock, so a dilated shooter's draw slows with it. The projectile IS
-/// the damage (spawned by the event through the shared enemy-projectile consumer),
+/// the damage (spawned by the event through the shared projectile-request consumer),
 /// so the move carries NO hit volume. Windup/recovery are authored defaults per
 /// spec kind (deferred-tuning); the body-side refire cooldown remains the hard rate
 /// floor, the move duration an additional cadence gate.

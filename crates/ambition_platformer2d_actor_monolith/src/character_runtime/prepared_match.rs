@@ -1451,10 +1451,9 @@ fn bind_seat_control(commands: &mut Commands, body: Entity, authority: &ControlA
             // ⚠ the BRAIN is not here — it is in the spawn bundle, deliberately;
             // see `realize_seat`. What is left is the local-input plumbing that
             // has no archetype counterpart to race with.
-            commands.entity(body).insert((
-                crate::control::components::LocalPlayer,
-                crate::control::components::PlayerInputFrame::default(),
-            ));
+            commands
+                .entity(body)
+                .insert(crate::control::components::LocalPlayer);
         }
         // The seed already carries the archetype's brain, derived in
         // `realize_seat` exactly as the enemy spawner derives it.

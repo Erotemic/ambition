@@ -427,9 +427,9 @@ fn a_match_builds_its_own_cast_and_leaves_other_bodies_alone() {
 /// part `populate_slot_controls` names in its own docs as co-op's job.
 ///
 /// So this asserts the half that exists: seat 1 gets its own body carrying
-/// `Brain::Player(1)`, `LocalPlayer` and a `PlayerInputFrame`. A body that
-/// carries the player brain for a slot nothing writes simply stands still, which
-/// is the correct behaviour for an unplugged controller.
+/// `Brain::Player(1)` and `LocalPlayer`. The brain names the canonical slot
+/// directly; a body whose slot receives no frame simply stands still, which is
+/// the correct behaviour for an unplugged controller.
 ///
 /// ⚠ **no pre-spawned player body here any more, and that IS the change.** This
 /// fixture used to stand one up because seat 0 adopted it; now every seat is
@@ -485,14 +485,16 @@ fn a_second_human_seat_gets_its_own_body_on_its_own_slot() {
     );
 }
 
-/// A second human body is a LOCAL player, or the slot→body bridge skips it.
+/// A locally driven human body keeps local-source identity while its control
+/// authority remains the slot named by `Brain::Player`.
 ///
-/// `sync_local_player_input_frame` only mirrors slots onto bodies carrying
-/// `LocalPlayer`. Without the marker the body has a player brain, receives
-/// nothing, and stands still — indistinguishable from an unplugged controller,
-/// which is exactly the kind of silence that takes an afternoon to diagnose.
+/// `LocalPlayer` answers where the source lives; it does not carry or duplicate
+/// the source's per-tick frame. That distinction lets possession move the brain
+/// without manufacturing a second input authority on the new body.
 #[test]
-fn a_second_human_body_is_marked_local_so_the_slot_bridge_reaches_it() {
+fn a_local_human_body_keeps_local_source_identity_on_the_slot_model() {
+    use ambition_characters::brain::Brain;
+
     let mut app = seating_app();
     app.register_character(CharacterDefinition::new("sanic", "Sanic", "sanic_demo"));
     app.insert_resource(MatchParticipantRoster {
@@ -507,15 +509,12 @@ fn a_second_human_body_is_marked_local_so_the_slot_bridge_reaches_it() {
     finalize_and_update(&mut app);
 
     let world = app.world_mut();
-    let mut locals = world.query::<(
-        &crate::control::components::LocalPlayer,
-        &crate::control::components::PlayerInputFrame,
-    )>();
-    assert_eq!(
-        locals.iter(world).count(),
-        1,
-        "the second human's body is not a `LocalPlayer` with a `PlayerInputFrame`, \
-         so `sync_local_player_input_frame` will never hand it its slot's input"
+    let mut locals = world.query::<(&crate::control::components::LocalPlayer, &Brain)>();
+    let brains: Vec<_> = locals.iter(world).map(|(_, brain)| brain.player_slot()).collect();
+    assert_eq!(brains.len(), 1, "the human seat must produce one locally sourced body");
+    assert!(
+        brains[0].is_some(),
+        "a locally sourced human body must name its control slot through Brain::Player"
     );
 }
 

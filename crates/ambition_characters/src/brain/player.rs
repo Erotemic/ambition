@@ -1,4 +1,4 @@
-//! Player brain — translates `PlayerInputFrame` into the abstract
+//! Player brain — translates a slot-selected `ControlFrame` into the abstract
 //! intent fields of [`crate::actor::control::ActorControlFrame`].
 //!
 //! The player brain is **purely a translation layer**. It does not
@@ -39,10 +39,9 @@ pub fn tick_player_brain(
 ) {
     // Per Chunk 4e: BrainSnapshot now carries the player's input
     // frame as an Option. When present we delegate to the
-    // input-aware translator. When absent (e.g. an actor that has
-    // a `Brain::Player(slot)` brain but no PlayerInputFrame in
-    // scope), emit a neutral frame + facing so the integration
-    // doesn't see garbage.
+    // input-aware translator. When absent (e.g. a player-brained body whose
+    // slot has not been published into this snapshot), emit a neutral frame +
+    // facing so integration never consumes stale input.
     if let Some(ref input) = snapshot.player_input {
         tick_player_brain_from_control(input, snapshot, out);
         return;

@@ -12,8 +12,9 @@ description = "Reusable, content-free platformer runtime primitives (lifecycle v
 crate-type = ["rlib"]
 
 [dependencies]
-# Authored projectile intent — content-free spawn data that left this crate so
-# `ambition_vfx` could stop depending on it. See that crate's module doc.
+# Authored projectile intent lives on a lower floor than projectile physics.
+# This crate re-exports it for compatibility; authoritative spawn requests are
+# owned by `ambition_projectiles`, not by the VFX domain.
 ambition_projectile_spec = { path = "../ambition_projectile_spec" }
 # The binding boundary, which USED to be a module in this crate. See
 # `src/binding.rs` for why it left and why the re-export stays.

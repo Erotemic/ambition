@@ -2035,7 +2035,7 @@ bolt materializes after that step and first ticks next frame, when the stamp has
 already run. True about STEPPING, false about the WINDOW:
 
 ```text
-CombatSet::Materialize   apply_player_spawn_projectile_messages   bolt exists
+CombatSet::Materialize   materialize_projectiles_for_next_tick   bolt exists
 CombatSet::Settle        take_eliminated_fighters_out_of_play     firer despawns
         ← same tick, and Materialize is EARLIER than Settle
 next tick                stamp → step                            nothing to read

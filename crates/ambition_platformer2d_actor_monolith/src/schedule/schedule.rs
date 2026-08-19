@@ -233,12 +233,10 @@ pub fn configure_platformer2d_simulation_phases(app: &mut App) {
     // Input populate contract (ambition_input::InputSet): every system that
     // WRITES the `ControlFrame` resource lives in `InputSet::Route`, and the
     // whole set is pinned BEFORE the gameplay consume boundary. That boundary is
-    // now `populate_slot_controls` — the FIRST reader of the finalized
-    // `ControlFrame`, publishing it into the slot-based controller model
-    // (`SlotControls[PRIMARY]`). `sync_local_player_input_frame` (SlotControls →
-    // the controlled body's `PlayerInputFrame`) is chained after it, so it
-    // inherits the ordering. This is ADDITIVE: every tagged writer already ran
-    // before that consumer (device populate + touch fold run
+    // `PrimarySlotInputCommit`: the finalized `ControlFrame` is published into
+    // the canonical slot-based controller model (`SlotControls[PRIMARY]`). There
+    // is no per-body input copy after this point. This is ADDITIVE: every tagged
+    // writer already ran before that consumer (device populate + touch fold run
     // `.before(CoreSimulation)`; the portal write-back and edge-derived flags run
     // earlier in the `PlayerInput` chain `.before` the consumer). Naming the
     // window makes it structurally impossible for a `ControlFrame` writer to
@@ -246,6 +244,6 @@ pub fn configure_platformer2d_simulation_phases(app: &mut App) {
     // Move-axis regression this contract exists to prevent.
     app.configure_sets(
         sim,
-        ambition_input::InputSet::Route.before(crate::control::populate_slot_controls),
+        ambition_input::InputSet::Route.before(crate::control::PrimarySlotInputCommit),
     );
 }

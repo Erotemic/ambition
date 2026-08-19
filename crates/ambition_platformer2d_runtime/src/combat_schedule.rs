@@ -191,11 +191,11 @@ impl Plugin for CombatSchedulePlugin {
                 // EFFECTS-stage consumer: reads ActorActionMessage::Ranged —
                 // emitted upstream by `emit_brain_action_messages` (PlayerInput
                 // set) for flat-ranged bodies, and by `dispatch_move_events`
-                // ABOVE for moveset-ranged bodies — and spawns enemy
-                // projectiles, both same-frame. Runs BEFORE the projectile step
+                // ABOVE for moveset-ranged bodies — and emits open projectile
+                // requests. Runs BEFORE the projectile step
                 // so projectiles spawned this tick already advance one step
                 // this frame, matching the pre-migration latency.
-                ambition_platformer2d_actor_monolith::features::spawn_enemy_projectiles_from_brain_actions
+                ambition_platformer2d_actor_monolith::features::spawn_projectiles_from_brain_actions
                     .run_if(gameplay_allowed),
                 // The 11 per-boss special-attack Techniques (apple rain,
                 // eye beam, the Gradient Sentinel barrage family, …) used
@@ -203,7 +203,7 @@ impl Plugin for CombatSchedulePlugin {
                 // in `CombatSet::ContentSpecials`, configured below to slot
                 // in at exactly this point — AFTER the enemy-action
                 // consumers, BEFORE the effect/projectile executors that
-                // drain their `SpawnProjectile`/`EffectRequest` output.
+                // drain their `ProjectileSpawnRequest` / `EffectRequest` output.
                 // Registration lives in
                 // `ambition_content::bosses::specials::BossSpecialContentPlugin`.
                 // Generic effect executor: drains `EffectRequest` (boss OR
@@ -223,13 +223,13 @@ impl Plugin for CombatSchedulePlugin {
                     ambition_platformer2d_actor_monolith::features::apply_summon_effects.run_if(gameplay_allowed),
                 )
                     .chain(),
-                // Phase 3b enemy-pool spawn consumer: drains SpawnProjectile
-                // messages emitted by the EFFECTS-stage fire consumers above
-                // (apple rain / overfit volley / eye beam / ranged bolts /
-                // sentry / meteor / volley) into EnemyProjectileState.bodies
-                // BEFORE the step below, so a body spawned this tick advances
-                // one step this frame — identical to the old direct push.
-                crate::projectile_schedule::apply_enemy_projectile_effects.run_if(gameplay_allowed),
+                // Immediate projectile materializer: actor/item/boss fire above
+                // writes the projectile domain's own request and explicitly asks
+                // to begin on THIS tick. Materialize before the step so the
+                // historical first-tick timing remains unchanged without routing
+                // authoritative spawning through the VFX effect enum.
+                crate::projectile_schedule::materialize_projectiles_for_this_tick
+                    .run_if(gameplay_allowed),
                 // ⭐ **WHOSE SHOT THIS IS, FROZEN BEFORE ANYTHING STEPS IT.**
                 // The stamp used to be taken lazily on a bolt's first step, which
                 // left a window where it existed unstamped — and a firer
@@ -242,7 +242,7 @@ impl Plugin for CombatSchedulePlugin {
                 // when this has already run. That is true about STEPPING and false
                 // about the window: `take_eliminated_fighters_out_of_play` runs in
                 // `CombatSet::Settle`, and `Materialize` is BEFORE `Settle` — so a
-                // player bolt fired on the tick its owner is eliminated materializes
+                // delayed bolt fired on the tick its owner is eliminated materializes
                 // at the end of this chain, loses its firer later in the same tick,
                 // and reaches this system next frame with nothing to read. The
                 // window is bounded by the DESPAWN, not by the step.
@@ -252,19 +252,22 @@ impl Plugin for CombatSchedulePlugin {
                 // stamping is not gameplay progress.
                 crate::projectile_schedule::stamp_new_projectile_allegiance,
                 // Unified projectile step (player + enemy, faction-routed). Runs
-                // AFTER the enemy spawn consumer (so an enemy body spawned this
-                // tick advances one step this frame) and BEFORE the player input +
-                // spawn below (so a player shot FIRED this frame first ticks next
-                // frame — the old asymmetric spawn timing, preserved).
+                // AFTER the immediate materializer (so a StepThisTick shot spawned
+                // this tick advances one step this frame) and BEFORE named body-fire
+                // input + delayed materialization below (so a StepNextTick shot fired
+                // this frame first advances next frame — the old timing distinction,
+                // preserved as request data rather than producer identity).
                 crate::projectile_schedule::step_projectiles
                     .in_set(crate::projectile_schedule::ProjectileStepSet)
                     .run_if(gameplay_allowed),
-                // Player projectile INPUT: charge / Hadouken / fire → SpawnProjectile.
+                // Named body-fire INPUT: charge / Hadouken / fire → ProjectileSpawnRequest.
                 crate::projectile_schedule::charge_projectile_input,
-                // Phase 3b player-pool spawn consumer: materializes player-fired
-                // bodies AFTER the step, so the new body first ticks next frame.
-                crate::projectile_schedule::apply_player_spawn_projectile_messages,
-                // The second stamp: the player bolt that just materialized takes
+                // Delayed projectile materializer: the charged/named body-fire
+                // road explicitly asks to begin NEXT tick. It runs after the step,
+                // preserving the existing fire latency through the same entity
+                // constructor used by immediate actor/item/boss shots.
+                crate::projectile_schedule::materialize_projectiles_for_next_tick,
+                // The second stamp: the delayed bolt that just materialized takes
                 // its side HERE, inside `Materialize`, rather than next frame —
                 // because its firer can be eliminated later this same tick, in
                 // `Settle`. See the note beside the first placement.

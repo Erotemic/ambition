@@ -791,13 +791,10 @@ fn install_misc_visual_sync_systems(app: &mut App) {
 /// Projectile sprite ring + VFX/debris message subscribers + (input-
 /// feature-gated) blink preview ring.
 fn install_projectile_and_vfx_systems(app: &mut App) {
-    // Player projectile visuals: rebuild the sprite ring each tick
-    // from `PlayerProjectileState::bodies`. Must run after
-    // `update_projectiles` so the body list reflects this frame's
-    // spawn / tick / collision before the visuals are rebuilt —
-    // otherwise newly-fired projectiles would only become visible
-    // one frame late.
-    // ⚠ the projectile visual passes left this file on 2026-07-31:
+    // Projectile presentation is entity-backed now: the host renders the shared
+    // `LiveProjectile` occurrence family after simulation, using
+    // `ProjectileVisualId` / optional `ProjectileKind` rather than a player/enemy
+    // pool. The visual passes themselves left this file on 2026-07-31:
     // `ambition_platformer2d_host::HostProjectileVisualsPlugin` registers them, with their
     // two ordering edges intact, for every composition. Until then this app was
     // the only one that DREW a projectile it had fired.

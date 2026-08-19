@@ -7,10 +7,15 @@
 //! ControlFrame→actor-intent extraction). The kind *lowers* into the engine's
 //! generic [`ProjectileSpec`]; the engine never matches on a kind.
 //!
-//! `ProjectileKind` is also an ECS [`Component`]: player projectile entities
-//! carry it so the combat-attribution (`HitSource::Projectile { kind }`),
-//! the feel-trace, and the renderer (tint / sprite name) can read the named kind
-//! without the engine knowing kinds exist.
+//! `ProjectileKind` is also an ECS [`Component`]: named projectile entities
+//! carry it so combat attribution, feel traces, and presentation can read the
+//! authored kind without every projectile needing one.
+//! Historically only controlled-body fire used this vocabulary; open-visual
+//! actor/item/boss shots deliberately remain kind-less.
+//!
+//! The named kind is not faction authority: reflected or remotely controlled
+//! shots keep their kind while their `ProjectileAllegiance` can change.
+//!
 
 use ambition_platformer2d_core::Vec2;
 use bevy::prelude::Component;

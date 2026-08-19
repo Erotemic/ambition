@@ -418,13 +418,19 @@ fn spawn_spacetime_3d(
 /// `spawn_spacetime_3d` for the same note at more length.
 fn toggle_spacetime_minimap(
     keys: Option<Res<ButtonInput<KeyCode>>>,
-    traveler: Query<&ambition_platformer2d::actors::control::PlayerInputFrame, With<TravelerTwin>>,
+    slots: Res<ambition_platformer2d::characters::brain::SlotControls>,
+    traveler: Query<&ambition_platformer2d::characters::brain::Brain, With<TravelerTwin>>,
     mut special_was_pressed: Local<bool>,
     mut minimap: ResMut<SpacetimeMinimapState>,
 ) {
+    // Presentation/UI input belongs to the participant slot, not to body-semantic
+    // ActorControl. Follow whichever slot currently drives the traveler instead
+    // of assuming the primary slot or manufacturing an input component on it.
     let special = traveler
         .single()
-        .is_ok_and(|input| input.frame.special_pressed);
+        .ok()
+        .and_then(|brain| brain.player_slot())
+        .is_some_and(|slot| slots.get(slot).special_pressed);
     let special_edge = special && !*special_was_pressed;
     *special_was_pressed = special;
     let key_edge = keys.is_some_and(|keys| keys.just_pressed(KeyCode::KeyM));

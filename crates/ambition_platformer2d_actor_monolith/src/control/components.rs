@@ -1,15 +1,14 @@
-//! The control-seam STATE: one human's device frame, the slot it drives, and the
-//! per-body input snapshot that slot's brain publishes.
+//! The control-seam STATE: which controlled bodies are local, plus the gesture
+//! state owned by each controller slot.
 //!
-//! `LocalPlayer` says *this slot's input comes from this machine*.
-//! `PlayerInputFrame` is the entity-local frame a body reads instead of the
-//! global `Res<ControlFrame>`. `SlotGestures` / `SlotInteractionState` are
-//! SLOT-level, not body-level: a gesture belongs to a controller, and follows it
-//! onto whatever body it currently drives.
+//! `LocalPlayer` says *this body is driven by an input source on this machine*.
+//! The actual per-tick input authority is [`ambition_characters::brain::SlotControls`],
+//! keyed by the body's [`PlayerSlot`]; it is deliberately not copied onto the
+//! body. `SlotGestures` / `SlotInteractionState` are likewise SLOT-level: a
+//! gesture belongs to a controller and follows it onto whatever body it drives.
 
 use bevy::prelude::*;
 
-use ambition_input::ControlFrame;
 
 // The slot marker every body-facing consumer keys on. Defined a tier down, in
 // `ambition_characters::brain`, because a brain names its own slot.
@@ -23,28 +22,6 @@ pub use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlay
 /// `LocalPlayer`.
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct LocalPlayer;
-
-/// Per-player input snapshot. Mirrors the single global
-/// [`ambition_input::ControlFrame`] resource onto the local player
-/// entity so simulation systems can move toward reading input from a
-/// `Query<&PlayerInputFrame>` rather than `Res<ControlFrame>`. That's
-/// the architectural seam multiplayer / netcode work needs:
-///
-/// - the local primary player's frame is filled by
-///   `sync_local_player_input_frame` after the input pipeline writes
-///   `Res<ControlFrame>`;
-/// - future remote / co-op players would have their own
-///   `PlayerInputFrame` populated by a network adapter or a second
-///   input device, without competing for the single global resource.
-///
-/// Today exactly one entity (the local primary player) carries this
-/// component, and `Res<ControlFrame>` stays the single writer channel.
-/// New simulation systems should prefer this component so they're
-/// already shaped for multiple input-bearing players.
-#[derive(Component, Clone, Copy, Debug, Default)]
-pub struct PlayerInputFrame {
-    pub frame: ControlFrame,
-}
 
 // Player health is now the unified `ambition_characters::actor::BodyHealth` (the keystone
 // collapse of the identical `PlayerHealth` / `ActorHealth` wrappers into one

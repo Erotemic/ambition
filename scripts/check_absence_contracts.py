@@ -96,6 +96,17 @@ from pathlib import Path
 # assertion INSIDE the allowed file rather than renaming it back.
 ABSENCE_CONTRACTS: list[dict] = [
     {
+        "id": "player-input-frame-mirror-does-not-return",
+        "paths": ["crates/", "game/"],
+        "patterns": [r"\bPlayerInputFrame\b"],
+        "reason": (
+            "Per-tick participant input is owned by SlotControls and selected by "
+            "Brain::Player(slot); body mechanics consume ActorControl. Reintroducing "
+            "an entity-local PlayerInputFrame would create a second input authority "
+            "whose lifetime can diverge under possession, couch play, and rollback."
+        ),
+    },
+    {
         "id": "a-second-writer-of-a-match-global-must-answer-ownership",
         "paths": [
             "crates/",

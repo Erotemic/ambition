@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v37
+ggrs-rollback-schema-v38
 actor.action_set	component-clone	ActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.active_combatant	component-canonical	ActiveCombatant	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.aggression	component-clone-cursor	ActorAggression	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
@@ -162,7 +162,6 @@ derived.perception_projectiles	derived	PerceptionProjectiles	perception snapshot
 derived.placement_continuity	derived	AuthoredOccurrences	authored-occurrence whereabouts; republished from live state while its room is loaded
 derived.player_affordances	derived	PlayerAffordances	affordance read model recomputed per frame from body state
 derived.player_body_frame_output	derived	PlayerBodyFrameOutput	republished by body integration every simulation frame
-derived.player_input_frame	derived	PlayerInputFrame	copied from GGRS PlayerInputs at the head of every frame
 derived.player_intent	derived	PlayerIntent	affordance read model recomputed per frame from control input
 derived.pogo_target_below	derived	PogoTargetBelow	proximity read model recomputed per frame
 derived.portal_carves	derived	PortalCarves	rebuilt from placed portals and transit occupancy each frame
@@ -329,7 +328,7 @@ message.set_flag_requested	message-clear	SetFlagRequested	clear abandoned-future
 message.shop_transaction_requested	message-clear	ShopTransactionRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.signal_arrival_2d	message-clear	SignalArrival2d	clear abandoned-future message buffer in LoadWorld::Mapping
 message.spawn_actor_request	message-clear	SpawnActorRequest	clear abandoned-future message buffer in LoadWorld::Mapping
-message.spawn_projectile	message-clear	SpawnProjectile	clear abandoned-future message buffer in LoadWorld::Mapping
+message.spawn_projectile	message-clear	ProjectileSpawnRequest	clear abandoned-future message buffer in LoadWorld::Mapping
 message.stocks_match_decided	message-clear	StocksMatchDecided	clear abandoned-future message buffer in LoadWorld::Mapping
 message.switch_activated	message-clear	SwitchActivated	clear abandoned-future message buffer in LoadWorld::Mapping
 message.toggle_portal_gun	message-clear	TogglePortalGun	clear abandoned-future message buffer in LoadWorld::Mapping
@@ -361,12 +360,9 @@ portal.transit_cooldown	component-clone	PortalTransitCooldown	bevy_ggrs clone sn
 presentation.body_source	component-clone	BodyPresentationSource	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 presentation.body_source_derived	component-clone	DerivedPresentationSource	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 projectile.allegiance	component-canonical	ProjectileAllegiance	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-projectile.enemy_marker	component-canonical	EnemyProjectile	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 projectile.gameplay	component-canonical	ProjectileGameplay	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 projectile.kind	component-canonical	ProjectileKind	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 projectile.live_marker	component-canonical	LiveProjectile	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-projectile.owner_id	component-canonical	ProjectileOwnerId	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-projectile.player_marker	component-canonical	PlayerProjectile	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 projectile.seq	component-canonical	ProjectileSeq	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 projectile.visual_id	component-canonical	ProjectileVisualId	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 relativity.active_spacetime_2d	component-clone-custom-checksum	ActiveSpacetime2d	provider-authored spacetime model and invariant-speed fingerprint
@@ -398,7 +394,6 @@ resource.clock_regime_policy	resource-canonical	RegimePolicy	bevy_ggrs canonical
 resource.clock_state	resource-canonical	ClockState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.custody_baseline	resource-clone-custom-checksum	CustodyBaseline	bevy_ggrs clone snapshot + entity-free remembered-custody checksum projection
 resource.encounter_registry	resource-clone	EncounterRegistry	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
-resource.enemy_projectile_state	resource-canonical	EnemyProjectileState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.faction_relations	resource-clone	FactionRelations	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 resource.friendly_fire	resource-clone	FriendlyFire	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 resource.gameplay_elapsed	resource-canonical	GameplayElapsed	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

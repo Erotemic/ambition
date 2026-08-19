@@ -142,7 +142,6 @@ pub fn spawn_requested_player_clone(
             ambition_platformer2d::actors::body_mode::BodyModeCapabilities::full(),
             ambition_platformer2d::actors::actor::BodyMelee::default(),
             ambition_platformer2d::actors::avatar::PlayerSafetyState::default(),
-            ambition_platformer2d::actors::control::PlayerInputFrame::default(),
         ),
         transform,
         Name::new("Player Clone (brain-driven)"),

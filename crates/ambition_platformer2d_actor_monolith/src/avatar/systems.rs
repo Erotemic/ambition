@@ -70,12 +70,10 @@ pub struct ControlledBrainTick;
 /// **Translate participant control into `ActorControl`, for ANY controlled body.**
 ///
 /// The INPUT AUTHORITY is [`SlotControls`], keyed by the `Brain::Player(slot)`
-/// the body itself carries — never `PlayerInputFrame` and never an entity
+/// the body itself carries — never an entity-local copy and never an identity
 /// marker. A body is controlled because it holds a participant's brain, which is
-/// equally true of the home avatar and of an actor somebody possessed.
-/// `PlayerInputFrame` is now only a compatibility mirror for player-flavoured
-/// ability/UI systems (held item, heal shrine, portal gun) written by
-/// `sync_local_player_input_frame`.
+/// equally true of the home avatar and of an actor somebody possessed. Body
+/// mechanics consume the translated [`ActorControl`] written here.
 ///
 /// ⭐⭐ **THE `With<PlayerEntity>` FILTER IS GONE, AND THAT IS THE POINT.** It
 /// was here because a possessed actor otherwise had TWO producers writing its
@@ -210,8 +208,8 @@ pub fn tick_controlled_brains(
             // the brain ignores.
             crowding: None,
             terrain: None,
-            // Player brain reads its own air-jump state via the
-            // PlayerInputFrame / engine path, not via the snapshot.
+            // Player brain does not consult this snapshot field; air-jump
+            // acceptance remains body-side movement state.
             air_jumps_remaining: 0,
         };
         let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();

@@ -8,9 +8,9 @@ use ambition_gameplay_trace::GameplayTraceEvent;
 
 /// Per-player projectile controller state: spawner cooldowns +
 /// motion-input buffer + charge accumulator. Attached to each player
-/// entity by `PlayerSimulationBundle`; `update_projectiles` iterates
-/// every player and ticks their own state independently. In-flight
-/// projectiles are separate ECS entities owned by this player.
+/// entity by `PlayerSimulationBundle`; `charge_projectile_input` ticks
+/// each charge-capable body's state independently. In-flight projectiles
+/// are separate ECS entities owned by their firing body.
 #[derive(Component, Clone)]
 pub struct PlayerProjectileState {
     pub spawner: crate::ProjectileSpawner,

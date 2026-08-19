@@ -18,7 +18,7 @@
 //! old `crate::{input,engine_core,…}` compat re-exports have been removed.
 //!
 //! Top-level modules group coherent slices: `world`, `player`, `abilities`,
-//! `combat`, `gravity`, `items`, `music`, `projectile`, `enemy_projectile`,
+//! `combat`, `gravity`, `items`, `music`, `projectile`,
 //! `quest`, plus the `schedule`/`host`/`session` assembly and `dev` tooling.
 //! ⛔ **`dialog`, `menu`, `equipment` and `persistence` are NOT among them any
 //! more** (D33, 2026-08-17): the first three joined the domain crates that
@@ -93,6 +93,7 @@ pub mod config;
 pub mod cutscene;
 pub mod dev;
 pub mod encounter;
+#[cfg(test)]
 pub mod enemy_projectile;
 pub mod items;
 // Stable facade for dialogue shop bindings.

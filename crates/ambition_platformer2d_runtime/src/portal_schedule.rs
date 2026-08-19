@@ -9,7 +9,7 @@
 //! any break here goes RED there, not silently wrong:
 //! - **Carves** publish after gravity-zone collection, before core simulation.
 //! - **InputWarp** rewrites input after `interaction_input_system` and before
-//!   `sync_local_player_input_frame` (the Move-axis-fix window).
+//!   the primary `ControlFrame` is committed to `SlotControls` (the Move-axis-fix window).
 //! - **Transit** teleports after body + ground-item integration so THIS
 //!   frame's integrated positions are what cross the portal.
 
@@ -40,14 +40,14 @@ impl Plugin for PortalSchedulePlugin {
         );
 
         // InputWarp: input rewrite in the player-input phase, after
-        // interaction input and before the player input frame is synced (the
-        // Move-axis-fix window), gated to gameplay.
+        // interaction input and before the finalized primary frame is published
+        // to SlotControls (the Move-axis-fix window), gated to gameplay.
         app.configure_sets(
             sim,
             PortalSet::InputWarp
                 .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput)
                 .after(ambition_platformer2d_actor_monolith::control::InteractionInputBuffered)
-                .before(ambition_platformer2d_actor_monolith::control::LocalInputFrameCommit)
+                .before(ambition_platformer2d_actor_monolith::control::PrimarySlotInputCommit)
                 .run_if(gameplay_allowed),
         );
 

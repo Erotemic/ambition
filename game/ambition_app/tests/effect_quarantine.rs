@@ -204,10 +204,9 @@ fn the_journal_drains_once_every_frame_confirms() {
 /// **The classification, as an executable claim.**
 ///
 /// The quarantine work-list named `EffectRequest` as VFX exposure. It is not:
-/// all three of its readers are simulation-side (`apply_effects` spawns
-/// hitboxes, `apply_summon_effects` spawns minions,
-/// `apply_enemy_projectile_effects` spawns projectiles), as is
-/// `SpawnProjectile`'s. Deferring one of those to the confirmed boundary would
+/// its remaining readers are simulation-side (`apply_effects` spawns hitboxes
+/// and `apply_summon_effects` spawns minions), as is the projectile domain's
+/// `ProjectileSpawnRequest`. Deferring one of those to the confirmed boundary would
 /// not quarantine an external effect — it would change what the simulation
 /// computes, because the consumer would miss the message on the pass that
 /// produced it and see it again on a frame it does not belong to.
@@ -261,5 +260,8 @@ fn only_presentation_facing_effects_are_quarantined() {
         // is not a replay.
         ambition_platformer2d::platformer::camera_ease::CameraShakeRequest,
     );
-    assert_not_quarantined!(EffectRequest, ambition_platformer2d::projectiles::SpawnProjectile);
+    assert_not_quarantined!(
+        EffectRequest,
+        ambition_platformer2d::projectiles::ProjectileSpawnRequest,
+    );
 }

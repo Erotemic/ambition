@@ -52,27 +52,17 @@ use ambition_combat::targeting::MatchTeam;
 ///   answers the other half — *which side was I on* — which an entity handle to a
 ///   despawned body cannot.
 ///
-/// # ⚠ The stamp has a WINDOW, and it is still open
+/// # The materialization boundary closes the stamp window
 ///
-/// This is frozen on the projectile's FIRST STEP, not at its birth, because the
-/// two materializers live in `ambition_projectiles` — a crate that depends on
-/// neither `ambition_combat` nor `ambition_characters`, so it cannot name
-/// `ActorFaction` or `MatchTeam` to stamp them. A bolt whose firer vanishes
-/// inside that one tick can never take a stamp.
+/// The projectile model cannot name combat vocabulary, so the request materializer
+/// cannot construct this component itself. Instead the host chains this actor-domain
+/// stamp immediately after **each** materializer and before any system can step or
+/// settle the new shot. The two placements correspond to the two explicit
+/// `ProjectileStart` timings; neither is a second spawn authority.
 ///
-/// ⭐ **the presentation half hit this exact wall and named the answer**:
-/// `inherit_projectile_presentation_sources` says a pre-step system *"was not
-/// enough and could not be"* and that *"attribution belongs where the entity is
-/// born"* — it was fixed by having both materializers stamp it themselves, which
-/// worked because a presentation source is a type they can already see.
-///
-/// ⇒ **the same fix here needs the side to travel as DATA in the spawn request**
-/// (the monolith builds those requests and knows the firer's side), or the
-/// combat vocabulary to move down. Until then the window is closed defensively
-/// rather than correctly: a named-but-unresolved owner leaves the shot INERT
-/// instead of indiscriminate, which is safe but is not the same as knowing whose
-/// attack it is. Pinned by
-/// `a_shot_orphaned_before_its_first_step_does_not_turn_on_its_team`.
+/// An ownerless/environmental request intentionally remains unstamped. A request
+/// with a real owner whose body has no `ActorFaction` also remains unstamped, so
+/// absence keeps its semantic meaning rather than being guessed from presentation.
 ///
 /// ⚠ the faction is the firer's AUTHORED one, not `effective_faction`, because
 /// that is exactly what the owner lookup read. Whether a possessed body's shot
@@ -108,16 +98,16 @@ impl ProjectileAllegiance {
 /// It is installed TWICE, once after each materializer:
 ///
 /// ```text
-/// apply_enemy_projectile_effects           enemy bolts materialize
-/// stamp_new_projectile_allegiance          ← 1
+/// materialize_projectiles_for_this_tick    immediate shots materialize
+/// stamp_new_projectile_allegiance           ← 1
 /// step_projectiles
 /// charge_projectile_input
-/// apply_player_spawn_projectile_messages   player bolts materialize
-/// stamp_new_projectile_allegiance          ← 2
+/// materialize_projectiles_for_next_tick    delayed shots materialize
+/// stamp_new_projectile_allegiance           ← 2
 /// ```
 ///
 /// ⛔⛔ **the second is not redundant, and the reasoning that says it is has a
-/// specific hole.** It looks unnecessary because a player bolt materializes after
+/// specific hole.** It looks unnecessary because a delayed bolt materializes after
 /// the step and so first ticks NEXT frame, by which time placement 1 has run.
 /// That is true about STEPPING and false about the WINDOW: the window is bounded
 /// by the firer's DESPAWN, not by the bolt's first step.

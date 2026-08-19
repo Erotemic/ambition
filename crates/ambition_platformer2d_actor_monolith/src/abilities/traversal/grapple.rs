@@ -38,7 +38,7 @@ pub fn grapple_system(
     mut commands: Commands,
     // Ability execution is SUBJECT-GENERIC: acts on the `ControlledSubject`,
     // reading that body's OWN `ActorControl` (brain output) + `HeldItem`. No
-    // `With<PlayerEntity>` filter, no `PlayerInputFrame` — works for a possessed
+    // `With<PlayerEntity>` filter or entity-local input copy — works for a possessed
     // actor exactly as for the home avatar.
     controlled: Res<ControlledSubject>,
     mut bodies: Query<(

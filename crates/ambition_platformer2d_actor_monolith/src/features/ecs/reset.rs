@@ -23,11 +23,12 @@ use super::*;
 /// else.
 ///
 /// ⚠ **it marks what the ATTEMPT produced, not everything spawned at runtime.**
-/// A summon a player is still commanding, a projectile mid-flight, an item the
-/// player threw — each is somebody's live state; loot on the ground is the
-/// residue of a fight that is about to be un-fought. The reset already despawns
-/// in-flight enemy volleys for exactly this reason, and its comment says so:
-/// they "belong to the previous attempt".
+/// A summon a participant is still commanding or an item a body threw can be
+/// somebody's durable live state; loot on the ground is the residue of a fight
+/// that is about to be un-fought. In-flight projectiles are different: every
+/// shot belongs to the combat timeline being reset, so the reset clears all
+/// `LiveProjectile` occurrences explicitly rather than encoding their producer
+/// category into this marker.
 #[derive(bevy::prelude::Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct SpawnedThisAttempt;
 
@@ -91,10 +92,10 @@ pub fn reset_ecs_room_features(
         With<FeatureSimEntity>,
     >,
     mut hazards: Query<&mut HazardFeature, With<FeatureSimEntity>>,
-    // In-flight enemy projectiles are ECS entities now (Phase 3c-iii); despawn
-    // them instead of clearing a Vec. `Entity`-only fetch, so no aliasing with
-    // the actor/boss `&mut BodyKinematics` queries above.
-    enemy_projectiles: Query<Entity, With<crate::enemy_projectile::EnemyProjectile>>,
+    // Every in-flight projectile belongs to the combat timeline being reset.
+    // `Entity`-only fetch, so no aliasing with the actor/boss `&mut BodyKinematics`
+    // queries above. Producer/presentation family is deliberately irrelevant.
+    live_projectiles: Query<Entity, With<crate::projectile::LiveProjectile>>,
     // R5 encounter orchestration from the previous attempt: the encounter entity
     // (+ its finished `EncounterScript`), in-flight falling hazards, and the lure
     // override on a boss. `Entity`-only fetches → no aliasing with the queries above.
@@ -120,12 +121,12 @@ pub fn reset_ecs_room_features(
     ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
         "room-reset reasons={reasons:?}"
     ));
-    // In-flight enemy volleys belong to the previous attempt; clear
-    // them so the room reset doesn't leave hostile shots sailing
-    // through the spawn point. Combat slot reservations are dropped
+    // In-flight shots belong to the previous attempt; clear every live
+    // projectile so the reset cannot leave an old combat event sailing through
+    // the spawn point. Combat slot reservations are dropped
     // for the same reason — `update_ecs_actors` will rebuild them
     // from the freshly-respawned actor positions.
-    for entity in &enemy_projectiles {
+    for entity in &live_projectiles {
         commands.entity(entity).despawn();
     }
 
@@ -289,13 +290,11 @@ mod reset_tests {
     //! pickups un-collect, opened chests un-open, broken breakables
     //! return to Intact. No event -> no change.
     use super::*;
-    use crate::enemy_projectile::EnemyProjectileState;
     use ambition_interaction::Breakable;
     use bevy::prelude::{App, Entity, Update};
 
     fn app() -> App {
         let mut app = App::new();
-        app.insert_resource(EnemyProjectileState::default());
         app.add_message::<ResetRoomFeaturesEvent>();
         app.add_systems(Update, reset_ecs_room_features);
         app
@@ -345,6 +344,23 @@ mod reset_tests {
              after the reset — the same class as the in-flight volleys this \
              reset already clears",
         );
+    }
+
+    #[test]
+    fn reset_clears_every_live_projectile_regardless_of_presentation_family() {
+        let mut app = app();
+        let open = app.world_mut().spawn(crate::projectile::LiveProjectile).id();
+        let named = app
+            .world_mut()
+            .spawn((crate::projectile::LiveProjectile, crate::projectile::ProjectileKind::Fireball))
+            .id();
+
+        app.world_mut()
+            .write_message(ResetRoomFeaturesEvent::default());
+        app.update();
+
+        assert!(app.world().get_entity(open).is_err(), "open shot survived reset");
+        assert!(app.world().get_entity(named).is_err(), "named shot survived reset");
     }
 
     #[test]

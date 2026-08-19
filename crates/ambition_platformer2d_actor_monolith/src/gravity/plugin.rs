@@ -44,6 +44,27 @@ impl Plugin for GravityPlugin {
         app.init_resource::<crate::physics::GravityZones>();
         app.init_resource::<ambition_platformer2d_shared_tangle::frame_env::ForceZones>();
 
+        // ⭐ **the gravity capability publishes its own construction schema**,
+        // exactly as the portal gun does — metadata only, so prepared-content
+        // fingerprinting names the domain while the executable constructor
+        // stays the closed `GravityZoneConstruction` dispatch. Nothing here can
+        // be used to SELECT a constructor; the catalog is descriptor-only by
+        // construction.
+        app.init_resource::<
+            ambition_platformer2d_shared_tangle::construction::ConstructionSchemaCatalog,
+        >();
+        let gravity_registry =
+            ambition_platformer2d_shared_tangle::gravity::construction::gravity_zone_construction_registry();
+        app.world_mut()
+            .resource_mut::<
+                ambition_platformer2d_shared_tangle::construction::ConstructionSchemaCatalog,
+            >()
+            .try_contribute(
+                ambition_platformer2d_shared_tangle::gravity::construction::GRAVITY_ZONE_CONSTRUCTION_DOMAIN,
+                gravity_registry.deterministic_dump(),
+            )
+            .expect("the gravity-zone construction schema cannot conflict with itself");
+
         // Snapshot all gravity + force zones once per frame BEFORE the frame
         // resolution phase reads them, so every body can resolve its local frame
         // from this tick's environment. Portal carve publishing pins

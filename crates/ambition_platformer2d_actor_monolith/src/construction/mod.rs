@@ -47,9 +47,9 @@ use ambition_platformer2d_shared_tangle::construction::{
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use bevy::prelude::{Entity, World};
 
-use ambition_boss_encounter::BossCatalog;
 use crate::features::{SpawnActorKind, SpawnActorRequest};
 use crate::world::placements::ActorPlacementContext;
+use ambition_boss_encounter::BossCatalog;
 
 #[cfg(test)]
 mod tests;
@@ -72,7 +72,6 @@ pub const RECIPE_AUTHORED_PLACEMENT: &str = "ambition.authored-placement";
 /// An authored heal/save shrine.
 pub const RECIPE_AUTHORED_SHRINE: &str = "ambition.authored-shrine";
 /// An authored gravity zone.
-pub const RECIPE_AUTHORED_GRAVITY_ZONE: &str = "ambition.authored-gravity-zone";
 /// An authored boss pulled into the planner because a relation names it.
 pub const RECIPE_AUTHORED_BOSS: &str = "ambition.authored-boss";
 /// A personal grudge from one constructed actor onto another.
@@ -119,9 +118,6 @@ pub fn recipe_authored_placement() -> RecipeId {
 }
 pub fn recipe_authored_shrine() -> RecipeId {
     RecipeId::new(RECIPE_AUTHORED_SHRINE)
-}
-pub fn recipe_authored_gravity_zone() -> RecipeId {
-    RecipeId::new(RECIPE_AUTHORED_GRAVITY_ZONE)
 }
 pub fn relation_grudge() -> RelationKind {
     RelationKind::new(RELATION_GRUDGE)
@@ -223,10 +219,6 @@ pub enum ActorConstructionParams {
     Shrine {
         spec: crate::rooms::ShrineSpec,
     },
-    /// An authored gravity zone (same story as [`Self::Shrine`]).
-    GravityZone {
-        spec: crate::rooms::GravityZoneSpec,
-    },
 }
 
 /// A minion resolved from `Effect::Summon`.
@@ -307,10 +299,6 @@ impl ConstructionDomain for ActorConstruction {
                 recipe: recipe_authored_shrine(),
                 construct: construct_shrine,
             },
-            ActorConstructionParams::GravityZone { .. } => RecipeDispatch {
-                recipe: recipe_authored_gravity_zone(),
-                construct: construct_gravity_zone,
-            },
         }
     }
 
@@ -382,9 +370,6 @@ impl ConstructionDomain for ActorConstruction {
                 )
             }
             ActorConstructionParams::Shrine { spec } => format!("shrine {}", spec.id),
-            ActorConstructionParams::GravityZone { spec } => {
-                format!("gravity-zone {}", spec.id)
-            }
         }
     }
 
@@ -738,22 +723,6 @@ fn construct_shrine(
         unreachable!("dispatch pairs this fn with Shrine parameters")
     };
     crate::features::ecs::spawn_static::spawn_shrine_into(
-        ctx.commands,
-        ctx.session,
-        root.entity(),
-        spec,
-    );
-}
-
-fn construct_gravity_zone(
-    parameters: &ActorConstructionParams,
-    root: ConstructionRoot,
-    ctx: &mut Ctx<'_, '_, '_>,
-) {
-    let ActorConstructionParams::GravityZone { spec } = parameters else {
-        unreachable!("dispatch pairs this fn with GravityZone parameters")
-    };
-    crate::features::ecs::spawn_static::spawn_gravity_zone_into(
         ctx.commands,
         ctx.session,
         root.entity(),
@@ -1176,12 +1145,6 @@ pub fn install_actor_construction_recipes(
     registry.try_register_recipe(recipe_authored_boss(), OWNER, "authored-room", SCHEMA)?;
     registry.try_register_recipe(recipe_authored_placement(), OWNER, "authored-room", SCHEMA)?;
     registry.try_register_recipe(recipe_authored_shrine(), OWNER, "authored-room", SCHEMA)?;
-    registry.try_register_recipe(
-        recipe_authored_gravity_zone(),
-        OWNER,
-        "authored-room",
-        SCHEMA,
-    )?;
     // Metadata only — the wiring and the checks come from
     // `ActorConstruction::dispatch_relation`, so there is nothing here for an
     // outside registration to replace or to win an insertion-order race for.
@@ -1246,7 +1209,10 @@ pub fn mount_capabilities_of(
                 mount_class: None,
                 pilots: ambition_boss_encounter::behavior::BossBehaviorProfile::for_authored_boss(
                     bosses,
-                    &ambition_boss_encounter::behavior::canonical_boss_id_from(&request.name, brain),
+                    &ambition_boss_encounter::behavior::canonical_boss_id_from(
+                        &request.name,
+                        brain,
+                    ),
                 )
                 .pilotable_mount_classes
                 .clone(),
@@ -1272,9 +1238,7 @@ pub fn mount_capabilities_of(
         // A placement is never a mount-link end today (links name enemy/boss
         // ids); an NPC that should ride something becomes an enemy/boss row.
         ActorConstructionParams::Placement { .. } => PlannedMountCapabilities::default(),
-        ActorConstructionParams::Shrine { .. } | ActorConstructionParams::GravityZone { .. } => {
-            PlannedMountCapabilities::default()
-        }
+        ActorConstructionParams::Shrine { .. } => PlannedMountCapabilities::default(),
         ActorConstructionParams::AuthoredBoss { authored } => PlannedMountCapabilities {
             mount_class: None,
             pilots: ambition_boss_encounter::behavior::BossBehaviorProfile::for_authored_boss(
@@ -1326,7 +1290,6 @@ fn family_of(parameters: &ActorConstructionParams) -> &'static str {
         ActorConstructionParams::AuthoredBoss { .. } => "authored-boss",
         ActorConstructionParams::Placement { .. } => "placement",
         ActorConstructionParams::Shrine { .. } => "shrine",
-        ActorConstructionParams::GravityZone { .. } => "gravity-zone",
     }
 }
 
@@ -1370,8 +1333,7 @@ fn planned_body_character(parameters: &ActorConstructionParams) -> Option<&str> 
         ActorConstructionParams::AuthoredBoss { .. }
         | ActorConstructionParams::Placement { .. }
         | ActorConstructionParams::GroundItem { .. }
-        | ActorConstructionParams::Shrine { .. }
-        | ActorConstructionParams::GravityZone { .. } => None,
+        | ActorConstructionParams::Shrine { .. } => None,
     }
 }
 
@@ -2105,17 +2067,6 @@ pub fn authored_static_requests(room: &crate::rooms::RoomSpec) -> Vec<ActorConst
             parameters: ActorConstructionParams::Shrine {
                 spec: shrine.clone(),
             },
-            relations: Vec::new(),
-        });
-    }
-    for zone in &room.gravity_zones {
-        requests.push(ActorConstructionRequest {
-            sim_id: SimId::placement(&zone.id),
-            origin: SpawnOrigin::Authored {
-                source: room.id.clone(),
-                instance: zone.id.clone(),
-            },
-            parameters: ActorConstructionParams::GravityZone { spec: zone.clone() },
             relations: Vec::new(),
         });
     }

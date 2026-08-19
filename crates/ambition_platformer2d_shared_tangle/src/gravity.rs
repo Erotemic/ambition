@@ -23,6 +23,8 @@
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
+pub mod construction;
+
 /// The world's gravity direction (unit vector, in the y-DOWN world frame) —
 /// default straight down. Change `dir` and every actor reorients + falls the new
 /// way: it's the gravity-room / gravity-effect hook. Set by e.g. the

@@ -143,6 +143,47 @@ place**: couch play is NOT switched off, and a clipped label is not a defect.
 | **Sanic is very small in his own game** (Jon, 2026-08-15) | ⭐⭐ **third body in the sprite/box cluster, and the one that makes it a CLUSTER rather than three bugs** — see the measurement below |
 | ~~drop `pocket` and `versus` from the main game-selection shell~~ | ✔ **DONE, confirmed by Jon 2026-08-17.** Both call `.unlisted()` (`demo_pocket/src/lib.rs:190`, `app/versus.rs:905`) and `launch_entries()` filters them, so they stay composed, routed and testable while no launcher row advertises them. ⭐ the distinction the flag states: an *unavailable* experience still appears greyed with its reason, because the player is meant to see it exists; UNLISTED is the other case — composed and routed but never for the player to choose |
 
+### ✔ Found in passing 2026-08-19 — THE TWO DEMO APP CRATES HAVE TESTS NO JOB RUNS
+
+⭐ this started as "some tests fail on sidework that seem unrelated" and the
+unrelated part is the finding: **the fast gate cannot see these binaries at
+all.** `cargo test --workspace --lib` runs no `tests/*.rs`, and `cargo check -p
+ambition_app --all-targets` compiles without running. What covers integration
+binaries is the full backbone (`./run_tests.sh`) or a named CI job — and
+`.github/workflows/test.yml` names `ambition_workspace_policy`,
+`ambition_content --all-features`, `ambition_app --test repro_walls` and
+`ambition_platformer2d_actor_monolith --lib`. **`ambition_demo_smash_app` and
+`ambition_demo_twintrack_app` are named by nothing.**
+
+```text
+ambition_content        content_it     green    (CI runs it)
+ambition_workspace_policy  policy      1 red    (CI runs it — so CI was red too)
+ambition_demo_twintrack_app twintrack_it 1 red   ⛔ no job runs this crate
+ambition_demo_smash_app  smash_it      5 red    ⛔ no job runs this crate
+```
+
+⭐ **both red ones were fixed 2026-08-19 or ruled, and neither was a physics
+bug.** The policy rule required the literal `pub use plugin::{PortalPlugin` —
+it pinned the symbol's POSITION IN A BRACE LIST, so the crate gaining
+`PortalGunPlugin` sorted it out of first place and the rule went red against a
+crate that still exports exactly what its rationale names; it now takes two
+needles and survives any ordering. TwinTrack's was **geometry**: the
+2026-08-12 plaza relayout put the light-tagger five pixels off the
+laboratory's eye height, its velocity became radial, and the lead angle the
+SR-3 overlay exists to draw collapsed to 0.3°. Restoring the tagger's original
+150 px vertical offset took the separation from 0.005 rad to 0.05–0.074 rad.
+The smash five are decision §23, not a repair.
+
+⇒ ▢ **the open question is whether these two crates get a CI job.** ⛔ do not
+add one reflexively — the demo crates link Bevy, and the backbone's whole cargo
+job is already 607s; the honest options are (a) a job per demo app crate, (b)
+one job running `cargo test -p ambition_demo_smash_app -p
+ambition_demo_twintrack_app`, or (c) accept that the demo crates are covered
+only by the backbone and say so out loud where someone will read it. ⭐ the
+cheap half is free either way: **the rule that a guard nobody runs is not a
+guard** — this pair had been red since 2026-08-12 and 609063bc1 respectively,
+and a passing fast gate said nothing about either.
+
 ### ▢ Two things found in passing 2026-08-15, logged rather than fixed
 
 **1. ⚠ TWO WORLDS FAIL LDtk VALIDATION TODAY, and the tool writes them anyway.**

@@ -390,33 +390,44 @@ fn a_saved_count_becomes_an_instance_and_the_two_authorities_are_compared() {
     );
     assert_eq!(
         after_death, 1,
-        "⭐ ANSWER 1 — BOTH. The player holds the minted instance and the catalog \
-         still stores the granted row it was minted out of. ⛔ this is the \
-         surviving half of D132 and it is deliberately left open: the mint does \
-         not spend the row, so the same quantity can be equipped and thrown \
-         again, and the second throw makes a second javelin while the first is \
-         still lying wherever it landed. See `throw_held_item_system` for why \
-         spending it needs the catalog inside the checkpoint horizon first."
+        "⭐ ANSWER 1 — BOTH, and as of 2026-08-19 that is CORRECT rather than the \
+         open half it used to be. The player holds the minted instance and the \
+         catalog shows one, but no longer because the mint failed to spend the \
+         row: the mint DOES spend it, and the death put it back from \
+         `OwnedItemsBaseline`. ⇒ the number is the same and its meaning is the \
+         opposite — a restored entitlement behind a restored object, not two \
+         claims on one thing."
     );
 
     // ── ANSWER 2: decremented once, twice, or never? ─────────────────────────
     assert_eq!(
         [after_load, after_equip, after_throw, after_pickup, after_death],
-        [1, 1, 1, 1, 1],
-        "⭐ ANSWER 2 — NEVER, at any beat. Equipping does not spend the row, the \
-         throw moves only the equipped slot, and the pickup no longer writes the \
-         catalog at all. For a GRANTED item the row is a stored quantity that \
-         nothing on this road consumes."
+        [1, 1, 0, 1, 1],
+        "⭐ ANSWER 2 — ONCE, AT THE THROW, and the shape of the row is the whole \
+         story. Equipping still does not spend it (the hand is not the ledger); \
+         the THROW spends it, because that is the beat a QUANTITY becomes an \
+         INSTANCE and it must stop being both; the pickup reads 1 again as a \
+         PROJECTION of the equipped slot rather than a stored row (`count` is \
+         `stored.max(equipped)`); and the death reads 1 because \
+         `OwnedItemsBaseline` put the stored row back when it retracted the \
+         instance. ⛔ this array was [1,1,1,1,1] until 2026-08-19 and that was \
+         D132's surviving defect, not its design: one granted javelin could be \
+         thrown twice and manifest two objects."
     );
 
     // ── ANSWER 3: does a second save round-trip agree with the hand? ─────────
     assert_eq!(
-        saved_after_death, 1,
-        "⭐ ANSWER 3 — the save says 1 and the hand holds 1, so for this history \
-         they agree. ⚠ they agree because the row was never spent, not because \
-         either consulted the other: the save is writing the QUANTITY and the \
-         hand is holding the OBJECT it was converted into, and one javelin is \
-         being described twice."
+        saved_after_death, 0,
+        "⭐ ANSWER 3 — the save says 0 and the hand holds 1, AND THAT IS THE FORK \
+         CLOSING rather than the two authorities disagreeing. ⛔ this read 1 and \
+         1 until 2026-08-19, and the old note said why that was bad: they agreed \
+         'because the row was never spent… one javelin is being described \
+         twice.' Now the quantity became the object and stopped being a \
+         quantity, so the file describes it ONCE — as an object in a hand, \
+         restored by custody — and the stored row is honestly empty. ⚠ the \
+         checkpoint here is committed AFTER the throw, so the baseline remembers \
+         the row already spent and the death restores that; commit BEFORE the \
+         throw and the row comes back, which is the sibling test."
     );
 }
 

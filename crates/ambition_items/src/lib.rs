@@ -583,7 +583,10 @@ impl Item {
 /// [`Self::count`]. Persisting the hand as a quantity would put the object back
 /// in the save as a row, which is the same duplication arriving by the durable
 /// road.
-#[derive(Resource, Clone, Debug)]
+/// ⚠ `PartialEq` so a checkpoint baseline can skip rewriting an unchanged bag —
+/// the same "compare before writing" every other baseline does, and the reason
+/// a resting object does not mark the ledger changed on every tick of its life.
+#[derive(Resource, Clone, Debug, PartialEq, Eq)]
 pub struct OwnedItems {
     counts: [u32; ITEM_COUNT],
     equipped: Option<Item>,

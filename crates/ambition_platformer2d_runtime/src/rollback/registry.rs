@@ -327,6 +327,13 @@ use super::{
 /// it also moved `ambition_cutscene` and `ambition_demo_twintrack`, which is the
 /// instrument CHANGING and NOT a wire change in either: neither file was edited.
 ///
+/// ⚠ **v40 (2026-08-19) puts the player's ENTITLEMENTS inside the checkpoint
+/// horizon.** `resource.owned_items_baseline` joins the three baselines a commit
+/// already writes, with an entity-free stored-quantity checksum. ⭐ it is the
+/// half that made D132's gate openable: a mint may now SPEND the quantity it
+/// came from — one granted javelin manifested two objects until it did — and
+/// spending is only safe because a death can put the row back. Either half alone
+/// is a bug in one direction (a phantom) or the other (annihilation).
 /// ⚠ **v39 (2026-08-19) SPLITS a capture into its RELATION and this ruleset's
 /// POLICY.** `pummels_landed`, `held_for` and `escape_progress` left
 /// `ambition_combat::capture::CapturedBy` for
@@ -359,7 +366,7 @@ use super::{
 /// `message.spawn_projectile` keeps its stable key while its concrete message
 /// becomes `ProjectileSpawnRequest`, so abandoned-future spawn requests remain
 /// cleared on load through the same wire identity.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 39;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 40;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

@@ -1076,3 +1076,147 @@ fn a_mint_banked_where_it_fell_comes_back_where_it_fell() {
          honest only for something a hand supplies the position for"
     );
 }
+
+/// **⛔⛔ ONE ENTITLEMENT MUST NOT MANIFEST TWO OBJECTS.**
+///
+/// D132's named gate, and the last surviving half of "the same item had two
+/// persistence authorities": *"a quantity conferred by `<<give_item>>`/shop/drop
+/// keeps its row through the mint, so it can still manifest a second object. ⇒
+/// `OwnedItems` must join the checkpoint baseline first, and the mint spends the
+/// row in that same change."*
+///
+/// The half that already closed deleted the pickup's `grant` — the object IS
+/// the record — and made `OwnedItems::count` PROJECT the equipped slot, so the
+/// grid loses an item exactly when the hand does. What that could not reach is
+/// an entitlement that never had an object behind it: a granted quantity is
+/// `stored`, the throw mints an INSTANCE, and nothing spends the row.
+///
+/// ⚠ **asserted on the WORLD, not on the table.** "The count went down" is a
+/// bookkeeping claim; "there is one javelin, not two" is the thing a player can
+/// see, and it stays true under whatever representation the Morrowind-style
+/// inventory eventually takes (Jon: *"each item has a count… whatever datastruct
+/// makes sense"*).
+#[test]
+fn one_granted_quantity_mints_exactly_one_object() {
+    use ambition_platformer2d::actors::items::{ItemGrantRequested, OwnedItems};
+    use bevy::ecs::system::RunSystemOnce;
+
+    let mut sim = fixed_60hz_room_sim(ROOM);
+    sim.step_n(base(), 8);
+    let before = dynamic_occurrences(&mut sim);
+
+    // ONE entitlement, through the channel `<<give_item>>` uses.
+    sim.world_mut().write_message(ItemGrantRequested {
+        item: MINTED_ITEM,
+        count: 1,
+    });
+    sim.step_n(base(), 4);
+    assert!(
+        sim.world().resource::<OwnedItems>().has(MINTED_ITEM),
+        "the grant did not land, so this measures nothing"
+    );
+
+    // Try to spend it TWICE, the way the grid would: the menu offers an item the
+    // player owns, so a round is attempted only while the entitlement is there.
+    //
+    // ⚠ **the ownership check is the menu's rule, restated — it is not this test
+    // being polite.** `equip_held_spec` is the take-custody verb and equips
+    // whatever it is handed; what decides that a row is offerable is the grid,
+    // and the whole point of spending the row at the mint is that the grid stops
+    // offering it. A round that equipped regardless would be measuring a
+    // pathway no player has.
+    let mut rounds = 0;
+    for _ in 0..2 {
+        if !sim.world().resource::<OwnedItems>().has(MINTED_ITEM) {
+            break;
+        }
+        rounds += 1;
+        let _ = sim
+            .world_mut()
+            .run_system_once(equip_the_minted_item)
+            .expect("the equip verb runs");
+        sim.step(AgentAction {
+            attack: true,
+            ..base()
+        });
+        sim.step_n(base(), 120);
+    }
+    // ⛔ the zero floor: a run that never equipped at all would satisfy "one
+    // object" by minting none.
+    assert_eq!(rounds, 1, "the entitlement was offerable {rounds} time(s)");
+
+    let minted: Vec<SimId> = dynamic_occurrences(&mut sim)
+        .into_iter()
+        .filter(|id| !before.contains(id))
+        .collect();
+    assert_eq!(
+        minted.len(),
+        1,
+        "one granted javelin manifested {} objects: {minted:?} — the entitlement \
+         survived its own mint, so the grid can equip a phantom and throw it \
+         again",
+        minted.len()
+    );
+}
+
+/// **AND A DEATH PUTS THE ENTITLEMENT BACK — the half that makes spending it
+/// safe.**
+///
+/// ⛔⛔ **the two are one change and either alone is a bug.** Spending the row at
+/// the mint without a baseline behind it is the mirror of the phantom D132
+/// deleted: a death retracts the minted-after-the-checkpoint instance, finds the
+/// quantity already spent, and ANNIHILATES it — the player loses a javelin for
+/// having thrown it. The throw's own comment said exactly that, and it is why
+/// the gate stood.
+///
+/// ```text
+/// grant     one javelin, through the <<give_item>> channel
+/// bank      a real shrine rest, with the entitlement unspent
+/// mint      equip and throw: the row is spent, the object exists
+/// die       and the row is back, because the object is gone with it
+/// ```
+#[test]
+fn a_death_puts_back_the_entitlement_its_mint_spent() {
+    use ambition_platformer2d::actors::items::{ItemGrantRequested, OwnedItems};
+    use bevy::ecs::system::RunSystemOnce;
+
+    let mut sim = fixed_60hz_room_sim(ROOM);
+    sim.step_n(base(), 8);
+
+    sim.world_mut().write_message(ItemGrantRequested {
+        item: MINTED_ITEM,
+        count: 1,
+    });
+    sim.step_n(base(), 4);
+
+    // Banked BEFORE the mint: the checkpoint sees the entitlement unspent.
+    commit_a_checkpoint(&mut sim);
+    assert!(
+        sim.world().resource::<OwnedItems>().has(MINTED_ITEM),
+        "the checkpoint must see the entitlement, or this measures nothing"
+    );
+
+    let _ = sim
+        .world_mut()
+        .run_system_once(equip_the_minted_item)
+        .expect("the equip verb runs");
+    sim.step(AgentAction {
+        attack: true,
+        ..base()
+    });
+    sim.step_n(base(), 120);
+    assert!(
+        !sim.world().resource::<OwnedItems>().has(MINTED_ITEM),
+        "the mint did not spend the row, so the restore below proves nothing"
+    );
+
+    die(&mut sim);
+    sim.step_n(base(), 90);
+
+    assert!(
+        sim.world().resource::<OwnedItems>().has(MINTED_ITEM),
+        "the death retracted the minted instance and did NOT put the quantity \
+         back — the player lost a javelin for having thrown it, which is the \
+         annihilation the checkpoint baseline exists to prevent"
+    );
+}

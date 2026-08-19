@@ -1658,6 +1658,31 @@ pub fn throw_held_item_system(
             },
         )
     });
+    // ⭐⭐ **AND THE MINT SPENDS THE ENTITLEMENT IT CAME FROM — D132's gate, opened
+    // 2026-08-19.** A quantity that turns into an object must stop being a
+    // quantity, or the row and the object both claim it and the next equip
+    // throws a second one. Measured before the fix: one granted javelin, two
+    // javelins on the floor.
+    //
+    // ⛔ **this is only safe because `OwnedItems` is checkpoint state now.** The
+    // comment above `unequip_held` used to explain why the row could NOT be
+    // spent here: a death retracting a minted-after-the-checkpoint instance
+    // would find the quantity gone and annihilate it. `OwnedItemsBaseline`
+    // answers that — the reset puts the row back — so the two halves land
+    // together and neither is a bug on its own.
+    //
+    // ⚠ **`take`, not a `count` write.** `count` PROJECTS the equipped slot, and
+    // writing a projection back into the table is the fork this domain already
+    // paid for once; `take` is the stored quantity alone.
+    // ⚠ resolved from the SPEC's id, the same way `unequip_held` finds the slot
+    // it clears — a held spec that answers to no catalog Item was never a
+    // quantity and has no row to spend.
+    if let (Some(owned), Some(item)) = (
+        owned.as_deref_mut(),
+        crate::items::Item::from_held_item_id(spec.id.as_str()),
+    ) {
+        owned.take(item, 1);
+    }
     let mut thrown = commands.spawn_room_scoped((
         GroundItem {
             spec,

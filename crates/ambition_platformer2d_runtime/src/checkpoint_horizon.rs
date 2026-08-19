@@ -67,6 +67,16 @@ impl Plugin for CheckpointHorizonPlugin {
             // horizon owns the set of baselines a commit writes.
             .init_resource::<
                 ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::MintedItemBaseline,
+            >()
+            // ⭐ **the FOURTH, and the item domain's second.** The three above
+            // describe OCCURRENCES — where they are, who holds them, how to
+            // rebuild one. This one is the ENTITLEMENT behind an occurrence that
+            // does not exist yet: a quantity from `<<give_item>>`, a shop or a
+            // drop. It is here because the mint that turns a quantity into an
+            // object must SPEND the row, and spending is only safe once a death
+            // can put the row back (D132's named gate).
+            .init_resource::<
+                ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::OwnedItemsBaseline,
             >();
 
         app.configure_sets(
@@ -103,6 +113,7 @@ impl Plugin for CheckpointHorizonPlugin {
                 // what an item IS can only come from the domain that owns the
                 // answer.
                 ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::capture_minted_item_baseline,
+                ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::capture_owned_items_baseline,
             )
                 .in_set(CheckpointCapture),
         );
@@ -125,6 +136,12 @@ impl Plugin for CheckpointHorizonPlugin {
                 // taking an object out of a hand retracts both halves of a
                 // forked relation and only this crate can see both.
                 ambition_platformer2d_actor_monolith::items::pickup::restore_custody_to_checkpoint,
+                // ⚠ **the ENTITLEMENTS, and it is independent of the custody
+                // restore beside it for a reason worth stating**: it puts back
+                // the stored QUANTITIES and deliberately leaves the equipped
+                // slot alone, because the custody restore owns the hand. The two
+                // share exactly one field and only one of them writes it.
+                ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::restore_owned_items_to_checkpoint,
                 ambition_platformer2d_actor_monolith::shrine::resume_at_checkpoint_on_reset,
             )
                 .in_set(CheckpointRestore),

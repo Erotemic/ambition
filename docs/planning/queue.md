@@ -5278,10 +5278,27 @@ what is missing:                                                 the REBUILD
   ⭐ **closed by DELETION**, both halves probe-falsified: the `grant` is gone (the
   object is the record) and `OwnedItems::count` PROJECTS the equipped slot, so the
   grid loses it exactly when the hand does. No schema change.
-  ▢ **STILL OPEN, and the gate is named**: a quantity conferred by
-  `<<give_item>>`/shop/drop keeps its row through the mint, so it can still
-  manifest a second object. ⇒ `OwnedItems` must join the checkpoint baseline first,
-  and the mint spends the row in that same change.
+  ✔✔ **CLOSED 2026-08-19, and the gate was right about the order.** Measured
+  first: one javelin granted through `<<give_item>>`, equipped and thrown twice,
+  produced **two objects** (`slot:0/0` and `slot:0/1`) — player-triggerable
+  duplication.
+  ⭐ **both halves landed in one change, because either alone is a bug in the
+  opposite direction.** `OwnedItemsBaseline` joins the three baselines a commit
+  already writes (`resource.owned_items_baseline`, protocol 39 → 40), and the
+  mint now spends the row it came from. Spending without the baseline is
+  ANNIHILATION — a death retracts the minted instance and the quantity is
+  already gone — which is exactly why the throw's own comment refused to spend
+  it before.
+  ⭐ two falsifiers, each poison-verified against its own half: removing the
+  spend makes one entitlement offerable twice; removing the restore leg makes a
+  death eat the javelin.
+  ⛔⛔ **and THREE recorded answers in `two_persistence_authorities_for_one_item`
+  had to be rewritten, because they were measurements of the defect.** The
+  sharpest is ANSWER 3: the save read `1` and the hand held `1`, and the old note
+  said why that was bad — *"they agree because the row was never spent… one
+  javelin is being described twice."* It now reads `0` and `1`, which is **the
+  fork closing**: the quantity became the object and stopped being a quantity, so
+  the file describes it once.
   ✔✔ **THE OWNERSHIP QUESTION IS RULED, 2026-08-17.** Jon, verbatim: *"eventually
   we are going to switch to a Morrowind style inventory, so the occurrence is the
   owner, but inventory likely isn't a count it's a set with a count. I suppose it

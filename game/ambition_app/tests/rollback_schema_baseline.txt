@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v39
+ggrs-rollback-schema-v40
 actor.action_set	component-clone	ActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.active_combatant	component-canonical	ActiveCombatant	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.aggression	component-clone-cursor	ActorAggression	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
@@ -404,6 +404,7 @@ resource.minted_item_baseline	resource-clone-custom-checksum	MintedItemBaseline	
 resource.moving_platform_set	resource-canonical	MovingPlatformSet	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.occurrence_baseline	resource-clone-custom-checksum	OccurrenceBaseline	bevy_ggrs clone snapshot + entity-free remembered-whereabouts checksum projection
 resource.owned_items	resource-clone	OwnedItems	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+resource.owned_items_baseline	resource-clone-custom-checksum	OwnedItemsBaseline	bevy_ggrs clone snapshot + entity-free stored-quantity checksum projection
 resource.pending_lifecycle_commit	resource-canonical	PendingLifecycleCommit	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.pending_player_hit_events	resource-clone-custom-checksum	PendingPlayerHitEvents	bevy_ggrs clone snapshot + entity-free staged-hit checksum projection
 resource.portal_frame_history	resource-clone	PortalFrameHistory	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection

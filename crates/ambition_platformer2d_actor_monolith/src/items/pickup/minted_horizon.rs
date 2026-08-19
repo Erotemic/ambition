@@ -75,7 +75,7 @@
 
 use std::collections::BTreeMap;
 
-use bevy::prelude::{MessageReader, Query, ResMut, Resource, With};
+use bevy::prelude::{MessageReader, Query, Res, ResMut, Resource, With};
 
 use ambition_platformer2d_shared_tangle::construction::SpawnOrigin;
 use ambition_platformer2d_shared_tangle::lifecycle::{CheckpointCommitted, RoomScopedEntity};
@@ -207,6 +207,112 @@ pub fn capture_minted_item_baseline(
     if baseline.minted != minted {
         baseline.minted = minted;
     }
+}
+
+/// **WHAT THE PLAYER WAS ENTITLED TO AT THE LAST COMMITTED CHECKPOINT.**
+///
+/// ⛔⛔ **the gate D132 named, and the reason it could not be opened before.**
+/// `OwnedItems` is a QUANTITY table: an entitlement conferred by
+/// `<<give_item>>`, a shop or a drop, with no object behind it until something
+/// mints one. Throwing such a quantity minted an INSTANCE without spending the
+/// row, so the row and the object both claimed it and a second throw made a
+/// second object — measured: one granted javelin, two javelins on the floor.
+///
+/// The row could not simply be spent at the mint, and the throw's own comment
+/// said why: *"the catalog is not checkpoint state, so a death that retracts a
+/// minted-after-the-checkpoint instance would find the quantity already spent
+/// and ANNIHILATE it — the mirror image of the phantom this slice removed."*
+/// ⇒ **so the catalog becomes checkpoint state here, and the mint spends the
+/// row in the same change.** Either half alone is a bug in one direction or the
+/// other.
+///
+/// ⚠ **rollback state with a real VALUE, exactly like its three siblings.**
+/// Nothing republishes it, and a commit happens mid-frame at a shrine, so a
+/// rewind across the commit must restore it or the world keeps an entitlement
+/// from a future that was un-happened.
+#[derive(Resource, Clone, Debug, Default, PartialEq)]
+pub struct OwnedItemsBaseline(crate::items::OwnedItems);
+
+impl OwnedItemsBaseline {
+    /// What the last commit saw. `None` is not expressible: a checkpoint always
+    /// saw SOME bag, and an empty one is a real answer.
+    pub fn remembered(&self) -> &crate::items::OwnedItems {
+        &self.0
+    }
+
+    /// Adopt a bag as the baseline — the road a durable LOAD takes, mirroring
+    /// `OccurrenceBaseline::adopt`.
+    pub fn adopt(&mut self, owned: crate::items::OwnedItems) {
+        self.0 = owned;
+    }
+
+    /// **Entity-free VALUE projection**, like its three siblings: two peers that
+    /// disagree about what the player was entitled to at the last checkpoint
+    /// have diverged, and a checksum is how they find out.
+    ///
+    /// ⚠ the EQUIPPED slot is deliberately outside it. The baseline restores
+    /// stored quantities only — the hand is `restore_custody_to_checkpoint`'s —
+    /// so hashing a field this resource does not own would make the projection
+    /// disagree with what it actually puts back.
+    pub fn checksum(&self) -> u64 {
+        use ambition_platformer2d_core::snapshot::{checksum_bytes, put_str, put_u64};
+        // ⭐ `to_persisted` rather than a private field walk: it is already THE
+        // stored-quantity view — the durable save's own — and it excludes the
+        // equipped projection for the same reason this checksum must. Reusing it
+        // means the hash and the file can never come to disagree about what a
+        // quantity is.
+        let rows = self.0.to_persisted();
+        let mut bytes = Vec::new();
+        put_u64(&mut bytes, rows.len() as u64);
+        for row in &rows {
+            put_str(&mut bytes, &row.id);
+            put_u64(&mut bytes, u64::from(row.count));
+        }
+        checksum_bytes(&bytes)
+    }
+}
+
+/// Freeze the player's entitlements at a checkpoint commit.
+pub fn capture_owned_items_baseline(
+    mut commits: MessageReader<CheckpointCommitted>,
+    owned: Option<Res<crate::items::OwnedItems>>,
+    baseline: Option<ResMut<OwnedItemsBaseline>>,
+) {
+    // Drained unconditionally, like every other reader of this channel.
+    let committed = commits.read().count() > 0;
+    let (Some(owned), Some(mut baseline)) = (owned, baseline) else {
+        return;
+    };
+    if !committed {
+        return;
+    }
+    if baseline.0 != *owned {
+        baseline.0 = owned.clone();
+    }
+}
+
+/// Put the entitlements back on a reset — so a death that retracts a
+/// minted-after-the-checkpoint instance restores the quantity it was minted
+/// from, instead of annihilating it.
+pub fn restore_owned_items_to_checkpoint(
+    mut resets: MessageReader<ambition_platformer2d_shared_tangle::lifecycle::ResetToCheckpoint>,
+    baseline: Option<Res<OwnedItemsBaseline>>,
+    owned: Option<ResMut<crate::items::OwnedItems>>,
+) {
+    // Drained unconditionally, like every other reader of this channel.
+    let requested = resets.read().count() > 0;
+    let (Some(baseline), Some(mut owned)) = (baseline, owned) else {
+        return;
+    };
+    if !requested {
+        return;
+    }
+    // ⚠ the EQUIPPED slot is not the baseline's to restore: custody is restored
+    // by `restore_custody_to_checkpoint`, which re-equips what the hand held.
+    // Writing the whole bag back would fight it for the one field they share.
+    let equipped = owned.equipped();
+    *owned = baseline.remembered().clone();
+    owned.set_equipped(equipped);
 }
 
 /// **How to remake every runtime mint that exists RIGHT NOW — in a hand or

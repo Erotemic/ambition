@@ -1587,8 +1587,16 @@ pub fn relocate_request(
 /// seen from two sides.** An occurrence gets a `Placed` row only from a producer
 /// that read a POSITION off it, and it can be rebuilt at that position only if
 /// `relocate_request` accepts its request — so a family joins both functions in
-/// the same change, and `every_reinstatable_record_can_be_relocated` fails if it
-/// joins only one. Today the list is authored ground items.
+/// the same change. Today the list is authored ground items.
+///
+/// ⚠ **two gates hold that pairing, and they catch different mistakes.** The
+/// exhaustive `RoomSpec` destructure in the body catches a family that is never
+/// CONSIDERED — the compiler refuses a new field until someone classifies it.
+/// `every_reinstatable_record_can_be_relocated` catches a family that is
+/// considered and offered but cannot be put back where it was left; it walks the
+/// requests a fixture room produces, so it is silent about any family that
+/// fixture does not author, and a family joining this list owes that fixture a
+/// row as well.
 ///
 /// ⚠ **deliberately NOT the room's whole request derivation.** Lowered
 /// placements, staged content and authored actors carry relations to rows the
@@ -1599,6 +1607,51 @@ pub fn relocate_request(
 pub fn reinstatable_authored_requests(
     room: &crate::rooms::RoomSpec,
 ) -> Result<Vec<ActorConstructionRequest>, ActorConstructionError> {
+    // ⛔⛔ **EXHAUSTIVE ON PURPOSE: this is where the compiler asks whether a new
+    // kind of authored content can be carried out of the room that authored it.**
+    // The question is easy to answer and impossible to remember to ask, and the
+    // cost of not asking is silent — a family that can leave the room but is not
+    // offered here is simply never rebuilt by the room it is lying in, which
+    // looks exactly like the object having been picked up.
+    //
+    // ⚠ **the paired test cannot ask it.** `every_reinstatable_record_can_be_relocated`
+    // walks the requests a FIXTURE room produces, so it proves the pairing for
+    // the families that fixture authors and is silent about every other one. It
+    // is the second gate, not the first; this destructure is the first.
+    let crate::rooms::RoomSpec {
+        // ── the family this function offers ──────────────────────────────
+        ground_items: _,
+
+        // ── could be carried, and nothing can write a `Placed` row for one ──
+        // Adding any of these here means adding a producer that records where
+        // the occurrence was left AND an arm to `relocate_request`; see this
+        // function's docs for why that is a design question rather than a
+        // mechanical extension.
+        portal_gun_spawns: _,
+        enemy_spawns: _,
+        boss_spawns: _,
+        placements: _,
+
+        // ── fixed to the room: geometry, graph, presentation and triggers ──
+        // None of these is an object anybody can pick up and put down next
+        // door, so none of them can be lying in a room that did not author it.
+        id: _,
+        world: _,
+        loading_zones: _,
+        metadata: _,
+        camera_zones: _,
+        kinematic_paths: _,
+        moving_platforms: _,
+        props: _,
+        shrines: _,
+        gravity_zones: _,
+        debug_labels: _,
+        mount_links: _,
+        encounter_triggers: _,
+        lock_walls: _,
+        switch_commands: _,
+    } = room;
+
     authored_ground_item_requests(room)
 }
 

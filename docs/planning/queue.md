@@ -5335,6 +5335,38 @@ is **that it beats a shield and leads to a throw** — which is platform-fighter
 policy, exactly what this row says the capability should own, now with a match to
 point at instead of an argument.
 
+▢▢ **THE FIX IS A DECISION, AND IT IS NOT MINE TO TAKE UNILATERALLY — three
+candidates, costed, 2026-08-18.** All three were reached by asking where "a grab
+cannot be thrown from 2.5× its reach" is expressible.
+
+```text
+1  per-move tolerance on MoveFrameData   a NEW generic field on the shared
+                                         frame-data type, for one genre's
+                                         verb ⇒ exactly the pressure the grab
+                                         campaign was told not to add
+2  ask the REAL question instead of the  REACH_TOLERANCE = 2.0 is a PROXY for
+   proxy: tolerance = what the body can  "can I close the gap during startup".
+   close during the move's own startup   Deriving it from `startup_s` + whether
+                                         the move commands an approach is
+                                         engine physics, not genre policy —
+                                         and it fixes EVERY move in EVERY game,
+                                         which is also its risk
+3  the capability ranks its own verbs    what D166's table actually says. ⛔ it
+                                         is the carve, and the carve was
+                                         explicitly deferred out of product work
+```
+
+⚠ **(2) is the one that is principled, and its blast radius is the whole reason
+to stop here**: it changes how every CPU in every game this engine runs spaces
+itself. ⛔ `ladder_probe` is NOT the instrument for it — it measures self-KO time
+against a passive opponent, which is stage awareness, not spacing. The honest
+instrument is `capture_probe`'s move histogram plus the fighter option tests,
+and a before/after over several seeds.
+
+⇒ **what a reader should do next**: pick one. (1) is cheap and adds a generic
+field for one genre. (2) is right and wide. (3) is right and is a carve. Nothing
+here is blocked on more measurement — the measurement is done.
+
 ✔✔ **AND ONE OF THE REVIEW'S ASKS WAS ALREADY DONE — measured before touching
 it.** *"Move authoring has historically duplicated `Vfx(...)` and matching
 `Sfx(...)` events … converge on one semantic authored effect request with default

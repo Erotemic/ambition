@@ -325,6 +325,66 @@ been converted to a common unit.
 - ▢ **D117 — Finish the controlled-character actor kernel. UNBLOCKED 2026-08-17:
   the decision it rested on is ANSWERED.**
 
+⭐⭐ **THE CONTROLLED-BODY INTERACTION SEAM IS FINISHED — 2026-08-19.** The
+reach geometry had already moved to `ControlledSubject`; two halves had not, and
+both were invisible in single player:
+
+```text
+the POSE          written unconditionally to whatever carried `PrimaryPlayer`, so
+                  under possession the possessed body opened the chest and the
+                  VACATED HOME AVATAR played the reach-and-open
+the PRESS         read from and cleared on SLOT 0 whichever seat was driving, so
+                  a second seat's interaction spent seat 0's buffered interact —
+                  and seat 0 mashing interact worked a switch only seat 1's body
+                  was standing on
+```
+
+⭐ **the authority is the BRAIN, which is why the fix needs to know nothing
+about possession**: a seat that possessed an actor carries `Brain::Player` on
+THAT body. `crate::control::ActingParticipant` asks that once and answers the two
+questions that follow, so the primary-seat startup fallback is stated in ONE
+place instead of being re-decided at four call sites. The pose now lands on the
+acting body when it has `BodyAnimFacts` and on nothing when it does not — a
+possessed prop has no pose to play, which is not a reason to animate somebody
+else.
+
+⭐ **two more control-seam breaches closed the same day.**
+
+`open_death_interlude` inserted `ScriptedControl` directly. That marker is
+DERIVED — its presence means `ControlHolds` is non-empty — so a death that set it
+without claiming a bit left the two disagreeing, and the disagreement is resolved
+by whoever releases NEXT: a captor letting go of a fighter that died in its grip
+found an empty claim set, concluded nobody was holding the body, and took the
+marker off a corpse mid-interlude. Death now claims `ControlHold::Sequence`. It
+shares that bit with the flagpole slide, the goal brake and the act clear
+deliberately — those are states the SAME body cannot also be in, and a second bit
+is what two OVERLAPPING owners need.
+
+`SlotInteractionState::get_mut` CLAMPED an out-of-range `PlayerSlot` onto the
+last valid one, so `PlayerSlot(9)` and `PlayerSlot(3)` were the same controller.
+Clamping a participant identifier is not a defensive measure, it is a wrong write
+to somebody else's gesture state with no index left to trace it back to. It
+returns `Option` now; `get` still answers `default()` for an out-of-range READ,
+which is a different question with a defensible answer.
+
+⛔⛔ **AND THE TEST TIER LEARNED THE SAME LESSON NINE TIMES.** Nine fixtures each
+carried their own `ScriptedStick`, their own apply system, and their own copy of
+a twelve-line comment about the schedule; five were still guessing `PreUpdate`,
+where the participant pipeline overwrites the write before the sim sees it. One
+`ambition_platformer2d::scripted_input` seam states the ordering once (after
+`InputSet::Route`, before `accumulate_control_frame_latch`) and ships the
+FALSIFIER with it: `ScriptedControlsObserved` counts what the sim's own slot
+table carried, and `assert_the_script_reached_the_simulation` is what a negative
+test pairs with its negative. ⇒ **`spikes_spend_rings` had been GREEN SINCE
+2026-08-09 for the wrong reason**: a two-arm `#[cfg(feature = "input")]` fork
+whose cfg read the demo crate's feature while the thing that erases a direct
+`ControlFrame` write is `ambition_platformer2d/input` in the DEPENDENCY. Under
+`-p ambition_demo_sanic_app -p ambition_app` all four cases walked to x=5615 of a
+strip at x=5648 and reported themselves vacuous; the prescribed per-crate command
+never selected that composition. ⭐ **the lesson generalises past this file: a
+`#[cfg(feature = ...)]` in a TEST names THIS crate's feature, and the behaviour
+it is forking on usually belongs to a dependency.**
+
 ⭐⭐ **the blocker is gone.** This row waited on the hit-emphasis / proper-time
 question (`awaiting-maintainer-decision.md` **#6**), and Jon ruled it on
 2026-08-17: hitlag freezes the BODY that is in it, on both roads. *"Does the
@@ -2486,6 +2546,58 @@ portal_leak       -> vfx.oiler.portal_leak         packed .loop only   no move e
 
 - ▢ **D125 — The systemic world substrate: what a thing IS, which occurrence it
   is, why it exists, and how long it lasts.**
+
+⭐⭐ **THE CONSTRUCTION FEDERATION HAS A SECOND LANE, AND IT WAS CHEAP —
+2026-08-19.** The federation's claim was that moving the SECOND independently
+owned construction family out of `ActorConstructionParams` would be cheaper and
+more natural than the first. Gravity zones were chosen deliberately BECAUSE they
+are boring: plainly not an actor, no relation vocabulary, no execution services,
+a constructor that only lowers a resolved region and direction.
+
+```text
+where it went     shared_tangle::gravity::construction — beside GravityZone and
+                  OscillatingZone, which that module already defines
+new dep edges     ZERO. The construction machinery and SpawnSessionScopedExt are
+                  in the SAME crate; nothing had to grow an edge to reach them
+the parameters    RESOLVED facts, not GravityZoneSpec — that spec lives in
+                  ambition_platformer2d_world, which depends on shared_tangle, so
+                  taking it would invert the edge. The room adapter translates
+the schema        GravityPlugin contributes metadata, exactly as PortalGunPlugin
+                  does. The catalog stays descriptor-only
+```
+
+⭐ **and the lane is NOT feature-gated, which is why it was worth doing.**
+Portal-gun proved a lane an OPTIONAL capability composes; gravity proves the same
+shape for a capability every composition has, so nobody can mistake `#[cfg]` for
+part of the pattern.
+
+⚠ **THE PRESSURE, RECORDED RATHER THAN GLOSSED: a second lane touched ELEVEN
+separate blocks of `RoomFeatureConstructionPlan`** — plan field, receipt field,
+prepare, roster claim, struct literal, deterministic dump, binding assert,
+verify, rebuild-one, commit, committed ids. That is the number to watch: it is
+the cost of a THIRD lane, and it is the thing that would eventually justify a
+different composition shape. ⛔ it does NOT justify type erasure — a universal
+registry that can execute a new domain is the thing this whole seam exists to
+avoid. One of the eleven got better on the way through: the cross-lane collision
+check was a hand-written pairwise intersection (quadratic in lanes) and is now a
+fold that claims each lane's ids into the roster, so composing a lane and
+checking it are the same line.
+
+⭐ **portal-gun lane installation vs schema fingerprinting: settled, and the
+answer is "two authorities that agree by composition, not by type."** The
+executable lane is compiled in by `#[cfg(feature = "portal")]`; the schema entry
+prepared-content fingerprinting reads is contributed by `PortalGunPlugin` at
+runtime. A composition that compiled `portal` and installed only
+`PortalSimulationPlugin` would fingerprint a gun-less world while its rooms still
+built authored gun pickups — and that plugin's own doc invites exactly that
+composition. What prevents it is one line: `PortalSchedulePlugin` installs
+`PortalPlugin` (simulation PLUS gun) and is the only place in the workspace that
+installs portal simulation at all. ⛔ no abstraction was added, because no
+composition can currently reach the bad state and defending it would mean a
+seventh authority on `for_room_construction` plus a parameter on the six systems
+that call it — one of which is at Bevy's 16-parameter ceiling. A test in
+`portal_schedule.rs` holds the coincidence in place and goes red the day that
+line changes.
 
 ⭐ **A THIRD INSTANCE ARRIVED 2026-08-17, from a domain this row had not
 touched — and it is the cleanest statement of the row's thesis yet.** D150: a

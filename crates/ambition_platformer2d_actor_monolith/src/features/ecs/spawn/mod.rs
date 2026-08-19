@@ -696,22 +696,6 @@ impl RoomFeatureConstructionPlan {
         )
         .map_err(RoomFeatureConstructionError::Construction)?;
 
-        let gravity_construction = {
-            let mut ctx = ambition_platformer2d_shared_tangle::construction::ConstructionExecCtx {
-                commands,
-                scope: self.gravity_construction.scope(),
-                session: session_scope,
-                services: &(),
-            };
-            let receipt = self.gravity_construction.commit(&mut ctx);
-            debug_assert_eq!(
-                receipt.committed_ids(),
-                self.gravity_construction.planned_ids(),
-                "gravity-zone construction diverged from its prepared roster",
-            );
-            receipt
-        };
-
         #[cfg(feature = "portal")]
         let portal_construction = {
             let portal_registry = ambition_portal2d::portal_gun_construction_registry();
@@ -818,9 +802,22 @@ impl RoomFeatureConstructionPlan {
         &self.construction
     }
 
-    #[cfg(feature = "portal")]
+    /// ⚠ **`cfg(test)`, both of these: production never asks a room WHICH LANE
+    /// built something.** It asks the room for its roster, and each lane verifies
+    /// itself against the shared baseline. A lane accessor exists so a test can
+    /// prove an identity lives in one lane and not another — which is a claim
+    /// only a test makes, and the reason these were dead code in every build.
+    #[cfg(all(test, feature = "portal"))]
     pub(crate) fn portal_construction(&self) -> &ambition_portal2d::PortalGunConstructionPlan {
         &self.portal_construction
+    }
+
+    #[cfg(test)]
+    pub(crate) fn gravity_construction(
+        &self,
+    ) -> &ambition_platformer2d_shared_tangle::gravity::construction::GravityZoneConstructionPlan
+    {
+        &self.gravity_construction
     }
 
     /// Canonical construction fingerprint material for every lane this room
@@ -914,7 +911,8 @@ impl RoomFeatureConstructionPlan {
                     &gravity_scope,
                     world,
                 )
-                .err(),
+                .err()
+                .unwrap_or_default(),
             );
         }
 
@@ -1106,6 +1104,22 @@ impl RoomFeatureConstructionPlan {
             self.construction.planned_ids(),
             "construction execution diverged from its prepared roster",
         );
+
+        let gravity_construction = {
+            let mut ctx = ambition_platformer2d_shared_tangle::construction::ConstructionExecCtx {
+                commands,
+                scope: self.gravity_construction.scope(),
+                session: session_scope,
+                services: &(),
+            };
+            let receipt = self.gravity_construction.commit(&mut ctx);
+            debug_assert_eq!(
+                receipt.committed_ids(),
+                self.gravity_construction.planned_ids(),
+                "gravity-zone construction diverged from its prepared roster",
+            );
+            receipt
+        };
 
         #[cfg(feature = "portal")]
         let portal_construction = {

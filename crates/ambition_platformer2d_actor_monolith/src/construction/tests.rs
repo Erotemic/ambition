@@ -3307,6 +3307,12 @@ fn a_placement_respawns_through_the_planner() {
 
 /// Shrines and gravity zones always had stable authored iids; the entities now
 /// wear them as plan rows, verified at the boundary like everything else.
+///
+/// ⭐ **and they are now plan rows in DIFFERENT LANES**, which is the whole
+/// point of the second extraction: the shrine is actor-domain vocabulary and the
+/// gravity zone is the gravity capability's. One room, two independently typed
+/// lanes, one transaction — so this test asks each lane for its own row rather
+/// than asking the actor domain about a zone it no longer owns.
 #[test]
 fn shrines_and_gravity_zones_are_stamped_plan_rows() {
     let mut room = empty_room("garden");
@@ -3331,12 +3337,25 @@ fn shrines_and_gravity_zones_are_stamped_plan_rows() {
         &engine_construction_registry(),
     )
     .expect("the garden plans");
-    for id in ["rest_1", "flip_1"] {
-        assert!(
-            plan.construction().get(&SimId::placement(id)).is_some(),
-            "`{id}` is a plan row"
-        );
-    }
+    assert!(
+        plan.construction()
+            .get(&SimId::placement("rest_1"))
+            .is_some(),
+        "the shrine is an actor-domain plan row"
+    );
+    assert!(
+        plan.gravity_construction()
+            .get(&SimId::placement("flip_1"))
+            .is_some(),
+        "the gravity zone is a plan row in the gravity capability's own lane"
+    );
+    assert!(
+        plan.construction()
+            .get(&SimId::placement("flip_1"))
+            .is_none(),
+        "the gravity zone is still planned by the ACTOR domain, so the extraction left \
+         two owners for one identity"
+    );
 
     let mut app = commit(plan);
     let verification = app
@@ -3352,6 +3371,30 @@ fn shrines_and_gravity_zones_are_stamped_plan_rows() {
         *sim,
         SimId::placement("rest_1"),
         "identity and the populated shrine are the SAME entity"
+    );
+
+    // ⭐ **the other lane actually BUILT something**, checked the same way: the
+    // identity and the populated zone are one entity. A lane that planned a row
+    // and constructed nothing would satisfy every assertion above.
+    let mut zones = world.query::<(
+        &SimId,
+        &ambition_platformer2d_shared_tangle::gravity::GravityZone,
+    )>();
+    let (sim, zone) = zones.iter(world).next().expect("the gravity zone is live");
+    assert_eq!(
+        *sim,
+        SimId::placement("flip_1"),
+        "identity and the populated gravity zone are the SAME entity"
+    );
+    assert_eq!(
+        zone.dir,
+        ae::Vec2::new(0.0, 1.0),
+        "the authored direction survived the lane"
+    );
+    assert_eq!(
+        ae::AabbExt::half_size(zone.aabb),
+        ae::Vec2::new(48.0, 96.0),
+        "the authored region survived the lane"
     );
 }
 

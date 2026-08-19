@@ -1,11 +1,81 @@
 # Immutable content / transactional construction — remaining work
 
-> **Verified against `7eea4f27` (2026-08-18).** Prepared content, structured
+> **Verified against `fda5db88` (2026-08-19).** Prepared content, structured
 > diagnostics, explicit provenance, the construction registry/plan, migrated room
 > construction families, removal of the legacy construction exemption,
 > rollback-envelope coverage, and the first external consumer slice are
 > implemented. The 2,400-line campaign record is archived at
 > [`../../archive/planning-superseded/2026-08-13/engine/immutable-content-and-transactional-construction.md`](../../archive/planning-superseded/2026-08-13/engine/immutable-content-and-transactional-construction.md).
+
+## Federation by domain — two lanes as of 2026-08-19
+
+Construction is no longer one enum. A domain that owns a runtime capability owns
+the construction vocabulary for it, and the room composes independently typed
+**lanes** into one transaction.
+
+| lane | owner crate | optional? | services |
+| --- | --- | --- | --- |
+| actor | `ambition_platformer2d_actor_monolith::construction` | no | actor context |
+| `portal-gun` | `ambition_portal2d::gun_construction` | yes (`portal` feature + `PortalGunPlugin`) | `()` |
+| `gravity-zone` | `ambition_platformer2d_shared_tangle::gravity::construction` | no | `()` |
+
+The invariant is unchanged: **plan → preflight → commit → verify → publish**, one
+baseline captured for the whole room, every lane verified against it, publication
+only after all of them verify. Verification is detection/publication atomicity,
+not world-mutation rollback: a failed verification leaves mutations in the world
+and withholds publication.
+
+**What each lane owes.** A typed parameter vocabulary that is NOT the room's spec
+(the room adapter translates, so the domain never depends upward on
+`ambition_platformer2d_world`); a closed exhaustive dispatch; a named
+`ConstructionLane`; metadata-only registration into `ConstructionSchemaCatalog`
+from its own plugin. **The catalog cannot select a constructor** and must not
+become able to — no trait objects, no `Any`/`TypeId`, no string-dispatched
+callbacks.
+
+**Why gravity was the second one.** It is deliberately boring: not an actor, no
+relation vocabulary, no execution services, a constructor that only lowers a
+resolved region and direction into `GravityZone` plus an optional
+`OscillatingZone`. It also lands beside those components in the crate that
+already owns the construction machinery and `SpawnSessionScopedExt`, so the move
+added **zero dependency edges**. And unlike portal-gun it is not feature-gated,
+which stops `#[cfg]` from looking like part of the pattern.
+
+### The cost to watch
+
+Adding the second lane touched **eleven separate blocks** of
+`RoomFeatureConstructionPlan`: plan field, receipt field, prepare, roster claim,
+struct literal, deterministic dump, binding assert, verify, rebuild-one, commit,
+committed ids. That number is the honest price of a third lane.
+
+One of the eleven improved on the way through: the cross-lane collision check was
+a hand-written pairwise intersection — fine at two lanes, quadratic in lanes — and
+is now a fold (`claim_lane_ids`) that claims each lane's ids into the room roster,
+so composing a lane and checking it are the same line.
+
+⛔ The pressure does **not** justify type erasure. A universal registry that can
+execute a new domain is exactly what this seam exists to avoid; if the eleven
+blocks become intolerable, the answer is a better typed composition, not a
+`TypeId` map.
+
+### Capability installation vs schema fingerprinting
+
+Investigated 2026-08-19. The portal-gun lane is compiled into room planning by
+`#[cfg(feature = "portal")]`; the schema entry that prepared-content
+fingerprinting reads is contributed by `PortalGunPlugin` at runtime. These are
+two authorities. A composition that compiled `portal` and installed only
+`PortalSimulationPlugin` — which that plugin's own doc invites — would fingerprint
+a gun-less world while its rooms still built authored gun pickups.
+
+What prevents it today is one line: `PortalSchedulePlugin` installs `PortalPlugin`
+(simulation **plus** gun), and it is the only place in the workspace that installs
+portal simulation at all. No engine composition can express "portal simulation, no
+portal gun", so the divergent state is unreachable and no abstraction was added
+for it. A test in `portal_schedule.rs` — compiled under the same feature as the
+lane — holds that coincidence in place and goes red the day the line changes,
+naming what else must move: a runtime capability token threaded into
+`ActorConstructionContext::for_room_construction`, which is a seventh authority
+there plus a parameter on the six systems that call it.
 
 ## Remaining construction work
 

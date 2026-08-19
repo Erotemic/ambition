@@ -842,7 +842,16 @@ watch_paths = ["crates/ambition_portal2d/src/lib.rs"]
 rationale = "portal exposes a drop-in PortalPlugin"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-contains = ["pub use plugin::{PortalPlugin"]
+# ⛔⛔ this required the literal `pub use plugin::{PortalPlugin`, which pinned
+# `PortalPlugin`'s POSITION IN A BRACE LIST rather than the fact it is exported.
+# The moment the crate gained `PortalGunPlugin` and `PortalSimulationPlugin` the
+# list sorted alphabetically, `PortalGunPlugin` took the front, and a policy whose
+# rationale is "portal exposes a drop-in PortalPlugin" started failing a crate
+# that still exposes exactly that. ⇒ two needles instead of one: the re-export
+# exists, and the plugin is named in it. Neither `PortalGunPlugin` nor
+# `PortalSimulationPlugin` contains the substring `PortalPlugin`, so the second
+# needle still identifies the real symbol.
+contains = ["pub use plugin::{", "PortalPlugin"]
 file = "crates/ambition_portal2d/src/lib.rs"
 
 [[policy]]

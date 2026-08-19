@@ -41,7 +41,7 @@ investigation that led to the question. Same rule as
 [`README.md`](README.md#queue-contract); on 2026-08-17 this file was **739 lines
 for 9 open questions**, and the four answered ones held a third of it.
 
-## Open decisions — 13 (§1, §6, §7, §9, §10, §11, §12 and §13 are ANSWERED; §8 is DEFERRED)
+## Open decisions — 14 (§1, §6, §7, §9, §10, §11, §12 and §13 are ANSWERED; §8 is DEFERRED)
 
 ### 1. ✔ ANSWERED 2026-08-17 — a bolt hits what a sword hits (former D23)
 
@@ -1000,6 +1000,81 @@ long as the roster has been gone, and nothing said so.
 `CharacterDefinition` — and with which of those eleven fields surviving — or (b)
 be re-pointed at whatever the character-authoring package settles on, or (c) be
 retired in favour of `fixtures/minimal_game` as the single sentinel.
+
+### 23. ▢ NEW 2026-08-19 — five `the_stage_kills` guards are RED, three of them from the legality filter, and the prescribed fix contradicts a deliberate fairness property
+
+**The question: what breaks the two CPUs' mirror, given that the fix the code
+prescribes is a per-seat spawn ASYMMETRY and seat placement is deliberately
+SYMMETRIC?**
+
+`smash_it::the_stage_kills` has **five failing tests**, and nothing was running
+that suite — the queue still records it as *"17 tests, all green"* (2026-08-17).
+Bisected in the main tree:
+
+```text
+951806c9e  (before the legality filter)   2 failed
+39b5a739a  "An attack the body cannot      5 failed   ⇐ this commit owns three
+            BEGIN is not an option"
+main today                                 5 failed
+main with `legality_of` forced to `Now`    2 failed   ⇐ mechanically confirmed
+```
+
+⇒ **`39b5a739a` owns exactly three**: `two_cpus_wearing_one_character_stop_being_a_perfect_reflection`,
+`every_live_fighter_stays_inside_the_frame`, `the_camera_closes_no_faster_than_it_opened`.
+The other two (`a_match_whose_last_loser_is_removed_still_decides`,
+`the_framing_centre_absorbs_an_elimination_instead_of_cutting`) predate it and
+are **not yet attributed**.
+
+⛔ **the filter is not "wrong", and this is not a request to revert it.** It is
+the review's own first ask, and its measurement stands: wasted mid-smash grab
+presses went 33 → 0. What it could not see is that its instrument counted GRABS,
+so a second-order effect on ordinary attacks was invisible to it.
+
+**What the failures actually say.** Not "the fighters stand still" — measured,
+they are inside a running move 80% of body-frames and moves are short (max
+0.70s). Every failing assertion reports **exactly 0.0**: the frame never widened
+by 0.0, the cast's centre never jumped by 0.0, 0 body-frames outside the room.
+And the mirror test reports the pair equal-and-opposite to **0.00012 px for 1077
+ticks**. ⇒ they are fighting hard and *perfectly synchronised*, so nothing
+separates them, nobody is launched differently, and no camera or elimination
+follows.
+
+⭐ **the leading mechanism, stated as a hypothesis because only the cause is
+measured**: `brain_builders::fighter_cognition_seed` records that the RNG stream
+has *"exactly ONE consumer in the fighter brain — press-timing jitter, only on a
+decision that commits to an attack"*. A filter that drops candidates removes
+committing decisions, so the two streams advance in lockstep and the seed never
+separates anybody. The CAUSE is mechanical (forcing `Now` restores the mirror
+test); the WHY above is not yet instrumented.
+
+⛔⛔ **AND THE SAME FIVE GUARDS BROKE ONCE BEFORE, FROM A DIFFERENT CAUSE, AND
+THAT FIX WAS REVERTED FOR IT.** The seed note: *"per-participant DECISION PHASE
+… BROKE FIVE behavioural guards in `the_stage_kills`: a 0-4 tick offset changed
+whether attacks connect at all — 'the brain travels but never commits'. Too high
+a price."* So this suite is the tripwire for exactly this class, and it caught
+this change too — it simply was not being run.
+
+⇒ **why this needs you rather than a fix from me.** The note prescribes the
+answer: *"what would actually move it is asymmetric CIRCUMSTANCES, not more
+randomness — a per-seat spawn offset"*, and it bans a third randomness fix. But
+`respawn_placement` is **deliberately symmetric** — *"seats alternate outward
+from the centre … the arrangement is symmetric at any roster size and no seat is
+privileged"* — so the prescribed asymmetry contradicts a fairness property
+somebody chose on purpose. Inventing an asymmetry is a competitive-balance
+decision, not a compile fix.
+
+Options as I see them: (a) accept a small deliberate per-seat offset and record
+why fairness tolerates it; (b) give the jitter a consumer that fires on every
+decision rather than only on a committing one — explicitly banned by the note,
+so only with your override; (c) let the two CPUs mirror and retune the three
+guards to measure something a mirrored match can show; (d) revisit whether the
+legality filter should admit an action the body could begin within N frames
+(`BufferableSoon`, which `39b5a739a` names and defers to `BodyActionBuffer`).
+
+⚠ **and one process finding regardless of the answer**: `smash_it` is not in the
+per-turn gate, so a behavioural suite went five-red across at least two
+regressions without anything saying so. `cargo test --workspace --lib` and
+`-p ambition_app --test app_it` do not reach it.
 
 ## ✔ CLOSED 2026-08-15 — every submodule remote is reachable and current
 

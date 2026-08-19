@@ -141,6 +141,11 @@ mod tests {
                 trigger_moveset_moves,
                 advance_move_playback,
                 dispatch_move_events,
+                // ⭐ **THE FAN-OUT, so this fixture HEARS what a match hears.**
+                // `dispatch_move_events` only writes `FxRequest`s; the cue is
+                // decided here. Without it the chain was silent and could not
+                // have seen an audio defect at all.
+                ambition_platformer2d::render::fx::process_fx_requests,
                 translate_smash_capture_effects,
                 acquire_captures,
                 apply_capture_pummels,
@@ -387,4 +392,5 @@ mod tests {
             "the throw's own damage did not land"
         );
     }
+
 }

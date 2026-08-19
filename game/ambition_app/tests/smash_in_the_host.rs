@@ -5047,3 +5047,123 @@ mod launched {
         );
     }
 }
+
+// ── how loud is one tick? ────────────────────────────────────────────────
+
+/// Every cue that reached the SFX channel this tick, by its hashed id.
+///
+/// ⭐ read off `OwnedSfxMessage`, which is the channel `audio_play_sfx_messages`
+/// consumes — so this counts what the audio backend would be asked to play, not
+/// what some upstream system intended.
+fn cues_this_tick(app: &mut App) -> Vec<String> {
+    use ambition_platformer2d::sfx::{OwnedSfxMessage, SfxMessage};
+    let Some(messages) = app
+        .world()
+        .get_resource::<bevy::prelude::Messages<OwnedSfxMessage>>()
+    else {
+        return Vec::new();
+    };
+    let mut cursor = messages.get_cursor();
+    cursor
+        .read(messages)
+        .filter_map(|m| match &m.request {
+            SfxMessage::Play { id, .. } => Some(format!("{id}")),
+            _ => None,
+        })
+        .collect()
+}
+
+/// **NO CUE IS ASKED FOR MORE THAN ONCE IN A SINGLE TICK.**
+///
+/// ⛔⛔ **Jon, 2026-08-19, playing:** *"when George grabs someone there is an sfx
+/// flurry… also in the pirate sky in ambition there is also an sfx flurry that
+/// is loud and off-putting."* Two unrelated scenes, one symptom, and the audio
+/// backend explains both: `audio_play_sfx_messages` plays every accepted request
+/// unconditionally — there is no voice cap, no same-cue dedupe and no per-tick
+/// limit anywhere between a system writing `SfxMessage::Play` and Kira starting
+/// a voice. N identical requests on one tick therefore become N phase-aligned
+/// copies of one sample, which is not N times louder, it is a comb filter.
+///
+/// ⭐ **the claim is deliberately about ONE CUE, not about total loudness.** A
+/// busy scene legitimately plays many DIFFERENT cues at once — that is a mix
+/// problem, and it is a taste call. The same cue twice in one tick is never
+/// intended by anyone, and it is mechanically ugly rather than merely loud.
+///
+/// ⚠ this drives the REAL match through the REAL pad, so a regression anywhere
+/// in the chain — an authored sustain that carries a cue, a system that stopped
+/// deduping, a doubled fan-out — reaches it.
+#[test]
+fn no_single_cue_is_asked_for_twice_in_one_tick_during_a_grab() {
+    use std::collections::HashMap;
+
+    let (mut app, pad, body) = a_pad_player_fighting_as(OTHER_PREPARED_FIGHTER);
+
+    // ⚠ **the grab alone is SILENT and that is not the bug** — measured
+    // 2026-08-19: George's grab plays for 31 ticks and writes zero cues, because
+    // `grab_shell` authors no events and its capture sustain routes to an
+    // `ActorActionMessage`, not to an `FxRequest`. So this drives a real
+    // exchange — swings, hits and the grab — which is what a player hears.
+    let mut worst: (usize, String) = (0, String::new());
+    let mut heard_anything = false;
+    let mut total_cues = 0usize;
+    let mut ticks_with_move = 0usize;
+    for tick in 0..600 {
+        app.update();
+        if app
+            .world()
+            .get::<ambition_platformer2d::combat::moveset::MovePlayback>(body)
+            .is_some()
+        {
+            ticks_with_move += 1;
+        }
+        // Mash attack, and reach for a grab every so often: an exchange, not a
+        // single move.
+        match tick % 20 {
+            0 => pad_hold(&mut app, pad, GamepadButton::South, 1.0),
+            4 => pad_hold(&mut app, pad, GamepadButton::South, 0.0),
+            10 => pad_hold(&mut app, pad, GamepadButton::North, 1.0),
+            14 => pad_hold(&mut app, pad, GamepadButton::North, 0.0),
+            _ => {}
+        }
+        let cues = cues_this_tick(&mut app);
+        total_cues += cues.len();
+        if !cues.is_empty() {
+            heard_anything = true;
+        }
+        let mut counts: HashMap<&String, usize> = HashMap::new();
+        for cue in &cues {
+            *counts.entry(cue).or_default() += 1;
+        }
+        for (cue, n) in counts {
+            if n > worst.0 {
+                worst = (n, cue.clone());
+            }
+        }
+    }
+    let _ = body;
+    // The measured baseline, printed so a future failure can be compared against
+    // what this scenario normally produces rather than against a guess.
+    println!(
+        "[sfx-census] {total_cues} cue(s) over 600 ticks, {ticks_with_move} of them          mid-move; worst single tick = {} copies of one cue",
+        worst.0.max(1)
+    );
+
+    // ⛔ **THE ZERO FLOOR, and it is the whole reason this test is trustworthy.**
+    // A run that produced NO cues at all would satisfy "no cue played twice"
+    // while measuring nothing — which is exactly what a first attempt at this
+    // measurement did on a narrower fixture, reporting a confident `0`.
+    assert!(
+        heard_anything,
+        "not one cue reached the SFX channel across 600 ticks of a real match, \
+         so this measured nothing at all"
+    );
+    assert!(
+        worst.0 <= 1,
+        "cue {} was asked for {} times in a SINGLE tick — that is not {} times \
+         louder, it is one sample against phase-aligned copies of itself, and it \
+         is what Jon hears as a flurry",
+        worst.1,
+        worst.0,
+        worst.0
+    );
+}

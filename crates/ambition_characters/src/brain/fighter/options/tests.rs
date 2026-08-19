@@ -1115,3 +1115,32 @@ fn only_a_capture_carries_capture_value() {
     }
     assert!(saw_grab, "the grab was filtered out, so this measured nothing");
 }
+
+/// **⛔⛔ A HOLD ON AN AIRBORNE BODY IS WORTH NOTHING, because the rules refuse
+/// to sell it.**
+///
+/// `acquire_captures` skips any victim whose `ground.on_ground` is false, so a
+/// grab thrown at a body in the air plays, costs its recovery and catches
+/// nobody. This is deliberately asserted against the opponent's most
+/// grab-attractive state otherwise — guarding and at high percent — so it
+/// cannot pass by the other terms happening to be small.
+#[test]
+fn an_airborne_body_is_worth_nothing_to_hold() {
+    let mut view = guarding(view_with(300.0, 330.0));
+    view.actors[0].damage_taken = 140;
+
+    // Grounded, this is the most valuable hold in the game.
+    let grounded = capture_value(&view.actors[0]);
+    assert!(
+        grounded > 0.0,
+        "the fixture is supposed to be the textbook grab; it priced at {grounded}"
+    );
+
+    view.actors[0].on_ground = false;
+    assert_eq!(
+        capture_value(&view.actors[0]),
+        0.0,
+        "a body in the air cannot be captured at all, so no state of it is worth \
+         spending a grab on"
+    );
+}

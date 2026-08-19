@@ -687,6 +687,25 @@ pub fn capture_value(foe: &PerceivedActor) -> f32 {
     if matches!(foe.phase, BodyPhase::Hitstun) {
         return 0.0;
     }
+    // ⛔⛔ **AN AIRBORNE BODY CANNOT BE HELD AT ALL, so a hold on one is worth
+    // exactly nothing.** This is not a preference: `acquire_captures` skips any
+    // victim whose `ground.on_ground` is false, so a grab thrown at a body in
+    // the air plays its animation, costs its recovery and catches nobody. ⇒ the
+    // brain was buying an outcome the rules refuse to sell.
+    //
+    // ⭐ measured 2026-08-19, the run that first produced a hold: 66 capture
+    // attempts yielded ONE, and a large share of them asked while the target was
+    // airborne. Spacing was no longer the problem by then — the median press had
+    // come in from ~110px to 48px — so what remained was throwing a correct grab
+    // at an ineligible body.
+    //
+    // ⚠ **stated here rather than as a filter on the candidate**, because "can
+    // this land" is already `reach_fit`'s job for geometry and this is not
+    // geometry: the body is inside the box and still cannot be caught. It is a
+    // fact about what a hold is WORTH, which is this function's whole subject.
+    if !foe.on_ground {
+        return 0.0;
+    }
     // **THE GUARD.** A raised shield makes every damaging option worth nothing
     // and a grab worth everything — the one answer the genre has. Grounded,
     // because a shield is a grounded posture and an airborne body's guard is not

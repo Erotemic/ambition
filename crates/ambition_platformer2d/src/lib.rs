@@ -12,6 +12,7 @@ pub mod app;
 #[cfg(feature = "ambition_render")]
 pub mod game_assets;
 pub mod prelude;
+pub mod scripted_input;
 pub mod session_world;
 
 /// The platformer experience-provider protocol (authoring identity + the one

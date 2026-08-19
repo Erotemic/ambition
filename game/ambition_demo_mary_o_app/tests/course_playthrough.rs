@@ -141,43 +141,16 @@ const LIVENESS_CAP: usize = 6000;
 /// The scripted stick, republished every frame in `PreUpdate` because Bevy runs
 /// the fixed-timestep loop BEFORE `Update` — intent written any later is not seen
 /// by the tick it was meant to drive.
-#[derive(Resource, Clone, Copy, Default)]
-struct ScriptedStick(ControlFrame);
-
-fn apply_scripted_stick(stick: Res<ScriptedStick>, mut frame: ResMut<ControlFrame>) {
-    *frame = stick.0;
-}
 
 /// The course, booted with a stick in her hand.
 fn boot_course_scripted() -> App {
     let mut app = boot_course();
-    app.init_resource::<ScriptedStick>();
-    // ⛔⛔ **`PreUpdate` IS THE WRONG SCHEDULE AND IT FAILS SILENTLY** — the
-    // lesson `two_rooms.rs` recorded, rediscovered here 2026-08-19 with two
-    // tests red and the rest of this file's presses reaching nobody. The
-    // reasoning that put it there — *"Bevy runs the fixed-timestep loop BEFORE
-    // `Update`, so intent written any later is not seen by the tick it was meant
-    // to drive"* — is a claim about ORDER that ignores WHO ELSE WRITES: the
-    // participant pipeline owns `ControlFrame` in `Update` behind
-    // `ambition_platformer2d/input`, which workspace feature unification turns on
-    // from `ambition_app`'s defaults whatever this crate asked for. So every
-    // `PreUpdate` write was overwritten before the sim saw it, and Mary-O simply
-    // never moved.
-    //
-    // ⇒ **order against the authority instead of guessing**: after
-    // `InputSet::Route`, where the pipeline declares its `ControlFrame` writers,
-    // and before `accumulate_control_frame_latch`, which is what the sim
-    // actually consumes — `publish_latched_control_frame` overwrites
-    // `ControlFrame` from the latch inside the sim schedule, so a write that
-    // misses the latch never reaches gameplay however late it lands in `Update`.
-    // Ordering against a set nobody composed is a no-op, so a headless
-    // frame-stepped composition (no latch) is unaffected.
-    app.add_systems(
-        Update,
-        apply_scripted_stick
-            .after(ambition_platformer2d::input::InputSet::Route)
-            .before(ambition_platformer2d::engine_core::accumulate_control_frame_latch),
-    );
+    // ⭐ **the ordering lives in ONE place now** — after the participant
+    // pipeline's routing stage and before the frame→tick latch. Eight
+    // fixtures each carried their own copy of that knowledge, and five of
+    // them were still guessing `PreUpdate` on 2026-08-19, where the
+    // pipeline overwrote every scripted write before the sim saw it.
+    ambition_platformer2d::scripted_input::drive_the_local_participant(&mut app);
     app
 }
 
@@ -242,7 +215,9 @@ fn with_jump(mut frame: ControlFrame) -> ControlFrame {
 }
 
 fn step(app: &mut App, frame: ControlFrame) {
-    app.world_mut().resource_mut::<ScriptedStick>().0 = frame;
+    app.world_mut()
+        .resource_mut::<ambition_platformer2d::scripted_input::ScriptedControls>()
+        .0 = frame;
     app.update();
 }
 
@@ -593,7 +568,11 @@ fn she_plays_the_course_from_spawn_to_the_goal() {
         // limit put her at x=1192 with the pole at 1096. Walking BACK is the only
         // input that guarantees she ends up west of the line she must not cross.
         let chase_limit = course_pole_x() - 2.0 * 32.0;
-        let steer = if b.right() >= chase_limit { -1.0 } else { steer };
+        let steer = if b.right() >= chase_limit {
+            -1.0
+        } else {
+            steer
+        };
         // Press on the ground, hold while rising, release on the way down: her
         // jump is variable, so a release mid-rise cuts the arc, and the edge has
         // to be given back before the next hop can start.

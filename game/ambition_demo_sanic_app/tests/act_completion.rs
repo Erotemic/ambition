@@ -23,19 +23,12 @@
 //! fixed-tick host. The SKIP is gone with the guard — a skipped proof is a
 //! silent pass, which is what let this rot.
 
+use ambition_demo_sanic::{SanicActPhase, SanicActState, GOAL_X};
+use ambition_demo_sanic_app::build_demo_app;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::input::ControlFrame;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
-use ambition_demo_sanic::{SanicActPhase, SanicActState, GOAL_X};
-use ambition_demo_sanic_app::build_demo_app;
 use bevy::prelude::*;
-
-#[derive(Resource, Clone, Copy, Default)]
-struct ScriptedStick(ControlFrame);
-
-fn apply_scripted_stick(stick: Res<ScriptedStick>, mut frame: ResMut<ControlFrame>) {
-    *frame = stick.0;
-}
 
 fn player_x(app: &mut App) -> f32 {
     let mut query = app
@@ -62,13 +55,12 @@ fn holding_right_reaches_the_goal_and_clears_the_act() {
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f32(1.0 / 60.0),
     ));
-    app.init_resource::<ScriptedStick>();
-    app.add_systems(
-        Update,
-        apply_scripted_stick
-            .after(ambition_platformer2d::input::InputSet::Route)
-            .before(ambition_platformer2d::engine_core::accumulate_control_frame_latch),
-    );
+    // ⭐ **the ordering lives in ONE place now** — after the participant
+    // pipeline's routing stage and before the frame→tick latch. Eight
+    // fixtures each carried their own copy of that knowledge, and five of
+    // them were still guessing `PreUpdate` on 2026-08-19, where the
+    // pipeline overwrote every scripted write before the sim saw it.
+    ambition_platformer2d::scripted_input::drive_the_local_participant(&mut app);
     for _ in 0..8 {
         app.update();
     }
@@ -77,7 +69,9 @@ fn holding_right_reaches_the_goal_and_clears_the_act() {
     // would otherwise fail as "unreachable level geometry" — the misreading that
     // cost someone an afternoon here once already ("furthest x reached was 160 of
     // a goal at 6000").
-    app.world_mut().resource_mut::<ScriptedStick>().0 = {
+    app.world_mut()
+        .resource_mut::<ambition_platformer2d::scripted_input::ScriptedControls>()
+        .0 = {
         let mut frame = ControlFrame::default();
         frame.axis_x = 1.0;
         frame.right_pressed = true;
@@ -120,7 +114,9 @@ fn holding_right_reaches_the_goal_and_clears_the_act() {
     for frame in 0..2400 {
         let x = player_x(&mut app);
         max_x = max_x.max(x);
-        app.world_mut().resource_mut::<ScriptedStick>().0 = stick(approaching_pit(x));
+        app.world_mut()
+            .resource_mut::<ambition_platformer2d::scripted_input::ScriptedControls>()
+            .0 = stick(approaching_pit(x));
         app.update();
         if let Some(SanicActPhase::Cleared { time, rings, .. }) = phase(&mut app) {
             cleared = Some((frame, time, rings));
@@ -177,13 +173,12 @@ fn clearing_the_act_does_not_kill_him_before_the_card_retires() {
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f32(1.0 / 60.0),
     ));
-    app.init_resource::<ScriptedStick>();
-    app.add_systems(
-        Update,
-        apply_scripted_stick
-            .after(ambition_platformer2d::input::InputSet::Route)
-            .before(ambition_platformer2d::engine_core::accumulate_control_frame_latch),
-    );
+    // ⭐ **the ordering lives in ONE place now** — after the participant
+    // pipeline's routing stage and before the frame→tick latch. Eight
+    // fixtures each carried their own copy of that knowledge, and five of
+    // them were still guessing `PreUpdate` on 2026-08-19, where the
+    // pipeline overwrote every scripted write before the sim saw it.
+    ambition_platformer2d::scripted_input::drive_the_local_participant(&mut app);
     for _ in 0..8 {
         app.update();
     }
@@ -202,7 +197,9 @@ fn clearing_the_act_does_not_kill_him_before_the_card_retires() {
     let mut cleared = false;
     for _ in 0..2400 {
         let x = player_x(&mut app);
-        app.world_mut().resource_mut::<ScriptedStick>().0 = stick(approaching_pit(x));
+        app.world_mut()
+            .resource_mut::<ambition_platformer2d::scripted_input::ScriptedControls>()
+            .0 = stick(approaching_pit(x));
         app.update();
         if matches!(phase(&mut app), Some(SanicActPhase::Cleared { .. })) {
             cleared = true;
@@ -216,7 +213,9 @@ fn clearing_the_act_does_not_kill_him_before_the_card_retires() {
     let dwell_frames = (ambition_demo_sanic::ACT_CLEAR_DWELL * 60.0).ceil() as usize;
     let mut furthest_back = f32::MAX;
     for _ in 0..dwell_frames {
-        app.world_mut().resource_mut::<ScriptedStick>().0 = stick(false);
+        app.world_mut()
+            .resource_mut::<ambition_platformer2d::scripted_input::ScriptedControls>()
+            .0 = stick(false);
         app.update();
         furthest_back = furthest_back.min(player_x(&mut app));
     }

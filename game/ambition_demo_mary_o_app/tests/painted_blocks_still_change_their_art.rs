@@ -44,12 +44,6 @@ use ambition_platformer2d::view::GameAssets;
 /// `two_rooms.rs`, whose header explains why both edges are load-bearing: a
 /// `PreUpdate` write is silently overwritten under `--workspace` feature
 /// unification, and the file that guessed otherwise was red for months.
-#[derive(Resource, Clone, Copy, Default)]
-struct ScriptedStick(ControlFrame);
-
-fn apply_scripted_stick(stick: Res<ScriptedStick>, mut frame: ResMut<ControlFrame>) {
-    *frame = stick.0;
-}
 
 /// The cavern, entered directly. `--room` exists for exactly this reason
 /// (queue D65): before it, reaching 1-2 meant playing 3328 px of 1-1.
@@ -62,13 +56,12 @@ fn cavern() -> App {
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f32(1.0 / 60.0),
     ));
-    app.init_resource::<ScriptedStick>();
-    app.add_systems(
-        Update,
-        apply_scripted_stick
-            .after(ambition_platformer2d::input::InputSet::Route)
-            .before(ambition_platformer2d::engine_core::accumulate_control_frame_latch),
-    );
+    // ⭐ **the ordering lives in ONE place now** — after the participant
+    // pipeline's routing stage and before the frame→tick latch. Eight
+    // fixtures each carried their own copy of that knowledge, and five of
+    // them were still guessing `PreUpdate` on 2026-08-19, where the
+    // pipeline overwrote every scripted write before the sim saw it.
+    ambition_platformer2d::scripted_input::drive_the_local_participant(&mut app);
     for _ in 0..90 {
         app.update();
     }
@@ -76,7 +69,9 @@ fn cavern() -> App {
 }
 
 fn step(app: &mut App, frame: ControlFrame) {
-    app.world_mut().resource_mut::<ScriptedStick>().0 = frame;
+    app.world_mut()
+        .resource_mut::<ambition_platformer2d::scripted_input::ScriptedControls>()
+        .0 = frame;
     app.update();
 }
 
@@ -128,8 +123,7 @@ fn drawn_image_opt(app: &mut App, geo_id: &ae::GeoId) -> Option<Handle<Image>> {
 }
 
 fn drawn_image(app: &mut App, geo_id: &ae::GeoId) -> Handle<Image> {
-    drawn_image_opt(app, geo_id)
-        .unwrap_or_else(|| panic!("no block visual is drawing {geo_id:?}"))
+    drawn_image_opt(app, geo_id).unwrap_or_else(|| panic!("no block visual is drawing {geo_id:?}"))
 }
 
 /// The catalog's handle for a named sprite — what "wearing that art" MEANS.
@@ -296,8 +290,7 @@ fn a_discovered_hidden_block_reveals_itself() {
         strike.spent,
         "she never struck the hidden block (head peaked at y={}, underside \
          y={}), so the reveal was never asked for",
-        strike.apex_head,
-        hidden.aabb.max.y,
+        strike.apex_head, hidden.aabb.max.y,
     );
 
     // Well past the promotion: the overlay is rebuilt every frame and the
@@ -395,7 +388,11 @@ fn jump_into_from_below(app: &mut App, block: &ae::world::Block) -> Strike {
     for _ in 0..120 {
         step(app, hold_jump());
         apex_head = apex_head.min(player_pos(app).y - half_height);
-        if app.world().resource::<SpentPowerBlocks>().is_spent(&block.id) {
+        if app
+            .world()
+            .resource::<SpentPowerBlocks>()
+            .is_spent(&block.id)
+        {
             spent = true;
             break;
         }

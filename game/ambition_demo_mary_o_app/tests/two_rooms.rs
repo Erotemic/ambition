@@ -44,32 +44,14 @@ use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 use ambition_platformer2d::world::rooms::RoomSet;
 use bevy::prelude::*;
 
-#[derive(Resource, Clone, Copy, Default)]
-struct ScriptedStick(ControlFrame);
-
-fn apply_scripted_stick(stick: Res<ScriptedStick>, mut frame: ResMut<ControlFrame>) {
-    *frame = stick.0;
-}
-
 fn boot() -> App {
     let mut app = build_demo_app();
-    app.init_resource::<ScriptedStick>();
-    // AFTER the pipeline's routing stage and BEFORE the frame->tick latch reads
-    // it. Both edges are load-bearing under a fixed-tick host: `InputSet::Route`
-    // is where the participant pipeline writes `ControlFrame`, and
-    // `accumulate_control_frame_latch` is what the sim actually consumes —
-    // `publish_latched_control_frame` overwrites `ControlFrame` from the latch
-    // inside the sim schedule, so a write that misses the latch never reaches
-    // gameplay no matter how late it lands in `Update`.
-    //
-    // Ordering against a set or system nobody composed is a no-op, so the
-    // headless frame-stepped composition (which has no latch) is unaffected.
-    app.add_systems(
-        Update,
-        apply_scripted_stick
-            .after(ambition_platformer2d::input::InputSet::Route)
-            .before(ambition_platformer2d::engine_core::accumulate_control_frame_latch),
-    );
+    // ⭐ **the ordering lives in ONE place now** — after the participant
+    // pipeline's routing stage and before the frame→tick latch. Eight
+    // fixtures each carried their own copy of that knowledge, and five of
+    // them were still guessing `PreUpdate` on 2026-08-19, where the
+    // pipeline overwrote every scripted write before the sim saw it.
+    ambition_platformer2d::scripted_input::drive_the_local_participant(&mut app);
     // Settle activation: the provider publishes its world over several frames.
     for _ in 0..90 {
         app.update();
@@ -78,7 +60,9 @@ fn boot() -> App {
 }
 
 fn step(app: &mut App, frame: ControlFrame) {
-    app.world_mut().resource_mut::<ScriptedStick>().0 = frame;
+    app.world_mut()
+        .resource_mut::<ambition_platformer2d::scripted_input::ScriptedControls>()
+        .0 = frame;
     app.update();
 }
 

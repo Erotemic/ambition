@@ -78,6 +78,7 @@ fn boot() -> App {
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f32(1.0 / 60.0),
     ));
+    ambition_platformer2d::scripted_input::drive_the_local_participant(&mut app);
     for _ in 0..600 {
         app.update();
         if player(&mut app).is_some() {
@@ -127,37 +128,33 @@ fn displace(app: &mut App, to: Vec2) {
     );
 }
 
-/// **Hold Right for one frame, through whatever input path this build HAS.**
+/// **Hold Right, in a way that does not depend on which composition this is.**
 ///
-/// ⛔ **this used to write `ControlFrame` directly, and that made all four cases
-/// pass ONLY in the build where input does not exist** (found 2026-08-09, queue
-/// D57). Under `--features input` the standard bridge rewrites the frame from
-/// the leafwing `ActionState` every tick, so the direct write was overwritten
-/// before the movement phase read it: the body never left the spot and
-/// `max_right` came out at exactly `RUN_UP_X + half_width`. **0 of 4 passed with
-/// the feature, 4 of 4 without** — and the prescribed test command does not
-/// enable it, so every gate reported these green.
+/// ⛔⛔ **THIS WAS A TWO-ARM `#[cfg(feature = "input")]` FORK, AND THE CFG READ
+/// THE WRONG CRATE'S FEATURE.** The arm that writes `ControlFrame` directly was
+/// selected by THIS crate's `input` flag, while the thing that overwrites such a
+/// write is `ambition_platformer2d/input` — the participant pipeline in the
+/// dependency, which workspace feature unification turns on regardless. So the
+/// file compiled either way and the two arms did not correspond to the two
+/// compositions at all: under `-p ambition_demo_sanic_app -p ambition_app`, all
+/// four cases walked to x=5615 of the strip at x=5648 and reported themselves
+/// vacuous. The prescribed per-crate test command never selected that
+/// composition, so the gate had reported them green since 2026-08-09.
 ///
-/// ⚠ **the two arms are not a fork, they are two different compositions.** With
-/// the feature there IS a device→`ControlFrame` bridge and the honest way in is
-/// the keyboard, exactly as `tests/standard_input_path.rs` does it. Without the
-/// feature no bridge exists, and `ControlFrame` is the only seam there is — the
-/// spike/ring mechanics are still worth covering there, so that arm stays rather
-/// than the file being gated off and losing its default-build coverage.
-#[cfg(feature = "input")]
+/// ⭐ **there is one seam now and it is composition-independent by
+/// construction**: `scripted_input` writes after the pipeline's routing stage
+/// and before the frame→tick latch, so it wins under a build that HAS a
+/// device bridge and works unchanged under one that does not. No cfg, no arms,
+/// nothing for a feature flag to select wrongly.
 fn hold_right(app: &mut App) {
-    app.world_mut()
-        .resource_mut::<ButtonInput<KeyCode>>()
-        .press(KeyCode::ArrowRight);
-}
-
-#[cfg(not(feature = "input"))]
-fn hold_right(app: &mut App) {
-    let mut frame = app
-        .world_mut()
-        .resource_mut::<ambition_platformer2d::input::ControlFrame>();
-    frame.axis_x = 1.0;
-    frame.right_pressed = true;
+    ambition_platformer2d::scripted_input::hold(
+        app,
+        ambition_platformer2d::input::ControlFrame {
+            axis_x: 1.0,
+            right_pressed: true,
+            ..Default::default()
+        },
+    );
 }
 
 /// Park Sanic on the floor at `from_x` holding `rings`, then hold Right until

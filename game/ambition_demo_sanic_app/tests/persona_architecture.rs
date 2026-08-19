@@ -249,32 +249,13 @@ fn the_demo_body_cannot_trigger_a_single_move_from_its_own_smash_table() {
     use ambition_platformer2d::combat::moveset::MovePlayback;
     use ambition_platformer2d::engine_core::ControlFrame;
 
-    #[derive(Resource, Clone, Copy, Default)]
-    struct ScriptedStick(ControlFrame);
-
-    fn apply_scripted_stick(stick: Res<ScriptedStick>, mut frame: ResMut<ControlFrame>) {
-        *frame = stick.0;
-    }
-
     let mut app = ambition_demo_sanic_app::build_demo_app();
-    app.init_resource::<ScriptedStick>();
-    // ⛔⛔ **`PreUpdate` IS THE WRONG SCHEDULE AND IT FAILS SILENTLY** — the
-    // participant pipeline owns `ControlFrame` in `Update` behind
-    // `ambition_platformer2d/input`, which workspace feature unification turns on
-    // from `ambition_app`'s defaults whatever this crate asked for, so a
-    // `PreUpdate` write is overwritten before the sim ever sees it. Order against
-    // the authority: after `InputSet::Route`, where the pipeline declares its
-    // `ControlFrame` writers, and before `accumulate_control_frame_latch`, which
-    // is what the sim actually consumes. Ordering against a set nobody composed
-    // is a no-op, so a frame-stepped composition with no latch is unaffected.
-    // (Mary-O's `two_rooms.rs` records this the long way; four of her files were
-    // still guessing on 2026-08-19 and this was the fifth.)
-    app.add_systems(
-        Update,
-        apply_scripted_stick
-            .after(ambition_platformer2d::input::InputSet::Route)
-            .before(ambition_platformer2d::engine_core::accumulate_control_frame_latch),
-    );
+    // ⭐ **the ordering lives in ONE place now** — after the participant
+    // pipeline's routing stage and before the frame→tick latch. Eight
+    // fixtures each carried their own copy of that knowledge, and five of
+    // them were still guessing `PreUpdate` on 2026-08-19, where the
+    // pipeline overwrote every scripted write before the sim saw it.
+    ambition_platformer2d::scripted_input::drive_the_local_participant(&mut app);
     settle_until_primary_player(&mut app);
     for _ in 0..30 {
         app.update();
@@ -337,7 +318,9 @@ fn the_demo_body_cannot_trigger_a_single_move_from_its_own_smash_table() {
                 if tick < 4 {
                     arm(&mut frame);
                 }
-                app.world_mut().resource_mut::<ScriptedStick>().0 = frame;
+                app.world_mut()
+                    .resource_mut::<ambition_platformer2d::scripted_input::ScriptedControls>()
+                    .0 = frame;
                 app.update();
                 if let Some(playback) = app.world().get::<MovePlayback>(body) {
                     let entry = format!("{button}/{direction} -> {}", playback.spec.id);
@@ -366,7 +349,9 @@ fn the_demo_body_cannot_trigger_a_single_move_from_its_own_smash_table() {
         .pos
         .x;
     for _ in 0..90 {
-        app.world_mut().resource_mut::<ScriptedStick>().0 = ControlFrame {
+        app.world_mut()
+            .resource_mut::<ambition_platformer2d::scripted_input::ScriptedControls>()
+            .0 = ControlFrame {
             axis_x: 1.0,
             aim_x: 1.0,
             right_pressed: true,

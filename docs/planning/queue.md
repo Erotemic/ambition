@@ -2553,6 +2553,16 @@ boss makes the chain **rider → mount → limbs** — three links, two relation
 (`RidingOn`, then `Limb`). Measured: the rider and the mount crossed into
 `hall_of_bosses` and `limbs_alive=[false, false]`.
 
+⭐⭐ **AND THE LEDGER COVERS THE WHOLE CLOSURE FOR FREE, which is the property
+that makes the duplication fix apply to every population at once.** The chain is
+marked `InCustodyOf`; `project_custody_onto_authored_occurrences` records every
+marked room-scoped occurrence as `InCustody`; a room rebuild consults that
+outlook and declines to author what somebody is holding. Measured in
+`gnu_ton_arena` while riding: **all four identities appear** — the rider, the
+mount, and the limbs' own `placement:EnemySpawn-6836/0` and `/1`. So nothing in
+the ledger is per-relation, and a fifth attachment kind inherits the protection
+by being an edge.
+
 ⇒ **the closure iterates to a FIXPOINT instead of walking a fixed depth.** An
 ordered pass (possessed, then mounts, then limbs) is right for exactly the depth
 it was written for, and content chooses the depth. Edges are

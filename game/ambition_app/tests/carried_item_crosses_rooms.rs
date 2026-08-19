@@ -1650,3 +1650,171 @@ fn a_limbed_mount_crosses_the_door_with_all_of_its_parts() {
         lost.len()
     );
 }
+
+/// **THE WHOLE ATTACHMENT CLOSURE JOINS THE OCCURRENCE LEDGER, so no part of it
+/// can be re-authored while somebody is carrying it.**
+///
+/// ⭐ **this is the property that makes the duplication fix cover every
+/// population at once, and it is worth pinning separately from the crossing.**
+/// `project_driven_body_custody` marks the closure `InCustodyOf`;
+/// `project_custody_onto_authored_occurrences` then records every marked
+/// room-scoped occurrence as `InCustody`; and a room rebuild consults that
+/// outlook and declines to author what somebody is holding. So the chain
+/// rider → mount → limbs is protected by the same sentence that protects a
+/// carried axe, with nothing per-relation anywhere in the ledger.
+///
+/// Measured in `gnu_ton_arena`, whose boss rides a mount with two hands: all
+/// FOUR identities appear, including the limbs' own
+/// `placement:EnemySpawn-6836/0` and `/1`.
+///
+/// ⚠ the second crossing is deliberate. The door out of `hall_of_bosses` does
+/// not lead back, so this is not a round trip — it is two transitions while
+/// ridden, which is the stronger statement the geometry actually supports: the
+/// mount is still one occurrence after both.
+#[test]
+fn the_whole_attachment_closure_is_recorded_as_being_in_custody() {
+    use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
+    use ambition_platformer2d::actors::actor::BodyKinematics;
+    use ambition_platformer2d::actors::features::{LimbRig, RidingOn};
+    use ambition_platformer2d::characters::brain::Brain;
+    use ambition_platformer2d::platformer::lifecycle::AuthoredOccurrences;
+
+    let mut sim = fixed_60hz_room_sim("gnu_ton_arena");
+    for _ in 0..30 {
+        sim.step(base());
+    }
+    let (rider, mount) = {
+        let world = sim.world_mut();
+        let mut q = world.query::<(Entity, &RidingOn, &Brain)>();
+        q.iter(world)
+            .next()
+            .map(|(entity, riding, _)| (entity, riding.mount))
+            .expect("'gnu_ton_arena' authors a rider on a mount")
+    };
+    let mount_id = sim
+        .world()
+        .get::<SimId>(mount)
+        .cloned()
+        .expect("the authored mount has a placement identity");
+    let limb_ids: Vec<SimId> = sim
+        .world()
+        .get::<LimbRig>(mount)
+        .map(|rig| {
+            rig.limbs
+                .values()
+                .filter_map(|limb| sim.world().get::<SimId>(*limb).cloned())
+                .collect()
+        })
+        .unwrap_or_default();
+    assert_eq!(
+        limb_ids.len(),
+        2,
+        "setup: the mount's limbs must carry identities of their own, or the ledger \
+         assertion below is about a shorter chain than it claims"
+    );
+
+    for i in 0..900 {
+        if let Some(here) = sim
+            .world()
+            .get::<BodyKinematics>(rider)
+            .map(|k| (k.pos.x, k.pos.y))
+        {
+            sim.teleport_player(here);
+        }
+        sim.step(AgentAction {
+            move_y: 1.0,
+            interact: i == 0,
+            interact_held: true,
+            ..base()
+        });
+        if sim.world_mut().resource::<PossessionState>().possessed == Some(rider) {
+            break;
+        }
+    }
+    assert_eq!(
+        sim.world_mut().resource::<PossessionState>().possessed,
+        Some(rider),
+        "setup: the rider was never possessed"
+    );
+
+    let recorded: Vec<String> = sim
+        .world()
+        .resource::<AuthoredOccurrences>()
+        .rows()
+        .filter(|(_, whereabouts)| {
+            matches!(
+                whereabouts,
+                ambition_platformer2d::platformer::lifecycle::OccurrenceWhereabouts::InCustody
+            )
+        })
+        .map(|(occurrence, _)| occurrence.as_str().to_string())
+        .collect();
+    for held in std::iter::once(&mount_id).chain(limb_ids.iter()) {
+        assert!(
+            recorded.iter().any(|row| row == held.as_str()),
+            "`{}` is being carried and the occurrence ledger does not say so, so the \
+             room that authored it is free to mint a second one behind the same \
+             `SimId::placement(..)`. Recorded: {recorded:?}",
+            held.as_str()
+        );
+    }
+
+    // Two crossings while ridden — the door out of `hall_of_bosses` does not
+    // lead home, so this is not a round trip and does not pretend to be.
+    for _ in 0..2 {
+        let before = sim.observation().active_room.clone();
+        let door = {
+            let world = sim.world_mut();
+            let mut q = world.query::<&ambition_platformer2d::actors::rooms::RoomSet>();
+            let set = q.iter(world).next().expect("a room set");
+            set.active_loading_zones()
+                .iter()
+                .find(|zone| {
+                    zone.activation
+                        == ambition_platformer2d::world::rooms::LoadingZoneActivation::Door
+                })
+                .cloned()
+        };
+        let Some(door) = door else { break };
+        let centre = door.aabb.center();
+        place_body(&mut sim, mount, (centre.x, centre.y));
+        sim.step(base());
+        let saddle = {
+            let m = sim
+                .world()
+                .get::<BodyKinematics>(mount)
+                .map(|k| k.pos)
+                .unwrap();
+            let r = sim
+                .world()
+                .get::<BodyKinematics>(rider)
+                .map(|k| k.pos)
+                .unwrap();
+            (r.x - m.x, r.y - m.y)
+        };
+        let aim = (centre.x - saddle.0, centre.y - saddle.1);
+        let mut crossed = false;
+        for _ in 0..120 {
+            place_body(&mut sim, mount, aim);
+            let room = sim
+                .step(AgentAction {
+                    interact: true,
+                    interact_held: true,
+                    ..base()
+                })
+                .active_room;
+            if room != before {
+                crossed = true;
+                break;
+            }
+        }
+        assert!(crossed, "the ridden mount never left '{before}'");
+    }
+
+    assert_eq!(
+        occurrences(&mut sim, &mount_id).len(),
+        1,
+        "after two crossings while ridden, more than one occurrence claims the mount's \
+         authored identity"
+    );
+}

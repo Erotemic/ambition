@@ -46,7 +46,13 @@
 //!   lengthening the level so the whole vault sits under unbroken ground, and
 //!   guarded since by `the_vault_ceiling_is_unbroken_no_pit_opens_a_hole`.
 
-#![cfg(not(feature = "input"))]
+//! ⛔ **this file used to open `#![cfg(not(feature = "input"))]`, which did not
+//! skip these proofs — it DELETED them.** Under `--features input` the whole
+//! file compiled to nothing and the run reported no tests and no warning. The
+//! scripted stick goes through `scripted_input` now, which writes after
+//! `InputSet::Route` and is therefore the last writer under a composed
+//! participant pipeline as well as the only one without it, so the acceptance
+//! run means the same thing in both compositions.
 
 use ambition_demo_mary_o_app::build_demo_app;
 use ambition_platformer2d::engine_core::{self as ae, AabbExt};
@@ -511,14 +517,35 @@ fn boot() -> App {
     app
 }
 
-/// The crate-level `cfg(not(feature = "input"))` is NOT sufficient: it reads
-/// THIS crate's flag, while the thing that erases a scripted write is
-/// `ambition_platformer2d/input` in the dependency. Under `cargo test --workspace` cargo
-/// unifies features across the graph, so `ambition_platformer2d` builds WITH `input` while
-/// this crate's flag stays off. Ask the composition, not the feature flag.
-fn scripted_input_reaches_the_sim(app: &mut App) -> bool {
+/// **Assert that a scripted press actually reaches the simulation.**
+///
+/// ⛔⛔ **THIS RETURNED `bool` AND ITS CALLERS USED IT TO `return` EARLY**,
+/// printing `SKIP: a participant pipeline owns ControlFrame in this build`. A
+/// test that returns early is a test that PASSES — so the proof evaporated in
+/// exactly the composition it most needed to hold, and the run summary said
+/// nothing. The guard correctly detected that the press was being erased and
+/// then reported the situation as fine.
+///
+/// ⚠ the ORIGINAL diagnosis is kept, because it is why the guard existed: a
+/// crate-level `cfg(not(feature = "input"))` reads THIS crate's flag, while the
+/// thing that erases a scripted write is `ambition_platformer2d/input` in the
+/// DEPENDENCY. Under `cargo test --workspace` cargo unifies features across the
+/// graph, so `ambition_platformer2d` builds WITH `input` while this crate's flag
+/// stays off. Ask the composition, not the feature flag.
+///
+/// ⭐ the condition is unreachable now rather than merely detected:
+/// `scripted_input` writes after `InputSet::Route`, so it is the last writer
+/// under a composed pipeline and the only writer without one. If this fires
+/// again the ordering broke — a defect, not a composition to step around.
+#[track_caller]
+fn assert_scripted_input_reaches_the_sim(app: &mut App) {
     step(app, move_x(1.0, true));
-    app.world().resource::<ControlFrame>().axis_x > 0.5
+    assert!(
+        app.world().resource::<ControlFrame>().axis_x > 0.5,
+        "a scripted press did not survive into the simulation, so every assertion \
+         after this point would pass on a body nobody was driving"
+    );
+    ambition_platformer2d::scripted_input::observed(app).assert_the_script_reached_the_simulation();
 }
 
 /// ⛔ **IGNORED — this test is tuned to a level that is now AUTHORED, and Jon is
@@ -547,14 +574,7 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
     let mut app = boot();
     settle_until_playable(&mut app);
 
-    if !scripted_input_reaches_the_sim(&mut app) {
-        eprintln!(
-            "SKIP: a participant pipeline owns `ControlFrame` in this build \
-             (`ambition_platformer2d/input` is on, likely via workspace feature unification), \
-             so scripted input never reaches the sim."
-        );
-        return;
-    }
+    assert_scripted_input_reaches_the_sim(&mut app);
 
     let pits = pits();
     let start = body(&mut app).expect("she is in the world");
@@ -1465,14 +1485,7 @@ fn a_grown_mary_o_bonks_a_question_block_and_wears_the_fire_flower() {
 
     let mut app = boot();
     settle_until_playable(&mut app);
-    if !scripted_input_reaches_the_sim(&mut app) {
-        eprintln!(
-            "SKIP: a participant pipeline owns `ControlFrame` in this build \
-             (`ambition_platformer2d/input` is on, likely via workspace feature unification), \
-             so scripted input never reaches the sim."
-        );
-        return;
-    }
+    assert_scripted_input_reaches_the_sim(&mut app);
 
     let ladder = ladder_blocks();
     assert!(

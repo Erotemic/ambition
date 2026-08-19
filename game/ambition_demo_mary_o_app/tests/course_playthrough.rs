@@ -353,14 +353,36 @@ fn settle_until_playable(app: &mut App) {
     panic!("the course never put a playable body on its ground");
 }
 
-/// The crate-level feature flag is NOT the question. What erases a scripted write
-/// is `ambition_platformer2d/input` — the participant pipeline in the dependency —
-/// and under `cargo test --workspace` cargo unifies features across the graph, so
-/// the engine can be built WITH `input` while this crate's own flag stays off.
-/// Ask the composition, not the flag: write a sentinel, step, see if it survived.
-fn scripted_input_reaches_the_sim(app: &mut App) -> bool {
+/// **Assert that a scripted press actually reaches the simulation.**
+///
+/// ⛔⛔ **THIS RETURNED `bool` AND ITS CALLERS USED IT TO `return` EARLY**,
+/// printing `SKIP: a participant pipeline owns ControlFrame in this build`. A
+/// test that returns early is a test that PASSES — so the proof evaporated in
+/// exactly the composition it most needed to hold, and the run summary said
+/// nothing. The guard correctly detected that the press was being erased and
+/// then reported the situation as fine.
+///
+/// ⚠ the ORIGINAL diagnosis is kept, because it is why the guard existed: a
+/// crate-level `cfg(not(feature = "input"))` reads THIS crate's flag, while the
+/// thing that erases a scripted write is `ambition_platformer2d/input` in the
+/// DEPENDENCY. Under `cargo test --workspace` cargo unifies features across the
+/// graph, so `ambition_platformer2d` builds WITH `input` while this crate's flag
+/// stays off. Ask the composition, not the feature flag.
+///
+/// ⭐ the condition is unreachable now rather than merely detected:
+/// `scripted_input` writes after `InputSet::Route`, so it is the last writer
+/// under a composed pipeline and the only writer without one. If this fires
+/// again the ordering broke — a defect, not a composition to step around.
+#[track_caller]
+fn assert_scripted_input_reaches_the_sim(app: &mut App) {
     step(app, move_x(1.0));
-    app.world().resource::<ControlFrame>().axis_x > 0.5
+    let arrived = app.world().resource::<ControlFrame>().axis_x > 0.5;
+    assert!(
+        arrived,
+        "a scripted press did not survive into the simulation, so the whole \
+         playthrough would report a course nobody walked"
+    );
+    ambition_platformer2d::scripted_input::observed(app).assert_the_script_reached_the_simulation();
 }
 
 /// **She plays the course: walk, bonk, take what pops, stomp, finish.**
@@ -375,14 +397,7 @@ fn she_plays_the_course_from_spawn_to_the_goal() {
     let mut app = boot_course_scripted();
     settle_until_playable(&mut app);
 
-    if !scripted_input_reaches_the_sim(&mut app) {
-        eprintln!(
-            "SKIP: a participant pipeline owns `ControlFrame` in this build \
-             (`ambition_platformer2d/input` is on, likely via workspace feature \
-             unification), so scripted input never reaches the sim."
-        );
-        return;
-    }
+    assert_scripted_input_reaches_the_sim(&mut app);
 
     let spawn = body(&mut app);
     let lives_at_spawn = lives(&mut app);

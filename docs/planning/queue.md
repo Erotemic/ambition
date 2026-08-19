@@ -5404,30 +5404,47 @@ is **that it beats a shield and leads to a throw** — which is platform-fighter
 policy, exactly what this row says the capability should own, now with a match to
 point at instead of an argument.
 
-⭐⭐ **AND THE SAME MEASUREMENT FOUND SOMETHING NOBODY HAD WRITTEN DOWN: THERE IS
-NO INPUT BUFFER.** The 7/7 "spent while committed" figure only means what it
-says if a press made during another move's recovery is LOST, and it is:
+⭐⭐ **AND THE SAME MEASUREMENT FOUND A COMBAT INPUT BUFFER THAT IS DESIGNED,
+ROLLBACK-REGISTERED, AND WIRED TO NOTHING.**
+
+⛔ **I first recorded this as "there is no input buffer, and nothing in the tree
+said so" and BOTH HALVES WERE WRONG** — corrected within the hour, and the way it
+was wrong is the point. I checked `trigger_moveset_moves` and
+`ResolvedAttackGesture`, found no latch, and concluded absence without grepping
+for a buffer BY NAME. Then `AxisManeuverState`'s own field doc said it outright:
 
 ```text
-trigger_moveset_moves   a MovePlayback is running and its cancel windows do not
-                        permit the request ⇒ `continue`. No queue, no re-attempt.
-ResolvedAttackGesture   resolved from THIS tick's frame; `pressed` is not a latch
-flick_window_ticks      buffers the FLICK for smash detection — not the press
+"Buffered MOVEMENT actions (jump/burst/blink press windows). Combat
+ buffers (attack/pogo/projectile) stay on the shared BodyActionBuffer."
 ```
 
-⇒ **a press in the last frames of recovery does nothing at all**, for a person as
-much as for a CPU. ⛔ this is not recorded anywhere in the tree — not as a
-decision, not as a known gap — and *"a genre's mechanics are RESEARCH, not a
-decision"* applies: a short input buffer so a press lands on the first actionable
-frame is the platform-fighter standard, not a taste call.
+⇒ so the design is recorded, the movement half is REAL (`buffer_jump`,
+`buffer_burst`, `buffer_blink`, `coyote_timer`, all inside the rollback-registered
+`MotionModel`), and the combat half is this:
 
-⚠ **and it is NOT free, which is why it is recorded rather than built.** A buffer
-is cross-frame state: it would have to join the rollback schema, and a latch that
-survives a rewind it should not is the class this repo has already been bitten by
-(*"a cross-frame MESSAGE is not rollback state"*). ⚠ it would also change the feel
-of every character in every game the engine runs, so it wants a maintainer's
-word — the same shape as the `REACH_TOLERANCE` question above, and possibly the
-same conversation.
+```text
+BodyActionBuffer { attack, pogo, projectile }   on every actor
+rollback                                         registered `body.action_buffer`,
+                                                 CANONICAL codec — it costs
+                                                 schema and snapshot bytes
+production reads/writes of its FIELDS            0
+BodyActionBuffer::tick callers                   0
+```
+
+⇒ **a press in the last frames of recovery still does nothing**, for a person as
+much as for a CPU — the behaviour half of the original claim survives. What
+changes is the shape of the work: not "design a mechanic this engine lacks" but
+"fill and spend a buffer this engine already declares, already carries on every
+body, and already pays to rewind." ⭐ and the rollback question the first note
+raised is ALREADY ANSWERED by precedent — `MotionModel` carries the jump buffer
+through the same schema.
+
+⚠ still a maintainer's call, because it changes the feel of every character in
+every game the engine runs — the same shape as the `REACH_TOLERANCE` question
+above, and possibly the same conversation. ⚠ and either way `body.action_buffer`
+is currently a row in the rollback schema for state nothing produces: implement
+it or retire it, but a canonical-codec component with zero writers is paying
+rent.
 
 ▢▢ **THE FIX IS A DECISION, AND IT IS NOT MINE TO TAKE UNILATERALLY — three
 candidates, costed, 2026-08-18.** All three were reached by asking where "a grab

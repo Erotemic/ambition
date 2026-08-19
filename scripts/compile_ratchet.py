@@ -323,8 +323,13 @@ def envelope(kind: str, *, run_id: str = "", label: str = "") -> dict:
     }
 
 
+@functools.cache
 def workspace_dirs() -> dict[str, Path]:
     """Every workspace member and its directory, from cargo rather than from a glob.
+
+    Cached for this process: a ratchet invocation takes one observation of the
+    repository, while hypothetical `snapshot()` calls vary only their supplied
+    overrides. Re-resolving identical metadata cannot improve that simulation.
 
     `--offline` on purpose: this runs from the suite and must not reach the
     network, and it resolves nothing that a lockfile does not already pin.
@@ -345,8 +350,13 @@ def workspace_dirs() -> dict[str, Path]:
 _TREE_LINE = re.compile(r"^(\d+)(\S+) v")
 
 
+@functools.cache
 def resolved_edges(consumer: str) -> tuple[dict[str, set[str]], str]:
     """The consumer's RESOLVED dependency edges, from cargo's own resolver.
+
+    Cached per consumer for this process. Carve simulations add hypothetical
+    edges after this observation; they do not need Cargo to rediscover the same
+    real graph for every probe.
 
     ⚠ **not the manifest graph, and the difference is the whole point.** A
     static walk over `[dependencies]` counts optional edges nobody enabled, so a
@@ -407,8 +417,13 @@ def resolved_edges(consumer: str) -> tuple[dict[str, set[str]], str]:
 _TEST_FILE = re.compile(r"(^|/)(tests?)\.rs$|(^|/)tests?/|(^|/)test_[^/]*\.rs$")
 
 
+@functools.cache
 def crate_lines(directory: Path) -> dict[str, int]:
     """Physical lines of `src/**/*.rs`, and the test-file share of them.
+
+    Cached per crate for this process. A `snapshot()` projection uses
+    `override_lines` for hypothetical changes, so rescanning unchanged source for
+    each projection is redundant work rather than a fresher measurement.
 
     ⚠ **UNITS, stated because a LOC ledger that does not state them is a
     liability**: physical lines, blanks and comments and inline `#[cfg(test)]`

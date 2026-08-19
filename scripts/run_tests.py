@@ -358,12 +358,26 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
     # 2026-07-28 one of them had been RED for a day because a deliberate
     # behaviour change (SessionStart must never run the checks) left a stale
     # assertion behind and nothing ran it. A guard nobody executes is not a
-    # guard. Cheap (~3s) and dependency-free, so it runs in the backbone too,
-    # and FIRST: if the thing that decides whether the suite is honest is
-    # broken, that is the answer, not the 40 minutes of cargo behind it.
+    # guard. This tier is expected to stay cheap, but some architectural tests
+    # deliberately ask Cargo for metadata/resolution facts. Pytest therefore
+    # prints the slowest tests on EVERY run: when a helper starts re-resolving a
+    # graph or rescanning the tree, the cost is named immediately instead of
+    # being discovered after the tier drifts from seconds to tens of seconds.
+    # It still runs FIRST: if the thing that decides whether the suite is honest
+    # is broken, that is the answer, not the 40 minutes of cargo behind it.
     if not only:
-        jobs.append(Job("repo tooling (scripts/tests)",
-                        [sys.executable, "-m", "pytest", "scripts/tests", "-q"]))
+        jobs.append(Job(
+            "repo tooling (scripts/tests)",
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "scripts/tests",
+                "-q",
+                "--durations=20",
+                "--durations-min=0.05",
+            ],
+        ))
         # ⭐ the WARNING gate, which CI has had all along and no local command
         # did. `.github/workflows/test.yml` sets `RUSTFLAGS: -D warnings`, so a
         # warning is a red build there; locally `cargo check` says nothing and

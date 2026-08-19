@@ -66,6 +66,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import functools
 import json
 import re
 import subprocess
@@ -1225,8 +1226,14 @@ CAPABILITY_FOOTPRINT_BASELINE = (
 CAPABILITY_FOOTPRINT_SENTINEL = "fixtures/minimal_game"
 
 
+@functools.cache
 def sentinel_linked_closure(root: Path) -> set[str]:
     """The `ambition_*` crates the sentinel actually LINKS, from cargo's resolver.
+
+    Process-local cache: one checker/test invocation observes one repository tree.
+    Re-running Cargo for the same root cannot add correctness while the process is
+    alive; it only repeats dependency resolution. A later invocation gets a fresh
+    observation.
 
     ⚠ Until slice H this walked the workspace manifest graph from `ambition_platformer2d`,
     which was correct while every facade edge was unconditional and became the
@@ -1273,8 +1280,13 @@ ROLLBACK_SCHEMA_BASELINE = (
 )
 
 
+@functools.cache
 def rollback_schema_usage(root: Path) -> dict[str, list[str]]:
     """The stable schema names, and every type in the rollback wire format.
+
+    Process-local cache: this is a read-only census of one tree. The pytest suite
+    asks several independent invariants about the same census, so measure once and
+    let each invariant reason over the same observation.
 
     ⚠ **`central_codecs` was renamed `encoded_types` on 2026-07-30, and the
     rename IS the finding.** It used to read `impl SnapshotState for …` out of
@@ -1664,8 +1676,12 @@ def cargo_binary() -> str:
     return str(rustup) if rustup.exists() else "cargo"
 
 
+@functools.cache
 def workspace_graph(root: Path) -> dict[str, set[str]]:
     """Every workspace crate's DIRECT workspace dependencies, from the manifests.
+
+    Process-local cache: dependency contracts are parameterized over the same
+    workspace. Resolve Cargo metadata once per root instead of once per contract.
 
     `--no-deps` keeps this to the workspace: registry crates are somebody else's
     layering problem. Dev-dependencies are included deliberately — a test that

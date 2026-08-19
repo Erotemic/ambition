@@ -30,16 +30,23 @@
 //! exists that traverses under its own input and takes a powerup through the
 //! shared pickup/equipment path.
 //!
-//! # Why this is gated off the `input` feature
+//! # It used to be gated off the `input` feature, and the reason expired
 //!
-//! Under `input` the participant pipeline OWNS `ControlFrame`: it repopulates it
-//! from device state every frame, so a scripted write is erased before the sim
-//! sees it. That is correct — a real device is the authority when one is
-//! composed — and it means scripting at this seam is only meaningful in the
-//! headless sim composition, which is the one a deterministic run wants anyway.
-//! Driving the participant/device layer itself is a different claim, and
-//! `app_it::participant_input` already owns it.
-#![cfg(not(feature = "input"))]
+//! ⛔ the gate said: *"Under `input` the participant pipeline OWNS
+//! `ControlFrame`: it repopulates it from device state every frame, so a
+//! scripted write is erased before the sim sees it … scripting at this seam is
+//! only meaningful in the headless sim composition."* The first sentence was
+//! true and the conclusion no longer follows — `scripted_input` writes AFTER
+//! `InputSet::Route`, so it is the last writer under a composed pipeline and the
+//! only writer without one.
+//!
+//! ⛔⛔ **and a whole-file `cfg` is the worst way to express a limit even while
+//! it holds.** It does not skip the proof, it DELETES it: `--features input`
+//! compiled this file down to nothing and reported no tests, no skips, and no
+//! warning. Three of Mary-O's proofs vanished that way, and the cfg read THIS
+//! crate's feature while the behaviour it feared belonged to
+//! `ambition_platformer2d/input` in the dependency — so it was not even guarding
+//! the composition it named.
 
 use ambition_demo_mary_o::MaryOLevelState;
 use ambition_demo_mary_o_app::build_demo_app;
@@ -156,35 +163,38 @@ fn settle(app: &mut App) {
     }
 }
 
-/// Does a scripted `ControlFrame` write actually survive into the sim?
+/// **Assert that a scripted press actually reaches the simulation.**
 ///
-/// The crate-level `cfg(not(feature = "input"))` guard is NOT sufficient, and
-/// this is the subtle part. That gate reads THIS crate's `input` feature, but
-/// the thing that erases a scripted write is `ambition_platformer2d/input` — the participant
-/// pipeline in the dependency. Under `cargo test --workspace` cargo unifies
-/// features across the graph, so `ambition_platformer2d` is built WITH `input` (something
-/// else in the workspace asks for it) while this crate's own `input` stays off.
-/// The guard then passes, the test runs, and the participant pipeline
-/// repopulates `ControlFrame` from device state every frame — so every scripted
-/// input is discarded and the body just stands there.
+/// ⛔⛔ **THIS RETURNED `bool` AND ITS CALLERS USED IT TO `return` EARLY**,
+/// printing `SKIP: a participant pipeline owns ControlFrame in this build`. A
+/// test that returns early is a test that PASSES — so the proof evaporated in
+/// exactly the composition it most needed to hold, and the run summary said
+/// nothing. The guard correctly detected that the press was being erased and
+/// then reported the situation as fine.
 ///
-/// That produced a genuinely baffling failure: the walk assertion reported the
-/// body at spawn `x` with a falling `y`, which reads like broken movement rather
-/// than like discarded input, ~40 lines from the actual cause. Reproduce it
-/// directly with:
+/// ⚠ the ORIGINAL diagnosis is kept, because it is why the guard existed: a
+/// crate-level `cfg(not(feature = "input"))` reads THIS crate's flag, while the
+/// thing that erases a scripted write is `ambition_platformer2d/input` in the
+/// DEPENDENCY. Under `cargo test --workspace` cargo unifies features across the
+/// graph, so `ambition_platformer2d` builds WITH `input` while this crate's flag
+/// stays off. Ask the composition, not the feature flag.
 ///
-/// ```text
-/// cargo test -p ambition_demo_mary_o_app --features ambition_platformer2d/input --test scripted_level_run
-/// ```
-///
-/// So: ask the composition, instead of asking the feature flag. Write a
-/// sentinel, step, and see whether it survived.
-fn scripted_input_reaches_the_sim(app: &mut App) -> bool {
+/// ⭐ the condition is unreachable now rather than merely detected:
+/// `scripted_input` writes after `InputSet::Route`, so it is the last writer
+/// under a composed pipeline and the only writer without one. If this fires
+/// again the ordering broke — a defect, not a composition to step around.
+#[track_caller]
+fn assert_scripted_input_reaches_the_sim(app: &mut App) {
     app.world_mut()
         .resource_mut::<ambition_platformer2d::scripted_input::ScriptedControls>()
         .0 = hold_right();
     app.update();
-    app.world().resource::<ControlFrame>().axis_x > 0.5
+    assert!(
+        app.world().resource::<ControlFrame>().axis_x > 0.5,
+        "a scripted press did not survive into the simulation, so every assertion \
+         after this point would pass on a body nobody was driving"
+    );
+    ambition_platformer2d::scripted_input::observed(app).assert_the_script_reached_the_simulation();
 }
 
 /// Step until the demo is actually PLAYABLE, rather than a fixed frame count.
@@ -265,15 +275,7 @@ fn a_scripted_run_walks_takes_the_secret_banks_its_coins_and_finishes() {
     // legitimately owns `ControlFrame`, and driving the DEVICE layer is a
     // different claim that `app_it::participant_input` already owns. Skip
     // loudly rather than assert something this composition cannot answer.
-    if !scripted_input_reaches_the_sim(&mut app) {
-        eprintln!(
-            "SKIP: a participant pipeline owns `ControlFrame` in this build \
-             (`ambition_platformer2d/input` is on, likely via workspace feature unification), \
-             so scripted input never reaches the sim. This run is only \
-             meaningful in the headless sim composition."
-        );
-        return;
-    }
+    assert_scripted_input_reaches_the_sim(&mut app);
 
     // ── Boot lands in gameplay with a live level ────────────────────────────
     let (lives, score, time) = level(&mut app);

@@ -2664,6 +2664,37 @@
         ),
         hall_dialogue_id: Some("hall_player_robot_v2"),
         ),
+        "fighting_polygon_sword": (
+            display_name: "Fighting Polygon",
+            spritesheet: "sprites/fighting_polygon_sword_spritesheet.png",
+            manifest: "sprites/fighting_polygon_sword_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            // ⚠ this said `"combatant"`, which is not a brain preset and never
+            // was — it is an archetype name from the ontology deleted with
+            // `character_archetypes.ron`, and the catalog validator refused it.
+            // `melee_brute_striker` is what every other MainHall melee fighter
+            // takes (both vikings, both ninjas, the pirate admiral, Carl Runga,
+            // Martin Cutta — twelve rows), which is the conventional answer for a
+            // sword fighter's autonomous policy when nobody is driving it.
+            default_brain: "melee_brute_striker",
+            default_action_set: "striker_swipe",
+            tags: ["humanoid", "polygonal", "sword_fighter", "animation_reference", "playable_candidate", "svg_rigged"],
+            authoring_description: "A deliberately anonymous faceted humanoid inspired by the idea of a Fighting Polygon Team. This first archetype carries a simple polygon sword and exists both as a real Smash fighter and as a safe reference rig: new humanoid characters can begin from its conservative poses before adding bespoke anatomy, costume, or personality. The character is an original 2D polygon fighter rather than a copy of any specific Smash combatant.",
+            gameplay_description: "A medium-weight fundamentals sword fighter with conventional spacing, recovery, defense, grabs, pummels, and all four throws. Its move silhouettes are intentionally simple and legible so the same clips can serve as animation references for future humanoid rigs.",
+            fallback_dialogue: [
+                "Start with the silhouette.",
+                "Reference stance.",
+                "Every complicated fighter begins as a few good angles.",
+            ],
+            barks: (
+                idle: ["POSE ACCEPTED.", "EDGE ALIGNED."],
+                on_hit: ["FACET LOST.", "REBUILDING POSE."],
+                provoked: ["REFERENCE COMBAT."],
+            ),
+            hall_dialogue_id: None,
+        ),
         "special_patent_clerk": (
             display_name: "Patent Clerk",
             spritesheet: "sprites/patent_clerk_spritesheet.png",

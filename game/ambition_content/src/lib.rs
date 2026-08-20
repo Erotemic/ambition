@@ -69,6 +69,7 @@ pub mod emmy_noether_moveset;
 /// The named hostile-archetype data, contributed as an immutable provider
 /// fragment to the App-local roster assembly.
 pub mod goblin_moveset;
+pub mod fighting_polygon_sword_moveset;
 pub mod input_techniques;
 pub mod intro;
 pub mod items;

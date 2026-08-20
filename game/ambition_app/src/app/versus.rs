@@ -780,13 +780,6 @@ fn track_versus_roster(
                 // reward, and a rule nothing can reach is a rule that lies about
                 // what the stage does.
                 crouch_cancel_scale: 1.0,
-                // ⚠ versus declines jostle. Its rounds end on health rather than
-                // on stage position, so two fighters occupying one spot costs it
-                // nothing — and the mechanic is a platform-fighter spacing rule,
-                // not a combat one. `0.0` is the same answer an undeclared world
-                // gives; it is spelled out here because this struct is exhaustive
-                // and a silent default would hide the decision.
-                jostle_accel: 0.0,
                 // ⚠ a versus round ends on health, and its grabs are the
                 // engine's flat hold rather than a percent mechanic.
                 grab_hold_base_seconds:

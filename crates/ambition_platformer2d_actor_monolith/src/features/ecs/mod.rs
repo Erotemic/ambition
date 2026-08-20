@@ -66,7 +66,6 @@ mod fighter_harness;
 pub mod footstool;
 pub mod hit_camera_shake;
 mod interact;
-pub mod jostle;
 pub mod ledge_trump;
 mod mount;
 pub mod perception;

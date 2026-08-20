@@ -144,33 +144,6 @@ pub struct DeclaredCombatRules {
     /// kill move is still a kill, so the option stops mattering by itself
     /// exactly where the genre stops using it.
     pub crouch_cancel_scale: f32,
-    /// **JOSTLE — how hard two overlapping GROUNDED bodies push each other
-    /// apart**, in px/s² of separating ACCELERATION at full overlap. `0.0` (the
-    /// baseline) is off, and every body in every composition that does not
-    /// declare it moves exactly as it did.
-    ///
-    /// ⭐⭐ **Jon, 2026-08-20, on why this exists and where it may live:** *"The
-    /// no pushout rule I think is for portals, because I wanted them to be
-    /// elegant. For bodies I think it might be ok. This isn't a hack, it is a
-    /// game feel feature… This is something that games will want, so we should
-    /// be able to express it. It should never be a mandatory part of the
-    /// movement kernel though. It should be composable and not add to tech
-    /// dept."*
-    ///
-    /// ⇒ so it is a DECLARED rule read by an opt-in body-vs-body pass
-    /// (`features::ecs::jostle`), the fourth beside capture, footstool and the
-    /// ledge trump — and NOT a term in `step_body`. A kernel that jostled
-    /// unconditionally would make every body in every game pay for a
-    /// platform-fighter rule, which is the shape the stale-move ring and the
-    /// capture timeout both had to be moved OUT of.
-    ///
-    /// ⚠ **an acceleration, not a displacement, and the difference is
-    /// reversibility.** The pass writes VELOCITY and the kernel integrates it
-    /// like any other force, so position is never written by anything but the
-    /// body's own motion and a rewind restores the same answer. It separates
-    /// more slowly than a shove would, which in this genre reads as weight
-    /// rather than as a bug.
-    pub jostle_accel: f32,
     /// **How long a grab holds a body at 0%**, in seconds. Ultimate's 90 frames.
     pub grab_hold_base_seconds: f32,
     /// **How much longer per point of the CAPTIVE's damage.** Ultimate's 1.7
@@ -247,8 +220,6 @@ pub struct ResolvedCombatTuning {
     pub stale_floor: f32,
     /// See [`DeclaredCombatRules::crouch_cancel_scale`].
     pub crouch_cancel_scale: f32,
-    /// See [`DeclaredCombatRules::jostle_accel`].
-    pub jostle_accel: f32,
     /// See [`DeclaredCombatRules::grab_hold_base_seconds`].
     pub grab_hold_base_seconds: f32,
     /// See [`DeclaredCombatRules::grab_hold_per_damage`].
@@ -343,7 +314,6 @@ impl ResolvedCombatTuning {
                 stale_step: rules.stale_step,
                 stale_floor: rules.stale_floor,
                 crouch_cancel_scale: rules.crouch_cancel_scale,
-                jostle_accel: rules.jostle_accel,
                 grab_hold_base_seconds: rules.grab_hold_base_seconds,
                 grab_hold_per_damage: rules.grab_hold_per_damage,
                 grab_hold_max_seconds: rules.grab_hold_max_seconds,
@@ -366,7 +336,6 @@ impl ResolvedCombatTuning {
                 stale_step: 0.0,
                 stale_floor: 1.0,
                 crouch_cancel_scale: 1.0,
-                jostle_accel: 0.0,
                 grab_hold_base_seconds: FLAT_GRAB_HOLD_SECONDS,
                 grab_hold_per_damage: 0.0,
                 grab_hold_max_seconds: FLAT_GRAB_HOLD_SECONDS,
@@ -402,7 +371,6 @@ impl Default for ResolvedCombatTuning {
             stale_step: 0.0,
             stale_floor: 1.0,
             crouch_cancel_scale: 1.0,
-            jostle_accel: 0.0,
             grab_hold_base_seconds: FLAT_GRAB_HOLD_SECONDS,
             grab_hold_per_damage: 0.0,
             grab_hold_max_seconds: FLAT_GRAB_HOLD_SECONDS,
@@ -468,7 +436,6 @@ mod tests {
                 stale_step: 0.0,
                 stale_floor: 1.0,
                 crouch_cancel_scale: 1.0,
-                jostle_accel: 0.0,
                 grab_hold_base_seconds: FLAT_GRAB_HOLD_SECONDS,
                 grab_hold_per_damage: 0.0,
                 grab_hold_max_seconds: FLAT_GRAB_HOLD_SECONDS,
@@ -502,7 +469,6 @@ mod tests {
             stale_step: 0.0,
             stale_floor: 1.0,
             crouch_cancel_scale: 1.0,
-            jostle_accel: 0.0,
             grab_hold_base_seconds: FLAT_GRAB_HOLD_SECONDS,
             grab_hold_per_damage: 0.0,
             grab_hold_max_seconds: FLAT_GRAB_HOLD_SECONDS,
@@ -526,7 +492,6 @@ mod tests {
                 stale_step: 0.0,
                 stale_floor: 1.0,
                 crouch_cancel_scale: 1.0,
-                jostle_accel: 0.0,
                 grab_hold_base_seconds: FLAT_GRAB_HOLD_SECONDS,
                 grab_hold_per_damage: 0.0,
                 grab_hold_max_seconds: FLAT_GRAB_HOLD_SECONDS,

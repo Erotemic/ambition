@@ -773,22 +773,6 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             ambition_platformer2d::actors::features::ecs::ledge_trump::resolve_ledge_trumps
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle),
         );
-        // **Jostle, in the same post-kernel slot as the trump and for the same
-        // reason.** It reads positions the kernel has already integrated this
-        // tick and writes a velocity the NEXT tick integrates, so running it
-        // before `PlayerSimulation` would push bodies apart based on where they
-        // were last frame.
-        //
-        // ⛔ it is registered HERE, by the game, and not by the engine — Jon,
-        // 2026-08-20: jostle *"should never be a mandatory part of the movement
-        // kernel… It should be composable."* A world that does not add this
-        // system does not jostle, and a world that adds it without declaring
-        // `jostle_accel` still does not.
-        app.add_systems(
-            sim,
-            ambition_platformer2d::actors::features::ecs::jostle::resolve_jostle
-                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle),
-        );
         // **A capture ends in `Settle`, where post-damage bookkeeping belongs.**
         // Hitstun and the recoil lock are written by damage resolution in
         // `Resolve`, so a release that ran earlier would read last tick's answer
@@ -969,19 +953,6 @@ pub fn smash_declared_combat_rules() -> ambition_platformer2d::combat::rules::De
         // shorter hurtbox — and the 15% is what makes it one at low percent
         // without saving anybody from a kill move.
         crouch_cancel_scale: 0.85,
-        // **JOSTLE — smash declares it, and it is the only game that does.**
-        //
-        // ⭐ the mechanic §23 was missing: without it two closing brains pass
-        // THROUGH each other and both overshoot to opposite stage edges, forever.
-        // Measured 2026-08-20 — one exchange at first contact, then damage flat
-        // at 19% for 75 seconds with every timer at zero. A limit cycle, not a
-        // fairness bug. Without body contact there is no such thing as being IN
-        // FRONT OF somebody, so a closing brain's reward is to sail past.
-        //
-        // ⚠ **a first number, not a tuned one.** Jon has not set a feel value
-        // here; 600 px/s² at full overlap separates two fighters over roughly a
-        // third of a second, which reads as weight. Expect to move it.
-        jostle_accel: 600.0,
         // ⭐ **A GRAB HOLDS THE HURT FIGHTER LONGER**, which is Ultimate's
         // 90 + 1.7p frames: 1.5s at 0%, ~4.3s at 100%. It makes the grab a
         // percent mechanic like the launch is, so the body that is losing is
@@ -1340,13 +1311,12 @@ const RETURN_TO_SELECT_AFTER: f32 = 4.5;
 /// ticks:
 ///
 /// ```text
-/// jostle_accel        = 0      declared 600.0 by smash
 /// crouch_cancel_scale = 1.0    declared 0.85 by smash   ← the BASELINE
 /// DeclaredCombatRules present = false
 /// ```
 ///
-/// ⇒ meteor lock, rage, staling, crouch cancel, grab depth, SDI, the parry
-/// timing and jostle were ALL inert there. **Four entry points skip the lobby**:
+/// ⇒ meteor lock, rage, staling, crouch cancel, grab depth, SDI and the parry
+/// timing were ALL inert there. **Four entry points skip the lobby**:
 /// the five `the_stage_kills` tests, and the `match_diagram`, `capture_probe`
 /// and `ladder_rig` bins — the last of which EVALUATES FIGHTER AI, so its
 /// numbers were measured in a different game.

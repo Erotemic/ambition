@@ -90,6 +90,10 @@ fn test_health(hp: i32) -> BodyHealth {
     BodyHealth::new(ambition_characters::actor::Health::new(hp))
 }
 
+/// The body every fixture here wears. ⚠ hits are aimed at its CENTRE, so a
+/// poke never fires and these keep measuring the facing and resource rules.
+const TEST_BODY: ae::Vec2 = ae::Vec2::new(24.0, 40.0);
+
 const TEST_FEEL: BodyHitFeel = BodyHitFeel {
     hit_flash: 0.16,
     damage_invuln_time: 0.2,
@@ -168,6 +172,7 @@ fn resolver_shield_blocks_a_faced_hit_and_arms_the_guard_i_frame() {
         Some(GuardUnderFire {
             state: &mut raised_guard(),
             tuning: ae::ShieldTuning::OFF,
+            body_size: TEST_BODY,
             vel: &mut sink(),
         }),
         1.0,
@@ -197,6 +202,7 @@ fn resolver_shield_blocks_a_faced_hit_and_arms_the_guard_i_frame() {
         Some(GuardUnderFire {
             state: &mut raised_guard(),
             tuning: ae::ShieldTuning::OFF,
+            body_size: TEST_BODY,
             vel: &mut sink(),
         }),
         1.0,
@@ -1364,6 +1370,7 @@ fn an_unstoppable_hit_passes_every_defence_a_body_has() {
             guard.as_mut().map(|g| GuardUnderFire {
                 state: g,
                 tuning: ae::ShieldTuning::OFF,
+                body_size: TEST_BODY,
                 vel: &mut scratch_vel,
             }),
             1.0,
@@ -1401,6 +1408,7 @@ fn an_unstoppable_hit_passes_every_defence_a_body_has() {
             guard.as_mut().map(|g| GuardUnderFire {
                 state: g,
                 tuning: ae::ShieldTuning::OFF,
+                body_size: TEST_BODY,
                 vel: &mut scratch_vel,
             }),
             1.0,
@@ -1661,6 +1669,7 @@ fn a_raised_shield_blocks_the_hit_and_a_lowered_one_does_not() {
             guard.as_mut().map(|g| GuardUnderFire {
                 state: g,
                 tuning: ae::ShieldTuning::OFF,
+                body_size: TEST_BODY,
                 vel: &mut scratch_vel,
             }),
             1.0,
@@ -1736,6 +1745,7 @@ fn a_blocked_hit_shoves_the_blocker_laterally_away_from_it() {
             state: &mut guard,
             tuning,
             vel: &mut vel,
+            body_size: TEST_BODY,
         }),
         1.0,
         body,
@@ -1778,6 +1788,7 @@ fn an_unlimited_guard_is_not_pushed() {
         Some(GuardUnderFire {
             state: &mut guard,
             tuning: ae::ShieldTuning::OFF,
+            body_size: TEST_BODY,
             vel: &mut vel,
         }),
         1.0,

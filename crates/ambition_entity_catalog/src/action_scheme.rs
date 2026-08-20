@@ -94,12 +94,17 @@ pub enum ControlSlot {
     /// a scheme may label it `"Run"` on one body and `"Run / Spark"` on the same
     /// body once its kit grows.
     Modifier,
+    /// **Taunt slot — expression, at the cost of standing still.** A taunt is an
+    /// ordinary authored move with no hitbox and a committed tail, so what makes
+    /// it a taunt is only that it buys nothing; the slot exists so a body that
+    /// authors one gets a button for it without the melee slot growing a mood.
+    Taunt,
 }
 
 /// The canonical presentation order of the gameplay slots. Iterating this
 /// gives a deterministic scheme ordering independent of insertion order or
 /// any map hashing (query-order discipline).
-pub const CANONICAL_SLOT_ORDER: [ControlSlot; 11] = [
+pub const CANONICAL_SLOT_ORDER: [ControlSlot; 12] = [
     ControlSlot::Jump,
     ControlSlot::Modifier,
     ControlSlot::Attack,
@@ -111,6 +116,7 @@ pub const CANONICAL_SLOT_ORDER: [ControlSlot; 11] = [
     ControlSlot::Interact,
     ControlSlot::Utility,
     ControlSlot::Shield,
+    ControlSlot::Taunt,
 ];
 
 /// A stable, machine action id (`"jump"`, `"spin_dash"`, `"attack"`). Matches
@@ -150,6 +156,8 @@ pub mod ids {
     /// The capture verb. A moveset authors it like any other move; what makes it
     /// a grab is the capture effect its active window sustains, not this string.
     pub const GRAB: &str = "grab";
+    /// The taunt verb, and the base of its directional chain.
+    pub const TAUNT: &str = "taunt";
 }
 
 /// Opaque handle to a presentation visual (icon/glyph) for an action. No icon

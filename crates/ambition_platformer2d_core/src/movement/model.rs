@@ -377,6 +377,17 @@ impl MotionModel {
         }
     }
 
+    /// **This body's shield resource**, or [`ShieldTuning::OFF`] for a policy
+    /// that has no guard. The sibling of [`Self::jump_squat_remaining`]: the
+    /// damage resolver has to spend the guard it just granted, and matching the
+    /// variant at that call site is how one rule ends up spelled twice.
+    pub fn shield_tuning(&self) -> crate::ShieldTuning {
+        match self {
+            Self::AxisSwept(axis) => axis.params.abilities.shield,
+            Self::SurfaceMomentum(_) | Self::AdhesiveCrawler(_) => crate::ShieldTuning::OFF,
+        }
+    }
+
     /// **What a full-deflection direct command means for this body**, in px/s.
     ///
     /// The projection a CONTROLLER wants, and the sibling of

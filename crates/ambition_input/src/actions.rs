@@ -72,6 +72,10 @@ pub enum Platformer2dInputActionMonolith {
     /// Binding it onto the attack button would make "may this body grab" and
     /// "may this body swing" the same permission.
     Grab,
+    /// **TAUNT — press to express, at the cost of standing still.** Its own
+    /// action rather than a modifier on Attack, because a taunt is not a swing
+    /// and a body that has one is not thereby more dangerous.
+    Taunt,
     Interact,
     Modifier,
     Utility,
@@ -166,6 +170,7 @@ impl Platformer2dInputActionMonolith {
             | Self::Special
             | Self::Shield
             | Self::Grab
+            | Self::Taunt
             | Self::Interact
             | Self::Modifier
             | Self::Utility

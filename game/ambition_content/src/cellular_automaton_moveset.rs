@@ -515,6 +515,8 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
     );
 
     SmashRepertoire {
+
+        taunt: ambition_characters::moveset_authoring::taunt("cellular_automaton_taunt", 0.9),
         jab,
         forward_tilt: f_tilt,
         up_tilt: u_tilt,

@@ -280,6 +280,18 @@ pub fn emit_movement_fx(
                     kind: ParticleKind::Dust,
                 });
             }
+            ae::MovementOp::ShieldBreak => {
+                // The loudest thing a guard can do: a shatter burst at the body
+                // and the impact tone, so a break reads without a meter.
+                sfx.write_for_body(source, SfxMessage::Hit { pos });
+                vfx.write(VfxMessage::Burst {
+                    pos,
+                    count: 28,
+                    speed: 260.0,
+                    color: [0.85, 0.95, 1.0, 0.95],
+                    kind: ParticleKind::Shard,
+                });
+            }
             ae::MovementOp::LedgeClimbStart
             | ae::MovementOp::LedgeClimbFinish
             | ae::MovementOp::LedgeDrop

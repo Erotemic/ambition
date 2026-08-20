@@ -586,6 +586,7 @@ pub fn oiler_moveset() -> MovesetContract {
         },
     );
     let repertoire = SmashRepertoire {
+        taunt: ambition_characters::moveset_authoring::taunt("oiler_taunt", 0.9),
         jab,
         forward_tilt: f_tilt,
         up_tilt,

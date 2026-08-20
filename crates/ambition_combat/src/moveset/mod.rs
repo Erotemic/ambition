@@ -52,7 +52,9 @@ use ambition_time::WorldTime;
 // rather than runtime behaviour — and because a character DEFINITION must be
 // able to name the verb its moveset binds without reaching up into this crate.
 // Re-exported so every `moveset::ATTACK_VERB`-style path is unchanged.
-pub use ambition_entity_catalog::{ATTACK_VERB, RANGED_VERB, SMASH_VERB, SPECIAL_VERB};
+pub use ambition_entity_catalog::{
+    ATTACK_VERB, RANGED_VERB, SMASH_VERB, SPECIAL_VERB, TAUNT_VERB,
+};
 // The capture verbs, on the same road for the same reason.
 pub use ambition_entity_catalog::{
     CAPTURE_PUMMEL_VERB, CAPTURE_THROW_BACK_VERB, CAPTURE_THROW_DOWN_VERB,
@@ -1438,6 +1440,21 @@ pub fn trigger_moveset_moves(
                 &[ATTACK_VERB, "any_attack"]
             };
             (spec, verb_names)
+        } else if frame.taunt_pressed {
+            // ⭐ LAST in the chain on purpose: a taunt loses to every verb that
+            // does something, so a press that overlaps a real action is that
+            // action rather than a mood.
+            (
+                moveset
+                    .0
+                    .move_for_directional_verb(
+                        TAUNT_VERB,
+                        attack_dir_from_axis(frame.attack_axis, kin.facing),
+                        grounded,
+                    )
+                    .cloned(),
+                &[TAUNT_VERB][..],
+            )
         } else if frame.fire.is_some() {
             // A ranged intent (`frame.fire = Some(dir)`) starts the body's `"ranged"`
             // move; its fire event spawns the projectile, sampling live aim. The move

@@ -217,6 +217,39 @@ pub fn committed_tail(mut m: MoveSpec, to_s: f32, motion_scale: f32) -> MoveSpec
     m
 }
 
+/// **A TAUNT — the one authored move that threatens nobody.**
+///
+/// No volume, no impulse, one committed recovery window: everything a taunt IS
+/// is that you cannot act for `duration_s`, which is what makes it a statement.
+/// Compose `sfx` / `vfx` onto the result the way every other move does.
+pub fn taunt(id: &str, duration_s: f32) -> MoveSpec {
+    MoveSpec {
+        id: id.to_string(),
+        clip: ClipBinding {
+            clip: "taunt".to_string(),
+            // A sheet with no taunt row stands still, which is the right thing
+            // for a move whose whole content is standing still.
+            fallbacks: vec!["idle".to_string()],
+        },
+        duration_s,
+        windows: vec![MoveWindow {
+            start_s: 0.0,
+            end_s: duration_s,
+            tag: WindowTag::Recovery,
+            volumes: Vec::new(),
+            // Rooted: a taunt you can walk out of is not a commitment.
+            motion_scale: 0.0,
+            sustain_effect: None,
+        }],
+        events: Vec::new(),
+        gates: MoveGates::default(),
+        start_impulse: None,
+        smash_charge_mult: 1.0,
+        landing_lag_s: None,
+        autocancel_after_s: None,
+    }
+}
+
 /// One strike on one timeline: startup, one active window carrying one volume,
 /// recovery.
 ///

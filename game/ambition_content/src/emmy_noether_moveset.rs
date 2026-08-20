@@ -747,6 +747,7 @@ pub fn emmy_noether_moveset() -> MovesetContract {
         },
     );
     let repertoire = SmashRepertoire {
+        taunt: ambition_characters::moveset_authoring::taunt("emmy_noether_taunt", 0.9),
         jab,
         forward_tilt: f_tilt,
         up_tilt,

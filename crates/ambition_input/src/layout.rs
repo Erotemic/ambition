@@ -126,8 +126,10 @@ pub enum BindingLayout {
 /// his sentence under either reading, and one action on two buttons is not the
 /// hazard — two ACTIONS on one button is.
 ///
+/// | DPadUp / DPadDown | **Taunt** | Move | **Movement is stick-only in a fighter**, which is what the genre does and what frees a button for a taunt. |
+///
 /// Everything the table does not name is the base preset's: RightTrigger still
-/// shields and interacts, RightTrigger2 still dashes, the sticks, D-pad,
+/// shields and interacts, RightTrigger2 still dashes, the sticks,
 /// Select/Start and the thumb clicks are untouched. *"The rest of the bindings
 /// are normal I think."*
 const SMASH_PAD: &[PadSlot] = &[
@@ -146,6 +148,14 @@ const SMASH_PAD: &[PadSlot] = &[
     // alternative was Projectile sitting here and then being taken away from
     // players' fingers the day capture landed.
     slot(GamepadButton::North, Platformer2dInputActionMonolith::Grab),
+    // ⭐ **the D-pad taunts, because a fighting game moves on the STICK.** That
+    // is the genre's own layout; the base preset's `DPad → Move` is what a
+    // platform fighter gives up to get a taunt button at all.
+    slot(GamepadButton::DPadUp, Platformer2dInputActionMonolith::Taunt),
+    slot(
+        GamepadButton::DPadDown,
+        Platformer2dInputActionMonolith::Taunt,
+    ),
     slot(
         GamepadButton::LeftTrigger,
         Platformer2dInputActionMonolith::Shield,

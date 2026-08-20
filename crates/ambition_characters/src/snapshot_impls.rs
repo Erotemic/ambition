@@ -647,6 +647,9 @@ impl SnapshotState for crate::brain::ActorControl {
             // the original tick attempted, and the two histories diverge at the
             // relationship rather than at a pixel.
             f.grab_pressed,
+            // Same argument as the grab edge: a lost taunt press replays as a
+            // body that never taunted, and the two histories diverge.
+            f.taunt_pressed,
         ] {
             put_bool(out, b);
         }
@@ -675,7 +678,7 @@ impl SnapshotState for crate::brain::ActorControl {
             None
         };
         let attack_axis = ae::LocalAxes::from_vec(r.vec2()?);
-        let mut flags = [false; 20];
+        let mut flags = [false; 21];
         for f in flags.iter_mut() {
             *f = r.bool()?;
         }
@@ -709,6 +712,7 @@ impl SnapshotState for crate::brain::ActorControl {
             modifier_held: flags[17],
             modifier_pressed: flags[18],
             grab_pressed: flags[19],
+            taunt_pressed: flags[20],
             blink_quick_dir: ae::WorldVec2(r.vec2()?),
             blink_aim_step: ae::WorldVec2(r.vec2()?),
             aim: ae::LocalAxes::from_vec(r.vec2()?),

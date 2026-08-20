@@ -125,7 +125,8 @@ pub fn integrate_home_body(
     // ⭐ the BODY, so both roads read the same authority. The actor road used to
     // spell half of it (ledger D108); the signature no longer has a half to
     // spell.
-    let input = engine_input_from_actor_control(actor_control, feel, combat, frame_dt);
+    let input =
+        engine_input_from_actor_control(actor_control, feel, combat, clusters.shield, frame_dt);
     // ⭐⭐ **the hitlag freeze and the tuning refresh are no longer SPELLED here.**
     // Both roads used to write the same two steps beside their own
     // `ae::step_motion` call, which is exactly how D114 happened: the freeze was

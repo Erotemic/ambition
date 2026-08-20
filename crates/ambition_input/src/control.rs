@@ -131,6 +131,9 @@ pub fn read_gameplay_control_frame_with_settings(
         // the level here would re-attempt every tick a player leans on the
         // button, which deletes the cost of whiffing one.
         grab_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Grab),
+        // A taunt is one press, one performance — the same reason grab reads the
+        // edge rather than the level.
+        taunt_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Taunt),
         modifier_held,
         modifier_pressed,
         aim_x: aim_x_raw,

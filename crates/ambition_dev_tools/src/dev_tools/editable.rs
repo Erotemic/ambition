@@ -181,6 +181,14 @@ pub struct EditableMovementTuning {
     /// has no floor game.
     pub tumble_speed: f32,
     pub parry_window_time: f32,
+    /// Shield integrity, its drain/regen rates, its cost per blocked point, and
+    /// the dizzy a break costs. `shield_max_health = 0.0` = unlimited guard.
+    pub shield_max_health: f32,
+    pub shield_drain_per_second: f32,
+    pub shield_regen_per_second: f32,
+    pub shield_damage_scale: f32,
+    pub shield_break_stun_time: f32,
+    pub shield_stun_per_damage: f32,
     // Ledge momentum-carry boost. Seconds-after-grab during which a
     // getup option can claim incoming momentum; gains scale incoming
     // velocity into the boost; caps clamp the post-gain magnitude.
@@ -262,6 +270,14 @@ impl EditableMovementTuning {
             air_dodge_endlag: self.air_dodge_endlag,
             tumble_speed: self.tumble_speed,
             parry_window_time: self.parry_window_time,
+            shield: ae::ShieldTuning {
+                max_health: self.shield_max_health,
+                drain_per_second: self.shield_drain_per_second,
+                regen_per_second: self.shield_regen_per_second,
+                damage_scale: self.shield_damage_scale,
+                break_stun_time: self.shield_break_stun_time,
+                stun_per_damage: self.shield_stun_per_damage,
+            },
             ledge_momentum: ae::LedgeMomentumTuning {
                 window: self.ledge_boost_window,
                 x_gain: self.ledge_boost_x_gain,
@@ -327,6 +343,12 @@ impl From<ae::MovementTuning> for EditableMovementTuning {
             air_dodge_endlag: value.air_dodge_endlag,
             tumble_speed: value.tumble_speed,
             parry_window_time: value.parry_window_time,
+            shield_max_health: value.shield.max_health,
+            shield_drain_per_second: value.shield.drain_per_second,
+            shield_regen_per_second: value.shield.regen_per_second,
+            shield_damage_scale: value.shield.damage_scale,
+            shield_break_stun_time: value.shield.break_stun_time,
+            shield_stun_per_damage: value.shield.stun_per_damage,
             ledge_boost_window: value.ledge_momentum.window,
             ledge_boost_x_gain: value.ledge_momentum.x_gain,
             ledge_boost_y_gain: value.ledge_momentum.y_gain,

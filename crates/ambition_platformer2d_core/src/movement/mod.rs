@@ -84,7 +84,7 @@ pub use player::{default_player_body_size, DEFAULT_PLAYER_BODY_HEIGHT, DEFAULT_P
 pub use tuning::{
     ActiveMovementTuning, AxisHorizontalLaw, AxisJumpLaw, AxisLocomotion, AxisSweptParams,
     FlightTuning, LedgeMomentumTuning, MomentumHorizontalTuning, MovementTuning,
-    PhasedGravityJumpTuning, TraversalAbilityTuning, AIR_ACCEL, AIR_DODGE_ENDLAG, AIR_DODGE_SPEED,
+    PhasedGravityJumpTuning, ShieldTuning, TraversalAbilityTuning, AIR_ACCEL, AIR_DODGE_ENDLAG, AIR_DODGE_SPEED,
     AIR_DODGE_TIME, AIR_FRICTION, AIR_JUMPS, BLINK_COOLDOWN, BLINK_DISTANCE, BLINK_GRACE_TIME,
     BLINK_HOLD_THRESHOLD, BLINK_MAX_DOWNWARD_SPEED, COYOTE_TIME, DASH_BUFFER, DASH_COOLDOWN,
     DASH_SPEED, DASH_TIME, DEFAULT_AXIS_SWEPT_PARAMS, DEFAULT_GRAVITY_DIR, DEFAULT_TUNING,
@@ -388,6 +388,13 @@ fn update_body_simulation_inner(
         }
         clusters.dodge.cooldown = dec(clusters.dodge.cooldown);
         clusters.shield.parry_window_timer = dec(clusters.shield.parry_window_timer);
+        if crate::body_clusters::tick_shield_resource(
+            clusters.shield,
+            tuning.abilities.shield,
+            dt,
+        ) {
+            events.op_clusters(clusters.combo_trace, ops::MovementOp::ShieldBreak);
+        }
         clusters.ledge.release_cooldown = dec(clusters.ledge.release_cooldown);
         if state.wall_clinging || clusters.ground.on_ground {
             state.pre_wall_vel_age += dt;

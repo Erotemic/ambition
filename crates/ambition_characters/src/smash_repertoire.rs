@@ -169,6 +169,10 @@ pub struct SmashRepertoire {
     /// compiler can answer better: a new fighter that forgets a grab no longer
     /// ships and gets noticed, it does not build.
     pub capture: crate::smash_capture::SmashCaptureRepertoire,
+    /// **`taunt` — the move that buys nothing.** Required like every other slot,
+    /// so a fighter with nothing to say has to say so; `moveset_authoring::taunt`
+    /// is the one-liner for a fighter whose taunt is not yet designed.
+    pub taunt: MoveSpec,
 }
 
 impl SmashRepertoire {
@@ -203,6 +207,7 @@ impl SmashRepertoire {
             up_special,
             down_special,
             capture,
+            taunt,
         } = self;
 
         let mut bound: Vec<(&'static str, MoveSpec, MoveGates)> = vec![
@@ -218,6 +223,7 @@ impl SmashRepertoire {
             ("attack_air_back", back_air, AIRBORNE),
             ("attack_air_up", up_air, AIRBORNE),
             ("attack_air_down", down_air, AIRBORNE),
+            ("taunt", taunt, GROUNDED),
         ];
         if let NeutralSpecial::Authored(spec) = neutral_special {
             bound.push(("special", spec, EITHER));
@@ -264,7 +270,7 @@ mod tests {
     use super::*;
     use ambition_entity_catalog::{AttackDir, ClipBinding};
 
-    fn spec(id: &str) -> MoveSpec {
+    pub(super) fn spec(id: &str) -> MoveSpec {
         MoveSpec {
             id: id.to_string(),
             clip: ClipBinding {
@@ -285,7 +291,10 @@ mod tests {
         }
     }
 
-    fn repertoire(down_special: DownSpecial, neutral_special: NeutralSpecial) -> SmashRepertoire {
+    pub(super) fn repertoire(
+        down_special: DownSpecial,
+        neutral_special: NeutralSpecial,
+    ) -> SmashRepertoire {
         SmashRepertoire {
             jab: spec("jab"),
             forward_tilt: spec("ftilt"),
@@ -302,6 +311,7 @@ mod tests {
             neutral_special,
             side_special: spec("sspecial"),
             up_special: spec("uspecial"),
+            taunt: crate::moveset_authoring::taunt("taunt", 0.9),
             // ⚠ a real kit, because the slot is required now. The fixture's
             // job is to exercise the VERB TABLE, so the smallest catchable grab
             // that reaches `bound()` is the honest fixture — not a placeholder
@@ -476,5 +486,54 @@ mod tests {
             NeutralSpecial::Authored(spec("nspecial")),
         )
         .into_contract();
+    }
+}
+
+#[cfg(test)]
+mod taunt_slot_tests {
+    use super::tests::{repertoire, spec};
+    use super::*;
+    use ambition_entity_catalog::MoveSpec;
+
+    fn kit() -> SmashRepertoire {
+        repertoire(
+            DownSpecial::OneForm(spec("dspecial")),
+            NeutralSpecial::Authored(spec("nspecial")),
+        )
+    }
+
+    /// **THE TAUNT REACHES THE CONTRACT, GROUNDED, UNDER ITS OWN VERB.**
+    ///
+    /// ⛔ the two halves that matter: a taunt bound to no verb is a button that
+    /// does nothing, and a taunt left ungated answers an AIRBORNE press, which
+    /// would make a fighter stop dead in mid-air.
+    #[test]
+    fn the_taunt_slot_binds_the_taunt_verb_and_is_grounded() {
+        let contract = kit().into_contract();
+        let id = contract
+            .verbs
+            .get("taunt")
+            .expect("the taunt slot bound no verb, so the button is dead");
+        let spec: &MoveSpec = contract
+            .moves
+            .iter()
+            .find(|m| &m.id == id)
+            .expect("the taunt verb names a move the contract does not carry");
+        assert_eq!(spec.gates.grounded, Some(true));
+    }
+
+    /// **A TAUNT THREATENS NOBODY, AND IT COSTS YOU THE FLOOR.**
+    #[test]
+    fn an_authored_taunt_has_no_volume_and_roots_the_body() {
+        let spec = crate::moveset_authoring::taunt("t", 0.9);
+        assert!(spec.duration_s > 0.0);
+        assert!(
+            spec.windows.iter().all(|w| w.volumes.is_empty()),
+            "a taunt carried a hitbox, which makes it an attack with a bad name"
+        );
+        assert!(
+            spec.windows.iter().all(|w| w.motion_scale == 0.0),
+            "a taunt you can walk out of is not a commitment"
+        );
     }
 }

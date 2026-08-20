@@ -334,6 +334,9 @@ pub struct ShieldRingFact {
     pub pos: ambition_platformer2d_core::Vec2,
     pub size: ambition_platformer2d_core::Vec2,
     pub parrying: bool,
+    /// `1.0` whole, `0.0` about to break — and `1.0` for a body whose guard is
+    /// not a resource, so the ring reads the same for every body that has one.
+    pub integrity: f32,
 }
 
 /// Every body (player AND brain-driven actor) whose shield is currently
@@ -366,17 +369,23 @@ pub fn rebuild_shield_rings_view(
         // entity to look the pose up from. `ShieldRingsView` is the presentation
         // read-model, so publishing presentation truth is its job.
         Option<&crate::presented_pose::PresentedPose>,
+        // The body's own shield tuning, so the ring can SHOW the resource
+        // draining. A body with no motion model draws a whole ring.
+        Option<&ambition_platformer2d_core::MotionModel>,
     )>,
 ) {
     view.0.clear();
-    view.0
-        .extend(bodies.iter().filter(|(_, shield, _)| shield.active).map(
-            |(kin, shield, presented)| ShieldRingFact {
+    view.0.extend(
+        bodies
+            .iter()
+            .filter(|(_, shield, _, _)| shield.active)
+            .map(|(kin, shield, presented, model)| ShieldRingFact {
                 pos: presented.map_or(kin.pos, |p| p.presented()),
                 size: kin.size,
                 parrying: shield.parrying(),
-            },
-        ));
+                integrity: model.map_or(1.0, |m| shield.integrity_fraction(m.shield_tuning())),
+            }),
+    );
 }
 
 #[cfg(test)]

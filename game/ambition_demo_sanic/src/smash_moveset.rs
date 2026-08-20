@@ -448,6 +448,8 @@ pub fn sanic_moveset() -> MovesetContract {
     );
 
     SmashRepertoire {
+
+        taunt: ambition_platformer2d::characters::moveset_authoring::taunt("sanic_taunt", 0.9),
         jab,
         forward_tilt: f_tilt,
         up_tilt: u_tilt,

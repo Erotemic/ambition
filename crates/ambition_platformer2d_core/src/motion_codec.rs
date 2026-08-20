@@ -362,6 +362,12 @@ fn put_axis_swept_params(out: &mut Vec<u8>, p: &crate::AxisSweptParams) {
     put_f32(out, a.air_dodge_endlag);
     put_f32(out, a.tumble_speed);
     put_f32(out, a.parry_window_time);
+    put_f32(out, a.shield.max_health);
+    put_f32(out, a.shield.drain_per_second);
+    put_f32(out, a.shield.regen_per_second);
+    put_f32(out, a.shield.damage_scale);
+    put_f32(out, a.shield.break_stun_time);
+    put_f32(out, a.shield.stun_per_damage);
     put_f32(out, a.ledge_momentum.window);
     put_f32(out, a.ledge_momentum.x_gain);
     put_f32(out, a.ledge_momentum.y_gain);
@@ -438,6 +444,14 @@ fn axis_swept_params(r: &mut Reader<'_>) -> Option<crate::AxisSweptParams> {
             air_dodge_endlag: r.f32()?,
             tumble_speed: r.f32()?,
             parry_window_time: r.f32()?,
+            shield: crate::ShieldTuning {
+                max_health: r.f32()?,
+                drain_per_second: r.f32()?,
+                regen_per_second: r.f32()?,
+                damage_scale: r.f32()?,
+                break_stun_time: r.f32()?,
+                stun_per_damage: r.f32()?,
+            },
             ledge_momentum: LedgeMomentumTuning {
                 window: r.f32()?,
                 x_gain: r.f32()?,

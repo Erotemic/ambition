@@ -783,6 +783,10 @@ pub struct MatchBody {
     /// landing that follows is a knockdown unless it is teched. `0.0` is no
     /// floor game — right for a wandering enemy, wrong for a fighter.
     pub tumble_speed: f32,
+    /// **The guard as a resource**: integrity that drains while held and breaks
+    /// when spent. [`crate::ShieldTuning::OFF`] — the engine default — is the
+    /// unlimited guard an exploration body keeps.
+    pub shield: crate::ShieldTuning,
 }
 
 impl MatchBody {
@@ -803,6 +807,7 @@ impl MatchBody {
             air_dodge_speed: self.air_dodge_speed,
             air_dodge_endlag: self.air_dodge_endlag,
             tumble_speed: self.tumble_speed,
+            shield: self.shield,
             ..base
         }
     }
@@ -832,6 +837,7 @@ mod tests {
             air_dodge_speed: 440.0,
             air_dodge_endlag: 0.16,
             tumble_speed: 500.0,
+            shield: crate::ShieldTuning::PLATFORM_FIGHTER,
         };
         let played = stage.over(brought);
 

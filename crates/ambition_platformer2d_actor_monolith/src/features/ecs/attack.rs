@@ -54,6 +54,7 @@ pub fn engine_input_from_actor_control(
     actor: ActorControlFrame,
     feel: Platformer2dFeelTuningMonolith,
     combat: &ambition_characters::actor::BodyCombat,
+    shield: &ae::BodyShieldState,
     control_dt: f32,
 ) -> ae::InputState {
     // ⛔⛔ **THIS USED TO SPELL THE MAPPING OUT AGAIN**, sixty lines of
@@ -70,7 +71,7 @@ pub fn engine_input_from_actor_control(
     // frame's.
     let mut input = actor.to_input_state();
     input.control_dt = control_dt;
-    apply_post_hit_input_gates(&mut input, feel, combat);
+    apply_post_hit_input_gates(&mut input, feel, combat, shield);
     input
 }
 
@@ -84,9 +85,22 @@ pub fn apply_post_hit_input_gates(
     // ⛔ the BODY, so the two gates read the same authority and neither caller
     // can spell one of them differently. See `engine_input_from_actor_control`.
     combat: &ambition_characters::actor::BodyCombat,
+    // A broken guard is the third fact that removes control outright, and it is
+    // kept beside the other two rather than folded into either: a shield break
+    // and a knockback recoil read identically to a gate and differently to a
+    // trace, and the punish they open is the whole reason to break a shield.
+    shield: &ae::BodyShieldState,
 ) {
     let hitstun_timer = combat.hitstun_timer;
-    let hard_lock_timer = combat.hard_lock_timer();
+    // Three facts that remove control outright: the knockback/landing locks the
+    // body owns, the dizzy a broken guard owes, and the shieldstun a blocked hit
+    // charges. `shield_held` is not among the verbs stripped below, so a stunned
+    // blocker keeps its guard up — which is the difference between shieldstun
+    // and a break.
+    let hard_lock_timer = combat
+        .hard_lock_timer()
+        .max(shield.break_timer)
+        .max(shield.stun_timer);
     // The FLY TOGGLE is exempt from both gates: it is a mode-switch INTENT, not
     // movement authority (the axes are still stripped, so a toggled flyer can't
     // steer until the stagger clears). Eating an edge-triggered toggle corrupts
@@ -314,6 +328,7 @@ mod tests {
             frame,
             Platformer2dFeelTuningMonolith::default(),
             &ambition_characters::actor::BodyCombat::default(),
+            &ae::BodyShieldState::default(),
             dt,
         );
         assert!(input.jump_pressed() && input.jump_held());
@@ -331,6 +346,7 @@ mod tests {
                 recoil_lock_timer: 1.0,
                 ..Default::default()
             },
+            &ae::BodyShieldState::default(),
             dt,
         );
         assert!(!input.jump_pressed() && !input.dash_pressed());
@@ -346,6 +362,7 @@ mod tests {
                 hitstun_timer: 1.0,
                 ..Default::default()
             },
+            &ae::BodyShieldState::default(),
             dt,
         );
         assert!(!input.jump_pressed(), "hitstun eats the jump press");

@@ -886,6 +886,12 @@ pub fn smash_declared_combat_rules() -> ambition_platformer2d::combat::rules::De
         // of a kill. Same move, two games, and the difference is declared rather
         // than authored twice.
         downward_hit: ambition_platformer2d::combat::rules::DownwardHitStyle::Spike,
+        // ⭐ **and the spike is a SENTENCE, not just a shove.** ~18 frames in
+        // which a body knocked down out of the air cannot recover — long enough
+        // that a spike offstage is a kill and short enough that one over the
+        // stage is survivable. The window ENDING is what the genre calls the
+        // meteor cancel; there is no second verb.
+        meteor_lock_time: 0.30,
         // ⚠ teams already decide who may hit whom. Switching global friendly
         // fire on to let two humans trade would make TEAMMATES hittable too.
         friendly_fire: false,

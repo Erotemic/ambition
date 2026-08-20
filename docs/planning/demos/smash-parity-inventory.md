@@ -73,7 +73,7 @@ you add a `▢`, and before you work one.
 | DI | ✔ | `hit_response::di_adjust` |
 | SDI | ▢ | — |
 | Spike (a downward hit drives the victim, no attacker rebound) | ✔ | `rules::DownwardHitStyle::Spike`, declared by the smash stage |
-| Meteor lock (a spiked body cannot recover for a window; the window ending IS the cancel) | ~ | `feel::meteor_lock_time`; the tunable exists and defaults OFF — no per-experience feel override exists to turn it on for smash alone |
+| Meteor lock (a spiked body cannot recover for a window; the window ending IS the cancel) | ✔ | `DeclaredCombatRules::meteor_lock_time`, declared 0.30 by the smash stage and 0.0 by versus |
 | Stale-move queue (repeat use weakens) | ▢ | — |
 | Rage (damage taken raises knockback dealt) | ▢ | — |
 | Charge attacks, landing lag, autocancel | ✔ | `combat/moveset` |
@@ -155,13 +155,9 @@ and leaves the values rough; tuning is not this lane's licence.
 3. **The missing sprite rows** — a held pose, a pummel, a throw, and a dizzy for
    a broken guard. All four currently draw `Hit`, which stops them reading as
    calm but does not make them read as themselves.
-4. **Turn the meteor lock ON for smash** — the rule and its tunable are in;
-   what is missing is a per-experience feel override. `Platformer2dFeelTuningMonolith`
-   is one global resource, so a stage cannot state its own numbers the way
-   `MatchBody` lets it state a body's.
-5. **Stale moves and rage** — two multipliers on the shared knockback road.
-6. **Grab depth** — escape difficulty scaling with damage, dash/pivot grabs,
+4. **Stale moves and rage** — two multipliers on the shared knockback road.
+5. **Grab depth** — escape difficulty scaling with damage, dash/pivot grabs,
    grab release as its own beat.
-7. **Ledge trump and ledge-intangibility decay.**
-8. **Match rules** — timer, sudden death, friendly-fire toggle, respawn platform.
-9. **SDI, spot dodge, crouch cancel, jostle, wall tech** — the remaining verbs.
+6. **Ledge trump and ledge-intangibility decay.**
+7. **Match rules** — timer, sudden death, friendly-fire toggle, respawn platform.
+8. **SDI, spot dodge, crouch cancel, jostle, wall tech** — the remaining verbs.

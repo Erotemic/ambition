@@ -92,6 +92,21 @@ pub struct DeclaredCombatRules {
     /// behaviour: the effect is authored on the volume, so an undeclared world
     /// keeps firing it. A stage that wants spikes says so.
     pub downward_hit: DownwardHitStyle,
+    /// **How long a body spiked out of the AIR cannot recover** (seconds).
+    /// `0.0` — the baseline — is no meteor rule at all, which is what an
+    /// exploration game wants: a downward hit there is a pogo or a shove, not a
+    /// sentence.
+    ///
+    /// ⭐ **it belongs beside [`Self::downward_hit`] and nowhere else.** That
+    /// field already decides whether this game reads a downward hit as a rebound
+    /// or a SPIKE; how long the spiked body is silent is the same question one
+    /// step further, and a game that declares `Spike` is exactly the game that
+    /// wants to answer it. It briefly lived on the global feel tuning, where it
+    /// had no way to be true for one experience and false for another.
+    ///
+    /// ⚠ what the genre calls "meteor cancel" is this window ENDING. There is no
+    /// second verb to press.
+    pub meteor_lock_time: f32,
     /// Whether same-faction bodies damage each other.
     ///
     /// ⚠ a match with declared TEAMS should leave this `false`. `MatchTeam`
@@ -137,6 +152,8 @@ pub struct ResolvedCombatTuning {
     pub knockback_growth: f32,
     /// See [`DeclaredCombatRules::downward_hit`].
     pub downward_hit: DownwardHitStyle,
+    /// See [`DeclaredCombatRules::meteor_lock_time`].
+    pub meteor_lock_time: f32,
     pub friendly_fire: bool,
 }
 
@@ -175,6 +192,7 @@ impl ResolvedCombatTuning {
                 di_max_angle: rules.di_max_angle,
                 knockback_growth: rules.knockback_growth,
                 downward_hit: rules.downward_hit,
+                meteor_lock_time: rules.meteor_lock_time,
                 friendly_fire: rules.friendly_fire,
             },
             // ⚠ growth has NO world baseline to fall back to, unlike DI and
@@ -187,6 +205,7 @@ impl ResolvedCombatTuning {
                 // effect already does. Anything else would change every Ambition
                 // room to buy a Smash feature.
                 downward_hit: DownwardHitStyle::Pogo,
+                meteor_lock_time: 0.0,
                 friendly_fire: baseline_ff,
             },
         }
@@ -212,6 +231,7 @@ impl Default for ResolvedCombatTuning {
             di_max_angle: 0.0,
             knockback_growth: 0.0,
             downward_hit: DownwardHitStyle::Pogo,
+                meteor_lock_time: 0.0,
             friendly_fire: false,
         }
     }
@@ -240,6 +260,7 @@ mod tests {
                 di_max_angle: 0.30,
                 knockback_growth: 0.0,
                 downward_hit: DownwardHitStyle::Pogo,
+                meteor_lock_time: 0.0,
                 friendly_fire: false,
                 unarmed_melee: None,
             }),
@@ -263,6 +284,7 @@ mod tests {
             di_max_angle: 0.30,
             knockback_growth: 0.0,
             downward_hit: DownwardHitStyle::Pogo,
+                meteor_lock_time: 0.0,
             friendly_fire: true,
             unarmed_melee: None,
         });
@@ -276,6 +298,7 @@ mod tests {
                 di_max_angle: 0.12,
                 knockback_growth: 0.0,
                 downward_hit: DownwardHitStyle::Pogo,
+                meteor_lock_time: 0.0,
                 friendly_fire: false,
             }
         );

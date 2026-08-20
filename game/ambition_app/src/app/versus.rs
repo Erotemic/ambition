@@ -760,6 +760,11 @@ fn track_versus_roster(
                 // participant roster, the prepared match, now the rules.
                 declared_by: VERSUS_EXPERIENCE.to_string(),
                 di_max_angle: VERSUS_DI_MAX_ANGLE,
+                // ⚠ no meteor rule here for the same reason the knockback stays
+                // flat: rounds end on health, not on a blast zone, so a spike
+                // has nowhere to send you and a window you cannot recover in
+                // would be a stun with no payoff.
+                meteor_lock_time: 0.0,
                 // ⚠ the generic versus stage stays FLAT for now: its rounds end
                 // on health rather than on a blast zone, so a launch that grows
                 // without bound is a different game's mechanic. Smash declares

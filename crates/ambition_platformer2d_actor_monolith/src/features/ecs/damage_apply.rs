@@ -1407,6 +1407,9 @@ pub fn apply_player_hit_events(
     // nothing to restore.
     let mut feel = *feel_tuning;
     feel.di_max_angle = combat_rules.di_max_angle;
+    // ⭐ the same fold, for the same reason: a stage's rule is the authority and
+    // the baseline is only what an undeclared world keeps.
+    feel.meteor_lock_time = combat_rules.meteor_lock_time;
     // The bare authored room, for the death path that must NOT see moving
     // platforms or overlay solids. `solids()` below proves one is loaded.
     let Some(room) = collision.base() else {

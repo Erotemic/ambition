@@ -117,62 +117,29 @@ coating movement hook is engine vocabulary.
 
 ## 3. FS1 — single owner + conservation (opus, 2026-07-10)
 
-**The reported defect was not subtle, and it was not in the cellular automaton.**
-`emit_falling_sand_spouts` did two things at once: it wrote `SpawnParticleSignal`s
-into the CA grid *and* spawned a parallel fleet of Ambition-side
-`FallingSandStreamParticle` sprites, with the comment *"so the player gets
-immediate visual feedback that the spout opened."*
+Root cause: `emit_falling_sand_spouts` wrote `SpawnParticleSignal`s into the CA
+grid *and* spawned a parallel fleet of `FallingSandStreamParticle` sprites with
+their own hardcoded gravity (on `Res<Time>`, not `WorldTime`) that ignored room
+geometry and despawned at an invented floor. Matter had two homes: the sprites
+fell straight through the platforms the real CA particles were pooling on —
+Jon's report, verbatim: *"water and oil pool on the top platform yet particles
+ALSO fall forever below."*
 
-Those sprites were matter's second home. They fell on their own hardcoded
-gravity (`vel.y += 90.0 * dt`, on `Res<Time>` rather than `WorldTime` — a
-time-domains violation too), ignored every block in the room, and despawned at an
-invented `world.size.y - 64` floor. So they poured straight **through** the
-platforms the real particles were pooling on and rained down below. That is Jon's
-report, verbatim: *"water and oil pool on the top platform yet particles ALSO
-fall forever below."*
+Fix (structural, per §1's single-owner rule): the stream-sprite representation
+is deleted; `SpawnParticleSignal` is the only way matter enters. Spouts are now
+a `SpoutMouth { particle_type, x, y, width }` table — the same shape the ruled
+`PlacementSchema::Spout` will carry ([W-a]/[W-b]). Tile ownership is exclusive
+too: a tile dense enough to be a sand solid never also becomes a water region,
+pinned by `a_tile_dense_in_both_sand_and_water_is_owned_by_sand_alone`. Silent
+truncation is gone — `MAX_DYNAMIC_*` truncation now warns once instead of
+reading as a pool that mysteriously stopped growing.
 
-§1 says the fix is **structural (single owner), not a patch**. So:
+Guard: `the_grid_is_the_only_owner_of_matter` poison test. Conservation is
+checked every real frame via `tally_particles`/`TallyLedger` (`debug_assert`
+that per-material tile buckets sum to the ledger column).
 
-- **The stream representation is deleted.** `SpawnParticleSignal` is now the only
-  way matter enters. `bevy_falling_sand`'s own `render` feature draws the falling
-  matter; `sync_material_visuals` draws what has settled. **One owner, two views.**
-- **The spouts are a table.** `SpoutMouth { particle_type, x, y, width }` +
-  `open_spouts(switch_state)` — the same data, in the same shape, that the ruled
-  `PlacementSchema::Spout { material, rate, direction }` will carry. One `const`
-  away from being read off the map instead of typed into the source, which is what
-  [W-a]/[W-b] turn it into.
-- **The conservation law is a ledger, and it is tested.** `tally_particles` walks
-  the grid once and lands every particle in exactly one `TallyLedger` column:
-  `sand`, `water`, `oil`, `outside_world`, or `unmodelled` (walls are geometry, not
-  matter). `total()` equals the particles walked, and a `debug_assert` on every
-  real frame checks that each material's tile buckets sum to its ledger column —
-  so a particle counted twice, or lost between the query and the tile map, is a
-  panic in a dev build rather than a drifting pool.
-- **Single owner per TILE, too.** A tile dense enough to be a sand solid never also
-  becomes a water region (you cannot swim inside a block), and the visual agrees
-  with the collision. Pinned by `a_tile_dense_in_both_sand_and_water_is_owned_by_sand_alone`.
-- **No silent caps.** `MAX_DYNAMIC_*` truncation now warns once, because a
-  truncated frame is indistinguishable from a settled one from the outside — a
-  pool simply stops growing, and that reads as a physics bug.
-
-`the_grid_is_the_only_owner_of_matter` guards the definitions (not mentions of the
-names — the doc comments say them out loud so the next reader knows what was
-removed, and an occurrence-counting lint would fight its own explanation). Its
-poison test assembles the needles at runtime so they never appear as literals in
-the file, and checks the guard both fires on a reintroduction and stays quiet on
-the module as it stands.
-
-### What FS1 did NOT do
-
-- **The CA is unaudited for conservation.** `tally_particles` proves the
-  *projection* creates and loses nothing. Whether `bevy_falling_sand` itself
-  conserves matter (§1's *"total per material = spawned − despawned, every tick"*
-  against the room's real spec) needs a headless test that steps the CA, and
-  `FallingSandPlugin` pulls the `render` feature. That is FS2's job, alongside the
-  settle guarantee it already needs a stepping harness for.
-- **The remaining pile-up weirdness is FS2's.** With the second representation
-  gone, whatever is left is the CA's rules — settle, lateral flow, level-finding —
-  which is exactly the slice named for them.
+Not done by FS1: whether `bevy_falling_sand` itself conserves matter tick-over-tick,
+and the settle/lateral-flow/level-finding rules — that's FS2, §4.
 
 ---
 
@@ -182,77 +149,45 @@ Jon's directive: *"Repair falling sand by landing one deterministic sand-only
 FS2/FS3 vertical slice. Drive exactly one solver step per simulation tick;
 prove finite settling and conservation; transfer settled sand into persistent
 collision ownership atomically; and add a regression in the authored
-falling-sand room."* The one-CA-step-per-sim-tick experiment from the GPT
-round-6 queue resolved during design, from source, before any code:
+falling-sand room."*
 
-**`bevy_falling_sand` 0.7.0 cannot be driven one step per sim tick without a
-fork.** The evidence, all [root-caused] at the crate's source:
-
-- The movement systems (`par_handle_movement_by_chunks` etc.) are **private**
-  (`movement/processing/mod.rs` — `mod systems`, no re-export) and pinned to
-  `PostUpdate`, so they cannot be re-homed into the sim schedule. One
-  `PostUpdate` pass per render frame can never equal N sim ticks under
-  fixed-tick catch-up or a GGRS replay — and it happily steps while the game
-  is paused, because a render frame is not a sim tick.
-- The single-step hook fires twice. `SimulationStepSignal` is consumed by
-  nothing; the run condition `condition_msg_simulation_step_received` only
-  peeks (`!is_empty()`), so with message double-buffering one signal keeps the
-  gate open for TWO `PostUpdate` passes.
-- `ChunkSystems::DirtyAdvance` gates on the free-run resource
-  (`resource_exists::<ParticleSimulationRun>`), not the step signal, and an
-  unpaired advance DROPS dirty state (`advance_frame` overwrites `current`) —
-  so signal-driving starves the chunk movement path entirely.
-- Determinism: parallel checkerboard chunk iteration by default, per-particle
-  `MovementRng`, and Bevy `Query` iteration order underneath — three strikes
-  against ADR 0023 in the crate's core loop.
-
-So SAND — the material whose settled state becomes world geometry, i.e. the
-one that must be correct — moved onto a bespoke deterministic grid CA:
-`ambition_content::falling_sand_sim` (UNGATED, so its proofs run in every
-`cargo test -p ambition_content`) with `sand_grid.rs` as the pure core.
-**Water and oil stay on `bevy_falling_sand`** in the feature-gated
-presentation module until their own slice; their known defects
-(frame-locked stepping, no level-finding) are unchanged and explicitly out of
-scope per the directive.
+`bevy_falling_sand` 0.7.0 cannot be driven one step per sim tick without a
+fork — root-caused at the crate's source; see the hard-blocker evidence
+above. So SAND — the material whose settled state becomes world geometry —
+moved onto a bespoke deterministic grid CA: `ambition_content::falling_sand_sim`
+(UNGATED, runs in every `cargo test -p ambition_content`) with `sand_grid.rs`
+as the pure core. Water and oil stay on `bevy_falling_sand` per the hard
+blocker; their known defects are unchanged and out of scope for this slice.
 
 What landed, against §1's contract:
 
 - **One representation, two owners, one door.** Loose sand = `SandCell::Sand`
   in `SandGrid`; settled sand = mass in `SettledSandLedger` (its cell becomes
-  `Settled` geometry). `settle_into` is the only transfer and is atomic per
-  cell — §1's *"compiled cells leave the grid (conservation moves them between
-  owners atomically)"*, now literally a function.
-- **Conservation:** `loose + settled == emitted`, checked by
-  `conserved_with`, `debug_assert`ed every sim tick, asserted every tick in
-  the unit tests and every observed tick in the room regression.
+  `Settled` geometry). `settle_into` is the only transfer, atomic per cell.
+- **Conservation:** `loose + settled == emitted`, checked by `conserved_with`,
+  `debug_assert`ed every sim tick.
 - **Settle guarantee:** proved as a fixed-point test (finite pour → quiescent
   within budget → ten further ticks move and transfer nothing → ledger total
-  == emitted). The transfer condition — all three lower neighbors static —
-  can only ever fossilize a grain the CA rules could never move again.
+  == emitted).
 - **One solver step per ordinary sim tick:** `step_sand_grid` runs in the sim
-  schedule. Emission/stepping are gated by
-  `simulation_pass_is_authoritative`, which prevents duplicate advancement on
-  a replay pass. This is explicitly **not** a rollback snapshot: historical
-  frames still see the present unsnapshotted grid/ledger, so the room remains
-  outside netcode acceptance under the hard blocker above.
+  schedule, gated by `simulation_pass_is_authoritative` to prevent duplicate
+  advancement on a replay pass. This is explicitly **not** a rollback
+  snapshot — the room remains outside netcode acceptance under the hard
+  blocker above.
 - **Sand→geometry compilation:** the ledger contributes bottom-aligned,
   fill-proportional one-way blocks (`falling_sand:settled:<tx>:<ty>`) through
-  the overlay each frame — the LEDGER is the persistence, the overlay stays a
-  per-frame composition, which kills the transient-projection flicker (a
-  truncated/thin frame can no longer un-ground a pile). Ledger-owned tiles
-  veto water regions (single owner per tile, across representations).
+  the overlay each frame; ledger-owned tiles veto water regions (single owner
+  per tile, across representations).
 - **Determinism:** no RNG, no entity iteration, no hash maps; scan order and
   diagonal preference are pure functions of (state, tick); pinned by an
   identical-runs test.
 - **Authored-room regression** (`app_it::falling_sand_room`): enters
   `falling_sand_room` by semantic id, activates the authored sand switch by
-  its authored id (no coordinates), then asserts emission → conservation →
-  bounded-time settling → overlay ground → persistence across 30 rebuilds.
-- **The visual ships with the slice** (draw-blind rule): a room-sized texture
-  redrawn on grid ticks — loose grains in the old three-tone palette, settled
-  ground a deeper tone. Blind feel constants, said so at their definitions:
+  its authored id, then asserts emission → conservation → bounded-time
+  settling → overlay ground → persistence across 30 rebuilds.
+- **Visual:** a room-sized texture redrawn on grid ticks. Feel constants:
   `SETTLED_BLOCK_MIN_CELLS = 64`, `FALL_CELLS_PER_TICK = 3`, emission budget
-  120k grains (warned once when it closes the spout, never silent).
+  120k grains (warns once when it closes the spout, never silent).
 
 ### What §4 deliberately did NOT do
 

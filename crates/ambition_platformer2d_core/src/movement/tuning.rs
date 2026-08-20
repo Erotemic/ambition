@@ -730,8 +730,19 @@ pub struct FootstoolTuning {
     /// that makes a footstool a KILL move near a blast floor rather than a
     /// mobility trick.
     pub press_speed: f32,
-    /// Seconds the stomped body has no control authority.
-    pub victim_stun: f32,
+    /// Seconds the stomped body has no control authority when the footstool
+    /// does NOT tumble it — a grounded victim, or a body that never tumbles.
+    /// Short on purpose: Ultimate's grounded footstool is a beat you follow up
+    /// on, not a punish by itself.
+    pub flinch_time: f32,
+    /// Seconds an AIRBORNE victim tumbles for. Authored rather than derived
+    /// from [`Self::press_speed`] because a footstool "does not produce proper
+    /// knockback" — the tumble is the mechanic, the shove is only its distance.
+    pub air_tumble_time: f32,
+    /// Seconds of intangibility the STOMPER gets for taking the bounce. Four
+    /// frames in Ultimate, and the reason a footstool is an escape from
+    /// disadvantage rather than only a mobility trick.
+    pub stomper_invuln: f32,
     /// Penetration tolerance for "feet on its head" (px). See
     /// [`crate::collision_semantics::feet_on_head`] — reach, not hover.
     pub band: f32,
@@ -748,17 +759,21 @@ impl FootstoolTuning {
     pub const OFF: Self = Self {
         rise_speed: 0.0,
         press_speed: 0.0,
-        victim_stun: 0.0,
+        flinch_time: 0.0,
+        air_tumble_time: 0.0,
+        stomper_invuln: 0.0,
         band: 0.0,
     };
 
     /// Platform-fighter defaults: a hop a touch under a full jump, a shove that
-    /// costs the stomped body its airspace, and a stun short enough to recover
-    /// from over the stage and fatal off it.
+    /// costs the stomped body its airspace, a flinch short enough to be a combo
+    /// starter on the ground, and an air tumble long enough to be fatal off it.
     pub const PLATFORM_FIGHTER: Self = Self {
         rise_speed: 330.0,
         press_speed: 220.0,
-        victim_stun: 0.28,
+        flinch_time: 0.12,
+        air_tumble_time: 0.40,
+        stomper_invuln: 4.0 / 60.0,
         band: 14.0,
     };
 

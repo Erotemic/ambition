@@ -48,11 +48,22 @@
 //! rule about hurting people. The friendly-fire flag is read directly, so a
 //! teams match with Team Attack off refuses the pair, which is the genre's rule.
 //!
-//! ⚠ **PARTIAL against the genre, and named rather than implied**: every victim
-//! takes the same shove and the same lock, while Ultimate distinguishes a
-//! grounded target (a brief freeze) from an airborne one (a tumble), and has no
-//! phantom-footstool rule here — a target executing a move is interrupted, and
-//! in Ultimate it would not be.
+//! ## The victim's reaction is TWO reactions, or NONE
+//!
+//! ⭐ **the PHANTOM footstool**: a victim who is in the middle of a move takes
+//! no reaction at all and follows through, while the stomper still gets the
+//! bounce. It is the genre's rule and a real technique in it — Ultimate players
+//! farm the bounce off a committed opponent to escape disadvantage — and
+//! without it a footstool would be a free interrupt of any attack it landed on.
+//!
+//!
+//! ⭐ **when there IS a reaction, grounded and airborne are different mechanics, and Ultimate treats them
+//! that way.** A grounded target has nowhere to be shoved and takes a brief
+//! flinch — which is what makes a grounded footstool a combo STARTER — while an
+//! airborne one is driven down into a tumble that cannot be cancelled early
+//! (a footstool produces no real knockback, so there is nothing to meteor-cancel
+//! out of). Both are techable on landing. The split itself lives in
+//! [`ae::footstool_victim`], because a tumble is model-private state.
 
 use bevy::prelude::*;
 
@@ -75,6 +86,9 @@ pub struct FootstoolBody {
     pub health: &'static ambition_characters::actor::BodyHealth,
     pub team: Option<&'static ambition_combat::targeting::MatchTeam>,
     pub control: Option<&'static ambition_characters::brain::ActorControl>,
+    /// The swing clock, read ONLY to ask whether this body is mid-move — see
+    /// the phantom footstool in the module doc.
+    pub melee: Option<&'static ambition_combat::components::BodyMelee>,
     pub frame: Option<&'static ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
 }
 
@@ -127,12 +141,23 @@ pub fn claim_footstools(
             &mut ae::BodyKinematics,
             &mut ae::BodyJumpState,
             &mut ambition_characters::actor::BodyCombat,
+            &mut crate::features::MotionModel,
         )>,
     )>,
     tuning: Option<Res<ambition_combat::rules::ResolvedCombatTuning>>,
 ) {
     let friendly_fire = tuning.is_some_and(|t| t.friendly_fire().enabled);
-    let mut pairs: Vec<(SimId, SimId, Entity, Entity, ae::FootstoolTuning, ae::Vec2)> = Vec::new();
+    type Pair = (
+        SimId,
+        SimId,
+        Entity,
+        Entity,
+        ae::FootstoolTuning,
+        ae::Vec2,
+        bool,
+        bool,
+    );
+    let mut pairs: Vec<Pair> = Vec::new();
 
     {
         let decide = bodies.p0();
@@ -192,6 +217,10 @@ pub fn claim_footstools(
                     victim.entity,
                     rules,
                     gravity_dir,
+                    // Read HERE, from the decide pass, because the effects pass
+                    // has already begun changing the answer for other pairs.
+                    victim.ground.on_ground,
+                    victim.melee.is_some_and(|m| m.phase().is_some()),
                 ));
             }
         }
@@ -201,7 +230,7 @@ pub fn claim_footstools(
 
     let mut spent: Vec<Entity> = Vec::new();
     let mut effects = bodies.p1();
-    for (_, _, stomper, victim, rules, gravity_dir) in pairs {
+    for (_, _, stomper, victim, rules, gravity_dir, victim_grounded, victim_mid_move) in pairs {
         // ⛔ BOTH ends. A stomper over two heads takes ONE footstool, and a head
         // under two stompers is jumped off ONCE. The first version spent only
         // the victim, so one press shoved every body it happened to overlap.
@@ -213,21 +242,32 @@ pub fn claim_footstools(
 
         // The stomper's half is a CLAIM on its own jump press. The kernel writes
         // the rise, ahead of the air jump, and emits the op.
-        if let Ok((_, mut jump, _)) = effects.get_mut(stomper) {
+        // ⭐ and the bounce carries i-frames. Ultimate gives four frames, and
+        // they are what make a footstool an ESCAPE from disadvantage rather than
+        // only a way to gain height — without them the body that just committed
+        // to standing on somebody is a stationary target at head height.
+        if let Ok((_, mut jump, mut combat, _)) = effects.get_mut(stomper) {
             jump.footstool_claimed = true;
+            combat.damage_invuln_timer = combat.damage_invuln_timer.max(rules.stomper_invuln);
         }
         // The victim's half is written now, so the kernel integrates it this
-        // tick rather than a tick late.
-        //
-        // ⚠ SET, not add: a body arriving at terminal velocity and one barely
-        // falling must be driven down at the same speed, or being stood on costs
-        // more the further your attacker fell to reach you.
-        if let Ok((mut kin, _, mut combat)) = effects.get_mut(victim) {
-            let along = kin.vel.dot(gravity_dir);
-            kin.vel -= gravity_dir * (along - rules.press_speed);
+        // tick rather than a tick late. The reaction itself is the movement
+        // side's — a shove plus a tumble is model-private state, and the split
+        // between a grounded flinch and an airborne tumble is a movement fact.
+        // ⛔ the PHANTOM footstool: a committed body follows through. The
+        // stomper's claim above still stands — that is the whole point of the
+        // technique — so this skips the reaction and not the pair.
+        if victim_mid_move {
+            continue;
+        }
+        if let Ok((mut kin, _, mut combat, mut model)) = effects.get_mut(victim) {
+            let flinch =
+                ae::footstool_victim(&mut model, &mut kin, victim_grounded, gravity_dir, rules);
             // A HARD lock rather than hitstun: being stood on is not being hit,
-            // and what makes it dangerous is that you cannot answer it.
-            combat.recoil_lock_timer = combat.recoil_lock_timer.max(rules.victim_stun);
+            // and what makes it dangerous is that you cannot answer it. ⚠ zero
+            // when a tumble started, which owns control for longer than this
+            // would have.
+            combat.recoil_lock_timer = combat.recoil_lock_timer.max(flinch);
         }
     }
 }

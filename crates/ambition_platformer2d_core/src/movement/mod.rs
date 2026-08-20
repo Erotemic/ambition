@@ -76,25 +76,25 @@ pub use integration::set_jump_velocity;
 pub use integration::{integrate_normal_spine, NormalSpineCtx};
 pub use kernel::{step_motion, MotionStepContext, MotionStepResult, SupportFact};
 pub use model::{
-    knock_off_ledge, switch_motion_model, AxisManeuverState, AxisSweptMotion, MotionModel,
-    MotionModelKind, MotionModelSpec, PhasedJumpState, SurfaceMomentumMotion,
+    footstool_victim, knock_off_ledge, switch_motion_model, AxisManeuverState, AxisSweptMotion,
+    MotionModel, MotionModelKind, MotionModelSpec, PhasedJumpState, SurfaceMomentumMotion,
 };
 pub use ops::{ComboMark, MovementOp};
 pub use player::{default_player_body_size, DEFAULT_PLAYER_BODY_HEIGHT, DEFAULT_PLAYER_BODY_WIDTH};
 pub use tuning::{
     ActiveMovementTuning, AxisHorizontalLaw, AxisJumpLaw, AxisLocomotion, AxisSweptParams,
-    FlightTuning, LedgeMomentumTuning, MomentumHorizontalTuning, MovementTuning,
-    FootstoolTuning, PhasedGravityJumpTuning, ShieldTuning, TraversalAbilityTuning, AIR_ACCEL, AIR_DODGE_ENDLAG, AIR_DODGE_SPEED,
-    AIR_DODGE_TIME, AIR_FRICTION, AIR_JUMPS, BLINK_COOLDOWN, BLINK_DISTANCE, BLINK_GRACE_TIME,
-    BLINK_HOLD_THRESHOLD, BLINK_MAX_DOWNWARD_SPEED, COYOTE_TIME, DASH_BUFFER, DASH_COOLDOWN,
-    DASH_SPEED, DASH_TIME, DEFAULT_AXIS_SWEPT_PARAMS, DEFAULT_GRAVITY_DIR, DEFAULT_TUNING,
-    DODGE_ROLL_COOLDOWN, DODGE_ROLL_SPEED, DODGE_ROLL_TIME, DOUBLE_JUMP_SPEED, FAST_FALL_ACCEL,
-    FAST_FALL_SPEED, FLIGHT_ACCEL, FLIGHT_DRAG, FLIGHT_HOVER_HZ, FLIGHT_HOVER_SPEED,
-    FLIGHT_TERMINAL_SPEED, GLIDE_AIR_ACCEL, GLIDE_FALL_SPEED, GRAVITY, GROUND_FRICTION,
-    JUMP_BUFFER, JUMP_SPEED, MAX_FALL_SPEED, MAX_RUN_SPEED, ONE_WAY_DROP_THROUGH_GRACE,
-    PARRY_WINDOW_TIME, POGO_SPEED, PRECISION_BLINK_AIM_SPEED, PRECISION_BLINK_DISTANCE,
-    PRECISION_BLINK_MAX_DOWNWARD_SPEED, RUN_ACCEL, SLASH_RECOIL, WALL_CLIMB_SPEED, WALL_JUMP_X,
-    WALL_SLIDE_SPEED,
+    FlightTuning, FootstoolTuning, LedgeMomentumTuning, MomentumHorizontalTuning, MovementTuning,
+    PhasedGravityJumpTuning, ShieldTuning, TraversalAbilityTuning, AIR_ACCEL, AIR_DODGE_ENDLAG,
+    AIR_DODGE_SPEED, AIR_DODGE_TIME, AIR_FRICTION, AIR_JUMPS, BLINK_COOLDOWN, BLINK_DISTANCE,
+    BLINK_GRACE_TIME, BLINK_HOLD_THRESHOLD, BLINK_MAX_DOWNWARD_SPEED, COYOTE_TIME, DASH_BUFFER,
+    DASH_COOLDOWN, DASH_SPEED, DASH_TIME, DEFAULT_AXIS_SWEPT_PARAMS, DEFAULT_GRAVITY_DIR,
+    DEFAULT_TUNING, DODGE_ROLL_COOLDOWN, DODGE_ROLL_SPEED, DODGE_ROLL_TIME, DOUBLE_JUMP_SPEED,
+    FAST_FALL_ACCEL, FAST_FALL_SPEED, FLIGHT_ACCEL, FLIGHT_DRAG, FLIGHT_HOVER_HZ,
+    FLIGHT_HOVER_SPEED, FLIGHT_TERMINAL_SPEED, GLIDE_AIR_ACCEL, GLIDE_FALL_SPEED, GRAVITY,
+    GROUND_FRICTION, JUMP_BUFFER, JUMP_SPEED, MAX_FALL_SPEED, MAX_RUN_SPEED,
+    ONE_WAY_DROP_THROUGH_GRACE, PARRY_WINDOW_TIME, POGO_SPEED, PRECISION_BLINK_AIM_SPEED,
+    PRECISION_BLINK_DISTANCE, PRECISION_BLINK_MAX_DOWNWARD_SPEED, RUN_ACCEL, SLASH_RECOIL,
+    WALL_CLIMB_SPEED, WALL_JUMP_X, WALL_SLIDE_SPEED,
 };
 
 #[cfg(test)]
@@ -388,11 +388,8 @@ fn update_body_simulation_inner(
         }
         clusters.dodge.cooldown = dec(clusters.dodge.cooldown);
         clusters.shield.parry_window_timer = dec(clusters.shield.parry_window_timer);
-        if crate::body_clusters::tick_shield_resource(
-            clusters.shield,
-            tuning.abilities.shield,
-            dt,
-        ) {
+        if crate::body_clusters::tick_shield_resource(clusters.shield, tuning.abilities.shield, dt)
+        {
             events.op_clusters(clusters.combo_trace, ops::MovementOp::ShieldBreak);
         }
         clusters.ledge.release_cooldown = dec(clusters.ledge.release_cooldown);

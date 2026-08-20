@@ -75,16 +75,45 @@ pub fn launch_into_tumble(
         return false;
     }
     let over = launch_speed - threshold;
-    state.tumble_timer = state
-        .tumble_timer
-        .max((TUMBLE_TIME_PER_SPEED * over).min(MAX_TUMBLE_TIME));
-    // A launch cancels the floor game the body was in: you cannot be prone and
-    // airborne, and a getup's i-frames do not survive being hit again.
+    enter_tumble(state, TUMBLE_TIME_PER_SPEED * over);
+    true
+}
+
+/// **A footstool put this body into tumble** — the same helplessness, with no
+/// launch behind it.
+///
+/// ⚠ separate from [`launch_into_tumble`] because a footstool's tumble is not
+/// proportional to anything. Ultimate's footstool does not produce real
+/// knockback, so the duration is AUTHORED
+/// ([`crate::FootstoolTuning::air_tumble_time`]) rather than derived from the
+/// shove; feeding the shove speed to `launch_into_tumble` instead would put
+/// every fighter's footstool below its own tumble threshold and tumble nobody.
+///
+/// ⚠ the body's own `tumble_speed` still gates it: a body that never tumbles
+/// does not start because somebody stood on it.
+pub fn tumble_from_footstool(
+    state: &mut AxisManeuverState,
+    tuning: AxisSweptParams,
+    seconds: f32,
+) -> bool {
+    if tuning.abilities.tumble_speed <= 0.0 || seconds <= 0.0 {
+        return false;
+    }
+    enter_tumble(state, seconds);
+    true
+}
+
+/// The floor-game half both tumble entry points share.
+///
+/// Entering tumble cancels the floor game the body was in: you cannot be prone
+/// and airborne, and a getup's i-frames do not survive being put back in the
+/// air.
+fn enter_tumble(state: &mut AxisManeuverState, seconds: f32) {
+    state.tumble_timer = state.tumble_timer.max(seconds.min(MAX_TUMBLE_TIME));
     state.tumble_until_landing = true;
     state.knockdown_timer = 0.0;
     state.getup_invuln_timer = 0.0;
     state.tumble_unannounced = true;
-    true
 }
 
 /// **Is the floor game holding the controller this tick?** The simulation half

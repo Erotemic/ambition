@@ -319,6 +319,17 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// it also moved `ambition_cutscene` and `ambition_demo_twintrack`, which is the
 /// instrument CHANGING and NOT a wire change in either: neither file was edited.
 ///
+/// ⚠ **v47 (2026-08-20) is `FootstoolTuning::air_tumble_time` and
+/// `stomper_invuln`**, two floats in the motion codec, put and read
+/// (338 -> 342 primitives). The first splits the
+/// victim's reaction in two: a grounded victim flinches, an airborne one
+/// tumbles, and a tumble's length is AUTHORED rather than derived from the
+/// shove — a footstool produces no real knockback, so feeding its 220 px/s to
+/// the launch threshold would tumble nobody. The second is the stomper's four
+/// frames of intangibility, which is what makes a footstool an escape from
+/// disadvantage. ⚠ `victim_stun` was RENAMED to `flinch_time` in the same
+/// commit; a rename moves no bytes, and the codec's four extra primitives are
+/// the two new fields alone.
 /// ⚠ **v46 (2026-08-20) is `BodyStaleMoves`**, a NEW rollback component
 /// (`body.stale_moves`): nine `u32` slots and a cursor, remembering what this
 /// body last LANDED so a repeated move is worth less. Both a new stable key and
@@ -456,7 +467,7 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// `message.spawn_projectile` keeps its stable key while its concrete message
 /// becomes `ProjectileSpawnRequest`, so abandoned-future spawn requests remain
 /// cleared on load through the same wire identity.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 46;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 47;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

@@ -372,7 +372,9 @@ fn put_axis_swept_params(out: &mut Vec<u8>, p: &crate::AxisSweptParams) {
     put_f32(out, a.shield.min_coverage);
     put_f32(out, a.footstool.rise_speed);
     put_f32(out, a.footstool.press_speed);
-    put_f32(out, a.footstool.victim_stun);
+    put_f32(out, a.footstool.flinch_time);
+    put_f32(out, a.footstool.air_tumble_time);
+    put_f32(out, a.footstool.stomper_invuln);
     put_f32(out, a.footstool.band);
     put_f32(out, a.ledge_momentum.window);
     put_f32(out, a.ledge_momentum.x_gain);
@@ -463,7 +465,9 @@ fn axis_swept_params(r: &mut Reader<'_>) -> Option<crate::AxisSweptParams> {
             footstool: crate::FootstoolTuning {
                 rise_speed: r.f32()?,
                 press_speed: r.f32()?,
-                victim_stun: r.f32()?,
+                flinch_time: r.f32()?,
+                air_tumble_time: r.f32()?,
+                stomper_invuln: r.f32()?,
                 band: r.f32()?,
             },
             ledge_momentum: LedgeMomentumTuning {

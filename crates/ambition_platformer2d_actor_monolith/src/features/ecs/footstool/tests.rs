@@ -42,6 +42,10 @@ fn fighter_on_team(
 ) -> Entity {
     let mut tuning = ae::DEFAULT_TUNING;
     tuning.footstool = rules;
+    // ⚠ a body whose `tumble_speed` is 0.0 never tumbles, and every body in
+    // Ambition is that body. A fighter is not, so the fixture says so — without
+    // it these tests would measure only the no-tumble fallback.
+    tuning.tumble_speed = 500.0;
     let mut control = ambition_characters::actor::control::ActorControlFrame::neutral();
     control.jump_pressed = jump;
     app.world_mut()
@@ -74,6 +78,26 @@ fn fall_of(app: &App, entity: Entity) -> f32 {
         .y
 }
 
+/// Seconds of tumble this body is carrying.
+fn tumble_of(app: &App, entity: Entity) -> f32 {
+    match app
+        .world()
+        .get::<crate::features::MotionModel>(entity)
+        .expect("the body kept its motion model")
+    {
+        ae::MotionModel::AxisSwept(axis) => axis.state.tumble_timer,
+        _ => 0.0,
+    }
+}
+
+/// The hard control lock on this body's combat state.
+fn lock_of(app: &App, entity: Entity) -> f32 {
+    app.world()
+        .get::<BodyCombat>(entity)
+        .expect("the victim kept its combat state")
+        .recoil_lock_timer
+}
+
 /// Did this body's press get claimed for a footstool?
 fn claimed(app: &App, entity: Entity) -> bool {
     app.world()
@@ -93,7 +117,13 @@ fn a_footstool_claims_the_press_and_drives_the_stomped_down() {
     let mut app = app();
     let rules = ae::FootstoolTuning::PLATFORM_FIGHTER;
     let victim = fighter(&mut app, "victim", ae::Vec2::ZERO, false, rules);
-    let stomper = fighter(&mut app, "stomper", ae::Vec2::new(0.0, -SIZE.y), true, rules);
+    let stomper = fighter(
+        &mut app,
+        "stomper",
+        ae::Vec2::new(0.0, -SIZE.y),
+        true,
+        rules,
+    );
 
     app.update();
 
@@ -106,13 +136,104 @@ fn a_footstool_claims_the_press_and_drives_the_stomped_down() {
         rules.press_speed,
         "the stomped body was not driven down"
     );
-    assert!(
+    assert_eq!(
+        tumble_of(&app, victim),
+        rules.air_tumble_time,
+        "an airborne victim was not put into tumble"
+    );
+    assert_eq!(
+        lock_of(&app, victim),
+        0.0,
+        "the tumble already owns control; a second lock beside it can only disagree"
+    );
+    assert_eq!(
         app.world()
-            .get::<BodyCombat>(victim)
-            .expect("the victim kept its combat state")
-            .recoil_lock_timer
-            > 0.0,
-        "being stood on cost the stomped body nothing"
+            .get::<BodyCombat>(stomper)
+            .expect("the stomper kept its combat state")
+            .damage_invuln_timer,
+        rules.stomper_invuln,
+        "the bounce carried no i-frames, so the footstool is not an escape"
+    );
+}
+
+/// **A GROUNDED VICTIM FLINCHES; IT IS NOT SHOVED AND IT DOES NOT TUMBLE.**
+///
+/// ⛔ the half the first version was missing — every victim took the same shove
+/// and the same lock. A body standing on a floor has nowhere to be driven, and
+/// Ultimate's grounded footstool is a brief beat you follow up on, which is a
+/// different mechanic from the airborne tumble above and not a shorter one.
+#[test]
+fn a_grounded_victim_flinches_instead_of_tumbling() {
+    let mut app = app();
+    let rules = ae::FootstoolTuning::PLATFORM_FIGHTER;
+    let victim = fighter(&mut app, "victim", ae::Vec2::ZERO, false, rules);
+    app.world_mut()
+        .get_mut::<ae::BodyGroundState>(victim)
+        .expect("the victim kept its ground state")
+        .on_ground = true;
+    let stomper = fighter(
+        &mut app,
+        "stomper",
+        ae::Vec2::new(0.0, -SIZE.y),
+        true,
+        rules,
+    );
+
+    app.update();
+
+    assert!(claimed(&app, stomper), "a grounded head was not a platform");
+    assert_eq!(
+        fall_of(&app, victim),
+        120.0,
+        "a body already standing on a floor was driven into it"
+    );
+    assert_eq!(
+        tumble_of(&app, victim),
+        0.0,
+        "a grounded victim tumbled; that is the airborne reaction"
+    );
+    assert_eq!(
+        lock_of(&app, victim),
+        rules.flinch_time,
+        "a grounded victim owes the flinch"
+    );
+}
+
+/// **A BODY THAT NEVER TUMBLES STILL OWES THE SHOVE A BEAT.**
+///
+/// ⚠ `tumble_speed` is `0.0` for every body in Ambition, so without this
+/// fallback an airborne victim there would be shoved with no lock at all — the
+/// tumble branch returning zero would silently mean *no reaction*.
+#[test]
+fn an_airborne_victim_that_cannot_tumble_takes_the_flinch() {
+    let mut app = app();
+    let rules = ae::FootstoolTuning::PLATFORM_FIGHTER;
+    let victim = fighter(&mut app, "victim", ae::Vec2::ZERO, false, rules);
+    let stomper = fighter(
+        &mut app,
+        "stomper",
+        ae::Vec2::new(0.0, -SIZE.y),
+        true,
+        rules,
+    );
+    let mut tuning = ae::DEFAULT_TUNING;
+    tuning.footstool = rules;
+    tuning.tumble_speed = 0.0;
+    app.world_mut()
+        .entity_mut(victim)
+        .insert(crate::features::MotionModel::axis_swept(
+            tuning.axis_swept_params(),
+        ));
+
+    app.update();
+
+    assert!(claimed(&app, stomper));
+    assert_eq!(fall_of(&app, victim), rules.press_speed);
+    assert_eq!(tumble_of(&app, victim), 0.0);
+    assert_eq!(
+        lock_of(&app, victim),
+        rules.flinch_time,
+        "a body that cannot tumble was shoved with no reaction at all"
     );
 }
 
@@ -122,11 +243,20 @@ fn standing_over_somebody_without_pressing_jump_does_nothing() {
     let mut app = app();
     let rules = ae::FootstoolTuning::PLATFORM_FIGHTER;
     let victim = fighter(&mut app, "victim", ae::Vec2::ZERO, false, rules);
-    let stomper = fighter(&mut app, "stomper", ae::Vec2::new(0.0, -SIZE.y), false, rules);
+    let stomper = fighter(
+        &mut app,
+        "stomper",
+        ae::Vec2::new(0.0, -SIZE.y),
+        false,
+        rules,
+    );
 
     app.update();
 
-    assert!(!claimed(&app, stomper), "an unpressed frame claimed a press");
+    assert!(
+        !claimed(&app, stomper),
+        "an unpressed frame claimed a press"
+    );
     assert_eq!(fall_of(&app, victim), 120.0, "an unpressed frame shoved");
 }
 
@@ -169,8 +299,20 @@ fn a_head_is_spent_by_the_first_body_to_stand_on_it() {
     let mut app = app();
     let rules = ae::FootstoolTuning::PLATFORM_FIGHTER;
     let victim = fighter(&mut app, "victim", ae::Vec2::ZERO, false, rules);
-    let a = fighter(&mut app, "a_stomper", ae::Vec2::new(-4.0, -SIZE.y), true, rules);
-    let b = fighter(&mut app, "b_stomper", ae::Vec2::new(4.0, -SIZE.y), true, rules);
+    let a = fighter(
+        &mut app,
+        "a_stomper",
+        ae::Vec2::new(-4.0, -SIZE.y),
+        true,
+        rules,
+    );
+    let b = fighter(
+        &mut app,
+        "b_stomper",
+        ae::Vec2::new(4.0, -SIZE.y),
+        true,
+        rules,
+    );
 
     app.update();
 
@@ -196,7 +338,13 @@ fn a_stomper_over_two_heads_takes_exactly_one_of_them() {
     // Two victims side by side, both within the stomper's footprint.
     let left = fighter(&mut app, "a_victim", ae::Vec2::new(-8.0, 0.0), false, rules);
     let right = fighter(&mut app, "b_victim", ae::Vec2::new(8.0, 0.0), false, rules);
-    let stomper = fighter(&mut app, "stomper", ae::Vec2::new(0.0, -SIZE.y), true, rules);
+    let stomper = fighter(
+        &mut app,
+        "stomper",
+        ae::Vec2::new(0.0, -SIZE.y),
+        true,
+        rules,
+    );
 
     app.update();
 
@@ -209,6 +357,61 @@ fn a_stomper_over_two_heads_takes_exactly_one_of_them() {
         shoved, 1,
         "one press shoved {shoved} bodies; a footstool takes one head"
     );
+}
+
+/// **THE PHANTOM FOOTSTOOL: A COMMITTED VICTIM FOLLOWS THROUGH.**
+///
+/// ⛔ both halves, and the pair of them is the whole rule: the stomper still
+/// gets the bounce (that is what the technique is FOR — farming height off a
+/// committed opponent to escape disadvantage) while the victim's move is not
+/// interrupted. Asserting only the second half would also pass if the footstool
+/// had simply been refused.
+#[test]
+fn a_victim_in_the_middle_of_a_move_takes_no_reaction() {
+    let mut app = app();
+    let rules = ae::FootstoolTuning::PLATFORM_FIGHTER;
+    let victim = fighter(&mut app, "victim", ae::Vec2::ZERO, false, rules);
+    let stomper = fighter(
+        &mut app,
+        "stomper",
+        ae::Vec2::new(0.0, -SIZE.y),
+        true,
+        rules,
+    );
+    let mut melee = ambition_combat::components::BodyMelee::default();
+    melee.begin(swing(), ae::Vec2::new(1.0, 0.0), 0.0);
+    app.world_mut().entity_mut(victim).insert(melee);
+
+    app.update();
+
+    assert!(
+        claimed(&app, stomper),
+        "the bounce is the half a phantom footstool keeps"
+    );
+    assert_eq!(fall_of(&app, victim), 120.0, "a committed body was shoved");
+    assert_eq!(tumble_of(&app, victim), 0.0, "a committed body was tumbled");
+    assert_eq!(
+        lock_of(&app, victim),
+        0.0,
+        "a committed body was interrupted"
+    );
+}
+
+/// A swing in flight, which is all the phantom-footstool rule reads.
+fn swing() -> ambition_combat::AttackSpec {
+    ambition_combat::AttackSpec {
+        intent: ambition_combat::AttackIntent::Neutral,
+        startup_seconds: 0.1,
+        active_seconds: 0.1,
+        recovery_seconds: 0.1,
+        hitbox_offset: ae::Vec2::ZERO,
+        hitbox_half_size: ae::Vec2::new(8.0, 8.0),
+        self_impulse: ae::Vec2::ZERO,
+        knockback: ae::Vec2::ZERO,
+        damage_kind: ambition_entity_catalog::placements::DamageKind::Slash,
+        can_pogo: false,
+        damage_override: None,
+    }
 }
 
 /// **A TEAMMATE IS NOT A PLATFORM UNTIL THE MATCH SAYS SO.**
@@ -278,7 +481,13 @@ fn a_pair_that_disagrees_about_down_is_refused() {
     let mut app = app();
     let rules = ae::FootstoolTuning::PLATFORM_FIGHTER;
     let victim = fighter(&mut app, "victim", ae::Vec2::ZERO, false, rules);
-    let stomper = fighter(&mut app, "stomper", ae::Vec2::new(0.0, -SIZE.y), true, rules);
+    let stomper = fighter(
+        &mut app,
+        "stomper",
+        ae::Vec2::new(0.0, -SIZE.y),
+        true,
+        rules,
+    );
     // The victim falls sideways; the stomper still falls down.
     let mut sideways = ResolvedMotionFrame::default();
     sideways.publish_resolved_frame(ae::MotionFrame::from_direction(

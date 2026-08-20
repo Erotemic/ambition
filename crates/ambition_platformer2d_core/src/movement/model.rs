@@ -484,6 +484,47 @@ pub fn switch_motion_model(model: &mut MotionModel, spec: MotionModelSpec) {
     model.apply_spec(spec);
 }
 
+/// **A footstool landed on this body** — the victim's WHOLE reaction, and the
+/// typed footstool→movement op beside [`knock_off_ledge`].
+///
+/// Returns the seconds of hard control lock the caller must record on the
+/// body's combat state; `0.0` when the tumble this started already owns
+/// control, because the floor game neutralizes input for as long as it runs and
+/// a second lock beside it would only disagree with it.
+///
+/// ⭐ **the split is the mechanic.** Ultimate footstools two different things:
+/// a GROUNDED victim has nowhere to be shoved and takes a brief flinch — which
+/// is what makes a grounded footstool a combo starter rather than a punish —
+/// while an AIRBORNE one is driven down into a tumble it cannot cancel early.
+/// Both are techable on landing, and that comes free: the tech window is the
+/// floor game's, and this hands the body to it.
+pub fn footstool_victim(
+    model: &mut MotionModel,
+    kinematics: &mut crate::BodyKinematics,
+    grounded: bool,
+    gravity_dir: Vec2,
+    rules: crate::FootstoolTuning,
+) -> f32 {
+    if grounded {
+        return rules.flinch_time;
+    }
+    // ⚠ SET, not add: a body arriving at terminal velocity and one barely
+    // falling must be driven down at the same speed, or being stood on costs
+    // more the further your attacker fell to reach you.
+    let along = kinematics.vel.dot(gravity_dir);
+    kinematics.vel -= gravity_dir * (along - rules.press_speed);
+    let MotionModel::AxisSwept(axis) = model else {
+        return rules.flinch_time;
+    };
+    if super::knockdown::tumble_from_footstool(&mut axis.state, axis.params, rules.air_tumble_time)
+    {
+        0.0
+    } else {
+        // A body that does not tumble still owes the shove a beat.
+        rules.flinch_time
+    }
+}
+
 /// Drop any active ledge grab because the body was hit, arming a brief
 /// re-grab lockout on the shared ledge cluster. Returns true if it was
 /// hanging (so the caller can react — e.g. let the knockback carry it).

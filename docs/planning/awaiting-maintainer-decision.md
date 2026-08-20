@@ -36,7 +36,7 @@ investigation that led to the question. Same rule as
 [`README.md`](README.md#queue-contract); on 2026-08-17 this file was **739 lines
 for 9 open questions**, and the four answered ones held a third of it.
 
-## Open decisions — 15 (§1, §6, §7, §9, §10, §11, §12, §13, §22 and §27 are ANSWERED; §8 is DEFERRED)
+## Open decisions — 14 (§1, §6, §7, §9, §10, §11, §12, §13, §21, §22 and §27 are ANSWERED; §8 is DEFERRED)
 
 ### 1. ✔ ANSWERED 2026-08-17 — a bolt hits what a sword hits (former D23)
 
@@ -694,7 +694,7 @@ invisible. ⛔ the silent `_ => {}` that swallowed it is what let eight shipped
 bosses drop empty treasure without a single line of evidence.
 
 
-### 21. ▢ NEW 2026-08-19 — separating control authority from AI policy breaks a FROZEN wire format
+### 21. ✔ ANSWERED — separating control authority from AI policy: TAKE THE BREAK (option A)
 
 **The question: may `Brain` lose its `Player(PlayerSlot)` variant, given that
 doing so changes the rollback wire format the absence contract freezes?**
@@ -729,30 +729,42 @@ introduce a new idea. `Brain` would then hold a single variant
 (`StateMachine(StateMachineCfg)`), which is the review's "AI policy/state remains
 a domain-owned typed component" reached by deletion.
 
-**⛔ WHY THIS IS A DECISION AND NOT A TASK.** `Brain` is encoded in the rollback
-snapshot, and `rollback-wire-format-is-frozen` (363 stable names, 118 encoded
-types) is an absence contract that currently HOLDS. Removing a variant changes
-that format. The options:
+**⛔⛔ THIS WAS NEVER A DECISION, AND ASKING IT WAS THE DEFECT.** The row was
+filed 2026-08-19 offering Jon three options — take the break / add first / defer
+— on the premise that *"the cost lands on save/peer compatibility, which is yours
+to spend."* **That premise was already false, by a standing ruling twelve days
+older** ([`maintainer-decisions.md`](maintainer-decisions.md), 2026-08-08), which
+answers it in the imperative:
 
-```text
-A  take the break     one migration, the contract's baseline is re-frozen in the
-                      same commit, and every peer/save from before it is
-                      incompatible. Cleanest end state.
-B  additive first     add the control-authority component, leave Brain::Player in
-                      place reading it, migrate consumers, delete the variant in a
-                      later break. Two flag days instead of one, and a window
-                      where two things answer "who drives this".
-C  not now            the seam stays named and unbuilt until a netplay/save
-                      compatibility break is happening anyway for other reasons.
-```
+> *"I'm not concerned with saved replays and net play right now. We need to
+> maintain no backwards compatibility there and we can say that the latest build
+> is only compatible with itself… In fact we don't have any net play yet.
+> **Agents have asked me this question in different variants many times and it's
+> not worth perseverating on.**"*
+>
+> ⛔ *"so rename crates freely, change registrations freely, bump the schema
+> version and move on — no migration, no compatibility shim, no deferral of a
+> good change to protect a replay that does not exist."*
 
-⚠ **I am not choosing.** Every option is defensible and the cost lands on save/
-peer compatibility, which is yours to spend. ⛔ option B is the one that looks
-safest and is not: a window where possession can be expressed two ways is exactly
-the state the `ScriptedControl`/`ControlHolds` breach came from — a derived fact
-and its source disagreeing, resolved by whoever writes next.
+⇒ **Option A, by the ruling. There is no migration to write and nothing to
+protect.** Bump the version, re-record the three baselines, move on.
 
-⭐ **SLICE 1 IS LANDED (2026-08-20), and it needed no decision.**
+⚠ **and note what the ruling itself predicted.** Jon flagged this as a PROCESS
+problem, not a technical one — *"agents have asked me this question in different
+variants many times"* — and this row is another instance of exactly that,
+dressed as an architecture decision. ⛔ **before filing anything under "the cost
+lands on compatibility", grep `maintainer-decisions.md` first.** A wire-format
+question has a standing answer and re-asking it costs a session of a maintainer's
+attention on a settled point.
+
+⛔ the one thing from the original framing that still stands, because it is about
+CORRECTNESS rather than compatibility: **do not leave two writable sources of
+"who drives this".** That is the `ScriptedControl`/`ControlHolds` breach shape —
+a derived fact and its source disagreeing, resolved by whoever writes next. The
+landed slice avoids it by being a pure DERIVE with one source, which is why it
+was safe to land ahead of the deletion.
+
+⭐ **SLICE 1 IS LANDED (2026-08-20).**
 `control::DrivingParticipant(PlayerSlot)` is the fact by itself, **DERIVED** each
 tick by `project_driving_participant` from `Brain::Player` plus
 `PossessionState` — so it adds no snapshot entry and no ENCODED bytes, and none

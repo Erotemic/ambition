@@ -180,133 +180,54 @@ The remaining half is identity: path motion still carries a string `path_id`;
 move the relationship to typed/native reference authoring when a real authored
 path customer justifies that slice.
 
-### K3 — isolate dynamic geometry ownership — ROUTING DONE
+### K3 — isolate dynamic geometry ownership — CLOSED 2026-08-14
 
-**The monolith no longer re-exports world-owned platform state (2026-08-14).**
-`world::platforms` handed out `MovingPlatformSpec`, `MovingPlatformState`,
+The monolith no longer re-exports world-owned platform state. `world::platforms`
+handed out `MovingPlatformSpec`, `MovingPlatformState`,
 `moving_platforms_for_room` and `world_with_moving_platforms` under an
-actor-monolith path, so every consumer that only wanted world state reached
-through the actor monolith to get it and read as depending on it: the provider's
-room lifecycle, the room-transition commit, `sim_view`'s facts, the portal host
-adapter, and five app-side call sites. All name
-`ambition_platformer2d_world::platforms` (or the facade's `world::platforms`)
-directly now, and deleting the re-export is what found them — including an unused
-crate-root `pub use` and an import left over in the debug overlay.
+actor-monolith path, so five consumers (provider room lifecycle, room-transition
+commit, `sim_view` facts, portal host adapter, and app-side call sites) reached
+through the monolith for world-owned state; deleting the re-export found and
+repointed all of them at `ambition_platformer2d_world::platforms` directly. What
+legitimately stays in the monolith: `MovingPlatformVisual` and its spawn/sync
+systems (they name Bevy sprite/lifecycle types). No Cargo edge disappeared —
+every repointed crate already depended on the world crate — this removed a false
+authority, not a compile unit.
 
-What stays in the monolith is what genuinely belongs there: `MovingPlatformVisual`
-and the spawn/sync systems, which name Bevy sprite and lifecycle types. The
-acceptance line *"the world/provider path does not depend on the actor monolith
-merely to obtain moving-platform state"* holds.
+The visual carve was blocked by a transaction, not a dependency:
+`spawn_moving_platforms` ran inside room-construction's commit, installing state
+and visuals together on purpose — `sync_moving_platform`'s own doc records a
+prior bug where a hidden second authority clobbered freshly restored platform
+state after a room-change reset. Making the spawn reactive naively would have
+reintroduced that bug. The actual fix: every other room feature is already drawn
+reactively from a published view (`ambition_render::rendering::features` even
+draws a marker for any unclaimed published id), and the moving platform was the
+only authored room geometry spawned directly by construction instead of
+publishing a row. Publishing platform rows the same way let
+`ambition_render::rendering::moving_platforms` reconcile visuals from
+`MovingPlatformSet` (spawn/retire/move), and `MovingPlatformVisual`,
+`spawn_moving_platform(s)`, and `sync_moving_platform` were deleted from the actor
+monolith, along with the spawn call in `spawn_contents`, the app-side dressing
+call, and the rollback-coverage waiver that existed only to excuse the component.
+A pure reconcile has nothing to remember, so it cannot clobber a restored set —
+the guarding test drives the platform set to a new position with no event (what a
+rollback restore or room change looks like from here) and asserts the visual
+follows rather than sitting at its authored start.
 
-⚠ **no Cargo edge disappeared** — every repointed crate already depended on the
-world crate, and most still depend on the monolith for other reasons. This
-removes a false authority, not a compile unit; the compile payoff comes when the
-visual adapter moves to presentation ownership (carve step 2).
+Step 4, the explicit dynamic-geometry query, closed the same day as an adoption:
+`CollisionWorld` already was that query; three readers had not adopted it, and
+one was a live bug. The blink preview (`sim_view::rebuild_blink_preview_fact`)
+composed `world_with_moving_platforms` under a comment claiming that was what
+blink resolves against — true when written, false at measurement time, since the
+body actually integrates against `world_with_sandbox_solids` (ECS overlay +
+portal carves too), so the reticle could point through a lock wall the blink
+stops at. Both now read `CollisionWorld::solids()`. The portal host adapter's
+distinct real need (uncarved authored + movers, no ECS solids) is now named
+`CollisionWorld::hostable_surfaces()`; `hostable_view` is deleted.
 
-**The visual carve (ownership step 2) is blocked by a TRANSACTION, not by
-dependencies — measured 2026-08-14.** `ambition_render` already depends on
-`shared_tangle` and the world crate and NOT on the actor monolith, and the visual
-adapter needs exactly those (plus `RoomVisual`, which is shared_tangle's). So the
-code could move today. What stops it is where the spawn is called from:
-`spawn_moving_platforms` runs inside the room-construction commit, immediately
-after the authoritative-id receipt, with the same session scope and the platform
-states that construction just produced. State and visuals are installed by one
-transaction on purpose — `sync_moving_platform`'s own doc records that it once
-carried a room-change reset of its own and that the hidden second authority
-clobbered freshly restored platform state.
-
-⇒ making the spawn reactive (poll `MovingPlatformSet`, spawn what is missing)
-would split that transaction and reintroduce exactly that second authority. ⛔
-and a `is_changed()`-style reaction to `LastRoomConstructionCommit` is worse: a
-spawn is not idempotent, and change ticks do not rewind.
-
-**What the carve looked like it needed is a construction → presentation seam:**
-one authoritative message published by the commit, carrying the session scope and
-the constructed platform states, which a render-owned system consumes.
-
-⛔⛔ **CENSUSED 2026-08-14, AND THAT SEAM ALREADY EXISTS — the platform simply
-never joined it.** Every other room feature is drawn REACTIVELY: *"every render
-family discovers its own population"* from published views, and
-`ambition_render::rendering::features` even draws a marked rectangle for any id
-the sim published that no family claimed, so the failure mode is LOUD rather than
-invisible. Room construction spawns exactly two visuals directly, and both are
-the exceptions: the moving platform, and physics debris (a transient effect that
-is presentation by nature).
-
-⇒ **the question is not "what message should construction publish", it is "why is
-a moving platform not a published feature view".** It is the only piece of
-authored room geometry whose picture is installed by the transaction that builds
-it, and `sim_view` publishes no platform row at all — its one platform read is
-the blink preview, and render's is a debug gizmo, both reaching straight into
-`MovingPlatformSet`.
-
-⇒ **the slice is therefore a DELETION, not a new seam**: publish platform rows the
-way features are published, let a render family claim them, and delete
-`MovingPlatformVisual` plus its spawn/sync pair from the actor monolith. That
-removes the transaction problem instead of designing around it — a reactive
-family cannot split a transaction it never participates in — and it closes carve
-step 2 without minting a generic mechanism for one customer.
-
-⚠ **what must be preserved is the reason the transaction existed.**
-`sync_moving_platform`'s own doc records that it once carried a room-change reset
-and that the hidden second authority clobbered freshly restored platform state.
-A published view is not a second authority — it is derived each tick from
-`MovingPlatformSet` like every other row — but the rebuild must be shown to
-survive a room change and a rollback restore, which is the test this slice owes.
-
-**DONE 2026-08-14 — and the deletion went further than the plan expected.**
-`ambition_render::rendering::moving_platforms` reconciles the visuals from the
-authoritative set: spawn what is missing, retire what left, move and resize the
-rest. Deleted with it: `MovingPlatformVisual` and `spawn_moving_platform(s)` and
-`sync_moving_platform` from the actor monolith (the module is now a note saying
-where they went), the spawn inside `spawn_contents`, the app-side dressing call,
-and the rollback-coverage waiver that existed only to excuse the component.
-
-⭐ **the compiler then found more.** With the platform spawn gone,
-`SessionDressingSetup`'s `world` and `room_set` fields were unused — they existed
-for that one call — so the dressing's whole signature shrank to the text widgets
-it actually installs, and the shell host stopped reading the room geometry there.
-That is the campaign's method working as advertised: delete the root, let the
-compiler expose the survivors.
-
-⚠ **the property the old code lost is the one now pinned.** A pure reconcile has
-nothing to remember, so it cannot clobber a restored set — the test drives the
-set to a new position with no event at all (which is what a rollback restore or a
-room change looks like from here) and asserts the visual follows rather than
-sitting at its authored start.
-
-⇒ carve step 2 is closed.
-
-**Step 4 — the explicit dynamic-geometry query — closed the same day, and it was
-an ADOPTION.** The plan asked whether collision should get an explicit
-dynamic-geometry overlay/query rather than readers repeatedly reconstructing a
-static world. `CollisionWorld` already WAS that query; three readers had not
-adopted it, and one of them was a live defect:
-
-- **the blink preview** (`sim_view::rebuild_blink_preview_fact`) composed
-  `world_with_moving_platforms` under a comment claiming *"the
-  moving-platform-aware temporary world is what the actual blink resolves
-  against"*. ⛔⛔ **true when written, false now.** The body integrates against
-  `world_with_sandbox_solids`, which also carries the ECS overlay (gate
-  lock-walls, falling-sand pools, broken-brick subtractions) and the portal
-  carves — so the reticle could point through a lock wall the blink stops at, or
-  stop at a portal aperture the blink passes through. Both it and the F1 blink
-  overlay read `CollisionWorld::solids()` now.
-- **the portal host adapter** wanted something genuinely different: *"the
-  uncarved authored + movers view portals may anchor to"*. Uncarved, because an
-  aperture is subtracted from its surface AFTER placement and a portal must not
-  be placed in the hole another portal made; and without ECS solids, because a
-  gate's lock wall should not outlive itself as somebody's portal host. That need
-  was real — what was missing was a NAME. It is
-  `CollisionWorld::hostable_surfaces()`, and `hostable_view` is deleted.
-
-⇒ **no consumer composes a collision world by hand any more.** The API's shape is
-the four questions the game actually asks: everything solid (`solids`), apertures
-only (`carves_only`), anchorable surfaces (`hostable_surfaces`), and the authored
-base for metadata (`base`).
-
-✔ nothing remains in this ownership carve: the visual moved to a render family
-and the dynamic-geometry query turned out to exist and need one more name.
+✔ No consumer composes a collision world by hand anymore. `CollisionWorld`'s
+shape is the four questions the game asks: `solids`, `carves_only`,
+`hostable_surfaces`, `base`.
 
 ### K4 — contact completeness
 

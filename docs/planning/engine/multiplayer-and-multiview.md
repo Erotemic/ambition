@@ -275,8 +275,7 @@ selection is a product decision now rather than a plumbing gap.
 
 ⚠ **`the_only_view` exists and is named to be uncomfortable.** Fixtures and
 diagnostics that genuinely assume one view call it and PANIC if that stops being
-true; no production system does. The alternative — `single()` inside each reader
-— is the shape that has silently produced four defects here.
+true; no production system does.
 
 ⛔ **and the view carries NO `Name`, which cost a red suite to learn.** `Name` is
 rollback-registered (`entity.name`), and the coverage contract derives its swept
@@ -299,24 +298,18 @@ local view, and that projection is exactly what makes them look the same — it
 does not make them the same thing. A spectator view, a cutscene view, and a view
 following someone else's body are all the same engine with a different policy.
 
-**✔ the camera→view link LANDED 2026-08-14.** `PresentsView(Entity)` is a
-component on the camera, bound where the camera is SPAWNED — the binding is a
-composition decision (which rig shows which view), not a lookup a draw system
-repeats. `camera_follow`'s `Single<…, With<LocalView>>` is gone: it resolves the
-view through the link, and a camera that names none takes the only view and
-REFUSES loudly when there are several, rather than picking one.
+**LANDED 2026-08-14.** `PresentsView(Entity)` is a component on the camera,
+bound where the camera is SPAWNED — the binding is a composition decision (which
+rig shows which view), not a lookup a draw system repeats. `camera_follow`'s
+`Single<…, With<LocalView>>` is gone: it resolves the view through the link, and
+a camera that names none takes the only view and REFUSES loudly when there are
+several, rather than picking one.
 
-⛔ **but this passage OVERSTATED it for a day, and the overstatement is worth
-keeping visible.** It also claimed a second camera no longer causes "two cameras
-fighting over one snapshot". Only the first half was true. Having the link is not
-the same as USING it per camera: `camera_follow` read `query.iter().next()` for
-the FIRST camera's link, resolved that one view, and then wrote its transform,
-rotation and ortho scale onto every main camera in the loop — which is precisely
-the fight, still happening, under a doc sentence saying it could not.
-`apply_gameplay_camera_viewport` had the identical shape in the viewport axis.
-⭐ **a landed MECHANISM and an N-view CONSUMER are two claims, and a plan that
-records the first as if it settled the second sends the next session past the
-bug.** Both are per-camera as of 2026-08-14, and `ViewsOnHand` now states the
+⛔ **having the link is not the same as using it per camera.** `camera_follow`
+and `apply_gameplay_camera_viewport` initially resolved only the FIRST camera's
+link and then wrote transform/rotation/ortho-scale or viewport onto every main
+camera in the loop — two cameras still fought over one snapshot despite the
+link existing. Fixed so both resolve per-camera; `ViewsOnHand` now states the
 camera→view resolution rule once for all three sites that need it.
 
 ⚠ **the fallback is why the test asserts the shipped host BINDS it.** Every
@@ -337,7 +330,7 @@ field is a projection of `CameraSnapshot2d`, which that crate already owns; the
 only thing `ambition_render` ever contributed was the `Resource` derive. So the
 answer to *"where does a view keep its facts"* lost a crate dependency, and the
 state could be SPAWNED WITH THE VIEW — no frame where a reader finds the view and
-not its state, which is the shape that produced four defects here.
+not its state.
 
 ⛔ **one resolver, not five copies of a lookup.** `PresentedViewState` is a
 `SystemParam` carrying the link's rule — a camera that names its view presents
@@ -356,77 +349,42 @@ there and pinned nothing; the test drives the direct-gameplay persona instead.
 ⇒ **what M2 needs next**: per-view gameplay rectangles from a split layout, and
 then the `ControlledSubject` projection — ⛔ **per PARTICIPANT SLOT, not per
 view.** See *"`ControlledSubject`: measured 2026-08-14, and it is NOT a view
-question"* below; this sentence used to say "per view" and contradicted the
-measurement in the same document.
+question"* below.
 
 ### M2a — one body-generic presented pose (LANDED 2026-08-14)
 
 Taken first because Jon's F1 overlay handed it a live symptom, and because every
 later per-view slice draws bodies that are not the player's.
 
-**The measurement.** `PresentedPose` followed `BodyPoseView`, and
-`rebuild_body_pose_views` is filtered `With<PlayerVisual>`. So no boss and no
-actor had a presented pose at all — and three separate consumers read that
-absence as *"this body has no interpolation"* rather than *"this body is not in
-the population"*:
-
-| consumer | what a non-player body got |
-|---|---|
-| combat overlay (F1) | strike drawn on the TICK clock beside a player's on the frame clock |
-| unauthored attack stand-in | skipped entirely, with a warn naming a population that could never be there |
-| slash visual | miss arm — the drawn blade never followed a boss |
-
-Two of the three carried a comment asserting the population was identical
-because `rebuild_body_pose_views` "requires only `BodyKinematics`" — true of its
-OPTIONAL facts, false of its filter. ⛔ one wrong claim, copied twice, hid three
-defects.
-
-**The change.** `advance_presented_body_poses` reads `BodyKinematics` — which is
-where `BodyPoseView` copied `pos`/`vel` from verbatim, so the player population's
-numbers are unchanged to the bit. Every body now publishes a presented pose, and
-the seam every body-attached consumer reads is one method:
+`PresentedPose` previously followed `BodyPoseView`, filtered `With<PlayerVisual>`
+— so no boss and no actor had a presented pose at all, and the combat overlay,
+unauthored-attack stand-in and slash visual each silently read that absence as
+"no interpolation" rather than "not in the population." `advance_presented_body_poses`
+now reads `BodyKinematics` instead (the same source `BodyPoseView` copied from,
+so player numbers are unchanged to the bit), and every body publishes a presented
+pose via one seam:
 
 ```text
 PresentedPose::delta()  =  presented − authoritative
 ```
 
-Applied to the whole rigid group in the same frame — collision envelope,
-hurtboxes, body-anchored strikes, and the tuning readout that hangs off the box.
-⛔ translating a subset does not fix a shudder, it relocates it, which is what
-the strikes-only version did.
+applied to the whole rigid group (collision envelope, hurtboxes, body-anchored
+strikes, tuning readout) — ⛔ translating a subset relocates a shudder rather
+than fixing it. `CombatStrikeGeometryView::owner_anchor` was deleted as
+redundant with the delta (and was `ZERO`, i.e. wrong, for world-anchored
+strikes).
 
-**Deletion payoff.** `CombatStrikeGeometryView::owner_anchor` is gone. It existed
-so an observer could re-place a strike by `presented − owner_anchor`: one lookup
-per STRIKE, with no equivalent for a body's own boxes — the shape that made the
-half-fix possible. It was also `ZERO` for a world-anchored strike, which is not
-an anchor. ⭐ and the delta is the more honest translation: `presented −
-owner_anchor` silently re-anchors a strike whose volume was resolved against a
-position the body has since left, absorbing a real disagreement a diagnostic
-exists to show.
+Widening the population also exposed a camera-framing bug: `resolve_camera_observation`
+assigned a followed body's presented position directly onto `player_body.pos`,
+which is correct only when the framed pose IS the followed body's own. For a
+FRAMED CAST, `pos` is the pair's CENTRE while the presented sample is one anchor
+seat's — so the centre was thrown away and the camera pointed at seat 0. Fixed
+with the same delta rule (`pos += presented.delta()`); caught by
+`two_cpus_can_fight_each_other`.
 
-**⭐ and widening the population immediately exposed a fourth defect the narrow
-one had been hiding.** `resolve_camera_observation` ended with
-
-```rust
-if let Ok(presented) = presented.get(followed) { player_body.pos = presented.presented(); }
-```
-
-which is correct only when the pose being framed IS the followed body's own. For
-a FRAMED CAST it is not: `pos` is the pair's CENTRE and the presented sample
-comes from one anchor seat, so assigning threw the centre away and pointed the
-camera at seat 0. Unreachable while fighters published no presented pose;
-instantly live once they did — `two_cpus_can_fight_each_other` went red on the
-same commit that widened the population, which is the test earning its keep.
-
-The repair is the same rule again: `pos += presented.delta()`. Byte-identical
-for the home-avatar and controlled-subject paths (`pos` IS that body's
-authoritative pose there), and correct for the cast. A framing centre is rigidly
-attached to its cast exactly as a hitbox is to its owner.
-
-**Still open here.** `PresentedFeaturePoses` remains a second, id-keyed history
-for the same actor bodies, because feature VISUALS join to the sim by string id.
-That is a fork worth closing once a feature visual can name its sim entity — not
-before, and not by giving the read model a second identity type.
+**Still open.** `PresentedFeaturePoses` remains a second, id-keyed history for
+the same actor bodies because feature VISUALS join to the sim by string id — a
+fork worth closing once a feature visual can name its sim entity.
 
 ## The five `PresentedViewState` consumers, classified 2026-08-15
 
@@ -498,9 +456,8 @@ participant they mean, and the ones that cannot are the interesting ones.
 body a view FRAMES, possibly a spectated body no participant drives. The camera
 resolve already threads it as the followed entity plus `subject_down`.
 
-⛔⛔ **and the first version of this census claimed three of the four `sim_view`
-readers were that concept wearing this name. READING THEM REFUTED IT.** In their
-own words: the HUD meters follow *"THAT body's meters, never the vacated home
+⛔⛔ **the four `sim_view` readers also mean PARTICIPANT, not view.** In their own
+words: the HUD meters follow *"THAT body's meters, never the vacated home
 avatar's"*; the held-item view, the blink reticle (*"the body you are driving"*)
 and the control prompt (*"the body you are DRIVING — the same relativity rule the
 camera and input already obey"*) all mean the participant's driven body. Every
@@ -508,9 +465,9 @@ one of the 50 means PARTICIPANT. `camera_snapshot` is the sole site that reads i
 as a view question, and even there it is the default POLICY — *this view follows
 the local participant's body* — not a confusion to unpick.
 
-⇒ that makes the concept UNIFORM and the slice cleaner than the mixed picture
-suggested: one derivation, one meaning, one axis (`PlayerSlot`), and a view's
-subject is a policy layered on top rather than a tangle inside.
+⇒ that makes the concept UNIFORM: one derivation, one meaning, one axis
+(`PlayerSlot`), and a view's subject is a policy layered on top rather than a
+tangle inside.
 
 ⛔ still do not do both at once. Per-slot participants is a control-authority
 change; per-view subjects is a presentation change. They meet only at that

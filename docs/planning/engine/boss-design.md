@@ -386,8 +386,7 @@ The warning is its own small design fact: the smirking behemoth's kit is a beam,
 sweep, a slam and a nova, every one answered by jumping or dashing. A player never
 has to simply step out of the way.
 
-**Rule 1 fires nowhere**, which disproves §7's finding 3. I had compared a
-`Medium` attack's telegraph against a `Heavy`'s floor.
+**Rule 1 fires nowhere** (§7 finding 3).
 
 ### The unit of judgement is a BEAT
 

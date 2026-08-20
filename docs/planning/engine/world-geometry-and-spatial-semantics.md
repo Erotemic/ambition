@@ -34,7 +34,7 @@ three platform-fighter fields nobody has ever filled in.
 
 ⇒ the slice is a RENAME, it costs no content migration, and the authoring half is
 a maintainer decision because the `.ldtk` files are hand-edited:
-[`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md) §24.
+[`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md) §26.
 ⛔ **do not do the Rust half alone** — the struct field and the authored key are
 one name, so renaming one needs a mapping, and a mapping is the shim this project
 refuses.

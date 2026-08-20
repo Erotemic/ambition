@@ -331,9 +331,13 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// terms as `gliding` and `fast_falling` beside it: a restore that lands
 /// mid-run must not present a standing body for the tick before the next
 /// integration rewrites the fact.
-/// ⚠ **v53 IS DELIBERATELY SKIPPED** — it was handed to the lane working
-/// `ControlAuthority` on main so two branches could not both take one number.
-/// A hole in a monotonic log costs nothing; a collision costs a wire format.
+/// ⚠ **v53 IS DELIBERATELY SKIPPED, and it is a HOLE rather than a reservation.**
+/// It was offered to the lane working `ControlAuthority` on main so two branches
+/// could not both take one number; that lane then found it needed no bump at all
+/// (`DrivingParticipant` is a per-tick DERIVE — no registry entry, no snapshot,
+/// no wire) and handed it back. Renumbering down would have churned two recorded
+/// baselines to save a number nobody needs. ⭐ a hole in a monotonic log costs
+/// nothing; a collision costs a wire format.
 /// ⚠ **v52 (2026-08-20) is `MovementTuning::parry_timing`**, one DISCRIMINANT in
 /// the motion codec, put and read as a hand-written `put_u8`.
 /// ⭐⭐ **the first knob shipped under Jon's smash-LIKE ruling** (2026-08-20):

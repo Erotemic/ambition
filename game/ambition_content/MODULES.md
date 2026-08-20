@@ -23,6 +23,7 @@
 | [`encounters`](src/encounters.rs) | Content encounter customers on the GENERIC lifecycle (E13). |
 | [`falling_sand`](src/falling_sand.rs) | Falling-sand room PRESENTATION + `bevy_falling_sand` bridge for water/oil — CONTENT (a self-gating room plugin: feature-gated, visible-binary only, active only while its authored room is; R3.3 room-mechanics-by-kind). |
 | [`falling_sand_sim`](src/falling_sand_sim.rs) | Falling-sand room SIMULATION — the deterministic, headless-safe half. |
+| [`fighting_polygon_brawler_moveset`](src/fighting_polygon_brawler_moveset.rs) | Fighting Polygon — brawler archetype repertoire. |
 | [`fighting_polygon_sword_moveset`](src/fighting_polygon_sword_moveset.rs) | Fighting Polygon — sword archetype repertoire. |
 | [`goblin_moveset`](src/goblin_moveset.rs) | **The goblin's repertoire** — the third character in the game to state its own moves, and the first ENEMY to. |
 | [`input_techniques`](src/input_techniques.rs) | Ambition-owned motion-input technique registrations. |
@@ -46,7 +47,7 @@
 | [`worlds`](src/worlds.rs) | Ambition's LDtk WORLD payload + its `WorldManifest` — CONTENT, evicted from the engine core (R3.2, the #1 violation: the engine shipped the game's worlds). |
 | [`yarn_vocabulary`](src/yarn_vocabulary.rs) | Yarn command + function + markup registrations — the "vocabulary" that authored `.yarn` content can invoke at runtime. |
 
-_39 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_40 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

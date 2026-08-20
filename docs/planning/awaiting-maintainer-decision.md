@@ -41,7 +41,7 @@ investigation that led to the question. Same rule as
 [`README.md`](README.md#queue-contract); on 2026-08-17 this file was **739 lines
 for 9 open questions**, and the four answered ones held a third of it.
 
-## Open decisions — 15 (§1, §6, §7, §9, §10, §11, §12, §13, §22 and §26 are ANSWERED; §8 is DEFERRED)
+## Open decisions — 15 (§1, §6, §7, §9, §10, §11, §12, §13, §22 and §27 are ANSWERED; §8 is DEFERRED)
 
 ### 1. ✔ ANSWERED 2026-08-17 — a bolt hits what a sword hits (former D23)
 
@@ -1139,7 +1139,7 @@ rather than as a bug.
 body-vs-body entirely and jostle should not be built? ⛔ not answered by refactor
 — I have left the row `▢` rather than guessing at a rule Jon stated twice.
 
-### 26. ✔ ANSWERED 2026-08-20 — the parry timing is a KNOB, because the target is smash-LIKE and not Ultimate
+### 27. ✔ ANSWERED 2026-08-20 — the parry timing is a KNOB, because the target is smash-LIKE and not Ultimate
 
 ⭐⭐ **JON, 2026-08-20, verbatim:**
 
@@ -1229,7 +1229,7 @@ submodule content; the pointer is the symptom, the credential is the cause.
 
 ---
 
-### 24. Rename the blast zone out of every world's authoring schema? (D169)
+### 26. Rename the blast zone out of every world's authoring schema? (D169)
 
 ⭐ **the measurement first, because it changes the question the plan asked.**
 `world-geometry-and-spatial-semantics.md` argues the engine provides a bespoke

@@ -27,7 +27,7 @@ perfect shield     PRESS-timed (Smash 4, and ours) | RELEASE-timed (Ultimate)
 
 ⇒ that pair is `MovementTuning::parry_timing`, shipped 2026-08-20 as the FIRST
 knob under this ruling. ⭐ **it is the worked example**: the question arrived as
-"which one is right" (§26), the ruling reshaped it into "what is the knob", and
+"which one is right" (§27), the ruling reshaped it into "what is the knob", and
 the answer changed no shipped body's feel because a knob's default is the
 behaviour that already existed.
 
@@ -232,7 +232,7 @@ a rapid-jab finisher · charge storage · a two-frame ledge-vulnerability window
 z-drop and item throws · edge-cancel.
 
 **Defense.** ~~Perfect shield as a RELEASE-timed parry~~ — SHIPPED as a KNOB
-2026-08-20 (§26): `ParryTiming::OnRaise` is Smash 4's and `OnRelease` is
+2026-08-20 (§27): `ParryTiming::OnRaise` is Smash 4's and `OnRelease` is
 Ultimate's, and the stage declares which · shield tilt to cover a limb · shield-drop into an aerial ·
 directional-influence variants (SDI, ASDI, hitfall).
 

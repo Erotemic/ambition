@@ -182,6 +182,67 @@ pub struct SmashRepertoire {
     pub dash_attack: MoveSpec,
 }
 
+/// **Every verb a [`SmashRepertoire`] can bind.**
+///
+/// ⭐⭐ **this exists because [`SmashRepertoire::into_contract`]'s own doc was
+/// FALSE.** It says it is *"the ONE place the verb strings exist"* — and it was
+/// not. Character preparation kept a SECOND, hand-written list of the flat ones
+/// so it could tell an authored verb from a typo, and a verb has to reach both
+/// or it is a move authored onto a button the runtime reports does not exist.
+///
+/// ⛔⛔ **both halves of that pair have now been missed, in three days.**
+/// `taunt` reached the device table, the human brain's press list,
+/// `ENGINE_ACTIONS` and its rollback codec, and every fighter authored one —
+/// while the vocabulary did not know the word, and nineteen characters shipped
+/// reporting *"unknown input verb `taunt`"*. `attack_dash` then repeated it
+/// exactly, from a branch based before that repair. The lesson is not "remember
+/// the fifth list"; it is that a list nobody can derive gets remembered four
+/// times out of five.
+///
+/// ⛔ **not a registry and not a new authority.** The table in `into_contract`
+/// is still the only thing that BINDS a verb to a move. This is that table's
+/// verb SET, held to it by `the_bound_table_binds_exactly_the_declared_vocabulary`,
+/// so a downstream census can ASK instead of remember.
+///
+/// ⚠ **the whole set, including the conditional slots.** `special` is bound
+/// only by an authored neutral special and `special_air_down` only by a
+/// `ByPosture` down special — but a verb a repertoire CAN bind is authoring
+/// vocabulary whether or not one fighter uses it, and a vocabulary that shrank
+/// with the cast would call a real verb unknown the day the last fighter using
+/// it changed shape.
+pub const REPERTOIRE_VERBS: &[&str] = &[
+    // The grounded normals.
+    "attack",
+    "attack_forward",
+    "attack_up",
+    "attack_down",
+    "smash_forward",
+    "smash_up",
+    "smash_down",
+    // The aerials.
+    "attack_air",
+    "attack_air_forward",
+    "attack_air_back",
+    "attack_air_up",
+    "attack_air_down",
+    // The two that were missed.
+    "taunt",
+    "attack_dash",
+    // The specials, conditional slots included.
+    "special",
+    "special_forward",
+    "special_up",
+    "special_down",
+    "special_air_down",
+    // The capture kit — flat, never directional. A throw is not `grab_forward`.
+    "grab",
+    "capture_pummel",
+    "capture_throw_forward",
+    "capture_throw_back",
+    "capture_throw_up",
+    "capture_throw_down",
+];
+
 impl SmashRepertoire {
     /// **Lower the repertoire into the generic move contract the engine speaks.**
     ///
@@ -364,6 +425,66 @@ mod tests {
             },
             down_special,
         }
+    }
+
+    /// **The declared vocabulary is exactly what the table binds** — both
+    /// directions, so neither list can grow without the other.
+    ///
+    /// ⭐ **it runs a MAXIMAL repertoire**, every conditional slot taking the
+    /// branch that binds the most verbs: an authored neutral special, a
+    /// `ByPosture` down special, and all three optional throws present. A
+    /// fixture that left one `None` would prove the const has no EXTRA words and
+    /// say nothing about the ones it is missing — which is the direction that
+    /// has failed twice.
+    ///
+    /// ⚠ the floor is not decoration. `into_contract` returning an empty
+    /// contract would make the two sets equal to each other and to nothing, and
+    /// this test would pass while every fighter lost every move.
+    #[test]
+    fn the_bound_table_binds_exactly_the_declared_vocabulary() {
+        use std::collections::BTreeSet;
+
+        let mut maximal = repertoire(
+            DownSpecial::ByPosture {
+                grounded: spec("dspecial_ground"),
+                airborne: spec("dspecial_air"),
+            },
+            NeutralSpecial::Authored(spec("nspecial")),
+        );
+        for (slot, id) in [
+            (&mut maximal.capture.back_throw, "bthrow"),
+            (&mut maximal.capture.up_throw, "uthrow"),
+            (&mut maximal.capture.down_throw, "dthrow"),
+        ] {
+            *slot = Some(crate::smash_capture::author_throw(
+                crate::smash_capture::capture_beat(id, "attack", 0.26),
+                0.14,
+                crate::smash_capture::CaptureThrowParams {
+                    damage: 8,
+                    knockback: 120.0,
+                    knockback_growth: 2.0,
+                    launch_dir: (0.85, -0.55),
+                },
+            ));
+        }
+
+        let bound: BTreeSet<String> = maximal.into_contract().verbs.keys().cloned().collect();
+        let declared: BTreeSet<String> = REPERTOIRE_VERBS.iter().map(|v| (*v).to_owned()).collect();
+
+        assert!(
+            bound.len() >= 20,
+            "a maximal repertoire bound only {} verbs — the table produced almost \
+             nothing, and comparing two nearly-empty sets proves nothing",
+            bound.len(),
+        );
+        assert_eq!(
+            bound, declared,
+            "`REPERTOIRE_VERBS` and `into_contract`'s table disagree. Whichever \
+             gained a verb, give it to the other: preparation reads the const to \
+             decide whether an authored verb is a real word, and a verb the table \
+             binds but the const omits ships as a move on a button the runtime \
+             says does not exist.",
+        );
     }
 
     /// **Every press this vocabulary names is answered, in every posture it is

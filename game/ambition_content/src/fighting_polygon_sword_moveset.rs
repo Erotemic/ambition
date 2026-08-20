@@ -9,7 +9,8 @@
 use ambition_characters::moveset_authoring::{committed_tail, impulse, strike};
 use ambition_characters::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
-    CaptureAttemptParams, CapturePummelParams, CaptureThrowParams, SmashCaptureRepertoire,
+    CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
+    SmashCaptureRepertoire,
 };
 use ambition_characters::smash_repertoire::{DownSpecial, NeutralSpecial, SmashRepertoire};
 use ambition_platformer2d::entity_catalog::{ImpulseMode, MovesetContract};
@@ -187,15 +188,24 @@ pub fn fighting_polygon_sword_moveset() -> MovesetContract {
     );
 
     SmashRepertoire {
-        // ⚠ **added 2026-08-20 by the architecture lane, not by this fighter's
-        // author.** The slot arrived on main after this file was written and is
-        // REQUIRED, so the crate did not compile: a fighter with nothing to say
-        // has to say so in its own file. This is a placeholder in the sense that
-        // nobody chose the flourish — it is an ordinary authored move otherwise,
-        // and composing `sfx`/`vfx` onto it later works like any other.
+        // ⚠ **added by the architecture lane, twice.** The slot arrived on main
+        // after this file was written and is REQUIRED — a fighter with nothing
+        // to say has to say so in its own file — and a later working copy of
+        // this file, cut before that, dropped it again. See `select.rs` for the
+        // same shape: a stale copy is a revert with no diff to review.
         taunt: ambition_characters::moveset_authoring::taunt(
             "fighting_polygon_sword_taunt",
             0.9,
+        ),
+        // ⚠ the genre shape, deliberately: this character is the REFERENCE rig,
+        // so its dash attack is the one a new humanoid should copy before it has
+        // a reason to differ. A bespoke reach here would be a number nobody
+        // chose being copied into every fighter that starts from these poses.
+        dash_attack: ambition_characters::moveset_authoring::dash_attack(
+            "fighting_polygon_sword_dash_attack",
+            ambition_characters::moveset_authoring::DashAttackShape::GENRE,
+            8,
+            90.0,
         ),
         jab,
         forward_tilt,
@@ -217,6 +227,7 @@ pub fn fighting_polygon_sword_moveset() -> MovesetContract {
             airborne: airborne_down_special,
         },
         capture: SmashCaptureRepertoire {
+            cues: CaptureCues::GENERIC,
             grab,
             pummel,
             forward_throw,

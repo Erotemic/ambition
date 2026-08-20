@@ -24,6 +24,7 @@
 //! slot machinery was never player-only state, and keeping it under `player/`
 //! was one of the reasons that module read as a universal dependency sink.
 
+pub mod authority;
 pub mod acting;
 pub mod components;
 pub mod input_systems;

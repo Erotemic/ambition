@@ -54,7 +54,8 @@ you add a `▢`, and before you work one.
 | Shield pushback (a blocked hit costs the blocker space) | ✔ | `ShieldTuning::pushback_per_damage`, applied inside the block via `GuardUnderFire` |
 | Shield shrink → poke (a spent guard exposes the head and feet) | ✔ | `ShieldTuning::min_coverage`, `combat::util::guard_covers_hit` |
 | Shield-drop lag | ▢ | — |
-| Parry (perfect-shield window), press- or release-timed | ✔ | `MovementTuning::parry_timing` — `OnRaise` is Smash 4's (the default) and `OnRelease` is Ultimate's; the stage declares which via `MatchBody` |
+| Parry (perfect-shield window), press- or release-timed | ✔ | `MovementTuning::parry_timing` — `OnRaise` is Smash 4's (the default) and `OnRelease` is Ultimate's; the stage declares which via `MatchBody`. Drawn as its own row since 2026-08-20 |
+| Shieldstun is VISIBLE, not just true | ✔ | `body_state_clip` asks for `shield_hit` off `BodyShieldState::stun_timer` — the beat a blocked hit costs a defender |
 | Ground dodge roll, air dodge (once per airtime) | ✔ | `BodyDodgeState`, `AxisManeuverState::dodge_roll_timer` |
 | Tumble → knockdown → tech → getup (roll / attack / stand) | ✔ | `core/movement/knockdown.rs` |
 | Wall tech | ✔ | `knockdown::tick_knockdown` reads `BodyWallState`; `WALL_TECH_SPEED` pushes off the normal |
@@ -159,8 +160,8 @@ jump_squat                  AxisManeuverState::jump_squat_timer   ✔ asked, 202
 wall_tech · wall_tech_jump  landed the same day; the tech does not say WHICH surface
 footstool_jump              MovementOp::Footstool fires; a one-tick op has no FACT
 launch                      the first beat of a tumble, distinct from `tumble`
-parry                       `BodyShieldState::parrying()` — ready to ask for
-shield_hit                  `stun_timer > 0.0` (shieldstun) — ready to ask for
+parry · shield_hit          ✔ asked, 2026-08-20 — `parrying()` and
+                            `stun_timer > 0.0`, two rows in `body_state_clip`
 shield_raise
 · shield_release            TRANSITION beats: the sim publishes the STATE
                             (`active`), not its edges

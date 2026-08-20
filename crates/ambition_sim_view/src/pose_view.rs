@@ -306,6 +306,8 @@ pub fn rebuild_body_pose_views(
                             held: anim_facts.is_some_and(|f| f.held),
                             holding: anim_facts.is_some_and(|f| f.holding),
                             guard_broken: shield.is_some_and(|s| s.broken()),
+                            parrying: shield.is_some_and(|s| s.parrying()),
+                            guard_stunned: shield.is_some_and(|s| s.stun_timer > 0.0),
                         },
                     )?)
                 }),

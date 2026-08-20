@@ -256,6 +256,8 @@ pub fn rebuild_actor_anim_index(mut index: ResMut<ActorAnimIndex>, actors: Query
                                 held: a.anim.is_some_and(|f| f.held),
                                 holding: a.anim.is_some_and(|f| f.holding),
                                 guard_broken: a.shield.broken(),
+                                parrying: a.shield.parrying(),
+                                guard_stunned: a.shield.stun_timer > 0.0,
                             },
                         )?)
                     }),

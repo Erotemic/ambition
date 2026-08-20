@@ -180,6 +180,18 @@ pub struct FighterClipFacts {
     pub holding: bool,
     /// This body's guard shattered and it is stunned.
     pub guard_broken: bool,
+    /// This body's PERFECT-SHIELD window is live
+    /// (`BodyShieldState::parrying()`).
+    ///
+    /// ⚠ under `ParryTiming::OnRelease` the window is live while the guard is
+    /// DOWN, so this is deliberately not conditioned on the guard being raised.
+    pub parrying: bool,
+    /// This body's guard TOOK a hit and is paying shieldstun for it
+    /// (`BodyShieldState::stun_timer`).
+    ///
+    /// ⛔ **not [`Self::guard_broken`]** — the shield HELD. A break is the
+    /// floor game; this is the beat a blocked hit costs a defender.
+    pub guard_stunned: bool,
 }
 
 /// **The authored ROW a body's fighter state asks to be drawn as**, when the new
@@ -247,6 +259,23 @@ pub fn body_state_clip(
     // without this row a body that stood its ground is drawn rolling.
     if facts.spot_dodging {
         return Some(&["spot_dodge", "crouch", "roll", "idle"]);
+    }
+    // ⭐ **THE PERFECT SHIELD, and it is a REFINEMENT of the block** — the same
+    // shape as `spot_dodge` refining the roll above. `pick_body_anim` answers
+    // every guarding body with one `Block`, so a guard merely held and a guard
+    // that caught something perfectly drew the identical pose. The sheets have
+    // drawn them apart the whole time.
+    //
+    // ⚠ ABOVE the shieldstun row: both can be live on the same tick, and the
+    // parry is the thing the PLAYER did.
+    if fighter.parrying {
+        return Some(&["parry", "block", "idle"]);
+    }
+    // ⚠ the guard took a hit and HELD — distinct from `guard_broken` far above,
+    // which is the floor game. This is the beat a blocked hit costs a defender,
+    // and it is what makes shieldstun visible rather than merely true.
+    if fighter.guard_stunned {
+        return Some(&["shield_hit", "block", "idle"]);
     }
     // ⚠ LAST, because it is the least urgent thing a body can be doing and every
     // state above it can overlap the squat's few frames. It is here at all
@@ -708,6 +737,74 @@ mod state_clip_tests {
     /// as `Roll`, `Hit`, `LandHard` and `LandRecovery`, because `CharacterAnim`
     /// has no variant for any of them. The new sheets draw them separately.
     ///
+    /// **THE GUARD HAS THREE POSES, NOT ONE.**
+    ///
+    /// ⛔ `pick_body_anim` answers every guarding body with a single `Block`, so
+    /// a guard merely held, a guard that caught a hit perfectly, and a guard
+    /// that took one and held drew the identical frame. The sheets have drawn
+    /// all three apart the whole time — Carl's has `parry`, `shield_hit` and
+    /// `block` — and nothing asked for two of them.
+    ///
+    /// ⚠ **the last assertion is the floor and the test is worthless without
+    /// it**: a body merely holding its guard must still get `None` here, so the
+    /// ordinary block keeps falling through to `CharacterAnim::Block`. A pair of
+    /// rows that also answered the plain case would silently take the block away
+    /// from every non-fighter sheet in the game.
+    #[test]
+    fn a_parry_and_a_struck_guard_are_not_the_same_pose_as_holding_one() {
+        let fighter = |f: super::FighterClipFacts| {
+            super::body_state_clip(&BodyMotionFacts::default(), f).map(|chain| chain[0].to_string())
+        };
+
+        assert_eq!(
+            fighter(super::FighterClipFacts {
+                parrying: true,
+                ..Default::default()
+            }),
+            Some("parry".to_string()),
+        );
+        assert_eq!(
+            fighter(super::FighterClipFacts {
+                guard_stunned: true,
+                ..Default::default()
+            }),
+            Some("shield_hit".to_string()),
+        );
+
+        // ⛔ **the poison, and it is the REAL case rather than a contrived one:**
+        // a perfect shield that catches a hit has a live parry window AND the
+        // shieldstun that hit costs, on the same tick. The parry is what the
+        // player did, so it has to win.
+        assert_eq!(
+            fighter(super::FighterClipFacts {
+                parrying: true,
+                guard_stunned: true,
+                ..Default::default()
+            }),
+            Some("parry".to_string()),
+            "a perfect shield drew the struck-guard pose, so the beat the player \
+             earned is invisible exactly when they earn it"
+        );
+
+        // ⛔ and a SHATTERED guard outranks both — it is the floor game.
+        assert_eq!(
+            fighter(super::FighterClipFacts {
+                guard_broken: true,
+                parrying: true,
+                guard_stunned: true,
+                ..Default::default()
+            }),
+            Some("dizzy".to_string()),
+        );
+
+        assert_eq!(
+            fighter(super::FighterClipFacts::default()),
+            None,
+            "an ordinary held guard was handed a clip, which takes `Block` away \
+             from every sheet that has no fighter rows"
+        );
+    }
+
     /// ⛔ **the ORDER is the assertion that matters.** A knocked-down body is
     /// still inside its hitstun, so `tumbling` and `knocked_down` are true
     /// together — answering the tumble first would draw the launched pose for

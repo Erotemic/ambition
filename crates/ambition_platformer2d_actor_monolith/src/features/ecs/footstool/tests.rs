@@ -9,7 +9,6 @@
 use super::*;
 use ambition_characters::actor::{BodyCombat, BodyHealth, Health};
 use ambition_characters::brain::ActorControl;
-use crate::features::ActorFaction;
 
 const SIZE: ae::Vec2 = ae::Vec2::new(24.0, 40.0);
 
@@ -44,7 +43,6 @@ fn fighter(
             ae::BodyGroundState::default(),
             crate::features::MotionModel::axis_swept(tuning.axis_swept_params()),
             BodyHealth::new(Health::new(100)),
-            ActorFaction::Player,
             ActorControl(control),
             BodyCombat::default(),
             ae::BodyComboTrace::default(),
@@ -128,7 +126,13 @@ fn standing_over_somebody_without_pressing_jump_does_nothing() {
 #[test]
 fn a_body_with_no_footstool_rules_cannot_be_stood_on() {
     let mut app = app();
-    let victim = fighter(&mut app, "victim", ae::Vec2::ZERO, false, ae::FootstoolTuning::OFF);
+    let victim = fighter(
+        &mut app,
+        "victim",
+        ae::Vec2::ZERO,
+        false,
+        ae::FootstoolTuning::OFF,
+    );
     let stomper = fighter(
         &mut app,
         "stomper",
@@ -153,8 +157,20 @@ fn a_head_is_spent_by_the_first_body_to_stand_on_it() {
     let mut app = app();
     let rules = ae::FootstoolTuning::PLATFORM_FIGHTER;
     let victim = fighter(&mut app, "victim", ae::Vec2::ZERO, false, rules);
-    let a = fighter(&mut app, "a_stomper", ae::Vec2::new(-4.0, -SIZE.y), true, rules);
-    let b = fighter(&mut app, "b_stomper", ae::Vec2::new(4.0, -SIZE.y), true, rules);
+    let a = fighter(
+        &mut app,
+        "a_stomper",
+        ae::Vec2::new(-4.0, -SIZE.y),
+        true,
+        rules,
+    );
+    let b = fighter(
+        &mut app,
+        "b_stomper",
+        ae::Vec2::new(4.0, -SIZE.y),
+        true,
+        rules,
+    );
 
     app.update();
 

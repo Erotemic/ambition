@@ -46,7 +46,7 @@ before working it.
 | Full hop, double jump, wall jump, fast fall | ✔ | `core::movement` |
 | Jump squat, and a release inside it short-hops | ✔ | `movement/simulation.rs::tick_jump_squat` |
 | Short hop as its own authored height (not a velocity cut) | ▢ | — |
-| Footstool jump | ✔ | `features/ecs/footstool.rs`, `collision_semantics::feet_on_head` |
+| Footstool jump (teammates included, as the genre does) | ✔ | `features/ecs/footstool.rs`, `collision_semantics::feet_on_head` |
 | Jostle / body pushback between fighters | ▢ | — |
 | Ledge grab with intangibility window | ✔ | `core/ledge_grab/` |
 | Ledge getup: climb / roll / attack | ✔ | `LedgeGetupKind` |

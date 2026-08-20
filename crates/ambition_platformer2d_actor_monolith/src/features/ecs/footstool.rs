@@ -18,7 +18,19 @@
 //! ⚠ **a body whose [`ae::FootstoolTuning`] is `OFF` — the engine default — is
 //! not a platform and cannot stand on one.** Heads are not platforms in the
 //! exploration game, and a wandering enemy that could be jumped off would be a
-//! different game for that side.
+//! different game for that side. BOTH ends must opt in, and that is the ONLY
+//! gate.
+//!
+//! ⛔ **there is deliberately NO hostility term, unlike the grab.** A capture
+//! asks `damage_lands_between` because a grab that could take a teammate would
+//! be a different game; a footstool is the opposite case, and the genre is
+//! explicit about it — you can footstool anybody, teammates included, and doing
+//! so is a real team technique rather than a friendly-fire accident. Routing
+//! this through the damage question would have made ALLIED bodies pass through
+//! each other's heads with friendly fire off, which is not a rule any platform
+//! fighter has. The first draft did exactly that, and the two positive tests
+//! failed while both negative ones passed — the shape of a gate measuring
+//! itself.
 
 use bevy::prelude::*;
 
@@ -39,11 +51,8 @@ pub struct FootstoolBody {
     pub ground: &'static ae::BodyGroundState,
     pub model: &'static crate::features::MotionModel,
     pub health: &'static ambition_characters::actor::BodyHealth,
-    pub faction: &'static crate::features::ActorFaction,
-    pub team: Option<&'static ambition_combat::targeting::MatchTeam>,
     pub control: Option<&'static ambition_characters::brain::ActorControl>,
     pub frame: Option<&'static ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
-    pub brain: Option<&'static ambition_characters::brain::Brain>,
 }
 
 impl FootstoolBodyItem<'_, '_> {
@@ -78,9 +87,7 @@ pub fn apply_footstools(
             &mut ae::BodyComboTrace,
         )>,
     )>,
-    tuning: Option<Res<ambition_combat::rules::ResolvedCombatTuning>>,
 ) {
-    let friendly_fire = tuning.map(|t| t.friendly_fire()).unwrap_or_default();
     let mut pairs: Vec<(SimId, SimId, Entity, Entity, ae::FootstoolTuning, ae::Vec2)> = Vec::new();
 
     {
@@ -118,17 +125,6 @@ pub fn apply_footstools(
                 // A body whose own rules say it is not a platform cannot be one,
                 // whatever the stomper's rules say. Both ends opt in.
                 if !victim.model.footstool_tuning().is_enabled() {
-                    continue;
-                }
-                if !ambition_combat::targeting::damage_lands_between(
-                    *stomper.faction,
-                    ambition_combat::targeting::effective_faction(*victim.faction, victim.brain),
-                    stomper.team,
-                    victim.team,
-                    friendly_fire,
-                    None,
-                    victim.entity,
-                ) {
                     continue;
                 }
                 if !ae::collision_semantics::feet_on_head(

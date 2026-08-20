@@ -769,6 +769,10 @@ fn track_versus_roster(
                 // rounds have no percent mechanic to mirror.
                 rage_per_damage: 0.0,
                 rage_max_scale: 1.0,
+                // ⚠ and no staling: rounds this short do not repeat a move
+                // enough for a queue to mean anything.
+                stale_step: 0.0,
+                stale_floor: 1.0,
                 // ⚠ the generic versus stage stays FLAT for now: its rounds end
                 // on health rather than on a blast zone, so a launch that grows
                 // without bound is a different game's mechanic. Smash declares

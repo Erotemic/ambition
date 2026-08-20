@@ -727,6 +727,17 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::PlayerInput,
             ),
         );
+        // **Staling is recorded in `Settle`, after the hits it remembers.**
+        // ⛔ it must run AFTER `Resolve`, not inside it: the resolver holds the
+        // victim query and the attacker's queue lives on a body in that same
+        // set, so writing there would need a `ParamSet` around the whole
+        // resolution to store one `u32`. `LandedBodyHit` already names the
+        // attacker and already exists.
+        app.add_systems(
+            sim,
+            ambition_platformer2d::combat::hitbox::record_landed_moves
+                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle),
+        );
         // **A capture ends in `Settle`, where post-damage bookkeeping belongs.**
         // Hitstun and the recoil lock are written by damage resolution in
         // `Resolve`, so a release that ran earlier would read last tick's answer
@@ -898,6 +909,11 @@ pub fn smash_declared_combat_rules() -> ambition_platformer2d::combat::rules::De
         // chance rather than a coin flip.
         rage_per_damage: 0.004,
         rage_max_scale: 1.4,
+        // ⭐ **STALING, floored at 0.55.** One reliable kill move should not be
+        // the only answer a fighter needs; nine landings of it and it is worth
+        // barely half. Vary and the old one recovers — the ring forgets.
+        stale_step: 0.05,
+        stale_floor: 0.55,
         // ⚠ teams already decide who may hit whom. Switching global friendly
         // fire on to let two humans trade would make TEAMMATES hittable too.
         friendly_fire: false,

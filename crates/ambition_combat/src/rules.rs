@@ -122,6 +122,19 @@ pub struct DeclaredCombatRules {
     /// The ceiling on [`Self::rage_per_damage`], as a multiplier. `1.0` = rage
     /// can never help, whatever the per-point rate says.
     pub rage_max_scale: f32,
+    /// **STALING — how much of its strength a move loses per recent landing of
+    /// the same move.** `0.0` (the baseline) is no staling.
+    ///
+    /// ⭐ it exists to stop one good answer being the ONLY answer. A fighter
+    /// with a reliable kill move should have to vary, and a fighter who has
+    /// worn one out should find the others suddenly worth throwing.
+    ///
+    /// ⚠ what is remembered is what LANDED, not what was thrown. A whiff did
+    /// not answer anything.
+    pub stale_step: f32,
+    /// The floor [`Self::stale_step`] cannot take a move below, as a multiplier.
+    /// `1.0` = staling can never weaken anything.
+    pub stale_floor: f32,
     /// Whether same-faction bodies damage each other.
     ///
     /// ⚠ a match with declared TEAMS should leave this `false`. `MatchTeam`
@@ -173,6 +186,10 @@ pub struct ResolvedCombatTuning {
     pub rage_per_damage: f32,
     /// See [`DeclaredCombatRules::rage_max_scale`].
     pub rage_max_scale: f32,
+    /// See [`DeclaredCombatRules::stale_step`].
+    pub stale_step: f32,
+    /// See [`DeclaredCombatRules::stale_floor`].
+    pub stale_floor: f32,
     pub friendly_fire: bool,
 }
 
@@ -203,6 +220,16 @@ impl ResolvedCombatTuning {
     /// **What an attacker's own damage multiplies its knockback by**, capped.
     /// `1.0` for a game that declares no rage, and for a fresh fighter in one
     /// that does.
+    /// **What a move is worth after `occurrences` recent landings of it**, as a
+    /// multiplier, floored. `1.0` for a game that declares no staling and for a
+    /// move nobody has thrown lately.
+    pub fn stale_scale(self, occurrences: u32) -> f32 {
+        if self.stale_step <= 0.0 || occurrences == 0 {
+            return 1.0;
+        }
+        (1.0 - self.stale_step * occurrences as f32).max(self.stale_floor.clamp(0.0, 1.0))
+    }
+
     pub fn rage_scale(self, attacker_damage_taken: i32) -> f32 {
         if self.rage_per_damage <= 0.0 {
             return 1.0;
@@ -225,6 +252,8 @@ impl ResolvedCombatTuning {
                 meteor_lock_time: rules.meteor_lock_time,
                 rage_per_damage: rules.rage_per_damage,
                 rage_max_scale: rules.rage_max_scale,
+                stale_step: rules.stale_step,
+                stale_floor: rules.stale_floor,
                 friendly_fire: rules.friendly_fire,
             },
             // ⚠ growth has NO world baseline to fall back to, unlike DI and
@@ -240,6 +269,8 @@ impl ResolvedCombatTuning {
                 meteor_lock_time: 0.0,
             rage_per_damage: 0.0,
             rage_max_scale: 1.0,
+                stale_step: 0.0,
+                stale_floor: 1.0,
                 friendly_fire: baseline_ff,
             },
         }
@@ -268,6 +299,8 @@ impl Default for ResolvedCombatTuning {
                 meteor_lock_time: 0.0,
             rage_per_damage: 0.0,
             rage_max_scale: 1.0,
+                stale_step: 0.0,
+                stale_floor: 1.0,
             friendly_fire: false,
         }
     }
@@ -299,6 +332,8 @@ mod tests {
                 meteor_lock_time: 0.0,
             rage_per_damage: 0.0,
             rage_max_scale: 1.0,
+                stale_step: 0.0,
+                stale_floor: 1.0,
                 friendly_fire: false,
                 unarmed_melee: None,
             }),
@@ -325,6 +360,8 @@ mod tests {
                 meteor_lock_time: 0.0,
             rage_per_damage: 0.0,
             rage_max_scale: 1.0,
+                stale_step: 0.0,
+                stale_floor: 1.0,
             friendly_fire: true,
             unarmed_melee: None,
         });
@@ -341,6 +378,8 @@ mod tests {
                 meteor_lock_time: 0.0,
             rage_per_damage: 0.0,
             rage_max_scale: 1.0,
+                stale_step: 0.0,
+                stale_floor: 1.0,
                 friendly_fire: false,
             }
         );
@@ -394,5 +433,44 @@ mod rage_tests {
         // ⚠ and a rate with a ceiling of 1.0 cannot help either, whatever the
         // rate says — the cap is the authority.
         assert_eq!(raging(0.05, 1.0).rage_scale(200), 1.0);
+    }
+}
+
+#[cfg(test)]
+mod stale_tests {
+    use super::*;
+
+    fn staling(step: f32, floor: f32) -> ResolvedCombatTuning {
+        ResolvedCombatTuning {
+            stale_step: step,
+            stale_floor: floor,
+            ..ResolvedCombatTuning::default()
+        }
+    }
+
+    /// **A MOVE THROWN AGAIN AND AGAIN IS WORTH LESS, DOWN TO A FLOOR.**
+    #[test]
+    fn staling_falls_with_repetition_and_stops_at_the_floor() {
+        let rules = staling(0.1, 0.5);
+        assert_eq!(rules.stale_scale(0), 1.0, "a fresh move was already stale");
+        assert!((rules.stale_scale(1) - 0.9).abs() < 1e-6);
+        assert!((rules.stale_scale(3) - 0.7).abs() < 1e-6);
+        assert_eq!(
+            rules.stale_scale(9),
+            0.5,
+            "staling ran past its floor, so a worn move stops being a move"
+        );
+    }
+
+    /// **AND AN UNDECLARED WORLD NEVER STALES ANYTHING.**
+    #[test]
+    fn an_undeclared_world_has_no_staling() {
+        let plain = ResolvedCombatTuning::default();
+        assert_eq!(plain.stale_step, 0.0);
+        for n in [0, 1, 5, 9] {
+            assert_eq!(plain.stale_scale(n), 1.0);
+        }
+        // A floor of 1.0 cannot weaken anything either, whatever the step says.
+        assert_eq!(staling(0.2, 1.0).stale_scale(9), 1.0);
     }
 }

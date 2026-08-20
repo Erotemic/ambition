@@ -319,6 +319,21 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// it also moved `ambition_cutscene` and `ambition_demo_twintrack`, which is the
 /// instrument CHANGING and NOT a wire change in either: neither file was edited.
 ///
+/// ⚠ **v46 (2026-08-20) is `BodyStaleMoves`**, a NEW rollback component
+/// (`body.stale_moves`): nine `u32` slots and a cursor, remembering what this
+/// body last LANDED so a repeated move is worth less. Both a new stable key and
+/// a new payload behind it.
+/// ⭐ **hashes rather than move ids, and that is what makes it snapshot state at
+/// all.** A `Vec<String>` of names would allocate per body per save; a `[u32; 9]`
+/// is copied like any other pod. Nothing reads the hash back as a name, so a
+/// collision costs one move a staleness it did not earn and nothing else.
+/// ⚠ it is hand-written rather than `snapshot_pod!` because that macro maps a
+/// field to a READER METHOD and there is none for an array — and the explicit
+/// `[0u32; 9]` on the decode side is what `rollback_codec_shape.py` reads as the
+/// width. ⛔ that regex did not accept `0u32` until this commit widened it, which
+/// would have made the ring's WIDTH invisible to the checker: the same
+/// no-primitive-call hole as `snapshot_pod!`, the array loop, and
+/// `snapshot_unit_enum!` before it. Fourth instance.
 /// ⚠ **v45 (2026-08-20) is `ShieldTuning::min_coverage`**, the last of the
 /// guard's numbers: how much of the body a SPENT shield still covers. One float
 /// in the motion codec beside the other seven.
@@ -441,7 +456,7 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// `message.spawn_projectile` keeps its stable key while its concrete message
 /// becomes `ProjectileSpawnRequest`, so abandoned-future spawn requests remain
 /// cleared on load through the same wire identity.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 45;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 46;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

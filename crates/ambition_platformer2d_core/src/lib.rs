@@ -60,7 +60,8 @@ pub use body_clusters::{
     BodyClusterQueryData, BodyClusterQueryDataItem, BodyClusterScratch, BodyClustersMut,
     BodyComboTrace, BodyDashState, BodyDodgeState, BodyEnvironmentContact, BodyFlightState,
     BodyGroundState, BodyJumpState, BodyKinematics, BodyLedgeState, BodyLifetime, BodyMana,
-    BodyModeState, BodyOffense, BodyRestarted, BodyShieldState, BodyWallState, SweepSample,
+    stale_move_hash, BodyModeState, BodyOffense, BodyRestarted, BodyShieldState,
+    BodyStaleMoves, BodyWallState, SweepSample,
 };
 // **The geometry + frames kernel lives in `ambition_geometry` now** (carved
 // 2026-08-01). Re-exported here, module paths included, so every existing

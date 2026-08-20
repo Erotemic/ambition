@@ -174,6 +174,7 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
         .rollback_component_canonical::<bc::BodyBlinkState>(ENGINE, "body.blink")
         .rollback_component_canonical::<bc::BodyDodgeState>(ENGINE, "body.dodge")
         .rollback_component_canonical::<bc::BodyShieldState>(ENGINE, "body.shield")
+        .rollback_component_canonical::<bc::BodyStaleMoves>(ENGINE, "body.stale_moves")
         .rollback_component_canonical::<bc::BodyOffense>(ENGINE, "body.offense")
         .rollback_component_canonical::<bc::BodyLifetime>(ENGINE, "body.lifetime")
         .rollback_component_canonical::<bc::BodyActionBuffer>(ENGINE, "body.action_buffer")

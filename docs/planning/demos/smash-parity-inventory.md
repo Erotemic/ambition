@@ -75,7 +75,7 @@ you add a `▢`, and before you work one.
 | Spike (a downward hit drives the victim, no attacker rebound) | ✔ | `rules::DownwardHitStyle::Spike`, declared by the smash stage |
 | Meteor lock (a spiked body cannot recover for a window; the window ending IS the cancel) | ✔ | `DeclaredCombatRules::meteor_lock_time`, declared 0.30 by the smash stage and 0.0 by versus |
 | Rage (damage taken raises knockback dealt) | ✔ | `DeclaredCombatRules::rage_per_damage` + `rage_max_scale`, declared 0.004/1.4 by smash |
-| Stale-move queue (repeat use weakens) | ▢ | — |
+| Stale-move queue (repeat use weakens) | ✔ | `BodyStaleMoves` (a nine-slot ring of move-id hashes) + `DeclaredCombatRules::stale_step`/`stale_floor` |
 | Charge attacks, landing lag, autocancel | ✔ | `combat/moveset` |
 
 ## Match rules

@@ -270,13 +270,12 @@ that ignored the `Cycle` bosses would have been a lie about half the roster.
    through `spread_volley`. That is §3 rule 2's "forced-movement variety" gap,
    measured. `the_shipped_roster_does_not_yet_demand_a_parry` pins it, and says in
    its own assertion message to delete itself when a fight fixes it.
-3. ~~**Every shipped telegraph clears even the heavy floor** … rule 1 will fire on
-   exactly one boss when BD5 lands.~~ **WRONG, and BD5 disproved it (§9).** Rule 1
-   fires nowhere. The mockingbird's 26-tick cycle telegraphs belong to `sweep` and
-   `dash_through`, both `Medium`, whose floor is 20 ticks — not a heavy's 30. I
-   compared a medium's telegraph against a heavy's floor. The `dash_through`
-   recipe's advice (0.60 s for a grounded re-author) still stands as *taste*; it
-   was never a rule-1 violation.
+3. **Rule 1 fires nowhere** (BD5, §9) — an earlier draft of this finding predicted
+   it would fire on one boss, from comparing a medium's telegraph against a
+   heavy's floor. The mockingbird's 26-tick cycle telegraphs belong to `sweep` and
+   `dash_through`, both `Medium`, whose floor is 20 ticks — not a heavy's 30. The
+   `dash_through` recipe's advice (0.60 s for a grounded re-author) still stands
+   as *taste*, not a rule-1 violation.
 
 ### What BD5 gets for free
 

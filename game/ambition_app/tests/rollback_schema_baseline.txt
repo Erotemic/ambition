@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v41
+ggrs-rollback-schema-v54
 actor.action_set	component-clone	ActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.active_combatant	component-canonical	ActiveCombatant	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.aggression	component-clone-cursor	ActorAggression	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
@@ -80,6 +80,7 @@ body.mana	component-canonical	BodyMana	bevy_ggrs canonical codec snapshot + iden
 body.offense	component-canonical	BodyOffense	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.shield	component-canonical	BodyShieldState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.sim_id_counter	component-canonical	SimIdCounter	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+body.stale_moves	component-canonical	BodyStaleMoves	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.sweep_sample	component-canonical	SweepSample	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.wall	component-canonical	BodyWallState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.wallet	component-canonical	BodyWallet	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

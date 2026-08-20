@@ -36,7 +36,7 @@ investigation that led to the question. Same rule as
 [`README.md`](README.md#queue-contract); on 2026-08-17 this file was **739 lines
 for 9 open questions**, and the four answered ones held a third of it.
 
-## Open decisions — 15 (§1, §6, §7, §9, §10, §11, §12, §13, §22 and §27 are ANSWERED; §8 is DEFERRED)
+## Open decisions — 13 (§1, §6, §7, §9, §10, §11, §12, §13, §22, §25 and §27 are ANSWERED; §23 is answered VIA §25; §8 is DEFERRED)
 
 ### 1. ✔ ANSWERED 2026-08-17 — a bolt hits what a sword hits (former D23)
 
@@ -818,7 +818,14 @@ the public umbrella and pins the migrated body and controller values — this
 preserves the sentinel's purpose: a public SDK break the shared workspace cannot
 see still fails in the independent consumer.
 
-### 23. ▢ NEW 2026-08-19 — five `the_stage_kills` guards are RED, three of them from the legality filter, and the prescribed fix contradicts a deliberate fairness property
+### 23. ◐ ANSWERED VIA §25, 2026-08-20 — five `the_stage_kills` guards are RED, three of them from the legality filter, and the prescribed fix contradicts a deliberate fairness property
+
+⭐⭐ **THE QUESTION BELOW IS SUPERSEDED — §25 answers it.** Jon, 2026-08-20:
+*"the limit cycle is very plausibly exposing a missing physical spacing primitive
+rather than a brain defect. The agent was right to stop rather than compensating
+for missing contact by making the AI stranger."* ⇒ the fix is opt-in body contact
+in the movement sweep (§25), NOT a spawn asymmetry and NOT more randomness. This
+row stays ◐ until that lands and the five are re-run.
 
 **The question: what breaks the two CPUs' mirror, given that the fix the code
 prescribes is a per-seat spawn ASYMMETRY and seat placement is deliberately
@@ -1001,7 +1008,78 @@ per-turn gate, so a behavioural suite went five-red across at least two
 regressions without anything saying so. `cargo test --workspace --lib` and
 `-p ambition_app --test app_it` do not reach it.
 
-### 25. ▢ NEW 2026-08-20 — does "AVOID PUSHOUT" cover fighter-vs-fighter JOSTLE?
+### 25. ✔ ANSWERED 2026-08-20 — body contact belongs in the SWEEP, as an OPT-IN capability, not a global property of every body
+
+⭐⭐ **JON'S RULING, VERBATIM.** Keep these words; the paraphrase loses the
+constraints.
+
+> **AVOID PUSHOUT does not prohibit prospective body contact in the movement
+> sweep.** A sweep that constrains proposed motion before integration is the
+> correct mechanism. It must not perform after-the-fact positional separation.
+>
+> **Add explicit, typed participation in body-vs-body contact. Do not make all
+> `Body`s globally solid.** Smash fighters opt into grounded lateral body
+> contact; existing Ambition NPCs remain unchanged unless their composition
+> explicitly opts them in later.
+>
+> The core mechanism should not be named or conditioned on Smash/jostle. The
+> movement layer owns a generic body-contact capability/policy; Smash uses that
+> capability to express jostle.
+
+⛔⛔ **THREE IMPLEMENTATION CONSTRAINTS, in his words, "because otherwise a
+superficially working solution could create worse problems".**
+
+> **First, do not simply insert every moving body's current AABB into the
+> existing static-wall sweep.** Two moving bodies require a deterministic
+> pair/relative-motion calculation. If A sweeps against B's old position and then
+> B sweeps against A's updated position, iteration order becomes physics. Resolve
+> the pair from a common tick snapshot/proposed deltas, with stable ordering such
+> as `SimId`, and constrain both bodies consistently.
+
+> **Second, Smash jostle should initially be grounded lateral contact, not
+> "fighters are full solid platforms."**
+> ```text
+> fighter → fighter while grounded   lateral crossing is constrained
+> fighter above fighter              does not land on the other's head as geometry
+> airborne fighters                  do not suddenly become wall/ceiling geometry
+> ```
+> So I would not blindly reuse the entire world-solid AABB semantics on both
+> axes. The reusable primitive is something like an opted-in **lateral body
+> blocker/contact participant**, not "all bodies become walls."
+
+> **Third, preserve the AVOID PUSHOUT behavior for pre-existing overlap.** If two
+> bodies somehow begin a tick overlapping because of spawn, transfer, teleport,
+> etc., the contact solver should not teleport them apart. It should permit
+> separating/non-deepening motion and prevent ordinary locomotion from driving
+> them farther through each other.
+
+⚠ **AND THE SCOPE OF THE FIRST SLICE IS BOUNDED, deliberately:**
+
+> I would also **not require a complete rigid-body/jostle impulse solver in this
+> slice**. The immediate semantic requirement is that two opted-in grounded
+> fighters cannot simply exchange sides by running through one another. … More
+> sophisticated weight-dependent pushing or contact momentum can be added as a
+> separately authored response if gameplay needs it.
+
+⇒ **the instruction, verbatim:**
+
+> **Proceed with option (c), but make body contact an explicit opt-in movement
+> capability/policy rather than a global property of `Body`. Smash fighters opt
+> into grounded lateral body blocking; ordinary Ambition NPCs keep their existing
+> pass-through behavior. Resolve moving-body pairs deterministically from common
+> pre-integration motion, do not treat one moving body as static based on ECS
+> iteration order, and never use post-overlap positional pushout. Do not make
+> fighters vertically solid to one another.**
+
+⭐ **and he expects this to close §23 as well**: *"the limit cycle is very
+plausibly exposing a missing physical spacing primitive rather than a brain
+defect. The agent was right to stop rather than compensating for missing contact
+by making the AI stranger."*
+
+---
+
+**The original question, kept for the reasoning that led here.**
+
 
 ⛔⛔ **BUILT IT, MEASURED IT, REVERTED IT — the ACCELERATION form CANNOT WORK,
 and that changes the question (2026-08-20).**

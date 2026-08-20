@@ -297,79 +297,38 @@ conservative verifier under-report matches.
 ### Discovery correctness pass (2026-07-23, GPT 5.6 review)
 
 Three structural bugs in the universal converter's part discovery were fixed
-(submodule `authoring/auto_capture.py` + `equivalence_harness.py`):
+(`authoring/auto_capture.py` + `equivalence_harness.py`): occurrences that
+differed only by an ancestor transform were collapsing onto a single
+placement, fixed by flattening every flattenable transform into geometry
+first (`_flatten_tree`) before matching, so only the non-peelable inner
+transforms are baked in and unflattenable residuals (rotated ellipse/image,
+`<use>`, filtered group) stay opaque rather than dropped; named components
+with identical geometry (`left_thruster`/`right_thruster`) were merging,
+fixed by keying candidate identity on the full Inkscape label path
+(unlabelled geometry keeps geometry-only `geomNNN` keys); and `captured`
+status was verifying only a ~6-frame sample. Status vocabulary: `captured` =
+every published frame verified; `sampled` = complete + clean capture, subset
+checked; `partial` = any gap. `autoconvert`/`coverage --full` verify every
+frame; the mockingbird boss reaches `captured 36/36` under `--full`. Poison
+tests: `tests/test_part_discovery.py`, `tests/test_status_levels.py`.
 
-- **Transform-aware matching.** Occurrences that differed only by an ancestor
-  transform (composite-fold `translate`, resize `scale`, layer `rotate`, or two
-  separately-transformed sibling layers in one frame) collapsed onto a single
-  placement — the second rendered at the first's location. Discovery now
-  flattens every flattenable transform into geometry first (`_flatten_tree`),
-  splicing away pure-positioning groups, while still peeling the shared
-  sole-child outer wrapper to a prefix so matching stays in the large
-  pre-downsample space (meaningful congruence tolerance + float precision).
-  Only the non-peelable inner transforms — where the bug lived — are baked in;
-  unflattenable residuals (rotated ellipse/image, `<use>`, filtered group) are
-  kept and treated as opaque, never dropped.
-- **Semantic identity is authoritative.** Named components (`left_thruster` /
-  `right_thruster`) with identical geometry no longer merge — candidate
-  identity is keyed on the full Inkscape label path. Unlabelled geometry keeps
-  geometry-only "inferred reuse" keys (`geomNNN`), distinct from semantic ones.
-- **Honest status.** `captured` now means *every* published frame was verified,
-  not a ~6-frame sample. `sampled` = complete + clean capture, subset checked;
-  `partial` = any gap. `autoconvert`/`coverage --full` verify every frame; the
-  mockingbird boss reaches `captured 36/36` under `--full` (`sampled 6/6`
-  otherwise). Poison tests pin all three in `tests/test_part_discovery.py` and
-  `tests/test_status_levels.py`.
+### Fidelity metric (2026-07-23, GPT 5.6 review)
 
-### Fidelity metric: symmetric + complete (2026-07-23, GPT 5.6 review)
-
-A follow-up review found `captured` was still overstated at the pixel level: the
-verifier compared colour only inside the *intersection* of opaque pixels
-(`mask = published_opaque * rendered_opaque`), so geometry the SVG dropped (a
-missing arm/thruster) or invented fell outside the mask and was never scored — a
-half-empty frame passed. The alignment search also used `ImageChops.offset`,
-which wraps content around the opposite edge.
-
-The verifier now grades two independent defect fractions over a ±1 alignment
-search that translates onto a transparent canvas (no wrap), in
-`equivalence_harness._frame_defects`:
-
-- **occupancy** — solid geometry present in one frame but absent in the other,
-  over the **union** of solid pixels. This is the completeness bar: an omitted or
-  invented part scores and fails. Held tight (5%), just above the
-  resvg-vs-Pillow edge/translucent-core fringe floor a complete complex frame
-  exhibits (~4% on mockingbird's extended-beam thrust frame). Reliably catches
-  the reviewer's defect class (arm/weapon/half a character = 5–50% of the union);
-  like any raster check it cannot resolve a single small primitive from fringe.
-- **rgb** — solid-in-both pixels whose colour disagrees, over the overlap. The
-  pre-existing rasterizer/AA slack, held looser (12%).
-
-A frame is `_frame_verified` only when both pass. A present-but-translucent
-region where the source is solid is caught as *missing* occupancy (wrong-alpha);
-translucent glow stays excluded from both (by-design divergence). Mockingbird
-re-verified `captured 36/36` under `--full` — now proving completeness, not
-intersection colour. Poison tests: `tests/test_fidelity_metric.py` (omitted /
-invented / wrong-alpha / in- and out-of-tolerance shift / colour-noise-over-
-complete-geometry / non-wrapping translate).
-
-**Round 2 — alpha-aware, not a `>200` cutoff.** The symmetric metric above
-still built its masks from a binary `alpha>200` "solid" threshold, discarding
-*every translucent pixel*, so a missing/invented/wrong-alpha translucent
-component (glow, beam, cloth, effect) beside matching opaque geometry scored
-`(0,0)` and passed. Replaced with a **continuous alpha-aware** metric (numpy),
-still two gates over the same non-wrapping ±1 search:
-`occupancy = Σ|ap−ar| / Σ max(ap,ar)` over the union of *meaningful* alpha
-(`>12/255`) — missing/invented/wrong-alpha geometry at any opacity lands here,
-proportional to alpha mass, while a soft AA/blur edge both frames render alike
-(`ap≈ar`) contributes ~0; `rgb = Σ min(ap,ar)·|Δrgb| / Σ min(ap,ar)` over the
-mutually-occupied region, so a missing part cannot leak into the colour term.
+`equivalence_harness._frame_defects` grades two alpha-aware defect fractions
+(numpy) over a ±1 alignment search that translates onto a transparent canvas
+(no wrap): **occupancy** = `Σ|ap−ar| / Σ max(ap,ar)` over the union of
+meaningful alpha (`>12/255`) — a missing/invented/wrong-alpha component at
+any opacity lands here proportional to alpha mass, while a soft AA/blur edge
+both frames render alike contributes ~0; **rgb** = `Σ min(ap,ar)·|Δrgb| /
+Σ min(ap,ar)` over the mutually-occupied region, so a missing part cannot
+leak into the colour term. A frame is `_frame_verified` only when both pass.
 Thresholds are calibrated to the measured complete-frame floor: mockingbird's
-extended translucent thruster beam floors at ~0.056 occupancy (resvg vs Pillow
-gradient alpha), so the occupancy bar is `0.07`; alpha-weighted rgb collapses
-to ~0.008, bar stays `0.12`. Like any raster check it cannot resolve a single
-tiny primitive from fringe, but reliably catches the reviewer's class
-(limb/beam/glow = 12–50% of alpha mass) at every opacity. GPT's three repro
-cases now score occupancy 0.12–0.14 and fail; mockingbird holds
-`captured 36/36`. Added poison tests for the translucent hole (omitted /
-invented / wrong-sub-threshold-alpha translucent component + a
-never-silently-discarded property test).
+extended translucent thruster beam floors at ~0.056 occupancy (resvg vs
+Pillow gradient alpha), so the occupancy bar is `0.07`; alpha-weighted rgb
+collapses to ~0.008, bar stays `0.12`. The reviewer's defect class
+(limb/beam/glow, 12–50% of alpha mass) scores 0.12–0.14 and fails; mockingbird
+holds `captured 36/36`. This replaced an earlier metric built on a binary
+`alpha>200` "solid" mask, under which a missing/invented/wrong-alpha
+*translucent* component beside matching opaque geometry scored `(0,0)` and
+passed. Poison tests: `tests/test_fidelity_metric.py` (omitted / invented /
+wrong-alpha / shift / colour-noise / non-wrapping translate).

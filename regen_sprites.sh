@@ -420,6 +420,18 @@ tackon_targets=(
     # filenames (`sprites/oiler_spritesheet.png` + `.ron`), so whichever
     # publisher writes them last is the body both games draw.
     oiler
+    # ⛔ **The two Fighting Polygons are named here because a `--target` render is
+    # not a PUBLISH ROSTER.** Both were rendered into this checkout one target at
+    # a time (`regen_sprites.sh --target <name>`), which works and is the right
+    # surgical tool — but generated art is gitignored, so a target that no batch
+    # names exists only on the machine that once rendered it and is ABSENT from a
+    # fresh clone. `character_catalog.ron` names both sheets, so a clone would
+    # come up with two catalog rows pointing at files nothing can produce.
+    # `test_every_catalog_character_names_a_sheet_regen_publishes` is what said
+    # so, and it is the second time this session that a check caught art existing
+    # only by accident of local history.
+    fighting_polygon_sword
+    fighting_polygon_brawler
     sandbag
     burning_flying_shark
     pipi_tau

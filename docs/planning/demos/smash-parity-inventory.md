@@ -125,9 +125,16 @@ one when it has a reason.
 **Ground movement.** Walk as a distinct gait from run · initial dash and
 foxtrot · dash-dance · pivot and turnaround · run-cancel by crouch or shield.
 
-**Air movement.** Directional air dodge (ours is one evade along the stick) ·
-double-jump cancel · b-reverse and wavebounce · aerial drift out of hitstun ·
-fast-fall out of a bounce.
+**Air movement.** ~~Directional air dodge~~ — SHIPS, verified 2026-08-20:
+`apply_dodge`'s airborne arm aims along the stick in the body's own frame, any
+diagonal, and a neutral stick dodges in place. That IS Ultimate's, and the row
+was describing it as a gap · ~~aerial drift out of hitstun~~ — SHIPS:
+`apply_post_hit_input_gates` scales the axes by
+`Platformer2dFeelTuningMonolith::hitstun_control_scale` once the HARD lock
+clears, preserving the attack verb ⚠ **grep the INPUT GATE, not the movement
+kernel** — the kernel never reads `hitstun_timer`, which is why a first pass
+concluded there was no penalty at all · double-jump cancel · b-reverse and
+wavebounce · fast-fall out of a bounce.
 
 **Attack surface.** ~~Dash attack as its own verb~~ — landed 2026-08-20 · pivot smash · jab combos with
 a rapid-jab finisher · charge storage · a two-frame ledge-vulnerability window ·

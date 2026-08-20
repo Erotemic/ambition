@@ -52,7 +52,7 @@ pub struct DialogueDispatch<'w, 's> {
     /// ⭐ the brain is what actually answers "whose body is this" — possession is
     /// a brain transfer, so a possessed actor's conversation belongs to the seat
     /// that possessed it without this needing to know possession exists.
-    pub driver: Query<'w, 's, &'static ambition_characters::brain::Brain>,
+    pub driver: Query<'w, 's, &'static ambition_characters::brain::DrivingParticipant>,
     /// Which Yarn nodes content compiled. Read to decide whether a
     /// self-conversation has a branch to enter; an unpopulated index never
     /// suppresses.
@@ -155,9 +155,16 @@ impl DialogueDispatch<'_, '_> {
     /// **Which seat is DRIVING this body**, for the caller to attribute the
     /// conversation with.
     ///
-    /// ⭐ the brain is what actually answers "whose body is this" — possession is
-    /// a brain transfer, so a seat that possessed an actor and walked it up to
-    /// an NPC is the answer here without this knowing possession exists.
+    /// ⭐ `DrivingParticipant` is what actually answers "whose body is this" —
+    /// a seat that possessed an actor and walked it up to an NPC is the answer
+    /// here without this knowing possession exists.
+    ///
+    /// ⚠ **it used to match `Brain::Player(slot)`, and the answer has not
+    /// changed** — possession moves that variant today, so the two agree by
+    /// construction. What moved is the dependency: attributing a conversation no
+    /// longer requires knowing that "who drives" is currently spelled inside an
+    /// AI-policy enum. The component is derived in the actor domain and lives in
+    /// `ambition_characters::brain`, so this costs no new crate edge.
     ///
     /// ⛔ **it returns the SLOT, and the conversion to a participant is the
     /// caller's.** `ParticipantId` and `PlayerSlot` are two concepts sharing one
@@ -167,10 +174,7 @@ impl DialogueDispatch<'_, '_> {
     /// module a second owner of it, and would put a `participant_seat` edge into
     /// a module whose whole carve accounting is two edges to the BARK.
     pub fn driving_slot(&self, body: Entity) -> Option<ambition_characters::brain::PlayerSlot> {
-        match self.driver.get(body) {
-            Ok(ambition_characters::brain::Brain::Player(slot)) => Some(*slot),
-            _ => None,
-        }
+        self.driver.get(body).ok().map(|driver| driver.0)
     }
 }
 

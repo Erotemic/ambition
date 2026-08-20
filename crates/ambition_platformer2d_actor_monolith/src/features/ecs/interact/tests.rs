@@ -437,7 +437,23 @@ fn interaction_app() -> App {
     app.add_message::<QuestAdvanceRequested>();
     app.add_message::<SwitchActivated>();
     app.add_message::<VfxMessage>();
-    app.add_systems(Update, interact_ecs_actors_and_switches);
+    // ⭐⭐ **the derive runs HERE, ahead of its reader, because it IS the input
+    // road.** `ActingParticipant` answers *which seat drives this body* off
+    // `DrivingParticipant`, and a fixture that spawned bodies with brains but
+    // never projected the component would hand every reader `None` — which
+    // `acting_slot` turns into `PRIMARY`. Both second-seat tests below would then
+    // pass by attributing seat 1's press to seat 0, which is the exact defect
+    // they exist to catch. `PossessionState` is the projection's other input and
+    // is empty here: no possession, so authority follows the brains.
+    app.init_resource::<crate::abilities::traversal::possession::PossessionState>();
+    app.add_systems(
+        Update,
+        (
+            crate::control::project_driving_participant,
+            interact_ecs_actors_and_switches,
+        )
+            .chain(),
+    );
     app
 }
 

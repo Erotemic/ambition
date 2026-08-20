@@ -949,10 +949,36 @@ safest and is not: a window where possession can be expressed two ways is exactl
 the state the `ScriptedControl`/`ControlHolds` breach came from — a derived fact
 and its source disagreeing, resolved by whoever writes next.
 
-⭐ **what is already done in this direction, and needs no decision**:
-`crate::control::ActingParticipant` asks "which seat drives this body" once, for
-both interaction systems, by reading the brain — so the answer already has ONE
-call site to change when the fact moves off `Brain`.
+⭐ **SLICE 1 IS LANDED (2026-08-20), and it needed no decision.**
+`control::DrivingParticipant(PlayerSlot)` is the fact by itself, **DERIVED** each
+tick by `project_driving_participant` from `Brain::Player` plus
+`PossessionState` — so it adds no snapshot entry, no wire format and no version
+bump, and none of A/B/C applies to it. `ActingParticipant::driving_slot` now
+reads it instead of matching `Brain::Player`, which is the first consumer moved
+off the conflated enum. The answer is identical today (one system asserts
+exactly one body carries `Brain::Player(PRIMARY)`, so brain and derive agree by
+construction); what changed is that the reader no longer knows where the answer
+is spelled.
+
+⛔ **this is NOT option B.** B's danger is two WRITABLE sources of "who drives"
+disagreeing, which is the `ScriptedControl`/`ControlHolds` breach. A derive has
+exactly one source of truth by construction — the same excuse `InCustodyOf` and
+`ScriptedControl` already run on — so there is no window where possession can be
+expressed two ways.
+
+⛔⛔ **and a name was already taken.** `character_runtime::prepared_match::`
+`ControlAuthority` exists, and is re-exported from the `ambition_platformer2d`
+SDK, for a DIFFERENT fact: what a roster SEAT attaches
+(`LocalInput { channel, source }` or `Brain { profile }`). That is a binding SPEC
+read once at match preparation; the new component is a body's live driver,
+re-derived every tick. The paragraph above this one used to call the existing
+type "already half-named" toward this concept — it is not, and building the new
+fact under that name would have put two meanings on one word in one crate.
+
+**What STILL needs the decision**: deleting the `Brain::Player` variant and
+`PossessionState::restore_brain`/`restore_scope`. That is the wire-format break,
+and it is exactly A/B/C above. Everything up to it can proceed by moving readers
+onto the derive one at a time.
 
 ### 22. ✔ RESOLVED 2026-08-19 — external-consumer enemy authoring follows the post-D73 character seam
 

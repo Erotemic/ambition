@@ -354,6 +354,16 @@ impl Plugin for PlayerSchedulePlugin {
                     // item chain depends on is body custody being SETTLED, not
                     // possession having happened. See `BodyCustodySettled`.
                     .in_set(ambition_platformer2d_shared_tangle::lifecycle::BodyCustodySettled),
+                // ⭐⭐ **WHO DRIVES WHICH BODY, reprojected beside WHERE IT IS.**
+                // The same shape as its neighbour above and for the same reason:
+                // a fact derived from state that is already in the snapshot needs
+                // no snapshot entry, and deriving it here — after the possession
+                // this tick settled on — is what lets a reader ask *who is
+                // driving* without knowing that today's answer is spelled inside
+                // an AI-policy enum. `FeatureInteraction` is a later phase than
+                // `PlayerSimulation` in the top-level chain, so the interaction
+                // systems read a component this frame's possession wrote.
+                ambition_platformer2d_actor_monolith::control::project_driving_participant,
             )
                 .chain()
                 .in_set(PlayerSimulationSet::Possession),

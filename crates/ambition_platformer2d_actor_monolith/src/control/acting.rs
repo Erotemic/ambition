@@ -8,11 +8,18 @@
 //! version of that bug is **a possessed body opening a chest while the vacated
 //! home avatar plays the reach-and-open pose.**
 //!
-//! ⭐ **possession is a brain transfer, so the brain is the authority.** A seat
-//! that possessed an actor and walked it up to a chest carries `Brain::Player`
-//! on THAT body, which is why this needs to know nothing about possession to get
+//! ⭐ **it reads [`DrivingParticipant`], which is the fact by itself.** A seat
+//! that possessed an actor and walked it up to a chest holds that body's
+//! authority, which is why this needs to know nothing about possession to get
 //! possession right — the same reason `DialogueDispatch::driving_slot` gives for
 //! attributing a conversation.
+//!
+//! ⚠ **it used to read `Brain::Player(slot)` directly, and the answer has not
+//! changed.** Possession MOVES that variant (one system asserts exactly one body
+//! carries `Brain::Player(PRIMARY)`), so the brain and the derive agree today by
+//! construction. What moved is the DEPENDENCY: this asks who is driving, and it
+//! no longer has to know that the answer is currently spelled inside an AI-policy
+//! enum. When possession stops swapping brains, nothing here changes.
 //!
 //! ⛔ **this is not a new participant model.** It is the one place the two
 //! interaction systems agree on the question, so the primary-seat fallback below
@@ -21,14 +28,15 @@
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
+use super::authority::DrivingParticipant;
 use super::components::{SlotGestures, SlotInteractionState};
-use ambition_characters::brain::{Brain, PlayerSlot};
+use ambition_characters::brain::PlayerSlot;
 
 /// The controller gestures that answer for a given body.
 #[derive(SystemParam)]
 pub struct ActingParticipant<'w, 's> {
     gestures: ResMut<'w, SlotInteractionState>,
-    drivers: Query<'w, 's, &'static Brain>,
+    drivers: Query<'w, 's, &'static DrivingParticipant>,
 }
 
 impl ActingParticipant<'_, '_> {
@@ -36,10 +44,7 @@ impl ActingParticipant<'_, '_> {
     /// participant is driving (a CPU actor, a prop, a body whose brain has not
     /// been built yet).
     pub fn driving_slot(&self, body: Entity) -> Option<PlayerSlot> {
-        match self.drivers.get(body) {
-            Ok(Brain::Player(slot)) => Some(*slot),
-            _ => None,
-        }
+        self.drivers.get(body).ok().map(|driver| driver.0)
     }
 
     /// The slot whose gestures answer for this body.

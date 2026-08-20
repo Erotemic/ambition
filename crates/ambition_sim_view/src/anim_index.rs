@@ -252,6 +252,11 @@ pub fn rebuild_actor_anim_index(mut index: ResMut<ActorAnimIndex>, actors: Query
                     .or_else(|| {
                         ClipRequest::from_chain(ambition_character_sprites::body_state_clip(
                             a.motion_facts,
+                            ambition_character_sprites::FighterClipFacts {
+                                held: a.anim.is_some_and(|f| f.held),
+                                holding: a.anim.is_some_and(|f| f.holding),
+                                guard_broken: a.shield.broken(),
+                            },
                         )?)
                     }),
             },

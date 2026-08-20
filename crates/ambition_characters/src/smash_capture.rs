@@ -292,7 +292,6 @@ pub fn author_standing_grab(mut spec: MoveSpec, params: CaptureAttemptParams) ->
     spec
 }
 
-
 /// **The cue a capture beat carries**, owned here for the reason the effect keys
 /// are: a fighter authors VALUES, and the strings stay in one module.
 ///
@@ -312,7 +311,6 @@ fn burst(mut spec: MoveSpec, at_s: f32, effect: &str, scale: f32) -> MoveSpec {
     });
     spec
 }
-
 
 /// The cue for a beat that already carries a gameplay `Effect`: it rides the
 /// SAME instant, so retuning the beat cannot leave its flash behind.
@@ -472,6 +470,38 @@ pub mod verbs {
     };
 }
 
+/// **The VOCABULARY's sprite row for a capture beat, asked for FIRST.**
+///
+/// ⭐ here rather than inside each `author_*` helper, for exactly the reason the
+/// cues are: [`SmashCaptureRepertoire::bound`] is the one place that already
+/// knows which VERB a beat answers to, so a fighter cannot author a pummel and
+/// forget to ask for the pummel row. The rows are the ones the fighter rigs
+/// draw — `grab`, `pummel`, `throw_forward`/`_back`/`_up`/`_down` — and every
+/// character asking for `attack` instead is why a throw and a jab looked the
+/// same.
+///
+/// ⚠ the character's own clip is KEPT, one step down the chain: a sheet with a
+/// bespoke row still draws it, and a sheet with only `attack` still lands there.
+fn row_first(mut spec: MoveSpec, rows: &[&str]) -> MoveSpec {
+    let mut chain: Vec<String> = rows.iter().map(|r| (*r).to_string()).collect();
+    chain.push(spec.clip.clip);
+    chain.append(&mut spec.clip.fallbacks);
+    let mut seen = Vec::new();
+    chain.retain(|row| {
+        let fresh = !seen.contains(row);
+        if fresh {
+            seen.push(row.clone());
+        }
+        fresh
+    });
+    let mut chain = chain.into_iter();
+    spec.clip = ambition_entity_catalog::ClipBinding {
+        clip: chain.next().unwrap_or_default(),
+        fallbacks: chain.collect(),
+    };
+    spec
+}
+
 impl SmashCaptureRepertoire {
     /// The `(verb, spec)` rows this kit contributes to a moveset contract.
     ///
@@ -497,20 +527,33 @@ impl SmashCaptureRepertoire {
         // author a throw and forget its release flash, and there is no second
         // site to keep in agreement.
         let mut out = vec![
-            (verbs::GRAB, cue_at_reach(grab, cues.reach)),
-            (verbs::PUMMEL, cue_at_effect(pummel, cues.impact, 0.55)),
+            (
+                verbs::GRAB,
+                cue_at_reach(row_first(grab, &["grab"]), cues.reach),
+            ),
+            (
+                verbs::PUMMEL,
+                cue_at_effect(row_first(pummel, &["pummel"]), cues.impact, 0.55),
+            ),
             (
                 verbs::THROW_FORWARD,
-                cue_at_effect(forward_throw, cues.release, 1.15),
+                cue_at_effect(
+                    row_first(forward_throw, &["throw_forward", "throw"]),
+                    cues.release,
+                    1.15,
+                ),
             ),
         ];
-        for (verb, spec) in [
-            (verbs::THROW_BACK, back_throw),
-            (verbs::THROW_UP, up_throw),
-            (verbs::THROW_DOWN, down_throw),
+        for (verb, rows, spec) in [
+            (verbs::THROW_BACK, &["throw_back", "throw"], back_throw),
+            (verbs::THROW_UP, &["throw_up", "throw"], up_throw),
+            (verbs::THROW_DOWN, &["throw_down", "throw"], down_throw),
         ] {
             if let Some(spec) = spec {
-                out.push((verb, cue_at_effect(spec, cues.release, 1.15)));
+                out.push((
+                    verb,
+                    cue_at_effect(row_first(spec, rows), cues.release, 1.15),
+                ));
             }
         }
         out
@@ -649,6 +692,59 @@ mod tests {
             verbs,
             vec![verbs::GRAB, verbs::PUMMEL, verbs::THROW_FORWARD],
             "an absent throw invented a verb, or an authored one lost its"
+        );
+    }
+
+    /// **THE VERB NAMES THE ROW; THE FIGHTER'S OWN CLIP SURVIVES BEHIND IT.**
+    ///
+    /// ⛔ every shipped fighter authored `attack` for its pummel and its throws,
+    /// so a throw and a jab drew the same picture — while the sheets have carried
+    /// `pummel` and `throw_forward` the whole time. ⚠ both halves: asking for the
+    /// row is worthless if it REPLACES what a character chose, since a sheet
+    /// without the row would then fall past its own art to `idle`.
+    #[test]
+    fn a_capture_beat_asks_for_its_verbs_row_before_the_authored_one() {
+        let kit = SmashCaptureRepertoire {
+            cues: CaptureCues::GENERIC,
+            grab: author_standing_grab(
+                spec("g", vec![window(WindowTag::Active, 0.0, 0.1)]),
+                attempt(),
+            ),
+            pummel: author_pummel(spec("p", vec![]), 0.05, CapturePummelParams { damage: 2 }),
+            forward_throw: author_throw(
+                spec("fthrow", vec![]),
+                0.12,
+                CaptureThrowParams {
+                    damage: 9,
+                    knockback: 60.0,
+                    knockback_growth: 0.8,
+                    launch_dir: (1.0, -0.4),
+                },
+            ),
+            back_throw: None,
+            up_throw: None,
+            down_throw: None,
+        };
+        // `spec()` authors clip == id, which stands in for the fighter's choice.
+        let chains: Vec<(String, Vec<String>)> = kit
+            .bound()
+            .into_iter()
+            .map(|(_, m)| (m.clip.clip, m.clip.fallbacks))
+            .collect();
+        assert_eq!(
+            chains
+                .iter()
+                .map(|(head, _)| head.as_str())
+                .collect::<Vec<_>>(),
+            vec!["grab", "pummel", "throw_forward"],
+            "a capture beat asked the sheet for a row its verb does not name"
+        );
+        assert!(
+            chains[2]
+                .1
+                .starts_with(&["throw".to_string(), "fthrow".to_string()]),
+            "the generic throw row or the fighter's own clip fell out of the chain: {:?}",
+            chains[2].1
         );
     }
 }

@@ -395,7 +395,6 @@ impl BodyCombat {
         self.recoil_lock_timer = 0.0;
         self.landing_lag_timer = 0.0;
     }
-
 }
 
 /// A body's ECS-owned animation signal timers.
@@ -456,6 +455,10 @@ pub struct BodyAnimFacts {
     /// reaching across for a gameplay component is how the two stop agreeing
     /// about when a hold ended. The sim publishes the fact; the picker reads it.
     pub held: bool,
+    /// **This body is HOLDING somebody** — the captor's half of the same
+    /// relation, and it is a separate fact rather than the inverse of one: two
+    /// different bodies read it, and a captor is not a captive.
+    pub holding: bool,
     /// Time remaining on the DEATH pose.
     ///
     /// A player body respawns the instant it dies, so its liveness is true again

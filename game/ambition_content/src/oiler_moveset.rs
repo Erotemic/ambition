@@ -55,9 +55,9 @@
 
 use ambition_characters::moveset_prefabs::{SLASH_ARC_VFX, SLASH_POKE_VFX};
 use ambition_characters::smash_capture::{
-    CaptureCues,
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
-    CaptureAttemptParams, CapturePummelParams, CaptureThrowParams, SmashCaptureRepertoire,
+    CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
+    SmashCaptureRepertoire,
 };
 use ambition_characters::smash_repertoire::{DownSpecial, NeutralSpecial, SmashRepertoire};
 use ambition_platformer2d::entity_catalog::{
@@ -1177,6 +1177,15 @@ mod tests {
     ///
     /// ⚠ the oracle is the BAKED sheet record, so this fails the day somebody
     /// republishes the sheet without the fight rows.
+    ///
+    /// ⛔ **it asks about the CHAIN, not the head, and the difference is the
+    /// whole mechanism.** The predicate used to be *"the head row is in the
+    /// sheet"*, which is a proxy for the intent above and disagrees with it in
+    /// exactly the case a fallback chain exists for: `smash_capture::bound` asks
+    /// every fighter for `grab` / `pummel` / `throw_forward` — rows the RIGGED
+    /// sheets carry and Oiler's twelve-row sheet does not — with the author's own
+    /// `attack_side` still one step behind it. That draws Oiler's swing, which is
+    /// what this test is about; the head being absent is not.
     #[test]
     fn every_move_names_a_row_the_published_sheet_carries() {
         let record =
@@ -1192,12 +1201,15 @@ mod tests {
             "this is not Oiler's sheet: {rows:?}"
         );
         for m in &oiler_moveset().moves {
+            let chain: Vec<&str> = std::iter::once(m.clip.clip.as_str())
+                .chain(m.clip.fallbacks.iter().map(String::as_str))
+                .collect();
+            let drawn = chain.iter().find(|row| rows.contains(*row));
             assert!(
-                rows.contains(m.clip.clip.as_str()),
-                "`{}` draws `{}`, which the published sheet does not have, so it \
-                 falls all the way back to the standing pose. Rows: {rows:?}",
+                drawn.is_some_and(|row| *row != "idle"),
+                "`{}` draws {chain:?}, and the published sheet answers none of it \
+                 before `idle` — so the move draws the standing pose. Rows: {rows:?}",
                 m.id,
-                m.clip.clip
             );
         }
     }

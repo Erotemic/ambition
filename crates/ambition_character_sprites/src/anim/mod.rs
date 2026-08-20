@@ -164,6 +164,24 @@ pub struct BodyAnimView {
 /// Punch swing row) folded in at their priorities. Inert states (a `None`
 /// ledge, `false` flags) fall straight through, so a sparse actor view lands on
 /// the shared locomotion tail.
+/// **The two fighter facts that are not the movement kernel's**, taken beside
+/// [`BodyMotionFacts`](ambition_platformer2d_core::BodyMotionFacts) by
+/// [`body_state_clip`].
+///
+/// ⚠ they are separate because they are owned elsewhere: `held` is combat's
+/// capture relation mirrored onto `BodyAnimFacts`, and `guard_broken` is the
+/// shield cluster's. Neither is something the movement kernel publishes about
+/// itself, and folding them into the motion facts would say it does.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct FighterClipFacts {
+    /// This body is in another body's hands.
+    pub held: bool,
+    /// This body has somebody in ITS hands.
+    pub holding: bool,
+    /// This body's guard shattered and it is stunned.
+    pub guard_broken: bool,
+}
+
 /// **The authored ROW a body's fighter state asks to be drawn as**, when the new
 /// sheets have one, with the fallback chain for the sheets that do not.
 ///
@@ -190,15 +208,35 @@ pub struct BodyAnimView {
 /// `MovementOp` ran, and the row set waits for it.
 pub fn body_state_clip(
     facts: &ambition_platformer2d_core::BodyMotionFacts,
+    fighter: FighterClipFacts,
 ) -> Option<&'static [&'static str]> {
+    // ⭐ ABOVE the floor game, for the same reason `pick_body_anim` puts it
+    // there: a body in somebody's hands is not doing anything else.
+    if fighter.held {
+        return Some(&["grabbed", "hit", "idle"]);
+    }
     if facts.knocked_down {
         return Some(&["knockdown", "prone", "land_hard", "hit", "idle"]);
     }
     if facts.getup_invulnerable {
         return Some(&["getup", "land_recovery", "idle"]);
     }
+    // ⚠ ONE row, where the genre has a sequence (launch, fall, collapse, dizzy,
+    // recover). The sim publishes ONE `break_timer`, so splitting the pose would
+    // mean inventing a distinction it has not made — the same honesty as
+    // tech-versus-getup above.
+    if fighter.guard_broken {
+        return Some(&["dizzy", "hit", "idle"]);
+    }
     if facts.tumbling {
         return Some(&["tumble", "hit", "fall", "idle"]);
+    }
+    // ⚠ BELOW everything above it: a captor that got knocked down is not holding
+    // anybody any more, and a captor mid-throw has a MOVE, which outranks every
+    // state row. What is left is the beat between the grab and the decision,
+    // which drew the standing pose.
+    if fighter.holding {
+        return Some(&["grab_hold", "grab", "idle"]);
     }
     if facts.air_dodging {
         return Some(&["air_dodge", "roll", "fall", "idle"]);
@@ -215,7 +253,8 @@ pub fn pick_body_anim(v: &BodyAnimView) -> CharacterAnim {
     // inside its hitstun, so reading `hit` first would draw the struck pose for
     // the whole prone beat and the knockdown would be invisible.
     // ⭐ ABOVE the floor game and the hit flash: a body in somebody's hands is
-    // not doing anything else, and its velocity is the captor's.
+    // not doing anything else, and its velocity is the captor's. ⚠ the tail
+    // again — `body_state_clip` asks for `grabbed` before this is reached.
     if v.held {
         return Hit;
     }
@@ -225,10 +264,10 @@ pub fn pick_body_anim(v: &BodyAnimView) -> CharacterAnim {
     if v.getting_up {
         return LandRecovery;
     }
-    // ⭐ a shattered guard reads as reeling, which is the closest row any sheet
-    // owns. ⚠ there is no `Dizzy` row to draw; when one is authored this arm is
-    // where it lands, and until then a broken guard at least stops drawing the
-    // body standing calmly through its own dizzy.
+    // ⭐ a shattered guard reads as reeling, which is the closest row this
+    // 56-variant vocabulary owns. ⚠ this is the TAIL of the ladder, not the
+    // answer: `body_state_clip` asks the sheet for `dizzy` first, and a fighter
+    // sheet has that row. This arm is what a sheet without one lands on.
     if v.hit || v.tumbling || v.guard_broken {
         return Hit;
     }
@@ -664,7 +703,10 @@ mod state_clip_tests {
     #[test]
     fn a_fighter_state_asks_for_its_own_row_in_priority_order() {
         let head = |facts: &BodyMotionFacts| {
-            super::body_state_clip(facts).map(|chain| chain[0].to_string())
+            super::body_state_clip(facts, Default::default()).map(|chain| chain[0].to_string())
+        };
+        let fighter = |f: super::FighterClipFacts| {
+            super::body_state_clip(&BodyMotionFacts::default(), f).map(|chain| chain[0].to_string())
         };
 
         assert_eq!(
@@ -706,6 +748,48 @@ mod state_clip_tests {
             }),
             Some("getup".to_string())
         );
+
+        // ⛔ the two facts the movement kernel does NOT publish, and the pair of
+        // them is the assertion: both drew `hit` before this seam existed, so a
+        // captive and a fighter with a shattered guard were the same picture.
+        assert_eq!(
+            fighter(super::FighterClipFacts {
+                held: true,
+                ..Default::default()
+            }),
+            Some("grabbed".to_string())
+        );
+        assert_eq!(
+            fighter(super::FighterClipFacts {
+                guard_broken: true,
+                ..Default::default()
+            }),
+            Some("dizzy".to_string())
+        );
+        assert_eq!(
+            fighter(super::FighterClipFacts {
+                holding: true,
+                ..Default::default()
+            }),
+            Some("grab_hold".to_string())
+        );
+        // ⛔ and the priority poison: a body knocked down while STILL held is
+        // held — the captor's pose owns it, the way `pick_body_anim` orders it.
+        assert_eq!(
+            super::body_state_clip(
+                &BodyMotionFacts {
+                    knocked_down: true,
+                    ..Default::default()
+                },
+                super::FighterClipFacts {
+                    held: true,
+                    ..Default::default()
+                }
+            )
+            .map(|chain| chain[0].to_string()),
+            Some("grabbed".to_string()),
+            "a held body drew the floor game it is not in"
+        );
     }
 
     /// **EVERY CHAIN ENDS SOMEWHERE A LEAN SHEET CAN REACH.**
@@ -733,7 +817,30 @@ mod state_clip_tests {
                 ..Default::default()
             },
         ] {
-            let chain = super::body_state_clip(&facts).expect("this state asks for a row");
+            let chain = super::body_state_clip(&facts, Default::default())
+                .expect("this state asks for a row");
+            assert_eq!(
+                chain.last(),
+                Some(&"idle"),
+                "chain {chain:?} can fall through to nothing on a lean sheet"
+            );
+        }
+        for f in [
+            super::FighterClipFacts {
+                held: true,
+                ..Default::default()
+            },
+            super::FighterClipFacts {
+                guard_broken: true,
+                ..Default::default()
+            },
+            super::FighterClipFacts {
+                holding: true,
+                ..Default::default()
+            },
+        ] {
+            let chain = super::body_state_clip(&BodyMotionFacts::default(), f)
+                .expect("this state asks for a row");
             assert_eq!(
                 chain.last(),
                 Some(&"idle"),

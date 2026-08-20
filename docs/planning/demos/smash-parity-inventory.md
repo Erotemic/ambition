@@ -99,11 +99,11 @@ you add a `▢`, and before you work one.
 | Taunt: input verb, authored move, drawn row | ✔ | `ControlSlot::Taunt`, `moveset_authoring::taunt`, one per fighter |
 | Directional taunts (up / down / side) | ▢ | the verb chain supports it; no fighter authors one |
 | Taunt voice line or cue | ▢ | — |
-| Grab / held / pummel / throw poses | ▢ | no rows |
+| Grab / held / pummel / throw poses | ✔ | the rows SHIP (Carl draws `grab_hold`, `pummel`, `throw_forward/back/up/down`, `grabbed`); `smash_capture::bound` asks per verb, `BodyAnimFacts::held`/`holding` for the two poses no move owns |
 | Shield bubble, shrinking and reddening with integrity | ✔ | `render/rendering/bubble_shield.rs` |
 | Shield-up sprite pose | ✔ | `pick_body_anim` draws `Block` off `shield.active` |
-| Dizzy pose for a broken shield | ▢ | a broken guard draws its ordinary locomotion row |
-| A captive draws as HELD | ~ | `capture::mirror_capture_into_anim_facts` → `BodyAnimFacts::held`; draws the HURT row, no dedicated held row exists |
+| Dizzy pose for a broken shield | ✔ | the `dizzy` row ships; `body_state_clip` asks for it off `FighterClipFacts::guard_broken` |
+| A captive draws as HELD | ✔ | `BodyAnimFacts::held` → `FighterClipFacts` → the `grabbed` row, with `Hit` as the tail |
 | Rows drawn but never selected | ~ | `Charge`, `Punch`, `LedgeClimb`, `Interact` |
 | Hit sparks, KO burst, screen shake | ✔ | `ambition_vfx` |
 | Shield-break shatter burst and tone | ✔ | `features/movement_fx.rs` |
@@ -150,9 +150,9 @@ and leaves the values rough; tuning is not this lane's licence.
 1. ~~**Shield as a resource**~~, ~~**shieldstun**~~, ~~**Taunt**~~, ~~**stale
    moves and rage**~~ and ~~**the footstool's victim reaction**~~ — landed
    2026-08-19/20.
-2. **The missing sprite rows** — a held pose, a pummel, a throw, and a dizzy for
-   a broken guard. All four currently draw `Hit`, which stops them reading as
-   calm but does not make them read as themselves.
+2. ~~**The missing sprite rows**~~ — landed 2026-08-20, and the row was WRONG:
+   the art ships. Carl's sheet has `grabbed`, `pummel`, `throw_forward/_back/
+   _up/_down`, `grab_hold` and `dizzy`; nothing ever asked the sheet for them.
 3. **Grab depth** — escape difficulty scaling with damage, dash/pivot grabs,
    grab release as its own beat.
 4. **Ledge trump and ledge-intangibility decay.**

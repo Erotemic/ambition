@@ -302,6 +302,11 @@ pub fn rebuild_body_pose_views(
                 .or_else(|| {
                     crate::ClipRequest::from_chain(ambition_character_sprites::body_state_clip(
                         motion_facts?,
+                        ambition_character_sprites::FighterClipFacts {
+                            held: anim_facts.is_some_and(|f| f.held),
+                            holding: anim_facts.is_some_and(|f| f.holding),
+                            guard_broken: shield.is_some_and(|s| s.broken()),
+                        },
                     )?)
                 }),
             hit_flash_secs: combat.map_or(0.0, |c| c.hit_flash),
@@ -375,17 +380,15 @@ pub fn rebuild_shield_rings_view(
     )>,
 ) {
     view.0.clear();
-    view.0.extend(
-        bodies
-            .iter()
-            .filter(|(_, shield, _, _)| shield.active)
-            .map(|(kin, shield, presented, model)| ShieldRingFact {
+    view.0
+        .extend(bodies.iter().filter(|(_, shield, _, _)| shield.active).map(
+            |(kin, shield, presented, model)| ShieldRingFact {
                 pos: presented.map_or(kin.pos, |p| p.presented()),
                 size: kin.size,
                 parrying: shield.parrying(),
                 integrity: model.map_or(1.0, |m| shield.integrity_fraction(m.shield_tuning())),
-            }),
-    );
+            },
+        ));
 }
 
 #[cfg(test)]

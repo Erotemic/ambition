@@ -442,17 +442,28 @@ pub fn tick_capture_holds(
 /// when a hold ended. The sim publishes the fact here, and every picker — the
 /// controlled road and the actor road alike — reads the same one.
 pub fn mirror_capture_into_anim_facts(
+    // ⚠ a SECOND read of the same relation, because the captor is not reachable
+    // from its own row: `CapturedBy` lives on the CAPTIVE and names the captor,
+    // so the only way to ask "is anybody holding me... or am I holding anybody"
+    // is to read every hold once.
+    holds: Query<&CapturedBy>,
     mut bodies: Query<(
+        Entity,
         &mut ambition_characters::actor::BodyAnimFacts,
         Option<&CapturedBy>,
     )>,
 ) {
-    for (mut anim, held) in &mut bodies {
+    let captors: Vec<Entity> = holds.iter().map(|hold| hold.captor).collect();
+    for (entity, mut anim, held) in &mut bodies {
         let now = held.is_some();
         // ⚠ `is_changed()` writes must be idempotent under rollback, so only
         // touch the component when the answer actually moved.
         if anim.held != now {
             anim.held = now;
+        }
+        let holding = captors.contains(&entity);
+        if anim.holding != holding {
+            anim.holding = holding;
         }
     }
 }
@@ -521,6 +532,55 @@ mod tests {
             half_extents: ae::Vec2::new(12.0, 14.0),
             hold_offset: ae::Vec2::new(18.0, 0.0),
         }
+    }
+
+    /// **BOTH ENDS OF A HOLD ARE DRAWN, AND BOTH ARE RELEASED.**
+    ///
+    /// ⛔ the mirror is what lets the anim layer stay out of `CapturedBy`, so the
+    /// captor half has to come from the same pass — the relation lives on the
+    /// CAPTIVE and names its captor, so nothing on the captor's own row says it
+    /// is holding anybody. ⚠ and the release half is the assertion that matters:
+    /// a `holding` flag set on acquisition and never cleared would leave the last
+    /// captor stuck in the hold pose for the rest of the match, which is exactly
+    /// the latch shape this system was written as a mirror to avoid.
+    #[test]
+    fn a_hold_draws_the_captor_as_well_as_the_captive() {
+        let mut app = App::new();
+        app.add_systems(Update, mirror_capture_into_anim_facts);
+        let captor = grounded_body(&mut app, "captor", ae::Vec2::ZERO);
+        let victim = grounded_body(&mut app, "victim", ae::Vec2::new(16.0, 0.0));
+        for body in [captor, victim] {
+            app.world_mut()
+                .entity_mut(body)
+                .insert(ambition_characters::actor::BodyAnimFacts::default());
+        }
+        app.world_mut().entity_mut(victim).insert(CapturedBy {
+            captor,
+            hold_offset_local: ae::Vec2::new(18.0, 0.0),
+            prior_gravity_scale: 1.0,
+        });
+
+        app.update();
+
+        let facts = |app: &App, body: Entity| {
+            let f = app
+                .world()
+                .get::<ambition_characters::actor::BodyAnimFacts>(body)
+                .expect("the body kept its anim facts");
+            (f.held, f.holding)
+        };
+        assert_eq!(facts(&app, victim), (true, false), "the captive");
+        assert_eq!(facts(&app, captor), (false, true), "the captor");
+
+        app.world_mut().entity_mut(victim).remove::<CapturedBy>();
+        app.update();
+
+        assert_eq!(facts(&app, victim), (false, false), "the freed body");
+        assert_eq!(
+            facts(&app, captor),
+            (false, false),
+            "the captor kept the hold pose after letting go"
+        );
     }
 
     /// **⭐ A SHIELD DOES NOT STOP A GRAB — the third leg of the triangle.**
@@ -700,9 +760,9 @@ mod tests {
         // ⚠ a hold is TWO components: the relation, and this ruleset's half.
         app.world_mut().entity_mut(victim).insert((
             CapturedBy {
-            captor,
-            hold_offset_local: ae::Vec2::new(20.0, -4.0),
-            prior_gravity_scale: 1.0,
+                captor,
+                hold_offset_local: ae::Vec2::new(20.0, -4.0),
+                prior_gravity_scale: 1.0,
             },
             ambition_characters::smash_capture::SmashHoldState::default(),
         ));
@@ -760,9 +820,9 @@ mod tests {
         // ⚠ a hold is TWO components: the relation, and this ruleset's half.
         app.world_mut().entity_mut(victim).insert((
             CapturedBy {
-            captor,
-            hold_offset_local: ae::Vec2::new(16.0, 0.0),
-            prior_gravity_scale: 1.0,
+                captor,
+                hold_offset_local: ae::Vec2::new(16.0, 0.0),
+                prior_gravity_scale: 1.0,
             },
             ambition_characters::smash_capture::SmashHoldState::default(),
         ));
@@ -876,9 +936,9 @@ mod tests {
         // ⚠ a hold is TWO components: the relation, and this ruleset's half.
         app.world_mut().entity_mut(victim).insert((
             CapturedBy {
-            captor,
-            hold_offset_local: ae::Vec2::new(16.0, 0.0),
-            prior_gravity_scale: 1.0,
+                captor,
+                hold_offset_local: ae::Vec2::new(16.0, 0.0),
+                prior_gravity_scale: 1.0,
             },
             ambition_characters::smash_capture::SmashHoldState::default(),
         ));
@@ -1182,7 +1242,10 @@ mod tests {
             .world()
             .get::<ambition_characters::smash_capture::SmashHoldState>(victim)
             .expect("a held body carries this ruleset's hold state");
-        assert_eq!(state.pummels_landed, 2, "the hold did not count its pummels");
+        assert_eq!(
+            state.pummels_landed, 2,
+            "the hold did not count its pummels"
+        );
         assert_eq!(
             app.world()
                 .get::<ambition_characters::actor::BodyHealth>(victim)
@@ -1345,9 +1408,9 @@ mod tests {
         // ⚠ a hold is TWO components: the relation, and this ruleset's half.
         app.world_mut().entity_mut(first).insert((
             CapturedBy {
-            captor,
-            hold_offset_local: ae::Vec2::new(18.0, 0.0),
-            prior_gravity_scale: 1.0,
+                captor,
+                hold_offset_local: ae::Vec2::new(18.0, 0.0),
+                prior_gravity_scale: 1.0,
             },
             ambition_characters::smash_capture::SmashHoldState::default(),
         ));

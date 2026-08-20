@@ -14,6 +14,7 @@ repo's goal checks). These tests do the two things the live run cannot:
 
 from __future__ import annotations
 
+import json
 import re
 import sys
 from pathlib import Path
@@ -419,6 +420,37 @@ def test_the_rollback_ratchet_holds_against_the_live_tree():
     root = Path(__file__).resolve().parents[2]
     new, stale = rollback_schema_violations(root)
     assert not new and not stale, f"new={new} stale={stale}"
+
+
+def test_the_rollback_baseline_counts_agree_with_their_own_lists():
+    """A count nobody verifies is a decoration, not a ratchet.
+
+    ⛔ **both count fields were WRONG on 2026-08-20, in every recent commit on
+    both branches.** `encoded_type_count` read 118 against 119 actual entries;
+    `stable_schema_name_count` read 363 against 364. Nothing noticed, because
+    nothing looked.
+
+    ⭐ **the drift is structural rather than careless, which is why it needs a
+    test rather than more care.** These lists are SORTED and merge line by line,
+    so a merge can add a row; the count beside them is a SCALAR, so a merge just
+    takes one side's value. Two lanes touching the file therefore pull the list
+    and its count apart with no conflict to review — and the file's whole job is
+    to be the thing a peer compares against.
+    """
+    root = Path(__file__).resolve().parents[2]
+    baseline = json.loads(
+        (root / "scripts" / "baselines" / "rollback-schema-baseline.json").read_text()
+    )
+    for listed, counted in (
+        ("stable_schema_names", "stable_schema_name_count"),
+        ("encoded_types", "encoded_type_count"),
+    ):
+        assert len(baseline[listed]) == baseline[counted], (
+            f"`{counted}` says {baseline[counted]} and `{listed}` holds "
+            f"{len(baseline[listed])}. Recompute the count in the same commit "
+            f"that changed the list — a wrong number in a file whose purpose is "
+            f"to be authoritative is worse than no number."
+        )
 
 
 def test_the_rollback_ratchet_is_not_silently_empty():

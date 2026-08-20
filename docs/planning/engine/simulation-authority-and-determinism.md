@@ -153,34 +153,14 @@ parallel snapshot abstraction.
 
 ---
 
-**The superseded reasoning, kept because closing this twice would be worse than
-recording it once:**
-
-⛔⛔ **THAT CONCLUSION WAS REOPENED (2026-08-15) — it did not survive review.**
-*"Registration is generic over `T`"* does **not** imply the generic runtime's
-SOURCE must own the list of `T`s. Monomorphisation has to happen somewhere, but
-that somewhere can be **a trait method the domain calls** rather than a line in a
-central file — and `AmbitionRollbackApp` already demonstrates a generic typed
-façade. ⇒ a bounded falsifier is in flight: a **backend-neutral registrar
-vocabulary**, implemented by a runtime-owned wrapper around `App` using
-`bevy_ggrs`, with the domain naming its own type against it. Acceptance is that
-`ambition_platformer2d_world` gains **no** `bevy_ggrs` dependency and the generic
-runtime stops naming `GatePortalPhases`, with restoration, schema/checksum and
-probes unchanged.
-
-⚠ **the trade below is still real and still forbids the lazy fix:** giving a
-world/gameplay crate a netcode dependency to remove the census would be a worse
-boundary than the census. The open question is whether a vocabulary avoids
-*both*. ⛔ do not close this again on the generic-API argument alone.
-
-⛔ **and relocating the list is not progress.** Moving the registrations into a
-`domains/rooms.rs` was explicitly rejected: `domains/` is inside the same crate
-and its `mod.rs` is a facade holding the same list — failure mode 1 dressed as
-progress.
-
-⇒ **deletion gate for the rest: an upstream (or forked) `bevy_ggrs` registration
-path keyed by type id rather than generic over the type.** Until that exists,
-federate *semantics* per domain and leave *installation* central.
+**Historical note.** An earlier pass argued the census was structural — that
+`bevy_ggrs` registration being generic over `T` meant the runtime's source had
+to own the list of `T`s. That did not survive review: genericity only
+constrains where monomorphisation happens, not who holds the list, and the
+migration above completed the resulting redesign. ⛔ **A rejected fix along the
+way, worth keeping as a prohibition:** moving the registrations into a
+`domains/rooms.rs` inside the same crate is not decentralization — its `mod.rs`
+is still a facade holding the same list.
 
 ### One authoritative state, explicit projections
 

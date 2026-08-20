@@ -468,12 +468,14 @@ mod tests {
         )
         .into_contract();
         assert!(!set.verbs.contains_key("special"));
-        // ⚠ **18, not 15, since 2026-08-19** — and the delta is the point rather
-        // than a retune: `capture` stopped being `Option` when every fighter
-        // gained a grab, so this fixture is now a fighter WITH one and binds the
-        // three capture verbs beside its sixteen ordinary slots. The claim above
-        // is untouched: abstaining from the neutral special still binds nothing.
-        assert_eq!(set.verbs.len(), 18);
+        // ⚠ **19, and every step of the count is a VERB ARRIVING rather than a
+        // retune.** 15 → 18 on 2026-08-19, when `capture` stopped being `Option`
+        // because every fighter gained a grab and this fixture became a fighter
+        // WITH one, binding the three capture verbs beside its ordinary slots.
+        // 18 → 19 on 2026-08-20 with the taunt. The claim above is untouched
+        // either way: abstaining from the neutral special still binds nothing,
+        // and this number exists to catch a slot binding something it should not.
+        assert_eq!(set.verbs.len(), 19);
     }
 
     /// **Two slots cannot share a move id.** The one integrity defect this shape

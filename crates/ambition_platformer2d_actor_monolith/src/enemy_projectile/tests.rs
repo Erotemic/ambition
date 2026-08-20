@@ -789,6 +789,7 @@ fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
             BodyShieldState {
                 active: true,
                 parry_window_timer: 0.2,
+                ..Default::default()
             },
             BodyCombat::default(),
             // `step_projectiles` reads the victim's resolved frame (ADR 0024).
@@ -922,10 +923,7 @@ fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
         },
         BodyOffense::default(),
         ambition_platformer2d_core::BodyMotionFacts::default(),
-        BodyShieldState {
-            active: false,
-            parry_window_timer: 0.0,
-        },
+        BodyShieldState::default(),
         BodyCombat::default(),
         // `step_projectiles` reads the victim's resolved frame (ADR 0024).
         crate::physics::ResolvedMotionFrame::default(),
@@ -1078,7 +1076,10 @@ fn spawn_executor_attaches_visual_id() {
     insert_projectile_authority(&mut app);
     app.add_message::<ProjectileSpawnRequest>();
     app.init_resource::<ProjectileSeqCounter>();
-    app.add_systems(Update, ambition_projectiles::materialize_projectiles_for_this_tick);
+    app.add_systems(
+        Update,
+        ambition_projectiles::materialize_projectiles_for_this_tick,
+    );
     app.world_mut().write_message(ProjectileSpawnRequest::open(
         Entity::PLACEHOLDER,
         ProjectileSpawn {

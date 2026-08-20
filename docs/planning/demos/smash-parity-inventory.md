@@ -6,6 +6,14 @@ before working it.
 
 `✔` shipped · `~` partial (named in the row) · `▢` absent from source
 
+⛔ **A `▢` IS A CLAIM WITH A GREP BEHIND IT, OR IT IS NOT A ROW.** This table's
+first pass filed eight features as missing that ship — tech, ledge-jump getup,
+the short hop, and five sprite rows the picker already selects — because it was
+assembled from doc comments rather than from consumers. A comment that says *"not
+yet auto-routed"* measures when the comment was written, so **an inventory of
+GAPS built from prose dates the prose, not the code.** Grep the consumer before
+you add a `▢`, and before you work one.
+
 ## Defense
 
 | Feature | | Where |

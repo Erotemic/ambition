@@ -417,7 +417,16 @@ its test assigns `PossessionState::default()` into the running world and steps
 once, which is a real and narrower property and is not a fresh process — no save,
 no serialisation, no second app, no adopter. Both comments now say which is which.
 
-▢ **BODY-CUSTODY PROPAGATION HAS OUTGROWN THE POSSESSION ABILITY.**
+✔ **BODY-CUSTODY PROPAGATION HAS LEFT THE POSSESSION ABILITY** — `cb1aa427d`,
+moved unchanged to `body_custody::project_body_custody`; possession supplies one
+ROOT and the closure below it is shared, so a carry, a vehicle or scripted
+transport joins beside it instead of editing an ability. The move cost no reader
+an edit, which is what `BodyCustodySettled` was for. The stale *"PROMOTE the
+possessed body out of room scope"* paragraph — which also named a function that
+no longer exists — is rewritten to the current model. ⛔ still concrete and typed:
+no registry, no erased callback, no generic attachment graph. Original statement:
+
+▢ **(the case, kept because it is the reusable half.)**
 `project_driven_body_custody` calls itself *"the one owner of `InCustodyOf` for
 BODIES"* while living in `abilities/traversal/possession.rs`, and it now closes
 custody transitively over mounts (`RidingOn`), limbs (`Limb`) and arbitrarily deep
@@ -450,7 +459,8 @@ speculative. ⚠ and gravity is a successful construction-VOCABULARY extraction,
 a fully extracted domain: its construction lives in `shared_tangle` while its
 scheduling/runtime ownership is still in the actor monolith.
 
-▢ **SMASH: THE MEASUREMENT STANDS, THE ASSERTION TEXT DOES NOT.** "One mind
+▢ **SMASH: THE MEASUREMENT STANDS, THE ASSERTION TEXT DOES NOT.** ⚠ TAKEN by the
+smash lane 2026-08-20 (`smash-parity`), assertion text only. "One mind
 played twice" is FALSIFIED — the CPUs have different RNG streams, draw different
 samples, fight, overlap attack range, create live hitboxes, land hits and take
 mirrored outcomes; at difficulty 5 the execution-noise effect is 0–1 frames,

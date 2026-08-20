@@ -1,36 +1,23 @@
 # World geometry and spatial semantics
 
-**State:** ⭐ **WARRANTED 2026-08-15 — a trigger is MET (see the correction
-below); SCHEDULING is open.** Not promoted into an execution row yet, and that is
-an ordering call rather than a verdict on the plan. Planning-only extension of existing Engine 1.0 programs. This document
-is not execution authority and does not promote itself into `queue.md` or
-`tracks.md`.
+**State:** ⭐ Warranted 2026-08-15, promoted to D169 on 2026-08-20 after a
+stranding census found this document referenced by nothing else in the repo.
+Scheduling is open — this document is not execution authority and does not
+promote itself into `queue.md` or `tracks.md`.
 
-## ⛔⛔ CORRECTION 2026-08-20 — trigger #5 is REAL and names the WRONG LAYER
+## Current finding (2026-08-20) — trigger #5 is met, but names the wrong layer
 
-⭐ **promoted to D169 on 2026-08-20** after a stranding census found this document
-referenced by nothing in the repository — 1 of 267 planning docs. That is the
-routing failure `tracks.md` exists to end, recurring five days after it was
-measured clean.
-
-⇒ and measuring the trigger before executing it changed the work. **The MECHANISM
-is already generic.** `apply_world_hazard_gate`
+The mechanism is already generic: `apply_world_hazard_gate`
 (`platformer2d_core/src/movement/kernel.rs:422`) computes a per-axis distance past
-the world AABB and emits `ResetCause::LeftTheWorld`, and its own header says
-*"policies flag; the body's owner applies its reset policy."* Smash loses a stock,
-Mary-O respawns, Ambition calls it out of bounds — three meanings over one engine
-fact, which is this plan's principle 1 **already satisfied**. `blast_margin`'s doc
-says the same thing in its first sentence: *"a platformer's pit depth and a
-platform fighter's blast zone — the same number, and it belongs to the STAGE."*
-
-⛔ **so there is no bespoke platform-fighter PRIMITIVE to remove, and the section
-below claiming one is wrong about the layer.** What is genre-specific is the WORD.
-
-⭐⭐ **and the word leaks furthest where an author meets it.** The LDtk converter
-reads the authored key by that name, and **all six shipped worlds carry all three
-fields in `defs.levelFields`** — while **zero levels author a value.** Eighteen
-schema entries, no data. Every author of every world in this project is shown
-three platform-fighter fields nobody has ever filled in.
+the world AABB and emits `ResetCause::LeftTheWorld`; the body's owner applies its
+own reset policy (Smash loses a stock, Mary-O respawns, Ambition calls it out of
+bounds). That is this plan's principle 1 already satisfied — **there is no
+bespoke platform-fighter primitive to remove.** What is genre-specific is the
+WORD: `blast_margin`, `side_blast_margin`, and `ceiling_blast_margin` in
+`crates/ambition_platformer2d_core/src/world.rs` name a platform-fighter concept
+even though every game's `World` carries all three fields. All six shipped
+worlds carry all three fields in `defs.levelFields`; zero levels author a
+value — eighteen schema entries, no data.
 
 ⇒ the slice is a RENAME, it costs no content migration, and the authoring half is
 a maintainer decision because the `.ldtk` files are hand-edited:
@@ -39,93 +26,29 @@ a maintainer decision because the `.ldtk` files are hand-edited:
 one name, so renaming one needs a mapping, and a mapping is the shim this project
 refuses.
 
-⭐ **the lesson this plan already taught, applied to itself**: *"the measurement
-was sound; the sentence after it was not."* Trigger #5's measurement — three
-platform-fighter fields in every game's `World` — is exactly right. The sentence
-after it, that the engine provides a bespoke primitive, is not.
+The `BlockKind` diagnosis in Symptom B below was re-measured against HEAD
+(`crates/ambition_platformer2d_core/src/world.rs:20`) and still holds: the enum
+mixes contact law, traversal permission, world consequence and contact affordance
+on one axis, and a closed taxonomy of that shape grows `OneWayConveyor` and
+`BlinkWallRebound` as customers arrive.
 
-## ⭐⭐ COORDINATOR TRIAGE 2026-08-15 — the strongest trigger was TESTED and did NOT fire
+### What is done instead — arm the tripwire, do not run the campaign
 
-⭐ **the `BlockKind` diagnosis in Symptom B is CORRECT and was re-measured against
-HEAD** (`crates/ambition_platformer2d_core/src/world.rs:20`). The enum really does
-mix contact law, traversal permission, world consequence and contact affordance on
-one axis, and a closed taxonomy of that shape really does grow `OneWayConveyor` and
-`BlinkWallRebound` as customers arrive. Nothing below is a disagreement with the
-analysis.
-
-## ⛔⛔ CORRECTION 2026-08-15 — the triage below CHECKED ONE TRIGGER OF FIVE
-
-⭐⭐ **trigger #5 is MET, has been for a while, and is shipping.** Jon named it:
-the blast zone is an ENGINE-level concept, which is a smell, and Smash should be
-able to say *"this region is my blast zone"* over generic geometry instead of the
-engine providing a bespoke platform-fighter primitive.
-
-Measured at HEAD, and it is worse than "a game concept leaked upward" —
-`crates/ambition_platformer2d_core/src/world.rs`:
-
-```text
-:888   pub blast_margin: f32,            + a serde default and DEFAULT_BLAST_MARGIN
-:900   pub side_blast_margin: Option<f32>,
-:906   pub ceiling_blast_margin: Option<f32>,
-       three builders, an LDtk lowering pass, and a render overlay
-```
-
-⇒ **every game built on this engine carries three platform-fighter fields.**
-Mary-O's `World` has a `blast_margin`. Trigger #5 says *"a provider game needs a
-spatial noun and must edit a closed engine switch"*; this is that, inverted and
-worse — the Smash-specific noun is already inside the engine, permanently, for
-everyone.
-
-⭐ **and the generic fact underneath it is a boundary region with a CONSEQUENCE.**
-Smash calls it a blast zone and loses a stock; Mary-O calls it a pit and respawns;
-Ambition calls it out-of-bounds. Engine owns the geometry, game owns the meaning —
-which is this plan's own principle 1. ⭐ **the slice is shaped like a DELETION**,
-which is the strongest form a first customer can take.
-
-⛔ **the error to learn from, since it is the cheap kind to repeat:** the triage
-below tested trigger #1, found it negative, and generalised to all five. The
-measurement was sound; the sentence after it was not. **A negative on one trigger
-is not a negative on the plan.**
-
-⚠ **this correction is about JUSTIFICATION, not schedule.** The plan is warranted;
-whether it outranks the other engine work in flight is a separate ordering question
-and is left open deliberately. ⛔ do not read "warranted" as "next".
-
----
-
-⚠ **the paragraph below is the superseded reasoning, kept because the error is
-more instructive than the conclusion.**
-
-⛔⛔ **this plan's own trigger #1 ran as a real experiment today and came back
-NEGATIVE, and that is the finding.** A worker authored a complete new Mary-O room
-through LDtk end to end — terrain, a bonk row, a hidden block, six enemies, coins,
-a moving platform, a warp-tube pair, spawn and flagpole. It hit **no** surface
-combination `BlockKind` could not express, and asked for **no** new species. Its
-friction was somewhere else entirely: discovery of legal field values,
-hand-kept registration sites, and a silent `Custom(…)` fallthrough on
-`String`-typed fields.
-
-⇒ ⭐ **an untested trigger is a hypothesis; a tested one is evidence.** The
-authoring customer this plan named as its strongest reason to start does not want
-compositional surfaces yet — it wants to *see what it may place*. That is the
-authoring-and-tools program, and it is where the session budget goes.
-
-The other four triggers are also unmet at HEAD: no second surface-motion customer
-(`kinematic-world-objects` is resting), no zone family repeating identity plumbing,
-no inspection feature blocked on a geometry descriptor, no provider game blocked on
+⛔ **do not schedule S0–S5.** Trigger #1 was tested directly: a worker authored a
+complete Mary-O room end to end through LDtk (terrain, a bonk row, a hidden
+block, six enemies, coins, a moving platform, a warp-tube pair, spawn and
+flagpole) and hit no surface combination `BlockKind` could not express — its
+friction was discovery of legal field values, hand-kept registration sites, and a
+silent `Custom(…)` fallthrough, which is the authoring-and-tools program's
+problem, not this plan's. The other four triggers are also unmet at HEAD: no
+second surface-motion customer, no zone family repeating identity plumbing, no
+inspection feature blocked on a geometry descriptor, no provider game blocked on
 a closed switch.
 
-### ⭐ What is done instead — arm the tripwire, do not run the campaign
-
-⛔ **do not schedule S0–S5.** The cheap, correct action is to put the trigger where
-the person who trips it will be standing: a note at `BlockKind` itself saying that
-adding a **combinatorial** species — a variant that is two existing axes crossed —
-IS trigger #1, and pointing here. ⚠ a plan that fires when someone reaches for
-`OneWayConveyor` is worth more than a campaign that runs before anyone has.
-
-⇒ **re-triage when that note is tripped**, or when any other trigger above is
-measured. ⛔ not because the analysis looks compelling — it already does, and that
-is precisely why it needs a customer rather than an advocate.
+The correct action is a tripwire, not a campaign: a note at `BlockKind` itself
+saying that adding a **combinatorial** species — two existing axes crossed — IS
+trigger #1, pointing here. Re-triage when that note is tripped, or when trigger
+#5's rename is scheduled.
 
 ## Goal
 

@@ -138,6 +138,32 @@ def shape_of(path: Path) -> tuple[int, str]:
         tokens.append(f'arr[{len(body.split(",")) }]')
     for match in re.finditer(r'\[\s*(?:false|true|0u8|0i32|0f32|0\.0)\s*;\s*(\d+)\s*\]', text):
         tokens.append(f'fixed[{match.group(1)}]')
+    # ⛔⛔ **AND `snapshot_unit_enum!` IS THE THIRD CONSTRUCT TO HIDE THE SAME WAY.**
+    #
+    # `snapshot_unit_enum!(Ty { Ground = 0, Air = 1, … })` expands to ONE
+    # `put_u8` of a discriminant — and that `put_u8` lives in the MACRO, in
+    # `snapshot.rs`, not at the invocation. So an invocation site contributes no
+    # primitive call at all, and adding a variant adds a code a peer can now
+    # decode while every token above stays identical. Measured 2026-08-20: a
+    # branch adding `MovementOp::Footstool = 34` left
+    # `platformer2d_core/src/snapshot_impls.rs` byte-identical at
+    # `3355eb410d168f88`, and the enum went from 34 variants to 35.
+    #
+    # ⭐ **the file already documented the first two holes and this is the same
+    # sentence a third time** — a POD gaining a field with no primitive call, an
+    # array-driven codec widening with no primitive call, and now a wire CODE
+    # arriving with no primitive call. ⇒ when a construct decides bytes without
+    # naming a `put_*`, it has to be folded in by hand; there is no general rule
+    # here, only the list.
+    #
+    # ⚠ **the DISCRIMINANTS, SORTED — never the names and never the order.** A
+    # rename is not a wire change and neither is reordering the variant list,
+    # because each variant keeps its own code; a checker that fires on either is
+    # the false positive this file's own docs say gets it turned off. An ADDED,
+    # REMOVED or RENUMBERED code is a wire change and moves the sorted set.
+    for match in re.finditer(r'\bsnapshot_unit_enum!\s*\((.*?)\)\s*;', text, flags=re.S):
+        codes = sorted(int(code) for code in re.findall(r'=\s*(\d+)', match.group(1)))
+        tokens.append(f'unit_enum[{len(codes)}:{",".join(str(c) for c in codes)}]')
     digest = hashlib.sha1('\n'.join(tokens).encode('utf8')).hexdigest()[:16]
     return len(tokens), digest
 

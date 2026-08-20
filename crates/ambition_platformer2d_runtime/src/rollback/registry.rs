@@ -319,19 +319,57 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// it also moved `ambition_cutscene` and `ambition_demo_twintrack`, which is the
 /// instrument CHANGING and NOT a wire change in either: neither file was edited.
 ///
-/// ⚠ **v42 (2026-08-20) is the FOOTSTOOL's wire, and the guard's remaining
-/// fields.** `MovementOp` gains `Footstool = 34` beside `ShieldBreak = 33`, so a
-/// `BodyComboTrace` can carry an op code a v41 peer does not know; `MovementTuning`'s
-/// axis-swept projection gains four `FootstoolTuning` floats and the guard's
-/// `stun_per_damage`, which the motion codec writes; and `BodyShieldState`'s
-/// snapshot gains `depleted`, `break_timer` and `stun_timer`. All payload behind
-/// unchanged stable keys, which is precisely the shape v41 records as invisible
-/// to the app-level baseline.
-/// ⭐ **caught the same way v41 was, one lane later**: the shield and the
-/// footstool both changed encodings and neither Rust test noticed. Adding a wire
-/// code or a codec field is a THREE-gate change — `cargo check --workspace
-/// --all-targets`, `cargo test --workspace --lib`, and `python3 -m pytest
-/// scripts/tests/` — and only the third one has ever caught this class.
+/// ⚠ **v42 (2026-08-20) is the FOOTSTOOL's wire, and ONLY that.** Two things
+/// move, and they are measured differently:
+///
+/// ```text
+/// core/motion_codec.rs   326 -> 334   +8   four FootstoolTuning floats, put AND read
+/// MovementOp::Footstool = 34               a new wire CODE
+/// ```
+///
+/// ⛔ **an earlier draft of this entry also claimed `stun_per_damage` and
+/// `BodyShieldState`'s three fields. Both are v41's** — they were already on
+/// main when v41 was recorded, and v41's corrected entry below now names them.
+/// Two hand-written entries, two corrections in one hour, both understating the
+/// same way: ⇒ **the recorded baseline is MEASURED and this log is PROSE, so the
+/// prose is the side that drifts.** When they disagree, trust the baseline.
+///
+/// ⭐ **and `Footstool = 34` is the first op code any instrument has ever
+/// caught.** `snapshot_unit_enum!` was invisible to
+/// `scripts/rollback_codec_shape.py`: a variant list is bare idents with no
+/// primitive call, so `core/snapshot_impls.rs` hashed IDENTICALLY with the
+/// variant added — the third time that file's own docs describe this hole, after
+/// `snapshot_pod!` and the array-driven codec. The fold now takes the
+/// discriminants SORTED, so a rename and a reorder are not wire changes and an
+/// added or renumbered code is.
+/// ⛔⛔ **v41's ENTRY BELOW WAS INCOMPLETE, AND THE DECISION WAS STILL RIGHT.**
+/// Corrected 2026-08-20 the same day, after a peer lane found the rest. The bump
+/// was correct and `--record` captured the whole tree, so the BASELINE never
+/// lied; what was short is the prose, which is the human-readable contract for
+/// what a version MEANS. THREE codec files moved at v41, not one — measured by
+/// diffing the recorded baseline across the commit rather than by re-reading the
+/// diff that prompted it:
+///
+/// ```text
+/// ambition_characters/snapshot_impls.rs        240 prims (unchanged)  hash moved   the taunt bool
+/// ambition_platformer2d_core/motion_codec.rs   314 -> 326 prims       +12          ShieldTuning's SIX fields, put and read
+/// ambition_platformer2d_core/snapshot_impls.rs 102 prims (unchanged)  hash moved   BodyShieldState + depleted/break_timer/stun_timer
+/// plus `MovementOp::ShieldBreak = 33`, a new wire CODE
+/// ```
+///
+/// ⭐ **the lesson is about the instrument, not the miss.** `pytest
+/// scripts/tests/` truncates its diff — it printed *"At index 1 diff"* and one
+/// row, and I described the tree from that one row. ⇒ **when a recorded baseline
+/// reddens, diff the RECORDED FILE across the commit and enumerate every moved
+/// row**; the test's message names an example, not the change. Two of the three
+/// rows above have an UNCHANGED primitive count and a moved hash, which is
+/// exactly the array/struct-folded case the checker was taught to catch and the
+/// case a reader skimming counts would call unmoved.
+///
+/// ⚠ **`MovementOp` codes are the least wire-looking wire there is.** A
+/// `BodyComboTrace` carrying op 33 is undecodable to a v40 peer, and nothing
+/// about the name says "wire".
+///
 /// ⚠ **v41 (2026-08-20) is ONE BIT: `ActorControlFrame::taunt_pressed`.** The
 /// taunt verb travels the road a grab travels, and its codec edge exists for the
 /// same reason the grab edge does — a resimulated tick that lost the press did
@@ -771,7 +809,6 @@ pub fn descriptor_owned<T: 'static>(
         detail,
     }
 }
-
 
 /// Record one schema descriptor on an app, independent of the active rollback backend.
 ///

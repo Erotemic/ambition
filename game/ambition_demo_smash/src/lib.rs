@@ -365,6 +365,7 @@ pub const SMASH_FIGHTER_BODY: ambition_platformer2d::engine_core::MatchBody =
         air_dodge_endlag: ambition_platformer2d::engine_core::AIR_DODGE_ENDLAG,
         tumble_speed: 500.0,
         shield: ambition_platformer2d::engine_core::ShieldTuning::PLATFORM_FIGHTER,
+        footstool: ambition_platformer2d::engine_core::FootstoolTuning::PLATFORM_FIGHTER,
     };
 
 /// **THE BASIC SMASH ABILITIES** — the verbs every fighter on this stage has.
@@ -707,6 +708,15 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             )
                 .chain()
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Materialize),
+        );
+        // **The footstool lands in `Settle`, and that is the whole reason it
+        // needs no scheduling argument with the air jump.** Both bodies' velocity
+        // has already been integrated by the time it runs, so whatever the jump
+        // press also produced, the head-bounce is what the tick ends with.
+        app.add_systems(
+            sim,
+            ambition_platformer2d::actors::features::ecs::footstool::apply_footstools
+                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle),
         );
         // **A capture ends in `Settle`, where post-damage bookkeeping belongs.**
         // Hitstun and the recoil lock are written by damage resolution in

@@ -61,6 +61,8 @@ pub enum MovementOp {
     ShieldUp,
     /// The guard was spent to nothing and shattered — the body is dizzy.
     ShieldBreak,
+    /// This body jumped off another body's head.
+    Footstool,
 }
 
 impl MovementOp {
@@ -100,6 +102,7 @@ impl MovementOp {
             MovementOp::Reset => "0",
             MovementOp::ShieldUp => "SH",
             MovementOp::ShieldBreak => "SB",
+            MovementOp::Footstool => "FS",
         }
     }
 
@@ -139,6 +142,7 @@ impl MovementOp {
             MovementOp::Reset => "reset",
             MovementOp::ShieldUp => "shield up",
             MovementOp::ShieldBreak => "shield break",
+            MovementOp::Footstool => "footstool",
         }
     }
 }

@@ -395,6 +395,9 @@ pub struct MovementTuning {
     /// See [`ShieldTuning`].
     #[serde(default)]
     pub shield: ShieldTuning,
+    /// See [`FootstoolTuning`].
+    #[serde(default)]
+    pub footstool: FootstoolTuning,
     pub parry_window_time: f32,
     /// Momentum-carry parameters for ledge getups. Set to
     /// `LedgeMomentumTuning::OFF` to disable the mechanic.
@@ -626,6 +629,9 @@ pub struct TraversalAbilityTuning {
     /// See [`ShieldTuning`].
     #[serde(default)]
     pub shield: ShieldTuning,
+    /// See [`FootstoolTuning`].
+    #[serde(default)]
+    pub footstool: FootstoolTuning,
     pub parry_window_time: f32,
     #[serde(default)]
     pub ledge_momentum: LedgeMomentumTuning,
@@ -684,6 +690,56 @@ impl ShieldTuning {
     /// Whether this body's shield is a spendable resource at all.
     pub fn is_resource(self) -> bool {
         self.max_health > 0.0
+    }
+}
+
+/// **THE FOOTSTOOL** — jumping off another body's head.
+///
+/// Set [`Self::rise_speed`] to `0.0` (the default) and no body can be stood on,
+/// which is what every body in the game had.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct FootstoolTuning {
+    /// Upward speed the stomper takes off the head (px/s). `0.0` = no footstool.
+    pub rise_speed: f32,
+    /// Downward speed the stomped body is driven at (px/s). This is the half
+    /// that makes a footstool a KILL move near a blast floor rather than a
+    /// mobility trick.
+    pub press_speed: f32,
+    /// Seconds the stomped body has no control authority.
+    pub victim_stun: f32,
+    /// Penetration tolerance for "feet on its head" (px). See
+    /// [`crate::collision_semantics::feet_on_head`] — reach, not hover.
+    pub band: f32,
+}
+
+impl Default for FootstoolTuning {
+    fn default() -> Self {
+        Self::OFF
+    }
+}
+
+impl FootstoolTuning {
+    /// Nobody can be stood on.
+    pub const OFF: Self = Self {
+        rise_speed: 0.0,
+        press_speed: 0.0,
+        victim_stun: 0.0,
+        band: 0.0,
+    };
+
+    /// Platform-fighter defaults: a hop a touch under a full jump, a shove that
+    /// costs the stomped body its airspace, and a stun short enough to recover
+    /// from over the stage and fatal off it.
+    pub const PLATFORM_FIGHTER: Self = Self {
+        rise_speed: 330.0,
+        press_speed: 220.0,
+        victim_stun: 0.28,
+        band: 14.0,
+    };
+
+    /// Whether any body may be stood on under this tuning.
+    pub fn is_enabled(self) -> bool {
+        self.rise_speed > 0.0
     }
 }
 
@@ -801,6 +857,7 @@ impl MovementTuning {
                 tumble_speed: self.tumble_speed,
                 parry_window_time: self.parry_window_time,
                 shield: self.shield,
+                footstool: self.footstool,
                 ledge_momentum: self.ledge_momentum,
             },
             flight: FlightTuning {
@@ -893,6 +950,7 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     tumble_speed: 0.0,
     parry_window_time: PARRY_WINDOW_TIME,
     shield: ShieldTuning::OFF,
+    footstool: FootstoolTuning::OFF,
     ledge_momentum: LedgeMomentumTuning::DEFAULT,
 };
 

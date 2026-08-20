@@ -388,6 +388,15 @@ impl MotionModel {
         }
     }
 
+    /// **This body's footstool rules**, or [`FootstoolTuning::OFF`] for a policy
+    /// that has none. The sibling of [`Self::shield_tuning`].
+    pub fn footstool_tuning(&self) -> crate::FootstoolTuning {
+        match self {
+            Self::AxisSwept(axis) => axis.params.abilities.footstool,
+            Self::SurfaceMomentum(_) | Self::AdhesiveCrawler(_) => crate::FootstoolTuning::OFF,
+        }
+    }
+
     /// **What a full-deflection direct command means for this body**, in px/s.
     ///
     /// The projection a CONTROLLER wants, and the sibling of

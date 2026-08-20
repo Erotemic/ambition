@@ -241,6 +241,7 @@ snapshot_unit_enum!(crate::movement::MovementOp {
     GetupRoll = 31,
     GetupAttack = 32,
     ShieldBreak = 33,
+    Footstool = 34,
 });
 
 // The hang state machine (`Option<LedgeGrabState>`) is axis-policy maneuver

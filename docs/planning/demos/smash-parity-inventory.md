@@ -46,7 +46,7 @@ before working it.
 | Full hop, double jump, wall jump, fast fall | ✔ | `core::movement` |
 | Jump squat, and a release inside it short-hops | ✔ | `movement/simulation.rs::tick_jump_squat` |
 | Short hop as its own authored height (not a velocity cut) | ▢ | — |
-| Footstool jump | ▢ | — |
+| Footstool jump | ✔ | `features/ecs/footstool.rs`, `collision_semantics::feet_on_head` |
 | Jostle / body pushback between fighters | ▢ | — |
 | Ledge grab with intangibility window | ✔ | `core/ledge_grab/` |
 | Ledge getup: climb / roll / attack | ✔ | `LedgeGetupKind` |
@@ -63,8 +63,8 @@ before working it.
 | Hitlag, hitstun | ✔ | same |
 | DI | ✔ | `hit_response::di_adjust` |
 | SDI | ▢ | — |
-| Meteor / spike (downward launch) | ~ | `launch_dir` expresses it; no meteor-specific rule or cancel |
-| Meteor cancel | ▢ | — |
+| Spike (a downward hit drives the victim, no attacker rebound) | ✔ | `rules::DownwardHitStyle::Spike`, declared by the smash stage |
+| Meteor lock and meteor cancel (a spiked body cannot recover for a window) | ▢ | — |
 | Stale-move queue (repeat use weakens) | ▢ | — |
 | Rage (damage taken raises knockback dealt) | ▢ | — |
 | Charge attacks, landing lag, autocancel | ✔ | `combat/moveset` |
@@ -98,22 +98,54 @@ before working it.
 | Shield-break shatter burst and tone | ✔ | `features/movement_fx.rs` |
 | Grab / throw / parry SFX cues | ▢ | — |
 
+## The rest of Ultimate's list
+
+The mechanics above are the ones a platform fighter needs to feel like one.
+These are the remainder of Smash Ultimate's surface, kept so the next session
+does not have to enumerate the genre again. None is on the roadmap yet; promote
+one when it has a reason.
+
+**Ground movement.** Walk as a distinct gait from run · initial dash and
+foxtrot · dash-dance · pivot and turnaround · run-cancel by crouch or shield.
+
+**Air movement.** Directional air dodge (ours is one evade along the stick) ·
+double-jump cancel · b-reverse and wavebounce · aerial drift out of hitstun ·
+fast-fall out of a bounce.
+
+**Attack surface.** Dash attack as its own verb · pivot smash · jab combos with
+a rapid-jab finisher · charge storage · a two-frame ledge-vulnerability window ·
+z-drop and item throws · edge-cancel.
+
+**Defense.** Perfect shield as a RELEASE-timed parry (Ultimate moved it off the
+press) · shield tilt to cover a limb · shield-drop into an aerial ·
+directional-influence variants (SDI, ASDI, hitfall).
+
+**Match surface.** Time, stamina and coin rulesets · sudden death · handicap ·
+Final Smash and the meter alternative · items and item spawn rate · stage
+hazards toggle · Battlefield and Omega stage forms · echo fighters · spirits and
+equipment · training-mode readouts (damage-per-hit, launch distance, hitbox
+overlay).
+
+**Presentation.** Screen KO and star KO variants · the launch-star zoom · victory
+poses and the results screen · announcer and per-fighter voice · damage-percent
+shake · the shield-break dizzy stars.
+
 ## Roadmap
 
 Ordered by fun per slice. Each exposes the numbers a Smash game keeps tunable
 and leaves the values rough; tuning is not this lane's licence.
 
-1. ~~**Shield as a resource**~~, ~~**shieldstun**~~ and ~~**Taunt**~~ — landed 2026-08-19.
+1. ~~**Shield as a resource**~~, ~~**shieldstun**~~, ~~**Taunt**~~ and ~~**Footstool**~~ — landed 2026-08-19.
 2. **Grab presentation** — the missing sprite rows, cues and VFX for the grab
    chain that already simulates correctly.
 3. **Shield pushback and shield-shrink poke** — the two halves of shield
    pressure that shieldstun does not cover.
-4. **Meteor and meteor cancel** — tag a launch as a meteor, forbid recovery for
-   a window, allow a cancel after it.
-5. **Footstool** — landing on a head bounces the stomper and buries the stomped.
-6. **Stale moves and rage** — two multipliers on the shared knockback road.
-7. **Grab depth** — escape difficulty scaling with damage, dash/pivot grabs,
+4. **Meteor lock and cancel** — the spike already lands; what is missing is
+   the window in which the spiked body cannot recover, and the cancel that
+   ends it.
+5. **Stale moves and rage** — two multipliers on the shared knockback road.
+6. **Grab depth** — escape difficulty scaling with damage, dash/pivot grabs,
    grab release as its own beat.
-8. **Ledge trump and ledge-intangibility decay.**
-9. **Match rules** — timer, sudden death, friendly-fire toggle, respawn platform.
-10. **SDI, spot dodge, crouch cancel, jostle, wall tech** — the remaining verbs.
+7. **Ledge trump and ledge-intangibility decay.**
+8. **Match rules** — timer, sudden death, friendly-fire toggle, respawn platform.
+9. **SDI, spot dodge, crouch cancel, jostle, wall tech** — the remaining verbs.

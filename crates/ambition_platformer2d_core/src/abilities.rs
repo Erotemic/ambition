@@ -787,6 +787,10 @@ pub struct MatchBody {
     /// when spent. [`crate::ShieldTuning::OFF`] — the engine default — is the
     /// unlimited guard an exploration body keeps.
     pub shield: crate::ShieldTuning,
+    /// **Whether a body may be stood on**, and what it costs both parties.
+    /// [`crate::FootstoolTuning::OFF`] — the engine default — is a world where
+    /// heads are not platforms.
+    pub footstool: crate::FootstoolTuning,
 }
 
 impl MatchBody {
@@ -808,6 +812,7 @@ impl MatchBody {
             air_dodge_endlag: self.air_dodge_endlag,
             tumble_speed: self.tumble_speed,
             shield: self.shield,
+            footstool: self.footstool,
             ..base
         }
     }
@@ -838,6 +843,7 @@ mod tests {
             air_dodge_endlag: 0.16,
             tumble_speed: 500.0,
             shield: crate::ShieldTuning::PLATFORM_FIGHTER,
+            footstool: crate::FootstoolTuning::PLATFORM_FIGHTER,
         };
         let played = stage.over(brought);
 

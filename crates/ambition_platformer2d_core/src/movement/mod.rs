@@ -84,7 +84,7 @@ pub use player::{default_player_body_size, DEFAULT_PLAYER_BODY_HEIGHT, DEFAULT_P
 pub use tuning::{
     ActiveMovementTuning, AxisHorizontalLaw, AxisJumpLaw, AxisLocomotion, AxisSweptParams,
     FlightTuning, LedgeMomentumTuning, MomentumHorizontalTuning, MovementTuning,
-    PhasedGravityJumpTuning, ShieldTuning, TraversalAbilityTuning, AIR_ACCEL, AIR_DODGE_ENDLAG, AIR_DODGE_SPEED,
+    FootstoolTuning, PhasedGravityJumpTuning, ShieldTuning, TraversalAbilityTuning, AIR_ACCEL, AIR_DODGE_ENDLAG, AIR_DODGE_SPEED,
     AIR_DODGE_TIME, AIR_FRICTION, AIR_JUMPS, BLINK_COOLDOWN, BLINK_DISTANCE, BLINK_GRACE_TIME,
     BLINK_HOLD_THRESHOLD, BLINK_MAX_DOWNWARD_SPEED, COYOTE_TIME, DASH_BUFFER, DASH_COOLDOWN,
     DASH_SPEED, DASH_TIME, DEFAULT_AXIS_SWEPT_PARAMS, DEFAULT_GRAVITY_DIR, DEFAULT_TUNING,

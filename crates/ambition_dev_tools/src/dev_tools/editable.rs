@@ -189,6 +189,11 @@ pub struct EditableMovementTuning {
     pub shield_damage_scale: f32,
     pub shield_break_stun_time: f32,
     pub shield_stun_per_damage: f32,
+    /// Footstool: the hop, the shove, the stun, and the head band. 0.0 rise = off.
+    pub footstool_rise_speed: f32,
+    pub footstool_press_speed: f32,
+    pub footstool_victim_stun: f32,
+    pub footstool_band: f32,
     // Ledge momentum-carry boost. Seconds-after-grab during which a
     // getup option can claim incoming momentum; gains scale incoming
     // velocity into the boost; caps clamp the post-gain magnitude.
@@ -278,6 +283,12 @@ impl EditableMovementTuning {
                 break_stun_time: self.shield_break_stun_time,
                 stun_per_damage: self.shield_stun_per_damage,
             },
+            footstool: ae::FootstoolTuning {
+                rise_speed: self.footstool_rise_speed,
+                press_speed: self.footstool_press_speed,
+                victim_stun: self.footstool_victim_stun,
+                band: self.footstool_band,
+            },
             ledge_momentum: ae::LedgeMomentumTuning {
                 window: self.ledge_boost_window,
                 x_gain: self.ledge_boost_x_gain,
@@ -349,6 +360,10 @@ impl From<ae::MovementTuning> for EditableMovementTuning {
             shield_damage_scale: value.shield.damage_scale,
             shield_break_stun_time: value.shield.break_stun_time,
             shield_stun_per_damage: value.shield.stun_per_damage,
+            footstool_rise_speed: value.footstool.rise_speed,
+            footstool_press_speed: value.footstool.press_speed,
+            footstool_victim_stun: value.footstool.victim_stun,
+            footstool_band: value.footstool.band,
             ledge_boost_window: value.ledge_momentum.window,
             ledge_boost_x_gain: value.ledge_momentum.x_gain,
             ledge_boost_y_gain: value.ledge_momentum.y_gain,

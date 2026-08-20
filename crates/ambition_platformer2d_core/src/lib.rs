@@ -112,7 +112,7 @@ pub use movement::{
     MotionModelSpec, MotionStepContext, MotionStepResult, MovementAction, MovementOp,
     MovementTuning, NormalSpineCtx, OcclusionSpan, PhasedGravityJumpTuning, PhasedJumpState,
     ResetCause, RouteDeparture, SurfaceMomentumMotion, SurfaceMotion, SurfaceRef,
-    ShieldTuning, TraversalAbilityTuning, AIR_ACCEL, AIR_DODGE_ENDLAG, AIR_DODGE_SPEED, AIR_DODGE_TIME,
+    FootstoolTuning, ShieldTuning, TraversalAbilityTuning, AIR_ACCEL, AIR_DODGE_ENDLAG, AIR_DODGE_SPEED, AIR_DODGE_TIME,
     AIR_FRICTION, AIR_JUMPS, BLINK_COOLDOWN, BLINK_DISTANCE, BLINK_HOLD_THRESHOLD, COYOTE_TIME,
     DASH_BUFFER, DASH_COOLDOWN, DASH_SPEED, DASH_TIME, DEFAULT_AXIS_SWEPT_PARAMS,
     DEFAULT_GRAVITY_DIR, DEFAULT_PLAYER_BODY_HEIGHT, DEFAULT_PLAYER_BODY_WIDTH, DEFAULT_TUNING,

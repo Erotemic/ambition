@@ -292,6 +292,12 @@ pub fn emit_movement_fx(
                     kind: ParticleKind::Shard,
                 });
             }
+            ae::MovementOp::Footstool => {
+                // The bounce reads like a landing that went the other way: a
+                // dust puff where the feet were and the jump tone.
+                sfx.write_for_body(source, SfxMessage::DoubleJump { pos });
+                vfx.write(VfxMessage::Dust { pos, facing });
+            }
             ae::MovementOp::LedgeClimbStart
             | ae::MovementOp::LedgeClimbFinish
             | ae::MovementOp::LedgeDrop

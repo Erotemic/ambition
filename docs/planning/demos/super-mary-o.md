@@ -311,27 +311,14 @@ Remaining acceptance work
   earlier, or is "the reward waits up there and you must climb for it" the intended
   feel? Original investigation record below.
 
-- ▢ **(superseded) "No way to get the fire flower" — the 2026-07-25 record.** Jon reported it; the investigation fixed the sprite (wearing
-  the blossom left her on the plain grown sheet) and recorded the rest as
-  suspected level PLACEMENT. What is now established is narrower and more
-  useful: **nothing in the codebase has ever bonked a ?-block while GROWN.** The
-  level-1 acceptance run bonks the second block, but it does so while SMALL, so
-  what it proves is that a small Mary-O gets the milk again — the blossom is the
-  reward for bonking while tall, and that beat is unplayed.
-
-  An attempt to play it stalled on the harness, not on the game: a standing jump
-  from the ground directly under a ?-block does not reach it. The blocks sit
-  `POWER_BLOCK_ROW` = 4 tiles above the surface run, and the acceptance run
-  reaches them by MOUNTING (`mount(b, block.center().x, block.min.y)`) rather
-  than by jumping from beneath — which is itself worth a look, because "you
-  cannot bonk it from underneath standing still" is either a tuning fact about
-  her jump or the reported bug wearing a different hat.
-
-  Next step is a run that reuses the acceptance harness's proven approach and
-  asserts a grown Mary-O ends up wearing `spark_blossom`. If it passes, the
-  answer to Jon is "the level can give it to you and nothing tells you"; if it
-  fails, it is "the level cannot".
-
+- ✔ **RETIRED 2026-08-20 — the superseded "no way to get the fire flower" record.**
+  It claimed *"nothing in the codebase has ever bonked a ?-block while
+  GROWN"*, which the ✔ row above it contradicts outright:
+  `a_grown_mary_o_bonks_a_question_block_and_wears_the_fire_flower`
+  (`game/ambition_demo_mary_o_app/tests/level_1_acceptance.rs:1486`) does
+  exactly that and has been green since 2026-08-14. ⛔ an open marker its own
+  neighbour answers is worse than no row: it reads as work and sends the next
+  session to re-investigate a closed question.
 ## Consumes
 
 - runtime, provider lifecycle, and windowed host composition;

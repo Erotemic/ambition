@@ -383,7 +383,7 @@ These three hold some:
 | --- | --- | --- |
 | [`engine/character-actions.md`](engine/character-actions.md) | 4 | cast-action authoring where a body still relies on defaults · presentation metadata on authored moves · two DECISIONS deferred until a real repertoire forces them |
 | [`engine/unified-movement-kernel.md`](engine/unified-movement-kernel.md) | 2 | block ↔ chain crawl transfer — ✔ VERIFIED OPEN 2026-08-20: `CrawlAttachment::Chain` returns early into `crawl_chain` and `Block` falls through to the riding path, so the two are separate roads with no shared transfer rule · portal transit inside authored gravity zones (its own text says there is no known bug and no room authors the combination — customer-gated, leave ▢) |
-| [`demos/super-mary-o.md`](demos/super-mary-o.md) | 2 | crossing 1-2 while GROWN · one superseded row that should be retired |
+| [`demos/super-mary-o.md`](demos/super-mary-o.md) | 1 | crossing 1-2 while GROWN, plus further authored levels. ⚠ its second row was RETIRED 2026-08-20 — it claimed nothing had ever bonked a ?-block while grown, which the ✔ two lines above it contradicts |
 
 ⛔ **THESE ▢ WERE COUNTED, NOT CHECKED — EXCEPT WHERE THE TABLE SAYS OTHERWISE.**
 One is now verified open (see the movement-kernel row); the rest were counted, and a row's prose goes stale faster than the code — a ▢ on

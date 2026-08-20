@@ -413,7 +413,6 @@
     "scope.session",
     "smash.hold_state"
   ],
-  "stable_schema_name_count": 365,
   "encoded_types": [
     "ambition_characters::actor::ActorFaction",
     "ambition_characters::actor::BodyHealth",
@@ -535,7 +534,6 @@
     "ambition_time::SimTick",
     "ambition_time::WorldTime"
   ],
-  "encoded_type_count": 119,
   "encoding_crates": [
     "ambition_characters",
     "ambition_combat",

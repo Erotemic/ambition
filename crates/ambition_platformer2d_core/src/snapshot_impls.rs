@@ -168,6 +168,7 @@ snapshot_pod!(crate::body_clusters::BodyShieldState {
     depleted: f32,
     break_timer: f32,
     stun_timer: f32,
+    break_total: f32,
 });
 
 snapshot_pod!(crate::body_clusters::BodyOffense {

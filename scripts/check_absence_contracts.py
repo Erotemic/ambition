@@ -1872,7 +1872,7 @@ def main() -> int:
         baseline = json.loads((root / ROLLBACK_SCHEMA_BASELINE).read_text())
         print(
             f"  ok   rollback-wire-format-is-frozen  "
-            f"({baseline['stable_schema_name_count']} stable names, "
+            f"({len(baseline['stable_schema_names'])} stable names, "
             f"{len(baseline['encoded_types'])} encoded types across "
             f"{len({t.split('::')[0] for t in baseline['encoded_types']})} crates)"
         )

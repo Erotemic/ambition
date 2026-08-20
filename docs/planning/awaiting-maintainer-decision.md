@@ -36,7 +36,7 @@ investigation that led to the question. Same rule as
 [`README.md`](README.md#queue-contract); on 2026-08-17 this file was **739 lines
 for 9 open questions**, and the four answered ones held a third of it.
 
-## Open decisions — 14 (§1, §6, §7, §9, §10, §11, §12, §13, §21, §22 and §27 are ANSWERED; §8 is DEFERRED)
+## Open decisions — 12 (§1, §6, §7, §9, §10, §11, §12, §13, §21, §22, §23, §25 and §27 are ANSWERED; §8 is DEFERRED)
 
 ### 1. ✔ ANSWERED 2026-08-17 — a bolt hits what a sword hits (former D23)
 
@@ -890,7 +890,14 @@ the public umbrella and pins the migrated body and controller values — this
 preserves the sentinel's purpose: a public SDK break the shared workspace cannot
 see still fails in the independent consumer.
 
-### 23. ▢ NEW 2026-08-19 — five `the_stage_kills` guards are RED, three of them from the legality filter, and the prescribed fix contradicts a deliberate fairness property
+### 23. ◐ ANSWERED VIA §25, 2026-08-20 — five `the_stage_kills` guards are RED, three of them from the legality filter, and the prescribed fix contradicts a deliberate fairness property
+
+⭐⭐ **THE QUESTION BELOW IS SUPERSEDED — §25 answers it.** Jon, 2026-08-20:
+*"the limit cycle is very plausibly exposing a missing physical spacing primitive
+rather than a brain defect. The agent was right to stop rather than compensating
+for missing contact by making the AI stranger."* ⇒ the fix is opt-in body contact
+in the movement sweep (§25), NOT a spawn asymmetry and NOT more randomness. This
+row stays ◐ until that lands and the five are re-run.
 
 ⛔⛔ **MEASURED 2026-08-20: THOSE FIVE TESTS RUN A MATCH WITH NO SMASH COMBAT
 RULES AT ALL, AND THAT INVALIDATES EVERY DIAGNOSIS TAKEN IN THEM — INCLUDING THE
@@ -983,6 +990,66 @@ whether attacks connect at all — 'the brain travels but never commits'. Too hi
 a price."* So this suite is the tripwire for exactly this class, and it caught
 this change too — it simply was not being run.
 
+⭐⭐ **MEASURED 2026-08-20, AND IT CHANGES THE DIAGNOSIS: they are not fighting
+hard and synchronised. They exchange ONCE and then never touch again.**
+
+`a_match_whose_last_loser_is_removed_still_decides`, instrumented per body:
+
+```text
+tick  120   s0 pct=0  x=224      s1 pct=0  x=416
+tick  240   s0 pct=0  x=387      s1 pct=0  x=253     closing
+tick  360   s0 pct=19 x=416      s1 pct=19 x=224     ONE exchange, and they SWAPPED SIDES
+tick  480   s0 pct=19 x=326      s1 pct=19 x=314     12px apart — passing THROUGH
+tick 1800   s0 pct=19 x=236      s1 pct=19 x=404     still 19, still oscillating
+```
+
+⇒ **damage goes 0 → 19 in a single window near tick 300 and is FLAT for the
+remaining 75 seconds.** Every post-hit timer is `0.00` the whole time —
+`damage_invuln_timer`, `recoil_lock_timer`, `hitstun_timer` — so nothing is
+latched and nobody is invulnerable. They simply stop connecting.
+
+⛔ **the shape is a LIMIT CYCLE, and it is the thing to explain**: each brain
+closes on the other, the two bodies PASS THROUGH each other, both overshoot to
+opposite stage edges, both turn around, and it repeats forever, perfectly
+anti-phase about the stage centre. The one exchange is the first meeting; after
+that the crossing happens too fast for anything to land.
+
+⭐⭐ **AND THIS IMPLICATES §25 (JOSTLE) DIRECTLY.** With body-vs-body contact,
+two fighters closing on each other STALL where they meet — which is where
+attacks land. Without it there is no such thing as being in front of somebody,
+so a closing brain's reward is to sail past them. ⇒ the fairness question in §25
+and this suite's five reds may be ONE question, and jostle may be the fix for
+both.
+
+⚠ **and one premise above is now doubtful.** These two seats wear DIFFERENT
+characters (`smash_duelist_a` / `smash_duelist_b`) at the same level, so their
+`fighter_cognition_seed` values genuinely differ — `preserves_mirror_symmetry`
+only collapses the seat suffix, not two different character ids. Yet the motion
+is still perfectly anti-phase. ⇒ seed divergence is not reaching MOTION at all,
+only the press timing that never fires, so "the two streams advance in lockstep"
+understates it: even two separated streams produce mirrored bodies.
+
+⚠ **TWO BRAIN EXPLANATIONS ELIMINATED 2026-08-20, so nobody re-treads them:**
+
+```text
+"the hysteresis locks it in Approach through the band"   ⛔ NO — mode.rs:111
+    already exempts Engage: `dwell < MIN && candidate != Engage`. Engage was
+    never blocked. (The arithmetic that suggested it is still worth knowing:
+    two fighters closing at a combined 540px/s cross the whole 57.6px engage
+    band in ~0.1s, against a 0.18s dwell. It just does not apply to Engage.)
+
+"the brain closes at full speed because Walk has no throttle"   ⛔ NO —
+    smash/emit.rs:62 already emits `WALK_SPEED_PX_S / SPRINT_SPEED_PX_S` as a
+    partial axis, so a walking brain asks for a fraction of its own top speed.
+```
+
+⇒ **the brain's vocabulary is not obviously the defect**, which strengthens the
+reading that the missing thing is BODY CONTACT rather than a decision error. ⚠ a
+related arithmetic worth keeping either way: a jab's 0.05s startup at a combined
+540px/s closing speed is 27px of approach during startup alone, against a 36px
+reach — so a swing begun in range lands where the target no longer is. Startup
+frames assume a target cannot pass through you.
+
 ⇒ **why this needs you rather than a fix from me.** The note prescribes the
 answer: *"what would actually move it is asymmetric CIRCUMSTANCES, not more
 randomness — a per-seat spawn offset"*, and it bans a third randomness fix. But
@@ -1053,7 +1120,125 @@ per-turn gate, so a behavioural suite went five-red across at least two
 regressions without anything saying so. `cargo test --workspace --lib` and
 `-p ambition_app --test app_it` do not reach it.
 
-### 25. ✔ ANSWERED 2026-08-20 — AVOID PUSHOUT is about PORTALS; body jostle is allowed, but never in the kernel
+### 25. ✔ ANSWERED 2026-08-20 — body contact belongs in the SWEEP, as an OPT-IN capability, not a global property of every body
+
+⭐⭐ **JON'S RULING, VERBATIM.** Keep these words; the paraphrase loses the
+constraints.
+
+> **AVOID PUSHOUT does not prohibit prospective body contact in the movement
+> sweep.** A sweep that constrains proposed motion before integration is the
+> correct mechanism. It must not perform after-the-fact positional separation.
+>
+> **Add explicit, typed participation in body-vs-body contact. Do not make all
+> `Body`s globally solid.** Smash fighters opt into grounded lateral body
+> contact; existing Ambition NPCs remain unchanged unless their composition
+> explicitly opts them in later.
+>
+> The core mechanism should not be named or conditioned on Smash/jostle. The
+> movement layer owns a generic body-contact capability/policy; Smash uses that
+> capability to express jostle.
+
+⛔⛔ **THREE IMPLEMENTATION CONSTRAINTS, in his words, "because otherwise a
+superficially working solution could create worse problems".**
+
+> **First, do not simply insert every moving body's current AABB into the
+> existing static-wall sweep.** Two moving bodies require a deterministic
+> pair/relative-motion calculation. If A sweeps against B's old position and then
+> B sweeps against A's updated position, iteration order becomes physics. Resolve
+> the pair from a common tick snapshot/proposed deltas, with stable ordering such
+> as `SimId`, and constrain both bodies consistently.
+
+> **Second, Smash jostle should initially be grounded lateral contact, not
+> "fighters are full solid platforms."**
+> ```text
+> fighter → fighter while grounded   lateral crossing is constrained
+> fighter above fighter              does not land on the other's head as geometry
+> airborne fighters                  do not suddenly become wall/ceiling geometry
+> ```
+> So I would not blindly reuse the entire world-solid AABB semantics on both
+> axes. The reusable primitive is something like an opted-in **lateral body
+> blocker/contact participant**, not "all bodies become walls."
+
+> **Third, preserve the AVOID PUSHOUT behavior for pre-existing overlap.** If two
+> bodies somehow begin a tick overlapping because of spawn, transfer, teleport,
+> etc., the contact solver should not teleport them apart. It should permit
+> separating/non-deepening motion and prevent ordinary locomotion from driving
+> them farther through each other.
+
+⚠ **AND THE SCOPE OF THE FIRST SLICE IS BOUNDED, deliberately:**
+
+> I would also **not require a complete rigid-body/jostle impulse solver in this
+> slice**. The immediate semantic requirement is that two opted-in grounded
+> fighters cannot simply exchange sides by running through one another. … More
+> sophisticated weight-dependent pushing or contact momentum can be added as a
+> separately authored response if gameplay needs it.
+
+⇒ **the instruction, verbatim:**
+
+> **Proceed with option (c), but make body contact an explicit opt-in movement
+> capability/policy rather than a global property of `Body`. Smash fighters opt
+> into grounded lateral body blocking; ordinary Ambition NPCs keep their existing
+> pass-through behavior. Resolve moving-body pairs deterministically from common
+> pre-integration motion, do not treat one moving body as static based on ECS
+> iteration order, and never use post-overlap positional pushout. Do not make
+> fighters vertically solid to one another.**
+
+⭐ **and he expects this to close §23 as well**: *"the limit cycle is very
+plausibly exposing a missing physical spacing primitive rather than a brain
+defect. The agent was right to stop rather than compensating for missing contact
+by making the AI stranger."*
+
+---
+
+**The original question, kept for the reasoning that led here.**
+
+
+⛔⛔ **BUILT IT, MEASURED IT, REVERTED IT — the ACCELERATION form CANNOT WORK,
+and that changes the question (2026-08-20).**
+
+I built jostle exactly as this row proposes — a `DeclaredCombatRules::jostle_accel`
+applied as an opposing force to overlapping grounded bodies, never writing a
+position, so AVOID PUSHOUT is untouched. Five unit tests, all green. On the real
+stage it does **nothing**, and the probe says why in one column:
+
+```text
+tick  240   s0 x=387 vx=-270      s1 x=253 vx=270
+tick  480   s0 x=326 vx=-270      s1 x=314 vx=270    overlapping, still ±270
+tick 1200   s0 x=236 vx=-270      s1 x=404 vx=270
+```
+
+⇒ **`vx` is EXACTLY ±`max_run_speed` on every sample.** The horizontal law is
+`approach(along, run * max_run_speed, accel * dt)` — a velocity **TARGET**, not
+an accumulation — so any delta added before the kernel is overwritten by the
+kernel on the same tick, for as long as the brain holds a direction. A force
+cannot survive a law that re-derives velocity from input every frame.
+
+⭐⭐ **the unit tests passed because they had no movement kernel in them.** They
+spawned two bodies, ran the one system, and read the velocity it wrote — the
+exact "a test that SUPPLIES the precondition cannot prove the mechanism reaches
+production" shape. Only the end-to-end run found it.
+
+⇒ **so the real question is not "force or displacement", it is WHERE.** Three
+candidates, and the third looks right:
+
+```text
+(a) write the position          ⛔ forbidden by AVOID PUSHOUT, and correctly so
+(b) reduce the RUN TARGET when blocked   a movement-kernel change: the law would
+                                         have to know another body is there
+(c) put bodies in the COLLISION SWEEP    what the sweep already does for walls —
+                                         it CLAMPS motion rather than writing a
+                                         position, so it is pushout-free by
+                                         construction, and it is how the genre
+                                         actually works
+```
+
+⚠ **(c) has real blast radius and is why this is still your call**: making bodies
+solid to each other is a movement-kernel change that reaches every NPC in
+Ambition, not only fighters, so it needs a gate and a decision about which
+populations collide. That is a bigger question than "may fighters jostle", and it
+is the one worth answering.
+
+
 
 **The mechanic.** Every platform fighter pushes two grounded bodies apart when
 they occupy the same space — Ultimate calls it jostle, and without it two

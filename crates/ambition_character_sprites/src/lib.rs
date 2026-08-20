@@ -38,6 +38,7 @@ mod posed_body;
 
 pub use anim::{
     body_state_clip, pick_actor_anim, pick_player_anim, ActorAnimState, FighterClipFacts,
+    GuardBreakBeat,
 };
 pub use attack_hitbox::authored_attack_volume_resolver;
 pub use posed_body::{

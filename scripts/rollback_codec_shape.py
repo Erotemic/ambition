@@ -111,6 +111,13 @@ def shape_of(path: Path) -> tuple[int, str]:
     # `snapshot_pod!` lists its fields as bare idents rather than calls, so the
     # macro body is folded in by name — otherwise a POD component could gain a
     # field with no primitive call anywhere and read as unchanged.
+    #
+    # ⭐ **2026-08-20 is the receipt that this fold pays for itself.**
+    # `BodyShieldState` gained `break_total` (v57) and this file's hash MOVED
+    # WITH ITS PRIMITIVE COUNT UNCHANGED at 107 — the field produced no new
+    # `put_*` call, exactly the case the fold was added for. It is the first
+    # time a hole here was closed by an earlier fix rather than reported by a
+    # defect, and that is the only evidence such a fold was worth adding.
     for match in re.finditer(r'\bsnapshot_pod!\s*\((.*?)\)\s*;', text, flags=re.S):
         body = re.sub(r'\s+', '', match.group(1))
         tokens.append(f'pod[{body}]')

@@ -305,7 +305,11 @@ pub fn rebuild_body_pose_views(
                         ambition_character_sprites::FighterClipFacts {
                             held: anim_facts.is_some_and(|f| f.held),
                             holding: anim_facts.is_some_and(|f| f.holding),
-                            guard_broken: shield.is_some_and(|s| s.broken()),
+                            guard_break: shield
+                                .and_then(|s| s.break_phase())
+                                .map(ambition_character_sprites::GuardBreakBeat::from_phase),
+                            parrying: shield.is_some_and(|s| s.parrying()),
+                            guard_stunned: shield.is_some_and(|s| s.stun_timer > 0.0),
                         },
                     )?)
                 }),

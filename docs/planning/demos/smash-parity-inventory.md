@@ -54,12 +54,12 @@ you add a `▢`, and before you work one.
 | Shield pushback (a blocked hit costs the blocker space) | ✔ | `ShieldTuning::pushback_per_damage`, applied inside the block via `GuardUnderFire` |
 | Shield shrink → poke (a spent guard exposes the head and feet) | ✔ | `ShieldTuning::min_coverage`, `combat::util::guard_covers_hit` |
 | Shield-drop lag | ▢ | — |
-| Parry (perfect-shield window), press- or release-timed | ✔ | `MovementTuning::parry_timing` — `OnRaise` is Smash 4's (the default) and `OnRelease` is Ultimate's; the stage declares which via `MatchBody` |
+| Parry (perfect-shield window), press- or release-timed | ✔ | `MovementTuning::parry_timing` — `OnRaise` is Smash 4's (the default) and `OnRelease` is Ultimate's; the stage declares which via `MatchBody`. Drawn as its own row since 2026-08-20 |
+| Shieldstun is VISIBLE, not just true | ✔ | `body_state_clip` asks for `shield_hit` off `BodyShieldState::stun_timer` — the beat a blocked hit costs a defender |
 | Ground dodge roll, air dodge (once per airtime) | ✔ | `BodyDodgeState`, `AxisManeuverState::dodge_roll_timer` |
 | Tumble → knockdown → tech → getup (roll / attack / stand) | ✔ | `core/movement/knockdown.rs` |
 | Wall tech | ✔ | `knockdown::tick_knockdown` reads `BodyWallState`; `WALL_TECH_SPEED` pushes off the normal |
 | Ceiling tech | ▢ | a head contact is not yet a surface the tech press can land on |
-| Crouch cancel | ✔ | one row only, under **Damage and knockback** — it is a property of the LAUNCH, not of the guard |
 
 ## Grabs
 
@@ -160,19 +160,28 @@ jump_squat                  AxisManeuverState::jump_squat_timer   ✔ asked, 202
 wall_tech · wall_tech_jump  landed the same day; the tech does not say WHICH surface
 footstool_jump              MovementOp::Footstool fires; a one-tick op has no FACT
 launch                      the first beat of a tumble, distinct from `tumble`
-parry                       `BodyShieldState::parrying()` — ready to ask for
-shield_hit                  `stun_timer > 0.0` (shieldstun) — ready to ask for
+parry · shield_hit          ✔ asked, 2026-08-20 — `parrying()` and
+                            `stun_timer > 0.0`, two rows in `body_state_clip`
 shield_raise
 · shield_release            TRANSITION beats: the sim publishes the STATE
                             (`active`), not its edges
 shield_break_launch
 · _fall · _collapse
-· _recover                  ONE `break_timer` covers a four-beat sequence. ⭐ a
-                            DERIVED answer is available — the beat is a fraction
-                            of `break_timer / ShieldTuning::break_stun_time`, so
-                            it costs no new state — but the pose sites read
-                            `BodyShieldState` WITHOUT its tuning, so the
-                            fraction has to be published or the tuning threaded
+· _recover                  ONE `break_timer` covers a four-beat sequence, and
+                            the beat is a fraction of the break's own length.
+                            ⛔ `break_timer / ShieldTuning::break_stun_time` is
+                            NOT computable at the readers: both pose sites hold
+                            `BodyShieldState` and no tuning, and reaching for
+                            `MotionModel::shield_tuning()` there would put
+                            presentation back inside policy internals.
+                            ⭐ THE ANSWER IS ONE f32 ON THE COMPONENT:
+                            `break_total`, stamped from the tuning at the moment
+                            the guard shatters. Then `break_timer / break_total`
+                            is the phase for every reader, threading nothing.
+                            ⚠ it is NOT a derive memo — it is the authority for
+                            how long THIS break was, written once, so a rewind
+                            restores the same answer. Costs a codec edge, a
+                            version bump and the three baselines
 ledge_catch · ledge_drop
 · ledge_jump · ledge_attack  LedgeGetupKind and MovementOp::LedgeJump exist
 getup_attack · getup_roll
@@ -251,7 +260,9 @@ z-drop and item throws · edge-cancel.
 **Defense.** ~~Perfect shield as a RELEASE-timed parry~~ — SHIPPED as a KNOB
 2026-08-20 (§27): `ParryTiming::OnRaise` is Smash 4's and `OnRelease` is
 Ultimate's, and the stage declares which · shield tilt to cover a limb · shield-drop into an aerial ·
-directional-influence variants (SDI, ASDI, hitfall).
+ASDI and hitfall (⚠ NOT SDI — that shipped 2026-08-20 and is in the
+**Damage and knockback** table; listing it here as a remainder was the same
+double-entry as the crouch-cancel row).
 
 **Match surface.** Time, stamina and coin rulesets · sudden death · handicap ·
 Final Smash and the meter alternative · items and item spawn rate · stage

@@ -291,6 +291,60 @@ made of. ⛔ do not delete `collision_scale` before counting: a shipped
 capability can have zero adopters, and so can a legacy path still carrying half
 the roster.
 
+- ▢ **D171 — THREE MORE DOCS CARRY OPEN ITEMS NO LEDGER ROW CAN REACH.**
+  (promoted 2026-08-20)
+
+The same sweep that produced D170 found seventeen planning docs reachable from
+no ledger row, intake or map. **Fourteen of them are reference with no open
+work** and are correctly left alone — a doc is only stranded if it holds WORK.
+These three hold some:
+
+| doc | open | what |
+| --- | --- | --- |
+| [`engine/character-actions.md`](engine/character-actions.md) | 4 | cast-action authoring where a body still relies on defaults · presentation metadata on authored moves · two DECISIONS deferred until a real repertoire forces them |
+| [`engine/unified-movement-kernel.md`](engine/unified-movement-kernel.md) | 2 | block ↔ chain crawl transfer — ✔ VERIFIED OPEN 2026-08-20: `CrawlAttachment::Chain` returns early into `crawl_chain` and `Block` falls through to the riding path, so the two are separate roads with no shared transfer rule · portal transit inside authored gravity zones (its own text says there is no known bug and no room authors the combination — customer-gated, leave ▢) |
+| [`demos/super-mary-o.md`](demos/super-mary-o.md) | 1 | crossing 1-2 while GROWN, plus further authored levels. ⚠ its second row was RETIRED 2026-08-20 — it claimed nothing had ever bonked a ?-block while grown, which the ✔ two lines above it contradicts |
+
+⛔ **THESE ▢ WERE COUNTED, NOT CHECKED — EXCEPT WHERE THE TABLE SAYS OTHERWISE.**
+One is now verified open (see the movement-kernel row); the rest were counted, and a row's prose goes stale faster than the code — a ▢ on
+work that already landed has cost this project four sessions. Grep for the thing
+each says is missing BEFORE working it, and if HEAD contradicts the doc, update
+the doc.
+
+⚠ two of `character-actions.md`'s four are explicitly *"decide only when a real
+repertoire exceeds prompt capacity"* — they are waiting on a customer, not on
+effort, and should stay ▢ until one exists.
+
+- ▢ **D170 — IMMUTABLE CONTENT / TRANSACTIONAL CONSTRUCTION HAS SIX OPEN ITEMS
+  AND NO LEDGER ROW.** (promoted 2026-08-20)
+
+⭐ **PROMOTED, NOT WRITTEN.** [`engine/immutable-content-and-transactional-construction.md`](engine/immutable-content-and-transactional-construction.md)
+was verified against `fda5db88` on 2026-08-19 — the day before this promotion —
+and is reachable from two ADRs, a concepts doc and a related-work doc, but from
+**no queue row**. That is the same shape as the seven Engine 1.0 plans stranded
+on 2026-08-14: designed frontier, structurally invisible to the execution
+authority. The work is already specified there; this row is the pointer.
+
+⛔ **the biggest one is the old operation 5**: there is still no production
+cross-room snapshot caller exercising source-snapshot selection, decode/
+compatibility rejection BEFORE mutation, rollback entity identity and remapping,
+restoration of non-room authoritative state, and atomic commit. Room-transition
+use of `RoomConstructionPlan::apply_to_world` does not prove it.
+
+⚠ two of the six are deliberately NOT actionable yet and should stay ▢ rather
+than be worked: corrected-input cancellation and peer-coordinated lifecycle
+commit belong to real external netplay, because local sync testing cannot
+mispredict. Its own doc says so; do not build a synthetic local ritual for them.
+
+The remaining three are external-consumer proof — run the visible consumer on a
+machine with a display, measure first-room workflow and deliberate-error
+diagnostics rather than describing them, and exercise authoring from a second
+meaningfully different consumer before freezing a public prefab/content API.
+
+⚠ **this row is a POINTER and the doc is the authority** — update the doc, not
+this row, and keep the row's claim to "there are open items" so it cannot rot
+into a stale summary of them.
+
 - ▢ **D167 — THE LIVE-STATE ↔ PERSISTENCE ↔ ROOM-CONSTRUCTION BOUNDARY. Two
   legs closed 2026-08-20; two open.**
 

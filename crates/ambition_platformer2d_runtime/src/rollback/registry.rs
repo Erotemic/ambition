@@ -345,6 +345,20 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⚠ **v57 IS SKIPPED, deliberately.** The number was offered to a concurrent
 /// lane so two branches could not both take one; a hole in a monotonic log costs
 /// nothing and a collision costs a wire format — the same reasoning v53 records.
+/// ⚠ **v57 (2026-08-20) is `BodyShieldState::break_total`**, one `f32` behind an
+/// unchanged stable key — a payload change, so the codec-shape checker sees it
+/// and the app-level key baseline does not.
+/// ⭐ **it buys FOUR POSES OUT OF ONE TIMER and no new simulation state.** Every
+/// fighter sheet draws `shield_break_launch`, `_fall`, `_collapse` and
+/// `_recover`; the sim publishes one `break_timer` and the picker answered all
+/// four with `dizzy`. The beat needs the break's PHASE, which is
+/// `break_timer / break_stun_time` — and the tuning is not available where the
+/// phase is READ: both presentation sites hold the component and no tuning, and
+/// reaching for `MotionModel::shield_tuning()` from the view would put
+/// presentation back inside policy internals.
+/// ⛔ **it is NOT a derive memo.** It is the authority for how long THIS break
+/// was, written once at the shatter, so a rewind restores the same denominator
+/// rather than recomputing it against whatever tuning is live later.
 /// ⚠ **v55 (2026-08-20) MOVES `BodyStaleMoves` from the ENGINE domain to
 /// COMBAT's**: `body.stale_moves` becomes `combat.stale_moves`, owned by
 /// `ambition_combat`. The component's ENCODING is byte-identical — this is a

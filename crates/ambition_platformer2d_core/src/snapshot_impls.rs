@@ -12,7 +12,7 @@
 //! decode must stay in the same order, and `snapshot_unit_enum!` codes are
 //! authored per variant so inserting one never renumbers the rest.
 
-use crate::snapshot::{put_bool, put_f32, put_u32, put_u8, put_vec2, Reader, SnapshotState};
+use crate::snapshot::{put_bool, put_f32, put_u32, put_vec2, Reader, SnapshotState};
 use crate::{snapshot_pod, snapshot_unit_enum};
 
 impl SnapshotState for crate::AbilitySet {

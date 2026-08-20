@@ -952,8 +952,17 @@ and its source disagreeing, resolved by whoever writes next.
 ⭐ **SLICE 1 IS LANDED (2026-08-20), and it needed no decision.**
 `control::DrivingParticipant(PlayerSlot)` is the fact by itself, **DERIVED** each
 tick by `project_driving_participant` from `Brain::Player` plus
-`PossessionState` — so it adds no snapshot entry, no wire format and no version
-bump, and none of A/B/C applies to it. `ActingParticipant::driving_slot` now
+`PossessionState` — so it adds no snapshot entry and no ENCODED bytes, and none
+of A/B/C applies to it.
+
+⛔ **it DID need a version bump, and the reason is worth knowing before the next
+derive.** `rollback_coverage` offers three outcomes — registered, DECLARED
+derived, or waived — and "it is genuinely a derive" is the JUSTIFICATION for the
+second, not a substitute for taking it: a reprojected component that says so
+nowhere fails all three, which cost eight coverage tests plus the exit oracle.
+And the declaration's `detail` string reaches `schema_dump` and is hashed into
+`schema_fingerprint`, so **declaring a derive moves the schema even though the
+component encodes not one byte.** v52 → **v56**. `ActingParticipant::driving_slot` now
 reads it instead of matching `Brain::Player`, which is the first consumer moved
 off the conflated enum. The answer is identical today (one system asserts
 exactly one body carries `Brain::Player(PRIMARY)`, so brain and derive agree by
@@ -962,9 +971,12 @@ is spelled.
 
 ⛔ **this is NOT option B.** B's danger is two WRITABLE sources of "who drives"
 disagreeing, which is the `ScriptedControl`/`ControlHolds` breach. A derive has
-exactly one source of truth by construction — the same excuse `InCustodyOf` and
-`ScriptedControl` already run on — so there is no window where possession can be
-expressed two ways.
+exactly one source of truth by construction, so there is no window where
+possession can be expressed two ways.
+
+⚠ the precedent is **`InCustodyOf`** (`declare_rollback_derived_component`), and
+`InCustodyOf` ALONE. `ScriptedControl` is *registered* (`rollback_component_clone`)
+— the opposite shape — and an earlier version of this paragraph cited both.
 
 ⛔⛔ **and a name was already taken.** `character_runtime::prepared_match::`
 `ControlAuthority` exists, and is re-exported from the `ambition_platformer2d`

@@ -14,6 +14,7 @@
 | [`assets`](src/assets/mod.rs) | Asset registries and load-time wiring. |
 | [`audio`](src/audio/mod.rs) | Audio runtime for the Ambition game. |
 | [`avatar`](src/avatar/mod.rs) | Historical slot-0/home-body and protagonist integration. |
+| [`body_custody`](src/body_custody.rs) | **WHO IS CARRYING WHOM, for BODIES** — the one owner of [`InCustodyOf`](ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf) on everything that is not an item. |
 | [`body_mode`](src/body_mode/mod.rs) | Body-mode driver: facade re-exporting [`update_body_mode`]. |
 | [`causal`](src/causal.rs) | This crate's causal facts. |
 | [`character_runtime`](src/character_runtime/mod.rs) | **The engine owns turning a declared character into loaded art.** |
@@ -44,7 +45,7 @@
 | [`world`](src/world/mod.rs) | World / level authoring runtime: room graph + spawning, the code-first room builder, the Avian2D physics adapter, and LDtk-authored moving platforms. |
 | [`world_facts`](src/world_facts.rs) | **What the world-fact domain lets authored content ask — and tell — about flags.** |
 
-_37 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_38 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

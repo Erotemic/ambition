@@ -36,7 +36,7 @@ use ambition_platformer2d::persistence::save_data::{
 use ambition_platformer2d::platformer::sim_id::SimId;
 use bevy::prelude::Entity;
 
-use crate::common::{base, fixed_60hz_room_sim};
+use crate::common::{base, fixed_60hz_room_sim, possess_the_authored_enemy};
 
 type Custody = ambition_platformer2d::actors::items::pickup::ItemCustody;
 type Ground = ambition_platformer2d::actors::items::pickup::GroundItem;
@@ -212,7 +212,10 @@ fn walk_through_the_door_to(sim: &mut Platformer2dSimHarness, target: &str) -> S
             return room;
         }
     }
-    panic!("held interact in the '{}' door of '{before}' for 60 frames and the room never changed", door.name);
+    panic!(
+        "held interact in the '{}' door of '{before}' for 60 frames and the room never changed",
+        door.name
+    );
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -249,6 +252,124 @@ fn boot_with(room: &str, file: &AmbitionGameSaveData) -> Platformer2dSimHarness 
          and everything below is measuring a load that never happened"
     );
     sim
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// ⭐⭐ FALSIFIER Z — A SAVE TAKEN MID-POSSESSION, THROUGH A REAL FRESH BOOT.
+// ───────────────────────────────────────────────────────────────────────────
+
+/// **Save while driving an enemy, quit, come back — and the enemy is still
+/// there, standing in its own room.**
+///
+/// ⛔⛔ **A RELATIONSHIP MAY NOT CROSS THE DURABLE HORIZON WITHOUT ITS
+/// AUTHORITY, and possession is the case that found the rule.** Possession became
+/// custody, so a driven body wears `InCustodyOf` and its occurrence enters the
+/// ledger as `InCustody` — that IS the fix, it is what stops the home room minting
+/// a second copy of a body somebody is driving. `persist_occurrence_horizon_to_save`
+/// then mirrored the ledger and every live custody row to disk, because it queries
+/// the generic component and a possessed body now answers it.
+///
+/// ⚠ **but `PossessionState` is NOT durable save state.** The file said *"this
+/// enemy is in somebody's hands"* with no hand on the other side of the boot, and
+/// the only reader of that claim is a room build deciding whether to author the
+/// enemy at all.
+///
+/// ⭐ **it did not fail, and it was one line deep.** The live projection
+/// republishes the custody leg from live state every tick, so the row was
+/// retracted before any room build could act on it. Stopping that retraction from
+/// reaching empty — the exact thing `republish_custody`'s own contract forbids —
+/// makes THIS test report **zero** bodies behind the identity: the enemy deleted
+/// from the world, permanently, by a save taken while somebody was driving it.
+/// The other three falsifiers in this file stayed green.
+///
+/// ⇒ the mirror now writes an `InCustody` claim only for occurrences whose
+/// custody the durable road can RESTORE, which is the item road. A body's
+/// occurrence is simply absent from the file, and absent is right: on load its
+/// room authors it, which is what a world with nobody possessing anything should
+/// contain.
+///
+/// ⭐⭐ **AND THIS IS THE TEST THAT WAS CLAIMED AND NOT WRITTEN.**
+/// `a_custody_row_with_nobody_holding_it_is_retracted_before_a_room_can_act_on_it`
+/// asserts something real and narrower — the LIVE projection retracts a row once
+/// possession disappears — but it does it by assigning `PossessionState::default()`
+/// into the same running world and stepping once. Its comment called that "A FRESH
+/// PROCESS"; it is not one. No save is written, nothing is serialised, no second
+/// app is built, and no durable adopter runs. This one uses the file
+/// ([`the_file`]) and the real boot ([`boot_with`]), the pair every other
+/// falsifier here is built on.
+#[test]
+fn a_save_taken_mid_possession_does_not_delete_the_enemy_in_a_fresh_process() {
+    use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
+    use ambition_platformer2d::platformer::lifecycle::AuthoredOccurrences;
+
+    let mut sim = fixed_60hz_room_sim("vertical_shaft");
+    let (_actor, id) = possess_the_authored_enemy(&mut sim);
+    // Let the mirror run: it is gated on the restore latch and value-compared, so
+    // it reaches the save on the first tick after custody settles.
+    sim.step_n(base(), 4);
+
+    // ⭐ **TERM ONE, and without it the rest is about nothing**: the LIVE ledger
+    // does say the body is in custody. That is the state whose durability is in
+    // question, and a fixture that skipped this would be asserting the file is
+    // clean of a row nothing ever produced.
+    let live: Vec<String> = sim
+        .world()
+        .resource::<AuthoredOccurrences>()
+        .rows()
+        .map(|(occurrence, whereabouts)| format!("{} = {whereabouts:?}", occurrence.as_str()))
+        .collect();
+    assert!(
+        live.iter()
+            .any(|row| row.starts_with(id.as_str()) && row.ends_with("InCustody")),
+        "the live ledger does not record the driven body as being in custody, so \
+         nothing below is about a relationship reaching the file. Ledger was {live:?}"
+    );
+
+    // ⭐ **TERM TWO**: and the file does NOT carry it, in either leg.
+    let file = the_file(&sim);
+    assert!(
+        !file.occurrences.iter().any(|row| row.id == id.as_str()),
+        "the save carries a whereabouts for a body whose custodian is possession \
+         state the save does not hold. On load nobody is driving it, and the only \
+         thing standing between that row and the enemy's permanent deletion is a \
+         live retraction winning a race. Saved occurrences were {:?}",
+        file.occurrences
+    );
+    assert!(
+        !file.custody.iter().any(|row| row.occurrence == id.as_str()),
+        "the save carries a custody row naming a hand it cannot reconstruct. \
+         Saved custody was {:?}",
+        file.custody
+    );
+
+    // ⭐ **TERM THREE**: the fresh process — a new world, handed that file, with
+    // nobody driving anything. This is the boot every other falsifier here uses.
+    let mut fresh = boot_with("vertical_shaft", &file);
+    assert_eq!(
+        fresh.world().resource::<PossessionState>().possessed,
+        None,
+        "a fresh boot must not be possessing anything — if it were, the claim would \
+         be true again and this test would prove nothing"
+    );
+
+    let count = live_bodies_named(&mut fresh, &id);
+    assert_eq!(
+        count,
+        1,
+        "after loading a save taken mid-possession, `vertical_shaft` holds {count} \
+         bodies behind `{}` and it must hold exactly one. Zero is the permanent \
+         deletion this test exists for; two is the duplication the ledger exists to \
+         prevent.",
+        id.as_str()
+    );
+}
+
+/// How many live entities carry one identity. A COUNT, for the same reason
+/// [`occurrences`] is one — zero and two are both failures, and a `find` sees
+/// neither. Separate from `occurrences` because a BODY has no `ItemCustody`.
+fn live_bodies_named(sim: &mut Platformer2dSimHarness, id: &SimId) -> usize {
+    let mut query = sim.world_mut().query::<&SimId>();
+    query.iter(sim.world()).filter(|found| *found == id).count()
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -525,8 +646,8 @@ fn a_consumed_occurrence_is_not_resurrected_by_a_load_and_an_untouched_one_is_un
     );
     assert!(still[0].1.in_world());
     let where_it_is = resting_place(&mut loaded, &untouched);
-    let drift = (where_it_is.0 - untouched_pedestal.0).abs()
-        + (where_it_is.1 - untouched_pedestal.1).abs();
+    let drift =
+        (where_it_is.0 - untouched_pedestal.0).abs() + (where_it_is.1 - untouched_pedestal.1).abs();
     assert!(
         drift < 2.0,
         "and it is on its own pedestal at {untouched_pedestal:?}, not somewhere a \

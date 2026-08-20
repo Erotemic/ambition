@@ -324,65 +324,40 @@ pub fn possession_trigger_system(
         .insert(TemporaryControl::Player {
             controller: SimId::player_slot(0),
         });
-    // PROMOTE the possessed body out of room scope. A room-scoped actor despawns
-    // on every room load; the home avatar you drive is session-scoped precisely so
-    // it survives transitions and can navigate anywhere.
+    // ⛔⛔ **POSSESSION CHANGES NO LIFETIME AND WRITES NO CUSTODY MARKER.** Both
+    // halves of that sentence were once false here and each one cost a bug.
     //
-    // ⛔⛔ **AND THE ITEM DOMAIN DEPENDS ON THIS WITHOUT NAMING IT (2026-08-19).**
-    // `items::pickup::project_custody_onto_residency` decides whether a HELD
-    // object travels by asking whether its HOLDER is a `RoomResident` — so the
-    // custody marker below, which suspends this body's residency, is also the
-    // only reason an object in a possessed body's hand is not retired at the
-    // door. Two subsystems that never reference each other agree by way of one
-    // component write. `an_item_carried_by_a_possessed_body_survives_the_door_too`
-    // is the guard, and it is not theoretical: it went RED when this stopped
-    // swapping the lifetime and stayed red until that projection stopped asking
-    // `Has<RoomScopedEntity>` as a proxy for residency. Possession makes the
-    // target the body you drive, so it takes the same lifetime — otherwise it
-    // would vanish the instant you carried it through an exit (or die during a
-    // rollback-confirmed transition's delay, which is exactly the substitution
-    // hazard GPT review #1 named). `release_possession` reverts it. The scope
-    // markers are rollback-snapshot state, so this rewinds with the possession
-    // decision. Absent an active session (a minimal test) it stays as it is.
+    // It used to PROMOTE the target out of room scope into session scope, so the
+    // body you drive would survive a room load like the home avatar does. That
+    // made it invisible to `project_custody_onto_authored_occurrences`, which
+    // reads `(With<InCustodyOf>, With<RoomScopedEntity>)` — the home room was
+    // never told the occurrence was in somebody's hands, and re-entering it
+    // AUTHORED A SECOND COPY behind the same `SimId::placement(..)`. Measured, not
+    // reasoned: `an_authored_actor_carried_out_of_its_room_and_back_does_not_meet_a_copy`
+    // counted two. What suspends residency now is `InCustodyOf`, exactly as that
+    // marker's own doc always said — *"the LIFETIME is unchanged, and that is
+    // deliberate"*, and *"`0` is whatever entity took custody: a couch seat, A
+    // POSSESSED ACTOR, an NPC"* — and the retirement half needs no promotion at
+    // all, because `RoomResident` is `(With<RoomScopedEntity>, Without<InCustodyOf>)`.
+    // One mechanism instead of two, and the occurrence ledger joins for free.
     //
-    // ⭐⭐ **AND IT DOES THAT BY SUSPENDING RESIDENCY, NOT BY CHANGING THE
-    // LIFETIME — which is what `InCustodyOf`'s own doc has said all along:**
-    // *"the LIFETIME is unchanged, and that is deliberate. The entity keeps
-    // `RoomScopedEntity`; the marker is never taken away, so no query that
-    // requires the scope silently loses sight of it"*, and *"`0` is whatever
-    // entity took custody: a couch seat, A POSSESSED ACTOR, an NPC."*
+    // ⛔⛔ **AND THE MARKER IS NOT WRITTEN HERE, BECAUSE IT IS DERIVED.**
+    // `InCustodyOf` is declared to rollback as *"room residency reprojected from
+    // `ItemCustody` every tick"* — a justification for not snapshotting it that is
+    // only true while something reprojects it. A possessed body has no
+    // `ItemCustody`, so inserting the marker at this site would create the one
+    // population nothing re-derives: a rewind past the possession would drop it
+    // and never put it back, and the driven body would become a `RoomResident`
+    // again and be retired at the next door. The deriver is
+    // [`crate::body_custody::project_body_custody`], reading `PossessionState`,
+    // which IS rollback state — so the declaration's justification stays true for
+    // both populations.
     //
-    // ⛔⛔ **this used to swap the scope instead, and that is precisely the
-    // failure that doc warns about.** `project_custody_onto_authored_occurrences`
-    // reads `(With<InCustodyOf>, With<RoomScopedEntity>)` — so a possessed body
-    // with its room scope removed was invisible to the occurrence ledger, its
-    // home room was never told the occurrence was in somebody's hands, and
-    // re-entering that room AUTHORED A SECOND COPY behind the same
-    // `SimId::placement(..)`. Measured, not reasoned:
-    // `an_authored_actor_carried_out_of_its_room_and_back_does_not_meet_a_copy`
-    // counted two.
+    // ⚠ `restore_scope` below still records and restores the exact scope. It is a
+    // no-op on this path (nothing is removed), and it is kept because it is a
+    // field of a rollback-registered resource: retiring it is a schema change and
+    // belongs to a bump, not to a bug fix.
     //
-    // ⭐ the retirement half is unchanged and needs no promotion, because
-    // `RoomResident` is `(With<RoomScopedEntity>, Without<InCustodyOf>)` — the
-    // custody marker already excludes this body from the sweep a room change
-    // runs. One mechanism instead of two, and the ledger joins for free.
-    //
-    // ⚠ `restore_scope` below still records and restores the exact scope. It is
-    // a no-op on this path now (nothing is removed), and it is kept because it
-    // is part of a rollback-registered resource: retiring the field is a schema
-    // change and belongs to a bump, not to a bug fix.
-    //
-    // ⛔⛔ **AND THE MARKER IS NOT WRITTEN HERE, because it is DERIVED.**
-    // `InCustodyOf` is declared to rollback as
-    // *"room residency reprojected from `ItemCustody` every tick"* — a
-    // justification for not snapshotting it that is only true while something
-    // reprojects it. A possessed body has no `ItemCustody`, so inserting the
-    // marker at this site would create the one population nothing re-derives:
-    // a rewind past the possession would drop it and never put it back, and the
-    // driven body would become a `RoomResident` again and be retired at the next
-    // door. [`project_possession_onto_custody`] is the deriver, reading
-    // `PossessionState` — which IS rollback state — so the declaration's
-    // justification stays true for both populations.
     // ⭐ the `ActiveSessionScope` parameter is GONE with the promotion it served:
     // its scope id was needed to mint `SessionScopedEntity(scope_id)`, and
     // nothing here mints a scope any more. A `let _ = &param` suppression would
@@ -466,140 +441,6 @@ fn release_possession(
                 aabb.center,
                 ambition_platformer2d_core::movement::TransitVelocity::Zero,
             );
-        }
-    }
-}
-
-/// **WHO IS CARRYING WHOM — the one owner of `InCustodyOf` for BODIES.**
-///
-/// ⭐ **possession is custody of a body**, so it uses the same vocabulary a
-/// carried object does — `InCustodyOf`, whose own doc says *"the LIFETIME is
-/// unchanged, and that is deliberate"* and names *"a possessed actor"* among the
-/// custodians. Possession used to express the same fact by SWAPPING the body's
-/// lifetime (room scope out, session scope in), which hid it from every query
-/// that requires the room scope — including the occurrence ledger's, so a home
-/// room re-authored a SECOND copy of the body being driven.
-///
-/// ⭐⭐ **AND THE RULE IS TRANSITIVE, WHICH IS WHY THIS IS ONE SYSTEM AND NOT
-/// TWO.** A mount is in its RIDER's custody exactly while that rider is itself
-/// travelling, so a piloted mount rides through a door with its pilot while an
-/// AI-piloted one stays room furniture. ⛔ it was two systems for one afternoon
-/// and they FOUGHT: the mount's projection granted the marker in `WorldPrep` and
-/// this one retracted it in `PlayerSimulation` on the same tick, because
-/// `InCustodyOf` has no field saying who granted it and no structural
-/// discriminator separates the populations — every actor carries
-/// `TemporaryControl`, and a mount carries `MountSlot` whether ridden or not.
-/// ⇒ **one component, one owner**: the whole non-item body population is decided
-/// here, in one pass, and the retraction cannot disagree with the grant.
-///
-/// ⛔⛔ **IT IS A DERIVE AND NOT A FOLLOW-UP CALL, for a rollback reason.**
-/// `InCustodyOf` is registered as a DERIVED component on the strength of one
-/// sentence — *"room residency reprojected from `ItemCustody` every tick"* — and
-/// that sentence is what excuses it from the snapshot. A possessed body has no
-/// `ItemCustody`; writing the marker at the possess site would create a
-/// population nothing reprojects, and a rewind past the possession would drop it
-/// with nothing to put it back. Reading `PossessionState`, which IS rollback
-/// state, keeps the excuse true.
-///
-/// ⚠ **the retraction arm is scoped by `Without<GroundItem>`**, because the item
-/// domain owns the marker on objects and reprojects it from its own authority.
-///
-/// ⚠ **compared before writing**, like its item sibling: an unconditional insert
-/// would mark the component changed on every tick of a possession, and change
-/// ticks do not rewind.
-pub fn project_driven_body_custody(
-    mut commands: Commands,
-    state: Res<PossessionState>,
-    riders: Query<(Entity, &crate::features::RidingOn)>,
-    // ⭐ **the third edge kind, and the reason this closes a CLOSURE rather than
-    // walking a fixed depth.** A boss rides a mount and that mount has hands:
-    // rider → mount → limbs is three links, and `gnu_ton_arena` authors exactly
-    // that. Measured before the fix: the rider and mount crossed into
-    // `hall_of_bosses` and the mount arrived HANDLESS.
-    limbs: Query<(Entity, &crate::features::Limb)>,
-    // ⛔ **`RoomScopedEntity`, NOT `RoomResident`, and the difference is a TICK.**
-    // `RoomResident` excludes anything wearing `InCustodyOf` — the very marker
-    // this system writes — so reading it here makes the rule depend on its own
-    // previous output. The chain then converges one tick per link: releasing a
-    // rider left its mount in custody for a frame, because the rider's own
-    // retraction had not landed yet. Asking whether the rider is room-SCOPED is
-    // the same question with none of the feedback: a room-scoped rider travels
-    // only if THIS pass says so, and a session-scoped one always travels.
-    room_scoped: Query<(), With<ambition_platformer2d_shared_tangle::lifecycle::RoomScopedEntity>>,
-    // ⛔ existence, kept apart from residency: a mount that DIED leaves
-    // `RidingOn` dangling by design ("keeping the link record lets the same-room
-    // reset path re-mount the rider"), and a dead entity must not be read as
-    // "travelling".
-    existing: Query<()>,
-    held: Query<
-        (
-            Entity,
-            &ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf,
-        ),
-        Without<crate::items::pickup::GroundItem>,
-    >,
-) {
-    use ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf;
-    use std::collections::BTreeMap;
-
-    // WHO SHOULD BE IN WHOSE CUSTODY THIS TICK.
-    //
-    // ⚠ a `BTreeMap` rather than the query's order: this decides component
-    // writes that reach a room sweep, and Bevy's iteration order is an archetype
-    // accident.
-    let mut wanted: BTreeMap<Entity, Entity> = BTreeMap::new();
-    if let Some((possessed, home)) = state.possessed.zip(state.home) {
-        if existing.get(possessed).is_ok() && existing.get(home).is_ok() {
-            wanted.insert(possessed, home);
-        }
-    }
-    // ⭐⭐ **EVERYTHING ATTACHED TO A TRAVELLER TRAVELS, TO ANY DEPTH.** The
-    // attachments are edges `(attachment → anchor)`; an attachment travels when
-    // its anchor does, and an anchor travels when it is already in this pass's
-    // set or has no room scope at all (the session-scoped home avatar).
-    //
-    // ⛔ **a FIXPOINT and not an ordered pass, because the depth is content's to
-    // choose.** `gnu_ton_arena` authors a boss riding a mount that has hands —
-    // three links — and an ordered pass encodes the depth it happened to be
-    // written for. Iterating until nothing changes cannot be wrong about a chain
-    // somebody authors later. Bounded by the edge count, so it terminates
-    // whatever the content says; a cycle simply stops adding.
-    //
-    // ⚠ **`CapturedBy` is deliberately NOT an edge here.** A captive is attached
-    // to its captor by exactly this rule, but no composition can express a
-    // captor carrying one through a door — capture is the platform fighter's,
-    // and a versus stage has no room changes. Adding the edge would be a rule
-    // for a state nothing can reach, which is how a carry list grows entries
-    // nobody can test.
-    let edges: Vec<(Entity, Entity)> = riders
-        .iter()
-        .map(|(rider, riding)| (riding.mount, rider))
-        .chain(limbs.iter().map(|(limb, attached)| (limb, attached.of)))
-        .filter(|(attachment, anchor)| {
-            existing.get(*attachment).is_ok() && existing.get(*anchor).is_ok()
-        })
-        .collect();
-    loop {
-        let mut grew = false;
-        for (attachment, anchor) in &edges {
-            let anchor_travels = wanted.contains_key(anchor) || room_scoped.get(*anchor).is_err();
-            if anchor_travels && wanted.insert(*attachment, *anchor).is_none() {
-                grew = true;
-            }
-        }
-        if !grew {
-            break;
-        }
-    }
-
-    for (entity, custody) in &held {
-        if wanted.get(&entity) != Some(&custody.0) {
-            commands.entity(entity).remove::<InCustodyOf>();
-        }
-    }
-    for (subject, custodian) in wanted {
-        if held.get(subject).map(|(_, custody)| custody.0) != Ok(custodian) {
-            commands.entity(subject).try_insert(InCustodyOf(custodian));
         }
     }
 }

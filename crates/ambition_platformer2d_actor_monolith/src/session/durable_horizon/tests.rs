@@ -26,11 +26,8 @@ fn horizon_app() -> App {
         .init_resource::<MintedItemBaseline>()
         .init_resource::<OwnedItemsBaseline>()
         .init_resource::<crate::items::OwnedItems>();
-    app.world_mut().spawn((
-        PlayerEntity,
-        PrimaryPlayer,
-        BodyWallet { balance: 0 },
-    ));
+    app.world_mut()
+        .spawn((PlayerEntity, PrimaryPlayer, BodyWallet { balance: 0 }));
     app
 }
 
@@ -38,11 +35,26 @@ fn horizon_app() -> App {
 fn every_whereabouts_survives_the_write_and_the_read() {
     let mut app = horizon_app();
     app.world_mut().resource_mut::<SaveRestored>().0 = true;
+    // ⭐ **the carried occurrence needs a LIVE, DURABLY-RESTORABLE custody behind
+    // it**, because the mirror will only put an `InCustody` claim on disk for a
+    // hand the load can rebuild — see `persist_occurrence_horizon_to_save`. This
+    // fixture used to state the ledger row and nothing else, which is a world
+    // production never has: a row saying somebody is holding an object, with no
+    // object and no holder. The row it wrote was the possessed-body shape, and
+    // that is precisely the claim the horizon now declines to make.
+    let holder = app.world_mut().spawn(SimId::player_slot(0)).id();
+    app.world_mut().spawn((
+        SimId::placement("carried"),
+        crate::items::pickup::ItemCustody::Held { holder },
+    ));
     {
         let mut ledger = app.world_mut().resource_mut::<AuthoredOccurrences>();
         ledger.adopt_rows(
             [
-                (SimId::placement("carried"), OccurrenceWhereabouts::InCustody),
+                (
+                    SimId::placement("carried"),
+                    OccurrenceWhereabouts::InCustody,
+                ),
                 (
                     SimId::placement("dropped"),
                     OccurrenceWhereabouts::Placed {
@@ -83,6 +95,73 @@ fn every_whereabouts_survives_the_write_and_the_read() {
         ledger.whereabouts(&SimId::placement("eaten")),
         Some(&OccurrenceWhereabouts::Consumed),
         "a terminal disposition the file drops is one a load undoes",
+    );
+}
+
+/// **A CUSTODY CLAIM THE LOAD COULD NOT REBUILD DOES NOT REACH THE FILE.**
+///
+/// The mirror's population is everything wearing `InCustodyOf`, and that
+/// component has two owners: the item road derives it from `ItemCustody`, which
+/// the save carries and the load applies again — and a POSSESSED BODY answers the
+/// same query with nothing durable behind it. `PossessionState` is rollback
+/// state, so a fresh process starts with nobody driving anything and the row's
+/// other side simply does not exist.
+///
+/// ⛔ **the failure that shape produces is a permanent DELETION**, not a
+/// duplication: the only reader of an `InCustody` row is a room build deciding
+/// whether to author the occurrence, so a surviving row means the enemy is gone.
+/// Driven end to end by
+/// `a_save_taken_mid_possession_does_not_delete_the_enemy_in_a_fresh_process`;
+/// this is the same rule at the translation layer, where it is one assertion.
+///
+/// ⚠ **both terms.** The `Placed` row proves the mirror ran and wrote SOMETHING,
+/// so "no custody row" cannot pass by the file being empty.
+#[test]
+fn an_in_custody_row_with_no_restorable_hand_behind_it_stays_out_of_the_file() {
+    let mut app = horizon_app();
+    app.world_mut().resource_mut::<SaveRestored>().0 = true;
+    {
+        let mut ledger = app.world_mut().resource_mut::<AuthoredOccurrences>();
+        ledger.adopt_rows(
+            [
+                // The possessed-body shape: a live `InCustody` row whose custodian
+                // is possession state, which the save does not hold.
+                (SimId::placement("driven"), OccurrenceWhereabouts::InCustody),
+                (
+                    SimId::placement("dropped"),
+                    OccurrenceWhereabouts::Placed {
+                        room: "portal_bridge".into(),
+                        at: Vec2::new(8.0, 16.0),
+                    },
+                ),
+            ]
+            .into_iter()
+            .collect(),
+        );
+    }
+    install_durable_save_horizon(&mut app);
+    app.update();
+
+    let written = app.world().resource::<AmbitionGameSave>().data().clone();
+    assert!(
+        written
+            .occurrences
+            .iter()
+            .any(|row| row.id == "placement:dropped"),
+        "the mirror wrote nothing at all, so the absence below proves nothing; \
+         file was {:?}",
+        written.occurrences
+    );
+    assert!(
+        !written
+            .occurrences
+            .iter()
+            .any(|row| row.id == "placement:driven"),
+        "the file claims something is holding `placement:driven` while carrying \
+         nothing that could rebuild the hand. On load nobody is holding it, and a \
+         room build reading that row authors nothing: the occurrence is gone from \
+         the world permanently. File was {:?}",
+        written.occurrences
     );
 }
 

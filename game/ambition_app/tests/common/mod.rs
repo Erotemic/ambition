@@ -9,6 +9,8 @@
 use ambition_app::rl_sim::TimestepMode;
 use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions};
+use ambition_platformer2d::platformer::sim_id::SimId;
+use bevy::prelude::Entity;
 
 /// A fully-neutral action; build scenario inputs with struct update:
 /// `AgentAction { move_x: 1.0, ..base() }`.
@@ -68,12 +70,14 @@ pub fn fixed_60hz_room_options(room: &str) -> Platformer2dSimHarnessOptions {
 
 /// Fixed-60Hz simulation in the default start room.
 pub fn fixed_60hz_sim() -> Platformer2dSimHarness {
-    Platformer2dSimHarness::new_with_options(fixed_60hz_options()).expect("Platformer2dSimHarness::new")
+    Platformer2dSimHarness::new_with_options(fixed_60hz_options())
+        .expect("Platformer2dSimHarness::new")
 }
 
 /// Fixed-60Hz simulation for a named start room.
 pub fn fixed_60hz_room_sim(room: &str) -> Platformer2dSimHarness {
-    Platformer2dSimHarness::new_with_options(fixed_60hz_room_options(room)).expect("Platformer2dSimHarness::new")
+    Platformer2dSimHarness::new_with_options(fixed_60hz_room_options(room))
+        .expect("Platformer2dSimHarness::new")
 }
 
 #[cfg(feature = "portal")]
@@ -85,7 +89,9 @@ use ambition_platformer2d::portal::PlacedPortal;
 /// linked portals are assigned generated `Indexed` channels, so tests should not
 /// assume the old Purple/Yellow channels remain on the live `PlacedPortal`s.
 #[cfg(feature = "portal")]
-pub fn authored_portal_pairs(sim: &mut Platformer2dSimHarness) -> Vec<(PlacedPortal, PlacedPortal)> {
+pub fn authored_portal_pairs(
+    sim: &mut Platformer2dSimHarness,
+) -> Vec<(PlacedPortal, PlacedPortal)> {
     let mut q = sim.world_mut().query::<&PlacedPortal>();
     let world = sim.world();
     let mut portals: Vec<PlacedPortal> = q
@@ -115,7 +121,9 @@ pub fn authored_portal_pairs(sim: &mut Platformer2dSimHarness) -> Vec<(PlacedPor
 
 /// First live authored pair in deterministic left-to-right/top-to-bottom order.
 #[cfg(feature = "portal")]
-pub fn first_authored_portal_pair(sim: &mut Platformer2dSimHarness) -> (PlacedPortal, PlacedPortal) {
+pub fn first_authored_portal_pair(
+    sim: &mut Platformer2dSimHarness,
+) -> (PlacedPortal, PlacedPortal) {
     authored_portal_pairs(sim)
         .into_iter()
         .next()
@@ -125,9 +133,67 @@ pub fn first_authored_portal_pair(sim: &mut Platformer2dSimHarness) -> (PlacedPo
 /// First floor-to-floor authored pair, used by tests that must exercise a floor
 /// carve instead of a wall/ceiling portal.
 #[cfg(feature = "portal")]
-pub fn first_floor_authored_portal_pair(sim: &mut Platformer2dSimHarness) -> (PlacedPortal, PlacedPortal) {
+pub fn first_floor_authored_portal_pair(
+    sim: &mut Platformer2dSimHarness,
+) -> (PlacedPortal, PlacedPortal) {
     authored_portal_pairs(sim)
         .into_iter()
         .find(|(entry, exit)| entry.normal.y < -0.5 && exit.normal.y < -0.5)
         .expect("room has a linked floor-to-floor authored portal pair")
+}
+
+/// **Drive `vertical_shaft`'s authored enemy, and return the body and the
+/// identity its room minted it under.**
+///
+/// Four tests across two files are about what a POSSESSED body's custody does to
+/// something else — the checkpoint baseline, the occurrence ledger, the tick the
+/// ledger sees it, the save file — and each one needs the same thirty lines: let
+/// the room settle, find the placement, walk the home avatar onto it and hold
+/// Down+Interact until the mechanic commits. It lives here rather than in one of
+/// them because `carried_item_crosses_rooms` and
+/// `a_save_remembers_where_you_left_things` are siblings, not a hierarchy.
+///
+/// ⚠ **the possession is asserted here, once.** A test whose setup silently
+/// failed to possess anything measures a body nobody is driving, and every
+/// assertion about custody below would pass for the wrong reason.
+pub fn possess_the_authored_enemy(sim: &mut Platformer2dSimHarness) -> (Entity, SimId) {
+    use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
+    use ambition_platformer2d::actors::actor::BodyKinematics;
+    use ambition_platformer2d::characters::brain::Brain;
+
+    for _ in 0..30 {
+        sim.step(base());
+    }
+    let (actor, id) = {
+        let world = sim.world_mut();
+        let mut q = world.query::<(Entity, &SimId, &Brain, &BodyKinematics)>();
+        q.iter(world)
+            .find(|(_, id, _, _)| id.as_str().starts_with("placement:EnemySpawn"))
+            .map(|(e, id, _, _)| (e, id.clone()))
+            .expect("'vertical_shaft' authors an enemy with a placement identity")
+    };
+    for i in 0..900 {
+        if let Some(here) = sim
+            .world()
+            .get::<BodyKinematics>(actor)
+            .map(|k| (k.pos.x, k.pos.y))
+        {
+            sim.teleport_player(here);
+        }
+        sim.step(AgentAction {
+            move_y: 1.0,
+            interact: i == 0,
+            interact_held: true,
+            ..base()
+        });
+        if sim.world_mut().resource::<PossessionState>().possessed == Some(actor) {
+            break;
+        }
+    }
+    assert_eq!(
+        sim.world_mut().resource::<PossessionState>().possessed,
+        Some(actor),
+        "setup: nothing below is about a driven body unless one is being driven"
+    );
+    (actor, id)
 }

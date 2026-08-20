@@ -562,6 +562,49 @@ Deletion gates that now hold:
 - no `Any`, `TypeId`, boxed callback registry, string dispatch or service locator
   was introduced.
 
+## ⭐⭐ A relationship may not cross the durable horizon without its authority
+
+Added 2026-08-20, after the review of `4af278e77`.
+
+`InCustodyOf` is generic vocabulary with **two owners**. The item domain derives
+it from `ItemCustody`, which the save carries and `restore_inventory_from_save`
+applies again — so a weapon in your hands is in your hands after a load. A
+possessed BODY answers the same query, and nothing about it is durable:
+`PossessionState` is rollback state, not save state, and a fresh process starts
+with nobody driving anything.
+
+⛔⛔ **so the mirror was putting a claim on disk with no other side.** Nobody
+wrote a line of persistence code to make that happen — possession adopted the
+generic vocabulary, and `persist_occurrence_horizon_to_save` queries the generic
+component. That is the shape to watch for: **widening a population enrols it in
+every generic sweep, persistence included.**
+
+It never failed, and it was one line deep. `project_custody_onto_authored_occurrences`
+republishes the custody leg from live state every tick, so the row was retracted
+on the first tick of a load, before any room build could read it. Stopping that
+retraction from reaching empty — the exact thing `republish_custody`'s own
+contract forbids — deletes the enemy from the world permanently.
+
+⇒ **the rule.** The durable mirror writes an `InCustody` claim only for
+occurrences whose custody the durable road can RESTORE. Every other whereabouts
+(`Placed`, `Consumed`) is a fact about the world itself and crosses
+unconditionally.
+
+⛔ **the predicate is "which domain can rebuild the relation", not "is it a
+body".** It is spelled `With<ItemCustody>` — the component that says the item road
+owns this occurrence's custody. A second population joins by becoming durably
+restorable, never by being added to a list at the mirror.
+
+⭐ **and ABSENT is the right durable answer.** A driven body's occurrence is
+simply not in the file, so on load its room authors it — which is what a world
+with nobody possessing anything should contain.
+
+Proof: `a_save_taken_mid_possession_does_not_delete_the_enemy_in_a_fresh_process`
+(`game/ambition_app/tests/a_save_remembers_where_you_left_things.rs`), which uses
+the real file and a real second boot. ⚠ the guard that CLAIMED this before it
+assigned `PossessionState::default()` into the running world and stepped once —
+a real and narrower property, and not a fresh process.
+
 ## Candidate crate / Bevy shape
 
 Do not immediately invent one `UniversalInstanceId`. Domain-specific instance IDs

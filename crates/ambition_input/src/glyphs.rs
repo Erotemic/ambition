@@ -148,7 +148,7 @@ fn gamepad_glyph(
     }
     if matches!(
         action,
-        Platformer2dInputActionMonolith::DashAnalog | Platformer2dInputActionMonolith::AimStick
+        Platformer2dInputActionMonolith::BurstAnalog | Platformer2dInputActionMonolith::AimStick
     ) {
         return Cow::Borrowed("R-Stick");
     }
@@ -246,11 +246,11 @@ mod tests {
     #[test]
     fn keyboard_glyph_follows_active_preset() {
         let arrows_zxc = KeyboardPreset::arrows_zxc();
-        // Arrows+ZXC: Jump = Z, Attack = X, Dash = C.
+        // Arrows+ZXC: Jump = Z, Attack = X, Burst = C.
         for (action, glyph) in [
             (Platformer2dInputActionMonolith::Jump, "Z"),
             (Platformer2dInputActionMonolith::Attack, "X"),
-            (Platformer2dInputActionMonolith::Dash, "C"),
+            (Platformer2dInputActionMonolith::Burst, "C"),
         ] {
             assert_eq!(
                 glyph_for(
@@ -264,11 +264,11 @@ mod tests {
         }
 
         let wasd = KeyboardPreset::wasd_jkl();
-        // WASD: Jump = Space, Attack = J, Dash = K.
+        // WASD: Jump = Space, Attack = J, Burst = K.
         for (action, glyph) in [
             (Platformer2dInputActionMonolith::Jump, "Space"),
             (Platformer2dInputActionMonolith::Attack, "J"),
-            (Platformer2dInputActionMonolith::Dash, "K"),
+            (Platformer2dInputActionMonolith::Burst, "K"),
         ] {
             assert_eq!(
                 glyph_for(action, &wasd, &bindings(&wasd), ActiveDevice::Keyboard),

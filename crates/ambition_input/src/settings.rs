@@ -1,6 +1,6 @@
 //! Controls / input settings.
 //!
-//! Holds controller deadzones, trigger thresholds, hysteresis, dash
+//! Holds controller deadzones, trigger thresholds, hysteresis, burst
 //! input behavior, which keyboard / controller profile is active, and the
 //! per-action binding OVERRIDES layered on top of that profile.
 //! The values flow into input filtering before the engine-owned `ControlFrame`
@@ -131,20 +131,26 @@ impl MenuTapMode {
     }
 }
 
-/// Whether dash should fire from the right trigger only, the right
-/// shoulder button only, or both.
+/// Whether the BURST press — the shared dodge/dash button — should fire from
+/// the right trigger only, the right shoulder button only, or both.
+///
+/// ⚠ **the TYPE renamed and the WIRE did not have to.** A unit-variant enum
+/// serializes as its VARIANT name, and `Trigger` / `Button` / `Both` never
+/// carried the old word — so an existing settings file reads back unchanged.
+/// The field that DOES carry it is [`ControlSettings::burst_input_mode`], and
+/// that one is pinned.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum DashInputMode {
+pub enum BurstInputMode {
     /// Right trigger 2 (RT/R2). Default; matches prior behavior.
     #[default]
     Trigger,
     /// Right shoulder button (RB/R1).
     Button,
-    /// Either input fires dash.
+    /// Either input fires the burst.
     Both,
 }
 
-impl DashInputMode {
+impl BurstInputMode {
     pub const ALL: [Self; 3] = [Self::Trigger, Self::Button, Self::Both];
 
     pub fn label(self) -> &'static str {
@@ -294,9 +300,9 @@ pub struct ControlFilters {
     pub right_stick_deadzone: f32,
     pub trigger_release_threshold: f32,
     pub trigger_press_threshold: f32,
-    /// ⚠ a PREFERENCE, not a calibration — which trigger or button means dash is
-    /// a choice about the person, so it stays machine-wide even per pad.
-    pub dash_input_mode: DashInputMode,
+    /// ⚠ a PREFERENCE, not a calibration — which trigger or button means BURST
+    /// is a choice about the person, so it stays machine-wide even per pad.
+    pub burst_input_mode: BurstInputMode,
     /// Also a preference. Inverted aim is a habit, not a hardware property.
     pub invert_aim_y: bool,
 }
@@ -310,7 +316,7 @@ impl ControlFilters {
             right_stick_deadzone: settings.right_stick_deadzone,
             trigger_release_threshold: settings.trigger_release_threshold,
             trigger_press_threshold: settings.trigger_press_threshold,
-            dash_input_mode: settings.dash_input_mode,
+            burst_input_mode: settings.burst_input_mode,
             invert_aim_y: settings.invert_aim_y,
         }
     }
@@ -434,18 +440,30 @@ pub struct ControlSettings {
     pub left_stick_deadzone: f32,
     /// Radial deadzone for the right analog stick / aim.
     pub right_stick_deadzone: f32,
-    /// Lower hysteresis bound for the right trigger (Dash). The trigger
+    /// Lower hysteresis bound for the right trigger (Burst). The trigger
     /// must drop below this to "release"; pulling back above
     /// `trigger_press_threshold` re-arms a press edge.
     pub trigger_release_threshold: f32,
-    /// Upper hysteresis bound for the right trigger (Dash).
+    /// Upper hysteresis bound for the right trigger (Burst).
     pub trigger_press_threshold: f32,
     /// Whether the D-pad navigates menus (in addition to the analog
     /// stick / arrow keys).
     pub dpad_menu_navigation: bool,
     /// Invert vertical aim (right stick / aim binding).
     pub invert_aim_y: bool,
-    pub dash_input_mode: DashInputMode,
+    /// Which control fires the shared dodge/dash BURST press.
+    ///
+    /// ⛔⛔ **the SERDE NAME IS THE WIRE, and it stays `dash_input_mode`.**
+    /// This field has no `#[serde(default)]` and `ControlSettings` has no
+    /// container default, so a missing key is not "fall back to the default for
+    /// this one knob" — it is a deserialize error for the whole struct, and
+    /// `load_settings` answers a parse error by discarding the ENTIRE settings
+    /// file (video, audio, gameplay, presets and every binding override with
+    /// it) and returning `UserSettings::default()`. Renaming the key without
+    /// pinning it would have silently wiped every existing player's settings on
+    /// the first launch after the rename.
+    #[serde(rename = "dash_input_mode")]
+    pub burst_input_mode: BurstInputMode,
     /// Initial repeat delay for held menu directions, in seconds.
     pub menu_repeat_initial_delay: f32,
     /// Repeat interval after the initial delay.
@@ -494,7 +512,7 @@ impl Default for ControlSettings {
             trigger_press_threshold: ProfileFilterDefaults::BASELINE.trigger_press_threshold,
             dpad_menu_navigation: true,
             invert_aim_y: false,
-            dash_input_mode: DashInputMode::default(),
+            burst_input_mode: BurstInputMode::default(),
             menu_repeat_initial_delay: 0.32,
             menu_repeat_interval: 0.12,
             touch_controls_visible: default_touch_controls_visible(),
@@ -557,7 +575,7 @@ impl ControlSettings {
         self.trigger_press_threshold = defaults.trigger_press_threshold;
         self.dpad_menu_navigation = defaults.dpad_menu_navigation;
         self.invert_aim_y = defaults.invert_aim_y;
-        self.dash_input_mode = defaults.dash_input_mode;
+        self.burst_input_mode = defaults.burst_input_mode;
         self.menu_repeat_initial_delay = defaults.menu_repeat_initial_delay;
         self.menu_repeat_interval = defaults.menu_repeat_interval;
     }
@@ -590,8 +608,9 @@ impl ControlSettings {
     /// then need a two-step chain.
     fn migrate_renamed_actions(&mut self) {
         /// `(old spelling, current spelling)`. D146 slice 2 renamed the shield's
-        /// device action off the ceremony word it had been carrying.
-        const RENAMED_ACTIONS: &[(&str, &str)] = &[("QuickAction", "Shield")];
+        /// device action off the ceremony word it had been carrying; the BURST
+        /// pass renamed the shared dodge/dash channel off one of its outcomes.
+        const RENAMED_ACTIONS: &[(&str, &str)] = &[("QuickAction", "Shield"), ("Dash", "Burst")];
 
         for over in &mut self.binding_overrides {
             if let Some((_, now)) = RENAMED_ACTIONS
@@ -652,7 +671,7 @@ pub enum TriggerEdgeState {
 /// `press`; the "release" edge fires when the value drops below
 /// `release`. Values between the two thresholds preserve the previous
 /// state — that's the hysteresis that prevents jitter from producing
-/// repeated edges while a Dash trigger is held.
+/// repeated edges while a Burst trigger is held.
 pub fn update_trigger_edge(
     previous: TriggerEdgeState,
     value: f32,
@@ -755,14 +774,14 @@ mod tests {
     }
 
     #[test]
-    fn dash_mode_cycles_through_all() {
+    fn burst_mode_cycles_through_all() {
         let mut visited = std::collections::HashSet::new();
-        let mut cur = DashInputMode::default();
-        for _ in 0..DashInputMode::ALL.len() {
+        let mut cur = BurstInputMode::default();
+        for _ in 0..BurstInputMode::ALL.len() {
             visited.insert(cur);
             cur = cur.next();
         }
-        assert_eq!(visited.len(), DashInputMode::ALL.len());
+        assert_eq!(visited.len(), BurstInputMode::ALL.len());
     }
 
     #[test]
@@ -810,8 +829,8 @@ mod tests {
             "it gets the calibration table for the pad it actually is"
         );
         assert_eq!(
-            couch.dash_input_mode, primary.dash_input_mode,
-            "PREFERENCES stay machine-wide — which button dashes is about the \
+            couch.burst_input_mode, primary.burst_input_mode,
+            "PREFERENCES stay machine-wide — which button bursts is about the \
              person, not the hardware"
         );
     }

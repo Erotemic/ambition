@@ -25,7 +25,7 @@ pub fn close_menu_option() -> SettingsOption {
 pub fn apply_settings_option(id: SettingsOptionId, dir: i32, settings: &mut UserSettings) -> bool {
     use ambition_persistence::host::windowing::DisplayModeKind;
     use ambition_persistence::settings::controls::{
-        ControllerProfileId, DashInputMode, MenuTapMode,
+        BurstInputMode, ControllerProfileId, MenuTapMode,
     };
     use ambition_persistence::settings::gameplay::Difficulty;
     use ambition_persistence::settings::video::{
@@ -217,7 +217,9 @@ pub fn apply_settings_option(id: SettingsOptionId, dir: i32, settings: &mut User
         }
         SettingsOptionId::DpadMenuNav => tog!(settings.controls.dpad_menu_navigation),
         SettingsOptionId::InvertAimY => tog!(settings.controls.invert_aim_y),
-        SettingsOptionId::DashInputMode => cyc!(settings.controls.dash_input_mode, DashInputMode),
+        SettingsOptionId::BurstInputMode => {
+            cyc!(settings.controls.burst_input_mode, BurstInputMode)
+        }
         SettingsOptionId::TouchControls => tog!(settings.controls.touch_controls_visible),
         SettingsOptionId::MenuTapMode => cyc!(settings.controls.menu_tap_mode, MenuTapMode),
         SettingsOptionId::ResetControlFiltering => {

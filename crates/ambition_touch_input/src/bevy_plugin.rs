@@ -737,7 +737,7 @@ struct TouchButtonEdges {
     jump: bool,
     attack: bool,
     special: bool,
-    dash: bool,
+    burst: bool,
     blink: bool,
     interact: bool,
     projectile: bool,
@@ -763,7 +763,7 @@ fn spawn_touch_buttons(mut cmd: Commands, ui_fonts: Option<Res<UiFonts>>) {
     //       Blink        Fly        Shot
     //
     //                Interact
-    //        Attack              Dash
+    //        Attack              Burst
     //                  Jump
     //
     // The cluster uses a compact diagonal diamond. Its circular hit-test
@@ -1014,7 +1014,7 @@ fn touch_button_slot(action: TouchActionButton) -> Option<ControlSlot> {
         TouchActionButton::Jump => ControlSlot::Jump,
         TouchActionButton::Attack => ControlSlot::Attack,
         TouchActionButton::Special => ControlSlot::Special,
-        TouchActionButton::Dash => ControlSlot::Burst,
+        TouchActionButton::Burst => ControlSlot::Burst,
         TouchActionButton::Blink => ControlSlot::Blink,
         TouchActionButton::Interact => ControlSlot::Interact,
         TouchActionButton::Projectile => ControlSlot::Projectile,
@@ -1191,7 +1191,7 @@ fn mask_unavailable(now: &mut TouchButtonEdges, prompt: &ControlPrompt, gameplay
     now.jump &= avail(TouchActionButton::Jump);
     now.attack &= avail(TouchActionButton::Attack);
     now.special &= avail(TouchActionButton::Special);
-    now.dash &= avail(TouchActionButton::Dash);
+    now.burst &= avail(TouchActionButton::Burst);
     now.blink &= avail(TouchActionButton::Blink);
     now.interact &= avail(TouchActionButton::Interact);
     now.projectile &= avail(TouchActionButton::Projectile);
@@ -1549,7 +1549,7 @@ fn update_buttons_from_interactions(
     // the virtual joystick. Read raw active touches and hit-test
     // against the same fixed button layout instead. This lets the
     // player keep the left thumb on the move stick while tapping
-    // Jump / Attack / Dash with the right thumb.
+    // Jump / Attack / Burst with the right thumb.
     // The rectangles come from the RESOLVED placement, not from the window:
     // a cluster reserved into a surround column must be tappable where it is
     // drawn. Deriving them here from window size again is what let the drawn
@@ -1590,7 +1590,7 @@ fn update_buttons_from_interactions(
     state.0.jump = make_btn(now.jump, edges.jump);
     state.0.attack = make_btn(now.attack, edges.attack);
     state.0.special = make_btn(now.special, edges.special);
-    state.0.dash = make_btn(now.dash, edges.dash);
+    state.0.burst = make_btn(now.burst, edges.burst);
     state.0.blink = make_btn(now.blink, edges.blink);
     state.0.interact = make_btn(now.interact, edges.interact);
     state.0.projectile = make_btn(now.projectile, edges.projectile);
@@ -1620,7 +1620,7 @@ fn held_of(edges: &TouchButtonEdges, action: TouchActionButton) -> bool {
         TouchActionButton::Jump => edges.jump,
         TouchActionButton::Attack => edges.attack,
         TouchActionButton::Special => edges.special,
-        TouchActionButton::Dash => edges.dash,
+        TouchActionButton::Burst => edges.burst,
         TouchActionButton::Blink => edges.blink,
         TouchActionButton::Interact => edges.interact,
         TouchActionButton::Projectile => edges.projectile,
@@ -1641,7 +1641,7 @@ fn set_button_held(edges: &mut TouchButtonEdges, action: TouchActionButton, held
         TouchActionButton::Jump => edges.jump = true,
         TouchActionButton::Attack => edges.attack = true,
         TouchActionButton::Special => edges.special = true,
-        TouchActionButton::Dash => edges.dash = true,
+        TouchActionButton::Burst => edges.burst = true,
         TouchActionButton::Blink => edges.blink = true,
         TouchActionButton::Interact => edges.interact = true,
         TouchActionButton::Projectile => edges.projectile = true,
@@ -2377,7 +2377,7 @@ mod prompt_tests {
             TouchActionButton::Jump,
             TouchActionButton::Attack,
             TouchActionButton::Special,
-            TouchActionButton::Dash,
+            TouchActionButton::Burst,
             TouchActionButton::Interact,
             TouchActionButton::Start,
             TouchActionButton::Reset,

@@ -246,7 +246,7 @@ fn system_screens_surface_every_player_facing_setting() {
     ] {
         assert!(audio.contains(&id), "Audio screen is missing {id:?}");
     }
-    // Controls: every stick/trigger/dash/menu row the pause menu shows.
+    // Controls: every stick/trigger/burst/menu row the pause menu shows.
     let controls = screen_ids(&model, SystemMenuEntryId::Controls);
     for id in [
         SettingsOptionId::KeyboardPreset,
@@ -257,7 +257,7 @@ fn system_screens_surface_every_player_facing_setting() {
         SettingsOptionId::TriggerRelease,
         SettingsOptionId::DpadMenuNav,
         SettingsOptionId::InvertAimY,
-        SettingsOptionId::DashInputMode,
+        SettingsOptionId::BurstInputMode,
         SettingsOptionId::TouchControls,
         SettingsOptionId::MenuTapMode,
         SettingsOptionId::ResetControlFiltering,

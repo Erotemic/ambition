@@ -7,7 +7,7 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
 pub mod audio;
-// The input-domain config (deadzones / trigger hysteresis / dash mode /
+// The input-domain config (deadzones / trigger hysteresis / burst mode /
 // controller + keyboard-preset vocabulary) lives in the `ambition_input` crate.
 pub use ambition_input::settings as controls;
 pub mod gameplay;
@@ -17,7 +17,7 @@ pub mod video;
 
 pub use audio::AudioSettings;
 pub use controls::{
-    update_trigger_edge, ControlSettings, DashInputMode, MenuPointerPress, MenuTapMode,
+    update_trigger_edge, BurstInputMode, ControlSettings, MenuPointerPress, MenuTapMode,
     TriggerEdgeState,
 };
 pub use gameplay::{AssistMode, GameplaySettings};

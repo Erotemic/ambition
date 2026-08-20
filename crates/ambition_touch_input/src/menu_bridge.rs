@@ -53,7 +53,7 @@ pub fn fold_touch_gestures(
         touch.jump,
         touch.attack,
         touch.special,
-        touch.dash,
+        touch.burst,
         touch.blink,
         touch.interact,
         touch.projectile,

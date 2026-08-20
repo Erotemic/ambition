@@ -61,7 +61,7 @@ impl SettingsCategoryId {
         match self {
             Self::Video => "Display mode, camera, flashes, colorblind, FPS, shaders.",
             Self::Audio => "Master / music / SFX volume and mute.",
-            Self::Controls => "Sticks, triggers, dash, touch, and menu input.",
+            Self::Controls => "Sticks, triggers, burst, touch, and menu input.",
             Self::Gameplay => "Difficulty, assist, damage, and HUD overlays.",
         }
     }
@@ -118,7 +118,7 @@ pub enum SettingsOptionId {
     TriggerRelease,
     DpadMenuNav,
     InvertAimY,
-    DashInputMode,
+    BurstInputMode,
     TouchControls,
     MenuTapMode,
     ResetControlFiltering,

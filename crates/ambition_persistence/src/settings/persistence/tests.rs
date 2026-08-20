@@ -182,3 +182,69 @@ fn startup_with_an_unchanged_file_does_not_rewrite_it() {
     std::env::remove_var("AMBITION_DATA_DIR");
     let _ = fs::remove_dir_all(&root);
 }
+
+/// **A settings file written before the BURST rename still loads, whole.**
+///
+/// ⛔⛔ **`dash_input_mode` is the WIRE, and moving it wipes everything.** The
+/// field was renamed to `ControlSettings::burst_input_mode` when the shared
+/// dodge/dash channel stopped being named after one of its outcomes, and the
+/// serde name is pinned to the old spelling. It has to be: the field carries no
+/// `#[serde(default)]` and `ControlSettings` has no container default, so a key
+/// this struct cannot find is a deserialize error for the WHOLE struct — and
+/// `load_settings` answers a parse error by discarding the entire file and
+/// returning `UserSettings::default()`. Video, audio, gameplay, the keyboard
+/// preset and every binding override would go with it, on a warning line
+/// nobody reads.
+///
+/// ⚠ **the assertions below are why `save_clamps_values_back_into_range_on_load`
+/// does not cover this.** That test feeds a file of the same vintage and then
+/// asserts only `master_volume <= 1.0` and `music_volume >= 0.0` — both of which
+/// the DEFAULTS satisfy. It reports green on a total wipe. So this one asserts
+/// the poison too: a value that is not the default, read back as itself.
+#[test]
+fn a_pre_burst_settings_file_keeps_its_saved_preferences() {
+    use crate::settings::controls::BurstInputMode;
+
+    let _g = TEST_DIR_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let root = temp_root("pre_burst_wire");
+    let path = settings_path_under(&root);
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    // Exactly what a shipped build wrote before the rename, down to the key
+    // spelling. Every value chosen to differ from its default.
+    let raw = r#"(
+        controls: (
+            keyboard_preset_index: 1,
+            controller_profile: Default,
+            left_stick_deadzone: 0.33,
+            right_stick_deadzone: 0.22,
+            trigger_release_threshold: 0.30,
+            trigger_press_threshold: 0.55,
+            dpad_menu_navigation: false,
+            invert_aim_y: true,
+            dash_input_mode: Both,
+            menu_repeat_initial_delay: 0.40,
+            menu_repeat_interval: 0.20,
+        ),
+    )"#;
+    fs::write(&path, raw).unwrap();
+
+    let s = load_settings(&path);
+
+    assert_ne!(
+        s, UserSettings::default(),
+        "the file did not parse at all: `load_settings` swallowed the error and \
+         handed back defaults, which is a SILENT wipe of the player's settings"
+    );
+    assert_eq!(
+        s.controls.burst_input_mode,
+        BurstInputMode::Both,
+        "the saved burst-input preference did not survive the rename; the \
+         `#[serde(rename = \"dash_input_mode\")]` pin on `burst_input_mode` is \
+         what carries it"
+    );
+    // The neighbours prove the whole struct came through, not just the one key.
+    assert_eq!(s.controls.keyboard_preset_index, 1);
+    assert!(s.controls.invert_aim_y);
+    assert!(!s.controls.dpad_menu_navigation);
+    let _ = fs::remove_dir_all(&root);
+}

@@ -9,7 +9,7 @@ use ambition_persistence::settings::UserSettings;
 pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
     use ambition_persistence::host::windowing::DisplayModeKind;
     use ambition_persistence::settings::controls::{
-        ControllerProfileId, DashInputMode, MenuTapMode,
+        BurstInputMode, ControllerProfileId, MenuTapMode,
     };
     use ambition_persistence::settings::gameplay::Difficulty;
     use ambition_persistence::settings::video::{
@@ -414,14 +414,14 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
                 "Invert the vertical aim axis.",
             ),
             {
-                let (i, n) = enum_index(&DashInputMode::ALL, c.dash_input_mode);
+                let (i, n) = enum_index(&BurstInputMode::ALL, c.burst_input_mode);
                 cycle(
-                    SettingsOptionId::DashInputMode,
-                    "Dash Input",
-                    c.dash_input_mode.label(),
+                    SettingsOptionId::BurstInputMode,
+                    "Burst Input",
+                    c.burst_input_mode.label(),
                     i,
                     n,
-                    "How the dash action is triggered.",
+                    "Which control fires the dodge/dash button.",
                 )
             },
             toggle(

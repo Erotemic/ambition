@@ -357,7 +357,7 @@ impl ActionBindings {
     /// ⛔ **this used to be `.first()`, and `.first()` cannot be right on a mixed
     /// map.** `KeyboardPreset::input_map` inserts the keyboard half
     /// (`presets.rs:257`) before the gamepad half (`:258`), so for every action
-    /// both halves bind — Jump, Attack, Dash — the first control is a KEY. A
+    /// both halves bind — Jump, Attack, Burst — the first control is a KEY. A
     /// caller that then re-spelled it in a controller vocabulary got `Z`, not
     /// `Cross`: picking a vocabulary cannot turn a `KeyCode` into a button.
     /// (GPT 5.6 review through `c32e690`, finding 3.)
@@ -462,7 +462,7 @@ pub fn action_for_slot(
         ControlSlot::Attack => Platformer2dInputActionMonolith::Attack,
         ControlSlot::Special => Platformer2dInputActionMonolith::Special,
         ControlSlot::Projectile => Platformer2dInputActionMonolith::Projectile,
-        ControlSlot::Burst => Platformer2dInputActionMonolith::Dash,
+        ControlSlot::Burst => Platformer2dInputActionMonolith::Burst,
         ControlSlot::Blink => Platformer2dInputActionMonolith::Blink,
         ControlSlot::Interact => Platformer2dInputActionMonolith::Interact,
         ControlSlot::Utility => Platformer2dInputActionMonolith::Utility,

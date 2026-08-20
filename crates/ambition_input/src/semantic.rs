@@ -292,7 +292,12 @@ pub static ENGINE_ACTIONS: &[SemanticActionDef] = &[
         GAMEPLAY,
         "Strong-attack hint; the sim classifies tilt vs smash",
     ),
-    engine("dash", ActionControlKind::Button, GAMEPLAY, "Dash"),
+    engine(
+        "burst",
+        ActionControlKind::Button,
+        GAMEPLAY,
+        "Dodge / dash — the one shared burst press",
+    ),
     engine(
         "blink",
         ActionControlKind::Button,
@@ -428,10 +433,10 @@ pub static ENGINE_ACTIONS: &[SemanticActionDef] = &[
         "Menu navigation stick",
     ),
     engine(
-        "dash_analog",
+        "burst_analog",
         ActionControlKind::Axis,
         GAMEPLAY,
-        "Analog dash trigger",
+        "Analog burst trigger",
     ),
     engine(
         "aim_stick",

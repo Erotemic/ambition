@@ -302,7 +302,7 @@ impl SystemMenuEntryId {
             Self::Radio => "Pick the sandbox radio station (music plays as you browse).",
             Self::Video => "Display, FPS, camera zoom, and the shader / post-process stack.",
             Self::Audio => "Master / music / SFX volume and mute.",
-            Self::Controls => "Touch overlay, dash input, and stick deadzone.",
+            Self::Controls => "Touch overlay, burst input, and stick deadzone.",
             Self::Rebind => "Put an action on a different key or button.",
             Self::Gameplay => "Debug and quest HUD overlays.",
             Self::Language => "Interface language (English only for now).",
@@ -474,7 +474,7 @@ impl DevSnapshot {
 /// face, in pause-menu page order. This now mirrors the OLD pause menu's pages
 /// 1:1 for the player-facing set (Phase C1 parity): Video carries the basic
 /// display/camera/accessibility rows plus the whole shader subpage; Controls
-/// carries every stick/trigger/dash/menu row; Gameplay carries
+/// carries every stick/trigger/burst/menu row; Gameplay carries
 /// difficulty/assist/damage plus the HUD + trace toggles. Nothing the pause
 /// menu shows is dropped here, so the System face is at full parity once the
 /// pause menu is deleted.
@@ -531,7 +531,7 @@ fn curated_options(id: SystemMenuEntryId) -> &'static [SettingsOptionId] {
             SettingsOptionId::TriggerRelease,
             SettingsOptionId::DpadMenuNav,
             SettingsOptionId::InvertAimY,
-            SettingsOptionId::DashInputMode,
+            SettingsOptionId::BurstInputMode,
             SettingsOptionId::TouchControls,
             SettingsOptionId::MenuTapMode,
             SettingsOptionId::ResetControlFiltering,

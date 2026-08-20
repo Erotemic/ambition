@@ -34,7 +34,10 @@ pub enum TouchActionButton {
     Jump,
     Attack,
     Special,
-    Dash,
+    /// The shared dodge/dash press. Named for the CHANNEL, not for either
+    /// outcome: what a press buys is the controlled body's answer, and the
+    /// word the player sees comes from the live `ControlPrompt`.
+    Burst,
     Blink,
     Interact,
     Projectile,
@@ -153,7 +156,7 @@ pub fn touch_action_layout() -> [TouchActionSpec; 11] {
     //
     //   shoulder   Blink    Fly      Shot
     //   utility    Shield   Interact Special
-    //   face       Attack            Dash
+    //   face       Attack            Burst
     //   primary        Run      Jump
     //
     // The primary band is the thumb's home: the two controls a platformer holds
@@ -204,12 +207,12 @@ pub fn touch_action_layout() -> [TouchActionSpec; 11] {
         scaled(TouchActionButton::Attack, "Attack", 30.0, 158.0, 70.0, 14.0),
         // ⭐ **the face band had a real hole, and this is the measured fit.**
         // Authored-space clearance to its nearest neighbour is 22.0px (Interact
-        // above, Attack and Dash beside it) — WIDER than the arrangement's own
+        // above, Attack and Burst beside it) — WIDER than the arrangement's own
         // tightest existing pair at 14.0 (Fly/Interact and Run/Jump), so adding
         // it does not touch the minimum this layout was retuned to protect.
         // Slightly smaller than its neighbours (58 vs 70) to keep that true.
         scaled(TouchActionButton::Grab, "Grab", 125.0, 158.0, 58.0, 12.0),
-        scaled(TouchActionButton::Dash, "Dash", 210.0, 158.0, 70.0, 14.0),
+        scaled(TouchActionButton::Burst, "Burst", 210.0, 158.0, 70.0, 14.0),
         // Primary band — the pair.
         scaled(TouchActionButton::Modifier, "Run", 82.0, 240.0, 66.0, 14.0),
         scaled(TouchActionButton::Jump, "Jump", 162.0, 240.0, 66.0, 14.0),

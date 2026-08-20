@@ -35,7 +35,8 @@ pub struct MovementKeys {
 pub struct ActionKeys {
     pub jump: KeyCode,
     pub attack: KeyCode,
-    pub dash: KeyCode,
+    /// The shared dodge/dash BURST press.
+    pub burst: KeyCode,
     pub secondary: KeyCode,
     /// Dedicated signature-special key (distinct from `secondary`/Blink).
     pub special: KeyCode,
@@ -110,7 +111,7 @@ impl KeyboardPreset {
             actions: ActionKeys {
                 jump: KeyCode::KeyZ,
                 attack: KeyCode::KeyX,
-                dash: KeyCode::KeyC,
+                burst: KeyCode::KeyC,
                 secondary: KeyCode::KeyA,
                 special: KeyCode::KeyG,
                 shield: KeyCode::KeyE,
@@ -174,7 +175,7 @@ impl KeyboardPreset {
             actions: ActionKeys {
                 jump: KeyCode::Space,
                 attack: KeyCode::KeyJ,
-                dash: KeyCode::KeyK,
+                burst: KeyCode::KeyK,
                 secondary: KeyCode::KeyL,
                 special: KeyCode::KeyG,
                 shield: KeyCode::KeyI,
@@ -206,7 +207,7 @@ impl KeyboardPreset {
             },
             actions: ActionKeys {
                 jump: KeyCode::KeyQ,
-                dash: KeyCode::KeyW,
+                burst: KeyCode::KeyW,
                 attack: KeyCode::KeyE,
                 secondary: KeyCode::KeyR,
                 special: KeyCode::KeyH,
@@ -239,7 +240,7 @@ impl KeyboardPreset {
             },
             actions: ActionKeys {
                 jump: KeyCode::KeyU,
-                dash: KeyCode::KeyI,
+                burst: KeyCode::KeyI,
                 attack: KeyCode::KeyP,
                 secondary: KeyCode::KeyO,
                 special: KeyCode::KeyH,
@@ -323,7 +324,7 @@ impl KeyboardPreset {
         );
         map.insert(Platformer2dInputActionMonolith::Jump, self.actions.jump);
         map.insert(Platformer2dInputActionMonolith::Attack, self.actions.attack);
-        map.insert(Platformer2dInputActionMonolith::Dash, self.actions.dash);
+        map.insert(Platformer2dInputActionMonolith::Burst, self.actions.burst);
         map.insert(
             Platformer2dInputActionMonolith::Reset,
             self.actions.select_reset,
@@ -470,7 +471,7 @@ impl KeyboardPreset {
 ///   LeftTrigger  Utility (fly toggle), MenuPageLeft
 ///   LeftTrigger2 Modifier
 ///   RightTrigger Shield, Interact, MenuPageRight
-///   RightTrigger2 Dash
+///   RightTrigger2 Burst
 ///   LeftThumb    Map (click left stick)
 ///   RightThumb   Inventory (click right stick)
 ///   Select       Reset
@@ -533,7 +534,7 @@ fn insert_gamepad_bindings(map: &mut InputMap<Platformer2dInputActionMonolith>) 
     map.insert(Platformer2dInputActionMonolith::Jump, GamepadButton::South);
     map.insert(Platformer2dInputActionMonolith::Attack, GamepadButton::West);
     map.insert(
-        Platformer2dInputActionMonolith::Dash,
+        Platformer2dInputActionMonolith::Burst,
         GamepadButton::RightTrigger2,
     );
     map.insert(
@@ -621,7 +622,7 @@ fn insert_gamepad_bindings(map: &mut InputMap<Platformer2dInputActionMonolith>) 
     // Reading it as an axis lets us apply hysteresis ourselves
     // instead of relying on the binary just_pressed edge.
     map.insert_axis(
-        Platformer2dInputActionMonolith::DashAnalog,
+        Platformer2dInputActionMonolith::BurstAnalog,
         GamepadControlAxis::RIGHT_Z,
     );
 }

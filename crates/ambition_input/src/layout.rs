@@ -129,7 +129,7 @@ pub enum BindingLayout {
 /// | DPadUp / DPadDown | **Taunt** | Move | **Movement is stick-only in a fighter**, which is what the genre does and what frees a button for a taunt. |
 ///
 /// Everything the table does not name is the base preset's: RightTrigger still
-/// shields and interacts, RightTrigger2 still dashes, the sticks,
+/// shields and interacts, RightTrigger2 still fires the burst, the sticks,
 /// Select/Start and the thumb clicks are untouched. *"The rest of the bindings
 /// are normal I think."*
 const SMASH_PAD: &[PadSlot] = &[

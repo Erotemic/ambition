@@ -79,7 +79,7 @@ const ALL_SETTINGS_OPTION_IDS: &[SettingsOptionId] = &[
     SettingsOptionId::TriggerRelease,
     SettingsOptionId::DpadMenuNav,
     SettingsOptionId::InvertAimY,
-    SettingsOptionId::DashInputMode,
+    SettingsOptionId::BurstInputMode,
     SettingsOptionId::TouchControls,
     SettingsOptionId::MenuTapMode,
     SettingsOptionId::ResetControlFiltering,
@@ -146,7 +146,7 @@ fn assert_all_settings_option_ids_listed(id: SettingsOptionId) {
         | SettingsOptionId::TriggerRelease
         | SettingsOptionId::DpadMenuNav
         | SettingsOptionId::InvertAimY
-        | SettingsOptionId::DashInputMode
+        | SettingsOptionId::BurstInputMode
         | SettingsOptionId::TouchControls
         | SettingsOptionId::MenuTapMode
         | SettingsOptionId::ResetControlFiltering

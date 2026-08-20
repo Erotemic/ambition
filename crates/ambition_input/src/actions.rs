@@ -36,7 +36,9 @@ pub enum Platformer2dInputActionMonolith {
     /// character action-slot vocabulary: the sim combines it with Attack and
     /// authoritative flick history to classify tilt versus smash.
     StrongAttack,
-    Dash,
+    /// The shared dodge/dash press — the BURST channel. What one press buys
+    /// is the controlled body's answer (`BurstManeuver`), never this name's.
+    Burst,
     Blink,
     /// Player signature SPECIAL — a dedicated slot, distinct from [`Self::Blink`].
     /// Historically the player brain aliased `special_pressed = blink_pressed`
@@ -118,11 +120,11 @@ pub enum Platformer2dInputActionMonolith {
     #[actionlike(DualAxis)]
     MenuStick,
     /// Analog right-trigger value (0..=1). Used together with
-    /// configurable hysteresis thresholds to derive the dash-pressed
+    /// configurable hysteresis thresholds to derive the burst-pressed
     /// edge so a worn trigger held above the threshold cannot retrigger
-    /// dash repeatedly.
+    /// the burst repeatedly.
     #[actionlike(Axis)]
-    DashAnalog,
+    BurstAnalog,
     /// Analog right-stick / aim read. The aim deadzone is applied here
     /// before the value reaches blink aim, so a drifting Xbox 360
     /// controller does not gradually push the blink target upward.
@@ -165,7 +167,7 @@ impl Platformer2dInputActionMonolith {
             | Self::Jump
             | Self::Attack
             | Self::StrongAttack
-            | Self::Dash
+            | Self::Burst
             | Self::Blink
             | Self::Special
             | Self::Shield
@@ -181,7 +183,7 @@ impl Platformer2dInputActionMonolith {
             | Self::Start
             | Self::Projectile
             | Self::TrailToggle
-            | Self::DashAnalog
+            | Self::BurstAnalog
             | Self::AimStick => false,
         }
     }

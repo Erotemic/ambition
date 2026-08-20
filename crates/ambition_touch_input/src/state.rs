@@ -66,7 +66,8 @@ pub struct TouchInputState {
     pub jump: TouchButton,
     pub attack: TouchButton,
     pub special: TouchButton,
-    pub dash: TouchButton,
+    /// The shared dodge/dash press — the BURST channel, not either verb.
+    pub burst: TouchButton,
     pub blink: TouchButton,
     pub interact: TouchButton,
     pub projectile: TouchButton,

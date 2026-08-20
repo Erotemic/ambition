@@ -17,10 +17,10 @@ use ambition_platformer2d_core::ControlFrame;
 use crate::actions::Platformer2dInputActionMonolith;
 
 /// Build a gameplay control frame, applying configurable deadzones,
-/// trigger hysteresis, and the dash-input mode from
+/// trigger hysteresis, and the burst-input mode from
 /// [`crate::settings::ControlSettings`].
 ///
-/// `dash_state` is the persistent trigger edge tracker for the player; it must
+/// `burst_state` is the persistent trigger edge tracker for the player; it must
 /// outlive a single frame so the hysteretic press/release semantics work. The
 /// function returns the next state so the caller can store it back into a Bevy
 /// resource.
@@ -28,7 +28,7 @@ use crate::actions::Platformer2dInputActionMonolith;
 pub fn read_gameplay_control_frame_with_settings(
     actions: &ActionState<Platformer2dInputActionMonolith>,
     controls: crate::settings::ControlFilters,
-    dash_state: crate::settings::TriggerEdgeState,
+    burst_state: crate::settings::TriggerEdgeState,
 ) -> (ControlFrame, crate::settings::TriggerEdgeState) {
     let raw_move = actions.clamped_axis_pair(&Platformer2dInputActionMonolith::Move);
     // Apply the left-stick deadzone before any walk-modifier logic so analog
@@ -55,34 +55,37 @@ pub fn read_gameplay_control_frame_with_settings(
     let down_pressed = actions.just_pressed(&Platformer2dInputActionMonolith::MoveDown);
 
     // BURST-press hysteresis: read the analog right trigger value plus the binary
-    // RT2 button as the "press level". (The device-side names stay `Dash` /
-    // `DashAnalog` / `DashInputMode` — those are the BINDING, which is what a
-    // player rebinds and what the settings file persists.) The settings-defined press / release
+    // RT2 button as the "press level". The settings-defined press / release
     // thresholds collapse trigger jitter into a single edge.
+    //
+    // ⚠ **the device-side names moved to BURST too, and the WIRE did not.** A
+    // stored remap is keyed by the action's `Debug` spelling, so `"Dash"` is
+    // carried to `"Burst"` by `settings::ControlSettings::migrate_renamed_actions`;
+    // the persisted `dash_input_mode` key is PINNED with `#[serde(rename)]`.
     let raw_trigger = actions
-        .value(&Platformer2dInputActionMonolith::DashAnalog)
+        .value(&Platformer2dInputActionMonolith::BurstAnalog)
         .clamp(0.0, 1.0);
-    let dash_button_value = if actions.pressed(&Platformer2dInputActionMonolith::Dash) {
+    let burst_button_value = if actions.pressed(&Platformer2dInputActionMonolith::Burst) {
         1.0
     } else {
         0.0
     };
-    let trigger_value = raw_trigger.max(dash_button_value);
-    let (next_dash_state, trigger_edge_pressed) = crate::settings::update_trigger_edge(
-        dash_state,
+    let trigger_value = raw_trigger.max(burst_button_value);
+    let (next_burst_state, trigger_edge_pressed) = crate::settings::update_trigger_edge(
+        burst_state,
         trigger_value,
         controls.trigger_release_threshold,
         controls.trigger_press_threshold,
     );
-    let burst_pressed = match controls.dash_input_mode {
-        crate::settings::DashInputMode::Trigger => trigger_edge_pressed,
-        // Button mode: ignore trigger hysteresis, only the configured Dash
+    let burst_pressed = match controls.burst_input_mode {
+        crate::settings::BurstInputMode::Trigger => trigger_edge_pressed,
+        // Button mode: ignore trigger hysteresis, only the configured Burst
         // button counts (e.g. RB on a 360 pad).
-        crate::settings::DashInputMode::Button => {
-            actions.just_pressed(&Platformer2dInputActionMonolith::Dash)
+        crate::settings::BurstInputMode::Button => {
+            actions.just_pressed(&Platformer2dInputActionMonolith::Burst)
         }
-        crate::settings::DashInputMode::Both => {
-            trigger_edge_pressed || actions.just_pressed(&Platformer2dInputActionMonolith::Dash)
+        crate::settings::BurstInputMode::Both => {
+            trigger_edge_pressed || actions.just_pressed(&Platformer2dInputActionMonolith::Burst)
         }
     };
 
@@ -146,7 +149,7 @@ pub fn read_gameplay_control_frame_with_settings(
         // Match the sim's +Y-down convention.
         aim_y: -aim_y,
     };
-    (frame, next_dash_state)
+    (frame, next_burst_state)
 }
 
 /// Convenience for tests/headless-visible paths: gameplay frame with default
@@ -177,10 +180,10 @@ pub fn read_menu_control_frame(
     }
 }
 
-/// Persistent dash-trigger edge state. Lives outside `ControlFrame` because
+/// Persistent burst-trigger edge state. Lives outside `ControlFrame` because
 /// the hysteresis logic must remember the previous state across frames;
 /// `ControlFrame` is stateless and rebuilt every frame.
 #[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct PlayerDashTriggerState {
+pub struct PlayerBurstTriggerState {
     pub edge: crate::settings::TriggerEdgeState,
 }

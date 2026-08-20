@@ -166,6 +166,7 @@
     "derived.control_frame",
     "derived.controlled_subject",
     "derived.custody_residency",
+    "derived.driving_participant",
     "derived.encounter_progress",
     "derived.encounter_switch_index",
     "derived.encounter_view",
@@ -411,7 +412,7 @@
     "scope.session",
     "smash.hold_state"
   ],
-  "stable_schema_name_count": 363,
+  "stable_schema_name_count": 365,
   "encoded_types": [
     "ambition_characters::actor::ActorFaction",
     "ambition_characters::actor::BodyHealth",

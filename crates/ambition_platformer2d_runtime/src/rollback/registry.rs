@@ -534,7 +534,7 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// `message.spawn_projectile` keeps its stable key while its concrete message
 /// becomes `ProjectileSpawnRequest`, so abandoned-future spawn requests remain
 /// cleared on load through the same wire identity.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 52;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 56;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

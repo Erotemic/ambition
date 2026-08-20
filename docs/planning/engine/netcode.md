@@ -84,10 +84,8 @@ per-spawner counter)`"*. What the tree actually did:
 | construction executor (every authored boss) | a `SimId` with **no counter** | a shipped boss's summon warned and built nothing |
 
 ⭐ **the contract was right and the enforcement was absent.** Each site was
-correct about the half it remembered and silent about the half it did not, and
-each failure was invisible in a different way — one was loudly wrong on screen,
-one was silently wrong in the data, one was a feature that simply never happened.
-None of the three tests covering these paths could see it: they hand-built their
+correct about the half it remembered and silent about the half it did not. None
+of the three tests covering these paths could see it: they hand-built their
 fixtures, supplying exactly what production omitted.
 
 ⭐⭐ **the durable fix was to make the pairing unforgettable rather than
@@ -200,18 +198,15 @@ The narrow gate is the real headless simulation, not a toy counter:
    two-seat sync-test session, both players local, the seats driven in OPPOSITE
    directions for 32 frames through the real save/rewind/resimulate loop.
 
-   ⚠ **Two SEATS, not two peers, and the distinction is the point.** A sync test
-   has no remote peer by definition. What this buys is that N input streams go
-   through rewind and are checksum-compared — the precondition for any of them
-   being remote later, and the thing that was missing: the session was built
-   `with_num_players(1)` while C4 shipped a 2–4 player couch mode, so the oracle
-   proved determinism for a quarter of what the game seated.
+   ⚠ **Two SEATS, not two peers.** A sync test has no remote peer by
+   definition; what this buys is that N input streams go through rewind and are
+   checksum-compared. The session had been built `with_num_players(1)` while
+   couch mode ships 2–4 players, so the oracle had proved determinism for a
+   quarter of what the game seated.
 
-   ⛔ **What it found on the way is the real content of this row.**
-   `publish_local_inputs` handed the PRIMARY seat's frame to every handle —
-   correct with one handle, silently wrong with two, and it would have made a
-   two-peer session checksum-compare a simulation nobody was playing. Seats 1–3
-   were also written on the FEEL clock where GGRS never saw them, so a
+   ⛔ **What it found:** `publish_local_inputs` handed the PRIMARY seat's frame
+   to every handle — correct with one handle, silently wrong with two. Seats
+   1–3 were also written on the FEEL clock where GGRS never saw them, so a
    resimulated frame replayed seat zero faithfully and gave every other seat
    whatever the device happened to be doing at replay time. Both are fixed;
    neither was visible from a one-player session.

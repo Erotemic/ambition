@@ -492,6 +492,39 @@ until that room unloads, after which its authored record recreates it at home.
 *"Leave this actor permanently where I released it"* would need body `Placed`
 whereabouts plus reconstruction relocation support.
 
+- ▢ **D168 — CONTROL AUTHORITY AND AI POLICY ARE TWO FACTS IN ONE COMPONENT.**
+
+Design and measurement in
+[`engine/control-authority-and-ai-policy.md`](engine/control-authority-and-ai-policy.md).
+Jon's 2026-08-19 review named this as a broad direction to resume once the custody
+and construction legs of D167 closed; all four of those are closed.
+
+⛔⛔ **THE REVIEW REFUSED THE OBVIOUS VERSION FIRST, and that is the load-bearing
+half**: `Brain::Capability(BrainId)` plus registered executable dispatch *"removes
+closed enum edges by adding a service locator"*. No `Any`, no `TypeId`, no
+`BrainId`, no registry. Same prohibition as `CapabilityLanes`, same reason — an
+erased id trades a compile error for a runtime lookup.
+
+⭐ **MEASURED 2026-08-20**: `Brain` is 2 variants and `StateMachineCfg` is 12;
+`Brain::Player` is named **194 times across 14 crates/games**, `Brain::StateMachine`
+107; 13 exhaustive matches; and **8,950 non-test lines of platform-fighter policy
+(`brain/fighter`, `brain/smash`) sit inside `ambition_characters`**, a floor crate
+every composition links — because policy shares a component, and therefore a
+crate, with control authority.
+
+⇒ two typed components, neither erased: `ControlAuthority` (generic, the
+participant slot a body reads) and a domain-owned `AiPolicy`. Possession then
+INSERTS control authority and leaves policy alone, which retires
+`PossessionState::restore_brain` — today a rollback-registered field that
+round-trips an entire AI policy's runtime state through a resource whose subject
+is *who is driving*.
+
+⛔ **the first slice is the SEAM, not the migration** (the review said so twice:
+*"evidence-driven carve; do not redesign the brain stack at once"*). Introduce the
+component, move possession onto it, delete `restore_brain`; nothing changes crates.
+Only then is the Smash/Fighter move priced by measurement — the way gravity priced
+the construction federation.
+
 - ▢ **D117 — Finish the controlled-character actor kernel. UNBLOCKED 2026-08-17:
   the decision it rested on is ANSWERED.**
 

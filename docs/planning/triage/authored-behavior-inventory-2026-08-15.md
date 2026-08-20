@@ -453,50 +453,33 @@ and is enforced by a startup guard (`crates/ambition_platformer2d/src/rollback.r
 
 ## Part F — What changed my mind
 
-1. **`EncounterScript` is not authored content, and I expected it to be.** The crate calls it "the
-   ONE timeline authority" and `spec.rs` sits beside it full of serde RON types. But
-   `EncounterTrigger`/`Effect`/`Beat`/`Script` carry **no serde derives at all**, the authored
-   `EncounterSpec` has **no script field**, and the only production script in the workspace is a Rust
-   literal. ⭐ This *strengthens* Customer A: the vocabulary is already designed and validated by one
-   real fight, and simply has no front door.
+Each item below restates only the surprise; see the cited section for the full evidence.
 
-2. ⭐⭐ **Boss patterns looked like a customer and are emphatically not one — they are the template.**
-   The program doc lists "boss phase triggers and boss attack/pattern timelines" as likely customers.
-   They are the **one family that already did the whole job**: typed schema family in the content
-   pack, compile-time cross-reference resolution, a *design* validator with data-driven bands, and a
-   rollback-encoded cursor that correctly snapshots the **resolved** timeline rather than the source
-   program. Migrating them would be asking the finished system to adopt an unfinished one's shape.
-   **They should be left alone and copied.** This is the single biggest correction the census makes
-   to the program doc's own customer list.
-
-3. **The moving platform is the doc's headline example and is disqualified as a proof.** "When two
-   switches are active, power a lift" has nothing to migrate: platforms have no gate, no `enabled`
-   field, and a previous per-entity gate was *deliberately deleted*. Migrating it would be pure
-   addition — program falsifier #2. It is a post-substrate feature, not a proof.
-
-4. ⭐ **The Noether symmetry-attunement puzzle reframed the whole census.** I went looking for a
-   multi-input condition in world content and expected to find none. It exists, ships, and is a real
-   four-switch AND — but only because it was **dressed up as an encounter**, with a hand-written
-   adapter translating switch presses into encounter signals so it could borrow `Objective::All`.
-   That is the cost of having no world-level condition vocabulary, measured in shipped content, and
-   it is better evidence for the program than any amount of "several partial implementations".
-
-5. **The gate portal's rollback waiver is, I believe, a live defect and not part of this program.**
-   I went in looking for a customer and came out with a bug. ⭐ It should be fixed on its own merits
-   and **should not be used as motivation for the rule layer** — attributing a plain accounting error
-   to an architectural gap would misdirect the plan.
-
-6. **I stopped believing "several partial implementations of condition→effect" is the story.** It is
-   true on the **effect** side — five-plus independent closed effect enums and command buses. It is
-   **false on the condition side**: there is essentially one composable model (`Objective`), one
-   third-party one (Yarn `<<if>>`), one boss-local one (`SituationBucket`), and otherwise nothing.
-   The gap is narrower and deeper than the doc's framing suggests, and it changes what M1 should
-   prototype first: **the condition / fact-query side, not the command side.**
-
-7. **The authored-move seam already exists and nobody uses it.** `MovePrefabRegistry` (key + params
-   → `MoveSpec`) has **zero production callers**, `CharacterDefinition.moveset` has zero authored
-   consumers, and **no `.ron` in the repo contains `windows:`**. A seam existing is not a seam being
-   adopted — worth remembering before building another one.
+1. **`EncounterScript` (§1) is not authored content, and I expected it to be** — no serde derives
+   anywhere on the trigger/effect/beat types, and the only production script is a Rust literal. This
+   *strengthens* Customer A: the vocabulary is already designed and validated, it just has no front
+   door.
+2. ⭐⭐ **Boss patterns (§4) looked like a customer and are emphatically not one — they are the
+   template.** The program doc's own first draft listed boss phase triggers/timelines as likely
+   customers; they already did the whole job. **They should be left alone and copied** — the single
+   biggest correction this census makes to the program doc's own customer list.
+3. **The moving platform (§13) is the doc's headline example and is disqualified as a proof** — there
+   is nothing to delete, so migrating it would be pure addition (falsifier #2), a post-substrate
+   feature rather than a proof.
+4. ⭐ **The Noether symmetry-attunement puzzle (§10) reframed the whole census.** A real four-switch
+   AND exists in shipped content, but only because it was dressed up as an encounter with a
+   hand-written adapter — better evidence for the program than any count of partial implementations.
+5. **The gate portal's rollback waiver (§12) turned out to be a live defect**, found while looking for
+   a customer rather than a bug. It should be judged on its own merits, not used as motivation for the
+   rule layer.
+6. **"Several partial implementations of condition→effect" does not survive contact with the
+   evidence.** True on the effect side (five-plus closed enums and command buses); false on the
+   condition side, where there is essentially one composable model, one third-party one, one
+   boss-local one, and otherwise nothing — which is why M1 should prototype the condition/fact-query
+   side first, not the command side.
+7. **The authored-move seam (§6) already exists and nobody uses it.** `MovePrefabRegistry` has zero
+   production callers and no `.ron` in the repo contains `windows:`. A seam existing is not a seam
+   being adopted.
 
 ---
 

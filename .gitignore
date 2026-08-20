@@ -128,6 +128,25 @@ crates/ambition_platformer2d_actor_monolith/assets/sprites_0_25x/
 crates/ambition_platformer2d_actor_monolith/assets/sprites_potato/
 # Quality-tiered shared-page sprite packs (regen ultrapack step output).
 crates/ambition_platformer2d_actor_monolith/assets/sprite_packs/
+
+# ⛔⛔ THE SAME SIX PATHS AGAIN, WITHOUT THE TRAILING SLASH.
+#
+# A trailing slash matches a DIRECTORY ONLY. On 2026-08-20 all six of these were
+# committed to main as SYMLINKS — directory links pointing at the main checkout's
+# copy, made in a worktree, which check out in the main tree as links to
+# themselves. `git check-ignore` reported them NOT IGNORED, so an ordinary
+# `git add` took them and six ignore rules watched it happen.
+#
+# ⚠ a directory link here is a defect in its own right, not just an ignore
+# escape: `scripts/mirror_assets_for_worktree.py` mirrors these trees FILE BY
+# FILE on purpose, because "directory links would send that write straight into
+# main's assets, which is exactly the accident this exists to prevent."
+crates/ambition_platformer2d_actor_monolith/assets/audio
+crates/ambition_platformer2d_actor_monolith/assets/fonts
+crates/ambition_platformer2d_actor_monolith/assets/sprite_packs
+crates/ambition_platformer2d_actor_monolith/assets/sprites_0_25x
+crates/ambition_platformer2d_actor_monolith/assets/sprites_0_5x
+crates/ambition_platformer2d_actor_monolith/assets/sprites_potato
 crates/ambition_platformer2d_actor_monolith/assets/backgrounds/parallax_layers_0_5x/
 crates/ambition_platformer2d_actor_monolith/assets/backgrounds/parallax_layers_0_25x/
 crates/ambition_platformer2d_actor_monolith/assets/backgrounds/parallax_layers_potato/

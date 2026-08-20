@@ -318,6 +318,12 @@ pub static ENGINE_ACTIONS: &[SemanticActionDef] = &[
         "Press to catch hold of another body",
     ),
     engine(
+        "taunt",
+        ActionControlKind::Button,
+        GAMEPLAY,
+        "Press to taunt; it costs you your footing and buys nothing",
+    ),
+    engine(
         "interact",
         ActionControlKind::Button,
         GAMEPLAY,

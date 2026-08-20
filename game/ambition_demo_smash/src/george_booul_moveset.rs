@@ -689,12 +689,14 @@ mod tests {
     fn no_move_lives_between_the_pokes_and_the_commitments() {
         let george = george_booul_moveset();
 
-        // ⛔ **WHO IS EXEMPT, BY NAME.** Two moves have no tell, and they are the
-        // capture beats — a pummel and a throw that reach for nobody. Pinning
-        // the list means a STRIKE that lost its Active window fails here instead
-        // of quietly leaving the law it is supposed to obey. ⭐ the grab is NOT
-        // on it: a grab reaches, so a grab has a tell, and it obeys the band
-        // like everything else (it was authored at `0.14` and this caught it).
+        // ⛔ **WHO IS EXEMPT, BY NAME.** Three moves have no tell, and none of
+        // them reaches for anybody: a pummel and a throw, whose target was
+        // already selected, and the TAUNT, whose whole content is that it buys
+        // nothing. Pinning the list means a STRIKE that lost its Active window
+        // fails here instead of quietly leaving the law it is supposed to obey.
+        // ⭐ the grab is NOT on it: a grab reaches, so a grab has a tell, and it
+        // obeys the band like everything else (it was authored at `0.14` and
+        // this caught it).
         let mut telless: Vec<&str> = george
             .moves
             .iter()
@@ -704,7 +706,7 @@ mod tests {
         telless.sort_unstable();
         assert_eq!(
             telless,
-            vec!["george_fthrow", "george_pummel"],
+            vec!["george_booul_taunt", "george_fthrow", "george_pummel"],
             "the set of moves with no Active window changed"
         );
 

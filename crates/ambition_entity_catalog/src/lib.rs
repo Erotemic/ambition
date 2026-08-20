@@ -1502,6 +1502,10 @@ pub const RANGED_VERB: &str = "ranged";
 /// a body only has a real special when its moveset authors a matching
 /// directional verb or the base verb.
 pub const SPECIAL_VERB: &str = "special";
+/// The canonical verb id a body's taunt binds to, and the base of its
+/// directional chain. Unlike every verb above it, this one is not a threat —
+/// which is why a body needs no permission to carry it.
+pub const TAUNT_VERB: &str = "taunt";
 /// **The capture verbs.** The grab that establishes a hold, and the moves a
 /// captor selects while one exists.
 ///

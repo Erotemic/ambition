@@ -537,6 +537,7 @@ pub fn patent_clerk_moveset() -> MovesetContract {
         },
     );
     SmashRepertoire {
+        taunt: ambition_characters::moveset_authoring::taunt("patent_clerk_taunt", 0.9),
         jab,
         forward_tilt: f_tilt,
         up_tilt,

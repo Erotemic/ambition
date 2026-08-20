@@ -284,6 +284,10 @@ pub struct ActorControlFrame {
     /// the semantic control surface is that a brain asks for a grab the way a
     /// person does, and everything downstream reads one answer.
     pub grab_pressed: bool,
+    /// **Rising edge: this body wants to TAUNT this tick.** The human's Taunt
+    /// button and a brain's decision write this SAME field, for the reason
+    /// stated above.
+    pub taunt_pressed: bool,
     /// Rising edge: brain wants to use its special / signature move.
     /// What this resolves to is per-entity (ActionSet), so the same
     /// `special_pressed=true` from a player brain and a possessed
@@ -468,6 +472,7 @@ impl ActorControlFrame {
             || self.shield_held
             || self.special_pressed
             || self.grab_pressed
+            || self.taunt_pressed
     }
 
     /// Clear all rising- and falling-edge flags without touching sustains. Used
@@ -511,6 +516,7 @@ impl ActorControlFrame {
         self.blink_released = false;
         self.modifier_pressed = false;
         self.grab_pressed = false;
+        self.taunt_pressed = false;
     }
 }
 

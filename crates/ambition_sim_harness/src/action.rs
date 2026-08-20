@@ -160,6 +160,9 @@ impl From<AgentAction> for ControlFrame {
             // widening `AgentAction` and retraining against a larger space, which
             // is a decision about the harness rather than a line in a converter.
             grab_pressed: false,
+            // Same reason as `grab_pressed` above, and one more: an agent has
+            // nothing to gain from a taunt, which is what a taunt is.
+            taunt_pressed: false,
             modifier_held: a.modifier_held,
             modifier_pressed: a.modifier,
             aim_x: a.aim_x,

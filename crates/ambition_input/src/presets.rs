@@ -44,6 +44,9 @@ pub struct ActionKeys {
     /// placed next to its existing action cluster, so no preset gained a second
     /// meaning on a key it already spends.
     pub grab: KeyCode,
+    /// Taunt. Chosen per preset from that preset's UNUSED letters, for the same
+    /// reason and by the same rule as `grab`.
+    pub taunt: KeyCode,
     pub interact: KeyCode,
     pub modifier: KeyCode,
     pub utility: KeyCode,
@@ -112,6 +115,7 @@ impl KeyboardPreset {
                 special: KeyCode::KeyG,
                 shield: KeyCode::KeyE,
                 grab: KeyCode::KeyS,
+                taunt: KeyCode::KeyT,
                 interact: KeyCode::KeyF,
                 // ⚠ **X IS THE CLASSIC B BUTTON: hold to run, press to fire.**
                 // Binding `attack` AND `modifier` to the same key is DELIBERATE
@@ -175,6 +179,7 @@ impl KeyboardPreset {
                 special: KeyCode::KeyG,
                 shield: KeyCode::KeyI,
                 grab: KeyCode::KeyO,
+                taunt: KeyCode::KeyN,
                 interact: KeyCode::KeyE,
                 modifier: KeyCode::ShiftLeft,
                 utility: KeyCode::KeyU,
@@ -207,6 +212,7 @@ impl KeyboardPreset {
                 special: KeyCode::KeyH,
                 shield: KeyCode::KeyT,
                 grab: KeyCode::KeyY,
+                taunt: KeyCode::KeyU,
                 interact: KeyCode::KeyF,
                 modifier: KeyCode::ShiftLeft,
                 utility: KeyCode::KeyG,
@@ -239,6 +245,7 @@ impl KeyboardPreset {
                 special: KeyCode::KeyH,
                 shield: KeyCode::KeyJ,
                 grab: KeyCode::KeyY,
+                taunt: KeyCode::KeyN,
                 interact: KeyCode::KeyE,
                 modifier: KeyCode::ShiftLeft,
                 utility: KeyCode::KeyK,
@@ -347,6 +354,7 @@ impl KeyboardPreset {
         );
         map.insert(Platformer2dInputActionMonolith::Shield, self.actions.shield);
         map.insert(Platformer2dInputActionMonolith::Grab, self.actions.grab);
+        map.insert(Platformer2dInputActionMonolith::Taunt, self.actions.taunt);
         map.insert(
             Platformer2dInputActionMonolith::Interact,
             self.actions.interact,

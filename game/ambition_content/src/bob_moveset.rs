@@ -417,6 +417,8 @@ pub fn bob_moveset() -> MovesetContract {
     );
 
     SmashRepertoire {
+
+        taunt: ambition_characters::moveset_authoring::taunt("bob_taunt", 0.9),
         jab,
         forward_tilt: f_tilt,
         up_tilt: u_tilt,

@@ -98,6 +98,7 @@ pub fn tick_player_brain_from_control(
         interact_pressed: _,
         shield_held: _,
         grab_pressed: _,
+        taunt_pressed: _,
         special_pressed: _,
         attack_pressed: _,
         attack_held: _,
@@ -258,6 +259,8 @@ pub fn tick_player_brain_from_control(
     // carry list simply never learned it, so the comment described an intent the
     // code did not implement — and a CPU could grab while a person could not.
     out.grab_pressed = c.grab_pressed;
+    // Same carry, same reason: a verb absent here is CPU-ONLY.
+    out.taunt_pressed = c.taunt_pressed;
     // No dedicated "special" input today — `blink_pressed` is the
     // Special now has its OWN dedicated input slot (`Platformer2dInputActionMonolith::Special` →
     // `ControlFrame.special_pressed`), retiring the old

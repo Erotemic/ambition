@@ -435,6 +435,7 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
         },
     );
     SmashRepertoire {
+        taunt: ambition_characters::moveset_authoring::taunt("ninja_shadow_oni_leader_taunt", 0.9),
         jab,
         forward_tilt: f_tilt,
         up_tilt,

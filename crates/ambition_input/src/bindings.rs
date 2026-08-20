@@ -468,6 +468,7 @@ pub fn action_for_slot(
         ControlSlot::Utility => Platformer2dInputActionMonolith::Utility,
         ControlSlot::Shield => Platformer2dInputActionMonolith::Shield,
         ControlSlot::Grab => Platformer2dInputActionMonolith::Grab,
+        ControlSlot::Taunt => Platformer2dInputActionMonolith::Taunt,
         ControlSlot::Modifier => Platformer2dInputActionMonolith::Modifier,
     })
 }

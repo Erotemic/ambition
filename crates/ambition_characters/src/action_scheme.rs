@@ -264,6 +264,14 @@ pub fn resolve_control_slots(
                     control.grab_pressed = false;
                 }
             }
+            // Same shape as Grab for the same reason: the press invokes an
+            // authored MOVE, so binding a technique here would give one button
+            // two meanings.
+            ControlSlot::Taunt => {
+                if gate.is_none() && !holds_item {
+                    control.taunt_pressed = false;
+                }
+            }
             ControlSlot::Shield => match gate.as_ref() {
                 Some(ActionGate::Technique(id)) => {
                     edges.set(
@@ -499,6 +507,14 @@ fn combat_actions(
         abilities.grab && has_verb(ids::GRAB),
         ControlSlot::Grab,
         ids::GRAB,
+    );
+    // **No permission term, deliberately.** A taunt is content and nothing else
+    // — it grants no reach and threatens nobody — so a body gets the button on
+    // the day it authors the move, exactly like the ranged slot above.
+    push(
+        has_directional_verb(ids::TAUNT),
+        ControlSlot::Taunt,
+        ids::TAUNT,
     );
     out
 }

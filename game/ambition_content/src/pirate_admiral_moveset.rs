@@ -511,6 +511,8 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
     );
 
     SmashRepertoire {
+
+        taunt: ambition_characters::moveset_authoring::taunt("pirate_admiral_taunt", 0.9),
         jab,
         forward_tilt: f_tilt,
         up_tilt,

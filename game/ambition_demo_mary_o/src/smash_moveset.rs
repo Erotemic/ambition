@@ -432,6 +432,8 @@ pub fn mary_o_moveset() -> MovesetContract {
     );
 
     SmashRepertoire {
+
+        taunt: ambition_platformer2d::characters::moveset_authoring::taunt("mary_o_taunt", 0.9),
         jab,
         forward_tilt: f_tilt,
         up_tilt: u_tilt,

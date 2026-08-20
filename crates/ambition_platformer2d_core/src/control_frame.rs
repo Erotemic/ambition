@@ -106,6 +106,9 @@ pub struct ControlFrame {
     /// — the authored grab move owns how long the attempt stays active, and its
     /// recovery is what a whiffed grab costs.
     pub grab_pressed: bool,
+    /// **Rising edge: this body wants to TAUNT this tick.** A taunt costs the
+    /// body its footing and buys it nothing, which is the whole point.
+    pub taunt_pressed: bool,
     /// Modifier slot currently HELD (sustain). The device layer reports the raw
     /// button state and assigns it NO meaning: content decides what sustaining
     /// this slot does to a body (a locomotion technique, a stance, a guard).
@@ -178,6 +181,7 @@ impl ControlFrame {
             projectile_released: self.projectile_released | sample.projectile_released,
             modifier_pressed: self.modifier_pressed | sample.modifier_pressed,
             grab_pressed: self.grab_pressed | sample.grab_pressed,
+            taunt_pressed: self.taunt_pressed | sample.taunt_pressed,
         }
     }
 

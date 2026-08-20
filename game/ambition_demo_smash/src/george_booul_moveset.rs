@@ -572,6 +572,8 @@ pub fn george_booul_moveset() -> MovesetContract {
     let capture = crate::smash_pack::capture_kit(crate::SMASH_GEORGE_BOOUL);
 
     let repertoire = SmashRepertoire {
+
+        taunt: ambition_platformer2d::characters::moveset_authoring::taunt("george_booul_taunt", 0.9),
         jab,
         forward_tilt: f_tilt,
         up_tilt,

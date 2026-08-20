@@ -31,193 +31,106 @@ The milestone is reached when:
 This directly unlocks cleaner multiplayer/multiview, open-world population,
 navigation, possession, item custody and actor-monolith decomposition.
 
-## Milestone status against HEAD (2026-08-14 local)
+## Milestone status against HEAD (2026-08-18)
 
-Every property now holds except the **semantic decomposition** of
-`tick_actor_brains`, which is partial. Deleting the dead slot board was the right
-architectural result, but reducing a system's parameter count is not the same as
-completing its decomposition, and several of the properties that do hold were
-reached by DELETING what the milestone described rather than by building it.
-Check HEAD before starting the next slice.
+Every property holds except the **semantic decomposition** of
+`tick_actor_brains`, which reached a deliberate resting point rather than
+completion.
 
-✔✔ **THE WAIT IS OVER, AND THE STEP IS ONE SEAM (2026-08-18).** This paragraph
-used to say the milestone was blocked on the hit-emphasis/proper-time decision
-because the two integrators differed in hit-stop semantics. Jon ruled it on
-2026-08-17 — a body freezes on its own hitstop, on both roads — and the merge
-followed: the axis-tuning refresh and the hitlag freeze are now
-`ambition_characters::actor::step_body`, and **neither road spells them**.
+✔✔ **The integrator fork is resolved (2026-08-18).** Jon ruled on 2026-08-17
+that hitlag is a combat/body semantic, not something that should depend on
+whether a body occupies the primary local-control road — a body freezes on its
+own hitstop, on both roads. The axis-tuning refresh and hitlag freeze now live
+in `ambition_characters::actor::step_body`, taking `&BodyCombat` rather than a
+`dt` (a caller-computed `dt` was wrong for months). Ruling in
+[`../maintainer-decisions.md`](../maintainer-decisions.md). ⛔ if hitlag ever
+feels too sticky, tune its duration or shape — restoring a controlled-body/actor
+asymmetry is forbidden.
 
-⭐ **it takes the `&BodyCombat`, not a `dt`**, because a `dt` is something a
-caller can compute wrongly and one of them did for months. That is the whole
-lesson of D114 expressed as a signature.
-
-⚠ **what is left of the fork is the ORCHESTRATION around the step**, not the step:
-each road still builds its own input, decides its own reset, and publishes its own
-hurtbox. They live in disjoint queries (`With`/`Without<PlayerEntity>`) with
-different cluster shapes, so they cannot share one Bevy loop. ⛔ **measure whether
-each remaining pair is genuinely species-specific before merging it** — one pair
-already turned out not to be: the home road was re-compositing the whole collision
-world per body from the same inputs the actor loop had already used, so both now
-take the one composited world.
+⚠ **what is left of the fork is the ORCHESTRATION around the step**, not the
+step: each road still builds its own input, decides its own reset, and
+publishes its own hurtbox, in disjoint queries
+(`With`/`Without<PlayerEntity>`) that cannot share one Bevy loop. ⛔ measure
+whether each remaining pair is genuinely species-specific before merging it —
+one pair already wasn't: the home road was re-compositing the whole collision
+world per body from inputs the actor loop had already used, so both now take
+the one composited world.
 
 - ✔ **generic crowd/combat arbitration.** No longer anchored on a primary
   player, because the slot board it anchored is gone: `assign_slots` filled it
-  every tick and **no production reader consumed the assignment**, so making it
-  target-relative would have re-anchored a mechanism with no consumer. Spacing
-  comes from the crowding signal, which reads positions and a ground/aerial kind
-  and has no anchor at all. If a crowd board is wanted as a feature, it is a
-  product decision and needs a real reader first.
-- ◐ → ⏸ **parameter pressure is fixed; semantic decomposition reached a
-  deliberate resting point** (see the ⇒ at the end of this bullet — read it
-  before acting on the first paragraph, which describes the state BEFORE the
-  three cuts). The 72h ledger row was reconciled to this verdict on 2026-08-14;
-  it had been calling D117 the top executable priority while this said resting,
-  and agents were skipping it rather than resolving the contradiction.
-  `tick_actor_brains` went from sixteen parameters packed in a tuple to ten named
-  ones. Deleting the dead slot board and adopting `CollisionWorld` were both good
-  changes, and `PerceivedWorld` names a real observation concept. But the system
-  is still large and still performs disposition mutation, snapshot/view
-  construction, memory mutation, brain decision and `ActorControl` publication in
-  one function. The next slice should split those responsibilities by
-  authority/phase rather than declaring victory because Bevy accepts the
-  signature.
+  every tick with no production reader. Spacing comes from the crowding
+  signal, which reads positions and a ground/aerial kind and has no anchor at
+  all. A crowd board, if wanted as a feature, is a product decision needing a
+  real reader first.
 
-  **First cut taken 2026-08-14:** liveness/index collection and crowding
-  derivation moved out to `actors::crowd_observation` — the OBSERVATION half as a
-  value, with the derivations testable without an App (three tests, one of which
-  pins that query order cannot reach the result). The system is 619 lines, down
-  from 663; the honest read is that the boundary is now a type rather than a
-  place in a long function, and the bulk that remains is the per-body decision
-  loop. That loop is the next cut.
+- ◐ **parameter pressure is fixed; semantic decomposition reached a
+  deliberate resting point.** `tick_actor_brains` went from sixteen parameters
+  packed in a tuple to ten named ones, dropped the dead slot board, and adopted
+  `CollisionWorld`. The system still performs disposition mutation,
+  snapshot/view construction, memory mutation, brain decision and
+  `ActorControl` publication in one function; the next slice should split those
+  by authority/phase.
 
-  ⚠ **and measure the right thing when sizing it.** Of those 619 lines, 192 are
-  the parameter list with its docs and 429 are the body — and the body splits
-  214 code / 209 comment. So the executable logic is roughly 214 lines across
-  snapshot construction, memory mutation, disposition mutation, brain decision
-  and control publication. That is still multi-responsibility and still worth
-  splitting, but a slice chosen by line count would mostly be moving prose. **Cut
-  by responsibility.**
-
-  **Second cut:** `PerceptionBody` construction — sixty lines of struct literal
-  sitting between a snapshot build and a brain call — moved beside the type it
-  builds, in `perception::perception_body_for`. "What does a body know about
-  itself" is answered by the perception module now, not by reading a decision
-  loop. Body code 214 → 188.
-
-  **Third cut:** belief. The memory update and the sighted-target override sat
-  adjacent but separate in the loop; they are one question — *where does this
-  body believe its target is, after seeing and remembering* — and are now one
-  call, `perception::believed_target`. Keeping them apart is what lets a caller
-  update memory and forget to consult it, or consult it without updating. Body
-  code 188 → 181.
-
-  ⇒ **214 → 181 across three cuts**, and what remains in the loop is snapshot
+  Three cuts taken 2026-08-14: liveness/index collection and crowding
+  derivation moved to `actors::crowd_observation` (three tests, one pinning
+  that query order cannot reach the result); `PerceptionBody` construction
+  moved to `perception::perception_body_for`; memory update and sighted-target
+  override merged into `perception::believed_target` (keeping them apart is
+  what lets a caller update memory and forget to consult it, or vice versa).
+  Body code went 214 → 188 → 181 lines; what remains in the loop is snapshot
   assembly, disposition mutation and control publication.
 
-  ⛔ **the reaction-timer decay is NOT the next cut, and checking cost less than
-  moving it.** `combat.decay_reaction_timers(dt)` looks like unrelated work
-  riding in the brain tick, and a test fixture in `character_runtime` even
-  hand-writes the system production appears to lack. But the rule is already
-  consolidated into one function called from three places — controlled bodies in
-  `control::input_systems`, actors here, bosses in the boss tick — one per
-  population, and the controlled site decays on `frame_dt` where the other two
-  use sim `dt`.
+  ⛔ **the reaction-timer decay is NOT the next cut.** `combat.decay_reaction_timers(dt)`
+  looks like unrelated work riding in the brain tick, but the rule is already
+  consolidated into one function called from three places — controlled bodies
+  (`control::input_systems`), actors (here), bosses (the boss tick) — and the
+  controlled site decays on `frame_dt` where the other two use sim `dt`. ⚠
+  **that `frame_dt`/sim-`dt` split is a separate open question**; the D114
+  hitlag ruling above does not settle it.
 
-  ⛔⛔ **THIS PARAGRAPH USED TO CALL THAT DIFFERENCE DELIBERATE AND WARN AGAINST
-  "deciding D114 by refactor". IT IS SUPERSEDED — D114 WAS RULED ON 2026-08-17
-  AND THE PER-BODY FREEZE IS NOW THE INTENDED BEHAVIOUR.** `818218949` gave the
-  actor road `let sim_dt = if combat.is_in_hitlag() { 0.0 } else { dt };`, so a
-  hit between two actors freezes both, and Jon kept it: *"hitlag is a combat/body
-  semantic, not something that should depend on whether a body happens to occupy
-  the primary local-control road."* ⇒ **the per-road distinction was the defect,
-  not a feel fork.** ⛔ if hitlag ever feels too sticky, tune its DURATION or
-  SHAPE — **restoring a controlled-body/actor asymmetry is forbidden.** Ruling in
-  [`../maintainer-decisions.md`](../maintainer-decisions.md).
+  ⚠ **the automatic pacify is a candidate with a stated cost.** Reverting a
+  disposition to `Peaceful` on target loss belongs with `select_actor_targets`,
+  which owns the target and runs immediately before — but it would take effect
+  one tick earlier than today (the observation pass currently reads the
+  pre-pacify disposition). Probably an improvement, certainly a behaviour
+  change, and nothing pins it. Do it with a test that names the tick, or not at
+  all.
 
-  ⚠ **what survives of the warning, and it is the part worth keeping**: the old
-  prohibition was measured on a build where every authored launch direction was
-  vertically inverted and a tumbling launch resolved as a landing, i.e. where
-  nobody was ever knocked anywhere (queue D155). ⇒ **a feel verdict inherits the
-  build it was formed on**, and a prohibition written from one is only as durable
-  as that build. ⚠ note also that `ladder_probe` CANNOT measure this either way,
-  because it disables the opponent, so no hits land and no hitlag occurs.
+  ✔ **one duplicate found while sizing the integrator fork, deleted.**
+  `engine_input_from_actor_control` spelled the controlled road's
+  control-frame → `InputState` translation sixty lines field-for-field
+  identical to `ActorControlFrame::to_input_state`. It now calls the shared
+  translation and keeps only what is genuinely its own (`control_dt`, the
+  body's post-hit gates). 71 lines → 23.
 
-  ⚠ **the `frame_dt` vs sim `dt` split at the three decay sites is a SEPARATE
-  question** and this ruling does not settle it; what it settles is the hitlag
-  freeze. Do not cite the D114 closure as permission to merge the three systems.
+  ⇒ **this system is at a reasonable resting point**; the remaining structural
+  work in this milestone is the orchestration fork described above.
 
-  ⚠ **the automatic pacify is a candidate with a stated cost.** `if
-  disposition.is_hostile() && target.entity.is_none() && !in_a_fight` reverting a
-  body to `Peaceful` is a consequence of target LOSS, so it belongs with
-  `select_actor_targets`, which owns the target and runs immediately before —
-  adding `&mut ActorDisposition` and `Has<ActiveCombatant>` there is
-  straightforward. But it would take effect one tick earlier than today: the
-  observation pass currently reads the pre-pacify disposition, so a body that
-  just lost its foe leaves the crowd on the NEXT tick. Probably an improvement,
-  certainly a behaviour change, and nothing pins it. Do it with a test that names
-  the tick, or not at all.
+- ✔ **controlled and AI bodies on the same contracts — decision converged
+  2026-08-14.** Movement was already one path (`integrate_home_body` and the
+  actor integration both reach `ae::step_motion`). Decision now is too: one
+  producer, `tick_controlled_brains`, translates participant control into
+  `ActorControl` for any controlled body, and `tick_actor_brains` skips a body
+  carrying `Brain::Player`.
 
-  ⭐ **and one duplicate found while sizing the integrator fork, now deleted.**
-  `engine_input_from_actor_control` — the controlled road's control-frame →
-  `InputState` translation — spelled the mapping out again, sixty lines
-  field-for-field identical to `ActorControlFrame::to_input_state`, which the
-  ACTOR road already calls. Two spellings of one vocabulary, agreeing today and
-  kept agreeing by nothing: a field added to the frame and wired into
-  `to_input_state` reached every actor body and silently missed the controlled
-  one. It calls the shared translation now and keeps only what is genuinely its
-  own — stamping `control_dt` (a brain runs at sim time, a human's
-  responsive-aim window does not) and the body's post-hit gates. 71 lines → 23.
+  What made the cut possible: the possessed body previously paid for a full
+  actor observation (crowd observation, enemy brain snapshot, perception
+  policy, world view, believed-target derivation, and a mutation of
+  `PerceptionMemory`) just to move a stick, reading only six of those fields.
+  The one actor-specific fact, a movement scale, now comes from
+  `MotionModel::commanded_top_speed()` — a projection every movable body
+  already carries, no new component, absent policy ⇒ `0.0` (matching prior
+  behaviour). Moving the producer into `PlayerInput` phase also fixed two live
+  seams: `blank_scripted_control_frames` sits in `PlayerInput::ControlGate`,
+  the only position where blanking is observable, so a scripted sequence
+  driving a possessed body previously blanked nothing; and the causal
+  movement-intent observer now correctly sees a possessed body's intent.
+  Guarded by `a_scripted_sequence_silences_a_possessed_body` and
+  `a_possessed_actor_is_driven_by_the_controlled_brain_producer` (the latter is
+  the one that can only fail silently — a missing component makes the query an
+  empty iterator, not a compile error).
 
-  ⇒ with those three cuts the loop reads as a sequence — observe, decay, pacify,
-  assemble the snapshot, build the view, apply belief, decide, publish — and
-  `build_enemy_brain_snapshot` was already extracted. **This system is at a
-  reasonable resting point; the remaining structural work in this milestone is
-  the two-producer/two-integrator fork above, which needs a design decision
-  rather than another extraction.**
-- ✔ **controlled and AI bodies on the same contracts — DECISION CONVERGED
-  2026-08-14.** Movement was already one path (`integrate_home_body` and the actor
-  integration both reach `ae::step_motion`). Decision now is too: **one producer,
-  `tick_controlled_brains`, translates participant control into `ActorControl` for
-  any controlled body**, and `tick_actor_brains` skips a body carrying
-  `Brain::Player`. The two-producer fork is gone, not arbitrated.
-
-  ⭐ **what made the cut possible was measuring what the possessed body was
-  paying for.** `tick_player_brain_from_control` reads SIX snapshot fields:
-  `player_input`, `control_down`, `movement_frame_mode`, `aim_frame_mode`,
-  `actor_facing`, `max_run_speed`. What the actor tick built before reaching it:
-  a crowd observation, an enemy brain snapshot, a perception policy, a world view
-  over the collision world, a believed-target derivation, and a MUTATION of the
-  body's `PerceptionMemory`. A human piloting a body was constructing AI
-  perception — and decaying that body's own sight memory — to move a stick.
-
-  ⭐ **the one actor-specific fact was a movement scale, and it did not need
-  actor configuration to state it.** `velocity_target` is an absolute world-space
-  command, so the translation needs the body's top speed; that number now comes
-  from `MotionModel::commanded_top_speed()`, a projection on the one
-  movement-policy component every movable body already carries (the sibling of
-  `jump_squat_remaining`). No new component, no mirror of `ActorConfig`, and no
-  actor cluster granted to the home body to make one query match. Absent policy ⇒
-  `0.0`, which is what the home avatar stated explicitly before.
-
-  ⭐ **and the phase move fixed two live seams.** Both were consequences of the
-  possessed body's frame being written in `WorldPrep`, a phase after the
-  controlled one: `blank_scripted_control_frames` sits in `PlayerInput::ControlGate`
-  — *"the only position where blanking is observable"* — so a scripted sequence
-  driving a possessed body **blanked nothing**, and the causal movement-intent
-  observer (`.after(ControlledBrainTick)`) recorded a possessed body intending to
-  stand still. One producer in one phase settles both. Guarded by
-  `a_scripted_sequence_silences_a_possessed_body` and
-  `a_possessed_actor_is_driven_by_the_controlled_brain_producer`, which is the
-  one that can only fail silently: a component the query requires and a
-  production body lacks is an empty iterator, not a compile error.
-
-  ⇒ **the remaining blocker is narrow and is not this.** Movement/time
-  integration convergence — merging `integrate_home_body` and
-  `integrate_actor_body` — awaits the hit-emphasis/proper-time decision (open
-  item #5), because those two differ in hit-stop/time semantics. Control
-  authority does not, and no longer waits on it.
-
-  **The schedule the cut had to satisfy, enumerated before moving anything:**
+  The schedule the cut had to satisfy:
 
   | fact | where it becomes true | relation to the controlled phase |
   | --- | --- | --- |
@@ -230,48 +143,49 @@ take the one composited world.
   | mount relay | `steer_mount_from_rider`, after the actor tick | after |
   | `ActorControl` consumers | action emitters (after `WorldPrep`), integration (`PlayerSimulation`) | after |
 
-  ⭐ **`PlayerInput → WorldPrep` was already the contract** ("CONTROL-SEAM
-  ORDERING" in `schedule.rs`) and the frame resolver already published for actor
-  bodies before both. The cut needed no new ordering edge — it moved a producer
-  INTO the phase whose whole reason for running first is that participant input
-  is final there.
+  `PlayerInput → WorldPrep` was already the contract ("CONTROL-SEAM ORDERING"
+  in `schedule.rs`), so the cut needed no new ordering edge — it moved a
+  producer into the phase whose whole reason for running first is that
+  participant input is final there.
 
   ⚠ **one filter is deliberately not inherited:** `tick_actor_brains` carries
-  `Without<Dormant>`, and the controlled producer does not. Dormancy sleeps a
-  BRAIN as an AI optimisation; a participant is not an AI to be optimised away.
+  `Without<Dormant>`, and the controlled producer does not — dormancy sleeps a
+  BRAIN as an AI optimisation, and a participant is not an AI to be optimised
+  away.
+
+  ⇒ **the remaining blocker is narrow:** merging `integrate_home_body` and
+  `integrate_actor_body` was the open item this waited on; the D114 ruling
+  above resolves it. Control authority itself no longer waits on anything.
+
 - ✔ **the six names have distinct documented meanings** —
   [`../../concepts/one-body-one-path.md`](../../concepts/one-body-one-path.md)
   maps all six side by side, which is where the confusions happen.
-- ✔ **important ordering explicit.** Audited the four relationships these slices
-  introduced or exposed. Perception → brain tick is chained inside `WorldPrep`
-  with the reason written down. Overlay rebuild → the migrated `CollisionWorld`
-  readers is the same chain; the readers outside `WorldPrep` (the pogo resolver
-  in `Combat`, the OOB recorder in `Trace`) are trivially later, which is what
-  makes a trace show the world the simulation actually collided against. The
-  clock → platform advance is frame-stable, because `WorldTime` is snapshotted at
-  frame top. And the one relationship that was genuinely implicit — which of the
-  two `ActorControl` producers wins for a possessed body — is **removed rather
-  than documented**: disjoint populations need no order at all. ⭐ that is the
-  preferred resolution whenever it is available; an ordering constraint you do
-  not need is stronger than one you have written down.
-- ✔ **no replacement god context.** No `ActorContext` or service bag was added;
-  the new types are `PerceivedWorld` (three perception channels a view needs
-  together) and an adopted `CollisionWorld`.
+- ✔ **important ordering explicit.** Perception → brain tick is chained inside
+  `WorldPrep`. Overlay rebuild → migrated `CollisionWorld` readers is the same
+  chain, so a trace shows the world the simulation actually collided against.
+  The clock → platform advance is frame-stable (`WorldTime` is snapshotted at
+  frame top). The one relationship that was genuinely implicit — which
+  `ActorControl` producer wins for a possessed body — is removed rather than
+  documented: disjoint populations need no order at all, which is the
+  preferred resolution whenever available.
+- ✔ **no replacement god context.** No `ActorContext` or service bag was
+  added; the new types are `PerceivedWorld` (three perception channels a view
+  needs together) and an adopted `CollisionWorld`.
 - ✔ **behaviour preserved**, plus one defect fixed: `advance_moving_platforms`
   asked the home avatar's hitstop for permission through `single()` + `return`,
-  so **every match ran with its moving platforms frozen**.
+  so every match ran with its moving platforms frozen.
 
 ### Answering one of the open questions below
 
 *"Which current `PlayerEntity` semantics represent a legitimate home-avatar
 concept versus obsolete generic-simulation assumptions?"* — measured: 22 live
-query filters across engine crates. Presentation and read-model uses
-(`sim_view`, `render`) are legitimate view edges; item/save/shrine/room-reset
-uses are home-avatar policy and correct to do nothing in a match; the gravity
-flip switch is game policy with its design question named in place and nothing
-spawns one. **The obsolete-assumption category had one member and it is fixed.**
-The failure shape to grep for is not the marker but `single()` + `else
-{ return }` around it — four of those have now been removed.
+query filters across engine crates. Presentation/read-model uses (`sim_view`,
+`render`) are legitimate view edges; item/save/shrine/room-reset uses are
+home-avatar policy, correctly inert in a match; the gravity-flip switch is game
+policy with its design question named in place. The obsolete-assumption
+category had one member and it is fixed. The failure shape to grep for is not
+the marker but `single()` + `else { return }` around it — four of those have
+now been removed.
 
 ## Decomposition direction
 

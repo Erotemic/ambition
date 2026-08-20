@@ -982,6 +982,53 @@ regressions without anything saying so. `cargo test --workspace --lib` and
 
 ### 25. ▢ NEW 2026-08-20 — does "AVOID PUSHOUT" cover fighter-vs-fighter JOSTLE?
 
+⛔⛔ **BUILT IT, MEASURED IT, REVERTED IT — the ACCELERATION form CANNOT WORK,
+and that changes the question (2026-08-20).**
+
+I built jostle exactly as this row proposes — a `DeclaredCombatRules::jostle_accel`
+applied as an opposing force to overlapping grounded bodies, never writing a
+position, so AVOID PUSHOUT is untouched. Five unit tests, all green. On the real
+stage it does **nothing**, and the probe says why in one column:
+
+```text
+tick  240   s0 x=387 vx=-270      s1 x=253 vx=270
+tick  480   s0 x=326 vx=-270      s1 x=314 vx=270    overlapping, still ±270
+tick 1200   s0 x=236 vx=-270      s1 x=404 vx=270
+```
+
+⇒ **`vx` is EXACTLY ±`max_run_speed` on every sample.** The horizontal law is
+`approach(along, run * max_run_speed, accel * dt)` — a velocity **TARGET**, not
+an accumulation — so any delta added before the kernel is overwritten by the
+kernel on the same tick, for as long as the brain holds a direction. A force
+cannot survive a law that re-derives velocity from input every frame.
+
+⭐⭐ **the unit tests passed because they had no movement kernel in them.** They
+spawned two bodies, ran the one system, and read the velocity it wrote — the
+exact "a test that SUPPLIES the precondition cannot prove the mechanism reaches
+production" shape. Only the end-to-end run found it.
+
+⇒ **so the real question is not "force or displacement", it is WHERE.** Three
+candidates, and the third looks right:
+
+```text
+(a) write the position          ⛔ forbidden by AVOID PUSHOUT, and correctly so
+(b) reduce the RUN TARGET when blocked   a movement-kernel change: the law would
+                                         have to know another body is there
+(c) put bodies in the COLLISION SWEEP    what the sweep already does for walls —
+                                         it CLAMPS motion rather than writing a
+                                         position, so it is pushout-free by
+                                         construction, and it is how the genre
+                                         actually works
+```
+
+⚠ **(c) has real blast radius and is why this is still your call**: making bodies
+solid to each other is a movement-kernel change that reaches every NPC in
+Ambition, not only fighters, so it needs a gate and a decision about which
+populations collide. That is a bigger question than "may fighters jostle", and it
+is the one worth answering.
+
+
+
 **The mechanic.** Every platform fighter pushes two grounded bodies apart when
 they occupy the same space — Ultimate calls it jostle, and without it two
 fighters stand inside each other and the stage's spacing game stops existing.

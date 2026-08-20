@@ -16,7 +16,7 @@
 
 use bevy::prelude::*;
 
-use ambition_characters::brain::{Brain, PlayerSlot, SlotControls};
+use ambition_characters::brain::{DrivingParticipant, PlayerSlot, SlotControls};
 use ambition_input::ControlFrame;
 use ambition_platformer2d_actor_monolith::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
 use ambition_platformer2d_actor_monolith::affordances::{InteractVariant, NearestInteractable};
@@ -64,7 +64,11 @@ pub fn portal_input_adapter_system(
     // ACCEPTED — the drop is refused for a body holding a throwable, the fire is
     // refused for an inactive gun — so spending the press here spent it for
     // actions that never happened. See the drop branch below.
-    holders: Query<(&Brain, &BodyKinematics, Option<&PortalGun>)>,
+    holders: Query<(
+        Option<&DrivingParticipant>,
+        &BodyKinematics,
+        Option<&PortalGun>,
+    )>,
     primary_fallback: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
     #[cfg(feature = "portal_render")] mut aim_hint: Option<ResMut<PortalAimHint>>,
     mut fire: MessageWriter<FirePortalGun>,
@@ -78,10 +82,10 @@ pub fn portal_input_adapter_system(
     else {
         return;
     };
-    let Ok((brain, kin, gun)) = holders.get(subject) else {
+    let Ok((driver, kin, gun)) = holders.get(subject) else {
         return;
     };
-    let slot = brain.player_slot().unwrap_or(PlayerSlot::PRIMARY);
+    let slot = driver.map_or(PlayerSlot::PRIMARY, |driver| driver.0);
     let control = slots.get(slot);
     let control = &control;
     // Color toggle: Interact, but only when no genuine interactable (door / NPC /
@@ -192,7 +196,7 @@ mod tests {
         let mut control = ActorControl::default();
         control.0.melee_pressed = true;
         let mut body = app.world_mut().spawn((
-            Brain::Player(PlayerSlot::PRIMARY),
+            DrivingParticipant(PlayerSlot::PRIMARY),
             BodyKinematics::default(),
             control,
         ));

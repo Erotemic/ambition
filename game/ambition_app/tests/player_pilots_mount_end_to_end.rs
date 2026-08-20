@@ -3,7 +3,7 @@
 //!
 //! The payoff of the two-linked-actors mount model: a human drives a VEHICLE
 //! through the exact same control seam that drives every other body. The rider
-//! is the pilot; the mount is the physics body. When `Brain::Player` sits on the
+//! is the pilot; the mount is the physics body. When the primary seat sits on the
 //! rider, the player's slot input flows through the universal brain path
 //! (`SlotControls` → the rider's `ActorControl`) and `steer_mount_from_rider`
 //! routes that intent onto the mount — so pressing right drives the MOUNT right,
@@ -29,7 +29,9 @@ use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
 use ambition_platformer2d::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
 use ambition_platformer2d::actors::features::FeatureId;
 use ambition_platformer2d::actors::features::{MountSlot, Mounted, RidingOn};
-use ambition_platformer2d::characters::brain::{ActorControl, Brain, PlayerSlot};
+use ambition_platformer2d::characters::brain::{
+    ActorControl, Brain, DrivingParticipant, PlayerSlot,
+};
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
 use bevy::prelude::{Entity, World};
@@ -124,17 +126,19 @@ fn a_player_pilots_a_mount_end_to_end() {
         "the weld holds through live frames (enforce_mount_rider_link keeps it)",
     );
 
-    // 2. Control-seam handover: vacate the home avatar's player brain and place
-    //    it on the RIDER (exactly what possession does; done directly here). The
-    //    control invariant — exactly one body carries `Brain::Player(PRIMARY)` —
-    //    is preserved: home loses it, the rider gains it.
+    // 2. Control-seam handover: take the primary SEAT off the home avatar and
+    //    place it on the RIDER (exactly what possession does; done directly
+    //    here). The control invariant — exactly one body holds
+    //    `DrivingParticipant(PRIMARY)` — is preserved: home loses it, the rider
+    //    gains it. ⭐ neither body's `Brain` is touched, which is the whole point
+    //    of the seat being its own component.
     sim.world_mut()
         .entity_mut(home)
-        .remove::<Brain>()
+        .remove::<DrivingParticipant>()
         .insert(ActorControl::default());
     sim.world_mut()
         .entity_mut(rider)
-        .insert(Brain::Player(PlayerSlot::PRIMARY))
+        .insert(DrivingParticipant(PlayerSlot::PRIMARY))
         .insert(ActorControl::default());
     // Let the handover settle (ControlledSubject re-resolves to the rider).
     sim.step(AgentAction::default());
@@ -142,7 +146,7 @@ fn a_player_pilots_a_mount_end_to_end() {
     // 3. Drive right. The MOUNT should travel: player input → rider ActorControl
     //    → steer_mount_from_rider → the mount body integrates the routed intent,
     //    while the rider welds to the saddle. The vacated home avatar (neutral
-    //    control, no player brain) stays put.
+    //    control, no seat) stays put.
     let mount_before = pos_of(sim.world_mut(), mount);
     let rider_before = pos_of(sim.world_mut(), rider);
     let home_before = pos_of(sim.world_mut(), home);

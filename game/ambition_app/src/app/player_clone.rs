@@ -129,7 +129,8 @@ pub fn spawn_requested_player_clone(
         // remaining components those queries require (the 18 movement clusters + the
         // three visual states above complete the set). It is deliberately NOT a
         // `PrimaryPlayer` (so `is_primary` gates the world-globals off for it) and
-        // NOT a `PlayerSlot` (so the device-input `tick_controlled_brains` skips it — its
+        // NOT a `DrivingParticipant` (so the device-input `tick_controlled_brains`
+        // skips it — nobody is driving it, its
         // `PlayerDemo` brain is ticked by `tick_player_clone_brains` with real
         // sim-time/dt instead).
         ambition_platformer2d::actors::actor::PlayerEntity,
@@ -190,7 +191,7 @@ pub fn spawn_requested_player_clone(
 /// PRIMARY's `ActorControl` from device input). The clone's brain is a *timed*
 /// demo cycle, so it needs real `sim_time`/`dt` in its snapshot — which is why it
 /// can't ride the unfiltered `tick_controlled_brains` (that passes `dt = 0`) and the
-/// clone carries no `PlayerSlot`. Movement itself is NO LONGER here: now that the
+/// clone holds no seat. Movement itself is NO LONGER here: now that the
 /// clone is a `PlayerEntity`, the iterating `player_control_system` /
 /// `player_simulation_system` integrate its clusters from this `ActorControl` —
 /// the same shared core the human player runs. Runs in `PlayerInput`, before the

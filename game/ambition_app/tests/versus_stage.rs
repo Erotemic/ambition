@@ -240,7 +240,7 @@ fn leaving_versus_does_not_seat_fighters_into_the_next_game() {
 #[test]
 fn two_controllers_make_versus_a_two_player_game() {
     use ambition_platformer2d::actors::actor::BodyKinematics;
-    use ambition_platformer2d::characters::brain::{Brain, PlayerSlot};
+    use ambition_platformer2d::characters::brain::DrivingParticipant;
 
     let mut app = versus_app();
     // Both pads present BEFORE the stage is chosen. The roster decides at stage
@@ -267,13 +267,10 @@ fn two_controllers_make_versus_a_two_player_game() {
 
     // Two HUMAN seats, one per controller.
     let world = app.world_mut();
-    let mut brains = world.query::<(Entity, &Brain)>();
-    let mut seated: Vec<(u8, Entity)> = brains
+    let mut drivers = world.query::<(Entity, &DrivingParticipant)>();
+    let mut seated: Vec<(u8, Entity)> = drivers
         .iter(world)
-        .filter_map(|(entity, brain)| match brain {
-            Brain::Player(PlayerSlot(slot)) => Some((*slot, entity)),
-            _ => None,
-        })
+        .map(|(entity, driver)| (driver.0 .0, entity))
         .collect();
     seated.sort_by_key(|(slot, _)| *slot);
     let slots: Vec<u8> = seated.iter().map(|(slot, _)| *slot).collect();
@@ -299,7 +296,8 @@ fn two_controllers_make_versus_a_two_player_game() {
     assert!(
         moved_two > 1.0,
         "player two pressed right and their fighter did not move ({moved_two:.2}px): \
-         somewhere between the controller, SlotControls[1] and Brain::Player(1) the \
+         somewhere between the controller, SlotControls[1] and \
+         DrivingParticipant(1) the \
          chain is broken, and the second player is a spectator"
     );
     assert!(
@@ -422,7 +420,7 @@ fn a_seated_fighter_derives_its_character_and_not_just_its_name() {
 fn both_fighters_can_actually_hit_each_other() {
     use ambition_platformer2d::actors::actor::BodyKinematics;
     use ambition_platformer2d::characters::actor::BodyHealth;
-    use ambition_platformer2d::characters::brain::{Brain, PlayerSlot};
+    use ambition_platformer2d::characters::brain::DrivingParticipant;
 
     let mut app = versus_app();
     let pad_one = app.world_mut().spawn(Gamepad::default()).id();
@@ -445,13 +443,10 @@ fn both_fighters_can_actually_hit_each_other() {
     settle_into_a_live_round(&mut app);
 
     let world = app.world_mut();
-    let mut brains = world.query::<(Entity, &Brain)>();
-    let mut seated: Vec<(u8, Entity)> = brains
+    let mut drivers = world.query::<(Entity, &DrivingParticipant)>();
+    let mut seated: Vec<(u8, Entity)> = drivers
         .iter(world)
-        .filter_map(|(entity, brain)| match brain {
-            Brain::Player(PlayerSlot(slot)) => Some((*slot, entity)),
-            _ => None,
-        })
+        .map(|(entity, driver)| (driver.0 .0, entity))
         .collect();
     seated.sort_by_key(|(slot, _)| *slot);
     assert_eq!(seated.len(), 2, "the arena did not seat two players");
@@ -2249,7 +2244,7 @@ fn a_seated_fighter_is_damageable_through_its_authored_hurtbox() {
 #[test]
 fn a_round_opens_on_a_countdown_that_nobody_can_act_through() {
     use ambition_platformer2d::actors::actor::BodyKinematics;
-    use ambition_platformer2d::characters::brain::{Brain, PlayerSlot};
+    use ambition_platformer2d::characters::brain::{DrivingParticipant, PlayerSlot};
 
     let mut app = versus_app();
     let pad = app.world_mut().spawn(Gamepad::default()).id();
@@ -2274,13 +2269,10 @@ fn a_round_opens_on_a_countdown_that_nobody_can_act_through() {
     }
 
     let world = app.world_mut();
-    let mut brains = world.query::<(Entity, &Brain)>();
-    let body = brains
+    let mut drivers = world.query::<(Entity, &DrivingParticipant)>();
+    let body = drivers
         .iter(world)
-        .find_map(|(entity, brain)| match brain {
-            Brain::Player(PlayerSlot(0)) => Some(entity),
-            _ => None,
-        })
+        .find_map(|(entity, driver)| (driver.0 == PlayerSlot(0)).then_some(entity))
         .expect("the versus stage seats a human in slot zero");
 
     assert!(

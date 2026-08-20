@@ -51,7 +51,7 @@ mod host_adapter {
     /// Bridge the controlled character + the collision world → the crate-owned
     /// [`PortalViewer`] seam, so each portal window is the wedge that character
     /// can actually see through the aperture. The eye is the CONTROLLED SUBJECT —
-    /// the body carrying `Brain::Player(PRIMARY)`, i.e. the possessed actor while
+    /// the body holding `DrivingParticipant(PRIMARY)`, i.e. the possessed actor while
     /// possessing (the view follows the body you're driving), else the home
     /// avatar. `occluders` is a snapshot of the world's solid blocks for the
     /// line-of-sight test. Absent controlled body ⇒ `present = false`, and the

@@ -37,7 +37,7 @@ use ambition_platformer2d::characters::actor::{ActorFaction, BodyHealth};
 use ambition_platformer2d::characters::brain::fighter::{
     shadow_step, ShadowEvent, ShadowIntent, ShadowState, ShadowTuning,
 };
-use ambition_platformer2d::characters::brain::{Brain, PlayerSlot};
+use ambition_platformer2d::characters::brain::DrivingParticipant;
 use ambition_platformer2d::characters::perception::{
     Perceived, PerceivedActor, SelfView, StageView, WorldView,
 };
@@ -339,13 +339,10 @@ fn the_shadow_model_agrees_with_the_real_sim_about_what_lands() {
     settle_into_a_live_round(&mut app);
 
     let world = app.world_mut();
-    let mut brains = world.query::<(Entity, &Brain)>();
-    let mut seated: Vec<(u8, Entity)> = brains
+    let mut drivers = world.query::<(Entity, &DrivingParticipant)>();
+    let mut seated: Vec<(u8, Entity)> = drivers
         .iter(world)
-        .filter_map(|(entity, brain)| match brain {
-            Brain::Player(PlayerSlot(slot)) => Some((*slot, entity)),
-            _ => None,
-        })
+        .map(|(entity, driver)| (driver.0 .0, entity))
         .collect();
     seated.sort_by_key(|(slot, _)| *slot);
     assert_eq!(seated.len(), 2, "the arena did not seat two players");

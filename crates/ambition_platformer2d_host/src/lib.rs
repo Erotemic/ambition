@@ -79,7 +79,7 @@ impl Plugin for HostInputBindingsPlugin {
     fn build(&self, app: &mut App) {
         use ambition_input::{
             MenuControlFrame, MenuInputState, Platformer2dInputActionMonolith,
-            PlayerDashTriggerState,
+            PlayerBurstTriggerState,
         };
         use ambition_platformer2d_runtime::host_input::{
             apply_menu_frame_to_cutscene_request, declare_gameplay_input_context,
@@ -253,7 +253,7 @@ impl Plugin for HostInputBindingsPlugin {
         app.init_resource::<MenuInputState>()
             .init_resource::<MenuControlFrame>()
             .init_resource::<ambition_input::SeatMenuFrames>()
-            .init_resource::<PlayerDashTriggerState>()
+            .init_resource::<PlayerBurstTriggerState>()
             .init_resource::<ambition_input::SeatActiveDevices>()
             .add_plugins(InputManagerPlugin::<Platformer2dInputActionMonolith>::default())
             .add_systems(

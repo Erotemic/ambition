@@ -170,25 +170,31 @@ fn sim_accumulates_messages_across_repeated_attacks() {
 }
 
 /// Universal-brain integration check: spawning the
-/// AmbitionGameSimulationPlugin yields a player entity carrying
-/// Brain::Player and an ActionSet — verifies the bundle
+/// AmbitionGameSimulationPlugin yields a player entity holding the primary
+/// participant's seat and an ActionSet — verifies the bundle
 /// path injects the components even when the spawn flow
 /// runs through the real Startup schedule.
 #[test]
 fn sim_spawns_player_with_brain_and_action_set() {
     use ambition_platformer2d::actors::actor::PlayerEntity;
-    use ambition_platformer2d::characters::brain::{ActionSet, ActorControl, Brain};
+    use ambition_platformer2d::characters::brain::{
+        ActionSet, ActorControl, DrivingParticipant, PlayerSlot,
+    };
     let mut app = initialized_sandbox_sim_app();
     let mut q = app
         .world_mut()
-        .query_filtered::<(&Brain, &ActionSet, &ActorControl), With<PlayerEntity>>();
+        .query_filtered::<(&DrivingParticipant, &ActionSet, &ActorControl), With<PlayerEntity>>();
     let count = q.iter(app.world()).count();
     assert_eq!(
         count, 1,
-        "player should spawn with Brain + ActionSet + ActorControl"
+        "player should spawn with a seat + ActionSet + ActorControl"
     );
-    let (brain, action_set, _control) = q.iter(app.world()).next().expect("player exists");
-    assert!(brain.is_player(), "player carries Brain::Player");
+    let (driver, action_set, _control) = q.iter(app.world()).next().expect("player exists");
+    assert_eq!(
+        driver.0,
+        PlayerSlot::PRIMARY,
+        "the home avatar holds the primary participant's seat"
+    );
     assert!(
         action_set.melee.is_some(),
         "player ActionSet has Swipe melee"

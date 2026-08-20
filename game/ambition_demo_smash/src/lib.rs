@@ -1526,6 +1526,7 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
         // the mouse.
         app.init_resource::<select_screen::cursor::SelectCursor>();
         app.init_resource::<select_screen::StartRequested>();
+        app.init_resource::<select_screen::LeaveRequested>();
         // **THE ROSTER IS A COMPOSITION FACT, so it is resolved once, late.**
         //
         // ⚠ `Startup` rather than `build`, and the ordering is the reason: the
@@ -1645,6 +1646,11 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                     select_screen::place_the_screen,
                     select_screen::update_the_select_screen,
                     start_the_battle_when_asked,
+                    // ⚠ **AFTER the driver that sets the flag, and in the same
+                    // chain**, so a press and the route change it asks for are
+                    // one frame apart at most. The screen would otherwise keep
+                    // drawing a lobby somebody has already left.
+                    leave_the_select_screen_when_asked,
                     return_to_the_select_screen_when_the_match_ends,
                 )),
                 SmashSelectSet,
@@ -1705,6 +1711,10 @@ fn present_the_select_screen(
     // `Res` arguments pushed this system past Bevy's parameter tuple ceiling,
     // and the three that make a portrait belong together anyway.
     art: select_screen::ScreenArt,
+    // **WHETHER THIS COMPOSITION HAS A TITLE TO GO BACK TO.** See
+    // `select_screen::exit_leads_somewhere`: the standalone demo's home IS this
+    // screen, so it draws no exit; the multi-game host's is the launcher.
+    host: Option<bevy::prelude::Res<ambition_platformer2d::game_shell::ShellHostConfiguration>>,
     existing: bevy::prelude::Query<(), bevy::prelude::With<select_screen::SmashSelectUiRoot>>,
     roots: bevy::prelude::Query<
         bevy::prelude::Entity,
@@ -1813,7 +1823,13 @@ fn present_the_select_screen(
                 ),
             );
         }
-        select_screen::spawn_select_screen(commands, existing, fighters, art);
+        select_screen::spawn_select_screen(
+            commands,
+            existing,
+            fighters,
+            art,
+            select_screen::exit_leads_somewhere(host.as_deref()),
+        );
     } else {
         select_screen::despawn_select_screen(commands, roots);
     }
@@ -2093,6 +2109,62 @@ fn start_the_battle_when_asked(
     ));
 }
 
+/// **Leave the lobby for the title.**
+///
+/// ⭐ Jon, 2026-08-16: *"in the smash character select, there is no way to quit
+/// to title, you can only do this if you start a match."* Exactly right, and the
+/// reason was structural rather than an oversight: the universal pause menu
+/// offers "Quit to Title" only when there is an `ActiveGameplaySession` to quit
+/// FROM (`PauseEntry::rows`), and the select screen is a frontend route with no
+/// session. So the only door out of the lobby was through a match.
+///
+/// ⭐ **`QuitToHome`, the SAME command the pause menu's own row writes.** Home is
+/// the host's declared `home_route` — the Ambition launcher in the multi-game
+/// host — so this reaches the title by the one road that already knows where it
+/// is, clears the route history, and lets every experience scope release what it
+/// claimed. Spelling a `GoTo(some_title_route)` here would be this demo naming
+/// a route it does not own, and it would be wrong in the next composition.
+///
+/// ⚠ **nothing to unwind by hand, and that is a claim worth stating.** What this
+/// route CLAIMED on arrival is released by the systems that claimed it, because
+/// each is keyed on the route rather than on a shutdown hook:
+/// `present_the_select_screen` drops `DeclaredInputSeats` to zero, restores the
+/// assignment policy it set, and despawns the UI the moment the route is no
+/// longer active; `declare_the_select_input_context` retracts `SELECT_CONTEXT`;
+/// `publish_the_select_ui_cue` retracts the cue; and the experience scope
+/// declared in [`SmashExperiencePlugin`] resets `SmashSelect`,
+/// `StartRequested`, [`select_screen::LeaveRequested`] and the cursor, and
+/// releases this experience's `SessionSeatingSource` hold. A lobby that was only
+/// half joined publishes NO `MatchParticipantRoster` — that is written by
+/// `start_the_battle_when_asked` and by nothing else — so there is no match
+/// state to strand.
+fn leave_the_select_screen_when_asked(
+    mut asked: bevy::prelude::ResMut<select_screen::LeaveRequested>,
+    router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
+    // Optional for the same reason every other shell reader here is: a bare unit
+    // fixture composes no host, and `exit_leads_somewhere` reads that as "no way
+    // out" rather than inventing one.
+    host: Option<bevy::prelude::Res<ambition_platformer2d::game_shell::ShellHostConfiguration>>,
+    mut shell: bevy::prelude::MessageWriter<ambition_platformer2d::game_shell::ShellCommand>,
+) {
+    if !asked.0 {
+        return;
+    }
+    // ⚠ **spend the request WHATEVER happens next.** A latch that says "leave"
+    // and survives its own frame is the shape `StartRequested` is reset on
+    // arrival to avoid — one left standing re-fires on the next route this
+    // system happens to run under. Cleared before the refusals below, never
+    // after them.
+    asked.0 = false;
+    if !on_the_select_route(&router) {
+        return;
+    }
+    if !select_screen::exit_leads_somewhere(host.as_deref()) {
+        return;
+    }
+    shell.write(ambition_platformer2d::game_shell::ShellCommand::QuitToHome);
+}
+
 /// **The experience: what a launcher lists and a player can enter.**
 ///
 /// Until this existed the demo was three correct pieces nobody could reach — a
@@ -2254,6 +2326,9 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
                 // They must exist and must not carry the last match's answer.
                 .resetting::<select::SmashSelect>()
                 .resetting::<select_screen::StartRequested>()
+                // The same rule one latch over: a "leave" that outlived the
+                // lobby would ask the NEXT experience's first frame to quit.
+                .resetting::<select_screen::LeaveRequested>()
                 .resetting::<select_screen::cursor::SelectCursor>()
                 .releasing_with("SessionSeatingSource", |world, owner| {
                     if let Some(mut seating) = world.get_resource_mut::<
@@ -3388,6 +3463,20 @@ mod pause_arbitration_tests {
         app.init_resource::<ambition_platformer2d::game_shell::ShellRouter>();
         app.init_resource::<select_screen::cursor::SelectCursor>();
         app.init_resource::<select_screen::StartRequested>();
+        app.init_resource::<select_screen::LeaveRequested>();
+        app.add_message::<ambition_platformer2d::game_shell::ShellCommand>();
+        // **A HOST WITH A TITLE TO GO BACK TO**, which is the multi-game
+        // composition — the one Jon reported the lobby trapping him in. Without
+        // a spec `exit_leads_somewhere` answers NO and the way out is correctly
+        // absent, so stating the host here is what makes the BACK tests be about
+        // the press rather than about the composition.
+        app.init_resource::<ambition_platformer2d::game_shell::ShellHostConfiguration>();
+        app.world_mut()
+            .resource_mut::<ambition_platformer2d::game_shell::ShellHostConfiguration>()
+            .spec = Some(ambition_platformer2d::game_shell::ShellHostSpec::new(
+            SMASH_SELECT_ROUTE,
+            "ambition_launcher",
+        ));
         // ⚠ the DEFAULT roster (this demo's own fighters), not an assembled one:
         // there is no catalog in this fixture and none is needed. What is under
         // test is the arbitration, and the roster only has to be non-empty so
@@ -3398,6 +3487,11 @@ mod pause_arbitration_tests {
             (
                 resolve_active_input_context,
                 select_screen::drive_the_cursor.run_if(the_select_screen_owns_its_input),
+                // ⭐ **the real consumer, in the real order.** Asserting on
+                // `LeaveRequested` alone would prove a flag was set and nothing
+                // about whether anybody acts on it — the flag is this test's
+                // subject only if the system that spends it is here too.
+                leave_the_select_screen_when_asked,
             )
                 .chain(),
         );
@@ -3462,6 +3556,193 @@ mod pause_arbitration_tests {
             },
         );
         app
+    }
+
+    /// What one seat is holding down this frame, replacing whatever
+    /// [`app_with`] armed. Every BACK test below presses through the SAME
+    /// `SeatMenuFrames` channel a pad, a keyboard and the touch overlay's own
+    /// "Back" button all reduce to — there is no second road to fake.
+    fn seat_presses(app: &mut App, seat: u8, frame: MenuControlFrame) {
+        app.world_mut()
+            .resource_mut::<SeatMenuFrames>()
+            .set(seat, frame);
+    }
+
+    /// Which shell commands this frame produced. Drains, so a caller reads a
+    /// FRAME rather than everything since boot.
+    fn commands_sent(app: &mut App) -> Vec<ambition_platformer2d::game_shell::ShellCommand> {
+        app.world_mut()
+            .resource_mut::<Messages<ambition_platformer2d::game_shell::ShellCommand>>()
+            .drain()
+            .collect()
+    }
+
+    /// Did this frame ask the shell to go home — the pause menu's own
+    /// "Quit to Title" command, and the one this screen now writes?
+    fn asked_to_go_home(app: &mut App) -> bool {
+        commands_sent(app).iter().any(|command| {
+            matches!(
+                command,
+                ambition_platformer2d::game_shell::ShellCommand::QuitToHome
+            )
+        })
+    }
+
+    /// **BACK LEAVES THE LOBBY.**
+    ///
+    /// ⭐ Jon, 2026-08-16: *"in the smash character select, there is no way to
+    /// quit to title, you can only do this if you start a match."* The pause
+    /// menu offers "Quit to Title" only with a live session to quit from, and
+    /// this route has none — so this press is the whole feature.
+    ///
+    /// ⚠ **`QuitToHome`, the same command the pause menu's row writes.** The
+    /// assertion names the command rather than a resulting route id, because
+    /// WHERE home is belongs to the host spec and this demo must not know.
+    #[test]
+    fn a_back_press_on_the_select_screen_quits_to_the_title() {
+        let mut app = app_with(false);
+        // The control: the frame `app_with` armed is a confirm, and it must
+        // produce no shell command at all. Without this the assertion below
+        // would pass on a screen that quit on EVERY press.
+        app.update();
+        assert!(
+            commands_sent(&mut app).is_empty(),
+            "confirming on a role button asked the shell for something"
+        );
+
+        seat_presses(
+            &mut app,
+            0,
+            MenuControlFrame {
+                back: true,
+                ..Default::default()
+            },
+        );
+        app.update();
+        assert!(
+            asked_to_go_home(&mut app),
+            "BACK on the select screen left the player in the lobby"
+        );
+    }
+
+    /// **ANY SEAT MAY LEAVE**, because four people share one cursor.
+    ///
+    /// Every other decision on this screen is a union over the seats — the
+    /// directions, the clicks and the token-drop all are — so a quit only seat 0
+    /// could reach would be the single press on this surface with a different
+    /// rule. On a couch the person who wants out is as often on pad 2.
+    #[test]
+    fn a_later_seat_may_back_out_too() {
+        let mut app = app_with(false);
+        seat_presses(&mut app, 0, MenuControlFrame::default());
+        seat_presses(
+            &mut app,
+            2,
+            MenuControlFrame {
+                back: true,
+                ..Default::default()
+            },
+        );
+        app.update();
+        assert!(
+            asked_to_go_home(&mut app),
+            "seat 3's BACK was ignored on a screen every other press treats as shared"
+        );
+    }
+
+    /// **BACK WITH A TOKEN IN HAND PUTS IT DOWN, and does not leave.**
+    ///
+    /// The graded rung every fighting game's select screen has. Reversing the
+    /// two would make one press on a held fighter cost the whole lobby.
+    #[test]
+    fn back_puts_a_carried_token_down_before_it_ever_leaves() {
+        let mut app = app_with(false);
+        app.world_mut()
+            .resource_mut::<select_screen::cursor::SelectCursor>()
+            .grab(0);
+        seat_presses(
+            &mut app,
+            0,
+            MenuControlFrame {
+                back: true,
+                ..Default::default()
+            },
+        );
+        app.update();
+        assert!(
+            app.world()
+                .resource::<select_screen::cursor::SelectCursor>()
+                .carrying
+                .is_none(),
+            "BACK did not put the carried token down"
+        );
+        assert!(
+            commands_sent(&mut app).is_empty(),
+            "putting a token down also quit the lobby"
+        );
+    }
+
+    /// **ESCAPE OPENS THE PAUSE MENU AND DOES NOT ALSO QUIT.**
+    ///
+    /// ⛔⛔ one key, two semantic actions: `presets.rs` binds Escape to BOTH
+    /// `Start` and `MenuBack`, deliberately and with `rebind.rs` testing that it
+    /// does. The shell's pause menu opens on `start` and this screen's chain
+    /// runs in the SAME `InputSet::Consume` with no order between them, so a
+    /// bare `back` reading would have Escape open the menu AND quit the lobby
+    /// out from under it — the double-fire being deterministic in whichever
+    /// direction the schedule happened to resolve.
+    ///
+    /// ⚠ the falsifier for the guard, not for the feature: the test above is
+    /// what proves a lone `back` still leaves, so this cannot pass by the screen
+    /// having no exit at all.
+    #[test]
+    fn escape_does_not_quit_the_lobby_out_from_under_the_pause_menu_it_opens() {
+        let mut app = app_with(false);
+        seat_presses(
+            &mut app,
+            0,
+            // What Escape actually produces: both edges, one frame.
+            MenuControlFrame {
+                back: true,
+                start: true,
+                ..Default::default()
+            },
+        );
+        app.update();
+        assert!(
+            commands_sent(&mut app).is_empty(),
+            "Escape quit the lobby as well as opening the pause menu over it"
+        );
+    }
+
+    /// **A COMPOSITION WHOSE HOME IS THIS SCREEN DRAWS NO WAY OUT.**
+    ///
+    /// The standalone smash demo names `SMASH_SELECT_ROUTE` as its own home
+    /// route, so `QuitToHome` there re-enters the route it is already on. An
+    /// exit that churns the router and changes nothing on screen is a dead
+    /// button, and this is the term that refuses it.
+    #[test]
+    fn there_is_no_way_out_when_the_lobby_is_itself_home() {
+        let mut app = app_with(false);
+        app.world_mut()
+            .resource_mut::<ambition_platformer2d::game_shell::ShellHostConfiguration>()
+            .spec = Some(ambition_platformer2d::game_shell::ShellHostSpec::new(
+            SMASH_SELECT_ROUTE,
+            SMASH_SELECT_ROUTE,
+        ));
+        seat_presses(
+            &mut app,
+            0,
+            MenuControlFrame {
+                back: true,
+                ..Default::default()
+            },
+        );
+        app.update();
+        assert!(
+            commands_sent(&mut app).is_empty(),
+            "the standalone demo asked to leave for the screen it is already on"
+        );
     }
 
     /// **The screen drives when it owns its seat.** The control: without this,

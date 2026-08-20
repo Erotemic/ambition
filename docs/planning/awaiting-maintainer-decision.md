@@ -609,19 +609,50 @@ can split at ANY MOMENT cannot be served by one set of world-space entities, so
 label_layout.rs   per-view projections   d09229ceb (2026-08-15)
 nameplates.rs     per-view projections   d09229ceb
 view_isolation.rs isolate by RELATIONSHIP, not identity   b732e5d6a
-parallax.rs       ⛔ NOT DONE — must gain a view concept: no view id, `.single()`s
-                   the main camera, and builds its viewport from
-                   `WINDOW_W`/`WINDOW_H` rather than from the camera it draws for
+parallax.rs       per-view projections   IN THE WORKING TREE, UNCOMPILED (2026-08-20)
 ```
+
+⚠ **the parallax row is written but not yet built.** `mirror_parallax_layers_per_view`
+gives each live view its own panel set (same `PresentedForView` vocabulary as the two
+label families), `sync_parallax_layers` places each panel against the camera that draws
+it and sizes it from that view's `CameraViewport`, and a panel whose view or camera
+cannot be resolved is HIDDEN rather than left at the world origin. `view_isolation`
+grew `ProjectionRestingLayers` so a collapsing split returns the backdrop to the private
+parallax layer instead of layer 0 (layer 0 would hand it to every portal capture).
+⛔ **the consequence to look at first**: panel extent now tracks the resolved gameplay
+rectangle, so any composition whose gameplay rect is not 1600x900 gets a differently
+framed backdrop — `capture_scene` goldens included.
 
 ⚠ **the distance threshold and the hysteresis band are FEEL values Jon has not
 named** — measure them against a real two-player session rather than picking
 constants.
-⛔ **adaptive layout promotes the silent-wrong fallback into a real defect**: with
-several cameras, label layout and nameplates fall back to a **world-origin** focus
-(`Vec2::ZERO`) instead of declining to draw, and under this policy several cameras
-is the ordinary case rather than the exception. ⚠ `MainCameraEntity` is a SEVENTH
-process-global *"the main camera"* resource that this layout has to answer for.
+⛔ **adaptive layout promotes the silent-wrong fallback into a real defect**, and
+under this policy several cameras is the ordinary case rather than the exception.
+The two the row originally named are CLOSED: label layout and nameplates stopped
+inventing a `Vec2::ZERO` focus in `d09229ceb` — they iterate views, so every
+iteration holds a real `CameraViewState` and there is no branch left to invent one
+in. The one that was still open was `parallax.rs`, which did not invent a focus but
+LEFT a position at the origin: `.single()` on the main camera returned
+`Err(MultipleEntities)` the instant a second camera existed, and every screen-sized
+backdrop panel stayed at its spawn transform. It declines now.
+▢ **what is still latent**: a view whose `CameraViewState` was never written (no
+`camera_follow` in the composition, or a view bound to no camera yet) reports a
+default focus, which IS the world origin — the fallback survives as a component
+DEFAULT rather than as an `unwrap_or`. It is invisible today because such a view's
+projections are isolated onto a band no camera renders, and it becomes visible the
+moment anything draws for a view before its camera resolves.
+⚠ `MainCameraEntity` is a SEVENTH process-global *"the main camera"* resource that
+this layout has to answer for. Census 2026-08-20: **two writers**
+(`ambition_render::platformer_presentation::spawn_main_camera`,
+`ambition_app::app::scene_setup::host_presentation_scaffold`), both inserting
+unconditionally beside a `PresentsView` link that refuses — so two rigs is
+last-writer-wins, silently. **One production reader**,
+`retarget_kaleidoscope_scrim`, which points the cube's dim-scrim at it with
+`UiTargetCamera`; under a split that dims ONE viewport rectangle instead of the
+screen, and it wants a DISPLAY answer rather than a view answer. **Two test
+readers** (`mary_o`/`sanic` `ov1_draws_the_world`) whose assertion messages are
+already stale — they claim camera-follow and the portal viewer resolve through it,
+and neither has since D116 M2.
 
 ### 12. ✔ CLOSED 2026-08-17 — the `ambition_map_assets` submodule pushes fine
 
@@ -765,10 +796,11 @@ landed slice avoids it by being a pure DERIVE with one source, which is why it
 was safe to land ahead of the deletion.
 
 ⭐ **SLICE 1 IS LANDED (2026-08-20).**
-`control::DrivingParticipant(PlayerSlot)` is the fact by itself, **DERIVED** each
-tick by `project_driving_participant` from `Brain::Player` plus
-`PossessionState` — so it adds no snapshot entry and no ENCODED bytes, and none
-of A/B/C applies to it.
+`control::DrivingParticipant(PlayerSlot)` is the fact by itself, DERIVED at the
+time by `project_driving_participant` from `Brain::Player` plus
+`PossessionState` — so it added no snapshot entry and no ENCODED bytes, and none
+of A/B/C applied to it. ⚠ **slice 2 below changes that**: with the variant gone
+the component is authored state and is REGISTERED.
 
 ⛔ **it DID need a version bump, and the reason is worth knowing before the next
 derive.** `rollback_coverage` offers three outcomes — registered, DECLARED
@@ -802,10 +834,38 @@ re-derived every tick. The paragraph above this one used to call the existing
 type "already half-named" toward this concept — it is not, and building the new
 fact under that name would have put two meanings on one word in one crate.
 
-**What STILL needs the decision**: deleting the `Brain::Player` variant and
-`PossessionState::restore_brain`/`restore_scope`. That is the wire-format break,
-and it is exactly A/B/C above. Everything up to it can proceed by moving readers
-onto the derive one at a time.
+⭐⭐ **SLICE 2 IS LANDED (2026-08-20): `Brain::Player(PlayerSlot)` IS GONE.**
+`Brain` is `StateMachine(StateMachineCfg)` and nothing else — it is a
+ONE-VARIANT enum today, deliberately left as an enum because collapsing it into
+a struct is a separate decision with its own reader churn.
+
+⚠ **`DrivingParticipant` stopped being a DERIVE in the same change, and it had
+to.** The declaration's own justification was *"reprojected from `Brain::Player`
+and possession every tick"* — half of that upstream no longer exists, so the seat
+a participant drives from is now authored at the spawn/seat site and lives in that
+component and nowhere else. It is `rollback_component_clone` /
+`actor.driving_participant`, and a rewind that did not carry it would restore a
+body nobody drives. `derived.driving_participant` leaves the schema in the same
+commit. **v56 → v58** (57 skipped so a concurrent lane and this one could not take
+one number).
+
+⭐ **and there is still exactly ONE writer.** `project_driving_participant` stopped
+deriving from `Brain` and became a RECONCILE: while `PossessionState::possessed`
+is live it takes the primary seat off `PossessionState::home` and puts it on the
+driven body, and it hands the seat back — and clears `home` — when the possession
+ends or the driven body vanishes. Outside a possession it does nothing at all,
+which is what keeps it from having an opinion about a seated versus fighter.
+`possession.rs` states the decision and writes no seat; the spawn/seat sites
+author the initial value and never touch it again.
+
+⛔ **`restore_brain` and `restore_scope` are DELETED.** Nothing is displaced by a
+possession any more — the driven body keeps its own policy for the whole
+possession and resumes deciding with it the instant the seat leaves — so there is
+nothing to put back. Two follow-on simplifications fell out of that, and both are
+behaviour changes worth knowing: a `BrainCommand` that lands mid-possession now
+applies to the LIVE brain instead of only updating the source it would resume
+into, and `reconcile_brain_bindings` no longer skips a driven body. Both used to
+skip because the live brain was the driver's; it is the body's own again.
 
 
 ### 22. ✔ RESOLVED 2026-08-19 — external-consumer enemy authoring follows the post-D73 character seam

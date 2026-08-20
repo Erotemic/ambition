@@ -73,6 +73,8 @@ pub enum SelectTarget {
     Token(usize),
     /// Begin the match.
     Start,
+    /// Leave the lobby — see [`LeaveRequested`].
+    Back,
 }
 
 /// **Which rectangle in the layout a node wears.**
@@ -88,6 +90,7 @@ pub enum Anchored {
     RoleButton(usize),
     CardPortrait(usize),
     Start,
+    Back,
 }
 
 /// A slot's token. Positioned from the DECISION rather than from an anchor — it
@@ -145,6 +148,27 @@ pub struct StartButton;
 /// attempt to photograph a decided lobby photographed the match instead.
 #[derive(Resource, Clone, Copy, Debug, Default)]
 pub struct StartRequested(pub bool);
+
+/// The BACK button's frame. Never dims: leaving is always allowed, where
+/// starting waits on a decided lobby.
+#[derive(Component)]
+pub struct BackButton;
+
+/// **Somebody asked to leave the lobby.**
+///
+/// ⭐ **a REQUEST, exactly like [`StartRequested`], and for the same reason.**
+/// This module draws the screen and arbitrates presses; it does not name the
+/// shell. Writing `ShellCommand` from here would give the screen a second
+/// opinion about routing, and the one place that decides where BACK goes
+/// (`leave_the_select_screen_when_asked`) would no longer be the only one.
+///
+/// ⚠ **and it has to be one flag rather than two systems reading the same
+/// edge.** BACK already means "put the token down" while the cursor is
+/// carrying one, and that undo is decided in [`drive_the_cursor`] — a separate
+/// system reading `SeatMenuFrames` for the quit would see the same frame and
+/// leave the lobby on the press that was meant to drop a fighter.
+#[derive(Resource, Clone, Copy, Debug, Default)]
+pub struct LeaveRequested(pub bool);
 
 /// Slot colours, in the order a couch fills up. Far enough apart in hue that a
 /// token and its card are matched at a glance across the 65% gap, which is the
@@ -367,6 +391,27 @@ fn viewport(windows: &Query<&Window>) -> Option<Vec2> {
         .map(|window| Vec2::new(window.width(), window.height()))
 }
 
+/// **Does backing out of this lobby lead anywhere?**
+///
+/// ⛔ **it does not in every composition, and pretending otherwise is a dead
+/// button.** The standalone smash demo names the select screen as its OWN home
+/// route (`ShellComposition::new(.., SMASH_SELECT_ROUTE, ..)`), because leaving
+/// a match there should return to the screen that chose it rather than to a
+/// launcher listing one game. `QuitToHome` in that app therefore re-enters the
+/// route it is already on: a churn with nothing to see. The multi-game host
+/// names its launcher, and there this is the title screen Jon asked for.
+///
+/// ⚠ **a fact about the COMPOSITION, so it is read from the host spec rather
+/// than assumed by either app.** Absent (a bare unit fixture with no host
+/// configured) reads as NO exit: a screen with no shell to leave through has
+/// nowhere to go, and drawing an exit for one would be the same lie.
+pub fn exit_leads_somewhere(
+    host: Option<&ambition_platformer2d::game_shell::ShellHostConfiguration>,
+) -> bool {
+    host.and_then(|host| host.spec.as_ref())
+        .is_some_and(|spec| spec.home_route.as_str() != crate::SMASH_SELECT_ROUTE)
+}
+
 /// The layout this frame, from the window if there is one.
 pub fn current_layout(windows: &Query<&Window>, fighters: &SmashRoster) -> SelectLayout {
     SelectLayout::for_viewport(viewport(windows), fighters.cell_count())
@@ -389,6 +434,10 @@ pub fn spawn_select_screen(
     // rather than like a composition with no cast. Every composition that
     // reaches this route has one, because this demo registers its own fragment.
     art: ScreenArt,
+    // **WHETHER TO DRAW THE WAY OUT** — see [`exit_leads_somewhere`]. A plain
+    // `bool` rather than the resource, because the caller already holds it and
+    // this is a drawing decision, not a second reading of the host spec.
+    exit: bool,
 ) {
     if !existing.is_empty() {
         return;
@@ -445,6 +494,36 @@ pub fn spawn_select_screen(
                     TextColor(INK),
                 ));
             });
+
+            // ── THE WAY OUT ──────────────────────────────────────────────
+            //
+            // ⭐ **a BUTTON, not only a binding.** Jon, 2026-08-16: *"in the
+            // smash character select, there is no way to quit to title, you can
+            // only do this if you start a match."* The `back` intent alone would
+            // not have answered that: a mouse has no Back control at all, so a
+            // player at a desk with no pad and no keyboard hand on Escape would
+            // still have been stuck in the lobby — and an unlabelled press is a
+            // feature only the person who wrote it knows about.
+            //
+            // ⚠ it never dims. START waits on a decided lobby; leaving is always
+            // allowed, which is the whole complaint.
+            if exit {
+                let mut back = anchored(Anchored::Back);
+                back.1.justify_content = JustifyContent::Center;
+                back.1.align_items = AlignItems::Center;
+                back.1.border = UiRect::all(Val::Px(2.0));
+                back.1.border_radius = BorderRadius::all(Val::Px(6.0));
+                root.spawn((
+                    back,
+                    BackButton,
+                    BackgroundColor(PANEL),
+                    BorderColor::all(PANEL_EDGE),
+                    Name::new("back button"),
+                ))
+                .with_children(|node| {
+                    node.spawn((Text::new("BACK"), text_font(15.0), TextColor(DIM_INK)));
+                });
+            }
 
             // ── THE GRID: Jon's top 65% ──────────────────────────────────
             //
@@ -763,6 +842,7 @@ pub fn drive_the_cursor(
     mut select: ResMut<SmashSelect>,
     mut pointer: ResMut<SelectCursor>,
     mut start: ResMut<StartRequested>,
+    mut leave: ResMut<LeaveRequested>,
     fighters: Res<SmashRoster>,
     windows: Query<&Window>,
     mouse: Option<Res<ButtonInput<MouseButton>>>,
@@ -770,11 +850,23 @@ pub fn drive_the_cursor(
     seat_frames: Option<Res<ambition_platformer2d::input::SeatMenuFrames>>,
     global_frame: Option<Res<ambition_platformer2d::input::MenuControlFrame>>,
     devices: Option<Res<ambition_platformer2d::input::LocalDeviceOrder>>,
+    // **IS THERE ANYWHERE TO GO?** See [`exit_leads_somewhere`] — a composition
+    // whose HOME is this very screen has no "out", and a cursor that snapped to
+    // an exit nobody drew would be a stop on empty air.
+    host: Option<Res<ambition_platformer2d::game_shell::ShellHostConfiguration>>,
     mut last_mouse: Local<Option<Vec2>>,
     mut driving_finger: Local<Option<u64>>,
 ) {
     let layout = current_layout(&windows, &fighters);
-    let targets = layout.targets();
+    let exit = exit_leads_somewhere(host.as_deref());
+    // ⭐ **the LAYOUT says where things are; the SCREEN says what is
+    // REACHABLE.** Same split `token_rect` already makes for an absent slot's
+    // token: the rectangle exists, and nobody may press it.
+    let targets: Vec<(SelectTarget, HitRect)> = layout
+        .targets()
+        .into_iter()
+        .filter(|(kind, _)| exit || *kind != SelectTarget::Back)
+        .collect();
     // The cursor's "entity" is an INDEX into this list. Entity ids would be a
     // second identity for something the layout already names, and the layout's
     // order is the one that decides ties.
@@ -870,6 +962,7 @@ pub fn drive_the_cursor(
     let mut direction = Vec2::ZERO;
     let mut clicked = false;
     let mut back = false;
+    let mut back_out = false;
     let mut frames: Vec<ambition_platformer2d::input::MenuControlFrame> = Vec::new();
     if let Some(seat_frames) = seat_frames.as_deref() {
         for seat in 0..MAX_SMASH_SEATS as u8 {
@@ -894,6 +987,23 @@ pub fn drive_the_cursor(
         }
         clicked |= frame.select;
         back |= frame.back;
+        // ⛔⛔ **ESCAPE IS BOTH `Start` AND `MenuBack`** — one key, two semantic
+        // actions, and `presets.rs` binds it to both on purpose (`rebind.rs`
+        // documents it and tests it). The shell's pause menu opens on `start`
+        // and this screen's chain runs in the SAME set with no order between
+        // them, so a bare `back` here would have Escape open the pause menu AND
+        // quit the lobby out from under it, deterministically wrong either way
+        // the set happened to schedule.
+        //
+        // ⚠ **per FRAME, not over the union.** The pair is a property of one
+        // seat's press — the seat holding a pad sends East with `start` clear
+        // and still leaves, on the same tick somebody else opens the menu.
+        //
+        // ⭐ **the answer is in the frame, not in the shell.** Asking
+        // `ShellPauseMenu` whether it is open would need a feature edge this
+        // demo is not allowed to have (`basic_shell_presentation` is not in
+        // `all_capabilities`), and the frame already carries the fact.
+        back_out |= frame.back && !frame.start;
     }
     if direction != Vec2::ZERO {
         if let Some(entity) = cursor::snap(pointer.position, direction, &rects) {
@@ -923,6 +1033,26 @@ pub fn drive_the_cursor(
     if back && pointer.carrying.is_some() {
         pointer.drop_it();
         return;
+    }
+
+    // **AND WITH AN EMPTY HAND, BACK LEAVES.**
+    //
+    // ⭐ **graded, and the order above is the grading.** This is the same rung
+    // every fighting game's select screen has: the first Back puts your token
+    // down, the second backs you out. Reversing them would make one press on a
+    // held token cost the whole lobby.
+    //
+    // ⚠ **ANY seat may press it**, which is this screen's own rule and not a new
+    // one. Four people share ONE cursor here — the directions, the clicks and
+    // the token-drop above are all a union over every seat's frame, because the
+    // screen is a single shared surface rather than four private ones. A quit
+    // that only seat 0 could reach would be the one decision on this screen with
+    // a different arbitration, and on a couch the person who wants out is as
+    // often on pad 2. Nothing is lost by being wrong: arriving here resets the
+    // lobby anyway, so re-entering costs the picks that a `Random` default
+    // re-seeds in one frame.
+    if exit && back_out && !leave.0 {
+        leave.0 = true;
     }
 
     let sources = devices
@@ -972,6 +1102,11 @@ pub fn drive_the_cursor(
                 if select.ready() {
                     start.0 = true;
                 }
+            }
+            // ⚠ **no readiness term.** START is refused on an undecided lobby;
+            // BACK is exactly what an undecided lobby is for.
+            (None, None, Some(SelectTarget::Back)) => {
+                leave.0 = true;
             }
             (None, None, _) => {}
         }
@@ -1048,6 +1183,7 @@ pub fn place_the_screen(
             Anchored::RoleButton(slot) => Some(layout.role_button(slot)),
             Anchored::CardPortrait(slot) => Some(layout.card_portrait(slot)),
             Anchored::Start => Some(layout.start_button()),
+            Anchored::Back => Some(layout.back_button()),
         };
         if let Some(rect) = rect {
             set_rect(&mut node, rect);
@@ -1342,6 +1478,7 @@ mod touch_tests {
         app.init_resource::<SmashRoster>();
         app.init_resource::<SelectCursor>();
         app.init_resource::<StartRequested>();
+        app.init_resource::<LeaveRequested>();
         app.init_resource::<Touches>();
         app.add_message::<TouchInput>();
         app.add_systems(PreUpdate, bevy::input::touch::touch_screen_input_system);

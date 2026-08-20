@@ -39,7 +39,7 @@
 //!
 //! **POSSESSION does not move the observer marker.** The engine's wake test is
 //! "near any body marked `PlayerEntity`", and possessing an actor transfers the
-//! BRAIN (`Brain::Player` + `TemporaryControl::Player` onto the target) while
+//! SEAT (`DrivingParticipant` + `TemporaryControl::Player` onto the target) while
 //! `PlayerEntity` stays on the body left behind. So a player who possesses one
 //! of these hostiles and drives it more than [`AMBITION_WAKE_RADIUS`] from their
 //! parked body would have the possessed body fall asleep — and dormancy retracts

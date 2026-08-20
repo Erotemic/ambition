@@ -832,7 +832,7 @@ fn the_title_screen_says_choose_game_and_is_readable() {
 
     // Assert the LAUNCHER's own text roles by role, not a global min/max over
     // every text node. The first version of this test did the latter and was
-    // measuring the wrong population: the touch-control overlay ("Dash",
+    // measuring the wrong population: the touch-control overlay ("Burst",
     // "Blink") and the FPS readout are legitimately small and are not what Jon
     // was reading.
     //

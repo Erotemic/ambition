@@ -141,7 +141,7 @@ fn player_body_tick_is_not_the_gameplay_movement_route() {
     );
 }
 
-/// Real participant input reaches `Brain::Player` through the canonical slot
+/// Real participant input reaches the driven body through the canonical slot
 /// publication path and becomes body-facing `ActorControl`. Neutral slot input
 /// leaves the body at rest; driving the slot moves it.
 #[test]

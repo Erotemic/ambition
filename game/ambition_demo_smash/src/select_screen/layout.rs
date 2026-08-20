@@ -59,6 +59,10 @@ const CARD_GAP: f32 = 8.0;
 const ROLE_BUTTON_H: f32 = 30.0;
 const START_W: f32 = 150.0;
 const START_H: f32 = 34.0;
+/// The way OUT, opposite START and the same size, so the two verbs this screen
+/// offers read as a pair rather than as a button and an afterthought.
+const BACK_W: f32 = 150.0;
+const BACK_H: f32 = 32.0;
 
 /// The token and cursor diameters. A token is a sphere, per Jon; in `bevy_ui` a
 /// circle is a square with `BorderRadius::MAX`.
@@ -186,6 +190,21 @@ impl SelectLayout {
         )
     }
 
+    /// **The way out of the lobby**, at the LEFT end of the title strip.
+    ///
+    /// ⚠ **left, because the host owns the top-RIGHT corner.** [`TITLE_H`]'s own
+    /// comment says so: the shell draws Menu and Back there over whatever route
+    /// is up, and a second Back under them would be two buttons fighting for one
+    /// thumb. This strip is otherwise empty — the title text is centred — so the
+    /// button costs no portrait and no card.
+    pub fn back_button(&self) -> HitRect {
+        let strip = self.title();
+        HitRect::from_center_size(
+            Vec2::new(MARGIN + BACK_W * 0.5, strip.center().y),
+            Vec2::new(BACK_W, BACK_H),
+        )
+    }
+
     pub fn prompt(&self) -> HitRect {
         let pool = self.pool();
         HitRect {
@@ -233,7 +252,7 @@ impl SelectLayout {
     /// order on a different run would resolve those ties differently — which is
     /// the same class of defect as reading an unordered Bevy query.
     pub fn targets(&self) -> Vec<(SelectTarget, HitRect)> {
-        let mut targets = Vec::with_capacity(self.characters + MAX_SMASH_SEATS * 2 + 1);
+        let mut targets = Vec::with_capacity(self.characters + MAX_SMASH_SEATS * 2 + 2);
         for index in 0..self.characters {
             if let Some(rect) = self.portrait(index) {
                 targets.push((SelectTarget::Portrait(index), rect));
@@ -246,6 +265,11 @@ impl SelectLayout {
             targets.push((SelectTarget::Token(slot), self.token_home(slot)));
         }
         targets.push((SelectTarget::Start, self.start_button()));
+        // ⚠ **APPENDED, so every portrait keeps the position it already had.**
+        // The cursor names a target by its INDEX in this list, and inserting
+        // anywhere but the end would silently re-point every walkthrough,
+        // capture and test that reaches a cell by number.
+        targets.push((SelectTarget::Back, self.back_button()));
         targets
     }
 }

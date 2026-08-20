@@ -1039,6 +1039,29 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "ambition_demo_twintrack::spacetime_3d::SpacetimeMinimapState",
         "presentation toggle for a read-only diagram; rewinding it would fight the viewer",
     ),
+    // ⭐ **The two relativity READ MODELS, and the reason is not "presentation"
+    // but REPUBLICATION.** Both are recomputed every frame in `Update` from
+    // `SpacetimeCoordinateTime2d` and canonical `BodyKinematics` — no
+    // accumulator, no entity, nothing carried between frames. A restored value
+    // is overwritten before anything reads it, so rewinding them is not harmful,
+    // it is a no-op with a cost.
+    //
+    // ⚠ **waived rather than DECLARED DERIVED, deliberately.** A derived
+    // declaration's reason string is hashed into `schema_fingerprint`, so it
+    // would put a demo's exhibit into the engine's wire format and owe a version
+    // bump every time somebody reworded it. `RelativisticOpticalView2d` is
+    // declared derived because it lives in an ENGINE crate and the simulation
+    // reads it; these two live in a demo and only the two split-screen panes do.
+    (
+        "ambition_demo_twintrack::dual_observer::TwinTrackDualObserverView",
+        "republished each frame from coordinate time and kinematics; a rewind cannot \
+         change what the next frame recomputes",
+    ),
+    (
+        "ambition_demo_twintrack::light_pulse::TwinTrackLightPulseView",
+        "republished each frame from the emission event and the invariant speed; \
+         holds no accumulated state a rewind could corrupt",
+    ),
     // The engine character-art load pipeline (§7.1). Which SHEETS have been
     // decoded is presentation, not simulation: a body's collision, health, and
     // moves are identical whether its art arrived or it is drawing the marked
@@ -1474,6 +1497,10 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     (
         "ambition_demo_smash::select_screen::StartRequested",
         "whether somebody clicked START on the select screen. Written by          `drive_the_cursor` and cleared on arrival at the screen, both in `Update`          on a route that has no session; read once by the hand-off. ⚠ read to its          readers rather than waived as \"menu state\": a latch that says \"go\" is          exactly the shape that would matter if it ever survived into a match, and          the reason it cannot is that arriving at the screen resets it",
+    ),
+    (
+        "ambition_demo_smash::select_screen::LeaveRequested",
+        "whether somebody pressed BACK on the select screen. The same shape as          `StartRequested` one line up and waived on the same reading, not by          category: written by `drive_the_cursor` and SPENT by          `leave_the_select_screen_when_asked` on the very frame it is set — both          in `Update`, on a route that has no session — and reset again by this          experience's scope on the way out, so it cannot be true on any tick a          session simulates",
     ),
     (
         "ambition_demo_smash::select_screen::cursor::SelectCursor",

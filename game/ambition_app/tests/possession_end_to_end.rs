@@ -1,7 +1,7 @@
 //! Phase C / C1 — possession works END-TO-END through the real headless sim.
 //!
 //! The keystone payoff of the control-unification arc: a human can take over a
-//! normal actor because possession is BRAIN TRANSFER — `Brain::Player(PRIMARY)`
+//! normal actor because possession is a SEAT REDIRECT — `DrivingParticipant(PRIMARY)`
 //! moves onto the actor, which then reads slot input through the SAME universal
 //! brain path every controlled body uses (`SlotControls` → its own
 //! `ActorControlFrame` → `update_ecs_actors`). The vacated home avatar has no
@@ -9,14 +9,14 @@
 //! through `Platformer2dSimHarness::step`:
 //!
 //! 1. Hold Down+Interact ~2s next to an actor → its brain is replaced with
-//!    `Brain::Player(PRIMARY)` (recorded in `PossessionState.possessed`). Its
+//!    `DrivingParticipant(PRIMARY)` (recorded in `PossessionState.possessed`). Its
 //!    AUTHORED faction is NOT mutated — effective allegiance makes combat treat it
 //!    as player-aligned while it carries the player brain.
 //! 2. Driving `move_x` then moves the POSSESSED body (its own body path at its own
 //!    run capability) while the vacated home avatar stays put (it has neutral
 //!    input, no player brain — no `not_possessing` gate needed).
 //! 3. A fresh Down+Interact press releases — the actor's authored brain is
-//!    restored and the home avatar reclaims `Brain::Player`.
+//!    restored and the home avatar reclaims the primary seat.
 
 #![cfg(feature = "rl_sim")]
 
@@ -132,7 +132,7 @@ fn possessed_actor_reads_this_frame_slot_input() {
 /// while possessing starts the melee lifecycle on the POSSESSED actor (its
 /// `BodyMelee` swings and, at the active edge, it OWNS the spawned strike
 /// hitbox), while the vacated home avatar's melee never starts. Attack authority
-/// follows `Brain::Player`, not the home body.
+/// follows the primary seat, not the home body.
 #[test]
 fn attack_while_possessing_starts_the_possessed_actors_melee_not_the_home() {
     use ambition_platformer2d::actors::features::{BodyMelee, Hitbox};
@@ -159,7 +159,7 @@ fn attack_while_possessing_starts_the_possessed_actors_melee_not_the_home() {
             .unwrap_or(false)
     };
 
-    // Hold Attack across a window. The possessed actor carries Brain::Player, so
+    // Hold Attack across a window. The possessed actor holds the primary seat, so
     // its `melee_pressed` edge starts its `"attack"` moveset move (the ONE body
     // melee lifecycle: `trigger_moveset_moves` → `advance_move_playback`) and, at
     // the active window, spawns a strike it OWNS. The
@@ -195,7 +195,7 @@ fn attack_while_possessing_starts_the_possessed_actors_melee_not_the_home() {
     assert!(
         !home_engaged,
         "the vacated home avatar's melee did NOT engage — attack authority is the \
-         body carrying Brain::Player, not the home body"
+         body holding the primary seat, not the home body"
     );
     assert!(
         actor_owns_strike,
@@ -269,12 +269,12 @@ fn a_player_can_possess_drive_and_release_an_actor_end_to_end() {
         faction(sim.world_mut(), actor),
         ActorFaction::Enemy,
         "possession does NOT mutate the authored faction — effective allegiance \
-         (carrying Brain::Player) is what makes combat treat it as player-aligned"
+         (holding the primary seat) is what makes combat treat it as player-aligned"
     );
 
     // 2. Drive right. The POSSESSED body should move — it now integrates through
     //    the SAME unified `integrate_sim_bodies` phase every body uses. The vacated
-    //    home avatar stays put because it carries no `Brain::Player` (its
+    //    home avatar stays put because it holds no seat (its
     //    `ActorControl` is neutral), NOT because of any movement run-condition gate.
     let player_before = player_pos(sim.world_mut());
     let actor_before = sim.world_mut().get::<BodyKinematics>(actor).unwrap().pos;
@@ -292,7 +292,7 @@ fn a_player_can_possess_drive_and_release_an_actor_end_to_end() {
         "the possessed body moves right under player input: {actor_before:?} -> {actor_after:?}"
     );
     // The guarantee is "the same input doesn't drive BOTH bodies": the vacated
-    // home avatar does NOT run right with `move_x` — it has no `Brain::Player`, so
+    // home avatar does NOT run right with `move_x` — it has no seat, so
     // its `ActorControl` is neutral. Its x stays put while the possessed body
     // travels. (Vertically the abandoned body may settle a little under gravity /
     // ground-snap — not input-driven, so we pin the horizontal axis the input

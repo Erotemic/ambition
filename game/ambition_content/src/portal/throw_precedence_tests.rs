@@ -17,7 +17,9 @@
 
 use bevy::prelude::*;
 
-use ambition_characters::brain::{ActorControl, Brain, HeldItemSpec, PlayerSlot, SlotControls};
+use ambition_characters::brain::{
+    ActorControl, DrivingParticipant, HeldItemSpec, PlayerSlot, SlotControls,
+};
 use ambition_combat::held_items::HeldItem;
 use ambition_platformer2d_actor_monolith::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
 use ambition_platformer2d_actor_monolith::items::pickup::{throw_held_item_system, GroundItem};
@@ -74,7 +76,7 @@ fn press_shield_attack(carrying: Carrying) -> Outcome {
     let mut body = app.world_mut().spawn((
         PlayerEntity,
         PrimaryPlayer,
-        Brain::Player(PlayerSlot::PRIMARY),
+        DrivingParticipant(PlayerSlot::PRIMARY),
         BodyKinematics {
             pos: Vec2::new(100.0, 100.0),
             vel: Vec2::ZERO,

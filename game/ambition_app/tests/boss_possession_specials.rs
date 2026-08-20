@@ -2,7 +2,7 @@
 //! scope" mandate (unified-actors I2/I7): a possessed boss consumes slot input
 //! AND commands its OWN authored specials, not movement only.
 //!
-//! Possession is brain transfer: `Brain::Player(PRIMARY)` moves onto the boss,
+//! Possession is a seat redirect: `DrivingParticipant(PRIMARY)` moves onto the boss,
 //! which then reads slot input through the SAME universal-brain path every
 //! controlled body uses. The boss tick (`tick_boss_brains_system`) maps attack /
 //! special input onto the boss's persisted `BossCapability` (its authored strike
@@ -14,7 +14,7 @@
 //!
 //! This pins, driving REAL inputs through `Platformer2dSimHarness::step`:
 //! 1. A ~2s Down+Interact hold next to a boss possesses it (its brain becomes
-//!    `Brain::Player`), without mutating its authored `Boss` faction.
+//!    the primary seat), without mutating its authored `Boss` faction.
 //! 2. Pressing Attack fires a geometry strike through the moveset (R1.4 — possession
 //!    grants the full kit), and the strike's hitbox carries the possessor's EFFECTIVE
 //!    `Player` faction. WHICH strike is the boss's authored choice: a profile with a

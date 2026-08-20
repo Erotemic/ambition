@@ -561,7 +561,17 @@ pub fn carl_stargan_moveset() -> MovesetContract {
 
     SmashRepertoire {
 
-        taunt: ambition_characters::moveset_authoring::taunt("carl_stargan_taunt", 0.9),
+        // ⭐ **his taunt throws a burst like everything else he does**, which is
+        // both his character and what `none_of_his_bursts_sit_on_his_navel`
+        // asks of every move in this table. A cosmic sweep over the head: he is
+        // not threatening you, he is showing you the scale of the thing.
+        taunt: vfx_at(
+            ambition_characters::moveset_authoring::taunt("carl_stargan_taunt", 0.9),
+            0.20,
+            "cosmic_calendar_sweep",
+            (0.0, -26.0),
+            SWING_FX,
+        ),
         jab,
         forward_tilt: f_tilt,
         up_tilt,

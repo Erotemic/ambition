@@ -160,12 +160,19 @@ jump_squat                  AxisManeuverState::jump_squat_timer   ✔ asked, 202
 wall_tech · wall_tech_jump  landed the same day; the tech does not say WHICH surface
 footstool_jump              MovementOp::Footstool fires; a one-tick op has no FACT
 launch                      the first beat of a tumble, distinct from `tumble`
-parry · shield_raise
-· shield_release
-· shield_hit                BodyShieldState has all four states
+parry                       `BodyShieldState::parrying()` — ready to ask for
+shield_hit                  `stun_timer > 0.0` (shieldstun) — ready to ask for
+shield_raise
+· shield_release            TRANSITION beats: the sim publishes the STATE
+                            (`active`), not its edges
 shield_break_launch
 · _fall · _collapse
-· _recover                  ONE `break_timer` covers a four-beat sequence
+· _recover                  ONE `break_timer` covers a four-beat sequence. ⭐ a
+                            DERIVED answer is available — the beat is a fraction
+                            of `break_timer / ShieldTuning::break_stun_time`, so
+                            it costs no new state — but the pose sites read
+                            `BodyShieldState` WITHOUT its tuning, so the
+                            fraction has to be published or the tuning threaded
 ledge_catch · ledge_drop
 · ledge_jump · ledge_attack  LedgeGetupKind and MovementOp::LedgeJump exist
 getup_attack · getup_roll

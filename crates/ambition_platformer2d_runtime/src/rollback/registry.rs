@@ -319,6 +319,15 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// it also moved `ambition_cutscene` and `ambition_demo_twintrack`, which is the
 /// instrument CHANGING and NOT a wire change in either: neither file was edited.
 ///
+/// ⚠ **v49 (2026-08-20) is `AxisManeuverState::time_off_ledge`**, one f32 in
+/// the motion codec, put and read. It is what a ledge grab's intangibility is
+/// now BOUGHT with: the window used to be a flat 0.50s on every grab, so the
+/// edge was a free reset a fighter could hold forever.
+/// ⭐ **airtime, not a regrab counter** — the genre buys ledge intangibility
+/// with time spent off the edge, and a counter would punish a fighter who was
+/// knocked away and recovered exactly as hard as one stalling on the ledge.
+/// ⚠ it starts FULL rather than zero: a body that has never touched a ledge has
+/// been off one forever, and a zero would hand every first grab the floor.
 /// ⚠ **v48 (2026-08-20) is `SmashHoldState::escape_seconds`**, one f32 on a
 /// `snapshot_pod!` component, so the pod body folds it by name and the row
 /// widens. ⚠ `escape_progress` is RENAMED to `mash_credit` in the same commit;
@@ -483,7 +492,7 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// `message.spawn_projectile` keeps its stable key while its concrete message
 /// becomes `ProjectileSpawnRequest`, so abandoned-future spawn requests remain
 /// cleared on load through the same wire identity.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 48;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 49;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

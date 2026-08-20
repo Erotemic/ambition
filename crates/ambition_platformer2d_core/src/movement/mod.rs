@@ -396,6 +396,14 @@ fn update_body_simulation_inner(
         if state.wall_clinging || clusters.ground.on_ground {
             state.pre_wall_vel_age += dt;
         }
+        // **Time NOT spent hanging**, which is what the next grab's
+        // intangibility is bought with. ⚠ clamped rather than unbounded: a body
+        // that never sees a ledge would otherwise carry a float that grows for
+        // the whole match, and the curve saturates long before that matters.
+        if state.ledge_grab.is_none() {
+            state.time_off_ledge =
+                (state.time_off_ledge + dt).min(crate::ledge_grab::LEDGE_INVULN_FULL_AIRTIME);
+        }
         if clusters.ground.on_ground {
             state.coyote_timer = tuning.locomotion.coyote_time;
             // Landing ends an air dodge outright — window, endlag and budget.

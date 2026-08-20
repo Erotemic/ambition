@@ -1043,6 +1043,55 @@ fn ledge_grab_arms_intangibility_window() {
     );
 }
 
+/// **A LEDGE YOU JUST LEFT IS WORTH LESS THAN ONE YOU FELL BACK TO.**
+///
+/// ⛔ the ledge-camping rule, and both ends of it are the assertion: a fresh
+/// body earns the FULL window (the test above), and one that let go a moment ago
+/// earns near the floor. Asserting only the second would also pass if grabbing
+/// had stopped granting anything at all.
+///
+/// ⚠ the mechanism is AIRTIME, not a regrab counter — a counter would punish a
+/// fighter who was knocked away and recovered exactly as hard as one stalling on
+/// the edge, and only the second is the behaviour anybody wants to discourage.
+#[test]
+fn a_regrab_earns_less_intangibility_than_a_recovery() {
+    let world = world_with(vec![Block::solid(
+        "ledge",
+        Vec2::new(100.0, 100.0),
+        Vec2::new(200.0, 200.0),
+    )]);
+    let earned = |time_off_ledge: f32| {
+        let mut scratch = scratch_at(Vec2::new(86.0, 110.0));
+        scratch.abilities.abilities.ledge_grab = true;
+        scratch.axis_mut().wall_clinging = true;
+        scratch.axis_mut().time_off_ledge = time_off_ledge;
+        scratch.wall.wall_normal_x = -1.0;
+        let mut events = crate::movement::FrameEvents::default();
+        assert!(
+            try_start_ledge_grab_scratch(&world, &mut scratch, InputState::default(), &mut events),
+            "expected ledge grab to latch, so this measured nothing"
+        );
+        // ⚠ and the clock is SPENT by the grab: the next one starts from zero.
+        assert_eq!(scratch.axis().time_off_ledge, 0.0);
+        scratch.axis().dodge_roll_timer
+    };
+
+    let recovered = earned(crate::ledge_grab::LEDGE_INVULN_FULL_AIRTIME);
+    let stalled = earned(0.0);
+    assert!(
+        (recovered - LEDGE_GRAB_INVULN_TIME).abs() < 0.001,
+        "a full recovery earned {recovered}s, not the whole window"
+    );
+    assert!(
+        (stalled - crate::ledge_grab::LEDGE_INVULN_MIN_TIME).abs() < 0.001,
+        "an instant regrab earned {stalled}s, not the floor"
+    );
+    assert!(
+        stalled < recovered,
+        "the edge is a free reset you can hold forever"
+    );
+}
+
 // ---- Momentum-carry boost tests (Jon 2026-05-23 feature) ----
 //
 // Invariants under test:

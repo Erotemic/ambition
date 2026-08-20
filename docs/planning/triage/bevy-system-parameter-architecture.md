@@ -32,42 +32,32 @@
 ## Executive conclusion
 
 The 16-parameter failures are real design feedback, not merely an arbitrary Bevy
-annoyance. A source inventory of the current tree found:
+annoyance. A source inventory (re-measured 2026-08-08, comment lines stripped,
+nesting-aware split on top-level commas — a naive `:` count inside the paren span
+scores `::` paths and turbofish and once reported 197 parameters for one
+function) found:
 
-- 27 functions with at least 13 non-`self` parameters;
-- several production systems exactly at the 16-parameter ceiling;
-- explicit tuple packing and comments about "one tuple slot" in hot gameplay,
-  camera, menu, debug, and room-flow code;
-- 35 derived `SystemParam` types but only 5 derived `QueryData` types;
-- at least one derived `SystemParam` (`PlatformerPreparation`) itself at the
-  16-field ceiling;
-- many `#[allow(clippy::too_many_arguments)]` sites that mix healthy pure kernels,
-  Bevy adapters, one-time setup, and genuine orchestration monoliths.
+| | 08-08 |
+|---|---:|
+| production fns with ≥13 non-`self` params | **49** |
+| …of those, real registered Bevy **systems** | **29** |
+| …plain **kernels / adapters** | **20** |
+| systems at the 16 ceiling | **12** |
+| derived `SystemParam` | **40** |
+| derived `QueryData` | **4** → 5 with this slice |
+| `#[allow(clippy::too_many_arguments)]` | **124** |
+
+An earlier 2026-07-23 pass reported different numbers (27 functions, "several"
+at the ceiling, 35 `SystemParam`/5 `QueryData`) — it mixed kernels with systems
+and used the naive comma-split above, so ⛔ do not cite those numbers.
 
 The counts are a snapshot, not a policy oracle. They show enough recurring
 pressure to justify a coordinated refactor, but they do **not** imply that every
 long signature should become a custom parameter or that every large system
 should split.
 
-### Re-measured 2026-08-08 — and the population is SMALLER and DIFFERENT
-
-⛔ **Do not re-use the 2026-07-23 numbers above; three of them are wrong in ways
-that change what to do.** Re-counted with comment lines stripped and a
-nesting-aware split on top-level commas (a naive `:` count inside the paren span
-scores `::` paths and turbofish, and once reported 197 parameters for one
-function):
-
-| | 07-23 | 08-08 |
-|---|---:|---:|
-| production fns with ≥13 non-`self` params | 27 | **49** |
-| …of those, real registered Bevy **systems** | — | **29** |
-| …plain **kernels / adapters** | — | **20** |
-| systems at the 16 ceiling | "several" | **12** |
-| derived `SystemParam` | 35 | **40** |
-| derived `QueryData` | 5 | **4** → 5 with this slice |
-| `#[allow(clippy::too_many_arguments)]` | "many" | **124** |
-
-Three corrections, in descending order of how much they matter:
+Three corrections the re-measurement forced, in descending order of how much
+they matter:
 
 1. ⛔ **systems and kernels were counted together, and only systems are bound by
    the ceiling.** The discriminator is not the parameter count and not
@@ -76,8 +66,9 @@ Three corrections, in descending order of how much they matter:
    `integrate_actor_body` (23) are ordinary functions with long argument lists.
    They are a legibility question, **not a B0001 risk**, and `QueryData` does
    nothing for them; they want recommendation 3 (ordinary value structs), which is
-   a different card. This is the mixture the last bullet above warned about, and
-   the first re-count made exactly that mistake.
+   a different card. `#[allow(too_many_arguments)]` sites mix healthy pure
+   kernels, Bevy adapters, one-time setup, and genuine orchestration monoliths —
+   the first re-count conflated them.
 2. ⚠ **"at or above 16" cannot happen — 12 systems sit at EXACTLY 16.** The
    ceiling is a hard compiler stop, so the population is not a tail to be ranked
    by severity. Every one of the twelve is equally wedged, and the next dependency

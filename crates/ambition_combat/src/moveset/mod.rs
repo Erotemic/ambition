@@ -52,9 +52,7 @@ use ambition_time::WorldTime;
 // rather than runtime behaviour — and because a character DEFINITION must be
 // able to name the verb its moveset binds without reaching up into this crate.
 // Re-exported so every `moveset::ATTACK_VERB`-style path is unchanged.
-pub use ambition_entity_catalog::{
-    ATTACK_VERB, RANGED_VERB, SMASH_VERB, SPECIAL_VERB, TAUNT_VERB,
-};
+pub use ambition_entity_catalog::{ATTACK_VERB, RANGED_VERB, SMASH_VERB, SPECIAL_VERB, TAUNT_VERB};
 // The capture verbs, on the same road for the same reason.
 pub use ambition_entity_catalog::{
     CAPTURE_PUMMEL_VERB, CAPTURE_THROW_BACK_VERB, CAPTURE_THROW_DOWN_VERB,
@@ -1300,6 +1298,12 @@ pub fn trigger_moveset_moves(
         // **What this body is holding.** A weapon in hand OWNS the Attack press
         // ([`held_weapon_attack_move`]); every other verb is untouched.
         Option<&crate::held_items::HeldItem>,
+        // **Is this body DASHING?** Read for the dash attack, and read from the
+        // MODEL because that is where the dash's own timer lives — there is no
+        // cluster flag for "currently dashing", only `BodyDashState`'s charge
+        // count, which answers a different question. `Option` for bare test
+        // bodies, which are treated as not dashing.
+        Option<&ae::MotionModel>,
     )>,
     // **WHO IS HOLDING SOMEBODY.** The inverse of `CapturedBy`, and the reason
     // there is no mirrored `Capturing` component to read instead: one authority,
@@ -1319,14 +1323,25 @@ pub fn trigger_moveset_moves(
 ) {
     #[cfg(feature = "causal")]
     let mut log = log;
-    for (entity, moveset, control, gesture, resolved_frame, mut kin, ground, playback, held) in
-        &mut bodies
+    for (
+        entity,
+        moveset,
+        control,
+        gesture,
+        resolved_frame,
+        mut kin,
+        ground,
+        playback,
+        held,
+        model,
+    ) in &mut bodies
     {
         let body_frame = resolved_frame
             .map(|frame| frame.basis())
             .unwrap_or(ae::AccelerationFrame::new(ae::DEFAULT_GRAVITY_DIR));
         let frame = &control.0;
         let grounded = ground.map(|g| g.on_ground).unwrap_or(true);
+        let dashing = model.is_some_and(|model| ae::BodyMotionFacts::from_model(model).dashing);
         // Resolve the requested verb + the names the candidate answers to
         // (verb, class, resolved move id — the ONE cancel namespace).
         //
@@ -1422,7 +1437,12 @@ pub fn trigger_moveset_moves(
             } else {
                 moveset
                     .0
-                    .move_for_directional_verb(base_verb, dir, gesture_grounded)
+                    // ⭐ **the DASH ATTACK.** A dashing body's press is its own
+                    // move in this genre, and it was resolving as whatever the
+                    // stick happened to name — the forward tilt, or the jab.
+                    // ⚠ ATTACK only for v1: a dash + smash press is Ultimate's
+                    // pivot smash, which is a different move and not authored.
+                    .move_for_attack(base_verb, dir, gesture_grounded, dashing)
                     .or_else(|| {
                         if base_verb == SMASH_VERB {
                             moveset

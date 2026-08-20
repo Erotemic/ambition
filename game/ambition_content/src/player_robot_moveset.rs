@@ -18,9 +18,9 @@
 //! Smash read it as a platform fighter.
 
 use ambition_characters::smash_capture::{
-    CaptureCues,
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
-    CaptureAttemptParams, CapturePummelParams, CaptureThrowParams, SmashCaptureRepertoire,
+    CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
+    SmashCaptureRepertoire,
 };
 use ambition_characters::smash_repertoire::{DownSpecial, NeutralSpecial, SmashRepertoire};
 use ambition_platformer2d::entity_catalog::{
@@ -429,6 +429,12 @@ pub fn player_robot_moveset() -> MovesetContract {
     );
     SmashRepertoire {
         taunt: ambition_characters::moveset_authoring::taunt("player_robot_taunt", 0.9),
+        dash_attack: ambition_characters::moveset_authoring::dash_attack(
+            "player_robot_dash_attack",
+            ambition_characters::moveset_authoring::DashAttackShape::GENRE,
+            8,
+            90.0,
+        ),
         jab,
         forward_tilt: f_tilt,
         up_tilt,

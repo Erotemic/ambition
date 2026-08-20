@@ -25,9 +25,8 @@ you add a `▢`, and before you work one.
 | Shield pushback (a blocked hit costs the blocker space) | ✔ | `ShieldTuning::pushback_per_damage`, applied inside the block via `GuardUnderFire` |
 | Shield shrink → poke (a spent guard exposes the head and feet) | ✔ | `ShieldTuning::min_coverage`, `combat::util::guard_covers_hit` |
 | Shield-drop lag | ▢ | — |
-| Parry (perfect-shield window) | ✔ | `BodyShieldState::parrying` |
+| Parry (perfect-shield window) | ✔ | `BodyShieldState::parrying` — ⚠ PRESS-timed (Smash 4's); Ultimate's is RELEASE-timed, asked as `awaiting-maintainer-decision.md` §25 |
 | Ground dodge roll, air dodge (once per airtime) | ✔ | `BodyDodgeState`, `AxisManeuverState::dodge_roll_timer` |
-| Spot dodge | ▢ | — |
 | Tumble → knockdown → tech → getup (roll / attack / stand) | ✔ | `core/movement/knockdown.rs` |
 | Wall tech | ✔ | `knockdown::tick_knockdown` reads `BodyWallState`; `WALL_TECH_SPEED` pushes off the normal |
 | Ceiling tech | ▢ | a head contact is not yet a surface the tech press can land on |
@@ -41,6 +40,7 @@ you add a `▢`, and before you work one.
 | Grab beats shield | ✔ | same |
 | Pummel | ✔ | `CapturePummelRequested` |
 | Four throws authored per fighter | ✔ | `characters/smash_capture.rs` |
+| Dash attack as its own move | ✔ | `MovesetContract::move_for_attack` asks `attack_dash` before the direction; authored by all fourteen fighters |
 | Mash escape | ✔ | `capture.rs`; `DeclaredCombatRules::grab_mash_seconds`, 14.4f per press |
 | Timed hold limit | ✔ | `grab_hold_max_seconds`; the baseline's flat 4.0s is `FLAT_GRAB_HOLD_SECONDS` |
 | Escape difficulty scales with victim damage | ✔ | `grab_hold_base_seconds` + `grab_hold_per_damage`, Ultimate's 90 + 1.7p, read ONCE at the grab |
@@ -129,15 +129,7 @@ foxtrot · dash-dance · pivot and turnaround · run-cancel by crouch or shield.
 double-jump cancel · b-reverse and wavebounce · aerial drift out of hitstun ·
 fast-fall out of a bounce.
 
-**Attack surface.** Dash attack as its own verb — ⚠ HALF SHIPPED and the halves
-are on DIFFERENT ROADS, measured 2026-08-20. The ENGINE road has it:
-`attack_intent` returns `AttackIntent::DashForward` for a dashing forward swing
-and `attack_spec_for_intent` gives it real frames (20ms startup, 46px reach). The
-MOVESET road — which is the one a smash fighter takes — resolves by `AttackDir`,
-whose variants are Neutral/Forward/Up/Down/Back with NO dash, so a dashing
-fighter's press comes out as its forward tilt or its jab depending on the stick.
-⇒ the gap is the SELECTOR plus a `SmashRepertoire` slot plus fourteen authored
-moves; it is not that the engine lacks the verb · pivot smash · jab combos with
+**Attack surface.** ~~Dash attack as its own verb~~ — landed 2026-08-20 · pivot smash · jab combos with
 a rapid-jab finisher · charge storage · a two-frame ledge-vulnerability window ·
 z-drop and item throws · edge-cancel.
 

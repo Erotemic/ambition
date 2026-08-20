@@ -55,9 +55,9 @@
 //! derived `vfx.<family>.<row>` name misses the bank for those three.
 
 use ambition_characters::smash_capture::{
-    CaptureCues,
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
-    CaptureAttemptParams, CapturePummelParams, CaptureThrowParams, SmashCaptureRepertoire,
+    CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
+    SmashCaptureRepertoire,
 };
 use ambition_characters::smash_repertoire::{DownSpecial, NeutralSpecial, SmashRepertoire};
 use ambition_platformer2d::entity_catalog::{ImpulseMode, MoveSpec, MovesetContract};
@@ -539,6 +539,12 @@ pub fn patent_clerk_moveset() -> MovesetContract {
     );
     SmashRepertoire {
         taunt: ambition_characters::moveset_authoring::taunt("patent_clerk_taunt", 0.9),
+        dash_attack: ambition_characters::moveset_authoring::dash_attack(
+            "patent_clerk_dash_attack",
+            ambition_characters::moveset_authoring::DashAttackShape::GENRE,
+            9,
+            102.5,
+        ),
         jab,
         forward_tilt: f_tilt,
         up_tilt,

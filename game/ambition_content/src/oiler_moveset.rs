@@ -588,6 +588,19 @@ pub fn oiler_moveset() -> MovesetContract {
     );
     let repertoire = SmashRepertoire {
         taunt: ambition_characters::moveset_authoring::taunt("oiler_taunt", 0.9),
+        // ⚠ **0.11 active, not the genre's 0.09** — Oiler's whole design is that
+        // every move that reaches holds its box for `TOLERANCE_S`, and his own
+        // `debug_assert` says so at the bottom of this function. The widest catch
+        // window on the grid is what he trades his growth ceiling for.
+        dash_attack: ambition_characters::moveset_authoring::dash_attack(
+            "oiler_dash_attack",
+            ambition_characters::moveset_authoring::DashAttackShape {
+                active_s: 0.11,
+                ..ambition_characters::moveset_authoring::DashAttackShape::GENRE
+            },
+            8,
+            97.5,
+        ),
         jab,
         forward_tilt: f_tilt,
         up_tilt,

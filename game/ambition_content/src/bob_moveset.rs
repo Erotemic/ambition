@@ -26,9 +26,9 @@
 //! Every one is a row a shipped generic sheet carries.
 
 use ambition_characters::smash_capture::{
-    CaptureCues,
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
-    CaptureAttemptParams, CapturePummelParams, CaptureThrowParams, SmashCaptureRepertoire,
+    CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
+    SmashCaptureRepertoire,
 };
 use ambition_characters::smash_repertoire::{DownSpecial, NeutralSpecial, SmashRepertoire};
 use ambition_platformer2d::entity_catalog::{ImpulseMode, MovesetContract};
@@ -418,8 +418,13 @@ pub fn bob_moveset() -> MovesetContract {
     );
 
     SmashRepertoire {
-
         taunt: ambition_characters::moveset_authoring::taunt("bob_taunt", 0.9),
+        dash_attack: ambition_characters::moveset_authoring::dash_attack(
+            "bob_dash_attack",
+            ambition_characters::moveset_authoring::DashAttackShape::GENRE,
+            9,
+            97.5,
+        ),
         jab,
         forward_tilt: f_tilt,
         up_tilt: u_tilt,

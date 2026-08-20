@@ -46,9 +46,9 @@
 
 use ambition_characters::moveset_prefabs::{SLASH_ARC_VFX, SLASH_POKE_VFX};
 use ambition_characters::smash_capture::{
-    CaptureCues,
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
-    CaptureAttemptParams, CapturePummelParams, CaptureThrowParams, SmashCaptureRepertoire,
+    CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
+    SmashCaptureRepertoire,
 };
 use ambition_characters::smash_repertoire::{DownSpecial, NeutralSpecial, SmashRepertoire};
 use ambition_platformer2d::entity_catalog::{ImpulseMode, MoveSpec, MovesetContract, WindowTag};
@@ -561,7 +561,6 @@ pub fn carl_stargan_moveset() -> MovesetContract {
     );
 
     SmashRepertoire {
-
         // ⭐ **his taunt throws a burst like everything else he does**, which is
         // both his character and what `none_of_his_bursts_sit_on_his_navel`
         // asks of every move in this table. A cosmic sweep over the head: he is
@@ -572,6 +571,30 @@ pub fn carl_stargan_moveset() -> MovesetContract {
             "cosmic_calendar_sweep",
             (0.0, -26.0),
             SWING_FX,
+        ),
+        // ⭐ **CARL'S DASH ATTACK IS A SHOULDER CHECK, and his own law decided
+        // that.** `reach_is_monotonic_in_startup` says a longer reach must never
+        // be quicker, and a dash attack is his QUICKEST move — so it has to be
+        // his SHORTEST. The genre's 40px lunge reaches 70 at 0.05s and would
+        // undercut `pale_blue_dot`, which reaches 69 and takes 0.24s. ⛔ the law
+        // is not in the way of the move; it is what the move is.
+        dash_attack: vfx_at(
+            ambition_characters::moveset_authoring::dash_attack(
+                "carl_stargan_dash_attack",
+                ambition_characters::moveset_authoring::DashAttackShape {
+                    // ⚠ EXACTLY his jab's reach, which his module doc pins as
+                    // `NEAREST_REACH`: the shoulder check is his shortest move
+                    // and his fastest, and both halves of that are his law.
+                    reach_px: NEAREST_REACH,
+                    ..ambition_characters::moveset_authoring::DashAttackShape::GENRE
+                },
+                8,
+                90.0,
+            ),
+            0.05,
+            "evidence_ping",
+            (NEAREST_REACH * 0.6, -2.0),
+            POKE_FX,
         ),
         jab,
         forward_tilt: f_tilt,

@@ -173,6 +173,13 @@ pub struct SmashRepertoire {
     /// so a fighter with nothing to say has to say so; `moveset_authoring::taunt`
     /// is the one-liner for a fighter whose taunt is not yet designed.
     pub taunt: MoveSpec,
+    /// **`attack_dash` — the move a body already moving forward throws.**
+    /// Required like every other slot: the engine has selected
+    /// `AttackIntent::DashForward` for a dashing swing since long before any
+    /// fighter could answer it, and an unauthored dash attack does not read as
+    /// missing — it reads as the forward tilt, which is worse than a gap because
+    /// nothing looks wrong. `moveset_authoring::dash_attack` owns the shape.
+    pub dash_attack: MoveSpec,
 }
 
 impl SmashRepertoire {
@@ -208,6 +215,7 @@ impl SmashRepertoire {
             down_special,
             capture,
             taunt,
+            dash_attack,
         } = self;
 
         let mut bound: Vec<(&'static str, MoveSpec, MoveGates)> = vec![
@@ -224,6 +232,9 @@ impl SmashRepertoire {
             ("attack_air_up", up_air, AIRBORNE),
             ("attack_air_down", down_air, AIRBORNE),
             ("taunt", taunt, GROUNDED),
+            // ⚠ GROUNDED: a dash is a ground stance, and `move_for_attack` only
+            // asks for this verb when the body is on the floor.
+            ("attack_dash", dash_attack, GROUNDED),
         ];
         if let NeutralSpecial::Authored(spec) = neutral_special {
             bound.push(("special", spec, EITHER));
@@ -312,12 +323,18 @@ mod tests {
             side_special: spec("sspecial"),
             up_special: spec("uspecial"),
             taunt: crate::moveset_authoring::taunt("taunt", 0.9),
+            dash_attack: crate::moveset_authoring::dash_attack(
+                "dash_attack",
+                crate::moveset_authoring::DashAttackShape::GENRE,
+                9,
+                320.0,
+            ),
             // ⚠ a real kit, because the slot is required now. The fixture's
             // job is to exercise the VERB TABLE, so the smallest catchable grab
             // that reaches `bound()` is the honest fixture — not a placeholder
             // that would make the capture verbs untested here.
             capture: crate::smash_capture::SmashCaptureRepertoire {
-            cues: crate::smash_capture::CaptureCues::GENERIC,
+                cues: crate::smash_capture::CaptureCues::GENERIC,
                 grab: crate::smash_capture::author_standing_grab(
                     crate::smash_capture::grab_shell("grab", "attack", 0.07, 0.05, 0.2),
                     crate::smash_capture::CaptureAttemptParams {
@@ -473,10 +490,10 @@ mod tests {
         // retune.** 15 → 18 on 2026-08-19, when `capture` stopped being `Option`
         // because every fighter gained a grab and this fixture became a fighter
         // WITH one, binding the three capture verbs beside its ordinary slots.
-        // 18 → 19 on 2026-08-20 with the taunt. The claim above is untouched
+        // 18 → 19 on 2026-08-20 with the taunt, 19 → 20 with the dash attack. The claim above is untouched
         // either way: abstaining from the neutral special still binds nothing,
         // and this number exists to catch a slot binding something it should not.
-        assert_eq!(set.verbs.len(), 19);
+        assert_eq!(set.verbs.len(), 20);
     }
 
     /// **Two slots cannot share a move id.** The one integrity defect this shape

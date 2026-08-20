@@ -31,9 +31,9 @@
 //! platform fighter, and the numbers say so.
 
 use ambition_characters::smash_capture::{
-    CaptureCues,
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
-    CaptureAttemptParams, CapturePummelParams, CaptureThrowParams, SmashCaptureRepertoire,
+    CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
+    SmashCaptureRepertoire,
 };
 use ambition_characters::smash_repertoire::{DownSpecial, NeutralSpecial, SmashRepertoire};
 use ambition_platformer2d::entity_catalog::{
@@ -516,8 +516,13 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
     );
 
     SmashRepertoire {
-
         taunt: ambition_characters::moveset_authoring::taunt("cellular_automaton_taunt", 0.9),
+        dash_attack: ambition_characters::moveset_authoring::dash_attack(
+            "cellular_automaton_dash_attack",
+            ambition_characters::moveset_authoring::DashAttackShape::GENRE,
+            8,
+            92.5,
+        ),
         jab,
         forward_tilt: f_tilt,
         up_tilt: u_tilt,

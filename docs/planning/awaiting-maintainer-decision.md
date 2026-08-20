@@ -1040,6 +1040,13 @@ privileged"* — so the prescribed asymmetry contradicts a fairness property
 somebody chose on purpose. Inventing an asymmetry is a competitive-balance
 decision, not a compile fix.
 
+⚠ **RE-MEASURED 2026-08-20 on the `smash-parity` lane: still exactly 28 passed /
+5 failed, same five.** The shield-as-a-resource, the taunt, the footstool and two
+new anim reads all land on top of this suite and move the count by nothing. ⇒ the
+five are a STABLE tripwire rather than a drifting one, and a lane adding combat
+features is not what disturbs them — which is worth knowing before anybody reads
+a change in the count as noise.
+
 Options as I see them: (a) accept a small deliberate per-seat offset and record
 why fairness tolerates it; (b) give the jitter a consumer that fires on every
 decision rather than only on a committing one — explicitly banned by the note,

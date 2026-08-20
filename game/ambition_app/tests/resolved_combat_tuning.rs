@@ -138,6 +138,9 @@ fn a_declaration_wins_and_the_world_it_plays_over_is_untouched() {
         // ...nor the meteor window: this fixture is about DI and knockback
         // growth, and a spike it never throws needs no sentence.
         meteor_lock_time: 0.0,
+        // ...nor jostle: this stage has one body in it, and a rule about two
+        // bodies occupying one place has nothing to say about that.
+        jostle_accel: 0.0,
         rage_per_damage: 0.0,
         rage_max_scale: 1.0,
         stale_step: 0.0,

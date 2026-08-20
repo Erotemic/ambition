@@ -87,6 +87,27 @@ MAIN_CONFIGS = (
     REPO / "tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/configs"
 )
 
+# ⭐ **THE SECOND DIRECTORY SURFACE, and this census could not see it.**
+# `regen_sprites.sh` builds `rig_targets` by globbing exactly this:
+#
+#     for rig in "$renderer_dir"/…/targets/characters/rigged/*.rig.json
+#
+# so a character authored as a top-level `.rig.json` is published without the
+# script ever spelling its name — the same shape as `draw-all` rendering every
+# `configs/*.yaml`, which this file already handles two lines below. Missing it
+# reported `fighting_polygon_sword` as an orphan while the glob published it.
+#
+# ⛔ **TOP-LEVEL ONLY, mirroring the script's glob exactly.** A rig that moved
+# into `rigged/<name>/` is NOT matched by `*.rig.json` and must be named in the
+# roster — that is why `noether` and `oiler` are listed there by hand, and
+# claiming coverage for a subdirectory here would re-open the exact gap that
+# comment records: Emmy was published for weeks only by a stale top-level file
+# left behind by that move.
+RIGGED_TARGETS = (
+    REPO
+    / "tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/characters/rigged"
+)
+
 
 def _published_by_regen() -> str:
     """`regen_sprites.sh` with comments stripped, plus what `draw-all` covers.
@@ -95,9 +116,10 @@ def _published_by_regen() -> str:
     only in a comment as covered, and reported `player_robot_v3` as fine when
     nothing publishes it.
 
-    ⚠ **two surfaces publish by DIRECTORY, not by name.** `draw-all` renders
-    every `configs/*.yaml` unconditionally, so those targets are covered without
-    the script ever spelling them. They used to be spelled anyway, incidentally,
+    ⚠ **THREE surfaces publish by DIRECTORY, not by name.** `draw-all` renders
+    every `configs/*.yaml` unconditionally and `rig_targets` globs every
+    top-level `rigged/*.rig.json`, so those targets are covered without the
+    script ever spelling them. They used to be spelled anyway, incidentally,
     by the hand-written `expected_files` list — and when that list was replaced
     by one derived from the roster, four of them (`dividing_mite`,
     `exploding_mite`, and the two ninjas) read as orphans here despite nothing
@@ -107,7 +129,7 @@ def _published_by_regen() -> str:
     script = "\n".join(
         line.split("#")[0] for line in REGEN.read_text(encoding="utf8").splitlines()
     )
-    covered = []
+    covered = [path.name[: -len(".rig.json")] for path in sorted(RIGGED_TARGETS.glob("*.rig.json"))]
     for path in sorted(MAIN_CONFIGS.glob("*.yaml")):
         covered.append(path.stem)
         # `output_name` renames the target (ninja.yaml -> ninja_shadow_duelist).

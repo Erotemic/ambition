@@ -201,7 +201,7 @@ not change ordinary interactive sessions. Arming is an explicit act:
     python3 scripts/goal_guard.py --status
     python3 scripts/goal_guard.py --clear
 
-## A goal belongs to ONE session
+## A goal belongs to ONE session, or to SEVERAL if you say so
 
 The goal is armed in the REPOSITORY, but a run belongs to one session. Without
 scoping, every other session sharing the working directory — a quick question in
@@ -222,8 +222,43 @@ runtime already sends, and:
   as the owner. "I cannot tell whose this is" must fail toward blocking — the
   one thing this must never do by accident is RELEASE a run.
 
-    python3 scripts/goal_guard.py --own <session-id>   # bind it explicitly
-    python3 scripts/goal_guard.py --disown             # next session claims it
+    python3 scripts/goal_guard.py --own <session-id>   # ADD a session to the roster
+    python3 scripts/goal_guard.py --disown             # release EVERY session
+
+⭐ **SEVERAL sessions, one run (`--share`), added 2026-08-20**, because the
+arrangement grew a second lane: Jon runs an architecture session and a feature
+session against one repository, and only one of them was being held to anything.
+
+    python3 scripts/goal_guard.py --share      # every session that stops here JOINS
+    python3 scripts/goal_guard.py --unshare    # no NEW session joins; the roster stays held
+
+Ownership is a ROSTER now — one session id per line — and a pre-2026-08-20
+single-line file is a valid roster of one, so nothing armed before this reads
+differently. ⛔ **`--share` is an explicit act and the default is unchanged**,
+because the single-owner property is worth keeping: an unshared goal does not
+reach out and hold the window somebody opened to ask one thing. A shared goal
+does exactly that. That is the cost of the capability and the reason it is a flag
+rather than a default. `--disown` removes only the session that runs it and
+leaves the rest held; `--own` ADDS rather than replaces, because replacing
+released the session already working without saying so.
+
+⚠ **the roster is APPENDED to, never read-modify-written** — for the reason
+`owner_path` records about `state.json`: a Stop hook spends minutes in
+`run_checks` between reading and writing, so a concurrent claim in that window is
+silently dropped, and the symptom is a goal quietly reverting to unclaimed.
+
+⚠ **the block and stall counters stay SHARED across the roster**, deliberately:
+*"40 blocks with no new commit"* is a fact about the REPOSITORY, not about a
+session, and HEAD moving for either lane resets it for both. The cost is that two
+lanes reach the stall fuse in half the wall clock. That is worth saying rather
+than splitting the counter — a per-session stall fuse would let one idle lane sit
+forever while the other carried the run.
+
+⭐ **and two lanes in two WORKTREES need none of this.** `repo_root()` resolves
+through `__file__`, so a worktree's copy of this script resolves to the worktree
+and reads its own `.goal/`. Two worktrees can hold two DIFFERENT goals today,
+with no sharing at all. ⇒ use `--share` when the lanes are working ONE goal; use
+a goal per worktree when they are not.
 
 Ownership lives in `.goal/owner`, which `--arm` and `--clear` remove, so every
 fresh run starts unclaimed.
@@ -536,14 +571,66 @@ def owner_path(root: Path) -> Path:
     return goal_dir(root) / "owner"
 
 
-def owner_session(root: Path) -> str:
+def owner_sessions(root: Path) -> list[str]:
+    """The roster, in claim order. One session id per line.
+
+    ⭐ **a ROSTER rather than a single id since 2026-08-20**, because a run can
+    legitimately be worked by more than one session at once — Jon runs an
+    architecture lane and a feature lane against one repository. A
+    single-line file is still a valid roster of one, so every goal armed before
+    this reads unchanged.
+    """
     try:
-        return owner_path(root).read_text().strip()
+        text = owner_path(root).read_text()
     except OSError:
-        return ""
+        return ""  # type: ignore[return-value]
+    return [line.strip() for line in text.splitlines() if line.strip()]
+
+
+def owner_session(root: Path) -> str:
+    """The FIRST owner, for the one-line `owner session:` display."""
+    roster = owner_sessions(root) or []
+    return roster[0] if roster else ""
+
+
+def join_owner(root: Path, session: str) -> None:
+    """Add one session to the roster, by APPEND.
+
+    ⛔ **append, never read-modify-write.** `owner_path`'s own docstring records
+    why ownership is not a key in `state.json`: `mode_stop` reads that dict,
+    spends minutes in `run_checks`, and writes the whole thing back, so a
+    concurrent claim is silently dropped. A roster read-modify-written has the
+    same defect against itself — two sessions joining in the same window and one
+    of them vanishing. `O_APPEND` of a single short line does not.
+    """
+    if not session:
+        return
+    goal_dir(root).mkdir(parents=True, exist_ok=True)
+    try:
+        if session in (owner_sessions(root) or []):
+            return
+        with owner_path(root).open("a", encoding="utf8") as handle:
+            handle.write(session + "\n")
+    except OSError:
+        # Not fatal: an unrecorded owner reads as unclaimed, which blocks. The
+        # failure direction is "holds the run", never "releases it".
+        pass
+
+
+def leave_owner(root: Path, session: str) -> None:
+    """Remove ONE session from the roster, leaving the others held."""
+    try:
+        roster = [s for s in (owner_sessions(root) or []) if s != session]
+        if roster:
+            owner_path(root).write_text("\n".join(roster) + "\n")
+        else:
+            owner_path(root).unlink(missing_ok=True)
+    except OSError:
+        pass
 
 
 def set_owner(root: Path, session: str) -> None:
+    """Replace the whole roster with one session (or clear it)."""
     goal_dir(root).mkdir(parents=True, exist_ok=True)
     try:
         if session:
@@ -551,9 +638,28 @@ def set_owner(root: Path, session: str) -> None:
         else:
             owner_path(root).unlink(missing_ok=True)
     except OSError:
-        # Not fatal: an unrecorded owner reads as unclaimed, which blocks. The
-        # failure direction is "holds the run", never "releases it".
         pass
+
+
+def shared_path(root: Path) -> Path:
+    return goal_dir(root) / "shared"
+
+
+def goal_is_shared(root: Path) -> bool:
+    """**Is this run open to MORE THAN ONE session?**
+
+    ⭐ **off by default, and that default is load-bearing.** An unshared goal
+    holds exactly the session that claimed it, so a second window — a quick
+    question, another agent, a fresh terminal — is untouched by a run it is not
+    doing. That is the property the single-owner design bought and this must not
+    spend it by accident.
+
+    ⚠ **a SHARED goal holds every session that finishes a turn in this
+    repository**, including the window somebody opened to ask one thing. That is
+    the cost, it is why sharing is an explicit act (`--share`), and it is why
+    `--disown` removes only the session that runs it and leaves the rest held.
+    """
+    return shared_path(root).exists()
 
 
 def session_owns_goal(root: Path, hook_input: dict, *, claim: bool) -> bool:
@@ -567,12 +673,20 @@ def session_owns_goal(root: Path, hook_input: dict, *, claim: bool) -> bool:
     session = session_id_of(hook_input)
     if not session:
         return True  # Cannot tell. Fail toward blocking, never toward release.
-    owner = owner_session(root)
-    if not owner:
-        if claim:
-            set_owner(root, session)
+    roster = owner_sessions(root) or []
+    if session in roster:
         return True
-    return session == owner
+    if not roster:
+        if claim:
+            join_owner(root, session)
+        return True
+    # ⭐ **A SHARED run lets a second session JOIN rather than stand down.** The
+    # unshared path below is unchanged and is still the default: a goal one
+    # session claimed does not reach out and hold every other window.
+    if claim and goal_is_shared(root):
+        join_owner(root, session)
+        return True
+    return False
 
 
 def head_sha(root: Path) -> str:
@@ -864,6 +978,10 @@ def clear_goal(root: Path, reason: str, remove: bool = True) -> None:
         active.unlink()
         state_path(root).unlink(missing_ok=True)
         owner_path(root).unlink(missing_ok=True)
+        # ⛔ the SHARE marker dies with the run it shared. A stale one would make
+        # the NEXT goal armed here hold every window in the repository without
+        # anybody asking for it.
+        shared_path(root).unlink(missing_ok=True)
     except OSError:
         pass
 
@@ -1836,12 +1954,18 @@ def mode_status(root: Path) -> int:
             + (f" — {note}" if note else "")
             + "   (`--unhold` lifts it; the deadline still releases the goal)"
         )
-    owner = owner_session(root)
-    print(
-        f"owner session: {owner}"
-        if owner
-        else "owner session: (unclaimed — the next session to stop claims it)"
-    )
+    roster = owner_sessions(root) or []
+    shared = goal_is_shared(root)
+    if roster:
+        label = "owner session" if len(roster) == 1 else f"owner sessions ({len(roster)})"
+        print(f"{label}: " + ", ".join(roster))
+    else:
+        print("owner session: (unclaimed — the next session to stop claims it)")
+    if shared:
+        print(
+            "  ⭐ SHARED — every session that stops here joins this run "
+            "(`--unshare` narrows it back to the roster above)"
+        )
     for line in timer_lines(root, goal):
         print(line)
     results = run_checks(goal, root)
@@ -1980,6 +2104,16 @@ def main() -> int:
         help="unbind the goal; the next session to stop claims it",
     )
     parser.add_argument(
+        "--share",
+        action="store_true",
+        help="let EVERY session that stops in this repository join this run",
+    )
+    parser.add_argument(
+        "--unshare",
+        action="store_true",
+        help="stop new sessions joining; the current roster stays held",
+    )
+    parser.add_argument(
         "--resume",
         action="store_true",
         help="take over an orphaned goal (after /clear) and print what it is",
@@ -2036,12 +2170,45 @@ def main() -> int:
     if args.pause is not None:
         return mode_pause(root, args.pause)
     if args.own:
-        set_owner(root, args.own.strip())
-        print(f"goal bound to session {args.own.strip()}")
+        # ⭐ ADDS to the roster rather than replacing it, so binding a second
+        # session by id does not silently release the first.
+        join_owner(root, args.own.strip())
+        roster = owner_sessions(root) or []
+        print(
+            f"goal bound to session {args.own.strip()} — roster is now "
+            + ", ".join(roster)
+        )
         return 0
     if args.disown:
         set_owner(root, "")
         print("goal unbound — the next session to stop will claim it")
+        return 0
+    if args.share:
+        if load_json(active_path(root)) is None:
+            print("no goal armed — nothing to share", file=sys.stderr)
+            return 2
+        shared_path(root).parent.mkdir(parents=True, exist_ok=True)
+        shared_path(root).write_text(
+            "every session that finishes a turn in this repository joins this "
+            "run's roster and is held to it\n"
+        )
+        roster = owner_sessions(root) or []
+        print(
+            "goal SHARED — every session that stops here now joins the roster "
+            f"and is held to it (currently {len(roster)}: "
+            + (", ".join(roster) if roster else "unclaimed")
+            + ")\n⚠ that includes a window somebody opened to ask one thing. "
+            "`--unshare` narrows it back to the sessions already on the roster; "
+            "`--disown` removes only the session that runs it."
+        )
+        return 0
+    if args.unshare:
+        shared_path(root).unlink(missing_ok=True)
+        roster = owner_sessions(root) or []
+        print(
+            "goal NARROWED — no new session joins. Still held: "
+            + (", ".join(roster) if roster else "(unclaimed)")
+        )
         return 0
     if args.resume:
         return mode_resume(root)

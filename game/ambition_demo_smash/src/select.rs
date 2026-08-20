@@ -109,6 +109,10 @@ pub const SMASH_ROSTER: &[&str] = &[
     // to `mary_o` — same grants, same `axis_tuning`, same authored moveset — so
     // this changes only which sprite sheet she brings, and the taller art reads
     // far better against a roster of full-height fighters.
+    // ⛔ this was reverted to `mary_o` on 2026-08-20 by a branch cut before the
+    // change landed. Restored with the reason attached so the next rebase can see
+    // it is a decision (Jon, 2026-08-19: *"Also make tall maryo the one used by
+    // smash"*) rather than an accident.
     "mary_o_tall",
     "sanic",
     // Ambition's own cast.
@@ -133,6 +137,9 @@ pub const SMASH_ROSTER: &[&str] = &[
     // author them repertoires, never to broaden the floor.
     "npc_carl_stargan",
     "special_patent_clerk",
+    // The deliberately simple SVG-rigged humanoid reference fighter. Unlike the
+    // stand-ins below, this is a real character owned by Ambition content.
+    "fighting_polygon_sword",
     // ⚠ **THE STAND-INS, and they are LAST for a reason.** See [`STAND_INS`].
     crate::SMASH_CHARACTER_ID,
     crate::SMASH_OPPONENT_ID,

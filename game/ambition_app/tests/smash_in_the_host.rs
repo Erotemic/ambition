@@ -2993,11 +2993,19 @@ fn the_capture_tools_documented_taps_seat_two_cpus_on_two_fighters() {
     // the command this row points at to ask *"do the two AUTHORED kits read
     // differently"* answered with a body that has no authored kit. The check
     // below only asserted the two picks DIFFER, so it stayed green the whole
-    // time. `532x121` is cell 1 (George Booul) and `855x121` is cell 4 (the
-    // Pirate Admiral): the demo's own fighter against Ambition's, the pair the
-    // question is about.
-    const PORTRAIT_A: Vec2 = Vec2::new(532.0, 121.0);
-    const PORTRAIT_B: Vec2 = Vec2::new(855.0, 121.0);
+    // time. Cell 1 is George Booul and cell 4 is the Pirate Admiral: the demo's
+    // own fighter against Ambition's, the pair the question is about.
+    //
+    // ⚠ **THE NUMBERS MOVED 2026-08-20 AND THE FIGHTERS DID NOT.** They were
+    // `532x121` and `855x121` until `fighting_polygon_sword` joined the roster:
+    // the grid took the count from 15 cells to 16, re-flowed to six columns, and
+    // BOTH documented taps landed on nothing — the test read two `Random` picks,
+    // which is what a token going home looks like. ⇒ this pair is a function of
+    // the roster's SIZE as well as its order, so a fighter appended at the END
+    // can still move cell 1. Re-derived from `SelectLayout::portrait` centres,
+    // not by eye.
+    const PORTRAIT_A: Vec2 = Vec2::new(479.0, 121.0);
+    const PORTRAIT_B: Vec2 = Vec2::new(801.0, 121.0);
     const START: Vec2 = Vec2::new(1191.0, 446.0);
 
     /// One tap of the glass, the way winit reports one: a `Started` and an

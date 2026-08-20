@@ -27,7 +27,7 @@ perfect shield     PRESS-timed (Smash 4, and ours) | RELEASE-timed (Ultimate)
 
 ⇒ that pair is `MovementTuning::parry_timing`, shipped 2026-08-20 as the FIRST
 knob under this ruling. ⭐ **it is the worked example**: the question arrived as
-"which one is right" (§25), the ruling reshaped it into "what is the knob", and
+"which one is right" (§26), the ruling reshaped it into "what is the knob", and
 the answer changed no shipped body's feel because a knob's default is the
 behaviour that already existed.
 
@@ -86,7 +86,7 @@ you add a `▢`, and before you work one.
 | Short hop as its own authored height (not a velocity cut) | ▢ | — |
 | Footstool jump — claims the press, costs no air jump, 4f i-frames, Team-Attack gated | ✔ | `features/ecs/footstool.rs`; grounded victim flinches, airborne one tumbles (`ae::footstool_victim`) |
 | Phantom footstool (a target mid-move is not interrupted) | ✔ | the stomper still takes the bounce; `BodyMelee::phase()` is the committed test |
-| Jostle / body pushback between fighters | ▢ | ⛔ ASKED, not skipped: `awaiting-maintainer-decision.md` §24 — Jon's "AVOID PUSHOUT" rule may or may not reach body-vs-body |
+| Jostle / body pushback between fighters | ▢ | ⛔ ASKED, not skipped: `awaiting-maintainer-decision.md` §25 — Jon's "AVOID PUSHOUT" rule may or may not reach body-vs-body |
 | Ledge grab with intangibility window | ✔ | `core/ledge_grab/` |
 | Ledge getup: climb / roll / attack | ✔ | `LedgeGetupKind` |
 | Ledge jump getup | ✔ | `MovementOp::LedgeJump` |
@@ -221,7 +221,7 @@ a rapid-jab finisher · charge storage · a two-frame ledge-vulnerability window
 z-drop and item throws · edge-cancel.
 
 **Defense.** ~~Perfect shield as a RELEASE-timed parry~~ — SHIPPED as a KNOB
-2026-08-20 (§25): `ParryTiming::OnRaise` is Smash 4's and `OnRelease` is
+2026-08-20 (§26): `ParryTiming::OnRaise` is Smash 4's and `OnRelease` is
 Ultimate's, and the stage declares which · shield tilt to cover a limb · shield-drop into an aerial ·
 directional-influence variants (SDI, ASDI, hitfall).
 
@@ -259,4 +259,4 @@ and leaves the values rough; tuning is not this lane's licence.
    rules already carry, and the respawn platform.
 6. ~~**SDI**~~, ~~**crouch cancel**~~, ~~**wall tech**~~ and ~~**spot dodge**~~
    (landed 2026-08-20); still open: ceiling tech, and jostle — which is ASKED
-   rather than skipped (`awaiting-maintainer-decision.md` §24).
+   rather than skipped (`awaiting-maintainer-decision.md` §25).

@@ -6,6 +6,44 @@ an ordering call rather than a verdict on the plan. Planning-only extension of e
 is not execution authority and does not promote itself into `queue.md` or
 `tracks.md`.
 
+## ⛔⛔ CORRECTION 2026-08-20 — trigger #5 is REAL and names the WRONG LAYER
+
+⭐ **promoted to D169 on 2026-08-20** after a stranding census found this document
+referenced by nothing in the repository — 1 of 267 planning docs. That is the
+routing failure `tracks.md` exists to end, recurring five days after it was
+measured clean.
+
+⇒ and measuring the trigger before executing it changed the work. **The MECHANISM
+is already generic.** `apply_world_hazard_gate`
+(`platformer2d_core/src/movement/kernel.rs:422`) computes a per-axis distance past
+the world AABB and emits `ResetCause::LeftTheWorld`, and its own header says
+*"policies flag; the body's owner applies its reset policy."* Smash loses a stock,
+Mary-O respawns, Ambition calls it out of bounds — three meanings over one engine
+fact, which is this plan's principle 1 **already satisfied**. `blast_margin`'s doc
+says the same thing in its first sentence: *"a platformer's pit depth and a
+platform fighter's blast zone — the same number, and it belongs to the STAGE."*
+
+⛔ **so there is no bespoke platform-fighter PRIMITIVE to remove, and the section
+below claiming one is wrong about the layer.** What is genre-specific is the WORD.
+
+⭐⭐ **and the word leaks furthest where an author meets it.** The LDtk converter
+reads the authored key by that name, and **all six shipped worlds carry all three
+fields in `defs.levelFields`** — while **zero levels author a value.** Eighteen
+schema entries, no data. Every author of every world in this project is shown
+three platform-fighter fields nobody has ever filled in.
+
+⇒ the slice is a RENAME, it costs no content migration, and the authoring half is
+a maintainer decision because the `.ldtk` files are hand-edited:
+[`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md) §24.
+⛔ **do not do the Rust half alone** — the struct field and the authored key are
+one name, so renaming one needs a mapping, and a mapping is the shim this project
+refuses.
+
+⭐ **the lesson this plan already taught, applied to itself**: *"the measurement
+was sound; the sentence after it was not."* Trigger #5's measurement — three
+platform-fighter fields in every game's `World` — is exactly right. The sentence
+after it, that the engine provides a bespoke primitive, is not.
+
 ## ⭐⭐ COORDINATOR TRIAGE 2026-08-15 — the strongest trigger was TESTED and did NOT fire
 
 ⭐ **the `BlockKind` diagnosis in Symptom B is CORRECT and was re-measured against

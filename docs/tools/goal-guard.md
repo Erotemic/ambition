@@ -178,6 +178,65 @@ no new commit, so resetting it would quietly convert "give it another day" into
 "forgive the silence". It prints the stall count instead — the number a human
 extending a quiet run actually needs.
 
+## One run, several sessions — and why the default stayed single-owner
+
+**2026-08-20.** The arrangement grew a second lane: an architecture session on
+`main` and a feature session in a worktree, both against one repository. The
+guard held exactly one of them, and not the one committing — ownership had been
+claimed by a third session that had since gone quiet, so the lane doing the work
+never had a Stop blocked and the stall counter read **8 of 40 with no new commit**
+while `main` gained a dozen commits. A run can be armed, alive, and enforcing on
+nobody.
+
+⭐ **the fix is a ROSTER, not a second goal file.** `.goal/owner` holds one
+session id per line; a pre-2026-08-20 single-line file is a roster of one, so
+nothing armed before this reads differently.
+
+⛔ **and `--share` is a flag rather than the default, deliberately.** The
+single-owner property is worth keeping: an unshared goal does not reach out and
+hold the window somebody opened to ask one thing. A shared goal does exactly
+that. Making the capability free would have spent a property nobody asked to
+spend.
+
+```sh
+python3 scripts/goal_guard.py --share      # every session that stops here JOINS
+python3 scripts/goal_guard.py --unshare    # no NEW session joins; the roster stays held
+python3 scripts/goal_guard.py --own <id>   # ADD one session
+python3 scripts/goal_guard.py --disown     # release EVERY session
+```
+
+Three details that are each a defect avoided rather than a preference:
+
+- **the roster is APPENDED to, never read-modify-written.** `owner_path`'s own
+  docstring records why ownership is not a key in `state.json`: a Stop hook
+  spends minutes in `run_checks` between reading and writing that dict, so a
+  concurrent claim in the window is silently dropped and the goal quietly reverts
+  to unclaimed. A roster read-modify-written has the same defect against itself.
+- **`--own` ADDS.** It used to replace, so binding a second lane released the
+  first without saying so.
+- **the share marker dies with `--clear`.** A stale one would make the next goal
+  armed here hold every window in the repository without anybody asking.
+
+⚠ **the block and stall counters stay shared across the roster.** *"40 blocks
+with no new commit"* is a fact about the repository, not about a session, and
+HEAD moving for either lane resets it for both. Two lanes therefore reach the
+stall fuse in half the wall clock — which is a real cost, and better than a
+per-session fuse that would let one idle lane sit forever while the other carried
+the run.
+
+⭐ **and two lanes in two worktrees need none of this.** `repo_root()` resolves
+through `__file__`, so a worktree's copy of the script resolves to the worktree
+and reads its own `.goal/`. Two worktrees can hold two DIFFERENT goals today.
+⇒ `--share` when the lanes are working ONE goal; a goal per worktree when they
+are not.
+
+⚠ **what the tests do NOT prove:** the append-vs-rewrite property is argued, not
+executed — the six new cases in `scripts/tests/test_goal_guard.py` drive sessions
+one at a time, so a read-modify-write roster would pass all of them. The
+concurrency claim rests on `O_APPEND`, and the reason it is written down here is
+that a later edit "tidying" `join_owner` into a read/modify/write would be
+invisible to the suite.
+
 ## What this file cannot do
 
 It is not unfoolable. The checks are commands, and the agent can edit the files

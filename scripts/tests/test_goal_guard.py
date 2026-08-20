@@ -800,3 +800,97 @@ def test_the_cost_row_says_what_it_counted(repo: Path) -> None:
     )
     assert row["build_processes"] == ["definitely_not_a_real_process"]
     assert row["foreign_builds"] == 0, "declared and genuinely absent IS zero"
+
+
+# ── More than one session can be held by one run ──────────────────────────────
+
+
+def _stop(repo: Path, session: str) -> dict:
+    return run(repo, stdin={"session_id": session, "hook_event_name": "Stop"})
+
+
+def _cli(repo: Path, *args: str) -> str:
+    """A management flag prints prose, not a hook decision, so it does not go
+    through `run` (which parses stdout as JSON)."""
+    proc = subprocess.run(
+        [sys.executable, str(guard_in(repo)), *args],
+        cwd=str(repo),
+        input="{}",
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert proc.returncode == 0, f"{args} failed: {proc.stderr}"
+    return proc.stdout
+
+
+def test_an_unshared_goal_still_holds_exactly_one_session(repo: Path) -> None:
+    """⛔ **the property sharing must not spend by accident.** A goal one session
+    claimed does not reach out and hold every other window in the repository —
+    a quick question in a second terminal is untouched by a run it is not doing.
+    This is the behaviour every goal armed before 2026-08-20 had, and it is
+    still the default."""
+    arm(repo, checks=[FAIL], max_stalled_blocks=99)
+    assert _stop(repo, "first")["decision"] == "block"
+    assert _stop(repo, "second") == {}, "an unshared goal held a session that never claimed it"
+
+
+def test_a_shared_goal_holds_every_session_that_stops(repo: Path) -> None:
+    """The capability itself: two sessions, one run, both held."""
+    arm(repo, checks=[FAIL], max_stalled_blocks=99)
+    assert _stop(repo, "first")["decision"] == "block"
+    _cli(repo, "--share")
+    assert _stop(repo, "second")["decision"] == "block", "a shared goal let a second session go"
+    assert _stop(repo, "third")["decision"] == "block"
+    roster = (repo / ".goal" / "owner").read_text().split()
+    assert roster == ["first", "second", "third"], f"the roster is not in claim order: {roster}"
+
+
+def test_sharing_is_an_explicit_act_and_is_reversible(repo: Path) -> None:
+    """⚠ a shared run holds windows nobody meant to enlist, so it must be
+    possible to narrow it again WITHOUT releasing the sessions already working."""
+    arm(repo, checks=[FAIL], max_stalled_blocks=99)
+    _stop(repo, "first")
+    _cli(repo, "--share")
+    assert _stop(repo, "second")["decision"] == "block"
+    _cli(repo, "--unshare")
+    assert _stop(repo, "third") == {}, "a narrowed goal still enlisted a new session"
+    assert _stop(repo, "second")["decision"] == "block", "narrowing released a session already held"
+    assert _stop(repo, "first")["decision"] == "block"
+
+
+def test_disown_removes_only_the_session_that_runs_it(repo: Path) -> None:
+    """⛔ the multi-session failure that would be worst: one lane finishing and
+    silently releasing the other."""
+    arm(repo, checks=[FAIL], max_stalled_blocks=99)
+    _stop(repo, "first")
+    _cli(repo, "--share")
+    _stop(repo, "second")
+    _cli(repo, "--own", "second")  # idempotent; `second` is already on the roster
+    roster = (repo / ".goal" / "owner").read_text().split()
+    assert roster == ["first", "second"], f"--own duplicated or replaced: {roster}"
+    assert _stop(repo, "first")["decision"] == "block"
+    assert _stop(repo, "second")["decision"] == "block"
+
+
+def test_own_adds_a_second_session_rather_than_replacing_the_first(repo: Path) -> None:
+    """`--own` used to REPLACE, so binding a second lane released the first
+    without saying so."""
+    arm(repo, checks=[FAIL], max_stalled_blocks=99)
+    _stop(repo, "first")
+    _cli(repo, "--own", "second")
+    assert _stop(repo, "first")["decision"] == "block", "--own released the session already held"
+    assert _stop(repo, "second")["decision"] == "block", "--own did not bind the new session"
+
+
+def test_clearing_a_run_takes_its_share_marker_with_it(repo: Path) -> None:
+    """⛔ a stale marker would make the NEXT goal armed here hold every window in
+    the repository without anybody asking for it."""
+    arm(repo, checks=[FAIL], max_stalled_blocks=99)
+    _stop(repo, "first")
+    _cli(repo, "--share")
+    _cli(repo, "--clear")
+    assert not (repo / ".goal" / "shared").exists(), "the share marker outlived its run"
+    arm(repo, checks=[FAIL], max_stalled_blocks=99)
+    assert _stop(repo, "a")["decision"] == "block"
+    assert _stop(repo, "b") == {}, "a cleared run's sharing leaked into the next goal"

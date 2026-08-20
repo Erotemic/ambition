@@ -41,7 +41,7 @@ investigation that led to the question. Same rule as
 [`README.md`](README.md#queue-contract); on 2026-08-17 this file was **739 lines
 for 9 open questions**, and the four answered ones held a third of it.
 
-## Open decisions — 16 (§1, §6, §7, §9, §10, §11, §12, §13 and §25 are ANSWERED; §8 is DEFERRED)
+## Open decisions — 15 (§1, §6, §7, §9, §10, §11, §12, §13, §22 and §26 are ANSWERED; §8 is DEFERRED)
 
 ### 1. ✔ ANSWERED 2026-08-17 — a bolt hits what a sword hits (former D23)
 
@@ -1101,7 +1101,7 @@ per-turn gate, so a behavioural suite went five-red across at least two
 regressions without anything saying so. `cargo test --workspace --lib` and
 `-p ambition_app --test app_it` do not reach it.
 
-### 24. ▢ NEW 2026-08-20 — does "AVOID PUSHOUT" cover fighter-vs-fighter JOSTLE?
+### 25. ▢ NEW 2026-08-20 — does "AVOID PUSHOUT" cover fighter-vs-fighter JOSTLE?
 
 **The mechanic.** Every platform fighter pushes two grounded bodies apart when
 they occupy the same space — Ultimate calls it jostle, and without it two
@@ -1139,7 +1139,7 @@ rather than as a bug.
 body-vs-body entirely and jostle should not be built? ⛔ not answered by refactor
 — I have left the row `▢` rather than guessing at a rule Jon stated twice.
 
-### 25. ✔ ANSWERED 2026-08-20 — the parry timing is a KNOB, because the target is smash-LIKE and not Ultimate
+### 26. ✔ ANSWERED 2026-08-20 — the parry timing is a KNOB, because the target is smash-LIKE and not Ultimate
 
 ⭐⭐ **JON, 2026-08-20, verbatim:**
 
@@ -1226,3 +1226,60 @@ git submodule foreach 'git ls-remote --exit-code origin >/dev/null 2>&1 \
 ⛔ **and the rule that outlives this:** never resolve a rejected submodule push
 by rolling the superproject pointer back. The superproject commits depend on the
 submodule content; the pointer is the symptom, the credential is the cause.
+
+---
+
+### 24. Rename the blast zone out of every world's authoring schema? (D169)
+
+⭐ **the measurement first, because it changes the question the plan asked.**
+`world-geometry-and-spatial-semantics.md` argues the engine provides a bespoke
+platform-fighter primitive that Smash should instead declare over generic
+geometry. Measured at HEAD, the MECHANISM is already generic:
+`apply_world_hazard_gate` computes a per-axis distance past the world AABB and
+emits `ResetCause::LeftTheWorld` — *"policies flag; the body's owner applies its
+reset policy"* — so Smash loses a stock, Mary-O respawns, and Ambition calls it
+out of bounds, all from one engine fact. `blast_margin`'s own doc already says
+it: *"a platformer's pit depth and a platform fighter's blast zone — the same
+number, and it belongs to the STAGE."*
+
+⇒ **what leaks is the WORD, and it leaks furthest in the place you actually
+meet it.** All six shipped LDtk worlds carry all three fields in
+`defs.levelFields`:
+
+```text
+sanic_speedway · intro · sandbox · you_have_to_cut_the_rope
+hall_of_characters · mary_o          blast_margin, side_blast_margin, ceiling_blast_margin
+```
+
+⭐⭐ **and ZERO levels author a value** — 18 schema entries, no data behind any
+of them. So this costs no content migration. Every author of every world is
+shown three platform-fighter fields nobody has ever filled in.
+
+**The decision is yours because the `.ldtk` files are yours.** The converter reads
+the authored key by name, so the struct field and the authored field are ONE name:
+renaming the Rust half alone needs a mapping, and a mapping is the shim this
+project refuses. It is one change or it is not worth 206 sites.
+
+**What I would do, if you want it done:**
+
+```text
+World { blast_margin, side_blast_margin, ceiling_blast_margin }
+  -> World { edges: WorldEdgeMargins { fall: f32, side: Option<f32>, rise: Option<f32> } }
+```
+
+One field instead of three, named for the axis role rather than the genre, and
+the kernel destructures it EXHAUSTIVELY so a fourth axis is a compile error
+rather than a forgotten comparison — the same shape as `CapabilityLanes`. The
+LDtk keys become `fall_out_margin` / `side_out_margin` / `rise_out_margin`, which
+is a `defs.levelFields` rename in six files and no value to carry.
+
+⚠ **options if you would rather not:** (a) leave it — the leak is lexical and the
+engine is correct, and the doc comments already explain the generic meaning to
+anyone who reads them; (b) rename the Rust struct only and accept the mapping,
+which I do not recommend; (c) do the whole rename, which is mechanical and
+guarded by `a_level_authors_its_own_blast_margin` plus the LDtk contract prover.
+
+⛔ **`BlockKind` is the plan's other half and is NOT this.** Its diagnosis — one
+enum mixing contact law, traversal permission, world consequence and contact
+affordance — was re-measured as correct, and its trigger has not fired. Nothing
+here proposes touching it.

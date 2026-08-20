@@ -23,6 +23,7 @@
 use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition;
 
 mod goblin;
+mod fighting_polygon_sword;
 mod hall_humanoids;
 mod npc_ai_slop;
 mod npc_alice;
@@ -63,6 +64,7 @@ pub(crate) const AUTHORED_CAST: &[(
         &["perfect_cellular_automaton", "imperfect_cellular_automaton"],
         perfect_cellular_automaton::author,
     ),
+    (&["fighting_polygon_sword"], fighting_polygon_sword::author),
     (&["npc_exploding_mite"], npc_exploding_mite::author),
     (&["npc_dividing_mite"], npc_dividing_mite::author),
     (&["npc_puppy_slug"], npc_puppy_slug::author),

@@ -510,8 +510,15 @@ fn a_local_human_body_keeps_local_source_identity_on_the_slot_model() {
 
     let world = app.world_mut();
     let mut locals = world.query::<(&crate::control::components::LocalPlayer, &Brain)>();
-    let brains: Vec<_> = locals.iter(world).map(|(_, brain)| brain.player_slot()).collect();
-    assert_eq!(brains.len(), 1, "the human seat must produce one locally sourced body");
+    let brains: Vec<_> = locals
+        .iter(world)
+        .map(|(_, brain)| brain.player_slot())
+        .collect();
+    assert_eq!(
+        brains.len(),
+        1,
+        "the human seat must produce one locally sourced body"
+    );
     assert!(
         brains[0].is_some(),
         "a locally sourced human body must name its control slot through Brain::Player"
@@ -1177,7 +1184,9 @@ fn a_match_states_its_own_body_numbers_on_every_seat_and_disturbs_nothing_else()
         jump_speed: 999.0,
         ..ambition_platformer2d_core::DEFAULT_TUNING
     };
-    // And the stage's six numbers, none of which is a jump arc.
+    // And the stage's numbers, none of which is a jump arc. ⚠ SEVEN since the
+    // shield became a resource: `MatchBody` carries the guard's tuning too, and
+    // `OFF` is what a stage that authors no shield hands a fighter.
     let stage = ambition_platformer2d_core::MatchBody {
         slash_recoil: 0.0,
         jump_squat_time: 0.05,
@@ -1185,6 +1194,7 @@ fn a_match_states_its_own_body_numbers_on_every_seat_and_disturbs_nothing_else()
         air_dodge_speed: 440.0,
         air_dodge_endlag: 0.16,
         tumble_speed: 500.0,
+        shield: ambition_platformer2d_core::ShieldTuning::OFF,
     };
     assert_eq!(
         ambition_platformer2d_core::DEFAULT_TUNING.air_dodge_time,

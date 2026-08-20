@@ -487,14 +487,11 @@ fn collect_perception_projectiles_snapshots_live_projectiles_once_with_frozen_si
     let shots = app.world().resource::<PerceptionProjectiles>();
     assert_eq!(shots.0.len(), 2, "one row per live projectile");
     assert!(
-        shots
-            .0
-            .iter()
-            .any(|p| {
-                p.faction == Some(ActorFaction::Enemy)
-                    && p.team.as_ref().is_some_and(|team| team.as_str() == "red")
-                    && p.damage == 3
-            }),
+        shots.0.iter().any(|p| {
+            p.faction == Some(ActorFaction::Enemy)
+                && p.team.as_ref().is_some_and(|team| team.as_str() == "red")
+                && p.damage == 3
+        }),
         "the sided shot carries its frozen allegiance"
     );
     assert!(
@@ -614,7 +611,7 @@ fn hitstun_outranks_a_swing_and_a_swing_outranks_a_shield() {
     use ambition_characters::actor::BodyCombat;
     let shield_up = ae::BodyShieldState {
         active: true,
-        parry_window_timer: 0.0,
+        ..Default::default()
     };
 
     let mut reeling = BodyCombat::default();

@@ -8,6 +8,18 @@ use super::*;
 // so the App-level tests below bring in their own.
 use bevy::prelude::{default, App, Messages, Update};
 
+/// A guard that is UP, with a shield that is not a spendable resource — the
+/// shape every body in this file has. `resolve_body_hit` takes the guard itself
+/// now rather than a "is it up" bool, because a block SPENDS integrity and the
+/// cost belongs inside the decision that grants the block; `ShieldTuning::OFF`
+/// makes that spend a no-op, so these tests measure the block and nothing else.
+fn raised_guard() -> ae::BodyShieldState {
+    ae::BodyShieldState {
+        active: true,
+        ..Default::default()
+    }
+}
+
 #[test]
 fn shield_blocks_only_hits_from_the_faced_side() {
     let player = ae::Vec2::new(100.0, 200.0);
@@ -96,7 +108,7 @@ fn resolver_ignores_a_hit_inside_the_i_frame_window() {
         Some(&mut health),
         None,
         None,
-        false,
+        None,
         1.0,
         pos,
         pos + ae::Vec2::new(50.0, 0.0),
@@ -123,7 +135,7 @@ fn resolver_ignores_a_hit_on_a_dead_body() {
         Some(&mut health),
         None,
         None,
-        false,
+        None,
         1.0,
         pos,
         pos + ae::Vec2::new(50.0, 0.0),
@@ -147,7 +159,7 @@ fn resolver_shield_blocks_a_faced_hit_and_arms_the_guard_i_frame() {
         Some(&mut health),
         None,
         None,
-        true,
+        Some((&mut raised_guard(), ae::ShieldTuning::OFF)),
         1.0,
         pos,
         pos + ae::Vec2::new(50.0, 0.0),
@@ -172,7 +184,7 @@ fn resolver_shield_blocks_a_faced_hit_and_arms_the_guard_i_frame() {
         Some(&mut health),
         None,
         None,
-        true,
+        Some((&mut raised_guard(), ae::ShieldTuning::OFF)),
         1.0,
         pos,
         pos + ae::Vec2::new(-50.0, 0.0),
@@ -202,7 +214,7 @@ fn resolver_scales_damage_arms_feel_and_floors_at_one() {
         Some(&mut health),
         None,
         None,
-        false,
+        None,
         1.0,
         pos,
         pos,
@@ -230,7 +242,7 @@ fn resolver_scales_damage_arms_feel_and_floors_at_one() {
         Some(&mut health),
         None,
         None,
-        false,
+        None,
         1.0,
         pos,
         pos,
@@ -260,7 +272,7 @@ fn resolver_reports_death_and_never_dies_takes_no_damage() {
         Some(&mut health),
         None,
         None,
-        false,
+        None,
         1.0,
         pos,
         pos,
@@ -288,7 +300,7 @@ fn resolver_reports_death_and_never_dies_takes_no_damage() {
         Some(&mut health),
         None,
         None,
-        false,
+        None,
         1.0,
         pos,
         pos,
@@ -314,7 +326,7 @@ fn resolver_reports_death_and_never_dies_takes_no_damage() {
         None,
         None,
         None,
-        false,
+        None,
         1.0,
         pos,
         pos,
@@ -886,7 +898,7 @@ fn a3_worn_armor_absorbs_a_hit_downgrades_then_the_next_hit_damages_hp() {
         Some(&mut health),
         Some(&mut worn),
         None,
-        false,
+        None,
         1.0,
         pos,
         pos,
@@ -916,7 +928,7 @@ fn a3_worn_armor_absorbs_a_hit_downgrades_then_the_next_hit_damages_hp() {
         Some(&mut health),
         Some(&mut worn),
         None,
-        false,
+        None,
         1.0,
         pos,
         pos,
@@ -1180,7 +1192,7 @@ fn wallet_shield_spends_currency_before_a_lethal_hit_reaches_health() {
         Some(&mut health),
         None,
         Some(WalletArmor::new(&mut wallet, &shield)),
-        false,
+        None,
         1.0,
         pos,
         pos,
@@ -1229,7 +1241,7 @@ fn losing_a_purse_arms_the_same_beat_as_losing_armor() {
         Some(&mut health),
         None,
         Some(WalletArmor::new(&mut wallet, &shield)),
-        false,
+        None,
         1.0,
         pos,
         pos,
@@ -1270,7 +1282,7 @@ fn empty_wallet_shield_does_not_make_the_body_immortal() {
         Some(&mut health),
         None,
         Some(WalletArmor::new(&mut wallet, &shield)),
-        false,
+        None,
         1.0,
         pos,
         pos,
@@ -1326,12 +1338,13 @@ fn an_unstoppable_hit_passes_every_defence_a_body_has() {
 
         let mut stopped_combat = combat.clone();
         let mut stopped_health = test_health(5);
+        let mut guard = shield_active.then(raised_guard);
         let stopped = resolve_body_hit(
             &mut stopped_combat,
             Some(&mut stopped_health),
             None,
             None,
-            shield_active,
+            guard.as_mut().map(|g| (g, ae::ShieldTuning::OFF)),
             1.0,
             pos,
             impact,
@@ -1355,12 +1368,13 @@ fn an_unstoppable_hit_passes_every_defence_a_body_has() {
 
         let mut blasted_combat = combat.clone();
         let mut blasted_health = test_health(5);
+        let mut guard = shield_active.then(raised_guard);
         let blasted = resolve_body_hit(
             &mut blasted_combat,
             Some(&mut blasted_health),
             None,
             None,
-            shield_active,
+            guard.as_mut().map(|g| (g, ae::ShieldTuning::OFF)),
             1.0,
             pos,
             impact,
@@ -1401,7 +1415,7 @@ fn the_blast_zone_kills_a_body_that_cannot_be_damaged_to_death() {
         Some(&mut health),
         None,
         None,
-        false,
+        None,
         1.0,
         pos,
         pos,
@@ -1429,7 +1443,7 @@ fn the_blast_zone_kills_a_body_that_cannot_be_damaged_to_death() {
         Some(&mut health),
         None,
         None,
-        false,
+        None,
         1.0,
         pos,
         pos,
@@ -1469,7 +1483,7 @@ fn even_an_unstoppable_hit_refuses_a_body_that_is_already_dead() {
         Some(&mut health),
         None,
         None,
-        false,
+        None,
         1.0,
         pos,
         pos,
@@ -1607,12 +1621,13 @@ fn a_raised_shield_blocks_the_hit_and_a_lowered_one_does_not() {
     let hit = |shield_active: bool, impact: ae::Vec2| -> (BodyHitResolution, i32) {
         let mut combat = BodyCombat::default();
         let mut health = BodyHealth::new(Health::new(START_HP));
+        let mut guard = shield_active.then(raised_guard);
         let resolution = resolve_body_hit(
             &mut combat,
             Some(&mut health),
             None,
             None,
-            shield_active,
+            guard.as_mut().map(|g| (g, ae::ShieldTuning::OFF)),
             1.0,
             body,
             impact,

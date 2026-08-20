@@ -182,6 +182,25 @@ impl SlotControlLatches {
     }
 }
 
+/// **The participant slot driving this body**, this tick.
+///
+/// ⭐⭐ **the half of `Brain::Player(slot)` that is not a brain.** *"A participant
+/// drives this body"* is not an AI backend; it sits in that enum because the enum
+/// was the only place to say it, which is why possession has to MOVE a policy
+/// variant in order to change who is driving, and why `PossessionState` needs a
+/// `restore_brain` to put the displaced policy back.
+///
+/// ⛔ **DERIVED, never authored and never written by hand.** The projection lives
+/// in the actor domain (`control::project_driving_participant`) because it needs
+/// `PossessionState`; the TYPE lives here because it is vocabulary — `PlayerSlot`
+/// is here, `Brain` is here, and the two crates that ask *who drives this body*
+/// (the interaction seam and the conversation seam) can both already see this
+/// module and neither can see the other. A component reprojected each tick from
+/// state that IS in the snapshot needs no snapshot entry of its own, so this
+/// costs no wire format and no schema version.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct DrivingParticipant(pub PlayerSlot);
+
 /// Identifies which brain backend drives an actor this tick.
 ///
 /// Brains are dispatched via enum match (not trait objects) to keep

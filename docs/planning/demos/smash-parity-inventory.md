@@ -29,7 +29,8 @@ you add a `▢`, and before you work one.
 | Ground dodge roll, air dodge (once per airtime) | ✔ | `BodyDodgeState`, `AxisManeuverState::dodge_roll_timer` |
 | Spot dodge | ▢ | — |
 | Tumble → knockdown → tech → getup (roll / attack / stand) | ✔ | `core/movement/knockdown.rs` |
-| Wall tech and ceiling tech | ▢ | the tech tests a surface landing only |
+| Wall tech | ✔ | `knockdown::tick_knockdown` reads `BodyWallState`; `WALL_TECH_SPEED` pushes off the normal |
+| Ceiling tech | ▢ | a head contact is not yet a surface the tech press can land on |
 | Crouch cancel | ▢ | — |
 
 ## Grabs
@@ -56,7 +57,7 @@ you add a `▢`, and before you work one.
 | Short hop as its own authored height (not a velocity cut) | ▢ | — |
 | Footstool jump — claims the press, costs no air jump, 4f i-frames, Team-Attack gated | ✔ | `features/ecs/footstool.rs`; grounded victim flinches, airborne one tumbles (`ae::footstool_victim`) |
 | Phantom footstool (a target mid-move is not interrupted) | ✔ | the stomper still takes the bounce; `BodyMelee::phase()` is the committed test |
-| Jostle / body pushback between fighters | ▢ | — |
+| Jostle / body pushback between fighters | ▢ | ⛔ ASKED, not skipped: `awaiting-maintainer-decision.md` §24 — Jon's "AVOID PUSHOUT" rule may or may not reach body-vs-body |
 | Ledge grab with intangibility window | ✔ | `core/ledge_grab/` |
 | Ledge getup: climb / roll / attack | ✔ | `LedgeGetupKind` |
 | Ledge jump getup | ✔ | `MovementOp::LedgeJump` |
@@ -167,5 +168,6 @@ and leaves the values rough; tuning is not this lane's licence.
 5. **Match rules** — ~~timer~~ (landed 2026-08-20, derived from the activation
    tick); still open are sudden death, a menu for the friendly-fire toggle the
    rules already carry, and the respawn platform.
-6. ~~**SDI**~~ and ~~**crouch cancel**~~ (landed 2026-08-20); still open: spot
-   dodge, jostle, wall tech.
+6. ~~**SDI**~~, ~~**crouch cancel**~~ and ~~**wall tech**~~ (landed 2026-08-20);
+   still open: spot dodge, ceiling tech, and jostle — which is ASKED rather than
+   skipped (`awaiting-maintainer-decision.md` §24).

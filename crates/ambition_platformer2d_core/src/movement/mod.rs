@@ -143,6 +143,7 @@ pub(crate) fn update_body_control_in_frame(
         clusters.kinematics,
         state,
         clusters.ground,
+        clusters.wall,
         clusters.combo_trace,
         input,
         control_dt,

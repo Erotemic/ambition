@@ -41,7 +41,7 @@ investigation that led to the question. Same rule as
 [`README.md`](README.md#queue-contract); on 2026-08-17 this file was **739 lines
 for 9 open questions**, and the four answered ones held a third of it.
 
-## Open decisions — 14 (§1, §6, §7, §9, §10, §11, §12 and §13 are ANSWERED; §8 is DEFERRED)
+## Open decisions — 15 (§1, §6, §7, §9, §10, §11, §12 and §13 are ANSWERED; §8 is DEFERRED)
 
 ### 1. ✔ ANSWERED 2026-08-17 — a bolt hits what a sword hits (former D23)
 
@@ -1100,6 +1100,44 @@ somebody chose, and choosing against it is yours.
 per-turn gate, so a behavioural suite went five-red across at least two
 regressions without anything saying so. `cargo test --workspace --lib` and
 `-p ambition_app --test app_it` do not reach it.
+
+### 24. ▢ NEW 2026-08-20 — does "AVOID PUSHOUT" cover fighter-vs-fighter JOSTLE?
+
+**The mechanic.** Every platform fighter pushes two grounded bodies apart when
+they occupy the same space — Ultimate calls it jostle, and without it two
+fighters stand inside each other and the stage's spacing game stops existing.
+It is the last unbuilt row in the smash inventory's Movement section
+(`docs/planning/demos/smash-parity-inventory.md`).
+
+**Why it is a decision and not research.** The genre's answer is not in doubt:
+bodies push each other apart, symmetrically, proportional to overlap. What is in
+doubt is whether Jon's own standing rule forbids it. The rule, as recorded:
+
+> **AVOID PUSHOUT.** Almost never artificially push a body out of geometry …
+> pushout corrupts position/reversibility and papers over the real bug. Emerging
+> at the face + carrying momentum is the intended physical behavior.
+
+⭐ **the reading that says jostle is FINE**: the rule names *geometry*, and every
+case behind it was a CORRECTION — an NPC embedded in a wall, a body straddling a
+closing portal. Jostle is neither. It is a designed, symmetric, momentum-carrying
+force between two LIVE bodies, which is much closer to the "intended physical
+behavior" the rule is protecting than to the correction it forbids.
+
+⚠ **the reading that says it is not**: it is still a position written by
+something other than the body's own velocity, and the rule's stated cost —
+*"corrupts position/reversibility"* — applies to any such write. Under rollback
+that cost is not rhetorical.
+
+**A third option, and probably the honest one:** jostle as an ACCELERATION rather
+than a displacement — two overlapping bodies each take a small push-apart
+velocity, and the kernel integrates it like any other force. Position is never
+written, reversibility is untouched, and the visible behaviour is the genre's.
+It is slower to separate than a displacement, which in this genre reads as weight
+rather than as a bug.
+
+⇒ **the question**: is the third option acceptable, or does the rule extend to
+body-vs-body entirely and jostle should not be built? ⛔ not answered by refactor
+— I have left the row `▢` rather than guessing at a rule Jon stated twice.
 
 ## ✔ CLOSED 2026-08-15 — every submodule remote is reachable and current
 

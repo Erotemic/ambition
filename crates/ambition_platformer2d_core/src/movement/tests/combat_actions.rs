@@ -683,6 +683,79 @@ fn a_tech_on_the_landing_skips_the_knockdown_entirely() {
     );
 }
 
+/// **A WALL IS SOMETHING YOU CAN CATCH YOURSELF ON TOO.**
+///
+/// ⛔ before this, a launch into a wall was a free continuation for the
+/// attacker: the victim kept tumbling, slid down the surface it slammed into,
+/// and hit the floor still helpless. ⚠ both halves — the tech FIRES while the
+/// body is still airborne, and the velocity it leaves with points AWAY from the
+/// wall. A version that only cleared the tumble would leave the body pinned to
+/// the surface it just teched off.
+#[test]
+fn a_tumbling_body_can_tech_off_a_wall() {
+    let world = test_world();
+    let mut scratch = scratch_at(world.spawn);
+    // Beside the right wall, high enough that the floor is not the first thing
+    // it reaches — the point is that a WALL answered the press.
+    scratch.kinematics.pos = Vec2::new(world.size.x - 120.0, world.size.y - 500.0);
+    scratch.ground.on_ground = false;
+    scratch.flight.pending_launch = Vec2::new(1400.0, -260.0);
+    step_fighter(&world, &mut scratch, InputState::default());
+    assert!(
+        scratch.axis().tumble_timer > 0.0,
+        "the launch did not tumble the body, so this measures nothing"
+    );
+
+    let dash = InputState {
+        movement: crate::ActionEdges::EMPTY.with(
+            crate::MovementAction::Dash,
+            crate::Edge {
+                pressed: true,
+                held: false,
+                released: false,
+            },
+        ),
+        ..Default::default()
+    };
+    let mut teched = false;
+    for _ in 0..90 {
+        let on_wall = scratch.wall.on_wall;
+        let events = step_fighter(
+            &world,
+            &mut scratch,
+            if on_wall { dash } else { InputState::default() },
+        );
+        assert!(
+            !events.operations.contains(&MovementOp::Knockdown),
+            "it reached the floor before it ever touched the wall"
+        );
+        if events.operations.contains(&MovementOp::Tech) {
+            teched = true;
+            break;
+        }
+    }
+    assert!(teched, "a timed press against a wall did not tech");
+    assert!(
+        !scratch.ground.on_ground,
+        "this teched off the FLOOR, which the test above already covers"
+    );
+    assert_eq!(
+        scratch.axis().tumble_timer,
+        0.0,
+        "the tumble survived the tech"
+    );
+    assert!(
+        scratch.kinematics.vel.x < 0.0,
+        "the tech left the body pinned against the wall it came off ({:?})",
+        scratch.kinematics.vel
+    );
+    let facts = crate::movement::BodyMotionFacts::from_model(&scratch.model);
+    assert!(
+        facts.evading(),
+        "a wall tech is invulnerable through the one term the damage rule reads"
+    );
+}
+
 /// **A tech guessed too early costs the option.** Mashing has to be worse than
 /// reading, or the knockdown is decorative.
 #[test]

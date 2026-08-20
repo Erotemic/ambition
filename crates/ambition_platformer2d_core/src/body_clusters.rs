@@ -487,8 +487,17 @@ pub struct BodyShieldState {
 }
 
 impl BodyShieldState {
+    /// **Is this body inside its perfect-shield window?**
+    ///
+    /// ⛔ **the timer ALONE, and dropping `active` was the point.** Under
+    /// Ultimate's release-timed parry ([`crate::ParryTiming::OnRelease`]) the
+    /// window is live while the guard is DOWN, so an `active &&` term would make
+    /// that setting unreachable. The term is not lost: `resolve_shield` is the
+    /// one place the timer is armed, and only a guard that was UP can be
+    /// released — so "a shield past its window does not parry" still holds,
+    /// because such a shield has a zero timer.
     pub fn parrying(self) -> bool {
-        self.active && self.parry_window_timer > 0.0
+        self.parry_window_timer > 0.0
     }
 
     /// The guard was broken and the body is still paying for it.
@@ -1450,7 +1459,10 @@ mod shieldstun_tests {
             ..Default::default()
         };
         spend_shield_on_block(&mut heavy, t, 18);
-        assert!(light.stun_timer > 0.0, "a blocked hit charged no shieldstun");
+        assert!(
+            light.stun_timer > 0.0,
+            "a blocked hit charged no shieldstun"
+        );
         assert!(
             heavy.stun_timer > light.stun_timer,
             "an 18-damage hit cost the blocker no more time than a 4-damage one"

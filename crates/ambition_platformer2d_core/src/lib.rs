@@ -111,7 +111,7 @@ pub use movement::{
     DepthOcclusions, Edge, FlightTuning, FootstoolTuning, FrameEvents, GroundContactTransition,
     InputState, LedgeFacts, LedgeMomentumTuning, MomentumHorizontalTuning, MomentumParams,
     MotionModel, MotionModelKind, MotionModelSpec, MotionStepContext, MotionStepResult,
-    MovementAction, MovementOp, MovementTuning, NormalSpineCtx, OcclusionSpan,
+    MovementAction, MovementOp, MovementTuning, NormalSpineCtx, OcclusionSpan, ParryTiming,
     PhasedGravityJumpTuning, PhasedJumpState, ResetCause, RouteDeparture, ShieldTuning,
     SurfaceMomentumMotion, SurfaceMotion, SurfaceRef, TraversalAbilityTuning, AIR_ACCEL,
     AIR_DODGE_ENDLAG, AIR_DODGE_SPEED, AIR_DODGE_TIME, AIR_FRICTION, AIR_JUMPS, BLINK_COOLDOWN,

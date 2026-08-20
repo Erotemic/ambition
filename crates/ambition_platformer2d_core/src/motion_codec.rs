@@ -368,6 +368,15 @@ fn put_axis_swept_params(out: &mut Vec<u8>, p: &crate::AxisSweptParams) {
     put_f32(out, a.spot_dodge_time);
     put_f32(out, a.sdi_step);
     put_f32(out, a.parry_window_time);
+    // ⚠ a DISCRIMINANT, and the checker's `snapshot_unit_enum!` fold does not
+    // see a hand-written `put_u8` of one — so the version log carries the claim.
+    put_u8(
+        out,
+        match a.parry_timing {
+            crate::ParryTiming::OnRaise => 0,
+            crate::ParryTiming::OnRelease => 1,
+        },
+    );
     put_f32(out, a.shield.max_health);
     put_f32(out, a.shield.drain_per_second);
     put_f32(out, a.shield.regen_per_second);
@@ -460,6 +469,11 @@ fn axis_swept_params(r: &mut Reader<'_>) -> Option<crate::AxisSweptParams> {
             spot_dodge_time: r.f32()?,
             sdi_step: r.f32()?,
             parry_window_time: r.f32()?,
+            parry_timing: match r.u8()? {
+                0 => crate::ParryTiming::OnRaise,
+                1 => crate::ParryTiming::OnRelease,
+                _ => return None,
+            },
             shield: crate::ShieldTuning {
                 max_health: r.f32()?,
                 drain_per_second: r.f32()?,

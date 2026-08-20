@@ -25,8 +25,11 @@ setting reproduce"*. Picking one throws the others away.
 perfect shield     PRESS-timed (Smash 4, and ours) | RELEASE-timed (Ultimate)
 ```
 
-⇒ that pair is a KNOB on the declared-rules seam, and it was filed as a decision
-(§25) until this ruling reshaped it.
+⇒ that pair is `MovementTuning::parry_timing`, shipped 2026-08-20 as the FIRST
+knob under this ruling. ⭐ **it is the worked example**: the question arrived as
+"which one is right" (§25), the ruling reshaped it into "what is the knob", and
+the answer changed no shipped body's feel because a knob's default is the
+behaviour that already existed.
 
 ⚠ **bugs are not required parity.** Melee's wavedash and L-cancel are artefacts
 of its physics rather than authored rules; reproducing Melee does not oblige
@@ -51,7 +54,7 @@ you add a `▢`, and before you work one.
 | Shield pushback (a blocked hit costs the blocker space) | ✔ | `ShieldTuning::pushback_per_damage`, applied inside the block via `GuardUnderFire` |
 | Shield shrink → poke (a spent guard exposes the head and feet) | ✔ | `ShieldTuning::min_coverage`, `combat::util::guard_covers_hit` |
 | Shield-drop lag | ▢ | — |
-| Parry (perfect-shield window) | ~ | `BodyShieldState::parrying` — PRESS-timed only (Smash 4's). Ultimate's RELEASE-timed reading is the other setting of a knob that does not exist yet; §25 ruled it a knob rather than a swap |
+| Parry (perfect-shield window), press- or release-timed | ✔ | `MovementTuning::parry_timing` — `OnRaise` is Smash 4's (the default) and `OnRelease` is Ultimate's; the stage declares which via `MatchBody` |
 | Ground dodge roll, air dodge (once per airtime) | ✔ | `BodyDodgeState`, `AxisManeuverState::dodge_roll_timer` |
 | Tumble → knockdown → tech → getup (roll / attack / stand) | ✔ | `core/movement/knockdown.rs` |
 | Wall tech | ✔ | `knockdown::tick_knockdown` reads `BodyWallState`; `WALL_TECH_SPEED` pushes off the normal |
@@ -217,9 +220,9 @@ wavebounce · fast-fall out of a bounce.
 a rapid-jab finisher · charge storage · a two-frame ledge-vulnerability window ·
 z-drop and item throws · edge-cancel.
 
-**Defense.** Perfect shield as a RELEASE-timed parry — ⭐ RULED A KNOB (§25):
-ours is Smash 4's press-timed parry, Ultimate's is release-timed, and both are
-settings a stage declares rather than a choice to make once · shield tilt to cover a limb · shield-drop into an aerial ·
+**Defense.** ~~Perfect shield as a RELEASE-timed parry~~ — SHIPPED as a KNOB
+2026-08-20 (§25): `ParryTiming::OnRaise` is Smash 4's and `OnRelease` is
+Ultimate's, and the stage declares which · shield tilt to cover a limb · shield-drop into an aerial ·
 directional-influence variants (SDI, ASDI, hitfall).
 
 **Match surface.** Time, stamina and coin rulesets · sudden death · handicap ·

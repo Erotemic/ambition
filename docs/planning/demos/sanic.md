@@ -23,8 +23,7 @@ Landed:
   lifecycle; and
 - basic act state, clock, and standard SFX publication.
 
-Also landed (list corrected 2026-07-19 — the §Proposed notes below recorded
-these but this list had drifted):
+Also landed:
 
 - the ring/bits economy: 35 authored `currency:1` rings on the shared economy,
   animated `sanic_ring_prop` sheet, collect SFX (`a8ab166ee`/`7dc7c1711`);
@@ -35,85 +34,31 @@ these but this list had drifted):
 Remaining acceptance work is product/content work
 (**this list is the single source; status.md and tracks.md refer here**):
 
-- ✅ **The scatter is a real scatter, and you can SEE it — 2026-07-25.**
-  Jon: *"the rings from sanic are not visible when he gets hit"*, and the spray
-  should be radial, untouchable for a moment, then bounce and be recollectable
-  for a brief window before disappearing. Three separate gaps, all now closed:
-  1. **Invisible.** A runtime-spawned pickup had no presentation at all.
-     `spawn_room_visuals` draws pickups from the ROOM SPEC at load, and
-     `rebuild_dynamic_feature_views` covered only four families (encounter mobs,
-     staged actors, post-boss NPCs, reward chests) — so a ring that the sim
-     minted simulated, magnetised and credited perfectly while drawing nothing.
-     There is now a **dropped-pickup family** selected by construction
-     provenance (`SpawnOrigin::Dynamic`), and the pickup's art id rides the
-     entity (`PickupArt`) so the drop binds the same spinning `sanic_ring_prop`
-     sheet an authored ring does. Dynamic visuals are also now RETIRED when
-     their feature goes, instead of accumulating one hidden sprite per drop.
-  2. **Not radial, and far too small.** The burst was an upward fan at
-     250 px/s. It is now an even full-circle spray in shells of six at 520 px/s
-     (the classic four-pixels-per-frame, converted to this tile scale), pinned
-     by a test that requires a ring in every quadrant and near-zero net
-     direction — which no fan can satisfy however wide.
-  3. **No bounce, and no end.** Rings fell through the level forever and never
-     expired. They now sweep against room geometry and rebound (0.55), shed
-     speed in the air so the outermost pair cannot leave the screen, and vanish
-     after 4.2s. The untouchable window is 0.6s, so a hit always costs
-     something and recovery is a scramble rather than a same-frame refund.
-- ✅ **Ring drop-on-hit scatter — LANDED 2026-07-21.** Rings are a life, not a
-  score: a hit taken holding rings is survived and costs the rings, which
-  are placed in a static fan above the body as REAL `currency` pickups you can
-  run back up to (they do not "scatter": they have no velocity and never fall —
-  `spawn_pickup` makes a static feature. The engine's `GroundItem` +
-  `ground_item_physics` seam is the one that throws a dropped item with real
-  outward/upward motion, and it is what a true scatter would use); a hit taken holding none lands normally. The hit is detected as a DROP in
-  the body's health rather than by listening for a damage message.
-
-  ⚠ **CORRECTED 2026-07-21 — the protection is NARROWER than this claimed, and
-  it does not cover the case it exists for.** The old wording said "every present
-  and future damage source is accounted for with no per-source wiring". That is
-  false three ways, and the reasoning it borrowed from Mary-O's respawn counter
-  was itself the bug that broke Mary-O's lives.
-  1. **A lethal hit is not survived.** `death_respawn_player` calls
-     `health.reset()` before `scatter_rings_on_hit` ever observes a drop, so at
-     1 HP the observer sees health go UP and does nothing. Rings fail at exactly
-     the moment "rings are a life" is supposed to mean something.
-  2. **The demo's own hazards bypass it entirely.** All three authored hazards
-     (`pit_hazard`, `mid_spikes`, `finish_warning_spikes`) are `HazardBlock` —
-     the tile-grid path, which resets the body to spawn and never touches
-     `BodyHealth`. The old text named spikes as covered; they never were. Badnik
-     body contact is the only damage source ring loss actually sees.
-  3. **It has no ordering against the system that commits damage.**
-     `scatter_rings_on_hit` is `.after(apply_actor_contact_damage)`, but that
-     system writes no health — it only emits `HitEvent`. The system that does,
-     `apply_player_hit_events`, is in a later set with NO edge to ring loss.
-     Both take `&mut BodyHealth`, so Bevy sequences them arbitrarily. A real
-     schedule ambiguity, invisible because `ambiguity_detection` is `Ignore`.
-
-  **The fix this wants** is not another observer. `resolve_body_hit` already
-  runs a precedence ladder — i-frames, then shield, then armor
-  (`BodyHitResolution::Armored`, a consumed `WornEquipment` row), then HP — and
-  rings are an armor row in everything but name. Absorbing there pre-empts death
-  instead of racing it, and covers the boss/actor callers for free. It would
-  still miss the kernel hazard path, which no health-based scheme can reach.
-
-  ✔ **RESOLVED 2026-08-08 (D41), and point 2 was the whole of it.** The shield
-  landed as described (`resolve_body_hit` → `BodyHitResolution::WalletShielded`),
-  and Jon still reported *"hitting the spikes should not be an insta kill"* —
-  because the strip was still on the kernel hazard path, which the paragraph
-  above correctly says no health-based scheme can reach. ⇒ the strip was taken
-  OFF that path: `mid_spikes` is a `DamageVolume` now, so it publishes an
-  ordinary `HitEvent` and the shield finally hears about it. `pit_hazard` stays
-  a `HazardBlock` — falling out is not something that HIT you — and
-  `finish_warning_spikes` was deleted earlier for unrelated reasons. Sanic also
-  authors `max_health: 1`, which is what makes a ringless hit fatal rather than
-  costing 1 of 20. Four contract cases run headlessly in
-  `ambition_demo_sanic_app`'s `spikes_spend_rings`.
-  Capped at 12 scattered so a big purse does not turn one hit into a shower.
-  Engine change: `ambition_platformer2d_actor_monolith::features::ecs::spawn_static::spawn_pickup` is
-  now PUBLIC. The engine could lower authored pickups but gave a game no way to
-  DROP one at runtime, so scatters, enemy loot, and chest rewards would each have
-  rebuilt the bundle and drifted from the collection path; a dropped ring and an
-  authored ring are now indistinguishable once they exist.
+- ✅ **The scatter is a real scatter, and you can SEE it — 2026-07-25.** Three
+  gaps closed: runtime-spawned rings had no presentation (`rebuild_dynamic_feature_views`
+  covered only four families; a **dropped-pickup family** selected by
+  `SpawnOrigin::Dynamic` now binds the same spinning `sanic_ring_prop` sheet and
+  is retired with its feature); the burst was an upward fan, not radial (now an
+  even full-circle spray in shells of six at 520 px/s, pinned by a test
+  requiring a ring in every quadrant); and rings fell forever without expiring
+  (they now sweep/rebound off room geometry and vanish after 4.2s, with a 0.6s
+  untouchable window).
+- ✅ **Ring drop-on-hit — RESOLVED 2026-08-08 (D41).** Rings are a life, not a
+  score: `resolve_body_hit`'s precedence ladder (i-frames, shield, armor, HP)
+  now includes rings as an armor row (`BodyHitResolution::WalletShielded`), so a
+  hit taken holding rings costs the rings — placed as static `currency` pickups
+  above the body — instead of health, capped at 12 scattered; a hit taken
+  holding none lands normally. Getting here needed two fixes to an earlier
+  version that only reacted to a `BodyHealth` drop: a lethal hit was never
+  observed because `death_respawn_player` reset health first, and the demo's
+  own hazards (`pit_hazard`, `mid_spikes`) were `HazardBlock` tile hits that
+  never touched `BodyHealth` at all. `mid_spikes` is now a `DamageVolume` so the
+  shield hears it; `pit_hazard` stays a `HazardBlock` — falling out is not a hit
+  — and Sanic authors `max_health: 1` so a ringless hit is fatal. Guarded by
+  `spikes_spend_rings` (`ambition_demo_sanic_app`). Engine change:
+  `ambition_platformer2d_actor_monolith::features::ecs::spawn_static::spawn_pickup`
+  is now PUBLIC, so a game can drop a runtime pickup indistinguishable from an
+  authored one (needed by scatters, enemy loot and chest rewards alike).
 - ✅ **Provider-owned goal, results, and end-of-act — LANDED 2026-07-21.**
   Crossing `GOAL_X` (matched to the authored `FINISH` label so sign and trigger
   cannot drift) clears the act: the clock stops, and the time and rings are
@@ -123,68 +68,42 @@ Remaining acceptance work is product/content work
   seam, then the act restarts on the engine's ordinary `RoomReplayRequested` —
   the same cycle Mary-O's level uses, no demo-specific restart.
 
-  ✅ **The restart was INERT in the standalone app (found 2026-07-21, FIXED the
-  same day — `cf5095576`).** `RoomReplayRequested` had exactly one real consumer,
-  registered only by `ambition_app`. `ambition_demo_sanic_app` depends on
-  `ambition_platformer2d`, never on `ambition_app` — that is the demo gate — so in the shipped
-  standalone binary the message went into a registered channel that nothing
-  drained. The "restart" reset `SanicActState` and nothing else: the player was
-  not returned to spawn, the room was not re-lowered, rings were not restored,
-  badniks did not respawn. The same was true of Mary-O standalone. The consumer
-  now lives in `ambition_platformer2d_runtime::sandbox_reset` and rides
-  `PlatformerEnginePlugins` into all three hosts (tracks §2.5), proved per host
-  in `tests/room_replay.rs`.
+  Three bugs found and fixed while proving this headlessly: the standalone app
+  had no consumer for `RoomReplayRequested` at all (only `ambition_app`
+  registered one, and the demo app doesn't depend on it), so "restart" reset
+  `SanicActState` and nothing else — the consumer now lives in
+  `ambition_platformer2d_runtime::sandbox_reset` and rides `PlatformerEnginePlugins`
+  into all three hosts, proved per host in `tests/room_replay.rs` (`cf5095576`);
+  a death on a hazard strip 144px past the goal went undetected because death
+  leaves `SanicActPhase::Cleared` untouched (`914a7ee3d`); and the goal-clear
+  brake cleared `locomotion`/jump but not a charged `BallDash`, so crouch-release
+  semantics fired a spin dash on the line — the goal now takes the whole control
+  frame through the shared `ScriptedControl` seam and disarms stored charge
+  (GPT-5.6 review, 2026-07-25).
 
-  ✅ **FIXED 2026-07-25** (`914a7ee3d`) — and the cause was not what this said.
-  He died on a hazard strip authored 144px PAST the goal, not by running out of
-  level; a death leaves `SanicActPhase::Cleared` untouched, so a proof that
-  watches the phase passes throughout the bug; and braking needs the momentum
-  state's `v_t` in `PlayerInput` after the brains run. Full account in the
-  triage. Folding the replay assertion back into `act_completion.rs` is now
-  unblocked and still open.
+  ⚠ **Still live:** `GOAL_X` sits 400px from the level's right edge, and
+  clearing doesn't brake or close the course, so Sanic can coast off the end and
+  die inside his own results dwell (`code_smells.md`, 2026-07-21) — the
+  act-clear replay proof stamps the cleared phase under controlled conditions
+  rather than extending `act_completion.rs` for exactly this reason.
 
-  ⚠ **The brake itself launched him — fixed 2026-07-25 (GPT-5.6 review).** It
-  cleared `locomotion`, `jump_pressed`, `jump_held` and nothing else, and it runs
-  before `gate_worn_player_control` while `capture_ball_dash_input` runs after.
-  Crouch IS `locomotion.y`, so zeroing it presented a crouch RELEASE to the ball
-  dash, and a spin dash charged on the approach fired the instant he crossed the
-  line. The goal now takes the WHOLE control frame through the shared
-  `ScriptedControl` seam — the same one Mary-O's death beat uses — and disarms
-  stored `BallDash` charge, because a stored charge is spent on an edge and the
-  blanking is what manufactures the edge. The survival test never pressed down,
-  so it could not have caught this.
-
-  ⚠ **Found while proving that: the act is clearable and then immediately
-  fatal.** `GOAL_X` is 400px from the right edge, and clearing neither brakes the
-  body nor closes the course, so Sanic coasts off the end and dies well inside
-  his own 4s results dwell. Logged in `code_smells.md` (2026-07-21). It is why
-  the act-clear replay proof stamps the cleared phase under controlled conditions
-  rather than extending `act_completion.rs` — the death respawn rebuilds the room
-  by itself, so that run cannot isolate a replay.
-
-  `act_score` is where the demo's premise becomes a number: a time bonus against
-  par plus a per-ring bonus. **INTENT, not a proven property:** the two-term
-  formula gives arithmetic monotonicity, which `the_act_score_pays_for_speed_and_for_rings_kept`
-  tests as a pure function. Whether the fast line and the safe line actually
-  COMPETE is a claim about the authored level, and no test drives both routes.
-  REBALANCED 2026-07-21 once the completion proof measured a clean run at ~6s:
-  par dropped 60s→30s so the bonus spreads across realistic finishing times, and
-  the ring bonus rose 10→100 so a full purse is worth roughly what the time
-  bonus is. At the original numbers time swamped rings by an order of magnitude
-  and the tension the demo is built on did not exist in the arithmetic.
+  `act_score` = a time bonus against par plus a per-ring bonus, pinned as a pure
+  function by `the_act_score_pays_for_speed_and_for_rings_kept`; whether the
+  fast and safe routes actually compete is a claim about the authored level that
+  no test drives. Rebalanced 2026-07-21 (par 60s→30s, ring bonus 10→100) once a
+  clean run measured ~6s — at the original numbers time swamped rings by an
+  order of magnitude.
 - additional authored act content beyond the single speedway room; and
 - ✅ **A deterministic headless completion proof — LANDED 2026-07-21**
-  (`ambition_demo_sanic_app/tests/act_completion.rs`). Plays the real app to the
-  goal and asserts the act clears, the run time is captured, and the clock stops.
-  It immediately paid for itself twice: **the goal I had just shipped was
-  UNREACHABLE** (`LEVEL_WIDTH - 130`, while the runnable extent tops out near
-  `LEVEL_WIDTH - 270`), so the act could never be completed by playing; and
-  holding right alone runs into the authored pit forever, so the script has to
-  jump it. Note you CANNOT teleport Sanic to the goal to check this — he rides
-  the momentum kernel, so position is derived from his surface parameter and a
-  poked `pos` is overwritten on the next tick. Running there is the only proof.
-  ⚠ STILL OPEN from this line: the high-route-beats-safe-route COMPARISON. The
-  completion half is proven; the two-route contest is not.
+  (`ambition_demo_sanic_app/tests/act_completion.rs`). Plays the app to the goal
+  and asserts the act clears, time is captured, and the clock stops; caught the
+  goal being unreachable (`LEVEL_WIDTH - 130` vs a runnable extent topping out
+  near `LEVEL_WIDTH - 270`) and an authored pit that traps a hold-right script.
+  Sanic cannot be teleported to the goal to check this — he rides the momentum
+  kernel, so `pos` is derived from his surface parameter and a poked position is
+  overwritten next tick; running there is the only proof.
+  ⚠ **STILL OPEN:** the high-route-beats-safe-route comparison — completion is
+  proven, the two-route contest is not.
 
 The detailed 2026-07-11 recovery investigation is archived at
 [`docs/archive/reviews/sanic-visible-playable-recovery-2026-07-11.md`](../../archive/reviews/sanic-visible-playable-recovery-2026-07-11.md).
@@ -233,21 +152,19 @@ with the stance-squash hack retired per pose whenever a sheet owns the row.
 
 **SFX suite landed (commit `94e66909c`).** The whole Sanic sound palette was
 rebuilt: an **ascending three-tier spin-dash rev** picked by charge bucket
-(`rev_tier_id`) plus a distinct launch whoosh; the previously-dropped engine cues
-now authored+voiced (**Pogo** spring, **Reset** pit-death, and a new reusable
-engine **Land** cue emitted once per touchdown edge in `emit_movement_fx`);
-distinct **monitor**, **badnik**, and **skid** voices; and the **transform** sound
-derived from the worn-identity edge in `sync_super_form_traits` so it fires once
-regardless of cause (D-toggle / monitor / future ring drain). ⛔ **2026-08-16 —
+(`rev_tier_id`) plus a distinct launch whoosh; **Pogo** spring, **Reset**
+pit-death, and a reusable engine **Land** cue emitted once per touchdown edge in
+`emit_movement_fx`; distinct **monitor**, **badnik**, and **skid** voices; and a
+**transform** sound derived from the worn-identity edge in
+`sync_super_form_traits` so it fires once regardless of cause. ⛔ **2026-08-16 —
 the monitor cause is gone and must not come back:** Jon, *"the sanic level should
 not offer super form. at all. There is a key for it."* `monitor_super` is deleted
 from the course, from `author_speedway_ldtk.py` and from `monitors.rs`; the
 Utility action is the only way into the form, and the worn-identity edge means
 the cue still fires for whatever wears it next.
 
-**Rings landed as a collection loop (commit `a8ab166ee`).** Correction to the note
-below: the "291 ring refs" were `ring` inside `String` — there were **zero** rings.
-`author_speedway_ldtk.py` now places **35 rings** as `currency:1` pickups, so the
+**Rings landed as a collection loop (commit `a8ab166ee`).**
+`author_speedway_ldtk.py` places **35 rings** as `currency:1` pickups, so the
 shared economy does the work with no demo collection code: `magnetize_pickups` +
 `collect_ecs_pickups` credit the player's `BodyWallet` (the ring counter), spark,
 and ding (the demo voices `world.coin.pickup`, the id that loop emits). Rings
@@ -276,10 +193,9 @@ Deferred, in priority order:
   a brief render-held despawn is the follow-up. And the app loads the ring sheet
   by bypassing the asset catalog (smell #19: a per-game prop-catalog contribution
   seam is the elegant fix).
-- **Drop-on-hit scatter + super drain.** The `sanic.ring_loss` cue is authored
-  ahead. A badnik/spike hit should scatter rings (a natural home for the "lose
-  your rings" reaction) and a future super-form ring drain wears the form off the
-  same worn-identity seam the toggle uses.
+- **Super-form ring drain.** A future super-form ring drain wears the form off
+  the same worn-identity seam the toggle uses (`sanic.ring_loss` cue is authored
+  ahead). Drop-on-hit scatter itself has since landed — see above.
 - **50/100-ring milestones** (extra life / jingle), and a **swept high-speed
   collection** test — `collect_ecs_pickups` uses a per-frame overlap, so at Sonic
   velocities a ring can tunnel; the magnet's 130px range masks it for now, but the

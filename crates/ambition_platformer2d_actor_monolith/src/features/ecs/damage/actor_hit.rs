@@ -432,6 +432,7 @@ pub(crate) fn apply_actor_hit(
                 boss_hit,
                 Some(&k),
                 di_input_local,
+                em.ground.on_ground,
                 feel,
             );
             #[cfg(feature = "causal")]

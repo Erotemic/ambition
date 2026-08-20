@@ -1570,6 +1570,7 @@ fn a_hit_publishes_its_launch_where_the_motion_model_will_find_it() {
         false,
         Some(&knockback),
         ae::Vec2::ZERO,
+        false,
         feel,
     );
 
@@ -1607,6 +1608,7 @@ fn a_hit_with_no_knockback_publishes_no_launch() {
         false,
         None,
         ae::Vec2::ZERO,
+        false,
         Platformer2dFeelTuningMonolith::default(),
     );
 
@@ -1803,4 +1805,77 @@ fn an_unlimited_guard_is_not_pushed() {
     );
 
     assert_eq!(vel, ae::Vec2::ZERO);
+}
+
+/// Run one hit through the reaction and report the recoil lock it charged.
+fn meteor_reaction(
+    launch_dir: ae::Vec2,
+    grounded: bool,
+    feel: Platformer2dFeelTuningMonolith,
+) -> f32 {
+    let body = ae::Vec2::new(100.0, 150.0);
+    let knockback = crate::combat::HitKnockback {
+        dir: 1.0,
+        magnitude: crate::combat::HitKnockbackMagnitude::LaunchSpeed(300.0),
+        source_pos: body,
+        impact_pos: body,
+        launch_dir: Some(launch_dir),
+    };
+    let mut vel = ae::Vec2::ZERO;
+    let mut flight = ae::BodyFlightState::default();
+    let mut combat = BodyCombat::default();
+    apply_body_hit_reaction(
+        &mut vel,
+        &mut flight,
+        &mut combat,
+        body,
+        1.0,
+        ae::Vec2::new(0.0, 1.0),
+        false,
+        Some(&knockback),
+        ae::Vec2::ZERO,
+        grounded,
+        feel,
+    );
+    combat.recoil_lock_timer
+}
+
+/// **A SPIKE ON AN AIRBORNE BODY BUYS A LONGER SILENCE.**
+///
+/// ⛔ the mechanic, and what it is FOR: a launch that merely points down is a big
+/// hit; one you cannot answer on the way down is a kill. The genre's "meteor
+/// cancel" is this window ENDING, so there is no second verb to press and
+/// nothing here to trigger.
+#[test]
+fn a_downward_launch_on_an_airborne_body_locks_it_longer() {
+    let mut feel = Platformer2dFeelTuningMonolith::default();
+    feel.knockback_recoil_lock_time = 0.10;
+    feel.meteor_lock_time = 0.45;
+
+    // Body-local +y is toward the feet: straight down.
+    assert_eq!(
+        meteor_reaction(ae::Vec2::new(0.0, 1.0), false, feel),
+        0.45,
+        "an airborne spike took the ordinary recoil, so it is just a big hit"
+    );
+
+    // ⛔ **the floor, three ways.**
+    assert_eq!(
+        meteor_reaction(ae::Vec2::new(0.0, 1.0), true, feel),
+        0.10,
+        "a body standing on the floor was charged a recovery window for being \
+         driven into a floor it was already on"
+    );
+    assert_eq!(
+        meteor_reaction(ae::Vec2::new(0.0, -1.0), false, feel),
+        0.10,
+        "an UPWARD launch was treated as a meteor"
+    );
+    let mut off = feel;
+    off.meteor_lock_time = 0.0;
+    assert_eq!(
+        meteor_reaction(ae::Vec2::new(0.0, 1.0), false, off),
+        0.10,
+        "a game with no meteor rule got one anyway"
+    );
 }

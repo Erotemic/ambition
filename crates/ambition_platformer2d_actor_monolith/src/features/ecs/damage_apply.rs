@@ -892,6 +892,9 @@ pub(crate) fn apply_body_hit_reaction(
     knockback: Option<&crate::combat::HitKnockback>,
     // The struck body's held control (local frame) for DI (CM2). `ZERO` = none.
     di_input_local: ae::Vec2,
+    // **Is the victim standing on something?** Only for the meteor rule: a
+    // spike on a grounded body is not a spike.
+    grounded: bool,
     feel: Platformer2dFeelTuningMonolith,
 ) -> BodyReactionOutcome {
     // ONE tuning row for the whole reaction, so the launch and the hitstun
@@ -924,7 +927,25 @@ pub(crate) fn apply_body_hit_reaction(
     // thrown with no authority, then regains the attack verb the instant it
     // clears (while still in hitstun + i-frames). Fixed-length — the recoil is a
     // readable beat, not something that scales with how hard the hit was.
-    combat.recoil_lock_timer = feel.knockback_recoil_lock_time;
+    // ⭐⭐ **A METEOR IS THE SAME SILENCE, LONGER.** A launch that points along
+    // the victim's own gravity while it is AIRBORNE is a spike, and what makes a
+    // spike a kill rather than a big hit is that you cannot answer it on the way
+    // down. The window ending IS the genre's "meteor cancel"; there is no second
+    // verb to press.
+    //
+    // ⚠ a FLOOR under the ordinary recoil, never an addition, so a meteor is one
+    // silence of a stated length rather than two stacked. And airborne only: a
+    // body already standing on the floor is driven into a floor it is on, and
+    // charging it a recovery window for that would be a free stun.
+    let meteor = !grounded
+        && feel.meteor_lock_time > 0.0
+        && launch.dot(gravity_dir) > 0.0
+        && launch.length_squared() > 0.0;
+    combat.recoil_lock_timer = if meteor {
+        feel.knockback_recoil_lock_time.max(feel.meteor_lock_time)
+    } else {
+        feel.knockback_recoil_lock_time
+    };
     // ⭐ **the same freeze the ATTACKER takes**, from the same law — a landed hit
     // is one event. `max` because a body struck twice in a frame keeps the
     // longer pause rather than the last one written.
@@ -1034,6 +1055,7 @@ pub(crate) fn apply_player_knockback(
         boss_hit,
         knockback,
         di_input_local,
+        clusters.ground.on_ground,
         feel,
     );
     ae::refresh_movement_resources_clusters(

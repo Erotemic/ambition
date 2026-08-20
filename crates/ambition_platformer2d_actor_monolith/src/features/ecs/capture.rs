@@ -1743,6 +1743,10 @@ pub fn apply_capture_throws(
             // hold. Smash DI on throws is a real mechanic and it belongs with
             // the escape work, where a captive's restricted input channel exists.
             ae::Vec2::ZERO,
+            // ⚠ a thrown body is AIRBORNE by construction — the hold suspended
+            // its gravity and the release hands it back — so a downward throw is
+            // eligible for the meteor lock exactly like a spike is.
+            false,
             feel,
         );
     }

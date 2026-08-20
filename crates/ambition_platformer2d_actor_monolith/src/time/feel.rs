@@ -61,6 +61,21 @@ pub struct Platformer2dFeelTuningMonolith {
     /// Hollow-Knight "get bopped out, then fight back while flashing" feel.
     /// Distinct from hitstun (the longer, softer partial-movement window).
     pub knockback_recoil_lock_time: f32,
+    /// **THE METEOR LOCK** — how long a body spiked out of the AIR cannot
+    /// recover. `0.0` (the engine default) is no meteor rule at all, which is
+    /// what an exploration game wants: a downward hit there is a pogo or a
+    /// shove, not a sentence.
+    ///
+    /// ⭐ what the genre calls "meteor cancel" is this window ENDING. A spike
+    /// that merely launched you down would be a big hit; a spike you cannot
+    /// answer for a beat is a kill, and the beat is the whole mechanic. It is a
+    /// floor under [`Self::knockback_recoil_lock_time`], not an addition — a
+    /// meteor is a longer version of the same silence, not a second one.
+    ///
+    /// ⚠ AIRBORNE victims only. Spiking somebody standing on the floor drives
+    /// them into it and they are already there; charging them a recovery window
+    /// for it would be a free stun on a hit that did nothing.
+    pub meteor_lock_time: f32,
     /// Post-hit invulnerability after enemy/boss knockback.
     pub knockback_invulnerability_time: f32,
     /// Post-respawn invulnerability after lava/spike-style hazard recovery.
@@ -99,6 +114,7 @@ impl Default for Platformer2dFeelTuningMonolith {
             enemy_knockback_y: 260.0,
             boss_knockback_x: 460.0,
             boss_knockback_y: 330.0,
+            meteor_lock_time: 0.0,
             hitstun_control_scale: 0.18,
             enemy_hitstun_time: 0.24,
             boss_hitstun_time: 0.36,

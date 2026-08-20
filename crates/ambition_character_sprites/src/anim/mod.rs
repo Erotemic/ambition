@@ -248,6 +248,13 @@ pub fn body_state_clip(
     if facts.spot_dodging {
         return Some(&["spot_dodge", "crouch", "roll", "idle"]);
     }
+    // ⚠ LAST, because it is the least urgent thing a body can be doing and every
+    // state above it can overlap the squat's few frames. It is here at all
+    // because the squat is a COMMITMENT the player can see coming — the beat a
+    // short hop is decided in — and it drew the standing pose.
+    if facts.jump_squatting {
+        return Some(&["jump_squat", "crouch", "idle"]);
+    }
     None
 }
 
@@ -791,6 +798,23 @@ mod state_clip_tests {
             }),
             Some("grab_hold".to_string())
         );
+        assert_eq!(
+            head(&BodyMotionFacts {
+                jump_squatting: true,
+                ..Default::default()
+            }),
+            Some("jump_squat".to_string())
+        );
+        // ⛔ and it LOSES to everything: a body knocked down during its own
+        // squat is knocked down, not squatting.
+        assert_eq!(
+            head(&BodyMotionFacts {
+                jump_squatting: true,
+                knocked_down: true,
+                ..Default::default()
+            }),
+            Some("knockdown".to_string())
+        );
         // ⛔ and the priority poison: a body knocked down while STILL held is
         // held — the captor's pose owns it, the way `pick_body_anim` orders it.
         assert_eq!(
@@ -837,6 +861,10 @@ mod state_clip_tests {
             BodyMotionFacts {
                 dodge_rolling: true,
                 spot_dodging: true,
+                ..Default::default()
+            },
+            BodyMotionFacts {
+                jump_squatting: true,
                 ..Default::default()
             },
         ] {

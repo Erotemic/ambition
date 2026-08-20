@@ -31,6 +31,11 @@ pub struct LedgeFacts {
 pub struct BodyMotionFacts {
     /// An active dash is in flight.
     pub dashing: bool,
+    /// **The committed crouch before a jump leaves the ground.** A real state
+    /// with a real length ([`crate::MovementTuning::jump_squat_time`]) and, until
+    /// now, no way for a sheet to be asked for it — every fighter sheet in the
+    /// repo has drawn a `jump_squat` row the whole time.
+    pub jump_squatting: bool,
     /// Dodge-roll i-frames are active.
     pub dodge_rolling: bool,
     /// **The grounded evade is a SPOT DODGE, not a roll.** A refinement OF
@@ -120,6 +125,7 @@ impl BodyMotionFacts {
             // Answered above; an axis-swept body never crawls.
             adhesive_crawling: false,
             dashing: state.dash_timer > 0.0,
+            jump_squatting: state.jump_squat_timer > 0.0,
             dodge_rolling: state.dodge_roll_timer > 0.0,
             spot_dodging: state.dodge_roll_timer > 0.0 && state.spot_dodging,
             air_dodging: state.air_dodge_timer > 0.0,

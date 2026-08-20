@@ -6,6 +6,32 @@ before working it.
 
 `✔` shipped · `~` partial (named in the row) · `▢` absent from source
 
+## ⭐⭐ THE TARGET IS SMASH-*LIKE*, AND WHERE THE GAMES DIFFER THE ANSWER IS A KNOB
+
+**Jon, 2026-08-20, verbatim:**
+
+> Our point is to build a smash-like game, not exactly ultimate. It would be nice
+> if there was a set of knobs we could tune to reproduce ultimate, but it doesn't
+> have to be ultimate. Reproducing smash 4 or brawl, or melee (bugs are not
+> reuqired parity) would be nice too
+
+⇒ **so a `▢` here means "no knob covers this", NOT "we differ from Ultimate".**
+Where the games agree, a missing mechanic is research and you go and ship the
+standard. Where they DIFFER FROM EACH OTHER — and they differ constantly — the
+question is not *"which one is right"* but *"what is the knob, and what does each
+setting reproduce"*. Picking one throws the others away.
+
+```text
+perfect shield     PRESS-timed (Smash 4, and ours) | RELEASE-timed (Ultimate)
+```
+
+⇒ that pair is a KNOB on the declared-rules seam, and it was filed as a decision
+(§25) until this ruling reshaped it.
+
+⚠ **bugs are not required parity.** Melee's wavedash and L-cancel are artefacts
+of its physics rather than authored rules; reproducing Melee does not oblige
+reproducing them. A knob that spans the games spans their RULES.
+
 ⛔ **A `▢` IS A CLAIM WITH A GREP BEHIND IT, OR IT IS NOT A ROW.** This table's
 first pass filed eight features as missing that ship — tech, ledge-jump getup,
 the short hop, and five sprite rows the picker already selects — because it was
@@ -25,7 +51,7 @@ you add a `▢`, and before you work one.
 | Shield pushback (a blocked hit costs the blocker space) | ✔ | `ShieldTuning::pushback_per_damage`, applied inside the block via `GuardUnderFire` |
 | Shield shrink → poke (a spent guard exposes the head and feet) | ✔ | `ShieldTuning::min_coverage`, `combat::util::guard_covers_hit` |
 | Shield-drop lag | ▢ | — |
-| Parry (perfect-shield window) | ✔ | `BodyShieldState::parrying` — ⚠ PRESS-timed (Smash 4's); Ultimate's is RELEASE-timed, asked as `awaiting-maintainer-decision.md` §25 |
+| Parry (perfect-shield window) | ~ | `BodyShieldState::parrying` — PRESS-timed only (Smash 4's). Ultimate's RELEASE-timed reading is the other setting of a knob that does not exist yet; §25 ruled it a knob rather than a swap |
 | Ground dodge roll, air dodge (once per airtime) | ✔ | `BodyDodgeState`, `AxisManeuverState::dodge_roll_timer` |
 | Tumble → knockdown → tech → getup (roll / attack / stand) | ✔ | `core/movement/knockdown.rs` |
 | Wall tech | ✔ | `knockdown::tick_knockdown` reads `BodyWallState`; `WALL_TECH_SPEED` pushes off the normal |
@@ -115,6 +141,57 @@ you add a `▢`, and before you work one.
 | Grab / pummel / throw cues | ✔ | `smash_capture`: the reach, the impact and the release each burst |
 | Parry cue | ▢ | — |
 
+## ⛔⛔ HALF THE SHEET IS ART NOTHING CAN ASK FOR
+
+Measured 2026-08-20 — Carl's published sheet against every string literal in
+`crates/` and `game/`:
+
+```text
+133 rows drawn        66 of them mentioned NOWHERE in the code
+```
+
+⭐ **and that is ONE gap, not sixty-six.** A large group of the sixty-six names a
+state the engine ALREADY HAS and simply never asks a sheet about:
+
+```text
+jump_squat                  AxisManeuverState::jump_squat_timer   ✔ asked, 2026-08-20
+wall_tech · wall_tech_jump  landed the same day; the tech does not say WHICH surface
+footstool_jump              MovementOp::Footstool fires; a one-tick op has no FACT
+launch                      the first beat of a tumble, distinct from `tumble`
+parry · shield_raise
+· shield_release
+· shield_hit                BodyShieldState has all four states
+shield_break_launch
+· _fall · _collapse
+· _recover                  ONE `break_timer` covers a four-beat sequence
+ledge_catch · ledge_drop
+· ledge_jump · ledge_attack  LedgeGetupKind and MovementOp::LedgeJump exist
+getup_attack · getup_roll
+· tech_roll                 the anim doc already names why: ONE
+                            `getup_invulnerable` flag, so the sim has not made
+                            the distinction the rows draw
+turnaround · teeter
+· walk_stop · crouch_start
+· crouch_end · stumble      locomotion detail with no published fact
+smash_charge                MoveSpec::smash_charge_mult exists
+grabbed_pummel
+· grab_escape              capture states with no fact on the CAPTIVE
+platform_drop               drop-through ships
+prone_damage · ground_bounce
+· splat · roll_back         floor-game detail
+```
+
+⚠ **the rest are genuinely unreachable** and should stay that way until a
+mechanic wants them: bury, trip, item handling (`item_pickup` through
+`item_throw`), sleep, stamina, and Carl's own flavour rows (`stargaze`,
+`use_telescope`, `cosmic_drift`).
+
+⇒ **the pattern this branch hit five times is systemic**: `grabbed`, `pummel`,
+`dizzy`, `spot_dodge` and `dash_attack` were all drawn and never requested. The
+fix each time was one row in `body_state_clip` or one verb in `bound()`, never a
+frame of art. ⛔ **so "the sprite is missing" should be the LAST hypothesis**,
+after "nothing asks for it".
+
 ## The rest of Ultimate's list
 
 The mechanics above are the ones a platform fighter needs to feel like one.
@@ -140,9 +217,9 @@ wavebounce · fast-fall out of a bounce.
 a rapid-jab finisher · charge storage · a two-frame ledge-vulnerability window ·
 z-drop and item throws · edge-cancel.
 
-**Defense.** Perfect shield as a RELEASE-timed parry — ⛔ ASKED, not skipped:
-`awaiting-maintainer-decision.md` §25, because ours is Smash 4's press-timed
-parry and BOTH are shipped genre standards · shield tilt to cover a limb · shield-drop into an aerial ·
+**Defense.** Perfect shield as a RELEASE-timed parry — ⭐ RULED A KNOB (§25):
+ours is Smash 4's press-timed parry, Ultimate's is release-timed, and both are
+settings a stage declares rather than a choice to make once · shield tilt to cover a limb · shield-drop into an aerial ·
 directional-influence variants (SDI, ASDI, hitfall).
 
 **Match surface.** Time, stamina and coin rulesets · sudden death · handicap ·

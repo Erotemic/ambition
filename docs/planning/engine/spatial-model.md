@@ -218,28 +218,18 @@ converter). Converter + LDtk entity def + validator row follow the
 (required), `orientation` (default `FloorToRightWall`), `segments` (default 8).
 
 **The winding is DERIVED, not tabulated — one code path for four orientations.**
-The doc forbids hand-deriving the sign per case, and it is right to. A fillet's
-outward normal points from the arc toward its center, so `surface_ramp_points`
-emits the base table, then reverses the list when the first segment's
-`normal = (t.y, −t.x)` points the other way. Two of the four orientations reverse.
+A fillet's outward normal points from the arc toward its center, so
+`surface_ramp_points` emits the base table, then reverses the list when the
+first segment's `normal = (t.y, −t.x)` points the other way. Two of the four
+orientations reverse.
 
-**The winding oracle rides each of the four**, under C4 gravity conjugation (a
-ramp's local "down" is the opposite of its flat surface's outward normal), and
-asserts the body leaves along the WALL rather than along the flat. It found two
-things that inspection would not have:
-
-1. **A latent kernel bug.** `advance_riding` nudged past a joint by a fixed
-   `1e-4`, which is under one f32 ULP once arc length passes ~800px (the ULP at
-   857 is 6.1e-5). On a long chain the nudge rounded back to the joint,
-   `frame_at` kept resolving the segment that STARTS there, `to_join` stayed 0,
-   and the bounded walk spun out. **The body froze on the joint, still `Riding`,
-   still carrying its velocity** — which is why it read as a physics puzzle
-   rather than a rounding bug. Fixed (`joint_nudge` is relative now) with a
-   regression test in `ambition_platformer2d_core::movement::surface_momentum`. The valley tests never
-   caught it: their joints sit at s ≈ 500, where `1e-4` is comfortably many ULPs.
-2. **`SurfaceInputs::run` is along the CHAIN's tangent, not world `+x`.** Holding
-   the stick "toward the corner" in world coordinates braked the ceiling cases to
-   a stop. Obvious in hindsight; invisible in the arc table.
+The winding oracle (a 4-case test riding each orientation under C4 gravity
+conjugation) caught two bugs inspection wouldn't have: a joint-nudge constant
+that was under one f32 ULP on long chains, freezing the body mid-`Riding`
+(fixed by making `joint_nudge` relative; regression test in
+`ambition_platformer2d_core::movement::surface_momentum`); and
+`SurfaceInputs::run` being along the chain's tangent rather than world `+x`,
+which braked the ceiling cases to a stop.
 
 Still owed: the LDtk entity def + validator row (`ldtk_tools def`), which land
 with the first level that authors a ramp.

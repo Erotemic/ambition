@@ -274,17 +274,20 @@ and leaves the values rough; tuning is not this lane's licence.
 7. **What the 2026-08-20 review left open.** ~~Dash attack keyed to the wrong
    state~~ and ~~the footstool claim's lifetime~~ landed the same day; three
    items did not:
-   - **Stale-move accounting counts CONTACTS, not USES.** `record_landed_moves`
-     reads one `LandedBodyHit` per body hit, so one swing that catches two
-     fighters stales the move twice. `MovePlayback::landed_hit`'s false→true
-     transition already means *this use connected* — fold the recording into it
-     and the separate `Settle` system disappears.
-   - **`BodyStaleMoves` lives in the movement core and is registered under the
-     ENGINE rollback domain**, so every body in every composition rewinds a
-     nine-slot combat history. Only `ambition_combat` reads it, and combat owns
-     its own registration seam. `#[require]` on `ActorMoveset` would attach it
-     to exactly the bodies that can land a move.
-   - **The shared evade control is still called `Dash`.** `action_scheme.rs`
+   - ~~**Stale-move accounting counts CONTACTS, not USES.**~~ Landed 2026-08-20
+     (v55): the recording folds into `mark_move_playback_landed_hits`'s
+     false→true edge, which already meant *this use connected* for the
+     OnHit/OnWhiff cancels, and the separate `Settle` system is deleted. A swing
+     that catches two fighters staled the move twice.
+   - ~~**`BodyStaleMoves` lives in the movement core**~~ — moved to
+     `ambition_combat::stale` and registered as `combat.stale_moves` by combat's
+     own seam (v55). `ActorMoveset` `#[require]`s it, so the bodies carrying a
+     nine-slot history are the bodies that can land a move rather than every
+     body in every platformer composition. ⚠ the behaviour was always opt-in
+     through `stale_step`; a rule being switchable was never a reason for its
+     STORAGE to be global.
+   - **The shared evade control is still called `Dash`** — ⚠ TAKEN by the
+     main lane 2026-08-20, not this one's to work. `action_scheme.rs`
      derives `ControlSlot::Dash` from `abilities.dash || abilities.dodge`, so a
      Smash fighter — `dash: false`, `dodge: true` — puts a **Dash** button on
      the touch overlay for a body that has no traversal dash. The kernel is

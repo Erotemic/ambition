@@ -162,32 +162,6 @@ snapshot_pod!(crate::body_clusters::BodyDodgeState {
     air_dodge_spent: bool
 });
 
-/// **The stale ring, by hand, because `snapshot_pod!` cannot spell an array.**
-///
-/// That macro maps a field to a READER METHOD, and there is none for `[u32; 9]`.
-/// Written out rather than flattened into nine named fields so the ring stays a
-/// ring — and the explicit `[0u32; 9]` on the decode side is what the codec-shape
-/// checker reads as the width.
-impl SnapshotState for crate::body_clusters::BodyStaleMoves {
-    fn encode(&self, out: &mut Vec<u8>) {
-        for slot in self.recent {
-            put_u32(out, slot);
-        }
-        put_u8(out, self.next);
-    }
-
-    fn decode(r: &mut Reader<'_>) -> Option<Self> {
-        let mut recent = [0u32; 9];
-        for slot in recent.iter_mut() {
-            *slot = r.u32()?;
-        }
-        Some(Self {
-            recent,
-            next: r.u8()?,
-        })
-    }
-}
-
 snapshot_pod!(crate::body_clusters::BodyShieldState {
     active: bool,
     parry_window_timer: f32,

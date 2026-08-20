@@ -773,17 +773,6 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             ambition_platformer2d::actors::features::ecs::ledge_trump::resolve_ledge_trumps
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle),
         );
-        // **Staling is recorded in `Settle`, after the hits it remembers.**
-        // ⛔ it must run AFTER `Resolve`, not inside it: the resolver holds the
-        // victim query and the attacker's queue lives on a body in that same
-        // set, so writing there would need a `ParamSet` around the whole
-        // resolution to store one `u32`. `LandedBodyHit` already names the
-        // attacker and already exists.
-        app.add_systems(
-            sim,
-            ambition_platformer2d::combat::hitbox::record_landed_moves
-                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle),
-        );
         // **A capture ends in `Settle`, where post-damage bookkeeping belongs.**
         // Hitstun and the recoil lock are written by damage resolution in
         // `Resolve`, so a release that ran earlier would read last tick's answer

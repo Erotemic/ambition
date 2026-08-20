@@ -319,6 +319,22 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// it also moved `ambition_cutscene` and `ambition_demo_twintrack`, which is the
 /// instrument CHANGING and NOT a wire change in either: neither file was edited.
 ///
+/// ⚠ **v55 (2026-08-20) MOVES `BodyStaleMoves` from the ENGINE domain to
+/// COMBAT's**: `body.stale_moves` becomes `combat.stale_moves`, owned by
+/// `ambition_combat`. The component's ENCODING is byte-identical — this is a
+/// stable-KEY change and nothing else — but the key is part of the schema
+/// fingerprint, so it bumps and the baseline re-records.
+/// ⛔ **the state was global because the TYPE was, not because the rule was.**
+/// Staling has always been opt-in through `DeclaredCombatRules::stale_step`, yet
+/// the nine-slot ring rode the generic ancillary MOVEMENT bundle, so every body
+/// in every platformer composition rewound a history of landed combat moves and
+/// the movement kernel never read a field of it. `ActorMoveset` now
+/// `#[require]`s it, so the bodies that carry a history are the bodies that can
+/// land a move.
+/// ⚠ **and the accounting changed with it**: the recording folds into
+/// `mark_move_playback_landed_hits`'s false→true edge, so one move USE counts
+/// once. `LandedBodyHit` is per body CONTACT, and the `Settle` recorder this
+/// deletes staled a swing twice for catching two fighters.
 /// ⚠ **v54 (2026-08-20) is the GAIT: `AxisManeuverState::running` plus
 /// `AxisLocomotion::run_commit_frac`** — one bool in the maneuver run and one
 /// float in the params run, so both halves of the motion codec move.
@@ -417,7 +433,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// commit; a rename moves no bytes, and the codec's four extra primitives are
 /// the two new fields alone.
 /// ⚠ **v46 (2026-08-20) is `BodyStaleMoves`**, a NEW rollback component
-/// (`body.stale_moves`): nine `u32` slots and a cursor, remembering what this
+/// (`body.stale_moves` — ⛔ RENAMED to `combat.stale_moves` at v55, which is
+/// also where it stopped being ENGINE-owned): nine `u32` slots and a cursor, remembering what this
 /// body last LANDED so a repeated move is worth less. Both a new stable key and
 /// a new payload behind it.
 /// ⭐ **hashes rather than move ids, and that is what makes it snapshot state at
@@ -553,7 +570,7 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// `message.spawn_projectile` keeps its stable key while its concrete message
 /// becomes `ProjectileSpawnRequest`, so abandoned-future spawn requests remain
 /// cleared on load through the same wire identity.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 54;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 55;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

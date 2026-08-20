@@ -473,7 +473,13 @@ impl MovePlayback {
 /// move (fable review 2026-07-02 §A1, Path B: prove the moveset on a real actor
 /// before folding the boss onto it). The boss fold reuses the SAME trigger +
 /// dispatch — a boss is an actor whose repertoire happens to be large.
+/// ⭐ **A BODY THAT CAN LAND A MOVE CARRIES THE HISTORY OF THE ONES IT LANDED.**
+/// [`crate::stale::BodyStaleMoves`] used to ride the generic ancillary MOVEMENT
+/// bundle, so a body that could not attack at all still rewound nine slots of
+/// combat history. Requiring it here attaches it to exactly the population that
+/// can fill it, and no spawn road has to remember.
 #[derive(Component, Debug, Clone)]
+#[require(crate::stale::BodyStaleMoves)]
 pub struct ActorMoveset(pub MovesetContract);
 
 /// Which move window a spawned strike volume belongs to.
@@ -1636,11 +1642,29 @@ pub fn trigger_moveset_moves(
 /// resolution seam.
 pub fn mark_move_playback_landed_hits(
     mut landed_hits: MessageReader<crate::hitbox::LandedBodyHit>,
-    mut playbacks: Query<&mut MovePlayback>,
+    mut playbacks: Query<(&mut MovePlayback, Option<&mut crate::stale::BodyStaleMoves>)>,
 ) {
     for landed in landed_hits.read() {
-        if let Ok(mut pb) = playbacks.get_mut(landed.attacker) {
+        let Ok((mut pb, queue)) = playbacks.get_mut(landed.attacker) else {
+            continue;
+        };
+        // ⭐⭐ **THE FALSE→TRUE EDGE IS ONE MOVE USE CONNECTING**, and staling is
+        // counted on it rather than on the message.
+        //
+        // ⛔ `LandedBodyHit` is emitted once per BODY CONTACT, so the separate
+        // `Settle` recorder this replaces stale a swing TWICE for catching two
+        // fighters — the queue's own doc calls itself the moves this body
+        // landed, and one swing is one landing. A move that connects with three
+        // opponents has been used once.
+        //
+        // ⚠ one authority for "this use connected" and one consumer of it: the
+        // playback already had to carry the fact for OnHit/OnWhiff cancels, and
+        // `MovePlayback` is rollback state, so the edge survives a rewind.
+        if !pb.landed_hit {
             pb.landed_hit = true;
+            if let Some(mut queue) = queue {
+                queue.record(crate::stale::stale_move_hash(&pb.spec.id));
+            }
         }
     }
 }

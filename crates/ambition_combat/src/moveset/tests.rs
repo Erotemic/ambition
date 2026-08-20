@@ -468,6 +468,109 @@ fn player_robot_slash_overlay_preserves_authored_sfx() {
 
 /// The seed move: SwipeSpec-as-data (0.28 windup / 0.08 active with one
 /// forward rect volume / recovery), one timed Sfx event on the swing.
+/// **ONE MOVE USE STALES ONCE, WHATEVER IT CATCHES.**
+///
+/// ⛔⛔ **`LandedBodyHit` is emitted once per BODY CONTACT**, and the recorder
+/// this replaces read that message stream directly — so a swing that caught two
+/// fighters went into the stale ring TWICE and a move used once came back
+/// weakened as if it had been used twice. The queue's own doc calls itself *the
+/// last few moves this body LANDED*, and one swing is one landing.
+///
+/// ⭐ **the false→true edge of `MovePlayback::landed_hit` already meant exactly
+/// "this use connected"** — it had to, for the OnHit/OnWhiff cancel windows — so
+/// counting there needs no new state and no second system.
+///
+/// ⚠ **the second half is the poison.** A recorder that simply refused to
+/// record twice ever would satisfy the first assertion and break the mechanic:
+/// staling is per USE, so throwing the same move again has to count again.
+#[test]
+fn a_swing_that_catches_two_bodies_stales_the_move_once() {
+    let mut app = App::new();
+    app.add_message::<crate::hitbox::LandedBodyHit>();
+    app.add_systems(Update, mark_move_playback_landed_hits);
+
+    let attacker = app
+        .world_mut()
+        .spawn((
+            MovePlayback::new(swat(), 1.0),
+            crate::stale::BodyStaleMoves::default(),
+        ))
+        .id();
+    let hitbox = app.world_mut().spawn_empty().id();
+    let hash = crate::stale::stale_move_hash("swat");
+
+    let land_on = |app: &mut App, victims: usize| {
+        for _ in 0..victims {
+            let victim = app.world_mut().spawn_empty().id();
+            app.world_mut().write_message(crate::hitbox::LandedBodyHit {
+                hitbox,
+                attacker,
+                victim,
+                volume: ae::CombatVolume::Circle {
+                    center: ae::Vec2::ZERO,
+                    radius: 8.0,
+                },
+                contact: ae::Vec2::ZERO,
+            });
+        }
+        app.update();
+    };
+    let worn = |app: &App| {
+        app.world()
+            .get::<crate::stale::BodyStaleMoves>(attacker)
+            .expect("the attacker kept its stale ring")
+            .occurrences(hash)
+    };
+
+    // ONE swing, TWO bodies.
+    land_on(&mut app, 2);
+    assert_eq!(
+        worn(&app),
+        1,
+        "a swing that caught two fighters staled the move twice — staling counts \
+         move USES, and one swing is one use however many it reaches"
+    );
+
+    // ⛔ a SECOND use of the same move, and it must count again.
+    app.world_mut()
+        .entity_mut(attacker)
+        .insert(MovePlayback::new(swat(), 1.0));
+    land_on(&mut app, 1);
+    assert_eq!(
+        worn(&app),
+        2,
+        "throwing the same move a second time did not wear it further, so the \
+         recorder is one-shot rather than per-use"
+    );
+}
+
+/// **A BODY THAT CAN LAND A MOVE CARRIES THE HISTORY OF THE ONES IT LANDED.**
+///
+/// ⛔ the ring used to ride the generic ancillary MOVEMENT bundle, so a body
+/// that could not attack still rewound nine slots of combat history. Attaching
+/// it through `#[require]` on the moveset carrier is what lets it leave that
+/// bundle without any spawn road having to remember it — and there are two of
+/// those roads, which is exactly how a carry list starts.
+#[test]
+fn a_moveset_brings_its_own_stale_ring() {
+    let mut app = App::new();
+    let body = app
+        .world_mut()
+        .spawn(ActorMoveset(Default::default()))
+        .id();
+    assert!(
+        app.world().get::<crate::stale::BodyStaleMoves>(body).is_some(),
+        "inserting a moveset did not bring the stale ring, so staling is silently \
+         off for every body whose spawn road does not name it"
+    );
+    // ⚠ and the floor: a body with no moveset does not pay for one.
+    let bare = app.world_mut().spawn_empty().id();
+    assert!(
+        app.world().get::<crate::stale::BodyStaleMoves>(bare).is_none(),
+        "a body that cannot attack is carrying combat history anyway"
+    );
+}
+
 fn swat() -> MoveSpec {
     let doc = ambition_entity_catalog::EntityCatalogDoc::parse(
         r#"(

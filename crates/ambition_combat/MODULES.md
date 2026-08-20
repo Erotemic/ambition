@@ -26,13 +26,14 @@
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by `ambition_combat`. |
 | [`rules`](src/rules.rs) | **The combat rules a match plays under — resolved, not borrowed.** (AE6) |
 | [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotState` for this crate's own types — the rollback wire format. |
+| [`stale`](src/stale.rs) | **Move staling** — the history that makes a repeated answer worth less. |
 | [`stocks`](src/stocks.rs) | **Stocks: the loop a KO'd fighter actually goes round.** (S4 part 1) |
 | [`strike`](src/strike.rs) | **The live strike: the authoritative damage volume and its lifecycle state.** |
 | [`targeting`](src/targeting.rs) | Per-frame `ActorTarget` selection for non-player actors. |
 | [`util`](src/util.rs) | Grab-bag of small feature-side helpers — not a cohesive subsystem. |
 | [`variation`](src/variation.rs) | Stable per-actor variation helpers for ECS feature actors. |
 
-_25 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_26 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

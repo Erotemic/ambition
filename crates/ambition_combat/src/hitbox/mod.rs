@@ -323,7 +323,7 @@ pub fn apply_hitbox_damage(
     attacker_health: Query<&ambition_characters::actor::BodyHealth>,
     // The swing owner's stale queue and the move it is executing, so a repeated
     // answer is worth less. Read-only, looked up by owner, like the three above.
-    attacker_stale: Query<&ae::BodyStaleMoves>,
+    attacker_stale: Query<&crate::stale::BodyStaleMoves>,
     attacker_playback: Query<&crate::moveset::MovePlayback>,
     // The attacker's own move state, read for ONE thing: the per-strike dedup
     // accumulator that keeps a multi-tick Active window from re-smashing the same
@@ -461,7 +461,7 @@ pub fn apply_hitbox_damage(
                         attacker_stale.get(hitbox.owner),
                     ) {
                         (Ok(playback), Ok(queue)) => {
-                            queue.occurrences(ae::stale_move_hash(&playback.spec.id))
+                            queue.occurrences(crate::stale::stale_move_hash(&playback.spec.id))
                         }
                         // A body with no live move or no queue has thrown nothing
                         // to wear out.
@@ -592,36 +592,6 @@ pub fn apply_hitbox_damage(
             // These sides were consumed by `melee_source` and continued above.
             HitSide::Enemy | HitSide::Boss | HitSide::Npc => unreachable!(),
         }
-    }
-}
-
-/// Advance every hitbox's lifetime by `world_time.sim_dt()` and
-/// despawn the ones that hit zero. Sim-clock so bullet-time freezes
-/// in-flight hitboxes alongside the rest of combat (ADR 0010).
-/// **Remember what just LANDED, so the next throw of it is worth less.**
-///
-/// ⛔ **a separate system reading `LandedBodyHit`, not a write at the hit site**,
-/// and the reason is a borrow rather than taste: the resolver holds the victim
-/// query, and the attacker's queue lives on a body in that same set. Recording
-/// there would need a `ParamSet` around the whole resolution to write one `u32`.
-/// The landed-hit message already exists and already names the attacker.
-///
-/// ⚠ **what is recorded is what LANDED.** A whiffed move is not stale — staling
-/// exists to stop one good answer being the only answer, and a move that missed
-/// did not answer anything.
-pub fn record_landed_moves(
-    mut landed: bevy::prelude::MessageReader<LandedBodyHit>,
-    playbacks: Query<&crate::moveset::MovePlayback>,
-    mut queues: Query<&mut ae::BodyStaleMoves>,
-) {
-    for hit in landed.read() {
-        let Ok(playback) = playbacks.get(hit.attacker) else {
-            continue;
-        };
-        let Ok(mut queue) = queues.get_mut(hit.attacker) else {
-            continue;
-        };
-        queue.record(ae::stale_move_hash(&playback.spec.id));
     }
 }
 

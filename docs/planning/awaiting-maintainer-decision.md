@@ -41,7 +41,7 @@ investigation that led to the question. Same rule as
 [`README.md`](README.md#queue-contract); on 2026-08-17 this file was **739 lines
 for 9 open questions**, and the four answered ones held a third of it.
 
-## Open decisions — 17 (§1, §6, §7, §9, §10, §11, §12 and §13 are ANSWERED; §8 is DEFERRED)
+## Open decisions — 15 (§1, §6, §7, §9, §10, §11, §12, §13, §22 and §25 are ANSWERED; §8 is DEFERRED)
 
 ### 1. ✔ ANSWERED 2026-08-17 — a bolt hits what a sword hits (former D23)
 
@@ -1139,7 +1139,40 @@ rather than as a bug.
 body-vs-body entirely and jostle should not be built? ⛔ not answered by refactor
 — I have left the row `▢` rather than guessing at a rule Jon stated twice.
 
-### 25. ▢ NEW 2026-08-20 — our perfect shield is timed on the PRESS; Ultimate moved it to the RELEASE
+### 25. ✔ ANSWERED 2026-08-20 — the parry timing is a KNOB, because the target is smash-LIKE and not Ultimate
+
+⭐⭐ **JON, 2026-08-20, verbatim:**
+
+> Our point is to build a smash-like game, not exactly ultimate. It would be nice
+> if there was a set of knobs we could tune to reproduce ultimate, but it doesn't
+> have to be ultimate. Reproducing smash 4 or brawl, or melee (bugs are not
+> reuqired parity) would be nice too
+
+⇒ **the question was the wrong SHAPE and the answer is neither option.** Ours is
+press-timed (Smash 4's), Ultimate's is release-timed, and the ruling is that both
+are settings of ONE declared knob — a stage picks which game it reproduces.
+
+⛔ **and this generalises past the parry.** *"Which does the genre do"* is the
+wrong question wherever the games differ FROM EACH OTHER; the right one is *"what
+is the knob, and what does each setting reproduce"*. Everything filed under that
+heading — and the whole `smash-parity-inventory` frontier list — should be read
+that way from here.
+
+⚠ **bugs are not required parity.** Melee's wavedash and L-cancel are artefacts
+of its physics rather than authored rules; reproducing Melee does not mean
+reproducing them.
+
+⭐ **and the follow-up, same day, verbatim:**
+
+> Note, if ultimate does it I do want a setting for get ultimate, so release
+> style shielding is in scope as an option.
+
+⇒ **so the release-timed parry is not merely permitted, it is WANTED** — the knob
+ships with both settings rather than shipping with one and a note about the
+other. ⚠ the general rule that follows: *"Ultimate does it"* is sufficient reason
+for a SETTING to exist, whatever the default ends up being.
+
+### The original question, kept as the argument for the two settings
 
 **What we have.** `resolve_shield` arms `BodyShieldState::parry_window_timer` on
 the guard's RISING EDGE, and `parrying()` is `active && parry_window_timer > 0.0`
@@ -1167,9 +1200,8 @@ frames when the shield is DOWN — so the term that separates a parry from a hel
 shield would have to move, and `vulnerability_gate_tests` asserts that term by
 name.
 
-⇒ **the question**: keep the press-timed parry, or move it to the release? ⛔ left
-as-is pending an answer rather than changed under the "genre research" licence —
-changing a working feel behaviour is not the same as adding a missing one.
+⇒ **ANSWERED above**: neither — it becomes the parry-timing knob, and the two
+readings above are its two settings rather than two candidates.
 
 ## ✔ CLOSED 2026-08-15 — every submodule remote is reachable and current
 

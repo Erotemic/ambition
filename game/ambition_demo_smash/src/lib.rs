@@ -383,6 +383,14 @@ pub const SMASH_FIGHTER_BODY: ambition_platformer2d::engine_core::MatchBody =
         // choice. The engine default is `0.0`: an exploration body keeps the
         // roll that press already means.
         spot_dodge_time: ambition_platformer2d::engine_core::SPOT_DODGE_TIME,
+        // ⭐ **WHICH GAME'S PERFECT SHIELD.** Smash 4 opens the window on the
+        // press and Ultimate on the release, and the stage declares which — the
+        // engine has no opinion. This stage plays the press-timed one for now
+        // because it is what shipped; flipping it to `OnRelease` is a one-word
+        // edit and the other setting is fully live (`resolve_shield`'s
+        // `OnRelease` arm, guarded by
+        // `the_parry_window_opens_where_the_ruleset_says_it_does`).
+        parry_timing: ambition_platformer2d::engine_core::ParryTiming::OnRaise,
         tumble_speed: 500.0,
         // ⭐ **SDI, 3px a hitlag tick.** DI already lets a launched fighter bend
         // where it is thrown; this is the other half — shifting out of the NEXT

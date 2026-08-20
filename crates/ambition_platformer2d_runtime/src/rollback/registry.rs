@@ -319,6 +319,23 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// it also moved `ambition_cutscene` and `ambition_demo_twintrack`, which is the
 /// instrument CHANGING and NOT a wire change in either: neither file was edited.
 ///
+/// ⚠ **v52 (2026-08-20) is `MovementTuning::parry_timing`**, one DISCRIMINANT in
+/// the motion codec, put and read as a hand-written `put_u8`.
+/// ⭐⭐ **the first knob shipped under Jon's smash-LIKE ruling** (2026-08-20):
+/// *"It would be nice if there was a set of knobs we could tune to reproduce
+/// ultimate"* and *"if ultimate does it I do want a setting for get ultimate, so
+/// release style shielding is in scope as an option."* Smash 4 opens the
+/// perfect-shield window on the PRESS and Ultimate on the RELEASE; both are now
+/// settings a stage declares, and `OnRaise` is the default so no shipped body's
+/// feel moved.
+/// ⛔ `BodyShieldState::parrying()` lost its `active &&` term to make the second
+/// setting reachable at all — a release-timed window is live while the guard is
+/// DOWN. The term is not lost, only moved: `resolve_shield` is the one place the
+/// timer is armed, and only a guard that was UP can be released.
+/// ⚠ **a hand-written `put_u8` of a discriminant is NOT what
+/// `snapshot_unit_enum!` folds**, so `rollback_codec_shape.py` sees this as one
+/// more primitive and nothing about the variant set. Adding a THIRD timing later
+/// would move no token — the claim lives here.
 /// ⚠ **v51 (2026-08-20) is the SPOT DODGE**, and it moves THREE things:
 ///
 /// ```text
@@ -517,7 +534,7 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// `message.spawn_projectile` keeps its stable key while its concrete message
 /// becomes `ProjectileSpawnRequest`, so abandoned-future spawn requests remain
 /// cleared on load through the same wire identity.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 51;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 52;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

@@ -131,6 +131,34 @@ pub const AIR_DODGE_ENDLAG: f32 = 0.16;
 /// Parry window: full invulnerability during the first moments of shield activation.
 pub const PARRY_WINDOW_TIME: f32 = 0.15;
 
+/// **WHEN THE PERFECT-SHIELD WINDOW OPENS** — and the two settings are two
+/// GAMES, not two candidates.
+///
+/// ⭐⭐ **Jon, 2026-08-20**: *"Our point is to build a smash-like game, not
+/// exactly ultimate. It would be nice if there was a set of knobs we could tune
+/// to reproduce ultimate"* and *"if ultimate does it I do want a setting for get
+/// ultimate, so release style shielding is in scope as an option."* ⇒ where the
+/// games differ from EACH OTHER the answer is a knob; picking one throws the
+/// other away.
+///
+/// ```text
+/// OnRaise    Smash 4's, and ours since the parry existed
+/// OnRelease  Ultimate's — it moved the perfect shield off the press
+/// ```
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ParryTiming {
+    /// **The window opens when the guard GOES UP.** Rewards a read made BEFORE
+    /// the hit: commit early, be right. The default, so no existing body's feel
+    /// changes.
+    #[default]
+    OnRaise,
+    /// **The window opens when the guard COMES DOWN.** Makes the shield a
+    /// two-decision object — you raise it under pressure and then time the drop
+    /// — so a defender inside a multi-hit string is choosing every beat rather
+    /// than once at the start. Ultimate's stated reason for moving it.
+    OnRelease,
+}
+
 /// Ledge momentum-carry defaults. See [`LedgeMomentumTuning`] for the
 /// per-field semantics. Tuned for Jon's "moving → grab → quick getup
 /// gives a boost; sitting still on the ledge does not" feel:
@@ -406,6 +434,10 @@ pub struct MovementTuning {
     /// which is what every body had before a fighter wanted the other option.
     #[serde(default)]
     pub spot_dodge_time: f32,
+    /// **When this body's perfect-shield window opens.** See [`ParryTiming`] —
+    /// the two settings are Smash 4's and Ultimate's.
+    #[serde(default)]
+    pub parry_timing: ParryTiming,
     /// **SMASH DIRECTIONAL INFLUENCE** — how far this body may shift itself per
     /// tick of HITLAG, in px. `0.0` (the default) = no SDI, which is every body
     /// until one authors a fighter.
@@ -660,6 +692,9 @@ pub struct TraversalAbilityTuning {
     /// See [`MovementTuning::spot_dodge_time`].
     #[serde(default)]
     pub spot_dodge_time: f32,
+    /// See [`MovementTuning::parry_timing`].
+    #[serde(default)]
+    pub parry_timing: ParryTiming,
     /// See [`TraversalAbilityTuning::sdi_step`].
     #[serde(default)]
     pub sdi_step: f32,
@@ -933,6 +968,7 @@ impl MovementTuning {
                 air_dodge_endlag: self.air_dodge_endlag,
                 tumble_speed: self.tumble_speed,
                 spot_dodge_time: self.spot_dodge_time,
+                parry_timing: self.parry_timing,
                 sdi_step: self.sdi_step,
                 parry_window_time: self.parry_window_time,
                 shield: self.shield,
@@ -1030,6 +1066,9 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     // ⛔ zero for the same reason: an exploration body's grounded evade is the
     // roll, and a second one it never asked for would take that press away.
     spot_dodge_time: 0.0,
+    // ⚠ Smash 4's, which is what the parry has always been here — a knob's
+    // default is the behaviour that already shipped.
+    parry_timing: ParryTiming::OnRaise,
     // ⛔ zero for the same reason: a body that cannot be launched has nothing to
     // influence its way out of.
     sdi_step: 0.0,

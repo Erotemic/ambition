@@ -295,6 +295,10 @@ pub fn resolve_shield(
     dash_active: bool,
     shield_held: bool,
     parry_window_time: f32,
+    // **WHICH GAME'S PERFECT SHIELD this body plays with.** See
+    // [`crate::ParryTiming`] — Smash 4 opens the window on the press, Ultimate on
+    // the release, and both are settings rather than candidates.
+    parry_timing: crate::ParryTiming,
     // A broken guard cannot be raised until the dizzy runs out — the whole
     // point of breaking it.
     broken: bool,
@@ -306,8 +310,27 @@ pub fn resolve_shield(
     }
     let want = shield_held && !dash_active;
     let fresh = want && !*active;
-    if fresh {
-        *parry_window_timer = parry_window_time;
+    let released = *active && !want;
+    match parry_timing {
+        crate::ParryTiming::OnRaise => {
+            if fresh {
+                *parry_window_timer = parry_window_time;
+            }
+            // ⚠ dropping the guard ENDS the window it opened. Without this the
+            // press-timed parry would keep covering a body that is no longer
+            // guarding, which is the release-timed reading arrived at by
+            // accident rather than by declaration.
+            if released {
+                *parry_window_timer = 0.0;
+            }
+        }
+        // ⭐ the FALLING edge arms it, and nothing closes it early: the window is
+        // live while the guard is DOWN, which is the whole mechanic.
+        crate::ParryTiming::OnRelease => {
+            if released {
+                *parry_window_timer = parry_window_time;
+            }
+        }
     }
     *active = want;
     fresh
@@ -332,6 +355,7 @@ pub(super) fn apply_shield(
         state.dash_timer > 0.0,
         input.shield_held,
         tuning.abilities.parry_window_time,
+        tuning.abilities.parry_timing,
         broken,
     );
     if fresh {
@@ -768,30 +792,151 @@ mod resolve_shield_tests {
     fn resolve_shield_is_the_one_rule() {
         // Disabled ability forces the guard down and clears the parry window.
         let (mut active, mut parry) = (true, 0.5);
-        let fresh = resolve_shield(&mut active, &mut parry, false, false, true, 0.2, false);
+        let fresh = resolve_shield(
+            &mut active,
+            &mut parry,
+            false,
+            false,
+            true,
+            0.2,
+            crate::ParryTiming::OnRaise,
+            false,
+        );
         assert!(!active && parry == 0.0 && !fresh, "no ability → no guard");
 
         // Rising edge: a held shield with the ability raises a FRESH guard and opens
         // the parry window.
         let (mut active, mut parry) = (false, 0.0);
-        let fresh = resolve_shield(&mut active, &mut parry, true, false, true, 0.2, false);
+        let fresh = resolve_shield(
+            &mut active,
+            &mut parry,
+            true,
+            false,
+            true,
+            0.2,
+            crate::ParryTiming::OnRaise,
+            false,
+        );
         assert!(
             active && parry == 0.2 && fresh,
             "rising edge opens a fresh parry"
         );
 
         // Held across a second tick: still raised, but NOT a fresh edge (no re-arm).
-        let fresh = resolve_shield(&mut active, &mut parry, true, false, true, 0.2, false);
+        let fresh = resolve_shield(
+            &mut active,
+            &mut parry,
+            true,
+            false,
+            true,
+            0.2,
+            crate::ParryTiming::OnRaise,
+            false,
+        );
         assert!(active && !fresh, "sustained hold is not a fresh parry");
 
         // Can't raise while dashing — the gate that binds the player AND the actor.
         let (mut active, mut parry) = (false, 0.0);
-        let fresh = resolve_shield(&mut active, &mut parry, true, true, true, 0.2, false);
+        let fresh = resolve_shield(
+            &mut active,
+            &mut parry,
+            true,
+            true,
+            true,
+            0.2,
+            crate::ParryTiming::OnRaise,
+            false,
+        );
         assert!(!active && !fresh, "dashing blocks the guard");
 
-        // Release drops the guard (sustain re-evaluated every tick).
+        // Release drops the guard (sustain re-evaluated every tick) AND ends the
+        // window it opened — see the `OnRaise` arm.
         let (mut active, mut parry) = (true, 0.2);
-        resolve_shield(&mut active, &mut parry, true, false, false, 0.2, false);
+        resolve_shield(
+            &mut active,
+            &mut parry,
+            true,
+            false,
+            false,
+            0.2,
+            crate::ParryTiming::OnRaise,
+            false,
+        );
         assert!(!active, "releasing the button drops the guard");
+        assert_eq!(parry, 0.0, "a press-timed window outlived the guard");
+    }
+
+    /// **THE TWO SETTINGS ARE TWO GAMES, AND BOTH ARE REACHABLE.**
+    ///
+    /// ⭐ Jon, 2026-08-20: *"if ultimate does it I do want a setting for get
+    /// ultimate, so release style shielding is in scope as an option."*
+    ///
+    /// ⛔ **the pair is the assertion.** A test of `OnRelease` alone would pass
+    /// on an implementation that had simply MOVED the parry rather than made it
+    /// a knob, and that is the change this is deliberately not: `OnRaise` is
+    /// Smash 4's and stays the default, so no shipped body's feel moves.
+    #[test]
+    fn the_parry_window_opens_where_the_ruleset_says_it_does() {
+        // ── Ultimate: the FALLING edge arms it, and the window is live with the
+        // guard DOWN.
+        let (mut active, mut parry) = (false, 0.0);
+        resolve_shield(
+            &mut active,
+            &mut parry,
+            true,
+            false,
+            true,
+            0.2,
+            crate::ParryTiming::OnRelease,
+            false,
+        );
+        assert!(active, "the guard still goes up");
+        assert_eq!(parry, 0.0, "a release-timed parry armed on the PRESS");
+
+        resolve_shield(
+            &mut active,
+            &mut parry,
+            true,
+            false,
+            false,
+            0.2,
+            crate::ParryTiming::OnRelease,
+            false,
+        );
+        assert!(!active, "the guard came down");
+        assert_eq!(parry, 0.2, "the release did not open the window");
+        // ⛔ and it is a PARRY while the guard is down, which is the whole
+        // mechanic and the reason `parrying()` cannot ask for `active`.
+        let shield = crate::BodyShieldState {
+            active,
+            parry_window_timer: parry,
+            ..Default::default()
+        };
+        assert!(shield.parrying(), "the window is live but nothing reads it");
+
+        // ── Smash 4: the RISING edge arms it, and the drop ends it.
+        let (mut active, mut parry) = (false, 0.0);
+        resolve_shield(
+            &mut active,
+            &mut parry,
+            true,
+            false,
+            true,
+            0.2,
+            crate::ParryTiming::OnRaise,
+            false,
+        );
+        assert_eq!(parry, 0.2, "a press-timed parry did not arm on the press");
+        resolve_shield(
+            &mut active,
+            &mut parry,
+            true,
+            false,
+            false,
+            0.2,
+            crate::ParryTiming::OnRaise,
+            false,
+        );
+        assert_eq!(parry, 0.0, "a press-timed window survived the drop");
     }
 }

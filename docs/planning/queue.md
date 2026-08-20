@@ -442,7 +442,22 @@ the stale paragraph beginning *"PROMOTE the possessed body out of room scope"*,
 which sits immediately before the text explaining that it specifically does NOT
 change lifetime any more.
 
-▢ **ROOM CONSTRUCTION-LANE ORCHESTRATION, BEFORE A THIRD FAMILY.** Gravity was
+✔ **ROOM CONSTRUCTION-LANE ORCHESTRATION IS ONE COMPOSED VALUE** — the capability
+lanes travel as `capability_lanes::CapabilityLanes`, a plain struct with named
+fields whose every operation destructures `Self` exhaustively. `spawn/mod.rs`
+named the two lanes **48 times before and 4 times now** (a module declaration and
+a `cfg(test)` accessor apiece), 1209 → 1048 lines. The poison — a third field —
+produces **seven compile errors**: `E0063` at construction plus `E0027` at each of
+`claim_planned_ids`, `write_deterministic_dump`, `debug_assert_binding`, `commit`,
+`verify`, `respawn`. ⛔ no `Any`, no `TypeId`, no registry, no service locator:
+what removes the repetition is that each operation is a GENERIC function over
+`ConstructionDomain` applied once per field. ⚠ `Services = ()` is a BOUND on that
+set, not a coincidence — the actor lane reads frozen catalogs at execution time
+and is composed BESIDE the capability lanes rather than inside them, so a future
+capability that needs services fails the bound instead of quietly joining.
+Original statement:
+
+▢ **(the case, kept because the MEASUREMENT is the reusable half.)** Gravity was
 the right second customer and the extraction validated the federation design; the
 measurement is what it cost `RoomFeatureConstructionPlan` — roughly ELEVEN
 enrollments (plan field, receipt field, preparation, predicted roster, plan

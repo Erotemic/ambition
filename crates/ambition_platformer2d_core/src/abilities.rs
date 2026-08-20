@@ -783,6 +783,11 @@ pub struct MatchBody {
     /// landing that follows is a knockdown unless it is teched. `0.0` is no
     /// floor game — right for a wandering enemy, wrong for a fighter.
     pub tumble_speed: f32,
+    /// **How far a frozen body may shift itself per tick of hitlag** (px) —
+    /// SMASH DIRECTIONAL INFLUENCE. `0.0` is no SDI, which is right for a body
+    /// that is not in a combo game and wrong for a fighter. See
+    /// [`crate::hit_response::smash_di_shift`].
+    pub sdi_step: f32,
     /// **The guard as a resource**: integrity that drains while held and breaks
     /// when spent. [`crate::ShieldTuning::OFF`] — the engine default — is the
     /// unlimited guard an exploration body keeps.
@@ -811,6 +816,7 @@ impl MatchBody {
             air_dodge_speed: self.air_dodge_speed,
             air_dodge_endlag: self.air_dodge_endlag,
             tumble_speed: self.tumble_speed,
+            sdi_step: self.sdi_step,
             shield: self.shield,
             footstool: self.footstool,
             ..base
@@ -842,6 +848,7 @@ mod tests {
             air_dodge_speed: 440.0,
             air_dodge_endlag: 0.16,
             tumble_speed: 500.0,
+            sdi_step: 3.0,
             shield: crate::ShieldTuning::PLATFORM_FIGHTER,
             footstool: crate::FootstoolTuning::PLATFORM_FIGHTER,
         };
@@ -975,11 +982,12 @@ mod tests {
              everyone who stayed silent"
         );
         assert!(
-            widened.apply(Some(AbilitySet {
-                wall_jump: true,
-                ..AbilitySet::NONE
-            }))
-            .wall_jump,
+            widened
+                .apply(Some(AbilitySet {
+                    wall_jump: true,
+                    ..AbilitySet::NONE
+                }))
+                .wall_jump,
             "the fighter who DID author the wall jump lost it, so the ceiling \
              is not permitting what it says it permits"
         );

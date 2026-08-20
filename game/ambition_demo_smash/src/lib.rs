@@ -347,6 +347,12 @@ pub fn smash_reading_of_character(
 ///   the game. A platform fighter is the body that wants it: one directional
 ///   evade per trip through the air, refunded on landing, with endlag on the
 ///   far side so it is a read rather than a panic button.
+/// * **`sdi_step: 3.0` — SMASH DIRECTIONAL INFLUENCE.** DI bends the launch a
+///   fighter is about to take; SDI moves it out of the NEXT hit's way while the
+///   current one is still frozen. Three pixels a hitlag tick is small on one hit
+///   and decisive across a combo, which is the shape the mechanic wants. ⚠ ours
+///   rewards the HOLD where the genre counts fresh stick inputs — the
+///   simplification is named on `MovementTuning::sdi_step`.
 /// * **`tumble_speed: 500.0` — THE FLOOR GAME.** Above this launch speed a hit
 ///   sends the body tumbling, and the landing that follows is a knockdown
 ///   unless it is teched. 500 px/s sits above a jab's shove and below a smash's
@@ -370,6 +376,12 @@ pub const SMASH_FIGHTER_BODY: ambition_platformer2d::engine_core::MatchBody =
         air_dodge_speed: ambition_platformer2d::engine_core::AIR_DODGE_SPEED,
         air_dodge_endlag: ambition_platformer2d::engine_core::AIR_DODGE_ENDLAG,
         tumble_speed: 500.0,
+        // ⭐ **SDI, 3px a hitlag tick.** DI already lets a launched fighter bend
+        // where it is thrown; this is the other half — shifting out of the NEXT
+        // hit's way while the current one is still frozen, which is what makes a
+        // combo answerable rather than a sentence. The engine default is `0.0`:
+        // a wandering enemy has no combo to escape.
+        sdi_step: 3.0,
         shield: ambition_platformer2d::engine_core::ShieldTuning::PLATFORM_FIGHTER,
         footstool: ambition_platformer2d::engine_core::FootstoolTuning::PLATFORM_FIGHTER,
     };

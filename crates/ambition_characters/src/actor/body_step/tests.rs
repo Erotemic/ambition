@@ -34,6 +34,23 @@ fn frame() -> ae::MotionFrame {
 
 /// Step `body` once and answer how far it actually travelled.
 fn travel(body: &mut ae::BodyClusterScratch, combat: &BodyCombat) -> f32 {
+    stepped(
+        body,
+        combat,
+        ae::MovementTuning::default(),
+        ae::InputState::default(),
+    )
+    .length()
+}
+
+/// The same step, with the tuning and the input named — for SDI, which is a
+/// property of both.
+fn stepped(
+    body: &mut ae::BodyClusterScratch,
+    combat: &BodyCombat,
+    tuning: ae::MovementTuning,
+    input: ae::InputState,
+) -> ae::Vec2 {
     let world = open_world();
     let before = body.kinematics.pos;
     {
@@ -42,17 +59,70 @@ fn travel(body: &mut ae::BodyClusterScratch, combat: &BodyCombat) -> f32 {
             model,
             &mut clusters,
             combat,
-            ae::MovementTuning::default(),
+            tuning,
             ae::MotionStepContext {
                 world: &world,
-                input: ae::InputState::default(),
+                input,
                 frame: frame(),
                 facing_intent: 0.0,
                 dt: DT,
             },
         );
     }
-    (body.kinematics.pos - before).length()
+    body.kinematics.pos - before
+}
+
+/// **SDI IS THE ONE THING A FROZEN BODY MAY STILL DO.**
+///
+/// ⛔ three assertions and each kills a different wrong version: a body with no
+/// authored budget must not move (every body in Ambition), one with a budget and
+/// a held stick must, and the shift must be the STICK's direction rather than
+/// the body's own velocity — a version that nudged along `vel` would look right
+/// in a test where the two happen to agree and be a different mechanic.
+#[test]
+fn a_frozen_body_can_still_influence_where_the_next_hit_finds_it() {
+    let frozen = BodyCombat {
+        hitstop_timer: 0.08,
+        ..BodyCombat::default()
+    };
+    assert!(frozen.is_in_hitlag(), "the fixture must arm the freeze");
+    // ⚠ the body travels along +x; the stick is held along -y (up), so the two
+    // cannot be confused for each other.
+    let held = ae::InputState {
+        axes: ae::LocalAxes::new(0.0, -1.0),
+        ..Default::default()
+    };
+    let mut tuning = ae::MovementTuning::default();
+    tuning.sdi_step = 3.0;
+
+    let unauthored = stepped(
+        &mut body_travelling(),
+        &frozen,
+        ae::MovementTuning::default(),
+        held.clone(),
+    );
+    assert_eq!(
+        unauthored,
+        ae::Vec2::ZERO,
+        "a body that authored no SDI budget influenced anyway"
+    );
+
+    let shifted = stepped(&mut body_travelling(), &frozen, tuning.clone(), held);
+    assert_eq!(
+        shifted,
+        ae::Vec2::new(0.0, -3.0),
+        "SDI did not move the frozen body one step along the held stick"
+    );
+
+    // ⛔ and a null stick is still a freeze: the budget alone must not drift a
+    // body that is asking for nothing.
+    let idle = stepped(
+        &mut body_travelling(),
+        &frozen,
+        tuning,
+        ae::InputState::default(),
+    );
+    assert_eq!(idle, ae::Vec2::ZERO, "a budget alone drifted a frozen body");
 }
 
 #[test]

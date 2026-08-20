@@ -319,6 +319,17 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// it also moved `ambition_cutscene` and `ambition_demo_twintrack`, which is the
 /// instrument CHANGING and NOT a wire change in either: neither file was edited.
 ///
+/// ⚠ **v50 (2026-08-20) is `MovementTuning::sdi_step`**, one float in the
+/// motion codec, put and read. SMASH DIRECTIONAL INFLUENCE: how far a body may
+/// shift ITSELF per tick of hitlag.
+/// ⭐ **the defensive half of a mechanic whose offensive half already shipped.**
+/// DI bends the launch a fighter is about to take; SDI moves it out of the NEXT
+/// hit's way while the current one is still frozen, which is what makes hitlag a
+/// WINDOW rather than merely a pause. It needed no new state — the shift is
+/// written straight to `pos` on the tick `step_body` is about to zero `dt`.
+/// ⚠ ours rewards the HOLD where the genre counts fresh stick inputs; an
+/// edge-counting version would need per-window state inside the rollback window,
+/// and the total is bounded either way by the hitlag's own length.
 /// ⚠ **v49 (2026-08-20) is `AxisManeuverState::time_off_ledge`**, one f32 in
 /// the motion codec, put and read. It is what a ledge grab's intangibility is
 /// now BOUGHT with: the window used to be a flat 0.50s on every grab, so the
@@ -492,7 +503,7 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// `message.spawn_projectile` keeps its stable key while its concrete message
 /// becomes `ProjectileSpawnRequest`, so abandoned-future spawn requests remain
 /// cleared on load through the same wire identity.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 49;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 50;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

@@ -392,6 +392,23 @@ pub struct MovementTuning {
     /// down, which is every body until one authors a fighter's floor game.
     #[serde(default)]
     pub tumble_speed: f32,
+    /// **SMASH DIRECTIONAL INFLUENCE** — how far this body may shift itself per
+    /// tick of HITLAG, in px. `0.0` (the default) = no SDI, which is every body
+    /// until one authors a fighter.
+    ///
+    /// ⭐ **the defensive half of a mechanic whose offensive half already
+    /// ships.** DI ([`crate::hit_response::di_adjust`]) bends the launch you are
+    /// about to take; SDI moves you out of the NEXT hit's way while the current
+    /// one is still frozen, and it is what makes a combo answerable rather than
+    /// a sentence.
+    ///
+    /// ⚠ **a HOLD, where the genre counts INPUTS.** Ultimate rewards each fresh
+    /// stick input, so mashing beats holding; this rewards the hold at a fixed
+    /// rate. The simplification is stated rather than hidden: an edge-counting
+    /// version needs per-window state inside the rollback window, and the total
+    /// is bounded either way by how long the hitlag lasts.
+    #[serde(default)]
+    pub sdi_step: f32,
     /// See [`ShieldTuning`].
     #[serde(default)]
     pub shield: ShieldTuning,
@@ -626,6 +643,9 @@ pub struct TraversalAbilityTuning {
     /// See [`TraversalAbilityTuning::tumble_speed`].
     #[serde(default)]
     pub tumble_speed: f32,
+    /// See [`TraversalAbilityTuning::sdi_step`].
+    #[serde(default)]
+    pub sdi_step: f32,
     /// See [`ShieldTuning`].
     #[serde(default)]
     pub shield: ShieldTuning,
@@ -895,6 +915,7 @@ impl MovementTuning {
                 air_dodge_speed: self.air_dodge_speed,
                 air_dodge_endlag: self.air_dodge_endlag,
                 tumble_speed: self.tumble_speed,
+                sdi_step: self.sdi_step,
                 parry_window_time: self.parry_window_time,
                 shield: self.shield,
                 footstool: self.footstool,
@@ -988,6 +1009,9 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     // ⛔ zero for the same reason the air dodge is: a wandering enemy that got
     // knocked down and had to stand up would be a different game.
     tumble_speed: 0.0,
+    // ⛔ zero for the same reason: a body that cannot be launched has nothing to
+    // influence its way out of.
+    sdi_step: 0.0,
     parry_window_time: PARRY_WINDOW_TIME,
     shield: ShieldTuning::OFF,
     footstool: FootstoolTuning::OFF,

@@ -107,7 +107,8 @@ you add a `▢`, and before you work one.
 | Rows drawn but never selected | ~ | `Charge`, `Punch`, `LedgeClimb`, `Interact` |
 | Hit sparks, KO burst, screen shake | ✔ | `ambition_vfx` |
 | Shield-break shatter burst and tone | ✔ | `features/movement_fx.rs` |
-| Grab / throw / parry SFX cues | ▢ | — |
+| Grab / pummel / throw cues | ✔ | `smash_capture`: the reach, the impact and the release each burst |
+| Parry cue | ▢ | — |
 
 ## The rest of Ultimate's list
 
@@ -151,9 +152,9 @@ and leaves the values rough; tuning is not this lane's licence.
    Ultimate freezes a grounded target briefly and tumbles an airborne one, and
    does not interrupt a target executing a move. The arbitration and the geometry
    are done; this is the reaction half.
-3. **Grab presentation** — cues and VFX for the grab chain, and the sprite rows
-   nothing can draw yet: a held pose, a pummel, a throw, and a dizzy for a broken
-   guard. The captive at least reads as hurt now rather than idle.
+3. **The missing sprite rows** — a held pose, a pummel, a throw, and a dizzy for
+   a broken guard. All four currently draw `Hit`, which stops them reading as
+   calm but does not make them read as themselves.
 4. **Shield pushback and shield-shrink poke** — the two halves of shield
    pressure that shieldstun does not cover.
 5. **Meteor lock and cancel** — the spike already lands; what is missing is

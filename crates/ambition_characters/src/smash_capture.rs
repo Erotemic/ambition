@@ -83,6 +83,14 @@ pub const CAPTURE_PUMMEL: &str = "smash.capture_pummel";
 /// The effect key a throw's authored RELEASE frame emits, once.
 pub const CAPTURE_THROW: &str = "smash.capture_throw";
 
+/// **The three capture cues.** Generic shipped rows, not per-fighter art: a grab
+/// chain that reads at all beats one that reads beautifully for one character.
+/// A fighter that wants its own composes another burst on top, exactly as it
+/// would for any move.
+const GRAB_FX: &str = "smoke_burst";
+const PUMMEL_FX: &str = "classic_burst";
+const THROW_FX: &str = "shockwave";
+
 /// Authored parameters of a grab attempt.
 ///
 /// ⛔ **the reach is a RECT SPELLED OUT, not a [`VolumeShape`], and that is the
@@ -261,6 +269,36 @@ pub fn author_standing_grab(mut spec: MoveSpec, params: CaptureAttemptParams) ->
          be live — it would play, cost its recovery, and be unable to catch anybody",
         spec.id
     );
+    // ⭐ the REACH, cued at the first live frame — so a WHIFFED grab reads as an
+    // attempt rather than as a fighter briefly doing nothing. That is the half a
+    // player needs to learn the punish window.
+    let reach_at = spec
+        .windows
+        .iter()
+        .find(|w| w.tag == ambition_entity_catalog::WindowTag::Active)
+        .map(|w| w.start_s)
+        .unwrap_or(0.0);
+    burst(spec, reach_at, GRAB_FX, 0.45)
+}
+
+
+/// **The cue a capture beat carries**, owned here for the reason the effect keys
+/// are: a fighter authors VALUES, and the strings stay in one module.
+///
+/// ⚠ **`sfx: None` is not silence.** `dispatch_move_events` asks for a paired
+/// `FxRequest` and presentation resolves the sound the effect's NAME addresses,
+/// which is why the moveset guards stopped requiring a hand-paired `Sfx` event
+/// (D149). Naming the effect is naming the cue.
+fn burst(mut spec: MoveSpec, at_s: f32, effect: &str, scale: f32) -> MoveSpec {
+    spec.events.push(ambition_entity_catalog::MoveEvent {
+        at_s,
+        kind: ambition_entity_catalog::MoveEventKind::Vfx {
+            effect: effect.to_string(),
+            at: (0.0, 0.0),
+            scale,
+            sfx: None,
+        },
+    });
     spec
 }
 
@@ -273,7 +311,9 @@ pub fn author_pummel(mut spec: MoveSpec, at_s: f32, params: CapturePummelParams)
             params: ParamValue::from_typed(&params).expect("capture pummel params serialize"),
         }),
     });
-    spec
+    // ⭐ the cue rides the SAME instant as the damage, so the hit and the flash
+    // are one beat rather than two that drift apart when a fighter retunes `at_s`.
+    burst(spec, at_s, PUMMEL_FX, 0.55)
 }
 
 /// Attach a throw RELEASE to `spec` at `at_s` of its own timeline.
@@ -289,7 +329,9 @@ pub fn author_throw(mut spec: MoveSpec, at_s: f32, params: CaptureThrowParams) -
             params: ParamValue::from_typed(&params).expect("capture throw params serialize"),
         }),
     });
-    spec
+    // Bigger than a pummel, at the RELEASE frame: a throw is the beat that ends
+    // the relationship, and it should look like the loudest thing in it.
+    burst(spec, at_s, THROW_FX, 1.15)
 }
 
 /// **WHAT A PLATFORM-FIGHTER HOLD KNOWS ABOUT ITSELF — the policy half of a
@@ -564,5 +606,80 @@ mod tests {
             vec![verbs::GRAB, verbs::PUMMEL, verbs::THROW_FORWARD],
             "an absent throw invented a verb, or an authored one lost its"
         );
+    }
+}
+
+#[cfg(test)]
+mod capture_cue_tests {
+    use super::*;
+    use ambition_entity_catalog::MoveEventKind;
+
+    fn effects(spec: &MoveSpec) -> Vec<(f32, String)> {
+        spec.events
+            .iter()
+            .filter_map(|e| match &e.kind {
+                MoveEventKind::Vfx { effect, .. } => Some((e.at_s, effect.clone())),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// **EVERY BEAT OF A CAPTURE SHOWS SOMETHING.**
+    ///
+    /// ⛔ the gap this closes: the grab chain simulated correctly and was
+    /// completely invisible. A grab, a pummel and a throw each emitted their
+    /// gameplay effect and NO cue at all, so a hold read as two fighters
+    /// standing unusually close together.
+    #[test]
+    fn a_grab_a_pummel_and_a_throw_each_carry_a_cue() {
+        let grab = author_standing_grab(
+            grab_shell("g", "attack", 0.07, 0.05, 0.2),
+            CaptureAttemptParams {
+                offset: (12.0, 1.0),
+                half_extents: (18.0, 15.0),
+                hold_offset: (13.0, 3.0),
+            },
+        );
+        let pummel = author_pummel(
+            capture_beat("p", "attack", 0.18),
+            0.08,
+            CapturePummelParams { damage: 3 },
+        );
+        let throw = author_throw(
+            capture_beat("t", "attack", 0.26),
+            0.14,
+            CaptureThrowParams {
+                damage: 8,
+                knockback: 120.0,
+                knockback_growth: 2.0,
+                launch_dir: (0.85, -0.55),
+            },
+        );
+
+        for (what, spec) in [("grab", &grab), ("pummel", &pummel), ("throw", &throw)] {
+            assert_eq!(
+                effects(spec).len(),
+                1,
+                "the {what} carries {} cues, not one",
+                effects(spec).len()
+            );
+        }
+
+        // ⭐ **the grab's cue sits on the REACH, not at zero**, so a whiff reads
+        // as an attempt at the moment it could have caught somebody.
+        let reach = spec_active_start(&grab);
+        assert_eq!(effects(&grab)[0].0, reach);
+        // The pummel and the throw ride the SAME instant as their damage, which
+        // is what stops the flash drifting when a fighter retunes `at_s`.
+        assert_eq!(effects(&pummel)[0].0, 0.08);
+        assert_eq!(effects(&throw)[0].0, 0.14);
+    }
+
+    fn spec_active_start(spec: &MoveSpec) -> f32 {
+        spec.windows
+            .iter()
+            .find(|w| w.tag == ambition_entity_catalog::WindowTag::Active)
+            .map(|w| w.start_s)
+            .expect("a grab has an active window")
     }
 }

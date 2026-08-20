@@ -176,9 +176,8 @@ seven beats in `central_hub_basement`, including the one that kills the
 item-kind reading: one death, two objects of the same kind, opposite answers,
 separated only by which side of the checkpoint each acquisition fell on.
 
-⛔⛔ **BUT THE PREDICTION THIS SECTION MADE WAS WRONG, AND THE CORRECTION IS THE
-PART WORTH KEEPING.** It said the baseline *is* a copy of the whereabouts
-ledger. It is not — it is a **projection of DOMAINS**, each capturing from its
+⛔⛔ **The baseline is NOT a copy of the whereabouts ledger.** It is a
+**projection of DOMAINS**, each capturing from its
 own live authority:
 
 ```text
@@ -211,9 +210,8 @@ run:
    fighter, whose `held_item` needs no world object at all.
 3. **a hand must be EMPTIED before it can be FILLED.**
 
-⛔ **this section used to end "what horizon 2 still cannot do: put back a
-baseline row whose occurrence has no live entity". CLOSED — twice, and the
-second time is the interesting one.** See the third and fourth legs below. The
+⇒ **What horizon 2 still cannot do — put back a baseline row whose occurrence
+has no live entity — is answered by the third and fourth legs below.** The
 baseline listing above is also one short: there are THREE domain projections
 now, and the third is not an identity.
 
@@ -500,9 +498,6 @@ out.
 ⛔ note that goes on advising after it stops being true is worse than no note,
 because the next reader either re-fixes a closed hole or trusts a hole that is
 gone. Both copies are corrected; the enrollment audit that found them is below.
-`a_granted_quantity_survives_the_death_that_retracts_the_instance_minted_from_it`
-is the poison that keeps the wrong shortcut (retracting the row at the reset)
-out.
 
 ⚠ ~~**and a composition finding**: the durable-save leg is installed by
 `install_menu_setup_and_hotkeys`, inside `add_presentation_plugins` — "visible

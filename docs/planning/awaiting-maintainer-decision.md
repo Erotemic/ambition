@@ -910,6 +910,27 @@ is still perfectly anti-phase. ⇒ seed divergence is not reaching MOTION at all
 only the press timing that never fires, so "the two streams advance in lockstep"
 understates it: even two separated streams produce mirrored bodies.
 
+⚠ **TWO BRAIN EXPLANATIONS ELIMINATED 2026-08-20, so nobody re-treads them:**
+
+```text
+"the hysteresis locks it in Approach through the band"   ⛔ NO — mode.rs:111
+    already exempts Engage: `dwell < MIN && candidate != Engage`. Engage was
+    never blocked. (The arithmetic that suggested it is still worth knowing:
+    two fighters closing at a combined 540px/s cross the whole 57.6px engage
+    band in ~0.1s, against a 0.18s dwell. It just does not apply to Engage.)
+
+"the brain closes at full speed because Walk has no throttle"   ⛔ NO —
+    smash/emit.rs:62 already emits `WALK_SPEED_PX_S / SPRINT_SPEED_PX_S` as a
+    partial axis, so a walking brain asks for a fraction of its own top speed.
+```
+
+⇒ **the brain's vocabulary is not obviously the defect**, which strengthens the
+reading that the missing thing is BODY CONTACT rather than a decision error. ⚠ a
+related arithmetic worth keeping either way: a jab's 0.05s startup at a combined
+540px/s closing speed is 27px of approach during startup alone, against a 36px
+reach — so a swing begun in range lands where the target no longer is. Startup
+frames assume a target cannot pass through you.
+
 ⇒ **why this needs you rather than a fix from me.** The note prescribes the
 answer: *"what would actually move it is asymmetric CIRCUMSTANCES, not more
 randomness — a per-seat spawn offset"*, and it bans a third randomness fix. But

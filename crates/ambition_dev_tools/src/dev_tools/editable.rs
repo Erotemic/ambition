@@ -135,6 +135,8 @@ pub struct EditableMovementTuning {
     /// `0.0` inherits [`Self::max_run_speed`]; see
     /// [`ae::MovementTuning::max_air_speed`].
     pub max_air_speed: f32,
+    /// [`ae::MovementTuning::run_commit_frac`] — where a walk becomes a run.
+    pub run_commit_frac: f32,
     pub max_fall_speed: f32,
     pub jump_speed: f32,
     pub double_jump_speed: f32,
@@ -240,6 +242,7 @@ impl EditableMovementTuning {
             carried_decay: self.carried_decay,
             max_run_speed: self.max_run_speed,
             max_air_speed: self.max_air_speed,
+            run_commit_frac: self.run_commit_frac,
             max_fall_speed: self.max_fall_speed,
             jump_speed: self.jump_speed,
             double_jump_speed: self.double_jump_speed,
@@ -332,6 +335,7 @@ impl From<ae::MovementTuning> for EditableMovementTuning {
             carried_decay: value.carried_decay,
             max_run_speed: value.max_run_speed,
             max_air_speed: value.max_air_speed,
+            run_commit_frac: value.run_commit_frac,
             max_fall_speed: value.max_fall_speed,
             jump_speed: value.jump_speed,
             double_jump_speed: value.double_jump_speed,

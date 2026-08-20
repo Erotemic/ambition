@@ -1392,6 +1392,14 @@ pub enum AttackDir {
 /// - aerial, `Down`:   `attack_air_down` → `attack_down` → `attack_air` → `attack`
 /// - grounded, `Down`: `attack_down` → `attack`
 /// - grounded, `Neutral`: `attack`
+/// **The RUNNING-stance verb for an attack base** — the one place the suffix is
+/// spelled, so the runtime's verb vocabulary and the selector cannot disagree
+/// about the word. Named for the genre's move ("dash attack"), keyed off the
+/// body's gait and not off `AbilitySet::dash`.
+pub fn dash_stance_verb(base: &str) -> String {
+    format!("{base}_dash")
+}
+
 pub fn directional_verb_chain(base: &str, dir: AttackDir, grounded: bool) -> Vec<String> {
     let dir_suffix = match dir {
         AttackDir::Neutral => None,
@@ -1575,12 +1583,11 @@ impl MovesetContract {
         base: &str,
         dir: AttackDir,
         grounded: bool,
-        dashing: bool,
+        running: bool,
     ) -> Option<&MoveSpec> {
-        if grounded && dashing {
-            let dash_verb = format!("{base}_dash");
+        if grounded && running {
             if let Some(mv) = self
-                .move_for_verb(&dash_verb)
+                .move_for_verb(&dash_stance_verb(base))
                 .filter(|mv| mv.gates.permits(grounded))
             {
                 return Some(mv);

@@ -41,7 +41,7 @@ investigation that led to the question. Same rule as
 [`README.md`](README.md#queue-contract); on 2026-08-17 this file was **739 lines
 for 9 open questions**, and the four answered ones held a third of it.
 
-## Open decisions — 15 (§1, §6, §7, §9, §10, §11, §12, §13, §22 and §25 are ANSWERED; §8 is DEFERRED)
+## Open decisions — 15 (§1, §6, §7, §9, §10, §11, §12, §13, §22 and §27 are ANSWERED; §8 is DEFERRED)
 
 ### 1. ✔ ANSWERED 2026-08-17 — a bolt hits what a sword hits (former D23)
 
@@ -1127,7 +1127,7 @@ per-turn gate, so a behavioural suite went five-red across at least two
 regressions without anything saying so. `cargo test --workspace --lib` and
 `-p ambition_app --test app_it` do not reach it.
 
-### 24. ▢ NEW 2026-08-20 — does "AVOID PUSHOUT" cover fighter-vs-fighter JOSTLE?
+### 25. ▢ NEW 2026-08-20 — does "AVOID PUSHOUT" cover fighter-vs-fighter JOSTLE?
 
 **The mechanic.** Every platform fighter pushes two grounded bodies apart when
 they occupy the same space — Ultimate calls it jostle, and without it two
@@ -1165,7 +1165,7 @@ rather than as a bug.
 body-vs-body entirely and jostle should not be built? ⛔ not answered by refactor
 — I have left the row `▢` rather than guessing at a rule Jon stated twice.
 
-### 25. ✔ ANSWERED 2026-08-20 — the parry timing is a KNOB, because the target is smash-LIKE and not Ultimate
+### 27. ✔ ANSWERED 2026-08-20 — the parry timing is a KNOB, because the target is smash-LIKE and not Ultimate
 
 ⭐⭐ **JON, 2026-08-20, verbatim:**
 

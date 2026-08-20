@@ -159,6 +159,7 @@ fn put_axis_maneuver_state(out: &mut Vec<u8>, state: &crate::AxisManeuverState) 
     put_ledge_grab(out, &state.ledge_grab);
     put_bool(out, state.gliding);
     put_bool(out, state.fast_falling);
+    put_bool(out, state.running);
     put_f32(out, state.flight_phase);
     put_bool(out, state.phased_jump.active);
     put_u8(out, state.phased_jump.launch_band);
@@ -199,6 +200,7 @@ fn axis_maneuver_state(r: &mut Reader<'_>) -> Option<crate::AxisManeuverState> {
         ledge_grab: ledge_grab(r)?,
         gliding: r.bool()?,
         fast_falling: r.bool()?,
+        running: r.bool()?,
         flight_phase: r.f32()?,
         phased_jump: crate::PhasedJumpState {
             active: r.bool()?,
@@ -329,6 +331,7 @@ fn put_axis_swept_params(out: &mut Vec<u8>, p: &crate::AxisSweptParams) {
     put_f32(out, l.carried_decay);
     put_f32(out, l.max_run_speed);
     put_f32(out, l.max_air_speed);
+    put_f32(out, l.run_commit_frac);
     put_f32(out, l.max_fall_speed);
     put_f32(out, l.jump_speed);
     put_f32(out, l.double_jump_speed);
@@ -429,6 +432,7 @@ fn axis_swept_params(r: &mut Reader<'_>) -> Option<crate::AxisSweptParams> {
             carried_decay: r.f32()?,
             max_run_speed: r.f32()?,
             max_air_speed: r.f32()?,
+            run_commit_frac: r.f32()?,
             max_fall_speed: r.f32()?,
             jump_speed: r.f32()?,
             double_jump_speed: r.f32()?,

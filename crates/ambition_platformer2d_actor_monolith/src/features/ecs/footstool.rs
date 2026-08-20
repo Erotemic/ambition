@@ -230,6 +230,27 @@ pub fn claim_footstools(
 
     let mut spent: Vec<Entity> = Vec::new();
     let mut effects = bodies.p1();
+
+    // ⛔⛔ **THE CLAIM IS THIS TICK'S JUMP EDGE, and clearing it HERE is the only
+    // thing that makes that true.** The kernel spends the claim inside its
+    // footstool branch — but that branch is not first: a wall jump, a ground
+    // jump, a coyote jump, a ladder jump and the one-way drop-through all
+    // resolve the same press ahead of it. A body that qualified for a footstool
+    // and whose press went to a wall jump instead kept the claim, and the NEXT
+    // airborne press spent it with nobody underneath.
+    //
+    // ⭐ clearing before the accepted pairs are stamped makes the lifetime
+    // structural instead of a discipline: a claim that loses input arbitration
+    // cannot outlive the tick that made it, whatever new branch is added above.
+    //
+    // ⚠ guarded rather than written flat, because an unconditional `false` would
+    // mark every body's `BodyJumpState` changed every tick.
+    for (_, mut jump, _, _) in effects.iter_mut() {
+        if jump.footstool_claimed {
+            jump.footstool_claimed = false;
+        }
+    }
+
     for (_, _, stomper, victim, rules, gravity_dir, victim_grounded, victim_mid_move) in pairs {
         // ⛔ BOTH ends. A stomper over two heads takes ONE footstool, and a head
         // under two stompers is jumped off ONCE. The first version spent only

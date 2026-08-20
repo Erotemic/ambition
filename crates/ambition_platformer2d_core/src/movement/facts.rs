@@ -30,7 +30,15 @@ pub struct LedgeFacts {
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct BodyMotionFacts {
     /// An active dash is in flight.
+    ///
+    /// ⛔ **this is the TRAVERSAL dash** — Ambition's discrete, charge-gated
+    /// burst. A platform fighter's kit switches it off, so nothing that means
+    /// *"is this body running"* may read it. That is [`Self::running`].
     pub dashing: bool,
+    /// **This body is in a RUN**: grounded, steering the way it travels, at or
+    /// above [`crate::MovementTuning::run_commit_frac`] of its top speed. The
+    /// gait the genre's running attack comes out of.
+    pub running: bool,
     /// **The committed crouch before a jump leaves the ground.** A real state
     /// with a real length ([`crate::MovementTuning::jump_squat_time`]) and, until
     /// now, no way for a sheet to be asked for it — every fighter sheet in the
@@ -125,6 +133,7 @@ impl BodyMotionFacts {
             // Answered above; an axis-swept body never crawls.
             adhesive_crawling: false,
             dashing: state.dash_timer > 0.0,
+            running: state.running,
             jump_squatting: state.jump_squat_timer > 0.0,
             dodge_rolling: state.dodge_roll_timer > 0.0,
             spot_dodging: state.dodge_roll_timer > 0.0 && state.spot_dodging,

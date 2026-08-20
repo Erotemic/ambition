@@ -473,7 +473,13 @@ impl MovePlayback {
 /// move (fable review 2026-07-02 §A1, Path B: prove the moveset on a real actor
 /// before folding the boss onto it). The boss fold reuses the SAME trigger +
 /// dispatch — a boss is an actor whose repertoire happens to be large.
+/// ⭐ **A BODY THAT CAN LAND A MOVE CARRIES THE HISTORY OF THE ONES IT LANDED.**
+/// [`crate::stale::BodyStaleMoves`] used to ride the generic ancillary MOVEMENT
+/// bundle, so a body that could not attack at all still rewound nine slots of
+/// combat history. Requiring it here attaches it to exactly the population that
+/// can fill it, and no spawn road has to remember.
 #[derive(Component, Debug, Clone)]
+#[require(crate::stale::BodyStaleMoves)]
 pub struct ActorMoveset(pub MovesetContract);
 
 /// Which move window a spawned strike volume belongs to.
@@ -1298,12 +1304,21 @@ pub fn trigger_moveset_moves(
         // **What this body is holding.** A weapon in hand OWNS the Attack press
         // ([`held_weapon_attack_move`]); every other verb is untouched.
         Option<&crate::held_items::HeldItem>,
-        // **Is this body DASHING?** Read for the dash attack, and read from the
-        // MODEL because that is where the dash's own timer lives — there is no
-        // cluster flag for "currently dashing", only `BodyDashState`'s charge
-        // count, which answers a different question. `Option` for bare test
-        // bodies, which are treated as not dashing.
-        Option<&ae::MotionModel>,
+        // **Is this body RUNNING?** Read for the dash attack, off the PUBLISHED
+        // fact — ADR 0024's read surface, which is what a consumer outside the
+        // movement kernel is owed.
+        //
+        // ⛔⛔ **this used to ask `BodyMotionFacts::dashing`, and that made the
+        // dash attack unreachable in the game it was built for.** `dashing` is
+        // the TRAVERSAL dash's timer, and `SMASH_FIGHTER_KIT` deliberately
+        // leaves `AbilitySet::dash` off — so no fighter on the roster could
+        // enter the state that selected the move. The tests passed because they
+        // told the selector the body was dashing; none of them could ask
+        // whether a fighter ever is. `running` is ordinary grounded
+        // locomotion, which is where the genre's running attack lives.
+        //
+        // `Option` for bare test bodies, which are treated as standing.
+        Option<&ae::BodyMotionFacts>,
     )>,
     // **WHO IS HOLDING SOMEBODY.** The inverse of `CapturedBy`, and the reason
     // there is no mirrored `Capturing` component to read instead: one authority,
@@ -1333,7 +1348,7 @@ pub fn trigger_moveset_moves(
         ground,
         playback,
         held,
-        model,
+        motion_facts,
     ) in &mut bodies
     {
         let body_frame = resolved_frame
@@ -1341,7 +1356,7 @@ pub fn trigger_moveset_moves(
             .unwrap_or(ae::AccelerationFrame::new(ae::DEFAULT_GRAVITY_DIR));
         let frame = &control.0;
         let grounded = ground.map(|g| g.on_ground).unwrap_or(true);
-        let dashing = model.is_some_and(|model| ae::BodyMotionFacts::from_model(model).dashing);
+        let running = motion_facts.is_some_and(|facts| facts.running);
         // Resolve the requested verb + the names the candidate answers to
         // (verb, class, resolved move id — the ONE cancel namespace).
         //
@@ -1432,17 +1447,47 @@ pub fn trigger_moveset_moves(
             // answers with its swing, or it answers elsewhere and nothing runs
             // here (see [`held_weapon_attack_move`] for why this arbitrates
             // instead of revoking the wearer's verbs).
+            // ⭐⭐ **A RUN PRE-EMPTS THE SMASH GESTURE**, and it has to, because
+            // the two inputs are the same one. `resolve_attack_gesture` calls a
+            // press a SMASH when a direction FLICK preceded it inside the
+            // window — and flicking a direction is exactly how a player enters
+            // a run, so the canonical dash-attack input (tap forward, press
+            // Attack) was answered with a forward smash and the running attack
+            // was unreachable by the way it is actually performed.
+            //
+            // ⚠ **this is the genre's answer, not a preference.** Ultimate,
+            // Smash 4, Brawl and Melee all resolve Attack-out-of-a-run as the
+            // running attack; none of them lets a forward smash come straight
+            // out of one without a cancel first. So there is no knob here —
+            // where the games AGREE, we ship what they do.
+            //
+            // ⚠ **conditioned on the move being AUTHORED**, which is what keeps
+            // this from stealing a smash. A fighter with no running attack
+            // resolves its press exactly as before, rather than falling through
+            // to a tilt.
+            let running_attack = running
+                && gesture_grounded
+                && moveset
+                    .0
+                    .move_for_verb(&ambition_entity_catalog::dash_stance_verb(ATTACK_VERB))
+                    .is_some_and(|mv| mv.gates.permits(gesture_grounded));
             let spec = if let Some(held) = held {
                 held_weapon_attack_move(&held.spec, dir, gesture_grounded)
             } else {
                 moveset
                     .0
-                    // ⭐ **the DASH ATTACK.** A dashing body's press is its own
+                    // ⭐ **the DASH ATTACK.** A running body's press is its own
                     // move in this genre, and it was resolving as whatever the
                     // stick happened to name — the forward tilt, or the jab.
-                    // ⚠ ATTACK only for v1: a dash + smash press is Ultimate's
-                    // pivot smash, which is a different move and not authored.
-                    .move_for_attack(base_verb, dir, gesture_grounded, dashing)
+                    // The base is forced to ATTACK when the run owns the press,
+                    // so a `smash_dash` nobody authors is never asked for and
+                    // the runtime's verb vocabulary stays the one list.
+                    .move_for_attack(
+                        if running_attack { ATTACK_VERB } else { base_verb },
+                        dir,
+                        gesture_grounded,
+                        running_attack,
+                    )
                     .or_else(|| {
                         if base_verb == SMASH_VERB {
                             moveset
@@ -1454,7 +1499,9 @@ pub fn trigger_moveset_moves(
                     })
                     .cloned()
             };
-            let verb_names: &[&str] = if base_verb == SMASH_VERB {
+            // ⚠ a running attack answers to the ATTACK family whatever gesture
+            // asked for it — the cancel namespace follows the move that ran.
+            let verb_names: &[&str] = if base_verb == SMASH_VERB && !running_attack {
                 &[SMASH_VERB, ATTACK_VERB, "any_attack"]
             } else {
                 &[ATTACK_VERB, "any_attack"]
@@ -1595,11 +1642,29 @@ pub fn trigger_moveset_moves(
 /// resolution seam.
 pub fn mark_move_playback_landed_hits(
     mut landed_hits: MessageReader<crate::hitbox::LandedBodyHit>,
-    mut playbacks: Query<&mut MovePlayback>,
+    mut playbacks: Query<(&mut MovePlayback, Option<&mut crate::stale::BodyStaleMoves>)>,
 ) {
     for landed in landed_hits.read() {
-        if let Ok(mut pb) = playbacks.get_mut(landed.attacker) {
+        let Ok((mut pb, queue)) = playbacks.get_mut(landed.attacker) else {
+            continue;
+        };
+        // ⭐⭐ **THE FALSE→TRUE EDGE IS ONE MOVE USE CONNECTING**, and staling is
+        // counted on it rather than on the message.
+        //
+        // ⛔ `LandedBodyHit` is emitted once per BODY CONTACT, so the separate
+        // `Settle` recorder this replaces stale a swing TWICE for catching two
+        // fighters — the queue's own doc calls itself the moves this body
+        // landed, and one swing is one landing. A move that connects with three
+        // opponents has been used once.
+        //
+        // ⚠ one authority for "this use connected" and one consumer of it: the
+        // playback already had to carry the fact for OnHit/OnWhiff cancels, and
+        // `MovePlayback` is rollback state, so the edge survives a rewind.
+        if !pb.landed_hit {
             pb.landed_hit = true;
+            if let Some(mut queue) = queue {
+                queue.record(crate::stale::stale_move_hash(&pb.spec.id));
+            }
         }
     }
 }

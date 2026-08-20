@@ -3705,6 +3705,144 @@ fn a_fighter_with_no_dash_still_covers_ground_on_the_stage() {
     eprintln!("[d146] a dash-less fighter covered {covered:.1}px in {updates} updates");
 }
 
+/// **THE RUNNING ATTACK COMES OUT OF THE RUN, ON A FIGHTER THAT CANNOT DASH.**
+///
+/// ⛔⛔ **the selector used to ask `BodyMotionFacts::dashing`** — the TRAVERSAL
+/// dash's timer — and the test above is the reason that could not work:
+/// `SMASH_FIGHTER_KIT` switches `AbilitySet::dash` off on purpose, so no fighter
+/// on the roster could ever enter the state that chose the move. Every unit test
+/// of the selector passed, because each one TOLD the selector the body was
+/// dashing. None of them could ask whether a fighter ever is. This one presses
+/// the key.
+///
+/// ⭐ **the two phases are the same press.** X with a direction held is a
+/// forward tilt from a standstill and the dash attack out of a run, so the only
+/// thing that differs between them is the gait — which is what makes this a
+/// measurement of the gait rather than of the move table. Both phases assert the
+/// `running` fact AT THE MOMENT OF THE PRESS, so neither leans on a tick count.
+#[test]
+fn a_dash_less_fighter_presses_attack_out_of_a_run_and_gets_the_dash_attack() {
+    use ambition_platformer2d::combat::moveset::{ActorMoveset, MovePlayback};
+    use ambition_platformer2d::engine_core::BodyMotionFacts;
+
+    const ATTACK_KEY: KeyCode = KeyCode::KeyX;
+
+    let (mut app, body) = a_person_fighting_as(OTHER_PREPARED_FIGHTER);
+
+    // Non-vacuity, both halves. A fighter that kept the traversal dash would
+    // reach the old selector's state and prove nothing; a fighter that authored
+    // no running attack could not answer either press.
+    assert!(
+        !app.world()
+            .get::<ambition_platformer2d::engine_core::BodyAbilities>(body)
+            .expect("a seated fighter carries its ability set")
+            .abilities
+            .dash,
+        "this fighter still owns the traversal burst, so reaching its dash \
+         attack below would say nothing about a stage that removed it"
+    );
+    let dash_attack_id = app
+        .world()
+        .get::<ActorMoveset>(body)
+        .and_then(|moveset| {
+            moveset
+                .0
+                .move_for_verb(&ambition_platformer2d::entity_catalog::dash_stance_verb(
+                    ambition_platformer2d::entity_catalog::ATTACK_VERB,
+                ))
+                .map(|spec| spec.id.clone())
+        })
+        .expect("this fighter authors no running attack, so no press could reach one");
+
+    let running = |app: &App| {
+        app.world()
+            .get::<BodyMotionFacts>(body)
+            .is_some_and(|facts| facts.running)
+    };
+    let playing = |app: &App| {
+        app.world()
+            .get::<MovePlayback>(body)
+            .map(|playback| playback.spec.id.clone())
+    };
+
+    // ── PHASE A: standing. The same press must NOT be the running attack. ──
+    assert!(!running(&app), "the fighter is already running before anybody held a direction");
+    Buttonlike::press(&ATTACK_KEY, app.world_mut());
+    let standing_press = {
+        let mut moved: Option<String> = None;
+        for _ in 0..12 {
+            app.update();
+            if let Some(id) = playing(&app) {
+                assert!(
+                    !running(&app),
+                    "the body reached the run gait during the standing phase, so \
+                     phase A is measuring the same state as phase B"
+                );
+                moved = Some(id);
+                break;
+            }
+        }
+        moved
+    };
+    Buttonlike::release(&ATTACK_KEY, app.world_mut());
+    assert!(
+        standing_press.is_some(),
+        "a standing fighter pressed Attack and no move started at all, so the \
+         comparison below has nothing to compare"
+    );
+    assert_ne!(
+        standing_press.as_deref(),
+        Some(dash_attack_id.as_str()),
+        "a STANDING fighter's attack press produced the running attack, which \
+         means the gait is not what selects it"
+    );
+
+    // Let the standing move finish; a body in recovery refuses the next press.
+    for _ in 0..40 {
+        app.update();
+    }
+
+    // ── PHASE B: the same press, out of a run. ──
+    Buttonlike::press(&KeyCode::ArrowRight, app.world_mut());
+    let reached = hold_until(&mut app, running);
+    assert!(
+        reached.is_some(),
+        "a fighter held a direction for the whole patience budget and never \
+         reached the run gait. Either `run_commit_frac` is unreachable on this \
+         body or the kernel stopped publishing the fact"
+    );
+
+    let mut out_of_the_run: Option<String> = None;
+    for _ in 0..24 {
+        // ⚠ re-pressed each round rather than held: the press is an EDGE, and a
+        // held key that was already spent starts nothing.
+        Buttonlike::press(&ATTACK_KEY, app.world_mut());
+        app.update();
+        Buttonlike::release(&ATTACK_KEY, app.world_mut());
+        app.update();
+        if let Some(id) = playing(&app) {
+            if id == dash_attack_id {
+                out_of_the_run = Some(id);
+                break;
+            }
+        }
+    }
+    Buttonlike::release(&KeyCode::ArrowRight, app.world_mut());
+
+    assert_eq!(
+        out_of_the_run.as_deref(),
+        Some(dash_attack_id.as_str()),
+        "a fighter in the run gait pressed Attack twenty-four times and never \
+         got `{dash_attack_id}`. The running attack is authored, the gait is \
+         published, and the press reaches the body — so the selector is reading \
+         something other than the gait"
+    );
+    eprintln!(
+        "[gait] standing press = {standing_press:?}, out of the run = {out_of_the_run:?}, \
+         gait reached after {reached:?} updates"
+    );
+}
+
 // ─── D146 slice 2 — Shield is its OWN action, not a flavour of Special ───────
 //
 // Jon, 2026-08-16: *"Shield is not a special move. It is an independent

@@ -27,7 +27,7 @@ perfect shield     PRESS-timed (Smash 4, and ours) | RELEASE-timed (Ultimate)
 
 ⇒ that pair is `MovementTuning::parry_timing`, shipped 2026-08-20 as the FIRST
 knob under this ruling. ⭐ **it is the worked example**: the question arrived as
-"which one is right" (§25), the ruling reshaped it into "what is the knob", and
+"which one is right" (§27), the ruling reshaped it into "what is the knob", and
 the answer changed no shipped body's feel because a knob's default is the
 behaviour that already existed.
 
@@ -59,7 +59,7 @@ you add a `▢`, and before you work one.
 | Tumble → knockdown → tech → getup (roll / attack / stand) | ✔ | `core/movement/knockdown.rs` |
 | Wall tech | ✔ | `knockdown::tick_knockdown` reads `BodyWallState`; `WALL_TECH_SPEED` pushes off the normal |
 | Ceiling tech | ▢ | a head contact is not yet a surface the tech press can land on |
-| Crouch cancel | ▢ | — |
+| Crouch cancel | ✔ | one row only, under **Damage and knockback** — it is a property of the LAUNCH, not of the guard |
 
 ## Grabs
 
@@ -69,7 +69,6 @@ you add a `▢`, and before you work one.
 | Grab beats shield | ✔ | same |
 | Pummel | ✔ | `CapturePummelRequested` |
 | Four throws authored per fighter | ✔ | `characters/smash_capture.rs` |
-| Dash attack as its own move | ✔ | `MovesetContract::move_for_attack` asks `attack_dash` before the direction; authored by all fourteen fighters |
 | Mash escape | ✔ | `capture.rs`; `DeclaredCombatRules::grab_mash_seconds`, 14.4f per press |
 | Timed hold limit | ✔ | `grab_hold_max_seconds`; the baseline's flat 4.0s is `FLAT_GRAB_HOLD_SECONDS` |
 | Escape difficulty scales with victim damage | ✔ | `grab_hold_base_seconds` + `grab_hold_per_damage`, Ultimate's 90 + 1.7p, read ONCE at the grab |
@@ -86,7 +85,7 @@ you add a `▢`, and before you work one.
 | Short hop as its own authored height (not a velocity cut) | ▢ | — |
 | Footstool jump — claims the press, costs no air jump, 4f i-frames, Team-Attack gated | ✔ | `features/ecs/footstool.rs`; grounded victim flinches, airborne one tumbles (`ae::footstool_victim`) |
 | Phantom footstool (a target mid-move is not interrupted) | ✔ | the stomper still takes the bounce; `BodyMelee::phase()` is the committed test |
-| Jostle / body pushback between fighters | ▢ | ⛔ ASKED, not skipped: `awaiting-maintainer-decision.md` §24 — Jon's "AVOID PUSHOUT" rule may or may not reach body-vs-body |
+| Jostle / body pushback between fighters | ▢ | ⛔ ASKED, not skipped: `awaiting-maintainer-decision.md` §25 — Jon's "AVOID PUSHOUT" rule may or may not reach body-vs-body |
 | Ledge grab with intangibility window | ✔ | `core/ledge_grab/` |
 | Ledge getup: climb / roll / attack | ✔ | `LedgeGetupKind` |
 | Ledge jump getup | ✔ | `MovementOp::LedgeJump` |
@@ -102,7 +101,6 @@ you add a `▢`, and before you work one.
 | Percent damage, weight, scaled knockback | ✔ | `core/hit_response.rs` |
 | Hitlag, hitstun | ✔ | same |
 | DI | ✔ | `hit_response::di_adjust` |
-| SDI | ▢ | — |
 | Spike (a downward hit drives the victim, no attacker rebound) | ✔ | `rules::DownwardHitStyle::Spike`, declared by the smash stage |
 | Meteor lock (a spiked body cannot recover for a window; the window ending IS the cancel) | ✔ | `DeclaredCombatRules::meteor_lock_time`, declared 0.30 by the smash stage and 0.0 by versus |
 | Crouch cancel (a crouching victim takes less launch) | ✔ | `DeclaredCombatRules::crouch_cancel_scale`, declared 0.85 by smash |
@@ -110,6 +108,7 @@ you add a `▢`, and before you work one.
 | Rage (damage taken raises knockback dealt) | ✔ | `DeclaredCombatRules::rage_per_damage` + `rage_max_scale`, declared 0.004/1.4 by smash |
 | Stale-move queue (repeat use weakens) | ✔ | `BodyStaleMoves` (a nine-slot ring of move-id hashes) + `DeclaredCombatRules::stale_step`/`stale_floor` |
 | Charge attacks, landing lag, autocancel | ✔ | `combat/moveset` |
+| Dash attack (Attack out of a RUN) | ✔ | `move_for_attack` asks `attack_dash` off `BodyMotionFacts::running`, ahead of the direction; authored by all fifteen fighters |
 
 ## Match rules
 
@@ -161,12 +160,19 @@ jump_squat                  AxisManeuverState::jump_squat_timer   ✔ asked, 202
 wall_tech · wall_tech_jump  landed the same day; the tech does not say WHICH surface
 footstool_jump              MovementOp::Footstool fires; a one-tick op has no FACT
 launch                      the first beat of a tumble, distinct from `tumble`
-parry · shield_raise
-· shield_release
-· shield_hit                BodyShieldState has all four states
+parry                       `BodyShieldState::parrying()` — ready to ask for
+shield_hit                  `stun_timer > 0.0` (shieldstun) — ready to ask for
+shield_raise
+· shield_release            TRANSITION beats: the sim publishes the STATE
+                            (`active`), not its edges
 shield_break_launch
 · _fall · _collapse
-· _recover                  ONE `break_timer` covers a four-beat sequence
+· _recover                  ONE `break_timer` covers a four-beat sequence. ⭐ a
+                            DERIVED answer is available — the beat is a fraction
+                            of `break_timer / ShieldTuning::break_stun_time`, so
+                            it costs no new state — but the pose sites read
+                            `BodyShieldState` WITHOUT its tuning, so the
+                            fraction has to be published or the tuning threaded
 ledge_catch · ledge_drop
 · ledge_jump · ledge_attack  LedgeGetupKind and MovementOp::LedgeJump exist
 getup_attack · getup_roll
@@ -191,9 +197,19 @@ mechanic wants them: bury, trip, item handling (`item_pickup` through
 
 ⇒ **the pattern this branch hit five times is systemic**: `grabbed`, `pummel`,
 `dizzy`, `spot_dodge` and `dash_attack` were all drawn and never requested. The
-fix each time was one row in `body_state_clip` or one verb in `bound()`, never a
+fix was usually one row in `body_state_clip` or one verb in `bound()`, never a
 frame of art. ⛔ **so "the sprite is missing" should be the LAST hypothesis**,
 after "nothing asks for it".
+
+⚠ **but `dash_attack` cost FOUR edits, not one, and that is the shape to expect
+when the missing thing is a whole mechanic rather than a row.** The verb had to
+be bound in `bound()`, registered in the runtime's verb vocabulary, given a
+reachable STATE to select it (`BodyMotionFacts::running` — the first attempt read
+the traversal dash's timer, which the fighter kit switches off), and then given
+priority over the smash gesture, because the flick that enters a run is the same
+input that makes a press a smash. ⭐ each of the four was invisible to the tests
+that covered the previous one; only pressing the key in the host found the last
+two.
 
 ## The rest of Ultimate's list
 
@@ -216,12 +232,24 @@ kernel** — the kernel never reads `hitstun_timer`, which is why a first pass
 concluded there was no penalty at all · double-jump cancel · b-reverse and
 wavebounce · fast-fall out of a bounce.
 
-**Attack surface.** ~~Dash attack as its own verb~~ — landed 2026-08-20 · pivot smash · jab combos with
+**Attack surface.** ~~Dash attack as its own verb~~ — landed 2026-08-20, and it
+took THREE tries to become reachable ⛔⛔ **a GAIT is not the traversal dash**:
+the selector first asked `BodyMotionFacts::dashing`, which is
+`AbilitySet::dash`'s timer, and `SMASH_FIGHTER_KIT` switches that ability OFF on
+purpose — so the move was unreachable in the only game that authors one, and
+every unit test passed because each TOLD the selector the body was dashing.
+`BodyMotionFacts::running` is the fact it wanted ⛔⛔ **and then a RUN had to
+pre-empt the SMASH GESTURE**, because the two inputs are the same one: a
+direction FLICK inside the window makes a press a smash, and flicking a
+direction is how a player enters a run, so the canonical input (tap forward,
+press Attack) produced `smash_forward`. All four games answer Attack-out-of-a-run
+with the running attack and none lets a forward smash come straight out of one
+⇒ no knob, ship the standard · pivot smash · jab combos with
 a rapid-jab finisher · charge storage · a two-frame ledge-vulnerability window ·
 z-drop and item throws · edge-cancel.
 
 **Defense.** ~~Perfect shield as a RELEASE-timed parry~~ — SHIPPED as a KNOB
-2026-08-20 (§25): `ParryTiming::OnRaise` is Smash 4's and `OnRelease` is
+2026-08-20 (§27): `ParryTiming::OnRaise` is Smash 4's and `OnRelease` is
 Ultimate's, and the stage declares which · shield tilt to cover a limb · shield-drop into an aerial ·
 directional-influence variants (SDI, ASDI, hitfall).
 
@@ -259,4 +287,27 @@ and leaves the values rough; tuning is not this lane's licence.
    rules already carry, and the respawn platform.
 6. ~~**SDI**~~, ~~**crouch cancel**~~, ~~**wall tech**~~ and ~~**spot dodge**~~
    (landed 2026-08-20); still open: ceiling tech, and jostle — which is ASKED
-   rather than skipped (`awaiting-maintainer-decision.md` §24).
+   rather than skipped (`awaiting-maintainer-decision.md` §25).
+7. **What the 2026-08-20 review left open.** ~~Dash attack keyed to the wrong
+   state~~ and ~~the footstool claim's lifetime~~ landed the same day; three
+   items did not:
+   - ~~**Stale-move accounting counts CONTACTS, not USES.**~~ Landed 2026-08-20
+     (v55): the recording folds into `mark_move_playback_landed_hits`'s
+     false→true edge, which already meant *this use connected* for the
+     OnHit/OnWhiff cancels, and the separate `Settle` system is deleted. A swing
+     that catches two fighters staled the move twice.
+   - ~~**`BodyStaleMoves` lives in the movement core**~~ — moved to
+     `ambition_combat::stale` and registered as `combat.stale_moves` by combat's
+     own seam (v55). `ActorMoveset` `#[require]`s it, so the bodies carrying a
+     nine-slot history are the bodies that can land a move rather than every
+     body in every platformer composition. ⚠ the behaviour was always opt-in
+     through `stale_step`; a rule being switchable was never a reason for its
+     STORAGE to be global.
+   - **The shared evade control is still called `Dash`** — ⚠ TAKEN by the
+     main lane 2026-08-20, not this one's to work. `action_scheme.rs`
+     derives `ControlSlot::Dash` from `abilities.dash || abilities.dodge`, so a
+     Smash fighter — `dash: false`, `dodge: true` — puts a **Dash** button on
+     the touch overlay for a body that has no traversal dash. The kernel is
+     already correct (it calls the shared channel a BURST internally and
+     resolves `GroundDodge | AirDodge | Dash`); it is the upper half that still
+     spells the old word. A Smash body must present **Dodge**.

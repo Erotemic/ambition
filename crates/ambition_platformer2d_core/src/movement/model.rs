@@ -185,6 +185,20 @@ pub struct AxisManeuverState {
     pub ledge_grab: Option<crate::LedgeGrabState>,
     pub gliding: bool,
     pub fast_falling: bool,
+    /// **This body is in a RUN** — grounded, steering the way it is travelling,
+    /// at or above [`crate::MovementTuning::run_commit_frac`] of its own top
+    /// speed. Written once at the end of the integration step and projected as
+    /// `BodyMotionFacts::running`.
+    ///
+    /// ⛔ **not the traversal dash** ([`Self::dash_timer`]), which is a discrete
+    /// charge-gated burst a platform-fighter kit deliberately switches OFF. The
+    /// running attack reads THIS.
+    ///
+    /// ⚠ derived every tick and still SERIALIZED, for the same reason
+    /// [`Self::gliding`] and [`Self::fast_falling`] beside it are: a restore
+    /// that lands mid-run must not present a standing body for the tick before
+    /// the next integration rewrites it.
+    pub running: bool,
     pub flight_phase: f32,
     pub phased_jump: PhasedJumpState,
 }
@@ -227,6 +241,7 @@ impl Default for AxisManeuverState {
             ledge_grab: None,
             gliding: false,
             fast_falling: false,
+            running: false,
             flight_phase: 0.0,
             phased_jump: PhasedJumpState::default(),
         }

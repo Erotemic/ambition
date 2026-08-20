@@ -3855,6 +3855,19 @@ has and what it does not, plus an ordered roadmap. ⛔ grep a row before working
 it — the first pass of that table filed tech, ledge-jump getup and the short hop
 as MISSING when all three ship.
 
+⭐⭐ **THE TARGET IS SMASH-*LIKE* (Jon, 2026-08-20)**: *"Reproducing smash 4 or
+brawl, or melee (bugs are not required parity) would be nice too."* Where the
+games AGREE a gap is research — ship the standard. Where they DIFFER the answer
+is a KNOB, never a pick; a knob's default is the behaviour that already existed,
+so shipping one moves nothing. First worked example is
+`MovementTuning::parry_timing`.
+
+⚠ **roadmap item 7 is the 2026-08-20 review's residue** — stale-move accounting
+counting CONTACTS instead of USES, `BodyStaleMoves` sitting in the movement core
+under the ENGINE rollback domain, and the shared evade control still presenting
+as **Dash** on a body whose `AbilitySet::dash` is off. The third is control-surface
+shaped and belongs to whoever owns `action_scheme.rs`, not to this row.
+
 Use [`smash-body-generic-combat-2026-08-09.md`](smash-body-generic-combat-2026-08-09.md)
 and [`demos/super-smash-siblings.md`](demos/super-smash-siblings.md). The old
 migration diary is archived; only source-confirmed residuals should generate

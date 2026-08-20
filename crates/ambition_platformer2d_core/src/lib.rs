@@ -56,12 +56,12 @@ pub use abilities::{AbilityGrant, AbilitySet, MatchAbilities, MatchBody};
 pub use bevy_math::Vec2;
 pub use body_clusters::{
     announce_body_restarts, refresh_movement_resources_clusters, reset_body_clusters,
-    stale_move_hash, AbilityBase, AuthoredMovementTuning, BodyAbilities, BodyActionBuffer,
+    AbilityBase, AuthoredMovementTuning, BodyAbilities, BodyActionBuffer,
     BodyBaseSize, BodyBlinkState, BodyClusterQueryData, BodyClusterQueryDataItem,
     BodyClusterScratch, BodyClustersMut, BodyComboTrace, BodyDashState, BodyDodgeState,
     BodyEnvironmentContact, BodyFlightState, BodyGroundState, BodyJumpState, BodyKinematics,
     BodyLedgeState, BodyLifetime, BodyMana, BodyModeState, BodyOffense, BodyRestarted,
-    BodyShieldState, BodyStaleMoves, BodyWallState, SweepSample,
+    BodyShieldState, BodyWallState, SweepSample,
 };
 // **The geometry + frames kernel lives in `ambition_geometry` now** (carved
 // 2026-08-01). Re-exported here, module paths included, so every existing

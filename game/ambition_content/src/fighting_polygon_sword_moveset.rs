@@ -248,6 +248,8 @@ mod tests {
         let moves = fighting_polygon_sword_moveset();
         for id in [
             "polygon_jab",
+            "fighting_polygon_sword_dash_attack",
+            "fighting_polygon_sword_taunt",
             "polygon_tilt_forward",
             "polygon_tilt_up",
             "polygon_tilt_down",

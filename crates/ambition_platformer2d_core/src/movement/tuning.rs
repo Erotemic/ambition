@@ -26,6 +26,17 @@ fn default_air_stop_assist() -> f32 {
     AIR_STOP_ASSIST
 }
 
+/// **Where a walk becomes a RUN**, as a fraction of the body's own top speed.
+///
+/// Above a half separates a held walk (analog stick part-way, settling near its
+/// own lower target) from a committed run, and the genre's running attack is the
+/// first thing that had to know the difference.
+pub const RUN_COMMIT_FRAC: f32 = 0.55;
+
+fn default_run_commit_frac() -> f32 {
+    RUN_COMMIT_FRAC
+}
+
 // First-pass movement constants. These remain constants for easy grep/tuning,
 // but the simulation accepts a `MovementTuning` so experiments can override
 // them without recompiling every assumption into the update function.
@@ -340,6 +351,19 @@ pub struct MovementTuning {
     /// [`Self::air_speed_cap`], never raw.
     #[serde(default)]
     pub max_air_speed: f32,
+    /// **The gait line: what fraction of [`Self::max_run_speed`] counts as a
+    /// RUN.** Published every tick as `BodyMotionFacts::running`, and read by
+    /// the move selector so an Attack press while running is the running attack.
+    ///
+    /// ⛔ **this is NOT the traversal dash.** `AbilitySet::dash` is a discrete
+    /// charge-gated burst that REPLACES the velocity vector; a platform
+    /// fighter's dash attack comes out of ordinary grounded locomotion and a
+    /// fighter kit that switches the burst off still has one.
+    ///
+    /// ⚠ a body that wants no gait distinction authors `1.0` and reaches a run
+    /// only at full tilt; `0.0` would call a standstill a run.
+    #[serde(default = "default_run_commit_frac")]
+    pub run_commit_frac: f32,
     pub max_fall_speed: f32,
     pub jump_speed: f32,
     pub double_jump_speed: f32,
@@ -640,6 +664,8 @@ pub struct AxisLocomotion {
     /// sentinel rather than an `Option`, and read it through
     /// [`Self::air_speed_cap`].
     pub max_air_speed: f32,
+    /// See [`MovementTuning::run_commit_frac`].
+    pub run_commit_frac: f32,
     pub max_fall_speed: f32,
     pub jump_speed: f32,
     pub double_jump_speed: f32,
@@ -930,6 +956,7 @@ impl MovementTuning {
                 carried_decay: self.carried_decay,
                 max_run_speed: self.max_run_speed,
                 max_air_speed: self.max_air_speed,
+                run_commit_frac: self.run_commit_frac,
                 max_fall_speed: self.max_fall_speed,
                 jump_speed: self.jump_speed,
                 double_jump_speed: self.double_jump_speed,
@@ -1010,6 +1037,7 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     // Inherit the ground cap: every body drifts at its run speed until one
     // authors otherwise, which is byte-parity with before this field existed.
     max_air_speed: 0.0,
+    run_commit_frac: RUN_COMMIT_FRAC,
     max_fall_speed: MAX_FALL_SPEED,
     jump_speed: JUMP_SPEED,
     double_jump_speed: DOUBLE_JUMP_SPEED,

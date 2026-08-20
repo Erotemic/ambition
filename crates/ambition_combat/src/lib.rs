@@ -27,6 +27,7 @@ pub mod path_motion;
 pub mod rules;
 pub mod crowd;
 mod snapshot_impls;
+pub mod stale;
 pub mod stocks;
 /// The live strike: the authoritative damage volume, its lifecycle state, and
 /// the effect executor that spawns world-anchored ones. Hoisted out of

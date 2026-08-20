@@ -49,14 +49,17 @@ pub use ambition_platformer2d_core::{
     BodyAbilities, BodyActionBuffer, BodyBaseSize, BodyBlinkState, BodyComboTrace, BodyDashState,
     BodyDodgeState, BodyEnvironmentContact, BodyFlightState, BodyGroundState, BodyJumpState,
     BodyLedgeState, BodyLifetime, BodyMana, BodyModeState, BodyOffense, BodyShieldState,
-    BodyStaleMoves,
     BodyWallState,
 };
 
-/// The 18 **ancillary movement clusters** every body spawns with as real ECS
+/// The **ancillary movement clusters** every body spawns with as real ECS
 /// components — everything in the movement aggregate EXCEPT [`BodyKinematics`]
 /// (the shared kinematic truth, spawned as its own component so rendering /
 /// gravity / targeting can read one position without the movement set).
+///
+/// ⛔ **the count that used to open this sentence said EIGHTEEN and the struct
+/// had twenty-three fields.** A hand-kept number in a doc comment is a ledger
+/// nobody reconciles; the struct below is the list.
 ///
 /// This is the single spawn surface for the ancillary clusters, nested by BOTH
 /// the player (`PlayerSimulationBundle`) and every actor
@@ -87,8 +90,6 @@ pub struct AncillaryMovementBundle {
     pub ledge: BodyLedgeState,
     pub dodge: BodyDodgeState,
     pub shield: BodyShieldState,
-    /// The last few moves this body LANDED, so a repeated one is worth less.
-    pub stale_moves: ambition_platformer2d_core::BodyStaleMoves,
     pub body_mode: BodyModeState,
     pub env_contact: BodyEnvironmentContact,
     pub mana: BodyMana,
@@ -106,7 +107,7 @@ pub struct AncillaryMovementBundle {
 }
 
 impl AncillaryMovementBundle {
-    /// Split the 18 ancillary clusters out of a [`BodyClusterScratch`],
+    /// Split the ancillary clusters out of a [`BodyClusterScratch`],
     /// dropping its vestigial `kinematics` field (the body's authoritative
     /// [`BodyKinematics`] is spawned separately).
     pub fn from_scratch(scratch: ambition_platformer2d_core::BodyClusterScratch) -> Self {
@@ -148,8 +149,6 @@ impl AncillaryMovementBundle {
             wall,
             jump,
             dash,
-            // A fresh body has landed nothing, so it has worn nothing out.
-            stale_moves: Default::default(),
             flight,
             blink,
             ledge,

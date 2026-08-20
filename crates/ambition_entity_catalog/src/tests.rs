@@ -419,7 +419,7 @@ fn directional_verb_chain_orders_most_specific_first() {
 /// that authors none resolves exactly what it did before — which is the property
 /// that lets this ship without touching thirteen non-smash movesets.
 #[test]
-fn a_dashing_body_gets_its_dash_attack_before_any_direction() {
+fn a_running_body_gets_its_dash_attack_before_any_direction() {
     let with_dash = MovesetContract {
         verbs: BTreeMap::from([
             ("attack".to_string(), "attack".to_string()),
@@ -432,14 +432,14 @@ fn a_dashing_body_gets_its_dash_attack_before_any_direction() {
             bare_move("dash", Some(true)),
         ],
     };
-    let pick = |grounded, dashing| {
+    let pick = |grounded, running| {
         with_dash
-            .move_for_attack("attack", AttackDir::Forward, grounded, dashing)
+            .move_for_attack("attack", AttackDir::Forward, grounded, running)
             .unwrap()
             .id
             .clone()
     };
-    assert_eq!(pick(true, true), "dash", "the direction beat the stance");
+    assert_eq!(pick(true, true), "dash", "the direction beat the gait");
     assert_eq!(
         pick(true, false),
         "ftilt",
@@ -450,6 +450,12 @@ fn a_dashing_body_gets_its_dash_attack_before_any_direction() {
         "attack",
         "a dash attack was thrown in the air"
     );
+
+    // ⛔ **the WORD is spelled once.** The selector builds this verb through
+    // `dash_stance_verb` and so does the runtime's vocabulary; a table keyed by
+    // a hand-typed `"attack_dash"` here would keep passing after a rename that
+    // left the runtime unable to resolve the move.
+    assert_eq!(super::dash_stance_verb("attack"), "attack_dash");
 
     // ⛔ the floor: a fighter with no dash attack is untouched.
     let without = MovesetContract {

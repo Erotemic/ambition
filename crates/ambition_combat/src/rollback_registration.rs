@@ -46,6 +46,14 @@ where
         "entity-less world-contact fired-state checksum projection",
         |on_hit| if on_hit.world_fired() { 1 } else { 0 },
     );
+    // ⭐ **the stale ring is COMBAT's, and this is where it says so.** It was
+    // registered under the ENGINE domain as `body.stale_moves` while living in
+    // the movement core, so a composition with no staling rule still rewound a
+    // nine-slot combat history on every body it moved.
+    registrar.rollback_component_canonical::<crate::stale::BodyStaleMoves>(
+        OWNER,
+        "combat.stale_moves",
+    );
     registrar.rollback_component_canonical::<crate::components::BodyMelee>(
         OWNER,
         "actor.body_melee",

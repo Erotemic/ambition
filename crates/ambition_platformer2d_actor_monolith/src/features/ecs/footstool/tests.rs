@@ -156,6 +156,63 @@ fn a_footstool_claims_the_press_and_drives_the_stomped_down() {
     );
 }
 
+/// **A CLAIM THE KERNEL NEVER SPENT IS GONE BY THE NEXT TICK.**
+///
+/// ⛔⛔ **`footstool_claimed` means "THIS tick's jump edge was claimed", and
+/// nothing but this clear makes that true.** The kernel spends the claim inside
+/// its footstool branch — and that branch is not first. A wall jump, a ground
+/// jump, a coyote jump, a ladder jump and the one-way drop-through all resolve
+/// the same press ahead of it, so a body that qualified for a footstool and
+/// whose press went to a wall jump instead KEPT the claim, and the next airborne
+/// press spent it over empty air: a free jump nobody stood on.
+///
+/// ⭐ **the second half is the poison and the test is worthless without it.** A
+/// clear that ran unconditionally after arbitration — or one that erased the
+/// claim it had just granted — would satisfy the first assertion perfectly while
+/// deleting the mechanic. The same tick has to do both.
+#[test]
+fn a_claim_the_kernel_never_spent_is_gone_by_the_next_tick() {
+    let mut app = app();
+    let rules = ae::FootstoolTuning::PLATFORM_FIGHTER;
+
+    // Nobody underneath this one: it is carrying a claim an earlier tick made
+    // and some other jump branch took the press for.
+    let stranded = fighter(&mut app, "stranded", ae::Vec2::new(600.0, 0.0), true, rules);
+    app.world_mut()
+        .get_mut::<ae::BodyJumpState>(stranded)
+        .expect("the body kept its jump state")
+        .footstool_claimed = true;
+
+    // And a real pair, in the same tick, so the clear has to be able to tell
+    // them apart.
+    let victim = fighter(&mut app, "victim", ae::Vec2::ZERO, false, rules);
+    let stomper = fighter(
+        &mut app,
+        "stomper",
+        ae::Vec2::new(0.0, -SIZE.y),
+        true,
+        rules,
+    );
+
+    app.update();
+
+    assert!(
+        !claimed(&app, stranded),
+        "a claim that lost input arbitration outlived the tick that made it, so \
+         this body's next airborne press is a footstool off nothing"
+    );
+    assert!(
+        claimed(&app, stomper),
+        "the clear erased a footstool the same tick granted — the arbitration \
+         has to run AFTER the sweep, not instead of it"
+    );
+    assert_eq!(
+        fall_of(&app, victim),
+        rules.press_speed,
+        "the real pair stopped resolving once the sweep was added"
+    );
+}
+
 /// **A GROUNDED VICTIM FLINCHES; IT IS NOT SHOVED AND IT DOES NOT TUMBLE.**
 ///
 /// ⛔ the half the first version was missing — every victim took the same shove

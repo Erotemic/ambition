@@ -83,6 +83,85 @@ def test_a_planted_field_moves_the_shape(tmp_path):
     assert digest_b != digest_a, 'the planted field did not change the digest'
 
 
+def test_a_planted_wire_code_moves_the_shape(tmp_path):
+    """⛔⛔ **the THIRD construct that decides bytes without naming a `put_*`.**
+
+    `snapshot_unit_enum!(Ty { A = 0, B = 1 })` expands to one `put_u8` of a
+    discriminant, and that call lives in the MACRO — so an invocation site
+    contributes no primitive at all and a new wire CODE was invisible. Measured
+    2026-08-20 on a branch adding `MovementOp::Footstool = 34`: the file stayed
+    byte-identical at `3355eb410d168f88` while the enum went 34 variants to 35.
+
+    ⚠ **the COUNT does not move, the DIGEST does** — one token per invocation,
+    carrying the sorted codes. Same as `snapshot_pod!` and the array fold, and
+    the same trap for a reader skimming counts.
+    """
+    path = tmp_path / 'codec.rs'
+    path.write_text(
+        'snapshot_unit_enum!(crate::movement::MovementOp {\n'
+        '    Jump = 1,\n'
+        '    Land = 2,\n'
+        '});\n',
+        encoding='utf8',
+    )
+    bare = shape.shape_of(path)
+
+    path.write_text(
+        'snapshot_unit_enum!(crate::movement::MovementOp {\n'
+        '    Jump = 1,\n'
+        '    Land = 2,\n'
+        '    Footstool = 3,\n'
+        '});\n',
+        encoding='utf8',
+    )
+    assert shape.shape_of(path)[1] != bare[1], (
+        'a new wire code did not move the digest — a peer can now decode a byte '
+        'the baseline says nothing about'
+    )
+
+    path.write_text(
+        'snapshot_unit_enum!(crate::movement::MovementOp {\n'
+        '    Jump = 1,\n'
+        '    Land = 9,\n'
+        '});\n',
+        encoding='utf8',
+    )
+    assert shape.shape_of(path)[1] != bare[1], 'a RENUMBERED code did not move the digest'
+
+
+def test_renaming_or_reordering_a_wire_code_does_not_move_the_shape(tmp_path):
+    """The poison for the guard above. Each variant keeps its own discriminant,
+    so neither a rename nor a reorder changes a byte — and a checker that fires
+    on either is the false positive this file's docs say gets it turned off."""
+    path = tmp_path / 'codec.rs'
+    path.write_text(
+        'snapshot_unit_enum!(crate::movement::MovementOp {\n'
+        '    Jump = 1,\n'
+        '    Land = 2,\n'
+        '});\n',
+        encoding='utf8',
+    )
+    bare = shape.shape_of(path)
+
+    path.write_text(
+        'snapshot_unit_enum!(crate::movement::MovementOp {\n'
+        '    Hop = 1,\n'
+        '    Land = 2,\n'
+        '});\n',
+        encoding='utf8',
+    )
+    assert shape.shape_of(path) == bare, 'a RENAMED variant moved the shape'
+
+    path.write_text(
+        'snapshot_unit_enum!(crate::movement::MovementOp {\n'
+        '    Land = 2,\n'
+        '    Jump = 1,\n'
+        '});\n',
+        encoding='utf8',
+    )
+    assert shape.shape_of(path) == bare, 'a REORDERED variant list moved the shape'
+
+
 def test_a_comment_edit_does_not_move_the_shape(tmp_path):
     """The poison. A guard that fires on prose gets switched off, and these
     codecs are among the most heavily commented files in the repo — the word

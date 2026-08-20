@@ -238,15 +238,6 @@ state under the simulation. Camera code still mutates no input state — the sto
 `movement_frame_mode` is left intact so switching back restores the player's own
 choice.
 
-### C2 — one-view Ambition proof
-
-Feed the current controlled/view subject's `ResolvedMotionFrame` into the camera
-observation seam and expose the subject-relative mode in an Ambition-accessible
-configuration path.
-
-Pair the product preset with body-relative control semantics without coupling the
-camera implementation to input mutation.
-
 ### C3 — rotation-aware framing and clamp
 
 Make room clamp, camera zones, soft framing, aspect handling and scene capture

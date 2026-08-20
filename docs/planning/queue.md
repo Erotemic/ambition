@@ -3619,6 +3619,12 @@ that is the failure mode this repository has already named twice.
 
 - ▢ **D72 — Continue Smash as a body-generic combat customer.**
 
+⭐ **START AT [`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md)**
+(2026-08-19): a one-line-per-row table of what the platform-fighter vocabulary
+has and what it does not, plus an ordered roadmap. ⛔ grep a row before working
+it — the first pass of that table filed tech, ledge-jump getup and the short hop
+as MISSING when all three ship.
+
 Use [`smash-body-generic-combat-2026-08-09.md`](smash-body-generic-combat-2026-08-09.md)
 and [`demos/super-smash-siblings.md`](demos/super-smash-siblings.md). The old
 migration diary is archived; only source-confirmed residuals should generate

@@ -364,6 +364,7 @@ pub const SMASH_FIGHTER_BODY: ambition_platformer2d::engine_core::MatchBody =
         air_dodge_speed: ambition_platformer2d::engine_core::AIR_DODGE_SPEED,
         air_dodge_endlag: ambition_platformer2d::engine_core::AIR_DODGE_ENDLAG,
         tumble_speed: 500.0,
+        shield: ambition_platformer2d::engine_core::ShieldTuning::PLATFORM_FIGHTER,
     };
 
 /// **THE BASIC SMASH ABILITIES** — the verbs every fighter on this stage has.

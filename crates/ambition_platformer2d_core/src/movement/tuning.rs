@@ -392,6 +392,9 @@ pub struct MovementTuning {
     /// down, which is every body until one authors a fighter's floor game.
     #[serde(default)]
     pub tumble_speed: f32,
+    /// See [`ShieldTuning`].
+    #[serde(default)]
+    pub shield: ShieldTuning,
     pub parry_window_time: f32,
     /// Momentum-carry parameters for ledge getups. Set to
     /// `LedgeMomentumTuning::OFF` to disable the mechanic.
@@ -620,9 +623,68 @@ pub struct TraversalAbilityTuning {
     /// See [`TraversalAbilityTuning::tumble_speed`].
     #[serde(default)]
     pub tumble_speed: f32,
+    /// See [`ShieldTuning`].
+    #[serde(default)]
+    pub shield: ShieldTuning,
     pub parry_window_time: f32,
     #[serde(default)]
     pub ledge_momentum: LedgeMomentumTuning,
+}
+
+/// **The shield as a RESOURCE** — integrity that drains while held, regenerates
+/// while down, is spent by blocked hits, and breaks the guard when exhausted.
+///
+/// Set [`Self::max_health`] to `0.0` (the default) to leave a body's shield an
+/// unlimited on/off guard, which is what every body had before this existed.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ShieldTuning {
+    /// Total integrity. `0.0` = this body's shield is not a resource.
+    pub max_health: f32,
+    /// Integrity lost per second while the guard is up.
+    pub drain_per_second: f32,
+    /// Integrity recovered per second while the guard is down and unbroken.
+    pub regen_per_second: f32,
+    /// Integrity spent per point of damage the guard absorbs.
+    pub damage_scale: f32,
+    /// Seconds the body is dizzy and shieldless after a break.
+    pub break_stun_time: f32,
+    /// Seconds of shieldstun the defender owes per point of damage it blocks.
+    /// `0.0` makes blocking free, which is what it was.
+    pub stun_per_damage: f32,
+}
+
+impl Default for ShieldTuning {
+    fn default() -> Self {
+        Self::OFF
+    }
+}
+
+impl ShieldTuning {
+    /// An unlimited guard: no drain, no break, no regeneration to do.
+    pub const OFF: Self = Self {
+        max_health: 0.0,
+        drain_per_second: 0.0,
+        regen_per_second: 0.0,
+        damage_scale: 0.0,
+        break_stun_time: 0.0,
+        stun_per_damage: 0.0,
+    };
+
+    /// Platform-fighter defaults: a guard that survives about six seconds held,
+    /// refills in about eight, and costs a point of integrity per point blocked.
+    pub const PLATFORM_FIGHTER: Self = Self {
+        max_health: 50.0,
+        drain_per_second: 8.0,
+        regen_per_second: 6.0,
+        damage_scale: 1.0,
+        break_stun_time: 2.0,
+        stun_per_damage: 0.012,
+    };
+
+    /// Whether this body's shield is a spendable resource at all.
+    pub fn is_resource(self) -> bool {
+        self.max_health > 0.0
+    }
 }
 
 /// The free-flight limb's tuning (hover, glide-steer, direct-velocity movers).
@@ -738,6 +800,7 @@ impl MovementTuning {
                 air_dodge_endlag: self.air_dodge_endlag,
                 tumble_speed: self.tumble_speed,
                 parry_window_time: self.parry_window_time,
+                shield: self.shield,
                 ledge_momentum: self.ledge_momentum,
             },
             flight: FlightTuning {
@@ -829,6 +892,7 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     // knocked down and had to stand up would be a different game.
     tumble_speed: 0.0,
     parry_window_time: PARRY_WINDOW_TIME,
+    shield: ShieldTuning::OFF,
     ledge_momentum: LedgeMomentumTuning::DEFAULT,
 };
 

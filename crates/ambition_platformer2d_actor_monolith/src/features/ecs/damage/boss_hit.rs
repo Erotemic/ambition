@@ -52,15 +52,15 @@ pub(crate) fn apply_entity_boss_damage(
     if invulnerable || amount <= 0 {
         return (false, false, None);
     }
-    // THE shared victim-side mechanics. Shield args are inert (bosses carry no
-    // `BodyShieldState`; `shield_active: false` short-circuits the block).
+    // THE shared victim-side mechanics. The guard is `None` — a boss carries no
+    // `BodyShieldState`, so there is nothing to block with and nothing to spend.
     let resolution = crate::features::ecs::damage_apply::resolve_body_hit(
         combat,
         Some(health),
         // Bosses wear no equipment; armor is inert here.
         None,
         wallet_shield,
-        false,
+        None,
         0.0,
         ae::Vec2::ZERO,
         ae::Vec2::ZERO,

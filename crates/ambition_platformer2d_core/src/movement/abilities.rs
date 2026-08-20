@@ -274,8 +274,11 @@ pub fn resolve_shield(
     dash_active: bool,
     shield_held: bool,
     parry_window_time: f32,
+    // A broken guard cannot be raised until the dizzy runs out — the whole
+    // point of breaking it.
+    broken: bool,
 ) -> bool {
-    if !ability_enabled {
+    if !ability_enabled || broken {
         *active = false;
         *parry_window_timer = 0.0;
         return false;
@@ -300,6 +303,7 @@ pub(super) fn apply_shield(
     tuning: AxisSweptParams,
     events: &mut FrameEvents,
 ) {
+    let broken = shield.broken();
     let fresh = resolve_shield(
         &mut shield.active,
         &mut shield.parry_window_timer,
@@ -307,6 +311,7 @@ pub(super) fn apply_shield(
         state.dash_timer > 0.0,
         input.shield_held,
         tuning.abilities.parry_window_time,
+        broken,
     );
     if fresh {
         events.op_clusters(combo_trace, MovementOp::ShieldUp);
@@ -742,30 +747,30 @@ mod resolve_shield_tests {
     fn resolve_shield_is_the_one_rule() {
         // Disabled ability forces the guard down and clears the parry window.
         let (mut active, mut parry) = (true, 0.5);
-        let fresh = resolve_shield(&mut active, &mut parry, false, false, true, 0.2);
+        let fresh = resolve_shield(&mut active, &mut parry, false, false, true, 0.2, false);
         assert!(!active && parry == 0.0 && !fresh, "no ability → no guard");
 
         // Rising edge: a held shield with the ability raises a FRESH guard and opens
         // the parry window.
         let (mut active, mut parry) = (false, 0.0);
-        let fresh = resolve_shield(&mut active, &mut parry, true, false, true, 0.2);
+        let fresh = resolve_shield(&mut active, &mut parry, true, false, true, 0.2, false);
         assert!(
             active && parry == 0.2 && fresh,
             "rising edge opens a fresh parry"
         );
 
         // Held across a second tick: still raised, but NOT a fresh edge (no re-arm).
-        let fresh = resolve_shield(&mut active, &mut parry, true, false, true, 0.2);
+        let fresh = resolve_shield(&mut active, &mut parry, true, false, true, 0.2, false);
         assert!(active && !fresh, "sustained hold is not a fresh parry");
 
         // Can't raise while dashing — the gate that binds the player AND the actor.
         let (mut active, mut parry) = (false, 0.0);
-        let fresh = resolve_shield(&mut active, &mut parry, true, true, true, 0.2);
+        let fresh = resolve_shield(&mut active, &mut parry, true, true, true, 0.2, false);
         assert!(!active && !fresh, "dashing blocks the guard");
 
         // Release drops the guard (sustain re-evaluated every tick).
         let (mut active, mut parry) = (true, 0.2);
-        resolve_shield(&mut active, &mut parry, true, false, false, 0.2);
+        resolve_shield(&mut active, &mut parry, true, false, false, 0.2, false);
         assert!(!active, "releasing the button drops the guard");
     }
 }

@@ -59,6 +59,8 @@ pub enum MovementOp {
     Slash,
     Reset,
     ShieldUp,
+    /// The guard was spent to nothing and shattered — the body is dizzy.
+    ShieldBreak,
 }
 
 impl MovementOp {
@@ -97,6 +99,7 @@ impl MovementOp {
             MovementOp::Slash => "S",
             MovementOp::Reset => "0",
             MovementOp::ShieldUp => "SH",
+            MovementOp::ShieldBreak => "SB",
         }
     }
 
@@ -135,6 +138,7 @@ impl MovementOp {
             MovementOp::Slash => "slash",
             MovementOp::Reset => "reset",
             MovementOp::ShieldUp => "shield up",
+            MovementOp::ShieldBreak => "shield break",
         }
     }
 }

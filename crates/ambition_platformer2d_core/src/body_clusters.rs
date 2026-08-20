@@ -467,12 +467,101 @@ pub struct BodyDodgeState {
 pub struct BodyShieldState {
     pub active: bool,
     pub parry_window_timer: f32,
+    /// **Integrity SPENT**, not integrity left — so the derived `Default` (a
+    /// fresh, undamaged guard) is right for every body, including the bodies
+    /// whose [`crate::ShieldTuning`] leaves the shield unlimited.
+    pub depleted: f32,
+    /// Dizzy after a break: the guard cannot be raised and the body has no
+    /// control authority while this is positive.
+    pub break_timer: f32,
+    /// Shieldstun: the defender owes this after blocking, and it is what makes
+    /// a blocked hit cost the blocker tempo instead of nothing.
+    pub stun_timer: f32,
 }
 
 impl BodyShieldState {
     pub fn parrying(self) -> bool {
         self.active && self.parry_window_timer > 0.0
     }
+
+    /// The guard was broken and the body is still paying for it.
+    pub fn broken(self) -> bool {
+        self.break_timer > 0.0
+    }
+
+    /// `1.0` fresh, `0.0` about to break — and `1.0` for a body whose shield is
+    /// not a resource, so a presentation reader needs no special case.
+    pub fn integrity_fraction(self, tuning: crate::ShieldTuning) -> f32 {
+        if !tuning.is_resource() {
+            return 1.0;
+        }
+        (1.0 - self.depleted / tuning.max_health).clamp(0.0, 1.0)
+    }
+}
+
+/// **Break the guard**: spend it to the last point, drop it, and start the dizzy.
+pub fn break_shield(shield: &mut BodyShieldState, tuning: crate::ShieldTuning) {
+    shield.depleted = tuning.max_health;
+    shield.break_timer = tuning.break_stun_time;
+    shield.active = false;
+    shield.parry_window_timer = 0.0;
+}
+
+/// **Spend the guard on a blocked hit**, breaking it if that empties it.
+///
+/// Called from the damage resolver's block branch so the block and the cost it
+/// carries are one step, not a decision plus a follow-up nobody owes.
+pub fn spend_shield_on_block(
+    shield: &mut BodyShieldState,
+    tuning: crate::ShieldTuning,
+    damage: i32,
+) {
+    if !tuning.is_resource() {
+        return;
+    }
+    let damage = damage.max(0) as f32;
+    shield.stun_timer = shield.stun_timer.max(damage * tuning.stun_per_damage);
+    shield.depleted += damage * tuning.damage_scale;
+    if shield.depleted >= tuning.max_health {
+        break_shield(shield, tuning);
+    }
+}
+
+/// **The shield resource's whole clock**: the dizzy, the drain while held, and
+/// the regeneration while down.
+///
+/// A break restores full integrity when the dizzy ends, so recovery is one
+/// event rather than a slow crawl back from zero.
+/// Returns `true` on the ONE tick a break becomes visible, whoever caused it —
+/// the drain below or a blocked hit — so the presentation has a single emit site
+/// instead of one per cause. The test is that the dizzy has not started counting
+/// yet, and only this function counts it.
+pub fn tick_shield_resource(
+    shield: &mut BodyShieldState,
+    tuning: crate::ShieldTuning,
+    dt: f32,
+) -> bool {
+    if !tuning.is_resource() {
+        return false;
+    }
+    shield.stun_timer = (shield.stun_timer - dt).max(0.0);
+    if shield.active {
+        shield.depleted += tuning.drain_per_second * dt;
+        if shield.depleted >= tuning.max_health {
+            break_shield(shield, tuning);
+        }
+    } else if shield.break_timer <= 0.0 {
+        shield.depleted = (shield.depleted - tuning.regen_per_second * dt).max(0.0);
+    }
+    if shield.break_timer <= 0.0 {
+        return false;
+    }
+    let freshly_broken = shield.break_timer >= tuning.break_stun_time;
+    shield.break_timer = (shield.break_timer - dt).max(0.0);
+    if shield.break_timer <= 0.0 {
+        shield.depleted = 0.0;
+    }
+    freshly_broken
 }
 
 /// **"This body starts again."** — the half of a reset the engine cannot perform.
@@ -1141,5 +1230,181 @@ mod reset_tests {
             "the flag was not cleared, so every later tick re-announces a \
              restart that already happened"
         );
+    }
+}
+
+#[cfg(test)]
+mod shield_resource_tests {
+    use super::*;
+    use crate::ShieldTuning;
+
+    const FIGHTER: ShieldTuning = ShieldTuning::PLATFORM_FIGHTER;
+    const DT: f32 = 1.0 / 60.0;
+
+    fn guarding() -> BodyShieldState {
+        BodyShieldState {
+            active: true,
+            ..Default::default()
+        }
+    }
+
+    /// **HOLDING THE GUARD SPENDS IT, AND SPENDING IT ALL BREAKS IT.**
+    #[test]
+    fn a_held_guard_drains_until_it_breaks() {
+        let mut shield = guarding();
+        let mut seconds = 0.0;
+        while !shield.broken() && seconds < 30.0 {
+            tick_shield_resource(&mut shield, FIGHTER, DT);
+            seconds += DT;
+        }
+        assert!(
+            shield.broken(),
+            "a guard held for 30s never broke — it is not a resource"
+        );
+        assert!(
+            seconds > 1.0,
+            "the guard broke in {seconds}s, which is a flicker rather than a resource"
+        );
+        assert!(!shield.active, "a broken guard was still up");
+        // The breaking tick spends its own frame of the dizzy, so the armed
+        // value is one tick short of the authored one rather than equal to it.
+        assert!(
+            (FIGHTER.break_stun_time - shield.break_timer).abs() <= DT * 1.5,
+            "the dizzy was armed at {} against an authored {}",
+            shield.break_timer,
+            FIGHTER.break_stun_time
+        );
+    }
+
+    /// **A BROKEN GUARD CANNOT COME BACK UP, AND COMES BACK WHOLE.**
+    #[test]
+    fn a_break_locks_the_guard_out_and_then_restores_it_fully() {
+        let mut shield = guarding();
+        break_shield(&mut shield, FIGHTER);
+        assert_eq!(shield.integrity_fraction(FIGHTER), 0.0);
+
+        let mut elapsed = 0.0;
+        while shield.broken() {
+            // The dizzy is the ONE thing that runs while broken: no regeneration
+            // crawls the guard back before the body may act.
+            assert_eq!(shield.depleted, FIGHTER.max_health);
+            tick_shield_resource(&mut shield, FIGHTER, DT);
+            elapsed += DT;
+        }
+        assert!(
+            (elapsed - FIGHTER.break_stun_time).abs() < 0.05,
+            "the dizzy ran {elapsed}s against an authored {}s",
+            FIGHTER.break_stun_time
+        );
+        assert_eq!(
+            shield.integrity_fraction(FIGHTER),
+            1.0,
+            "the guard came back damaged, so a break is a permanent tax"
+        );
+    }
+
+    /// **A BLOCKED HIT COSTS INTEGRITY, AND A BIG ENOUGH ONE BREAKS THE GUARD.**
+    #[test]
+    fn blocking_spends_the_guard_in_proportion_to_the_damage() {
+        let mut small = guarding();
+        spend_shield_on_block(&mut small, FIGHTER, 5);
+        let mut large = guarding();
+        spend_shield_on_block(&mut large, FIGHTER, 20);
+        assert!(
+            large.depleted > small.depleted,
+            "a 20-damage hit cost the guard no more than a 5-damage one"
+        );
+        assert!(!small.broken() && !large.broken());
+
+        let mut poked = guarding();
+        spend_shield_on_block(&mut poked, FIGHTER, FIGHTER.max_health as i32 + 1);
+        assert!(
+            poked.broken(),
+            "a hit bigger than the whole guard did not break it"
+        );
+    }
+
+    /// **A BODY WITH NO SHIELD RESOURCE IS UNTOUCHED BY ALL OF IT.**
+    ///
+    /// ⛔ the poison this pins: every body in the game carries a
+    /// `BodyShieldState` and almost none authors a [`ShieldTuning`], so a rule
+    /// that ran on the DEFAULT tuning would break every exploration guard in the
+    /// game on its first frame.
+    #[test]
+    fn an_unlimited_guard_never_drains_spends_or_breaks() {
+        let mut shield = guarding();
+        for _ in 0..600 {
+            tick_shield_resource(&mut shield, ShieldTuning::OFF, DT);
+        }
+        spend_shield_on_block(&mut shield, ShieldTuning::OFF, 999);
+        assert_eq!(shield.depleted, 0.0);
+        assert!(!shield.broken());
+        assert!(shield.active, "an unlimited guard was dropped");
+        assert_eq!(shield.integrity_fraction(ShieldTuning::OFF), 1.0);
+    }
+
+    /// **LETTING GO REGENERATES, AND ONLY UP TO WHOLE.**
+    #[test]
+    fn a_dropped_guard_regenerates_and_stops_at_full() {
+        let mut shield = guarding();
+        spend_shield_on_block(&mut shield, FIGHTER, 20);
+        let hurt = shield.depleted;
+        shield.active = false;
+        for _ in 0..30 {
+            tick_shield_resource(&mut shield, FIGHTER, DT);
+        }
+        assert!(shield.depleted < hurt, "a dropped guard did not recover");
+        for _ in 0..600 {
+            tick_shield_resource(&mut shield, FIGHTER, DT);
+        }
+        assert_eq!(shield.depleted, 0.0, "regeneration overshot past whole");
+    }
+}
+
+#[cfg(test)]
+mod shieldstun_tests {
+    use super::*;
+    use crate::ShieldTuning;
+
+    /// **BLOCKING COSTS THE BLOCKER TIME, IN PROPORTION TO WHAT IT BLOCKED.**
+    ///
+    /// ⛔ without this a guard is free: the defender eats a smash attack and acts
+    /// on the next frame, so there is nothing to punish and no reason to swing.
+    #[test]
+    fn a_blocked_hit_charges_shieldstun_and_it_runs_out() {
+        let t = ShieldTuning::PLATFORM_FIGHTER;
+        let mut light = BodyShieldState {
+            active: true,
+            ..Default::default()
+        };
+        spend_shield_on_block(&mut light, t, 4);
+        let mut heavy = BodyShieldState {
+            active: true,
+            ..Default::default()
+        };
+        spend_shield_on_block(&mut heavy, t, 18);
+        assert!(light.stun_timer > 0.0, "a blocked hit charged no shieldstun");
+        assert!(
+            heavy.stun_timer > light.stun_timer,
+            "an 18-damage hit cost the blocker no more time than a 4-damage one"
+        );
+
+        let mut elapsed = 0.0;
+        while heavy.stun_timer > 0.0 && elapsed < 5.0 {
+            tick_shield_resource(&mut heavy, t, 1.0 / 60.0);
+            elapsed += 1.0 / 60.0;
+        }
+        assert_eq!(heavy.stun_timer, 0.0, "shieldstun never expired");
+    }
+
+    /// **AND A BODY WITH NO SHIELD RESOURCE STILL BLOCKS FOR FREE.**
+    #[test]
+    fn an_unlimited_guard_owes_no_shieldstun() {
+        let mut shield = BodyShieldState {
+            active: true,
+            ..Default::default()
+        };
+        spend_shield_on_block(&mut shield, ShieldTuning::OFF, 30);
+        assert_eq!(shield.stun_timer, 0.0);
     }
 }

@@ -264,6 +264,7 @@ pub(crate) fn apply_actor_hit(
         // Resolved BEFORE the shared mechanics, because it decides whether they
         // apply at all: the blast zone is not a hit anything can defend against.
         let left_the_world = matches!(event.source, HitSource::LeftTheWorld);
+        let shield_tuning = motion_model.shield_tuning();
         let resolution = crate::features::ecs::damage_apply::resolve_body_hit(
             combat,
             Some(&mut *em.health),
@@ -271,7 +272,7 @@ pub(crate) fn apply_actor_hit(
             // supports it generically, but nothing threads a `WornEquipment` here.
             None,
             wallet_shield,
-            em.shield.active,
+            Some((&mut *em.shield, shield_tuning)),
             em.kin.facing,
             em.kin.pos,
             event.volume.center(),

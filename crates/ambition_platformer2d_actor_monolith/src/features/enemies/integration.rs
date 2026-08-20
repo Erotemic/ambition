@@ -365,7 +365,9 @@ impl<'a> ActorMut<'a> {
         // knockback carries the body, it can't steer back in), hitstun reduces
         // movement authority but preserves the attack verb. Applied after the
         // flight-axis override so a knocked flyer loses its steering too.
-        crate::features::ecs::attack::apply_post_hit_input_gates(&mut input, feel, combat);
+        crate::features::ecs::attack::apply_post_hit_input_gates(
+            &mut input, feel, combat, self.shield,
+        );
         // ⭐⭐ **the tuning refresh and the hitlag freeze are ONE CALL with the
         // avatar road now** (D117). Both roads used to spell these two steps
         // beside their own `ae::step_motion`, which is precisely how D114

@@ -232,7 +232,10 @@ pub fn resolve_body_hit(
     mut health: Option<&mut BodyHealth>,
     armor: Option<&mut WornEquipment>,
     wallet_shield: Option<WalletArmor<'_>>,
-    shield_active: bool,
+    // ⭐ the GUARD ITSELF, not just whether it is up: a block spends integrity
+    // and may break the shield, and that cost belongs inside the decision that
+    // grants the block rather than in a follow-up the next caller can forget.
+    shield: Option<(&mut ae::BodyShieldState, ae::ShieldTuning)>,
     facing: f32,
     body_pos: ae::Vec2,
     impact_pos: ae::Vec2,
@@ -268,11 +271,15 @@ pub fn resolve_body_hit(
             return BodyHitResolution::Ignored;
         }
     }
+    let shield_active = shield.as_ref().is_some_and(|(state, _)| state.active);
     if !unstoppable && shield_blocks_hit(shield_active, facing, body_pos, impact_pos, gravity_dir) {
         if feel.block_hit_flash > 0.0 {
             combat.hit_flash = feel.block_hit_flash;
         }
         combat.damage_invuln_timer = combat.damage_invuln_timer.max(feel.block_invuln_floor);
+        if let Some((state, tuning)) = shield {
+            ae::body_clusters::spend_shield_on_block(state, tuning, raw_damage);
+        }
         return BodyHitResolution::Blocked;
     }
     // A3 armor-on-hit (shield beats armor beats damage): a worn armor row spends
@@ -465,7 +472,7 @@ pub(crate) fn handle_player_damage_events(
         player_health.as_deref_mut(),
         armor,
         wallet_shield,
-        clusters.shield.active,
+        Some((clusters.shield, tuning.shield)),
         clusters.kinematics.facing,
         clusters.kinematics.pos,
         impact_pos,

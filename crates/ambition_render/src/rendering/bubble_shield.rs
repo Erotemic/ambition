@@ -124,13 +124,21 @@ pub fn spawn_bubble_shield_visual(
     commands.spawn_session_scoped(session_scope, new_ring_sprite(sprite.handle.clone()));
 }
 
-/// Parry window: gold glow. Held but expired: soft cyan.
-fn shield_ring_color(parrying: bool) -> Color {
+/// Parry window: gold glow. Held but expired: cyan that reddens as the guard is
+/// spent, so "this shield is about to break" is readable without a meter.
+fn shield_ring_color(parrying: bool, integrity: f32) -> Color {
     if parrying {
-        Color::srgba(1.0, 0.95, 0.40, 0.90)
-    } else {
-        Color::srgba(0.50, 0.80, 1.0, 0.55)
+        return Color::srgba(1.0, 0.95, 0.40, 0.90);
     }
+    let spent = 1.0 - integrity.clamp(0.0, 1.0);
+    Color::srgba(0.50 + 0.50 * spent, 0.80 - 0.55 * spent, 1.0 - 0.75 * spent, 0.55)
+}
+
+/// **How much of the body the guard still covers.** A spent shield shrinks
+/// toward the body, which is the read a platform fighter expects and the shape a
+/// later poke rule measures against.
+fn shield_ring_coverage(integrity: f32) -> f32 {
+    0.55 + 0.45 * integrity.clamp(0.0, 1.0)
 }
 
 /// Show / hide + tint a bubble ring around EVERY body whose shield is up — the
@@ -161,11 +169,12 @@ pub fn sync_bubble_shield_visual(
                 ambition_platformer2d_core::config::WORLD_Z_PLAYER - 0.05,
             );
             // Slightly larger than the collider so it surrounds the body.
+            let coverage = shield_ring_coverage(ring.integrity);
             sprite.custom_size = Some(bevy::math::Vec2::new(
-                ring.size.x * 1.55,
-                ring.size.y * 1.25,
+                ring.size.x * 1.55 * coverage,
+                ring.size.y * 1.25 * coverage,
             ));
-            sprite.color = shield_ring_color(ring.parrying);
+            sprite.color = shield_ring_color(ring.parrying, ring.integrity);
             *vis = Visibility::Visible;
             assigned += 1;
         } else {

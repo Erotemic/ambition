@@ -164,6 +164,9 @@ snapshot_pod!(crate::body_clusters::BodyDodgeState {
 snapshot_pod!(crate::body_clusters::BodyShieldState {
     active: bool,
     parry_window_timer: f32,
+    depleted: f32,
+    break_timer: f32,
+    stun_timer: f32,
 });
 
 snapshot_pod!(crate::body_clusters::BodyOffense {
@@ -237,6 +240,7 @@ snapshot_unit_enum!(crate::movement::MovementOp {
     Getup = 30,
     GetupRoll = 31,
     GetupAttack = 32,
+    ShieldBreak = 33,
 });
 
 // The hang state machine (`Option<LedgeGrabState>`) is axis-policy maneuver

@@ -371,6 +371,36 @@ still carrying half the roster.
 and the snake box both come down to sprite and collision numbers never having
 been converted to a common unit.
 
+- ▢ **D170 — IMMUTABLE CONTENT / TRANSACTIONAL CONSTRUCTION HAS SIX OPEN ITEMS
+  AND NO LEDGER ROW.** (promoted 2026-08-20)
+
+⭐ **PROMOTED, NOT WRITTEN.** [`engine/immutable-content-and-transactional-construction.md`](engine/immutable-content-and-transactional-construction.md)
+was verified against `fda5db88` on 2026-08-19 — the day before this promotion —
+and is reachable from two ADRs, a concepts doc and a related-work doc, but from
+**no queue row**. That is the same shape as the seven Engine 1.0 plans stranded
+on 2026-08-14: designed frontier, structurally invisible to the execution
+authority. The work is already specified there; this row is the pointer.
+
+⛔ **the biggest one is the old operation 5**: there is still no production
+cross-room snapshot caller exercising source-snapshot selection, decode/
+compatibility rejection BEFORE mutation, rollback entity identity and remapping,
+restoration of non-room authoritative state, and atomic commit. Room-transition
+use of `RoomConstructionPlan::apply_to_world` does not prove it.
+
+⚠ two of the six are deliberately NOT actionable yet and should stay ▢ rather
+than be worked: corrected-input cancellation and peer-coordinated lifecycle
+commit belong to real external netplay, because local sync testing cannot
+mispredict. Its own doc says so; do not build a synthetic local ritual for them.
+
+The remaining three are external-consumer proof — run the visible consumer on a
+machine with a display, measure first-room workflow and deliberate-error
+diagnostics rather than describing them, and exercise authoring from a second
+meaningfully different consumer before freezing a public prefab/content API.
+
+⚠ **this row is a POINTER and the doc is the authority** — update the doc, not
+this row, and keep the row's claim to "there are open items" so it cannot rot
+into a stale summary of them.
+
 - ▢ **D167 — THE LIVE-STATE ↔ PERSISTENCE ↔ ROOM-CONSTRUCTION BOUNDARY. Two
   legs closed 2026-08-20; two open.**
 

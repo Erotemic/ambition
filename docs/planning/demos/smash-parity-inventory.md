@@ -167,12 +167,21 @@ shield_raise
                             (`active`), not its edges
 shield_break_launch
 · _fall · _collapse
-· _recover                  ONE `break_timer` covers a four-beat sequence. ⭐ a
-                            DERIVED answer is available — the beat is a fraction
-                            of `break_timer / ShieldTuning::break_stun_time`, so
-                            it costs no new state — but the pose sites read
-                            `BodyShieldState` WITHOUT its tuning, so the
-                            fraction has to be published or the tuning threaded
+· _recover                  ONE `break_timer` covers a four-beat sequence, and
+                            the beat is a fraction of the break's own length.
+                            ⛔ `break_timer / ShieldTuning::break_stun_time` is
+                            NOT computable at the readers: both pose sites hold
+                            `BodyShieldState` and no tuning, and reaching for
+                            `MotionModel::shield_tuning()` there would put
+                            presentation back inside policy internals.
+                            ⭐ THE ANSWER IS ONE f32 ON THE COMPONENT:
+                            `break_total`, stamped from the tuning at the moment
+                            the guard shatters. Then `break_timer / break_total`
+                            is the phase for every reader, threading nothing.
+                            ⚠ it is NOT a derive memo — it is the authority for
+                            how long THIS break was, written once, so a rewind
+                            restores the same answer. Costs a codec edge, a
+                            version bump and the three baselines
 ledge_catch · ledge_drop
 · ledge_jump · ledge_attack  LedgeGetupKind and MovementOp::LedgeJump exist
 getup_attack · getup_roll

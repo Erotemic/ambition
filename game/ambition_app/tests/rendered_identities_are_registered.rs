@@ -80,7 +80,16 @@ fn target_dir() -> PathBuf {
 /// ⛔ the number and the submodule pointer move TOGETHER. Raising it while the
 /// POC is untracked turns CI red (a fresh checkout has seven); landing the POC
 /// without raising it turns CI red the other way.
-const COMPUTED_ID_TARGETS: usize = 9;
+/// ⭐ **9 → 10 on 2026-08-20, hand-check first, as the ratchet demands.** The
+/// tenth is `fighting_polygon_brawler`, the unarmed half of the reference pair.
+/// **It HAS a catalog row** (`character_catalog.ron`, tier `MainHall`,
+/// `default_brain: "melee_brute_striker"`), added in the same session as its
+/// renderer target, and the superproject gitlink was bumped to `4dd065a` so the
+/// target is reachable from a fresh clone rather than only on the machine that
+/// authored it. It is in this count rather than in `WAIVED` for the same reason
+/// as the eighth and ninth: the scan cannot read an id the target never spells
+/// as a literal.
+const COMPUTED_ID_TARGETS: usize = 10;
 
 /// Every `character_id` VALUE spelled out in one target's source, in file order.
 ///

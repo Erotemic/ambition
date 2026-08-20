@@ -92,8 +92,10 @@ before working it.
 | Taunt voice line or cue | ▢ | — |
 | Grab / held / pummel / throw poses | ▢ | no rows |
 | Shield bubble, shrinking and reddening with integrity | ✔ | `render/rendering/bubble_shield.rs` |
-| Shield-up and dizzy sprite poses | ~ | `CharacterAnim::Block` exists, unrouted; no dizzy row |
-| Rows drawn but never selected | ~ | `WallJump`, `Shoot`, `Aim`, `Charge`, `Special`, `Punch`, `LedgeClimb`, `Interact` |
+| Shield-up sprite pose | ✔ | `pick_body_anim` draws `Block` off `shield.active` |
+| Dizzy pose for a broken shield | ▢ | a broken guard draws its ordinary locomotion row |
+| A captive draws as HELD | ▢ | nothing in the anim layer reads `CapturedBy` |
+| Rows drawn but never selected | ~ | `Charge`, `Punch`, `LedgeClimb`, `Interact` |
 | Hit sparks, KO burst, screen shake | ✔ | `ambition_vfx` |
 | Shield-break shatter burst and tone | ✔ | `features/movement_fx.rs` |
 | Grab / throw / parry SFX cues | ▢ | — |

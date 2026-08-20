@@ -40,61 +40,47 @@ platform run                    ← DIFFERS: App::run in a binary, app.update in
 ```
 
 `VisibleGameSpec` carries the four things hosts genuinely differ on
-(`shell_hosted`, `tile_spine`, `startup_loading_curtain`, `asset_config`), and
-`VisibleGameSpec::browser()` names the browser persona as a **value** rather than
-a passage inside a `cfg(wasm32)` function no native test can reach. `run_web` is
-now a foundation plus one call.
+(`shell_hosted`, `tile_spine`, `startup_loading_curtain`, `asset_config`) as a
+**value** rather than a passage inside a `cfg(wasm32)` function no native test
+can reach; `run_web` is now a foundation plus one call, and the third
+hand-spelled composition stopped existing.
 
-Deletion payoff: the third hand-spelled composition stopped existing, and
-`set_simulation_host` / `insert_starting_character_override` /
-`InitialGameplayReadiness::closed()` each went from two copies to one.
+⛔⛔ **Standing lesson:** this is the same failure `build_visible_app_with`'s own
+doc comment already described from the last hand-spelled composition
+(`capture_scene`, silently lost the room 2026-08-06 → 08-08) — a build gate
+proves *links*, nothing proved *composes*.
 
 ### 2. The browser registered no `game://` asset source
 
-Found while measuring #1. Every world is addressed `game://worlds/<file>` and the
-vanity card its own art the same way; on wasm that source was never registered,
-so those loads resolved through a source that did not exist. `static_map` hid it
-for the worlds — the embedded fallback answered — and nothing hid it for anything
-else.
-
-Both roots are ONE root in a packaged build, which is the case
-`layered_asset_source` already documents ("the packager has already merged the
-trees… with one root there is nothing to fall back to, so the platform default IS
-the correct reader"). The browser now says that rule as the platform default it
-reduces to — spelled directly because `consumer_source` is
-`not(target_arch = "wasm32")`, being built on `FileAssetReader`.
+Found while measuring #1. `game://worlds/<file>` loads resolved through a
+source that didn't exist on wasm; `static_map`'s embedded fallback hid it for
+worlds and nothing hid it for anything else. Both roots are ONE root in a
+packaged build, the case `layered_asset_source` already documents — the
+browser now takes the platform-default reader like every other packaged
+target.
 
 ### 3. Web packaging published one implementation crate's `assets/`
 
-`build_for_web.sh --served` symlinked `web/assets` →
-`crates/ambition_platformer2d_actor_monolith/assets`. Wrong twice: it named a
-crate the decomposition is dismantling, and it published only ONE of the two
-roots. **Measured: the served tree had no `worlds/` directory at all** — every
-`.ldtk` fetched over HTTP would have 404'd.
-
-`scripts/package_asset_guard.py` is already the single seam that collapses the
-roots, forbids implicit overrides, and emits a byte contract; Android verifies it
-against the APK and the Steam Deck deploy after rsync. Web is now its fourth
-consumer and names no crate. Jon's acceptance condition — *the served-web path
-keeps working if the actor-monolith crate is renamed or deleted* — holds.
-
-`--materialize link` is new and dev-loop only: the composed tree is 1.1 GB across
-4485 files. The contract and its full hash audit are unchanged; only the bytes
-are shared. A linked **directory** stays forbidden in both modes, because that is
-what takes a subtree out of the contract's control — precisely the shape the old
-web symlink had.
-
-Measured: 4485 files, both roots, contract verified, 7.9 s.
+`build_for_web.sh --served` symlinked `web/assets` into
+`ambition_platformer2d_actor_monolith/assets` — a crate the decomposition is
+dismantling, and only one of the two asset roots (measured: the served tree
+had no `worlds/` directory at all; every `.ldtk` fetch would 404). Web is now
+a fourth consumer of `scripts/package_asset_guard.py`, the single seam that
+collapses the roots, forbids implicit overrides, and names no crate; Jon's
+acceptance condition — the served path survives the actor-monolith crate being
+renamed or deleted — holds. `--materialize link` is new, dev-loop only (1.1 GB
+/ 4485 files, same contract and hash audit); a linked **directory** stays
+forbidden in both modes, since that's what takes a subtree out of the
+contract's control — the shape the old web symlink had.
 
 ### 4. The page's status line was not truthful
 
-It announced "loaded · click the canvas to capture keyboard" the instant
-`init()` resolved and never changed again — surviving the click, reading as a
-live instruction, and promising a Pointer Lock capture the app never requests.
-It now reports only what the page can observe (module instantiated; canvas
-focused or not), fades out once keyboard focus is on the canvas, and never
-speaks about game readiness, which the DOM has no view of. A startup failure now
-interrupts instead of whispering at 12px in a corner.
+It announced "loaded · click the canvas to capture keyboard" at `init()` and
+never changed again, surviving the click and promising a Pointer Lock capture
+the app never requests. It now reports only what the page can observe (module
+instantiated; canvas focused or not), fades out once keyboard focus lands, and
+never speaks about game readiness, which the DOM has no view of. A startup
+failure now interrupts instead of whispering at 12px in a corner.
 
 ## What pins it
 
@@ -124,12 +110,7 @@ probed:
 |---|---|---|
 | `assets/worlds/sandbox.ldtk` | **404** — not in the published tree at all | **200**, 2.7 MB |
 | `assets/worlds/hall_of_characters.ldtk` | **404** | **200**, 481 KB |
-| `assets/ambition/platformer_defaults.ron` | 200 | 200, 2.9 KB |
-| `assets/audio/sfx.bank` | 200 | 200, 31 MB |
-| `assets/fonts/bundled/InterDisplay-SemiBold.otf` | 200 | 200, 625 KB |
-| `assets/sprites/judy_spritesheet.png` | 200 | 200, 468 KB |
-| `assets/backgrounds/parallax_layers/forest_near_background.png` | 200 | 200, 197 KB |
-| `assets/audio/music/generated/burn_rate_bossa/full.ogg` | 200 | 200, 1.97 MB |
+| other asset roots (audio, fonts, sprites, backgrounds, RON) | 200 | 200, unchanged |
 | `assets/sprites/judy_spritesheet.png.meta` | 404 | **404 — unchanged, deliberately** |
 
 ⚠ **what this does NOT show.** No browser is installed on this machine, so

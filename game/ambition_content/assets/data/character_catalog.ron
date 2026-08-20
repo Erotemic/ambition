@@ -2672,12 +2672,17 @@
             body_kind: Standard,
             composition: None,
             // ⚠ this said `"combatant"`, which is not a brain preset and never
-            // was — it is an archetype name from the ontology deleted with
-            // `character_archetypes.ron`, and the catalog validator refused it.
+            // was — it is a TRAIT name (see the `traits:` list in any
+            // `*_actor.ron`), and the pack validator refuses it by name:
+            // "names brain preset `combatant`, which this pack does not define".
             // `melee_brute_striker` is what every other MainHall melee fighter
             // takes (both vikings, both ninjas, the pirate admiral, Carl Runga,
             // Martin Cutta — twelve rows), which is the conventional answer for a
             // sword fighter's autonomous policy when nobody is driving it.
+            // ⛔ RESTORED 2026-08-20, third time: a working copy of this file cut
+            // before the fix reverts it, and `cargo check` cannot see a value
+            // parsed out of RON — only the pack validator says so, and when it
+            // does it takes 44 tests down with it.
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
             tags: ["humanoid", "polygonal", "sword_fighter", "animation_reference", "playable_candidate", "svg_rigged"],
@@ -2692,6 +2697,32 @@
                 idle: ["POSE ACCEPTED.", "EDGE ALIGNED."],
                 on_hit: ["FACET LOST.", "REBUILDING POSE."],
                 provoked: ["REFERENCE COMBAT."],
+            ),
+            hall_dialogue_id: None,
+        ),
+        "fighting_polygon_brawler": (
+            display_name: "Fighting Polygon Brawler",
+            spritesheet: "sprites/fighting_polygon_brawler_spritesheet.png",
+            manifest: "sprites/fighting_polygon_brawler_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            // The sword archetype's preset, for the same reason and by the same
+            // rule — see its row above. A brawler is a MainHall melee fighter.
+            default_brain: "melee_brute_striker",
+            default_action_set: "striker_swipe",
+            tags: ["humanoid", "polygonal", "brawler", "animation_reference", "playable_candidate", "svg_rigged"],
+            authoring_description: "The unarmed Fighting Polygon reference archetype: a broad-shouldered 2D humanoid assembled from editable polygon facets with oversized fists and no integral held item. It shares the sword archetype's safe pose vocabulary so animators can compare armed and unarmed versions of the same humanoid skeleton before adding bespoke anatomy or personality.",
+            gameplay_description: "A close-range fundamentals brawler with punches, kicks, uppercuts, a shoulder rush, defensive movement, grabs, pummels, and all four throws. Its simple silhouettes are intentionally useful as baseline poses for future humanoid rigs.",
+            fallback_dialogue: [
+                "STANCE SET.",
+                "Contact pose.",
+                "Build the silhouette before the flourish.",
+            ],
+            barks: (
+                idle: ["FACETS FORWARD.", "GUARD READY."],
+                on_hit: ["RECOMPUTING STANCE.", "FACET SHIFT."],
+                provoked: ["REFERENCE BRAWL."],
             ),
             hall_dialogue_id: None,
         ),

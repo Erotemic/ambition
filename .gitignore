@@ -192,3 +192,10 @@ untracked
 /profile_output.lprof
 /profile_output.txt
 /profile_output_*.txt
+
+# The `cargo-sweep` mark file. `cargo sweep --stamp` writes it before a build
+# and `cargo sweep --file` cleans everything older than it afterwards, which is
+# how this checkout keeps a 484G target from filling. It is a TIMESTAMP of one
+# build on one machine — the next agent to run the mark/sweep pair overwrites it,
+# and a committed one would be a stale mark that sweeps a live working set.
+/sweep.timestamp

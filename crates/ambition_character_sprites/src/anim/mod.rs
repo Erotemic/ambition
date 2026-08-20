@@ -122,6 +122,13 @@ pub struct BodyAnimView {
     /// Persistent curled ball (spin dash roll / morph ball). Outranks the
     /// dash + airborne reads: a ball flying off a ramp is still a ball.
     pub rolling: bool,
+    /// Held in another body's hands. Outranks every locomotion read: a captive
+    /// is not walking, falling or idling, whatever its velocity says.
+    pub held: bool,
+    /// The guard shattered and this body is dizzy. Outranks `blocking` for the
+    /// obvious reason — there is no guard to draw — and sits with the reeling
+    /// reads because that is what it is.
+    pub guard_broken: bool,
     pub dash_startup: bool,
     pub dashing: bool,
     pub ladder_climbing: bool,
@@ -207,13 +214,22 @@ pub fn pick_body_anim(v: &BodyAnimView) -> CharacterAnim {
     // ⭐ **the floor game outranks the hit flash.** A knocked-down body is still
     // inside its hitstun, so reading `hit` first would draw the struck pose for
     // the whole prone beat and the knockdown would be invisible.
+    // ⭐ ABOVE the floor game and the hit flash: a body in somebody's hands is
+    // not doing anything else, and its velocity is the captor's.
+    if v.held {
+        return Hit;
+    }
     if v.knocked_down {
         return LandHard;
     }
     if v.getting_up {
         return LandRecovery;
     }
-    if v.hit || v.tumbling {
+    // ⭐ a shattered guard reads as reeling, which is the closest row any sheet
+    // owns. ⚠ there is no `Dizzy` row to draw; when one is authored this arm is
+    // where it lands, and until then a broken guard at least stops drawing the
+    // body standing calmly through its own dizzy.
+    if v.hit || v.tumbling || v.guard_broken {
         return Hit;
     }
     if v.dodge_roll {
@@ -395,6 +411,7 @@ pub fn body_view_from_body(
         // teching, and only while the body is NOT already prone again.
         getting_up: facts.getup_invulnerable && !facts.knocked_down,
         blocking: shield.active && abilities.abilities.shield,
+        guard_broken: shield.broken(),
         blink_out: facts.blink_telegraph,
         ledge: ledge_read(facts.ledge),
         flying: flight.fly_enabled,
@@ -478,6 +495,7 @@ pub fn pick_player_anim(
     v.wall_jump = anim.wall_jump_anim_timer > 0.0;
     v.interacting = anim.interact_anim_timer > 0.0;
     v.rolling = anim.rolling;
+    v.held = anim.held;
     v.dash_startup = anim.dash_startup_timer > 0.0;
     v.landing = (anim.land_anim_timer > 0.0).then_some(anim.land_anim_hard);
     v.idle_below = 12.0;
@@ -545,6 +563,11 @@ pub struct ActorAnimState {
     /// Persistent curled ball (`BodyAnimFacts::rolling`) — the same read the
     /// player overlays, so a brain-driven body that curls up shows its ball.
     pub rolling: bool,
+    /// Held in another body's hands (`BodyAnimFacts::held`). A CPU fighter is
+    /// grabbed exactly as often as a human one, so this rides the actor road
+    /// too — the alternative is a captive that reads as held only when a person
+    /// is playing it.
+    pub held: bool,
 }
 
 /// Pick any brain-driven actor's animation through the shared [`pick_body_anim`]
@@ -608,6 +631,7 @@ pub fn pick_actor_anim(
     v.landing = state.landing;
     v.shooting = state.shooting;
     v.rolling = state.rolling;
+    v.held = state.held;
     if state.aerial {
         // A flyer reads Fly/Idle from the locomotion tail; suppress the airborne
         // Jump/Fall gate (it floats — `on_ground` is false but it isn't falling).

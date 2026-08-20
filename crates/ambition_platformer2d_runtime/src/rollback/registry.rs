@@ -327,6 +327,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// `MovementOp::DoubleJump` by then, so the same footstool cost a charge when
 /// you had one and nothing when you did not. The claim is read by the jump chain
 /// AHEAD of the air jump, which makes one input edge mean one thing.
+/// ⚠ **v42 and v43 arrive TOGETHER or not at all.** Main was at v41 when the
+/// footstool was held back from a merge, and v42's whole content is the
+/// footstool's floats and its op code — so a reader on main who sees v41 next to
+/// a v43 entry is not looking at a lost version, they are looking at one feature
+/// that bumped twice on its way in.
 /// ⚠ **v42 (2026-08-20) is the FOOTSTOOL's wire, and ONLY that.** Two things
 /// move, and they are measured differently:
 ///

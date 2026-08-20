@@ -447,6 +447,15 @@ pub struct BodyAnimFacts {
     /// whatever verb owns the curl re-derives it every frame, and the picker
     /// plays the looping `Roll` row while it holds.
     pub rolling: bool,
+    /// **This body is being HELD by another one.** A state mirror like
+    /// [`Self::rolling`], re-derived every frame from the capture relation, so
+    /// it cannot latch on a body that has been released.
+    ///
+    /// ⭐ it exists because the anim layer must not query `CapturedBy` itself.
+    /// The relation is combat's, the pose is presentation's, and a render system
+    /// reaching across for a gameplay component is how the two stop agreeing
+    /// about when a hold ended. The sim publishes the fact; the picker reads it.
+    pub held: bool,
     /// Time remaining on the DEATH pose.
     ///
     /// A player body respawns the instant it dies, so its liveness is true again

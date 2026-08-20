@@ -803,3 +803,69 @@ fn motion_along_the_fall_axis_is_not_walking() {
         );
     }
 }
+
+/// **A HELD BODY DRAWS AS HELD, WHATEVER ITS VELOCITY SAYS.**
+///
+/// ⛔ the defect this closes: nothing in the anim layer read the capture
+/// relation, so a body hanging in somebody's hands drew its ordinary locomotion
+/// row — idle if the hold had stopped it, falling if it had not. The captor's
+/// grab animation played against a victim standing calmly inside it.
+#[test]
+fn a_captive_outranks_every_locomotion_read() {
+    let mut v = BodyAnimView {
+        held: true,
+        ..Default::default()
+    };
+    assert_eq!(pick_body_anim(&v), CharacterAnim::Hit);
+
+    // The reads a captive would otherwise win with, one at a time.
+    v.airborne = true;
+    assert_eq!(pick_body_anim(&v), CharacterAnim::Hit, "a held body fell");
+    v.airborne = false;
+    v.rolling = true;
+    assert_eq!(pick_body_anim(&v), CharacterAnim::Hit, "a held body rolled");
+    v.rolling = false;
+    v.knocked_down = true;
+    assert_eq!(
+        pick_body_anim(&v),
+        CharacterAnim::Hit,
+        "a held body was drawn prone"
+    );
+
+    // ⭐ and the floor: released, the same body goes back to its own reads.
+    v.held = false;
+    assert_eq!(
+        pick_body_anim(&v),
+        CharacterAnim::LandHard,
+        "clearing the hold did not give the body its own pose back"
+    );
+}
+
+/// **A BROKEN GUARD READS AS REELING, NOT AS STANDING THERE.**
+///
+/// ⛔ the gap this closes: the shield became a resource that can shatter and
+/// leave a body dizzy and helpless for two seconds, and the picker had no read
+/// for it — so the most punishable state in the game drew the same idle pose as
+/// standing safely. ⚠ it draws `Hit` because no sheet owns a dizzy row; the
+/// point is that it stops drawing calm.
+#[test]
+fn a_shattered_guard_outranks_the_guard_it_no_longer_has() {
+    let broken = BodyAnimView {
+        guard_broken: true,
+        // ⭐ the poison built in: `blocking` is set too. A body cannot be shown
+        // holding a guard it just lost, so the arm order is the claim.
+        blocking: true,
+        ..Default::default()
+    };
+    assert_eq!(pick_body_anim(&broken), CharacterAnim::Hit);
+
+    let guarding = BodyAnimView {
+        blocking: true,
+        ..Default::default()
+    };
+    assert_eq!(
+        pick_body_anim(&guarding),
+        CharacterAnim::Block,
+        "an unbroken guard stopped drawing itself"
+    );
+}

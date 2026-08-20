@@ -103,7 +103,7 @@ you add a `▢`, and before you work one.
 | Shield bubble, shrinking and reddening with integrity | ✔ | `render/rendering/bubble_shield.rs` |
 | Shield-up sprite pose | ✔ | `pick_body_anim` draws `Block` off `shield.active` |
 | Dizzy pose for a broken shield | ▢ | a broken guard draws its ordinary locomotion row |
-| A captive draws as HELD | ▢ | nothing in the anim layer reads `CapturedBy` |
+| A captive draws as HELD | ~ | `capture::mirror_capture_into_anim_facts` → `BodyAnimFacts::held`; draws the HURT row, no dedicated held row exists |
 | Rows drawn but never selected | ~ | `Charge`, `Punch`, `LedgeClimb`, `Interact` |
 | Hit sparks, KO burst, screen shake | ✔ | `ambition_vfx` |
 | Shield-break shatter burst and tone | ✔ | `features/movement_fx.rs` |
@@ -151,8 +151,9 @@ and leaves the values rough; tuning is not this lane's licence.
    Ultimate freezes a grounded target briefly and tumbles an airborne one, and
    does not interrupt a target executing a move. The arbitration and the geometry
    are done; this is the reaction half.
-3. **Grab presentation** — the missing sprite rows, cues and VFX for the grab
-   chain that already simulates correctly.
+3. **Grab presentation** — cues and VFX for the grab chain, and the sprite rows
+   nothing can draw yet: a held pose, a pummel, a throw, and a dizzy for a broken
+   guard. The captive at least reads as hurt now rather than idle.
 4. **Shield pushback and shield-shrink poke** — the two halves of shield
    pressure that shieldstun does not cover.
 5. **Meteor lock and cancel** — the spike already lands; what is missing is

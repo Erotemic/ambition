@@ -427,6 +427,36 @@ pub fn tick_capture_holds(
     }
 }
 
+/// **A captive is DRAWN as held.**
+///
+/// ⛔ **a mirror, not a latch, and that is the whole implementation note.** It
+/// writes `held` for EVERY body with animation facts, from that body's own
+/// `CapturedBy` — so a released body is drawn free on the next frame without
+/// anybody remembering to clear it. Writing `true` on captives alone would leave
+/// the last-held body stuck in the pose forever, which is the shape
+/// `release_interrupted_captures` would then have had to know about.
+///
+/// ⭐ **and it is why the anim layer does not query `CapturedBy` itself.** The
+/// relation belongs to combat and the pose to presentation; a render system
+/// reaching across for a gameplay component is how the two stop agreeing about
+/// when a hold ended. The sim publishes the fact here, and every picker — the
+/// controlled road and the actor road alike — reads the same one.
+pub fn mirror_capture_into_anim_facts(
+    mut bodies: Query<(
+        &mut ambition_characters::actor::BodyAnimFacts,
+        Option<&CapturedBy>,
+    )>,
+) {
+    for (mut anim, held) in &mut bodies {
+        let now = held.is_some();
+        // ⚠ `is_changed()` writes must be idempotent under rollback, so only
+        // touch the component when the answer actually moved.
+        if anim.held != now {
+            anim.held = now;
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -705,6 +705,11 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 // it has just left.
                 ambition_platformer2d::actors::features::ecs::capture::apply_capture_throws,
                 ambition_platformer2d::actors::features::ecs::capture::constrain_captive_bodies,
+                // ⭐ the captive's POSE, published beside the constraint that
+                // holds it. `CharacterAnim` has no held row, so this draws the
+                // hurt one — a body in somebody's hands reading as idle was the
+                // last thing about a grab that did not look like one.
+                ambition_platformer2d::actors::features::ecs::capture::mirror_capture_into_anim_facts,
             )
                 .chain()
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Materialize),

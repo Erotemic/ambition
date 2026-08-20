@@ -97,47 +97,18 @@ no Smash-only grabbed-fighter ontology       capture lives in `ambition_combat`,
                                              not in the smash demo
 ```
 
-⭐ **and it did follow the mount pattern this section pointed at**, as a SIBLING
-rather than a generalisation: `ControlHold` is the claim registry, and a captive
-is a body whose control is suppressed rather than redirected. ⛔ the two were not
-merged into one relationship, per the instruction below.
+⭐ **it follows the mount pattern (ADR 0020) as a SIBLING, not a merge**:
+`ControlHold` is the claim registry, and a captive is a body whose control is
+suppressed rather than redirected, the same "relationship that redirects or
+suppresses `ActorControl` plus a per-tick pose lock" mounts use — a rider
+steers its mount (consented, class-matched) where a holder suppresses its
+captive (imposed, exits via throw into the launch/damage path, not a dismount).
+⛔ do not merge the two into one relationship, and do not give a held fighter
+its own ontology when a `ControlGrant` of "none" is what being held means.
 
 ▢ **what is genuinely left is the FEEL, which this section already scoped out as
 product work**: grab range, break-out and hold duration exist and are authored;
 what a hold is WORTH to a CPU's decision is open and costed in queue D166.
-
-The original design instruction, kept because it is what the build followed:
-
-- a temporary hold relationship names holder and held body;
-- holding constrains movement/control without changing body identity;
-- release/throw enters the ordinary launch/damage/DI path;
-- possession, AI and human control all observe the same held-body semantics;
-- rollback snapshots the relationship through the owning domain.
-
-Do not create a Smash-only grabbed-fighter ontology.
-
-⭐ **and the seam to extend already exists — measured 2026-08-14.** ADR 0020's
-mount is a body-to-body attachment with exactly the shape S1 describes: paired
-components (`MountSlot { rider }` on one side, `RidingOn { mount }` on the
-other), a `rider_offset`, a per-tick pose lock, and — the load-bearing part —
-`steer_mount_from_rider`, which writes one body's `ActorControl` from another's
-under a `ControlGrant`. Two linked actors, never fused, which is the same rule
-S1 restates as "without changing body identity".
-
-A grab is a SIBLING of that relationship, not the same one: a rider steers its
-mount where a holder SUPPRESSES its captive's control, mounting is consented and
-class-matched (`CanPilot`) where a grab is imposed, and the exit is a throw into
-the launch/damage path rather than a dismount. But the reusable machinery is one
-thing — **a relationship that redirects or suppresses `ActorControl` plus a
-per-tick pose lock** — and it exists once today, for mounts.
-
-⇒ build the grab as a second relationship on that pattern. If the two then share
-enough, generalise with the grab as the second customer that justifies it; ⛔ do
-not generalise first, and do not give a held fighter its own ontology when a
-`ControlGrant` of "none" is what being held means.
-
-⚠ the FEEL is Smash product work and is not settled here: grab range, break-out,
-throw angles and hold duration are game decisions, not engine ones.
 
 ### S2 — decide whether richer shield semantics earn implementation
 

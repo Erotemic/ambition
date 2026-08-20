@@ -3,8 +3,8 @@
 //! / `OobReason` enums, plus serde-friendly geometry mirrors (`TracePoint`,
 //! `TraceAabb`) that avoid leaking `bevy_math`/engine types into the JSON shape.
 
-use ambition_platformer2d_core as ae;
 use ambition_input::ControlFrame;
+use ambition_platformer2d_core as ae;
 use serde::Serialize;
 
 /// Lightweight 2D point used in the serialized payload. Avoids leaking
@@ -44,7 +44,10 @@ pub struct ControlFrameTrace {
     pub jump_pressed: bool,
     pub jump_held: bool,
     pub jump_released: bool,
-    pub dash_pressed: bool,
+    /// ⚠ **the RECORDED key stays `dash_pressed`** so a dump written after the
+    /// BURST rename still parses with every trace tool that predates it.
+    #[serde(rename = "dash_pressed")]
+    pub burst_pressed: bool,
     pub left_pressed: bool,
     pub right_pressed: bool,
     pub up_pressed: bool,
@@ -72,7 +75,7 @@ impl From<ControlFrame> for ControlFrameTrace {
             jump_pressed: c.jump_pressed,
             jump_held: c.jump_held,
             jump_released: c.jump_released,
-            dash_pressed: c.dash_pressed,
+            burst_pressed: c.burst_pressed,
             left_pressed: c.left_pressed,
             right_pressed: c.right_pressed,
             up_pressed: c.up_pressed,

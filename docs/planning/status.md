@@ -42,217 +42,38 @@ substrate had overtaken the two fronts printed above it:
    CAPACITY GOES HERE** (D125). What a thing IS, which runtime occurrence it is,
    why it exists and how long it lasts; then item custody as the first demanding
    consumer, then capability-driven gating and reachability, then residency and
-   persistent populations. Its seven focused plans were all written and reachable
-   only from [`tracks.md`](tracks.md) until 2026-08-14 — the design was never the
-   gap.
+   persistent populations. Its seven focused plans are reachable from
+   [`tracks.md`](tracks.md).
 
-   ⭐ **status 2026-08-15: the substrate EXISTS** under names the plans do not use
-   — `WornCharacter` (authored template), **`SimId`** (runtime occurrence),
-   `SpawnOrigin` (provenance) and four ENFORCED lifetime scopes. Custody has landed
-   its first slice (`ItemCustody`, instance vs quantity vs consumable) and
-   reachability its first query (`movement/recovery.rs`, which drives the REAL
-   kernel on a scratch body rather than enumerating capabilities). ⛔ **what is
-   still undesigned is DURABLE PERSISTENCE** — *"has no runtime cleanup scope"*
-   does NOT mean *"correctly saved and restored"* — and the INVENTORY leg, because
-   `OwnedItems` is a process-global count table with no row per object. ⛔ treat
-   `OwnedItems` / held-item synchronisation as a **migration seam**, never as the
-   custody model: physical custody belongs to the body and the item instance, and
-   participant entitlement is a separate fact with a different owner and lifetime.
+   ⭐ **status 2026-08-20: the substrate EXISTS** under names the plans do not use
+   — `WornCharacter` (authored template), `SimId` (runtime occurrence),
+   `SpawnOrigin` (provenance) and four ENFORCED lifetime scopes. Custody, item
+   ownership, and all three persistence horizons (current world truth, the
+   checkpoint/reset ledger, and durable save) are landed and distinct:
 
-   ⭐ **measured 2026-08-15: the seam is ONE CLASS WIDE.** Of the 24 catalog
-   slots, **5 of 6 classes are counts forever** (consumables, currency, key items,
-   unwired abilities, reserved) and their readers legitimately want a quantity;
-   the whole problem is the **nine held weapons/abilities that are an instance and
-   a count at once**. ⛔ so do not give the count table a row per object.
+   * ✔ inventory ownership is settled (Jon's reviewer, 2026-08-15): the **body**
+     owns its inventory and capabilities; `OwnedItems` is a migration/
+     compatibility projection, not an undecided authority.
+   * ✔ a held object's identity is the authority; the catalog only projects a
+     count (`284ebd00d`). Held objects and pure-quantity items are disjoint
+     populations, so a pickup can no longer mint a duplicate.
+   * ✔ persistent occurrence continuity (`Placed` rows), the checkpoint/reset
+     horizon, and durable save (`AmbitionGameSaveData` carrying
+     `AuthoredOccurrences`, `CustodyBaseline`, `MintedItemBaseline`) are all
+     landed. A durable description of a runtime-minted occurrence is exactly
+     identity + `SpawnOrigin` + a definition reference — no position, no
+     component snapshot (`88b611caf`). Headless compositions now install
+     `DurableSaveHorizonPlugin` themselves, so an RL episode persists too.
+   * ⛔⛔ a relation may not cross the durable horizon without its own authority
+     (2026-08-20): `InCustodyOf` has two owners (item custody is durable,
+     `PossessionState` is not), so the mirror now writes an `InCustody` claim
+     only for occurrences the durable road can restore.
+   * ▢ open: `Consumed` round-trips through the file with no live producer yet
+     (load-bearing for `AuthoredOccurrences::rewind_argument` — a real open
+     design item). The body resumes at the shrine while objects resume at the
+     autosave's instant — two different times in one load, a deliberate
+     first-slice trade, not an oversight.
 
-   ✔✔ **AND THOSE NINE ARE NOW DECIDED (2026-08-16, `284ebd00d`): the INSTANCE is
-   the authority and the catalog PROJECTS it.** A picked-up object writes nothing
-   to the count table; `OwnedItems::count` reports `stored(item).max(equipped ==
-   item)`, and `to_persisted` writes only the stored quantity, so a hand never
-   reaches disk as a row. The two populations are now **disjoint** — a row is a
-   quantity with no object, an object is an occurrence the checkpoint owns — so
-   the disagreement has nowhere left to live. Exactly nine items answer
-   `held_item_id().is_some()`, which is the class, checkable.
-
-   ⛔⛔ **what that fixed was a DUPLICATION GLITCH, and the measurement is worth
-   keeping**: the pickup used to `grant(item, 1)` beside taking custody, so ONE
-   acquisition left TWO records and only the object's rewound. Acquire a weapon
-   after a checkpoint and die — the object returns to its pedestal, the catalog
-   row stays, the menu equips the phantom, and throwing it **mints a second real
-   weapon** that the durable save then writes to disk.
-
-   ⚠⚠ **it traded that for a LOSS — a held weapon carried across a SAVE/LOAD was
-   gone — and ✔ THAT IS CLOSED** (`28c927505`, falsifier B): the object persists
-   as an OCCURRENCE, never as a quantity, so the duplication it replaced does not
-   return by the new road either.
-   ⚠ the granted-quantity half is still open and its gate is named:
-   **`OwnedItems` joining the checkpoint baseline, with the mint spending the row
-   in that same change and not before** — spending it earlier turns the phantom
-   into an annihilation whenever a death retracts a post-checkpoint mint.
-
-   ⛔ **the reason none of this was ever caught was structural**: the
-   durable-save leg (`InventoryRestored` + both persist systems) was installed by
-   `install_menu_setup_and_hotkeys`, inside the **visible-binary-only**
-   presentation plugins, so no headless composition scheduled it and one of the
-   two authorities did not exist in the test harness at all.
-   ✔✔ **CLOSED 2026-08-16, and this paragraph read as PRESENT TENSE until
-   2026-08-18.** The leg moved to
-   `ambition_platformer2d_runtime::durable_save_horizon::DurableSaveHorizonPlugin`
-   — in the runtime's own plugin group, beside the checkpoint horizon it
-   serializes — and two headless tests now cover it
-   (`a_save_remembers_where_you_left_things`,
-   `two_persistence_authorities_for_one_item`). ⚠ `install_menu_setup_and_hotkeys`
-   carries the note explaining the move; the ledger did not, which is how a
-   fixed structural gap kept reading as an open one.
-   ⭐ the gate the granted-quantity half named — *"`OwnedItems` joining the
-   checkpoint baseline"* — is also met: it is `resource.owned_items` in the
-   rollback schema, and `SaveRestored`'s own doc lists it among the state the
-   durable restore coordinates. ⚠ the OTHER half of that gate (*"the mint
-   spending the row in that same change and not before"*) is NOT checked here,
-   so the item stays open on that half alone.
-
-   ✔ **inventory OWNERSHIP is settled (Jon's reviewer, 2026-08-15): the BODY owns
-   its inventory and capabilities.** Participant entitlements and possession-transfer
-   policy are separate concerns with different owners and lifetimes. ⇒ `OwnedItems`
-   is therefore a **migration/compatibility representation**, not an undecided
-   authority — ⛔ and it is no longer an open architecture question anywhere.
-
-   ✔ **PERSISTENT OCCURRENCE CONTINUITY LANDED** (2026-08-15, both legs): a
-   `Placed` row suppresses the home room and reinstates the occurrence where it
-   lies, as ONE decision, so an object carried between rooms and put down comes
-   back where it was left with the same `SimId`. ⛔ it was NOT answered by
-   teaching the room loader to inspect inventories — custody owns residency, and
-   room transition still does not know items exist.
-
-   ✔ **AND THE RESET HORIZON ON TOP OF IT** (2026-08-15): three horizons are now
-   distinct — *current world truth* (the ledger), *checkpoint/reset truth*
-   (`lifecycle::horizon`, restored on death), *durable save truth* (still
-   undesigned). The checkpoint baseline is a **projection of domains**, each
-   capturing from its own live authority; ⛔ it is deliberately NOT one resource
-   holding every reset-relevant fact. Seven beats of the maintainer's rule hold
-   through production roads, including the one no `KeyItem => survives` rule can
-   produce: one death, two objects of the same kind, opposite answers.
-
-   ✔ **AND THE RESTORE CAN NOW REBUILD WHAT IT PUTS BACK** (2026-08-16,
-   `13dd4d31b`): bank a reward, carry it to another room, drop it there, leave so
-   that room UNLOADS, then die — it returns to the hand that banked it as the
-   same occurrence, pedestal still empty, no duplicate. The missing mechanism was
-   **materialization**: the restore was pure re-assignment, which cannot ask
-   anything about an object whose entity no longer exists, and no room build
-   could supply it either because an `InCustody` row makes `outlook_for` answer
-   `Suppressed` in every room — a thing in a hand is not a thing in a room. ⭐
-   **every other reconstruction road here starts from a ROOM and asks what it
-   owes; this one starts from an occurrence resident in no room**, so the authored
-   definition has to be reachable BY IDENTITY.
-
-   ✔✔ **AND THE RUNTIME-MINTED CASE CLOSED TOO** (2026-08-16, `88b611caf`),
-   which was the residual named directly above. **The minimal durable
-   description of an occurrence the simulation itself made is three things and
-   no more:**
-
-   ```text
-   identity     the occurrence's own SimId
-   provenance   SpawnOrigin::Dynamic { parent, sequence }
-   definition   the item spec's authored id — a REFERENCE, never a copy
-   ```
-
-   ⛔ no position, no velocity, **no component snapshot** — that would be
-   rollback wearing save's clothes. *"A hand needs strictly less than a world"*
-   held: a held object has no place, the hand supplies one.
-
-   ⭐⭐ **the third field is the one nobody would have predicted, and it is the
-   durable-save lesson.** An instance rebuilt without its `SpawnOrigin` cannot
-   say which spawner it descends from — the state that component's own doc
-   refuses to let anyone spell — so it would survive exactly ONE death and then
-   be invisible to the next capture. ⇒ **a description that restores the thing
-   is not sufficient; it must also restore the thing's ABILITY TO BE DESCRIBED
-   AGAIN.** The mint site was not stating provenance at all, so identity and
-   provenance are now minted together and *"dynamic, parent unknown"* stays
-   unspellable.
-
-   ⭐ and the snapshot-versus-registry property is MEASURED, not asserted: turned
-   into a growing registry of every mint, the banked-item fixture stayed green
-   and `a_runtime_mint_the_checkpoint_never_saw_is_not_resurrected_by_a_death`
-   went red. The baseline answers HOW to rebuild; the custody baseline still
-   decides WHETHER and INTO WHOSE HAND. Schema 32 → 33.
-
-   ✔✔✔ **AND THE THIRD HORIZON LANDED (2026-08-16, `28c927505`) — ALL THREE NOW
-   EXIST AND ARE DISTINCT.** A save carried counts, flags and a body position and
-   nothing about what became of anything the world authored, so everything above
-   survived a death and evaporated on a load.
-
-   ⭐⭐⭐ **THE RESULT WORTH KEEPING: the on-disk form is the CHECKPOINT'S OWN
-   DESCRIPTION, SERIALIZED — not a fourth description of the same facts.**
-   `AmbitionGameSaveData` gained three `#[serde(default)]` lists that are
-   `AuthoredOccurrences`, `CustodyBaseline` and `MintedItemBaseline` field for
-   field. **That the file needed no field the checkpoint had not already measured
-   is the finding, not a convenience**: identity + provenance +
-   definition-REFERENCE was derived from what a checkpoint owes a hand, and a save
-   asks the same question — *how would you make this again?* — and gets the same
-   answer.
-
-   ⭐⭐ **AND A LOAD IS A CHECKPOINT RESUME.** Durable adoption is now
-   domain-owned: the occurrence adapter adopts occurrence/custody state and the
-   item restore adopts minted/quantity baselines after applying the saved bag. A
-   final completion system then raises `SaveRestored` and writes one
-   `ResetToCheckpoint`; everything after that is the road a death already takes.
-   ⇒ the durable slice adds coordination, **not reconstruction logic**, and there
-   is still exactly ONE authority on what a room owes the world.
-
-   ⛔⛔ **AND A RELATIONSHIP MAY NOT CROSS THAT HORIZON WITHOUT ITS AUTHORITY**
-   (2026-08-20). `InCustodyOf` has two owners; the item road's is durable
-   (`ItemCustody` is saved and re-applied), a possessed BODY's is not
-   (`PossessionState` is rollback state). The mirror queries the generic
-   component, so possession enrolled itself in persistence with nobody writing a
-   line of persistence code — and the file said *"this enemy is in somebody's
-   hands"* with no hand on the other side of the boot. It never failed, and it was
-   one line deep: the live projection retracts the row on the first tick of a
-   load. ⇒ the mirror now writes an `InCustody` claim only for occurrences whose
-   custody the durable road can RESTORE, and a driven body's occurrence is simply
-   absent — so its room authors it, which is what a world with nobody possessing
-   anything should contain. ⭐ **widening a generic population enrols it in every
-   generic sweep, persistence included**, and that is the reusable half.
-
-   ⭐ **the defect only the fixture could find, and its fix is the reusable
-   part**: a session builds its start room BEFORE any file is read, so the instant
-   the loaded ledger arrives the world holds an occurrence the file says is
-   elsewhere — and the placement recorder republished the stale position over the
-   loaded row, sending the object back to the room the player carried it out of
-   and resurrecting terminal rows by the same tick order. The fix is an
-   **INVARIANT, not a filter**: an occurrence comes to rest here only if its row
-   says `InCustody` or already says `Placed` here, *because an object cannot
-   change rooms without being carried*. ⛔ it REFUSES rather than repairs, so it
-   does not become a second reconstruction authority.
-
-   ⚠ disk added exactly one constraint the memory horizons did not have: **INTEGER
-   pixels**, because a float costs the save's `Eq` derive and a `NaN` makes the
-   value-comparing autosave rewrite the file every frame forever.
-
-   ⇒ **the durable frontier, re-measured 2026-08-19 — TWO of the four are
-   CLOSED and one of them was recorded with the wrong REASON:**
-
-   * ✔ **a runtime mint not in a hand comes back where it fell.** This said the
-     cause was that *"the description remembers no position"*, which implied a
-     missing field. The position was always in
-     `OccurrenceWhereabouts::Placed { room, at }`; what lost the object was the
-     checkpoint's describer refusing anything `InWorld`, so the world knew WHERE
-     and had no way to make it again. ⇒ the fix cost **no wire format at all** —
-     the opposite of what the recorded reason predicted. Poison-verified end to
-     end. ⚠ in FLIGHT is still uncovered, and by design: the ledger tracks only
-     occurrences somebody CARRIED.
-   * ✔ **a headless composition persists.** `PersistenceSchedulePlugin` was
-     installed by the presentation group ("visible binary only"), so an RL
-     episode could reach a checkpoint and never write a file. The sim
-     composition installs it now, with `PersistenceRoot::isolated()` — the
-     default root is the PLAYER's data dir, and that isolation is the caller's
-     obligation.
-   * ▢ `Consumed` round-trips through the file and still has **no live
-     producer**. ⚠ already documented at the variant itself, where it is
-     load-bearing for `AuthoredOccurrences::rewind_argument` — this is an open
-     DESIGN item, not a missing note.
-   * ▢ ⚠ **the body resumes at the shrine while the objects resume at the
-     autosave's instant** — two different times in one load, and stated as a
-     deliberate first-slice trade rather than an oversight.
    ⛔ **do not promote easy actor-monolith leaf carving ahead of this.**
 2. **Simulation authority and determinism.** Decompose parameter-ceiling systems
    by phase/authority and invert rollback declaration ownership. See
@@ -260,44 +81,32 @@ substrate had overtaken the two fronts printed above it:
 3. **⭐ NEW 2026-08-15 — deterministic authored gameplay logic and orchestration**
    (D127). Authoring is strong for **nouns** and weak for **verbs and
    relationships over time**; several independent partial condition → effect
-   systems already exist in tree, which is what promotes this from an abstraction
-   idea to a named capability gap. **Rust extends the engine's vocabulary;
+   systems already exist in tree. **Rust extends the engine's vocabulary;
    authored content composes vocabulary that already exists.** See
    [`engine/authored-gameplay-logic-and-orchestration.md`](engine/authored-gameplay-logic-and-orchestration.md).
-   ✔ **M0 is complete** (14 systems inspected).
-   ⛔ not scripting, not a rule VM, not a central effect enum. ⭐ M0's headline:
-   **the substrate owns no universal sequencer** — the gap is on the *condition*
-   side, and boss patterns are the **template**, not a customer.
+   ⛔ not scripting, not a rule VM, not a central effect enum — the substrate
+   owns no universal sequencer, and boss patterns are the **template**, not a
+   customer.
 
-   ✔✔ **M1 IS MET FOR CONDITIONS, WITH TWO UNRELATED CONSUMERS (2026-08-15/16).**
-   ⛔ this page said "M1 is parked" for a day after its acceptance was satisfied.
+   ✔✔ **M1 IS MET FOR CONDITIONS, with two unrelated consumers.**
    `shared_tangle::authored_logic` owns the contract — `publish` is PRIVATE, the
    only way in is `PublishCondition for App`. Three domains publish
-   (`custody.is_held`, `world.flag_set`, `inventory.holds`); two very different
-   consumers ask: a **gated lock wall** and **authored `.yarn` dialogue**, the
-   latter through one generic verb `condition("domain.question", <arg>)` that
-   names no question, no domain and no flag. ⇒ publishing a condition makes it
-   askable from dialogue **with no edit to any bridge**, which is the same
-   behavioural acceptance the second provider had.
+   (`custody.is_held`, `world.flag_set`, `inventory.holds`); a gated lock wall
+   and authored `.yarn` dialogue both consume through one generic verb
+   `condition("domain.question", <arg>)`, so publishing a condition makes it
+   askable from dialogue with no edit to any bridge.
 
-   ⛔⛔ **and it refuted a premise THREE module headers asserted**: that Yarn
-   library functions cannot be Bevy systems and so cannot reach `&World` — the
-   entire reason `YarnStateMirror` existed. False at HEAD: `bevy_yarnspinner`
-   advances the interpreter from an **exclusive** system and threads `&mut World`
-   to `YarnFn::call_with_world`, and `SystemId<In<P>, O>` implements `YarnFn`.
-   ⭐ **three files agreeing is one observation, not three, when the later two
-   were written by reading the first.** The mirror SHRANK to a projection rather
-   than gaining a feed; two hand-written functions, a per-frame refill, a
-   duplicated id rule and an alias table went with it.
+   ⛔⛔ **this also refuted the premise behind `YarnStateMirror`**: Yarn library
+   functions CAN be Bevy systems and reach `&World` (`bevy_yarnspinner` advances
+   the interpreter from an exclusive system; `SystemId<In<P>, O>` implements
+   `YarnFn`). The mirror shrank to a projection rather than a feed.
 
-   ⇒ ⭐ **COMMANDS ARE A DIFFERENT SHAPE, and that is now established rather than
-   assumed.** A condition is safe to call from inside the interpreter *precisely
-   because it cannot change anything*. A command mutates, so calling it the same
-   way is a presentation-side write into rollback state on a frame the sim does
-   not replay — the exact defect `NarrativeInputLedger` was built to fix, and why
-   `<<give_item>>` records a REQUEST rather than granting. A `PublishCommand`
-   contract owes **authority, ordering and a ledger-shaped replay story**, and
-   generalises from `NarrativeInputPlugin<M>`, not from the condition catalog.
+   ⇒ **commands are a different shape than conditions, established rather than
+   assumed**: a condition is safe to call from inside the interpreter precisely
+   because it cannot change anything; a command mutates, so `<<give_item>>`
+   records a REQUEST rather than granting. A `PublishCommand` contract owes
+   authority, ordering and a ledger-shaped replay story, and generalises from
+   `NarrativeInputPlugin<M>`, not from the condition catalog.
 4. ⏸ **Ambition authoring + kinematic world objects — RESTING (D115, K2–K6 all
    closed).** Treat authoring/tooling as
    an engine product, improve LDtk as a first-class spatial compiler surface,
@@ -320,91 +129,32 @@ substrate had overtaken the two fronts printed above it:
    names HUD ownership and input routing, which this slice did not touch.
    ⛔ do not expand into networking; the deferred half needs a real product need
    for a second view.
-6. **Capability/runtime composition — ⭐ PROMOTED TO THE LEDGER 2026-08-16 as
-   D136, and its evidence arrived all at once.** Make optional capabilities
-   honest in dependency and composition topology. See
+6. **Capability/runtime composition** (D136). Make optional capabilities honest
+   in dependency and composition topology. See
    [`engine/capability-and-runtime-composition.md`](engine/capability-and-runtime-composition.md).
 
-   ⚠ **this sits at 6 by the 2026-08-15 ordering and the ordering has NOT been
-   re-litigated — but read this before trusting the rank.** Five independent
-   slices on 2026-08-16 turned out to be one failure: the engine cannot ship the
-   art it draws (every sprite-registration site is a *game* system); the
-   durable-save leg exists only in the visible binary, so one of two persistence
-   authorities is absent from every headless harness; the shell composes every
-   experience into one process, so a demo's rules reach another demo's fighter;
-   a crate edge two policies forbade turned out legitimate only because a facade
-   deletion converted a laundered edge into a declared one; and the canonical
-   session world carried a format-specific field five games filled with
-   `::default()`.
+   ⭐ **the through-line: each gap is a place where "who is this for?" was
+   answered by whoever installed it first and never written down.**
 
-   ⭐ **the through-line: none is a bug in the ordinary sense — each is a place
-   where "who is this for?" was answered by whoever installed it first and never
-   written down.** ⇒ the composition-shaped slices have been paying more than the
-   feature-shaped ones: naming a schedule order let `conversation` leave the
-   monolith, giving the engine a home for its own art made 189 shipped effects
-   reachable, and making a load a checkpoint resume deleted a whole
-   reconstruction road instead of adding one.
+   ✔✔ **`DeathRules` fixed (2026-08-16, `03d4c8d22`).** It was a bare `Resource`
+   inserted at plugin-build time by three games, so the shell's Mary-O-after-
+   Sanic composition order made every Smash match run under her 3.2s level
+   replay. Fixed by declaring into `DeclaredDeathRules` under the rooms a game
+   governs, using `runtime::mode_scope` (which already scopes a hosted game's
+   systems and entities) — a second claim on one scope panics at build.
+   ⇒ **the lesson: when a scoping concept exists, ask what KINDS of thing it
+   scopes, not whether it exists.**
 
-   ✔✔ **THE MECHANISM EXISTED ONE NOUN SHORT (2026-08-16, `03d4c8d22`) — that is
-   the reusable finding.** `DeathRules` was a bare `Resource` inserted at
-   plugin-build time by THREE games; the type was the key, so the third
-   `insert_resource` won. The shell composes Mary-O after Sanic, so **every Smash
-   match in the shipped host ran under her 3.2s level replay**, in an arena whose
-   own rules want `LevelReset::Never`. Inert only because an `Unbounded` fighter
-   writes no death message.
-
-   ⛔ **the shell's `ExperienceScopeBuilder` was the WRONG tool** — it releases
-   what a session published, on route DEPARTURE, and has no ENTERING half.
-   ⭐⭐ **the right one already existed and was one noun short**:
-   `runtime::mode_scope` scopes a hosted game's **SYSTEMS** and its **ENTITIES**
-   to the rooms tagged with its mode — every Sanic and Mary-O system is already
-   gated through it — **and it had no word for a RULE.**
-
-   ⇒ a game now declares into `DeclaredDeathRules` under the rooms it governs,
-   using the same answer its `RulesPlugin` already gives when gating systems;
-   `governing(mode)` is the one place the question is answered; an unclaimed room
-   reads the engine default and a second claim on one scope **panics at build**.
-
-   ⭐ **and the second instance wanted a DIFFERENT, smaller cure** — Sanic's
-   wallet shield is not a global but a system whose POPULATION was every
-   `PrimaryPlayer` in the process. Its `hosted` fork is deleted outright: the
-   standalone binary loads the same mode-tagged speedway, so the flag was
-   answering a question the room already answers.
-
-   ⇒ **the lesson to carry: when a scoping concept exists, ask what KINDS of
-   thing it scopes, not whether it exists.** Systems and entities were covered;
-   rules were not, and nothing said so.
-
-   ⛔ **the standing number, and it has not moved DOWN**:
-   `capability-footprint-may-not-grow` reads **44 crates linked, 17 a
-   movement-only game never asked for** (measured 2026-08-18). ⚠ it said 42/15
-   here until then — the ratchet forbids GROWTH and the closure grew by two
-   inside its own rule while this page kept quoting the older pair. ⇒ **re-read
-   the contract's own output before quoting it**; a number copied into prose is
-   a snapshot, and this one is printed by `check_absence_contracts.py` on every
-   run. ⛔⛔ **and D135's answer for WHY was
-   incomplete in a way that cost a slice**: it named the monolith, and
-   `cargo tree -i ambition_platformer2d_ldtk` in the sentinel's own workspace
-   names **four** holders — the facade itself (unconditionally),
-   `ambition_platformer2d_actor_monolith`, `ambition_platformer2d_runtime`, and
-   `ambition_platformer2d_provider`, which declared the edge and named zero of
-   its symbols. D136 (2026-08-16) moved `WorldManifest` down to
-   `ambition_platformer2d_world`, deleted the provider's dead edge and made the
-   facade's optional again; the number did not move, because the monolith and
-   the runtime still named the backend unconditionally.
-
-   ⭐ **RE-MEASURED 2026-08-18 and the monolith is off it.** `cargo tree -i` in
-   the sentinel now names **two** direct holders — the monolith and the runtime —
-   and the monolith's production code names `ambition_platformer2d_ldtk` ZERO
-   times (three runtime readers inverted onto the room IR on 08-17/18; the one
-   file that still greps is a comment saying the backend is not there). Its
-   remaining `bevy_ecs_ldtk` surface is one module, now behind `ldtk_runtime`,
-   and the crate builds with `--no-default-features` for the first time.
-   ⚠ **the FOOTPRINT number still did not move** (44 linked / 17 unwanted): the
-   dep was already declared optional, so no Cargo edge changed — what changed is
-   that the declaration became true. ⇒ the runtime is the remaining holder. ⇒ **a slice claiming this
-   front must run `cargo tree -i` for the crate it means to evict BEFORE picking
-   what to carve**, and must say what it did to the number or why the number is
+   ⛔ **the standing number, re-measured 2026-08-18: 44 crates linked, 17 a
+   movement-only game never asked for** (`capability-footprint-may-not-grow`,
+   printed by `check_absence_contracts.py` on every run — read the contract's
+   own output rather than quoting a stale copy). The monolith is now off the
+   `ambition_platformer2d_ldtk` holder list (production code names it zero
+   times; the crate builds `--no-default-features`); the runtime is the
+   remaining holder, and the footprint number itself has not moved because the
+   dependency was already declared optional. ⇒ a slice claiming this front must
+   run `cargo tree -i` for the crate it means to evict before picking what to
+   carve, and must say what it did to the number or why the number is
    dominated by something it did not touch.
 7. **Public SDK, authoring ergonomics, performance and iteration.** See
    [`engine/public-sdk-1.0.md`](engine/public-sdk-1.0.md) and
@@ -436,71 +186,31 @@ streaming, a generic residency scheduler and byte shaving do not.
   in [`smash-body-generic-combat-2026-08-09.md`](smash-body-generic-combat-2026-08-09.md).
 
   ⭐⭐ **GRABS — the third leg of the rock-paper-scissors core — are LIVE as of
-  2026-08-18, and they are what makes D166 the next architectural move.** A cold
-  coordinator needs four lines and no commit list:
+  2026-08-18.** Landed: acquisition, the hold, pose, pummel, throw, release, a
+  bounded hold with a captive escape channel, a control-hold claim registry so
+  one authority cannot free another's body. Proven in a real driven match: 14
+  holds, 2 pummels, all ended by throw
+  (`cargo run -p ambition_demo_smash_app --bin capture_probe -- 60 --force`).
+  A human could not grab at all until `988807b99` — `brain/player.rs`, the seam
+  a human's input frame crosses to reach a body, never copied `grab_pressed`;
+  no capture test could have caught it because every one writes `grab_pressed`
+  directly onto the body. The input-reachability chain
+  (`ControlSlot → action → ControlFrame → body`) is now closed at all four
+  links, three of them by the compiler and poison-verified.
 
-  ```text
-  landed        acquisition · the hold · pose · pummel · throw · release ·
-                a bounded hold with a captive escape channel · a control-hold
-                claim registry so one authority cannot free another's body
-  proven        a REAL match, driven: 14 holds, 2 pummels, all ended by throw
-                (`cargo run -p ambition_demo_smash_app --bin capture_probe -- 60 --force`)
-  open          WHEN a CPU presses Grab. It owns one, chooses one and presses
-                one — mostly at ~110px against a 42px reach. Fighter capture
-                POLICY, not a bug in the mechanic.
-  ⛔ do not     price a grab's damage to fix that. Tried: "worth its forward
-                throw's damage" made the CPU grab from 110px in every exchange,
-                nine attempts, none in range, zero holds. A grab deals NO damage.
-  ```
+  ▢ **open: WHEN a CPU presses Grab.** It owns one, chooses one and presses one
+  — mostly at ~110px against a 42px reach. Fighter capture POLICY, not a bug in
+  the mechanic — the value of a hold depends on the throw it sets up, the
+  escape risk, the percent and the stage, and the generic option scorer has no
+  term for it and should not grow one. **That is D166's customer.**
+  ⛔ do not price a grab's damage to fix this — tried, made the CPU grab from
+  110px in every exchange, nine attempts, none in range, zero holds. A grab
+  deals NO damage.
 
-  ⇒ the value of a hold depends on the throw it sets up, the escape risk, the
-  percent and the stage — and the generic option scorer, shared by every actor
-  in every game this engine runs, has no term for it and should not grow one.
-  **That is D166's customer**, and the five other pressures capture put on
-  generic structures are listed in that row.
-
-  ⛔⛔ **AND A PERSON COULD NOT GRAB AT ALL UNTIL `988807b99`.** Jon, playing:
-  *"grab doesn't work on george when I press the button that says grab."*
-  `brain/player.rs` — the ONE seam a human's input frame crosses to reach a body
-  — never copied `grab_pressed`. Every other layer was right (the pad bound Y,
-  the frame was set, the body had `AbilitySet::grab` and a `ControlSlot::Grab`,
-  George authored the move), and a CPU worked because AI brains write
-  `ActorControl` directly. ⚠ **no test could have caught it**: every capture test
-  in the repo writes `grab_pressed` onto the body, so all of them start
-  downstream of the input layer.
-
-  ⭐ **and the obvious follow-up worry is answered NO, measured**: *"does the
-  Grab button die again on another fighter?"* The smash demo seats exactly THREE
-  — Robot v3, Robot v2 (both on the shared table, which carries a capture kit)
-  and George — and all three author a grab. The twelve `capture: None` tables are
-  `ambition_content`'s main-game roster, which the 2026-08-18 review told us not
-  to migrate (*"Use George first. Don't migrate the roster."*), so their absence
-  is a standing instruction rather than an oversight. ⚠ a fighter with no
-  authored grab gets no `ControlSlot::Grab` at all, so the touch overlay draws no
-  button for it — the pad is the only surface where the press is silent.
-
-  ⭐⭐ **the input-reachability chain is now closed at all four links**, three by
-  the compiler:
-
-  ```text
-  ControlSlot → action     exhaustive match (action_for_slot)
-  action → a KEY           the sweep in presets.rs — poison-verified
-  action → ControlFrame    struct literal, no rest pattern (control.rs)
-  ControlFrame → body      exhaustive destructure (brain/player.rs) — poison-verified
-  ```
-
-  ⇒ the reusable half: **a hand-driven chain pins the FUNCTION and says nothing
-  about the WIRING.** The instrument that does is `a_pad_player_fighting_as` +
-  `move_started_while_holding` in `smash_in_the_host.rs` — a real button through
-  the live `InputMap`. It reproduced this in 2.6s.
-
-  ⭐ **and D166's FIRST FACET landed the same day** (`5cefafc05`): George's
-  capture kit is authored content — `game/ambition_demo_smash/assets/fighters/`
-  — read by the content compiler, prepared into the same `MoveSpec`s the Rust
-  literal produced. What that moved is the VALUES. ▢ the POLICY half above is
-  still open and is still the interesting one. ⛔ the sixteen ordinary move
-  slots deliberately did NOT move: they are authored by COMPOSING helpers, and
-  George's file states a law about the shape of his table beside them.
+  ⭐ **D166's first facet landed the same day** (`5cefafc05`): George's capture
+  kit is authored content, read by the content compiler into the same
+  `MoveSpec`s the Rust literal produced. The sixteen ordinary move slots
+  deliberately did NOT move — they are authored by composing helpers.
 - **TwinTrack:** strongest current pressure test for independent views and
   observer/reference-frame presentation; split-screen should exercise the same
   multi-view model Ambition uses.

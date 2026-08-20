@@ -54,10 +54,14 @@ pub fn read_gameplay_control_frame_with_settings(
     let up_pressed = actions.just_pressed(&Platformer2dInputActionMonolith::MoveUp);
     let down_pressed = actions.just_pressed(&Platformer2dInputActionMonolith::MoveDown);
 
-    // Dash hysteresis: read the analog right trigger value plus the binary RT2
-    // button as the "press level". The settings-defined press / release
+    // BURST-press hysteresis: read the analog right trigger value plus the binary
+    // RT2 button as the "press level". (The device-side names stay `Dash` /
+    // `DashAnalog` / `DashInputMode` — those are the BINDING, which is what a
+    // player rebinds and what the settings file persists.) The settings-defined press / release
     // thresholds collapse trigger jitter into a single edge.
-    let raw_trigger = actions.value(&Platformer2dInputActionMonolith::DashAnalog).clamp(0.0, 1.0);
+    let raw_trigger = actions
+        .value(&Platformer2dInputActionMonolith::DashAnalog)
+        .clamp(0.0, 1.0);
     let dash_button_value = if actions.pressed(&Platformer2dInputActionMonolith::Dash) {
         1.0
     } else {
@@ -70,11 +74,13 @@ pub fn read_gameplay_control_frame_with_settings(
         controls.trigger_release_threshold,
         controls.trigger_press_threshold,
     );
-    let dash_pressed = match controls.dash_input_mode {
+    let burst_pressed = match controls.dash_input_mode {
         crate::settings::DashInputMode::Trigger => trigger_edge_pressed,
         // Button mode: ignore trigger hysteresis, only the configured Dash
         // button counts (e.g. RB on a 360 pad).
-        crate::settings::DashInputMode::Button => actions.just_pressed(&Platformer2dInputActionMonolith::Dash),
+        crate::settings::DashInputMode::Button => {
+            actions.just_pressed(&Platformer2dInputActionMonolith::Dash)
+        }
         crate::settings::DashInputMode::Both => {
             trigger_edge_pressed || actions.just_pressed(&Platformer2dInputActionMonolith::Dash)
         }
@@ -102,7 +108,7 @@ pub fn read_gameplay_control_frame_with_settings(
         jump_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Jump),
         jump_held: actions.pressed(&Platformer2dInputActionMonolith::Jump),
         jump_released: actions.just_released(&Platformer2dInputActionMonolith::Jump),
-        dash_pressed,
+        burst_pressed,
         left_pressed,
         right_pressed,
         up_pressed,
@@ -146,7 +152,9 @@ pub fn read_gameplay_control_frame_with_settings(
 /// Convenience for tests/headless-visible paths: gameplay frame with default
 /// control settings and a fresh trigger state.
 #[cfg(feature = "input")]
-pub fn read_gameplay_control_frame(actions: &ActionState<Platformer2dInputActionMonolith>) -> ControlFrame {
+pub fn read_gameplay_control_frame(
+    actions: &ActionState<Platformer2dInputActionMonolith>,
+) -> ControlFrame {
     let defaults = crate::settings::ControlSettings::default();
     let (frame, _) = read_gameplay_control_frame_with_settings(
         actions,
@@ -160,7 +168,9 @@ pub fn read_gameplay_control_frame(actions: &ActionState<Platformer2dInputAction
 /// mode. Today that's just `start_pressed` (which the pause toggle reads) —
 /// every other gameplay action is suppressed.
 #[cfg(feature = "input")]
-pub fn read_menu_control_frame(actions: &ActionState<Platformer2dInputActionMonolith>) -> ControlFrame {
+pub fn read_menu_control_frame(
+    actions: &ActionState<Platformer2dInputActionMonolith>,
+) -> ControlFrame {
     ControlFrame {
         start_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Start),
         ..ControlFrame::default()

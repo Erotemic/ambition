@@ -1483,7 +1483,11 @@ pub fn trigger_moveset_moves(
                     // so a `smash_dash` nobody authors is never asked for and
                     // the runtime's verb vocabulary stays the one list.
                     .move_for_attack(
-                        if running_attack { ATTACK_VERB } else { base_verb },
+                        if running_attack {
+                            ATTACK_VERB
+                        } else {
+                            base_verb
+                        },
                         dir,
                         gesture_grounded,
                         running_attack,
@@ -1539,9 +1543,13 @@ pub fn trigger_moveset_moves(
             // CM4, locomotion escapes: a `jump`/`dash` edge inside a permitting
             // cancel window ENDS the move (early recovery-cancel); the verb
             // itself runs through the normal locomotion path this same tick.
+            //
+            // ⚠ the edge is now the BURST press, but the AUTHORED cancel class
+            // stays `"dash"`: it is content vocabulary (`CANCEL_CLASS_NAMES`,
+            // spelled in shipped `.ron` movesets), not the channel's name.
             let loco = if frame.jump_pressed {
                 Some("jump")
-            } else if frame.dash_pressed {
+            } else if frame.burst_pressed {
                 Some("dash")
             } else {
                 None

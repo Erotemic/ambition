@@ -388,7 +388,7 @@ fn sprint_striker_cfg() -> SmashCfg {
 /// ⛔⛔ and it must NOT press the burst button. That press used to ride along
 /// with the throttle here; on a smash fighter (`dodge`, no `dash` — D146) the
 /// kernel resolves it as a DODGE ROLL, so a brain that meant *run at them* would
-/// have thrown an evade instead. `dash_pressed` is asserted false deliberately —
+/// have thrown an evade instead. `burst_pressed` is asserted false deliberately —
 /// the throttle alone is the whole action.
 #[test]
 fn closing_a_large_gap_is_throttle_and_never_a_burst_press() {
@@ -404,7 +404,7 @@ fn closing_a_large_gap_is_throttle_and_never_a_burst_press() {
         frame.locomotion.x
     );
     assert!(
-        !frame.dash_pressed,
+        !frame.burst_pressed,
         "closing distance emitted the shared BURST press — on a smash fighter \
          that is a dodge roll, not a run"
     );
@@ -702,7 +702,7 @@ fn defense_reactivity_zero_never_defends() {
 /// arms the regroup window and RUNS away at full throttle instead of trading at
 /// point-blank.
 ///
-/// ⛔ it used to prove the break-off by watching for `dash_pressed`, which was
+/// ⛔ it used to prove the break-off by watching for `burst_pressed`, which was
 /// the emitter's stowaway press and not the retreat at all. The retreat is
 /// LOCOMOTION away from the opponent, so that is what this measures — and the
 /// press must stay off, or a fleeing duelist would roll toward whatever the
@@ -736,7 +736,7 @@ fn duelist_regroups_and_runs_after_taking_damage() {
         if state.regroup_timer > 0.0 && f.locomotion.x < -0.8 {
             fled = true;
         }
-        if f.dash_pressed {
+        if f.burst_pressed {
             pressed_burst = true;
         }
         // Take ~2% of max HP every few ticks for the first ~0.5s (a flurry).

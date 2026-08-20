@@ -785,9 +785,7 @@ fn aim_the_stick(
         // only needs the direction to clear the deadzone — but it takes the same
         // partial deflection so that a special press can never leave a flick
         // armed behind it and turn the FOLLOWING tilt into a smash.
-        AttackVerb::Basic | AttackVerb::Special => {
-            crate::actor::attack_gesture::TILT_DEFLECTION
-        }
+        AttackVerb::Basic | AttackVerb::Special => crate::actor::attack_gesture::TILT_DEFLECTION,
     };
     frame.attack_axis = match binding.direction {
         AttackDir::Neutral => ae::LocalAxes::ZERO,
@@ -1137,7 +1135,7 @@ fn apply_movement(
             frame.jump_held = true;
         }
         MovementVerb::Dash => {
-            frame.dash_pressed = true;
+            frame.burst_pressed = true;
             frame.locomotion = ae::LocalAxes::new(toward, 0.0);
             frame.facing = toward;
         }
@@ -1161,7 +1159,7 @@ fn apply_movement(
                 .iter()
                 .any(|actor| actor.hostile_to_self && actor.alive && actor.phase.is_attacking());
             let roll = if threatened { -toward } else { toward };
-            frame.dash_pressed = true;
+            frame.burst_pressed = true;
             frame.locomotion = ae::LocalAxes::new(roll, 0.0);
             // ⚠ facing tracks the FOE, not the roll. A body that rolls away
             // while turning its back would come out of the roll facing the

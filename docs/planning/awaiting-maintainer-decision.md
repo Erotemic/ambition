@@ -6,11 +6,6 @@ here. Engineering questions go to the queue/tracks; answered questions move to
 record is archived at
 [`../archive/planning-superseded/2026-08-13/awaiting-maintainer-decision.md`](../archive/planning-superseded/2026-08-13/awaiting-maintainer-decision.md).
 
-⭐ **Every row re-checked against the tree on 2026-08-17.** Two closed (12: the
-submodule pushes fine; 13: the policy suite is green AND now runs in CI), and
-five had moved without anyone noticing — 1 is half-landed, 5's headline is
-falsified by a capture and re-measured by its own rig, 8's fork was decided and
-pinned by the D146 campaign, 11 is two-thirds executed.
 ⭐⭐ **AND JON ANSWERED TWO OF THEM THE SAME DAY — 6 AND 9 ARE CLOSED**, both
 recorded verbatim in [`maintainer-decisions.md`](maintainer-decisions.md). Their
 sections below are kept as answered records, not as questions:
@@ -45,10 +40,9 @@ for 9 open questions**, and the four answered ones held a third of it.
 
 ### 1. ✔ ANSWERED 2026-08-17 — a bolt hits what a sword hits (former D23)
 
-⭐⭐ **HALF OF THIS IS ALREADY RESOLVED — reconciled 2026-08-17; the row reads as
-fully open and is not.** `projectile/systems.rs` now resolves victims through
-**`StrikeVictim`**, *"the SAME NAMED ROLE melee uses"*, owned by
-`ambition_combat::hitbox` beside the victim-geometry rule.
+`projectile/systems.rs` now resolves victims through **`StrikeVictim`**, the
+same named role melee uses, owned by `ambition_combat::hitbox` beside the
+victim-geometry rule.
 
 ```text
 INTANGIBILITY   ✔ CLOSED — a body carrying an EMPTY `DamageableVolumes` list
@@ -56,12 +50,6 @@ INTANGIBILITY   ✔ CLOSED — a body carrying an EMPTY `DamageableVolumes` list
                   eaten by) a body a sword passes straight through
 PRECISION       ▢ OPEN — the overlap test is still the coarse `victim.aabb`
 ```
-
-⭐ the file says so itself: *"the INTANGIBILITY half of that is closed in the
-loop below; the precision half is still open, and says so there."* ⚠ and the
-comment records why the old claim was false: the tuple that would have carried
-`DamageableVolumes` **had run out of arity**, so *"the claim was never anything
-but prose"* — sharing the type is what made it checkable.
 
 ⭐⭐ **RULED: the projectile respects the AUTHORED HURT VOLUME — the same geometry
 melee uses.** One victim-geometry rule for everything, so a crouching or
@@ -72,22 +60,6 @@ that connects today against a body whose authored volume is tighter than its AAB
 will start missing. That is the point, not a regression to file.
 ⚠ per-volume overlap now runs on every projectile tick — **measure it rather than
 assuming it is free**, and say so at the loop.
-
-
-Current source still has the split: projectile collision uses the victim's coarse
-`CenteredAabb`, while melee/feature reach can use the body's published authored
-silhouette. Boss projectiles are excluded from the coarse-body path because a
-composite boss envelope is too broad.
-
-Choose one:
-
-- **Authored hurt volume** — projectiles use the same published body geometry as
-  the other damage families. This also permits retiring the anonymous boss
-  `HitTarget::UnresolvedFeatures` path.
-- **Coarse body box** — preserve today's projectile feel and keep the two damage
-  geometry laws intentionally distinct.
-
-This is feel, not missing engineering evidence.
 
 ### 2. Advance the measurement-submodule pointer?
 
@@ -142,10 +114,10 @@ policy**: `target/debug/incremental` is a safe, self-refilling 35 GB that can be
 deleted at any time, and it is roughly the size a rust-analyzer check directory
 would need. ⭐ the throughput half needs no re-measuring — the contention is
 still live and still reproducible: a plain `cargo check -p ambition_platformer2d_shared_tangle`
-this session printed `Blocking waiting for file lock on build directory`. ⚠ the volume is at 93% with ~137 GB free and the existing target
-dir is 106 GB, so this genuinely does not fit twice — which is why it is your
-call and not an agent's. A cheaper variant if the disk answer is no: leave the
-directory shared and accept that only one builder makes progress at a time.
+this session printed `Blocking waiting for file lock on build directory` — which
+is why it is your call and not an agent's. A cheaper variant if the disk answer
+is no: leave the directory shared and accept that only one builder makes
+progress at a time.
 
 ### 4. Mary-O restart report: which game, and roughly when? (former D68)
 
@@ -223,79 +195,14 @@ minute. That may be exactly right for the easiest rung — a bad opponent should
 be bad — or it may read as broken rather than easy. That is taste, not
 engineering.
 
-⛔ the paragraph below is kept as the historical record of the claim, not as
-evidence. Original text, 2026-08-14:
+▢ what stays open is the row's actual question — is CPU quality on the path to
+what Smash is for — now costed better: the gap between a rung that self-KOs and
+one that does not is a single authored field.
 
-> Not a decision so much as a finding you should see before it gets designed
-> around. Two independent rigs agree: a Smash duelist loses all three stocks to
-> ITSELF, at 0% damage, at every authored rung. In a real duel neither fighter
-> exceeds 0.84% peak damage — they never hit each other; the "outlast" numbers the
-> ladder rig reports are measuring who walked off later.
-
-The clean A/B, same level-9 profile with only `rollout_depth` varied: **depth 0
-survives 47.8s, depth 12 survives 7.4s.** The L3 rollout is enabled
-automatically at level ≥ 6, so the upper half of the ladder is the half that
-self-destructs fastest.
-
-⛔⛔ **HALF OF THIS IS FALSIFIED BY A PHOTOGRAPH — 2026-08-17.** The claim above
-is *"they never hit each other"*, evidenced as **peak 0.84% damage**. A capture
-of a live two-CPU match this morning shows:
-
-```text
-George Booul     180%   ·  3/3 stocks
-Pirate Admiral   124%   ·  3/3 stocks
-```
-
-⇒ **the CPUs now hit each other constantly.** That is not a mystery: the
-measurement predates D155 (every authored `launch_dir` was inverted and a
-tumbling launch resolved as a landing), D114 (hitlag reached only the avatar
-road, so a CPU-versus-CPU hit froze nobody) and D157. Damage was landing all
-along; almost nothing about it worked.
-
-⚠ **the OTHER half is untested and is the part that mattered** — whether a
-level-9 duelist still walks off the stage, and whether `rollout_depth` still
-inverts the ladder (depth 0 survived 47.8 s, depth 12 survived 7.4 s). Nothing
-since has touched the decision model, so the finding is *plausibly* intact — but
-the rig that produced it was measuring a fighter that could not deal damage, and
-a search that now has real hits to weigh may choose differently.
-
-✔ **RE-RUN 2026-08-17. The finding HOLDS in direction and is much smaller in
-size — and the headline sentence is now false at depth 0.**
-
-```text
-level  first_self_KO   survived   stocks_lost   peak%
-9/d0      none in 60s     >60s          0         0%     ⭐ no self-KO at all
-9/d12          21.8s      >60s          2         0%
-                        (was: d0 survived 47.8s · d12 survived 7.4s)
-```
-
-⇒ **the rollout still kills the fighter and depth 0 still does not**, so *"a
-twelve-tick search is choosing to leave the stage"* stands. But d12's first
-self-KO moved 7.4 s → **21.8 s**, and **d0 now loses ZERO stocks** where this row
-says *"a Smash duelist loses all three stocks to ITSELF at every authored
-rung."* ⚠ that sentence is now wrong at d0 and right everywhere the shipped
-ladder applies depth, which is **level ≥ 6** — so the upper half of the ladder is
-still the half that self-destructs, exactly as the row argued.
-
-⛔⛔ **AND THE `peak%` COLUMN IS 0% BY CONSTRUCTION — do not read it as evidence
-about duels.** The harness prints its own warning: *"opponent cannot attack, so
-every loss is a self-KO."* ⇒ this rig **cannot** speak to whether CPUs damage each
-other, and it **cannot** speak to decision 6's hitlag question either, because
-with an inert opponent there are no hits and therefore no hitlag. The
-`180% / 124%` capture above remains the evidence for the first; decision 6 still
-needs a played match.
-
-▢ what stays open is the row's actual question — **is CPU quality on the path to
-what Smash is for** — now costed better: the gap between a rung that self-KOs and
-one that does not is a single authored field. ⚠ the 3/3 stocks in that capture are also a
-data point in the other direction: at 180% neither had died to anything, itself
-included.
-
-⇒ engine-side this is a decision-model investigation (a twelve-tick search is
-choosing to leave the stage), and it blocks ladder calibration entirely. The
-question for you is priority: is CPU quality on the path to what Smash is for,
-or is it acceptable that CPUs are currently sparring partners that suicide?
-Detail in [`engine/fighter-brain.md`](engine/fighter-brain.md).
+⇒ engine-side this is a decision-model investigation, and it blocks ladder
+calibration entirely. The question for you is priority: is CPU quality on the
+path to what Smash is for, or is it acceptable that CPUs are currently sparring
+partners that suicide? Detail in [`engine/fighter-brain.md`](engine/fighter-brain.md).
 
 ### 14. Two things the one-brick rescale forced, both wanting your eye
 
@@ -544,9 +451,9 @@ are implementation/presentation identities associated with it."*
 
 ```text
 CharacterId        semantic, durable, the character package's name
-renderer target    an authoring/presentation choice — which generator drew it
-sheet file root    a PRODUCT — one published page
-generated asset id a build artifact's name
+renderer target     an authoring/presentation choice — which generator drew it
+sheet file root     a PRODUCT — one published page
+generated asset id  a build artifact's name
 ```
 
 ⇒ **on that reading the two options stop being symmetric.** Keying a shared
@@ -561,7 +468,6 @@ PRINCIPLE, and the ruling also decides what `SheetRegistry` is FOR — a
 product lookup or a character lookup. If it is meant to be a character lookup, the
 right fix is neither key but a `CharacterId`, and that is a bigger change than
 either row above.
-
 ### 6. ✔ ANSWERED 2026-08-17 — hitlag freezes the body that is in it (former D114)
 
 ⭐⭐ **Jon, verbatim:** *"keep the landed fix and overrule the old prohibition …
@@ -571,31 +477,24 @@ during that body's hitlag. Mark the old prohibition superseded. **If hitlag late
 feels too sticky, tune its duration/shape rather than restoring a
 controlled-body/actor asymmetry.**"* Recorded in
 [`maintainer-decisions.md`](maintainer-decisions.md); `818218949` is the code.
-⛔⛔ **the three options this row used to offer are VOID** — every one preserved a
-per-road distinction, and the distinction WAS the defect.
-⭐⭐ **the lesson is about EVIDENCE, not hitlag.** Two documents independently
-warned against this fix, and both were measured on a build where every authored
-launch direction was inverted and a tumbling launch resolved as a landing (D155)
-— i.e. where nobody was ever knocked anywhere. **A feel verdict inherits the
-build it was formed on**, and D155 invalidated every judgement that predates it.
 ⚠ the process failure is not excused by the outcome: the commit consulted neither
-document, so the prohibition was *unseen rather than overruled*.
+document that had previously warned against this fix, so the prohibition was
+*unseen rather than overruled*.
 
 ⭐⭐ **AND ANSWERING THIS UNBLOCKED D117, which is the consequence to act on.**
 This decision gated TIME INTEGRATION and nothing wider: the controlled and actor
 roads still have two body integrators, and unifying them means merging their
 limbs — hitlag-dt gating and ledge carry are the home road's, the flight limb is
-the actor road's. *"Does the merged integrator freeze an actor body on its own
-hitstop?"* **was** this question, and the ruling answers **yes, on both roads**.
-⇒ D117's last structural item is now executable, and so is folding the three
-per-population `decay_reaction_timers` calls into one system (the controlled site
-decays on `frame_dt`, the other two on sim `dt`).
+the actor road's. The ruling answers *"does the merged integrator freeze an actor
+body on its own hitstop?"* **yes, on both roads.** ⇒ D117's last structural item
+is now executable, and so is folding the three per-population
+`decay_reaction_timers` calls into one system (the controlled site decays on
+`frame_dt`, the other two on sim `dt`).
 
 ### 7. ✔ ANSWERED 2026-08-17 — a dropped weapon persists PER ITEM, not by one rule
 
 The lifetime bug is fixed for ability/currency/health drops: the entity and its
-visual now share room scope. The remaining laser-sword observation is a product
-rule for **held-item drops** after a fight:
+visual now share room scope.
 
 ⭐⭐ **RULED: authored per item.** A story or unique weapon stays in the world
 where it fell; an ordinary dropped one is room-scoped like the other drops.
@@ -606,8 +505,7 @@ decides whether a thing needs its own identity.
 **not in a hand** at save time — lying in a room, in flight — is undescribed and
 lost today, because the description remembers no POSITION (D133's open item). A
 persisting dropped weapon IS that case, so it must be built first rather than
-noted beside.
-⚠ it also needs a per-item authoring field that does not exist yet.
+noted beside. ⚠ it also needs a per-item authoring field that does not exist yet.
 ⛔ **whatever is built, simulation entity and presentation share ONE lifetime** —
 that was the original defect and it is not re-litigated by the persistence rule.
 
@@ -636,11 +534,6 @@ cast and this test is about to prove nothing"*) and **at least one must author a
 kit that DIFFERS** from the stage's, or the union is a no-op and the test would
 pass on the old mask too.
 
-⇒ so *"two of fourteen author, and the grant scaffold cannot be deleted while
-the rest do not"* is no longer the situation: the scaffold is gone and the
-EFFECTIVE set is uniform across the cast whether or not a given character
-authors one.
-
 ⏸ **DEFERRED BY JON 2026-08-17.** Fourteen fighters is a small sample and the kits
 were only just completed, so everyone keeps the uniform effective kit and
 **personality comes from MOVESETS rather than from missing verbs** until enough
@@ -649,29 +542,9 @@ matches have been played to know who feels wrong.
 so an omission MEANS something the day one is authored — the mechanism is ready
 and only the content decision waits. ⛔ do not propose an absence list unprompted,
 and ⛔ do not author an absence for balance reasons in the meantime.
-
-
-**Authoring verbs is currently a nerf, and that is why only two characters do
-it.** A seat's abilities are the character's authored set ∩ the mode's declared
-set. The intersection is right and is pinned — a ruleset may forbid, and may
-never hand a body a verb it lacks. The consequence is that a character stating
-`basic() + attack`, everything its old archetype row actually said, LOSES
-shield, dodge, ledge-grab, double-jump and dash, because today it receives those
-from the `(None, mode) => mode` grant. Two of fourteen fighters author an
-`AbilitySet`; the grant scaffold cannot be deleted while the rest do not.
-
-Choose one:
-
-- **Universal baseline, absences authored** *(recommended — this is genre
-  research, not taste)*. Every seated fighter authors the full platform-fighter
-  set, because in this genre every fighter shields, dodges, ledge-grabs,
-  double-jumps and dashes; a creature that should NOT have one omits it
-  deliberately, and the omission then means something. Character ∩ mode =
-  baseline, so authoring costs nothing and the grant arm loses its last consumer.
-- **Per-creature verb sets, no baseline** — the grant arm stays indefinitely and
-  the mask keeps punishing whoever authors first.
-- ⛔ **Let the mode grant verbs a body lacks** — listed to be refused: it deletes
-  the invariant `a_match_cannot_grant_a_verb_the_character_does_not_have` pins.
+⛔ refused for cause, and not on the table again: letting the mode grant a body a
+verb it lacks — it would delete the invariant
+`a_match_cannot_grant_a_verb_the_character_does_not_have` pins.
 
 **The part that is genuinely yours** is the per-creature absence list — can a
 goblin double-jump, can a crawler ledge-grab. The engine has no opinion and
@@ -691,12 +564,6 @@ pre-push / finalization    cargo test --workspace --lib. Required ≠ gated.
 touched the subsystem      that crate's feature-gated suite. ⛔ never wholesale.
 ```
 
-⛔⛔ **this row carried a FALSE PREMISE for a day** — *"the project gate now runs
-`cargo test --workspace --lib`"*, inherited from D160's premature closure. It
-never did; what landed was a pre-push paragraph in `AGENTS.md`. ⇒ **a row's
-premise is worth re-checking against the tree, not against the row that claims to
-have moved it.**
-
 ⭐ **what the third tier means in practice — 24 crates hide 629 tests**, and the
 delta is where the interesting ones live (`ambition_input` 54 → 115,
 `ambition_audio` 25 → 64, `ambition_touch_input` 4 → 45). So *"I ran `--workspace
@@ -713,88 +580,22 @@ delta is where the interesting ones live (`ambition_input` 54 → 115,
 
 ### 10. ✔ ANSWERED 2026-08-17 — shake stays constant IN THE WORLD; the name changes
 
-**Found 2026-08-15 while closing D118's C4.** Not a bug report — a feel question
-with two defensible answers, which is why it is yours.
-
-`CameraShakeState::amplitude_px` is added straight to the camera's translation:
-
-```rust
-transform.translation.x = x + shake_offset.x;
-```
-
-That translation is in WORLD units, and the camera's `orthographic_scale` is what
-converts world to screen. So the on-screen displacement is
-`amplitude_px / orthographic_scale` — **the same hit shakes the screen less the
-further the camera is pulled out**, and more when it is zoomed in. Ambition's
-observed gameplay scale is 0.5, so a shake authored at the hub reads at roughly
-double strength there compared with a zoomed-out framing.
-
-`hit_shake_amplitude` is documented in `HIT_SHAKE_GAIN_PX_PER_S`, and the field
-is named `_px`, so the NAME says screen pixels while the behaviour says world
-units. One of the two is wrong and I cannot tell which from the code.
-
-- **Constant on screen** — divide the offset by `orthographic_scale`. A hit feels
-  identical however the camera is framed, which is what "px" promises and what
-  most action games do.
-- **Constant in the world** *(what ships today)* — a shake is a physical
-  displacement of the viewpoint, so a distant camera showing more world naturally
-  registers it as smaller. Defensible, and arguably better for a camera that
-  zooms out during a big fight: the screen does not thrash harder as the stakes
-  rise.
-- **Rename and keep the behaviour** — if world-units is what you want, the field
-  is `amplitude_world` and the constant is not `PX_PER_S`. Cheapest option, and
-  it stops the next reader making my mistake.
+`CameraShakeState::amplitude_px` was added straight to the camera's translation
+in WORLD units, so the on-screen displacement scaled with `orthographic_scale` —
+**the same hit shakes the screen less the further the camera is pulled out**. The
+field's own name said "px" while the behaviour was world units.
 
 ⭐⭐ **RULED: constant in the world — keep the behaviour, fix the NAME.** A shake
 is a physical displacement of the viewpoint, so a camera showing more world
 registers it as smaller; a camera that pulls out as a fight grows should calm the
 screen rather than thrash it harder.
-⇒ **what changes is `amplitude_px` → `amplitude_world` and
+⇒ **what changes is `amplitude_px` → `amplitude_world`, and
 `HIT_SHAKE_GAIN_PX_PER_S` with it.** ⛔ the maths is not touched.
-⭐ and the rename is now unambiguous rather than merely tidier: by the same day's
-ruling **one world unit IS a base-grid pixel**, so `_px` would stay permanently
-confusable while `_world` says exactly which quantity this is.
+⭐ and the rename is now unambiguous rather than merely tidier: **one world unit
+IS a base-grid pixel**, so `_px` would stay permanently confusable while `_world`
+says exactly which quantity this is.
 
 ### 11. ✔ ANSWERED 2026-08-17 — split-screen layout is ADAPTIVE WITH HYSTERESIS
-
-⭐⭐ **TWO THIRDS OF THIS WAS TAKEN AND EXECUTED ON 2026-08-15 — the row reads as
-fully open and is not (reconciled 2026-08-17).** The stated engineering default
-below, *duplicate per view*, was implemented for two of the three systems:
-
-```text
-label_layout.rs   per-view projections   d09229ceb (2026-08-15)
-nameplates.rs     per-view projections   d09229ceb
-view_isolation.rs isolate by RELATIONSHIP, not identity   b732e5d6a
-parallax.rs       ⛔ NOT DONE
-```
-
-⚠ **`parallax.rs` still has no view concept at all** — zero mentions of a view
-id, `.single()` on the main camera, and a viewport built from the constants
-`WINDOW_W`/`WINDOW_H` rather than from the camera it is drawing for. So it is not
-merely un-duplicated; it could not serve a second view of a different size.
-
-⇒ **what is left of this decision is parallax alone**, and the default already
-applied twice says what to do with it. ⭐ the genuinely open question is the one
-the row itself flags at the end — the LAYOUT POLICY above the fork — not this.
-
-⚠ **noted rather than asked, and D116 M2 proceeds without the answer** — the
-first two items of M2 landed 2026-08-14 and do not depend on this.
-
-Three draw systems are genuinely per-view — foreground/parallax, label layout and
-nameplates — and each builds **one** set of world-space entities: one `Transform`
-per world label, per nameplate, per parallax layer. Naming which view they serve
-is not the blocker. Per-view *correctness* needs one of:
-
-- **duplicate per view** — each view owns its own label/nameplate/parallax
-  entities. The general answer, and what shared / fixed-split / BG3-adaptive all
-  eventually need, since a second view is a count rather than a special case.
-  Costs entities per view.
-- **pick one view** — keep one set, drive it from a designated view. Smaller, but
-  it re-centralises the thing D116 exists to decentralise, and the next slice
-  undoes it.
-- **stop here** — two views are already structurally real (distinct transforms,
-  distinct viewports), and the three systems refuse loudly at two cameras. Return
-  when a product need for split-screen actually arrives.
 
 ⭐⭐ **RULED 2026-08-17: adaptive with hysteresis** — one shared framing while
 participants are close, splitting into viewports as they separate, with hysteresis
@@ -802,10 +603,17 @@ so it cannot flap at the boundary. Recorded in
 [`maintainer-decisions.md`](maintainer-decisions.md).
 ⇒ **and that settles the engineering fork under it by implication.** A layout that
 can split at ANY MOMENT cannot be served by one set of world-space entities, so
-**duplicate per view** is the only surviving option and *pick one view* is dead.
-`parallax.rs` must gain a view concept: it has none today, `.single()`s the main
-camera, and builds its viewport from `WINDOW_W`/`WINDOW_H` rather than from the
-camera it draws for.
+**duplicate per view** is the only surviving option.
+
+```text
+label_layout.rs   per-view projections   d09229ceb (2026-08-15)
+nameplates.rs     per-view projections   d09229ceb
+view_isolation.rs isolate by RELATIONSHIP, not identity   b732e5d6a
+parallax.rs       ⛔ NOT DONE — must gain a view concept: no view id, `.single()`s
+                   the main camera, and builds its viewport from
+                   `WINDOW_W`/`WINDOW_H` rather than from the camera it draws for
+```
+
 ⚠ **the distance threshold and the hysteresis band are FEEL values Jon has not
 named** — measure them against a real two-player session rather than picking
 constants.
@@ -814,12 +622,6 @@ several cameras, label layout and nameplates fall back to a **world-origin** foc
 (`Vec2::ZERO`) instead of declining to draw, and under this policy several cameras
 is the ordinary case rather than the exception. ⚠ `MainCameraEntity` is a SEVENTH
 process-global *"the main camera"* resource that this layout has to answer for.
-
-⚠ two related shapes found while landing M2's first half, both left alone: with
-several cameras, label layout and nameplates fall back to a **world-origin**
-focus (`Vec2::ZERO`) rather than declining to draw — silent-wrong where the rest
-of this seam is loud-wrong — and `MainCameraEntity` is a **seventh** process-global
-"the main camera" resource that split-screen will have to answer for.
 
 ### 12. ✔ CLOSED 2026-08-17 — the `ambition_map_assets` submodule pushes fine
 
@@ -890,6 +692,7 @@ instead is that the unspendable case is now LOUD: a `Custom` payload reaching th
 grant warns with the id and says nobody was awarded it, so this stops being
 invisible. ⛔ the silent `_ => {}` that swallowed it is what let eight shipped
 bosses drop empty treasure without a single line of evidence.
+
 
 ### 21. ▢ NEW 2026-08-19 — separating control authority from AI policy breaks a FROZEN wire format
 
@@ -992,16 +795,14 @@ fact under that name would have put two meanings on one word in one crate.
 and it is exactly A/B/C above. Everything up to it can proceed by moving readers
 onto the derive one at a time.
 
+
 ### 22. ✔ RESOLVED 2026-08-19 — external-consumer enemy authoring follows the post-D73 character seam
 
 The external-consumer sentinel had not compiled since D73 deleted the roster.
-The port is now settled rather than treated as a rename: **a third party authors
-an enemy as a `CharacterDefinition`, with controller policy in `BrainProfile`,
-and the placement names the required `CharacterId`.** The umbrella exports the
-small authored vocabulary needed to state those facts, so the fixture still
-depends on `ambition_platformer2d` alone.
-
-The old `OUTLANDER_ROSTER_RON` row translated without losing a knob:
+**RULED: a third party authors an enemy as a `CharacterDefinition`, with
+controller policy in `BrainProfile`, and the placement names the required
+`CharacterId`.** The umbrella exports the small authored vocabulary needed to
+state those facts, so the fixture still depends on `ambition_platformer2d` alone.
 
 ```text
 body        max_health, run_speed, move_style, contact strength/damage
@@ -1011,10 +812,11 @@ placement   OnRoomReenter (the EnemySpawnSpec default)
 
 `CharacterRosterFragment`, `CharacterRosterAppExt`, and
 `register_character_roster_fragment` are gone from the fixture, and the staged
-spawn names `OUTLANDER_SENTRY_CHARACTER_ID` directly. A fixture test reads the
-prepared character back through the public umbrella and pins the migrated body
-and controller values. This preserves the sentinel's purpose: a public SDK break
-that the shared workspace cannot see fails in the independent consumer.
+spawn names `OUTLANDER_SENTRY_CHARACTER_ID` directly.
+⭐ **guarded by** a fixture test that reads the prepared character back through
+the public umbrella and pins the migrated body and controller values — this
+preserves the sentinel's purpose: a public SDK break the shared workspace cannot
+see still fails in the independent consumer.
 
 ### 23. ▢ NEW 2026-08-19 — five `the_stage_kills` guards are RED, three of them from the legality filter, and the prescribed fix contradicts a deliberate fairness property
 
@@ -1095,7 +897,7 @@ legality filter should admit an action the body could begin within N frames
 
 ⭐⭐ **MEASURED 2026-08-19, and it changes what the answer can be: they are NOT
 one mind played twice.** The phrase in the failing assertion is wrong, and the
-options below should be read with these numbers rather than with it. Probed on
+options above should be read with these numbers rather than with it. Probed on
 the real demo app, two `smash_duelist_a` CPUs at rung 5:
 
 ```text
@@ -1210,43 +1012,17 @@ ships with both settings rather than shipping with one and a note about the
 other. ⚠ the general rule that follows: *"Ultimate does it"* is sufficient reason
 for a SETTING to exist, whatever the default ends up being.
 
-### The original question, kept as the argument for the two settings
-
-**What we have.** `resolve_shield` arms `BodyShieldState::parry_window_timer` on
-the guard's RISING EDGE, and `parrying()` is `active && parry_window_timer > 0.0`
-— so a parry is *"you raised the shield within the window before the hit"*, and
-a parried hit does not register at all (`combat::util::body_vulnerable`).
-
-**What Ultimate does.** It moved the perfect shield OFF the press: you RELEASE
-the shield within a few frames of the hit connecting, the defender takes nothing,
-and the attacker eats a large extra lag. The press-timed version is Smash 4's.
-
-⛔ **this is not a missing mechanic, and that is exactly why it is a decision.**
-Both are shipped platform-fighter standards. We do not lack a parry; we have the
-OTHER correct one. "Go and find what the genre does and ship that" does not
-resolve it, because the genre has done both and picked deliberately.
-
-**What each buys.** The press version rewards a read BEFORE the hit — commit
-early, be right. The release version makes the shield a two-decision object: you
-raise it under pressure and then time the drop, so a defender under a
-multi-hit string is making a choice every beat rather than one at the start.
-Ultimate's stated reason was the second.
-
-⚠ **the code cost is not the interesting part but it is not nothing**:
-`parrying()` currently requires `active`, and a release-timed window is live on
-frames when the shield is DOWN — so the term that separates a parry from a held
-shield would have to move, and `vulnerability_gate_tests` asserts that term by
-name.
-
-⇒ **ANSWERED above**: neither — it becomes the parry-timing knob, and the two
-readings above are its two settings rather than two candidates.
+⚠ **implementation note for whoever builds the second setting**: `parrying()`
+currently requires `active`, and a release-timed window is live on frames when
+the shield is DOWN — so the term that separates a parry from a held shield would
+have to move, and `vulnerability_gate_tests` asserts that term by name.
 
 ## ✔ CLOSED 2026-08-15 — every submodule remote is reachable and current
 
 **Was:** `git push` in `tools/ambition_sfx_renderer` failed with *"correct access
 rights"*, and `main` already recorded a commit from it, so a fresh clone could
-not resolve the pointer. Probing the rest found three more on the same footing,
-each behind its own credential alias.
+not resolve the pointer. Three more submodules were on the same footing, each
+behind its own credential alias.
 
 ✔ **Jon provisioned all four.** Verified from inside the VM: five of five
 submodules answer `git ls-remote`, none is ahead of its `origin/main`, and every
@@ -1265,7 +1041,6 @@ git submodule foreach 'git ls-remote --exit-code origin >/dev/null 2>&1 \
 by rolling the superproject pointer back. The superproject commits depend on the
 submodule content; the pointer is the symptom, the credential is the cause.
 
----
 
 ### 26. Rename the blast zone out of every world's authoring schema? (D169)
 

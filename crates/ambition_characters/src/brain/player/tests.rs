@@ -287,7 +287,7 @@ fn shield_and_special_pass_through() {
         c.shield_held = true;
         // Special now comes from its OWN dedicated slot (was aliased to blink).
         c.special_pressed = true;
-        c.dash_pressed = true;
+        c.burst_pressed = true;
         c.interact_pressed = true;
     });
     let s = BrainSnapshot::idle();
@@ -295,7 +295,7 @@ fn shield_and_special_pass_through() {
     tick_player_brain_from_control(&input, &s, &mut out);
     assert!(out.shield_held);
     assert!(out.special_pressed);
-    assert!(out.dash_pressed);
+    assert!(out.burst_pressed);
     assert!(out.interact_pressed);
 }
 

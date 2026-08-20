@@ -113,7 +113,9 @@ pub fn apply_post_hit_input_gates(
         input.axes = ae::LocalAxes::ZERO;
         // Strip all locomotion authority (fly-toggle is exempt — see above).
         input.movement.set(ae::MovementAction::Jump, ae::Edge::NONE);
-        input.movement.set(ae::MovementAction::Dash, ae::Edge::NONE);
+        input
+            .movement
+            .set(ae::MovementAction::Burst, ae::Edge::NONE);
         input
             .movement
             .set(ae::MovementAction::FastFall, ae::Edge::NONE);
@@ -125,15 +127,17 @@ pub fn apply_post_hit_input_gates(
         input.interact_pressed = false;
     } else if hitstun_timer > 0.0 {
         // Post-recoil hitstun: reduced movement authority and no
-        // jump/dash/blink, but the attack verb (and its pogo sibling) is
+        // jump/burst/blink, but the attack verb (and its pogo sibling) is
         // PRESERVED — you can fight back, and damage a boss you're standing in,
         // the instant the recoil lock ends while i-frames are still ticking.
         let scale = feel.hitstun_control_scale.clamp(0.0, 1.0);
         input.axes = ae::LocalAxes::new(input.axes.x * scale, input.axes.y * scale);
-        // No jump/dash/blink, but PRESERVE an in-progress jump's held/released
+        // No jump/burst/blink, but PRESERVE an in-progress jump's held/released
         // (only the press EDGE is eaten, matching the pre-re-key behavior).
         input.movement.set_pressed(ae::MovementAction::Jump, false);
-        input.movement.set(ae::MovementAction::Dash, ae::Edge::NONE);
+        input
+            .movement
+            .set(ae::MovementAction::Burst, ae::Edge::NONE);
         input
             .movement
             .set(ae::MovementAction::FastFall, ae::Edge::NONE);
@@ -318,11 +322,11 @@ mod tests {
         use ambition_characters::actor::control::ActorControlFrame;
         let dt = 1.0 / 60.0;
 
-        // Normal: jump held + dash + blink-release route to the movement edges.
+        // Normal: jump held + burst + blink-release route to the movement edges.
         let mut frame = ActorControlFrame::neutral();
         frame.jump_pressed = true;
         frame.jump_held = true;
-        frame.dash_pressed = true;
+        frame.burst_pressed = true;
         frame.blink_released = true;
         let input = engine_input_from_actor_control(
             frame,
@@ -332,13 +336,13 @@ mod tests {
             dt,
         );
         assert!(input.jump_pressed() && input.jump_held());
-        assert!(input.dash_pressed());
+        assert!(input.burst_pressed());
         assert!(input.blink_released() && !input.blink_pressed());
 
         // Recoil lock: ALL locomotion stripped for the AI body too.
         let mut recoiled = ActorControlFrame::neutral();
         recoiled.jump_pressed = true;
-        recoiled.dash_pressed = true;
+        recoiled.burst_pressed = true;
         let input = engine_input_from_actor_control(
             recoiled,
             Platformer2dFeelTuningMonolith::default(),
@@ -349,7 +353,7 @@ mod tests {
             &ae::BodyShieldState::default(),
             dt,
         );
-        assert!(!input.jump_pressed() && !input.dash_pressed());
+        assert!(!input.jump_pressed() && !input.burst_pressed());
 
         // Hitstun: eats only the jump PRESS; an in-progress jump keeps held.
         let mut stunned = ActorControlFrame::neutral();

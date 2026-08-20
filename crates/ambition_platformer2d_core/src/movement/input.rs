@@ -23,7 +23,11 @@ pub trait ActionKey: Copy {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum MovementAction {
     Jump,
-    Dash,
+    /// The shared BURST press. Dodge and dash are ONE input, which is why this
+    /// names the channel and not one of its outcomes — what a press MEANS on a
+    /// given body is [`crate::movement::BurstManeuver`], resolved from that
+    /// body's abilities.
+    Burst,
     Blink,
     FlyToggle,
     FastFall,
@@ -33,7 +37,7 @@ impl MovementAction {
     /// All variants, in index order — for iteration and exhaustive folds.
     pub const ALL: [MovementAction; 5] = [
         Self::Jump,
-        Self::Dash,
+        Self::Burst,
         Self::Blink,
         Self::FlyToggle,
         Self::FastFall,
@@ -186,7 +190,7 @@ mod action_edge_tests {
         assert!(!edges.pressed(MovementAction::Blink));
 
         // Untouched actions read as empty — no bleed from the bitset.
-        assert_eq!(edges.get(MovementAction::Dash), Edge::NONE);
+        assert_eq!(edges.get(MovementAction::Burst), Edge::NONE);
         assert_eq!(edges.get(MovementAction::FastFall), Edge::NONE);
     }
 
@@ -198,11 +202,11 @@ mod action_edge_tests {
         };
         let mut edges = ActionEdges::<MovementAction>::default()
             .with(MovementAction::Jump, held)
-            .with(MovementAction::Dash, held);
-        // Clear Jump; Dash must survive.
+            .with(MovementAction::Burst, held);
+        // Clear Jump; Burst must survive.
         edges.set(MovementAction::Jump, Edge::NONE);
         assert!(!edges.held(MovementAction::Jump));
-        assert!(edges.held(MovementAction::Dash));
+        assert!(edges.held(MovementAction::Burst));
     }
 
     #[test]
@@ -232,7 +236,7 @@ mod action_edge_tests {
 pub struct InputState {
     /// Locomotion stick in the controlled body's local frame.
     pub axes: LocalAxes,
-    /// The locomotion-verb edges — jump / dash / blink / fly-toggle / fast-fall.
+    /// The locomotion-verb edges — jump / burst / blink / fly-toggle / fast-fall.
     /// The kernel dispatches locomotion on [`MovementAction`] through the typed
     /// accessors below ([`Self::jump_pressed`] …), never on raw fields.
     pub movement: ActionEdges<MovementAction>,
@@ -320,8 +324,8 @@ impl InputState {
         self.movement.released(MovementAction::Jump)
     }
     #[inline]
-    pub fn dash_pressed(&self) -> bool {
-        self.movement.pressed(MovementAction::Dash)
+    pub fn burst_pressed(&self) -> bool {
+        self.movement.pressed(MovementAction::Burst)
     }
     #[inline]
     pub fn blink_pressed(&self) -> bool {

@@ -99,12 +99,21 @@ pub struct Dormant;
 /// RETRACTS its control frame, so it stops dead. The wake radius was measuring
 /// the distance to a body nobody is looking through.
 ///
-/// ⚠ **`Brain::Player(_)` covers every seat**, so a second player on the couch
-/// still wakes the world around them with no extra wiring — which is what the
-/// `PlayerEntity` version bought and is preserved here.
+/// ⚠ **[`DrivingParticipant`] covers every seat**, so a second player on the
+/// couch still wakes the world around them with no extra wiring — which is what
+/// the `PlayerEntity` version bought and is preserved here.
+///
+/// ⭐ **the predicate IS the query now.** This used to ask for every `Brain` and
+/// then `matches!(.., Brain::Player(_))` — a filter written because *"somebody is
+/// driving this body"* had nowhere of its own to live. It has one now:
+/// `control::project_driving_participant` reprojects
+/// [`ambition_characters::brain::DrivingParticipant`] every tick from the same
+/// facts, so the observer set is a `With<>` and there is no filter left to get
+/// wrong. The rule quoted above still holds — what changed is that the fact it
+/// describes is no longer spelled inside an AI-policy enum.
 pub fn assess_dormancy(
     mut commands: Commands,
-    observers: Query<(&ae::BodyKinematics, &ambition_characters::brain::Brain)>,
+    observers: Query<&ae::BodyKinematics, With<ambition_characters::brain::DrivingParticipant>>,
     mut actors: Query<(
         Entity,
         &ae::BodyKinematics,
@@ -117,11 +126,7 @@ pub fn assess_dormancy(
 ) {
     // Collected once rather than re-iterated per actor: the observer set is
     // tiny (one to four) and the actor set is not.
-    let eyes: Vec<ae::Vec2> = observers
-        .iter()
-        .filter(|(_, brain)| matches!(brain, ambition_characters::brain::Brain::Player(_)))
-        .map(|(body, _)| body.pos)
-        .collect();
+    let eyes: Vec<ae::Vec2> = observers.iter().map(|body| body.pos).collect();
 
     for (entity, body, policy, is_dormant, control) in &mut actors {
         let awake = match policy {
@@ -167,6 +172,16 @@ mod tests {
     use super::*;
     use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
 
+    // **WHY EVERY FIXTURE BELOW RUNS THE PROJECTION.**
+    //
+    // ⛔ The observers these tests spawn carry a player BRAIN;
+    // `DrivingParticipant` is DERIVED from it. A fixture that spawned the brain
+    // and never ran the projection would find NO OBSERVERS AT ALL — and "no
+    // observer nearby" is precisely this system's dormancy condition. Every
+    // actor would fall asleep, so the tests asserting sleep would pass for the
+    // wrong reason while only the ones asserting wakefulness failed. A dead
+    // input road is half invisible from its own failures.
+
     fn body_at(x: f32) -> ae::BodyKinematics {
         ae::BodyKinematics {
             pos: ae::Vec2::new(x, 0.0),
@@ -178,7 +193,12 @@ mod tests {
 
     fn app_with(policy: Option<DormancyPolicy>, actor_x: f32, observers: &[f32]) -> (App, Entity) {
         let mut app = App::new();
-        app.add_systems(Update, assess_dormancy);
+        // ⭐ the derive runs AHEAD of its reader — see the note above `body_at`.
+        app.init_resource::<crate::abilities::traversal::possession::PossessionState>();
+        app.add_systems(
+            Update,
+            (crate::control::project_driving_participant, assess_dormancy).chain(),
+        );
         for x in observers {
             // ⚠ **an observer is a body being DRIVEN**, which is why this spawns
             // a player BRAIN and not only the `PlayerEntity` marker. The fixture
@@ -221,7 +241,12 @@ mod tests {
     #[test]
     fn the_driven_body_is_the_observer_not_the_parked_one() {
         let mut app = App::new();
-        app.add_systems(Update, assess_dormancy);
+        // ⭐ the derive runs AHEAD of its reader — see the note above `body_at`.
+        app.init_resource::<crate::abilities::traversal::possession::PossessionState>();
+        app.add_systems(
+            Update,
+            (crate::control::project_driving_participant, assess_dormancy).chain(),
+        );
         // The home avatar, parked at the origin and NOT being driven.
         app.world_mut().spawn((PlayerEntity, body_at(0.0)));
         // The possessed body, far away, carrying the player brain.
@@ -329,7 +354,12 @@ mod tests {
         use ambition_platformer2d_core::reference_frame::LocalAxes;
 
         let mut app = App::new();
-        app.add_systems(Update, assess_dormancy);
+        // ⭐ the derive runs AHEAD of its reader — see the note above `body_at`.
+        app.init_resource::<crate::abilities::traversal::possession::PossessionState>();
+        app.add_systems(
+            Update,
+            (crate::control::project_driving_participant, assess_dormancy).chain(),
+        );
         // Driven, not merely marked — see `app_with`.
         app.world_mut().spawn((
             PlayerEntity,
@@ -376,7 +406,12 @@ mod tests {
         use ambition_platformer2d_core::reference_frame::LocalAxes;
 
         let mut app = App::new();
-        app.add_systems(Update, assess_dormancy);
+        // ⭐ the derive runs AHEAD of its reader — see the note above `body_at`.
+        app.init_resource::<crate::abilities::traversal::possession::PossessionState>();
+        app.add_systems(
+            Update,
+            (crate::control::project_driving_participant, assess_dormancy).chain(),
+        );
         app.world_mut().spawn((PlayerEntity, body_at(0.0)));
 
         let mut striding = ActorControlFrame::neutral();

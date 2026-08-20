@@ -36,7 +36,14 @@ pub struct ControlFrame {
     pub jump_pressed: bool,
     pub jump_held: bool,
     pub jump_released: bool,
-    pub dash_pressed: bool,
+    /// Rising edge on the SHARED burst press — the dodge/dash channel. What a
+    /// press BUYS is the body's answer (`BurstManeuver`), not this field's.
+    ///
+    /// ⚠ **the RECORDED key stays `dash_pressed`.** The channel was renamed to
+    /// BURST, but recordings already on disk spell it the old way, so the serde
+    /// name is pinned and `INPUT_STREAM_VERSION` does not move.
+    #[serde(rename = "dash_pressed")]
+    pub burst_pressed: bool,
     /// Movement-left input was newly pressed this frame in the raw input/screen
     /// frame. Directional gameplay gestures resolve this through
     /// `AccelerationFrame` before treating it as local left/right/up/down.
@@ -160,7 +167,7 @@ impl ControlFrame {
             // Edges — sticky until a tick consumes them.
             jump_pressed: self.jump_pressed | sample.jump_pressed,
             jump_released: self.jump_released | sample.jump_released,
-            dash_pressed: self.dash_pressed | sample.dash_pressed,
+            burst_pressed: self.burst_pressed | sample.burst_pressed,
             left_pressed: self.left_pressed | sample.left_pressed,
             right_pressed: self.right_pressed | sample.right_pressed,
             up_pressed: self.up_pressed | sample.up_pressed,

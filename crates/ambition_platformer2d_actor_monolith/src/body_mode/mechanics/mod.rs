@@ -24,7 +24,7 @@
 //! - Crouching + Down released → Standing (gated).
 //! - Standing/Crouching + Up/Down inside `climbable_contact` → Climbing.
 //! - Climbing + Up + Jump → ladder jump boost, stay Climbing.
-//! - Climbing + Jump without Up or Dash → push off, exit to Standing.
+//! - Climbing + Jump without Up, or the burst press → push off, exit to Standing.
 //!   Climbing + losing contact → exit to Standing automatically.
 //! - Mid-action mechanics (dash, blink-aim, wall-cling/climb, ledge grab,
 //!   swim) own the player shape; the driver no-ops while any of them are
@@ -129,7 +129,7 @@ pub fn update_body_mode(
         let climb_axis_held = climb_axis.abs() > CROUCH_AXIS_Y_THRESHOLD;
         let climb_axis_down = climb_axis > CROUCH_AXIS_Y_THRESHOLD;
         let jump_pressed = control.jump_pressed;
-        let dash_pressed = control.dash_pressed;
+        let burst_pressed = control.burst_pressed;
         let stand_up_gesture = jump_pressed || up_held;
         // Momentum bodies publish support through their ride state. The generic
         // AABB ground cluster can remain false while a body is attached to a
@@ -162,7 +162,7 @@ pub fn update_body_mode(
             jump_state.ladder_drop_through_hold_lock = false;
         }
 
-        // Climbing exits: plain jump / dash pushes off, losing contact
+        // Climbing exits: plain jump / the burst press pushes off, losing contact
         // drops the mode. Jump+Up is handled by movement as a climb-speed
         // boost while keeping the ladder state.
         // Engine's `integrate_climb` defensive-zeros velocity if contact
@@ -184,9 +184,9 @@ pub fn update_body_mode(
                 continue;
             }
             let exit_via_jump = jump_pressed && !up_held;
-            let exit_via_dash = dash_pressed;
+            let exit_via_burst = burst_pressed;
             let exit_via_lost_contact = !climbable_contact_present;
-            if exit_via_jump || exit_via_dash || exit_via_lost_contact {
+            if exit_via_jump || exit_via_burst || exit_via_lost_contact {
                 let _ = ae::try_change_body_mode_clusters(
                     &mut kinematics,
                     base_size,

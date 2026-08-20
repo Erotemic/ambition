@@ -453,7 +453,9 @@ pub(crate) fn synthesize_events_from_diff(
     // press (the previous frame's value was already false).
     let pairs: &[(&str, bool, bool)] = &[
         ("Jump", controls.jump_pressed, prev.controls.jump_pressed),
-        ("Dash", controls.dash_pressed, prev.controls.dash_pressed),
+        // The CHANNEL, not the outcome: `GameplayTraceEvent::Dash` below is the
+        // detected traversal dash, and the two used to share this name.
+        ("Burst", controls.burst_pressed, prev.controls.burst_pressed),
         ("Blink", controls.blink_pressed, prev.controls.blink_pressed),
         ("Up", controls.up_pressed, prev.controls.up_pressed),
         ("Down", controls.down_pressed, prev.controls.down_pressed),

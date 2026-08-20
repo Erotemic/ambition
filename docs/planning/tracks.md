@@ -339,95 +339,42 @@ These cards are capability fronts, not a serial mega-campaign.
 - **Test execution parallelism** — re-measure only if execution again dominates
   compile/link cost before adding runner machinery.
 
-## ⚠ Stranded plans — promote or retire (measured 2026-08-15)
+## ⚠ Stranded plans — promote or retire
 
-⭐ **this section exists to end the structural invisibility, not to judge these
+⭐ **this section exists to end structural invisibility, not to judge these
 documents.** A planning doc reachable from no ledger row, no reservoir card, no
-`status.md` entry and no other document is invisible to the execution authority —
-that is exactly how seven fully-written Engine 1.0 plans sat unreachable until
-2026-08-14, and the fix then was **promotion, not writing**.
+`status.md` entry and no other document is invisible to the execution
+authority — that is how seven fully-written Engine 1.0 plans sat unreachable
+until 2026-08-14; the fix was **promotion, not writing**.
 
-Measured by basename across all of `docs/` (excluding `docs/archive`, which is
-evidence rather than authority) and `AGENTS.md`: **13 planning documents, 2,048
-lines, referenced by nothing.** Listing them here makes them reachable. ⛔ **a
-disposition is still owed for each** — promote to a card or retire to the
-archive; being listed here is not a verdict that the work is live.
+The 2026-08-15 census (13 docs, 2,048 lines, reachable from nothing) is fully
+routed:
 
-- ~~`engine/portable-preparation-and-load-explainability.md` (484)~~ ✔ **ROUTED —
-  and this one was the sharpest case.** It is **D124's own plan**, and the D124
-  ledger row did not link it. A live row and its 484-line plan existed without
-  knowing about each other.
-- ~~`engine_rename_campaign.md` (322)~~ ✔ **ROUTED** — the stale `Sandbox*` naming
-  campaign is complete (`check_retired_crate_names.py` reports none). ⚠ the file
-  survives because **architecture/product work was bundled into it**, including
-  couch multiplayer. ⇒ **misfiled, not dead**: its residue should move to the
-  topic plans that own it rather than living under a finished rename's name.
-- ~~`engine/sprite-renderer.md` (174)~~ ✔ **ROUTED as REFERENCE, not a campaign.**
-  Its engine-facing content is one principle — **measure-by-default**: a sprite
-  ships the geometry the gameplay layer needs, so a body and its hitbox cannot
-  silently disagree. ⭐ that principle is load-bearing for any authoring change
-  that touches collision geometry — a stretched sprite moves the collision off
-  the picture.
-- ~~`engine/closeout-review-followups-2026-07-20.md` (212)~~ ✔ **PROMOTED** to a card above
-- ~~`engine/binding-resolution-boundary.md` (55)~~ ✔ **PROMOTED** to a card above
-- ~~`engine/combat-model.md` (60)~~ ✔ **ROUTED** — residual combat work verified
-  against `cecd01ca`; CM1–CM5, CM7, CM8 landed. Current body-generic integration
-  is owned by [`smash-body-generic-combat-2026-08-09.md`](smash-body-generic-combat-2026-08-09.md),
-  which is live as **D72**. ⛔ do not schedule the landed items again.
-- ~~`engine/presentation-and-shell-audit.md` (45)~~ ✔ **ROUTED** — the
-  thirteen-domain audit is closed; what remains is forward capability gaps, of
-  which **localization is trigger-based** (no translation catalog or runtime
-  locale system exists). See the deferred/trigger list below.
-- ~~`engine/shell-vanity-sequence.md` (44)~~ ✔ **ROUTED** — **VC5 only**, the
-  title launcher fade-in. VC1–VC4 and VC6 are implemented. A single small
-  presentation item, not a campaign.
-- ~~`triage/ambition-test-support.md` (306)~~ ✔ **ROUTED** — TRIAGE, **strong
-  candidate, design decisions pending** (2026-07-22). Ambition's tests repeatedly
-  rebuild Bevy apps, schedules, fixed time, session roots, room state, catalogs
-  and command-flush sequences. ⛔ the dependency boundary and fixture API must be
-  **piloted before promotion** — do not adopt it wholesale. ⚠ and note the live
-  adjacency: this crate's absence is *why* a test hand-lists its own system
-  chain, which is how a fix's test can pass while the system is unregistered.
-- ~~`triage/ambition-registry-core.md` (231)~~ ✔ **ROUTED, and it is more relevant
-  than its date suggests.** TRIAGE, proposed direction (2026-07-22): one
-  dependency-light protocol for the registry pattern repeated across Ambition.
-  ⭐ **read it alongside D127's discovery doctrine** — *a central authoritative
-  census is bad; a derived read-only index is good* — because "one protocol for
-  canonical registries" is exactly the shape that question decides. ⛔ prove it
-  through one or two migrations before broad adoption.
-- ~~`triage/leafwing-clash-scan-patch-2026-07-23.md` (43)~~ ✔ **ROUTED** to the
-  deferred/trigger list below, where its entry already existed without a link.
-- ~~`triage/gameplay-presentation-profiles.md` (32)~~ ✔ **ROUTED** — GP1–GP5 are
-  implemented (profile resolution, fixed/aspect viewport policy, surround layout,
-  provider profile declaration, occupancy/control regions, touch placement, the
-  HUD's first surround-region consumer). ⭐ **its remainder is adjacent to D116's
-  deferred half** — viewport/layout policy is exactly where a second view's
-  rectangle would have to come from, so read it before reopening that.
-- ~~`game/ambition.md` (40)~~ ✔ **ROUTED from `status.md`** — ⚠ it is not residual
-  work at all but a **structural hub** for the flagship customer (it links
-  `vision.md`, `open-world-roadmap.md`, `systemic-progression.md`,
-  `multiplayer.md`), and nothing pointed at it. That was a pure routing gap, and
-  it is the reason this list exists.
+- `engine/portable-preparation-and-load-explainability.md` — D124's own plan; the D124 row now links it.
+- `engine_rename_campaign.md` — the stale `Sandbox*` rename is complete (`check_retired_crate_names.py` reports none). ⇒ misfiled, not dead: architecture/product work (including couch multiplayer) was bundled into it and should move to the topic plans that own it.
+- `engine/sprite-renderer.md` — routed as REFERENCE: **measure-by-default** — a sprite ships the geometry the gameplay layer needs, so a body and its hitbox cannot silently disagree.
+- `engine/closeout-review-followups-2026-07-20.md`, `engine/binding-resolution-boundary.md` — promoted to reservoir cards above.
+- `engine/combat-model.md` — CM1–CM5, CM7, CM8 landed (verified against `cecd01ca`); current body-generic integration is owned by [`smash-body-generic-combat-2026-08-09.md`](smash-body-generic-combat-2026-08-09.md), live as **D72**. ⛔ do not schedule the landed items again.
+- `engine/presentation-and-shell-audit.md` — the thirteen-domain audit is closed; localization remains trigger-based (see deferred list).
+- `engine/shell-vanity-sequence.md` — VC5 only (title launcher fade-in) remains; VC1–VC4, VC6 implemented.
+- `triage/ambition-test-support.md` — strong candidate, design decisions pending. ⛔ the dependency boundary and fixture API must be piloted before promotion, not adopted wholesale.
+- `triage/ambition-registry-core.md` — proposed direction: one dependency-light protocol for the registry pattern repeated across Ambition. ⛔ prove it through one or two migrations before broad adoption.
+- `triage/leafwing-clash-scan-patch-2026-07-23.md` — routed to the deferred/trigger list below.
+- `triage/gameplay-presentation-profiles.md` — GP1–GP5 implemented; its remainder is adjacent to D116's deferred multi-view half.
+- `game/ambition.md` — the flagship's structural hub; was a pure routing gap, now linked from `status.md`.
 
-⚠ **two of these are surprising and should be checked before anyone retires
-them:** `game/ambition.md` describes the flagship game, and
-`engine/combat-model.md` is live design vocabulary — that neither is linked from
-the ledger, `tracks.md`, `status.md`, `README.md`, `roadmap.md` or `AGENTS.md` is
-more likely a routing gap than a sign the content is dead.
+⛔⛔ **the census must be RE-RUN, not trusted — 2026-08-20.** A fourteenth doc,
+`engine/world-geometry-and-spatial-semantics.md` (673 lines, WARRANTED with a MET
+trigger since 2026-08-15), was stranded the whole time. Re-measuring across the
+whole repository (every `.md`/`.rs`/`.py`/`.sh`/`.toml`/`.ron`, 34,790 files)
+found exactly **1 of 267 planning docs referenced by nothing**. Promoted to
+**D169**. ⇒ a struck-through list is a receipt for one measurement, not a
+standing guarantee — the census is a dozen lines of Python and finding one
+live plan pays for it.
 
-⛔⛔ **AND THE CENSUS MUST BE RE-RUN, NOT TRUSTED — 2026-08-20.** Every entry
-above is struck through, and a fourteenth doc was stranded the whole time:
-`engine/world-geometry-and-spatial-semantics.md` (673 lines), **WARRANTED with a
-MET trigger since 2026-08-15**, reachable from nothing. Re-measuring across the
-whole repository rather than across `docs/` alone — every `.md`, `.rs`, `.py`,
-`.sh`, `.toml`, `.ron`, 34,790 files — found exactly **1 of 267 planning docs
-referenced by nothing**, and that was it. Promoted to **D169**.
-⇒ a struck-through list is a receipt for one measurement, not a standing
-guarantee. ⭐ the census is a dozen lines of Python and finding one live plan
-pays for it.
-
-⛔ **do not bulk-archive this list.** Two already declare themselves as
-*residual work re-verified against HEAD*, which is live work with no route to it.
+⛔ **do not bulk-archive the routed docs above.** `triage/ambition-test-support.md`
+and `triage/ambition-registry-core.md` are residual work re-verified against
+HEAD, i.e. live work with no route to it, not spent history.
 
 ## Standing execution rule
 

@@ -112,7 +112,8 @@ impl Plugin for ActionSchemePlugin {
                 // on the same tick it is granted.
                 crate::combat::moveset::reconcile_moveset_routing_markers
                     .after(ambition_items::equipment::reconcile_equipment_grants),
-                reconcile_action_schemes.after(ambition_items::equipment::reconcile_equipment_grants),
+                reconcile_action_schemes
+                    .after(ambition_items::equipment::reconcile_equipment_grants),
             )
                 .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput),
         );
@@ -173,7 +174,7 @@ mod tests {
             .get::<ActorActionScheme>()
             .expect("scheme attached");
         assert!(scheme.0.has_slot(ControlSlot::Jump));
-        assert!(scheme.0.has_slot(ControlSlot::Dash));
+        assert!(scheme.0.has_slot(ControlSlot::Burst));
         assert!(scheme.0.has_slot(ControlSlot::Attack));
         assert!(!scheme.0.has_slot(ControlSlot::Special));
     }
@@ -282,7 +283,7 @@ mod tests {
             .get::<ActorActionScheme>()
             .unwrap()
             .0
-            .has_slot(ControlSlot::Dash));
+            .has_slot(ControlSlot::Burst));
 
         // Grant dash → the scheme must pick it up on the next reconcile.
         app.world_mut()
@@ -298,7 +299,7 @@ mod tests {
             .get::<ActorActionScheme>()
             .unwrap()
             .0
-            .has_slot(ControlSlot::Dash));
+            .has_slot(ControlSlot::Burst));
     }
 
     /// A DERIVATION-LEVEL guard (not the resolver itself): a combat slot is in

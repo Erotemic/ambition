@@ -363,9 +363,9 @@ fn local_up_intent_from_morph_ball_transitions_to_standing() {
     );
 }
 
-/// Climbing should not trap the player: dash is an explicit push
+/// Climbing should not trap the player: the burst press is an explicit push
 /// off just like jump, so one `update` call should flip the body
-/// mode back to Standing and let the dash consume cleanly in the
+/// mode back to Standing and let the press consume cleanly in the
 /// player tick.
 #[test]
 fn dash_press_from_climbing_transitions_to_standing() {
@@ -375,7 +375,7 @@ fn dash_press_from_climbing_transitions_to_standing() {
         let mut body_mode = app.world_mut().get_mut::<BodyModeState>(player).unwrap();
         body_mode.body_mode = ae::BodyMode::Climbing;
     }
-    set_control(&mut app, player, |c| c.dash_pressed = true);
+    set_control(&mut app, player, |c| c.burst_pressed = true);
     app.update();
     let mode = app.world().get::<BodyModeState>(player).unwrap().body_mode;
     assert_eq!(

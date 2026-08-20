@@ -189,7 +189,7 @@ pub(super) fn tick_knockdown(
     // carries no rising edge in this kernel, and inventing one here would be a
     // second source of truth about when a button went down. While tumbling
     // every other meaning of the press is gone anyway, so it is unambiguous.
-    if input.dash_pressed() && state.tech_lockout_timer <= 0.0 && state.tech_press_timer <= 0.0 {
+    if input.burst_pressed() && state.tech_lockout_timer <= 0.0 && state.tech_press_timer <= 0.0 {
         state.tech_press_timer = TECH_WINDOW;
     }
     if state.tech_press_timer > 0.0 {
@@ -279,7 +279,7 @@ pub(super) fn tick_knockdown(
 fn without_evade(mut input: InputState) -> InputState {
     input
         .movement
-        .set_pressed(super::input::MovementAction::Dash, false);
+        .set_pressed(super::input::MovementAction::Burst, false);
     input
 }
 

@@ -164,7 +164,7 @@ fn a_chosen_dodge_is_still_reserved_and_says_so() {
          different verbs with different bodies of rules"
     );
     assert!(
-        !frame.dash_pressed,
+        !frame.burst_pressed,
         "a dodge emitted a dash. That is not a shortcut, it is the P5.38 defect: \
          `apply_dodge` claims the dash buffer first, so this would produce a \
          burst the brain believes is a dodge and the body resolves as a dash"

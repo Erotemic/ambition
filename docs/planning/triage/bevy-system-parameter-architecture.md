@@ -625,37 +625,21 @@ transactional-construction campaign.
 
 ### What the first landed slice changed about this plan
 
-⭐ **Pick the RECURRING view, not the low-risk one.** This document nominated
-`resolve_camera_observation` to go first because it is safe — it already delegates
-to a pure resolver, so the pilot could not break simulation. That safety is also
-why it teaches nothing: its followed-body view has ONE call site, and Case A's
-promised benefits ("one place for required versus optional component policy",
-"reusable read-only and mutable forms") are all benefits of a SECOND call site.
-A view with one consumer is a rename.
+⛔ **The ceiling's real cost is not the compiler error — it is the component a
+system silently stops consulting.** The victim role had three spellings in two
+crates that had already drifted: `step_projectiles` claimed to share "the SAME
+published hurtbox" as melee but tested the coarse box, because the tuple that
+would have carried `DamageableVolumes` had run out of arity — the parity existed
+only in prose. A tuple that runs out of room does not fail to build; it fails to
+ask a question, while the comment above it keeps claiming the question is asked.
 
-The victim role had three consumers, in two crates, and the card paid for itself
-before it compiled: **the three spellings had already drifted, and one of them was
-lying about it.** `step_projectiles` carried a comment claiming it shared "the
-SAME published hurtbox" as melee, and it tested the coarse box — the tuple that
-would have carried `DamageableVolumes` had run out of arity, so the parity existed
-only in prose. `apply_feature_hit_events` says the same thing out loud, in the
-comment explaining why its silhouette rides a SECOND query: *"that tuple is already
-nesting `Option<(..)>` groups to stay inside Bevy's arity ceiling."*
-
-⛔ **so the ceiling's real cost is not the compiler error — it is the component a
-system silently stops consulting.** A tuple that runs out of room does not fail to
-build; it fails to ask a question, and the comment above it keeps claiming the
-question is asked. That is the argument for this whole document, and it is
-stronger than the parameter counts.
-
-⚠ **and it is a strictness question every time.** Unifying two spellings of one
-role immediately surfaced a disagreement the tuples had hidden: melee REQUIRED the
-four-member vulnerability cluster while projectiles made it `Option`, with each
-side's comment asserting the opposite was unsafe. The resolution was that the
+⚠ **Unifying two spellings of one role is a strictness question every time.**
+Melee REQUIRED the four-member vulnerability cluster while projectiles made it
+`Option`, each side's comment asserting the opposite was unsafe. Resolution: the
 cluster is a FILTER, not data — melee never read it — so it belongs in that
-system's `With<..>` and the victim SET is provably unchanged. **Diff the two sides'
-strictness before merging them; the permissive side is usually absorbing a content
-gap, and the required side is usually a filter wearing a data costume.**
+system's `With<..>` and the victim SET is provably unchanged. **Diff the two
+sides' strictness before merging them; the permissive side is usually absorbing a
+content gap, and the required side is usually a filter wearing a data costume.**
 
 The goal is not to make every signature small. The goal is to make every large
 operation expose the few stable concepts it actually owns.

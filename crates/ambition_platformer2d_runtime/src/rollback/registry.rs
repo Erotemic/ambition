@@ -319,6 +319,19 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// it also moved `ambition_cutscene` and `ambition_demo_twintrack`, which is the
 /// instrument CHANGING and NOT a wire change in either: neither file was edited.
 ///
+/// ⚠ **v42 (2026-08-20) is the FOOTSTOOL's wire, and the guard's remaining
+/// fields.** `MovementOp` gains `Footstool = 34` beside `ShieldBreak = 33`, so a
+/// `BodyComboTrace` can carry an op code a v41 peer does not know; `MovementTuning`'s
+/// axis-swept projection gains four `FootstoolTuning` floats and the guard's
+/// `stun_per_damage`, which the motion codec writes; and `BodyShieldState`'s
+/// snapshot gains `depleted`, `break_timer` and `stun_timer`. All payload behind
+/// unchanged stable keys, which is precisely the shape v41 records as invisible
+/// to the app-level baseline.
+/// ⭐ **caught the same way v41 was, one lane later**: the shield and the
+/// footstool both changed encodings and neither Rust test noticed. Adding a wire
+/// code or a codec field is a THREE-gate change — `cargo check --workspace
+/// --all-targets`, `cargo test --workspace --lib`, and `python3 -m pytest
+/// scripts/tests/` — and only the third one has ever caught this class.
 /// ⚠ **v41 (2026-08-20) is ONE BIT: `ActorControlFrame::taunt_pressed`.** The
 /// taunt verb travels the road a grab travels, and its codec edge exists for the
 /// same reason the grab edge does — a resimulated tick that lost the press did
@@ -370,7 +383,7 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// `message.spawn_projectile` keeps its stable key while its concrete message
 /// becomes `ProjectileSpawnRequest`, so abandoned-future spawn requests remain
 /// cleared on load through the same wire identity.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 41;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 42;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

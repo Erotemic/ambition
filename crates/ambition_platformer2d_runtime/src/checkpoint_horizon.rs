@@ -1,260 +1,60 @@
-//! **Wiring the reset horizon into the tick.**
+//! Host wiring for the reset/checkpoint horizon.
 //!
-//! The vocabulary and the domain systems live in
-//! [`ambition_platformer2d_shared_tangle::lifecycle::horizon`] and beside the
-//! authorities they snapshot. What lives HERE is the composition, because the
-//! two ordering facts the horizon depends on name three different crates: the
-//! item chain that writes a checkpoint commit (`ambition_platformer2d_actor_monolith`),
-//! the room replay that a restore must precede ([`crate::sandbox_reset`]), and
-//! the sets themselves (`ambition_platformer2d_shared_tangle`). Registering from
-//! any one of those would make it depend upward on another.
-//!
-//! # The two placements, and both are load-bearing
+//! The host owns only the two cross-domain ordering facts:
 //!
 //! ```text
-//! PlayerInput        CheckpointRestore  →  RoomReplayApplied
-//! PlayerSimulation   ItemPickupSet::CoreHeldItems  →  CheckpointCapture
+//! PlayerInput        CheckpointRestore  ->  RoomReplayApplied
+//! PlayerSimulation   ...               ->  CheckpointCapture
 //! ```
 //!
-//! ⭐ **RESTORE EARLY, CAPTURE LATE, and they are in different phases on
-//! purpose.** A restore must land before anything rebuilds a room, because the
-//! rebuild's whole input is the occurrence ledger this restores; a capture must
-//! land after everything that could still change what is being captured this
-//! tick.
-//!
-//! ⛔⛔ **the capture placement is the one that is easy to get subtly wrong.**
-//! The shrine writes [`CheckpointCommitted`] from `PlayerSimulation`. Put the
-//! capture in `PlayerInput` — the tidy-looking choice, next to its sibling — and
-//! it reads the message on the FOLLOWING tick, with a whole player simulation in
-//! between. An object picked up in that window lands in the baseline as though
-//! it had been in the player's hands when they touched the shrine, so a later
-//! death gives it back to them. That is the third line of the maintainer's
-//! fixture failing for a reason that has nothing to do with the fixture.
+//! Concrete baseline resources and capture/restore systems are domain-owned.
+//! The lifecycle layer contributes occurrence/custody state and the actor domain
+//! contributes item/shrine policy. This is intentionally the same ownership
+//! shape as rollback federation: composition names a domain offer, never the
+//! concrete types inside it.
 
-use bevy::prelude::*;
+use bevy::prelude::{App, IntoScheduleConfigs, Plugin};
 
 use ambition_platformer2d_shared_tangle::lifecycle::{
-    capture_custody_baseline, capture_occurrence_baseline, restore_occurrence_baseline,
-    CheckpointCapture, CheckpointCommitted, CheckpointRestore, CustodyBaseline, OccurrenceBaseline,
-    ResetToCheckpoint,
+    CheckpointCapture, CheckpointCommitted, CheckpointRestore,
+    LifecycleCheckpointHorizonPlugin, ResetToCheckpoint,
 };
 use ambition_platformer2d_shared_tangle::schedule::{
     Platformer2dSimulationPhaseMonolith, SimScheduleExt,
 };
 
-/// Installs the reset horizon: its two channels, the FOUR domain baselines,
-/// and the placement of the capture and restore sets.
+/// Installs the reset horizon's channels, host-level ordering, and typed domain
+/// contributions.
 ///
-/// ⚠ **a host that installs this and never emits [`CheckpointCommitted`] gets
-/// the empty baseline**, so a [`ResetToCheckpoint`] returns every authored
-/// occurrence to where its record puts it. That is the sandbox reset's meaning,
-/// reached as the degenerate case rather than as a separate road — which is the
-/// property that keeps a game with no checkpoints from needing a second answer.
+/// A host that never emits [`CheckpointCommitted`] keeps each domain's empty
+/// baseline. [`ResetToCheckpoint`] therefore reconstructs authored/start state as
+/// the degenerate no-checkpoint case rather than through a second reset road.
 pub struct CheckpointHorizonPlugin;
 
 impl Plugin for CheckpointHorizonPlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
+
         app.add_message::<CheckpointCommitted>()
-            .add_message::<ResetToCheckpoint>()
-            .init_resource::<OccurrenceBaseline>()
-            .init_resource::<CustodyBaseline>()
-            // ⭐ **the third domain baseline, and the item domain's own.** The
-            // two above are keyed on identities alone, which is all the
-            // lifecycle crate can name; this one says how to REBUILD a
-            // runtime-minted instance, and only the item domain knows what an
-            // item is. It is installed here with its siblings because the
-            // horizon owns the set of baselines a commit writes.
-            .init_resource::<
-                ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::MintedItemBaseline,
-            >()
-            // ⭐ **the FOURTH, and the item domain's second.** The three above
-            // describe OCCURRENCES — where they are, who holds them, how to
-            // rebuild one. This one is the ENTITLEMENT behind an occurrence that
-            // does not exist yet: a quantity from `<<give_item>>`, a shop or a
-            // drop. It is here because the mint that turns a quantity into an
-            // object must SPEND the row, and spending is only safe once a death
-            // can put the row back (D132's named gate).
-            .init_resource::<
-                ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::OwnedItemsBaseline,
-            >();
+            .add_message::<ResetToCheckpoint>();
 
         app.configure_sets(
             sim,
             CheckpointRestore
                 .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput)
-                // ⭐ THE edge the whole transaction rests on. The room replay
-                // reads the ledger this restores; after it, the baseline would
-                // take effect one room load late.
                 .before(crate::sandbox_reset::RoomReplayApplied),
         );
         app.configure_sets(
             sim,
-            CheckpointCapture
-                .in_set(Platformer2dSimulationPhaseMonolith::PlayerSimulation)
-                // The shrine (the commit producer) and the custody projection
-                // (which settles the ledger this tick) are both in this chain.
-                .after(ambition_platformer2d_actor_monolith::items::pickup::ItemPickupSet::CoreHeldItems),
+            CheckpointCapture.in_set(Platformer2dSimulationPhaseMonolith::PlayerSimulation),
         );
 
-        app.add_systems(
-            sim,
-            // ⚠ NOT chained, and that is the design rather than an omission: a
-            // capture reads live state and writes only its own domain's
-            // snapshot, so no capture can observe another's output and no order
-            // between them is expressible as a bug. The day one of them wants
-            // another's result, they are one domain wearing two names.
-            (
-                capture_occurrence_baseline,
-                capture_custody_baseline,
-                // ⚠ **the item domain's**, not the lifecycle crate's, for the
-                // mirror of the reason the restore leg below is: the lifecycle
-                // crate cannot see a `GroundItem`'s spec, and a description of
-                // what an item IS can only come from the domain that owns the
-                // answer.
-                ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::capture_minted_item_baseline,
-                ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::capture_owned_items_baseline,
-            )
-                .in_set(CheckpointCapture),
-        );
-        app.add_systems(
-            sim,
-            // Same independence on the way back: the ledger restore touches no
-            // entity, the custody retraction touches no ledger row, and the
-            // resume touches neither — it records an intent that the room
-            // transition reads two phases later, by which time both have landed.
-            //
-            // ⭐⭐ **the resume is the leg that makes the other two SAFE.** Alone,
-            // they put the ledger back and take the unbanked object out of the
-            // hand, and the object then exists nowhere — the room replay resets
-            // feature state in place and never re-runs authored construction.
-            // The fixture found exactly that: zero occurrences of an identity
-            // that should have been lying on its pedestal.
-            (
-                restore_occurrence_baseline,
-                // ⚠ **the item domain's**, not the lifecycle crate's, because
-                // taking an object out of a hand retracts both halves of a
-                // forked relation and only this crate can see both.
-                ambition_platformer2d_actor_monolith::items::pickup::restore_custody_to_checkpoint,
-                // ⚠ **the ENTITLEMENTS, and it is independent of the custody
-                // restore beside it for a reason worth stating**: it puts back
-                // the stored QUANTITIES and deliberately leaves the equipped
-                // slot alone, because the custody restore owns the hand. The two
-                // share exactly one field and only one of them writes it.
-                ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::restore_owned_items_to_checkpoint,
-                ambition_platformer2d_actor_monolith::shrine::resume_at_checkpoint_on_reset,
-            )
-                .in_set(CheckpointRestore),
-        );
-    }
-}
-
-/// **What a baseline owes the horizon, and the two KINDS of baseline** — the
-/// audit that produced this guard, kept beside it.
-///
-/// A checkpoint baseline is enrolled at five separate sites in three crates:
-///
-/// ```text
-/// 1  init_resource                    HERE                         runtime
-/// 2  a capture system                 in `CheckpointCapture`       runtime
-/// 3  a restore system                 in `CheckpointRestore`       runtime  ← STATE baselines only
-/// 4  durable-load adoption            `restore_durable_horizon`    monolith
-/// 5  rollback declaration + checksum  `rollback_registration.rs`   monolith
-/// ```
-///
-/// `OwnedItemsBaseline` got 1, 2, 3 and 5 on 2026-08-19 and missed 4, and
-/// nothing failed — a missing adoption is silent until the first death after a
-/// load. That leg is a compile error now (`DurableBaselines` destructures
-/// exhaustively); this test is the anchor for the OTHER four, because
-/// `init_resource` is the one step a new baseline cannot skip.
-///
-/// ⭐ **AND THE AUDIT FOUND A DISTINCTION WORTH NAMING, not a defect.**
-/// [`MintedItemBaseline`] has a capture and NO restore, which reads like an
-/// omission and is not:
-///
-/// ```text
-/// a STATE baseline       captured from live state and RESTORED into it.
-///                        Occurrence, custody, owned items. Owes all five.
-/// a DESCRIBER baseline   captured from live state and CONSULTED by room
-///                        construction — it answers "how would I rebuild this
-///                        occurrence", never "put this back". Minted items.
-///                        Owes four; a restore system would have nothing to
-///                        write to.
-/// ```
-///
-/// ⛔ so "every baseline needs a restore" is the wrong rule, and adding one for
-/// the describer would be a change that compiles, passes, and means nothing.
-#[cfg(test)]
-mod enrollment_tests {
-    use super::CheckpointHorizonPlugin;
-    use ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::{
-        MintedItemBaseline, OwnedItemsBaseline,
-    };
-    use ambition_platformer2d_shared_tangle::lifecycle::{CustodyBaseline, OccurrenceBaseline};
-    use bevy::prelude::App;
-
-    /// How many resources [`CheckpointHorizonPlugin`] adds beyond a bare `App`.
-    ///
-    /// FOUR baselines, its TWO message channels, and the sim-schedule handle
-    /// `sim_schedule()` initialises.
-    const RESOURCES_THE_HORIZON_ADDS: usize = 7;
-
-    /// Resources a bare `App::new()` already has, measured rather than assumed —
-    /// so a Bevy upgrade that changes the baseline moves both sides of the
-    /// subtraction and this test does not become a version tripwire.
-    fn bare_resource_count() -> usize {
-        App::new().world().iter_resources().count()
-    }
-
-    /// **A new baseline cannot join the horizon quietly.**
-    ///
-    /// ⭐ the trigger is `init_resource`, which is the step a baseline cannot
-    /// skip — unlike the four obligations this stands in for, each of which can
-    /// be forgotten in silence. Adding one turns this red on the day it is
-    /// written, and the only way back to green is to answer, in this module's
-    /// doc, whether it is a STATE or a DESCRIBER baseline and to wire the legs
-    /// its kind owes.
-    ///
-    /// ⛔ **it counts rather than names, and that is forced.** `iter_resources`
-    /// reports `<Enable the debug feature to see the name>` in this crate's test
-    /// build, so a name-based assertion here would compare a list of identical
-    /// placeholder strings and pass no matter what changed. The four known
-    /// baselines are asserted BY TYPE, which needs no names at all; the count
-    /// catches the fifth.
-    #[test]
-    fn every_baseline_the_horizon_installs_is_accounted_for() {
-        let mut app = App::new();
-        app.add_plugins(CheckpointHorizonPlugin);
-        let world = app.world();
-
-        // The four this module's doc accounts for, by type.
-        assert!(
-            world.contains_resource::<OccurrenceBaseline>(),
-            "the occurrence baseline is not installed"
-        );
-        assert!(
-            world.contains_resource::<CustodyBaseline>(),
-            "the custody baseline is not installed"
-        );
-        assert!(
-            world.contains_resource::<MintedItemBaseline>(),
-            "the minted-item DESCRIBER baseline is not installed"
-        );
-        assert!(
-            world.contains_resource::<OwnedItemsBaseline>(),
-            "the owned-items baseline is not installed"
-        );
-
-        let added = world.iter_resources().count() - bare_resource_count();
-        assert_eq!(
-            added, RESOURCES_THE_HORIZON_ADDS,
-            "the reset horizon installs a different number of resources than this test \
-             accounts for. If that is a new BASELINE, it owes FIVE enrollments (see this \
-             module's doc): init_resource here, a capture system, a restore system IF it \
-             is a state baseline rather than a describer, durable-load adoption in \
-             `restore_durable_horizon`, and a rollback declaration with its checksum. \
-             `OwnedItemsBaseline` got four of the five and the missing one was silent \
-             until the first death after a load."
-        );
+        // The host composes domains. It deliberately does not name occurrence,
+        // custody, minted-item, or entitlement baseline types — those lists now
+        // live with the domains that own their semantics.
+        app.add_plugins((
+            LifecycleCheckpointHorizonPlugin,
+            ambition_platformer2d_actor_monolith::ActorCheckpointHorizonPlugin,
+        ));
     }
 }

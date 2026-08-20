@@ -48,17 +48,17 @@
 //!
 //! # ⛔⛔ IT IS A SNAPSHOT AT COMMIT TIME, NOT A REGISTRY OF EVERY MINT
 //!
-//! Nothing writes here at the mint site. A description is captured only for the
-//! instances that were alive and in somebody's custody when the checkpoint
-//! committed, and the whole map is overwritten at every commit. An instance
-//! minted AFTER the checkpoint has no row — which is the same sentence, from the
-//! other side, as "it did not exist at the checkpoint, so a death does not owe
-//! it back".
+//! Nothing writes here at the mint site. At a checkpoint the whole map is
+//! replaced by descriptions of the dynamic occurrences that are part of the
+//! remembered world — held or resting. An instance minted AFTER the checkpoint
+//! has no row, which is the same sentence from the other side as "it did not
+//! exist at the checkpoint, so a death does not owe it back".
 //!
-//! ⭐ **the restore is still driven by the CUSTODY baseline, never by this
-//! map.** This answers *how* to rebuild an occurrence; the custody baseline
-//! decides *whether* one is owed and *into whose hand*. Two values, two
-//! questions, and a description with no custody row is simply never consulted.
+//! ⭐ **the description never decides residency.** This map answers *how* to
+//! rebuild a runtime mint. The custody baseline decides whether a held instance
+//! is owed and into whose hand; an `OccurrenceWhereabouts::Placed` row decides
+//! whether a resting instance is owed in a room. Description and disposition are
+//! separate facts, so neither becomes a universal instance registry.
 //!
 //! # ✔ IT REACHES DISK UNCHANGED (2026-08-16)
 //!
@@ -69,16 +69,28 @@
 //! measurement**, not a convenience: the description this file settled on was the
 //! minimal one, and a save is where "minimal" gets tested.
 //!
-//! ⚠ the boundary it named still stands. A minted instance that is NOT in a hand
-//! when the file is written — lying in a room, in flight — is undescribed here and
-//! therefore undescribed on disk, because nothing remembers a position for one.
+//! ⚠ **the remaining boundary is IN-FLIGHT state, not a dropped item.** Since
+//! 2026-08-19 `live_minted_descriptions` describes both held and resting dynamic
+//! instances, and a resting occurrence's `OccurrenceWhereabouts::Placed` row
+//! supplies its room/position. A genuinely in-flight occurrence is still outside
+//! this ledger by design; tracking every transient would turn the occurrence
+//! horizon into a universal instance registry.
 
 use std::collections::BTreeMap;
 
-use bevy::prelude::{MessageReader, Query, Res, ResMut, Resource, With};
+use bevy::prelude::{
+    App, IntoScheduleConfigs, MessageReader, Plugin, Query, Res, ResMut, Resource, With,
+};
+
+use ambition_persistence::save::AmbitionGameSave;
+use ambition_persistence::save_data::{AmbitionGameSaveData, PersistedMintedItem};
+use ambition_platformer2d_core::snapshot::RollbackRegistrar;
 
 use ambition_platformer2d_shared_tangle::construction::SpawnOrigin;
-use ambition_platformer2d_shared_tangle::lifecycle::{CheckpointCommitted, RoomScopedEntity};
+use ambition_platformer2d_shared_tangle::lifecycle::{
+    CheckpointCapture, CheckpointCommitted, CheckpointRestore, RoomScopedEntity,
+};
+use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
 use super::{GroundItem, ItemCustody};
@@ -96,7 +108,7 @@ pub struct MintedItemDescription {
     pub held_item: String,
 }
 
-/// **How to rebuild each runtime-minted instance that was in a hand at the last
+/// **How to rebuild each runtime-minted instance remembered at the last
 /// committed checkpoint**, keyed by the occurrence's own identity.
 ///
 /// ⛔⛔ **rollback state with a real VALUE, exactly like the two baselines it
@@ -313,6 +325,136 @@ pub fn restore_owned_items_to_checkpoint(
     let equipped = owned.equipped();
     *owned = baseline.remembered().clone();
     owned.set_equipped(equipped);
+}
+
+/// The item domain's checkpoint contribution: its two private baseline values,
+/// their captures, and the item-specific restore of the generic custody
+/// relation.
+///
+/// The host composes this plugin without naming `MintedItemBaseline`,
+/// `OwnedItemsBaseline`, or any of these systems. That is the migration's
+/// deletion gate: the concrete item census lives with the item domain.
+pub struct ItemCheckpointHorizonPlugin;
+
+impl Plugin for ItemCheckpointHorizonPlugin {
+    fn build(&self, app: &mut App) {
+        let sim = app.sim_schedule();
+        // The item projection must settle before this domain captures its
+        // checkpoint state. Keeping the edge here makes the contribution carry
+        // its own scheduling obligation instead of making the host know which
+        // item set produces the facts.
+        app.configure_sets(
+            sim,
+            CheckpointCapture.after(super::ItemPickupSet::CoreHeldItems),
+        )
+            .init_resource::<MintedItemBaseline>()
+            .init_resource::<OwnedItemsBaseline>()
+            .add_systems(
+                sim,
+                (capture_minted_item_baseline, capture_owned_items_baseline)
+                    .in_set(CheckpointCapture),
+            )
+            .add_systems(
+                sim,
+                (
+                    super::restore_custody_to_checkpoint,
+                    restore_owned_items_to_checkpoint,
+                )
+                    .in_set(CheckpointRestore),
+            );
+    }
+}
+
+/// Adopt every item-domain checkpoint baseline from a loaded file, after
+/// `OwnedItems` itself has been restored.
+///
+/// This is intentionally one function. `OwnedItemsBaseline` once joined capture,
+/// restore and rollback but silently missed durable adoption; keeping the item
+/// baselines together here makes that omission local to the domain rather than a
+/// fifth cross-crate census.
+pub fn adopt_checkpoint_baselines_from_save(
+    data: &AmbitionGameSaveData,
+    owned: &crate::items::OwnedItems,
+    minted_baseline: Option<&mut MintedItemBaseline>,
+    owned_baseline: Option<&mut OwnedItemsBaseline>,
+) {
+    if let Some(baseline) = minted_baseline {
+        let minted = data
+            .minted_items
+            .iter()
+            .map(|row| {
+                (
+                    SimId::from_snapshot(row.occurrence.clone()),
+                    MintedItemDescription {
+                        origin: SpawnOrigin::Dynamic {
+                            parent: SimId::from_snapshot(row.parent.clone()),
+                            sequence: row.sequence,
+                        },
+                        held_item: row.held_item.clone(),
+                    },
+                )
+            })
+            .collect();
+        baseline.adopt(minted);
+    }
+    if let Some(baseline) = owned_baseline {
+        baseline.adopt(owned.clone());
+    }
+}
+
+/// Mirror the current runtime-minted item descriptions into the durable save.
+///
+/// Occurrence/custody rows are persisted by the lifecycle-facing durable
+/// adapter; the item domain owns this field because only it knows what a minted
+/// item description means.
+pub fn persist_minted_item_horizon_to_save(
+    restored: Res<crate::session::durable_horizon::SaveRestored>,
+    minted: Query<(&SimId, &SpawnOrigin, &GroundItem, &ItemCustody), With<RoomScopedEntity>>,
+    mut save: ResMut<AmbitionGameSave>,
+) {
+    if !restored.0 {
+        return;
+    }
+    let minted_items: Vec<PersistedMintedItem> = live_minted_descriptions(&minted)
+        .into_iter()
+        .filter_map(|(occurrence, description)| {
+            let SpawnOrigin::Dynamic { parent, sequence } = &description.origin else {
+                return None;
+            };
+            Some(PersistedMintedItem {
+                occurrence: occurrence.as_str().to_string(),
+                parent: parent.as_str().to_string(),
+                sequence: *sequence,
+                held_item: description.held_item.clone(),
+            })
+        })
+        .collect();
+
+    if save.data().minted_items == minted_items {
+        return;
+    }
+    save.data_mut().minted_items = minted_items;
+}
+
+/// Rollback facet of the item checkpoint contribution.
+pub(crate) fn register_checkpoint_rollback_state<R>(registrar: &mut R)
+where
+    R: RollbackRegistrar,
+{
+    const OWNER: &str = env!("CARGO_PKG_NAME");
+
+    registrar.rollback_resource_clone_checksum::<MintedItemBaseline>(
+        OWNER,
+        "resource.minted_item_baseline",
+        "entity-free minted-instance-description checksum projection",
+        MintedItemBaseline::checksum,
+    );
+    registrar.rollback_resource_clone_checksum::<OwnedItemsBaseline>(
+        OWNER,
+        "resource.owned_items_baseline",
+        "entity-free stored-quantity checksum projection",
+        OwnedItemsBaseline::checksum,
+    );
 }
 
 /// **How to remake every runtime mint that exists RIGHT NOW — in a hand or

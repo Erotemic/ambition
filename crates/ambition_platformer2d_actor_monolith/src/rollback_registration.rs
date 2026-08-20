@@ -725,29 +725,9 @@ where
         "resource.save_restored",
     );
 
-    // The minted-item description is captured at checkpoint commit and cannot be
-    // recomputed from live state after the minted occurrence leaves residency.
-    registrar.rollback_resource_clone_checksum::<
-        crate::items::pickup::minted_horizon::MintedItemBaseline,
-    >(
-        OWNER,
-        "resource.minted_item_baseline",
-        "entity-free minted-instance-description checksum projection",
-        crate::items::pickup::minted_horizon::MintedItemBaseline::checksum,
-    );
-
-    // The ENTITLEMENT baseline, for the mirror of the same reason: it is frozen
-    // at a checkpoint commit — which happens mid-frame at a shrine — and nothing
-    // republishes it, so a rewind across the commit must restore it or the world
-    // keeps a bag from a future that was un-happened.
-    registrar.rollback_resource_clone_checksum::<
-        crate::items::pickup::minted_horizon::OwnedItemsBaseline,
-    >(
-        OWNER,
-        "resource.owned_items_baseline",
-        "entity-free stored-quantity checksum projection",
-        crate::items::pickup::minted_horizon::OwnedItemsBaseline::checksum,
-    );
+    // Item checkpoint baselines declare their rewind/checksum obligations beside
+    // the item horizon that owns capture, restore and durable adoption.
+    crate::items::pickup::minted_horizon::register_checkpoint_rollback_state(registrar);
 
     registrar.declare_rollback_derived_resource::<
         crate::world::gated_lock_walls::GatedLockWallCache,

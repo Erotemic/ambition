@@ -139,53 +139,10 @@ where
         "derived.placement_continuity",
         "authored-occurrence whereabouts; republished from live state while its room is loaded",
     );
-    // ⭐⭐ **THE TWO BASELINES ARE THE OPPOSITE CASE, AND THAT CONTRAST IS THE
-    // WHOLE REASON THEY SIT HERE.** The ledger above is derived because live
-    // state republishes every row of it. Nothing republishes a baseline: it is
-    // written once, at a checkpoint commit, which is a shrine touched MID-FRAME
-    // and therefore squarely inside the rollback window. Rewind across that
-    // commit with these declared derived and the world keeps a baseline taken
-    // from a future that got un-happened — so the next death restores a world
-    // that never existed.
-    //
-    // ⚠ this is exactly the trap the note above predicts for
-    // `OccurrenceWhereabouts::Consumed`, arrived at from the other direction: an
-    // accumulating value needs a real VALUE projection, not a presence probe.
-    // ⛔ **CHECKSUMMED, not plain clones.** `rollback_resource_clone` records
-    // "state checksum supplied by another authoritative projection", and for
-    // these that sentence would be false: nothing else projects a baseline, so a
-    // plain clone would put them in the snapshot and leave desync detection
-    // blind to them. The projections live on the values themselves.
-    registrar.rollback_resource_clone_checksum::<crate::lifecycle::OccurrenceBaseline>(
-        OWNER,
-        "resource.occurrence_baseline",
-        "entity-free remembered-whereabouts checksum projection",
-        crate::lifecycle::OccurrenceBaseline::checksum,
-    );
-    registrar.rollback_resource_clone_checksum::<crate::lifecycle::CustodyBaseline>(
-        OWNER,
-        "resource.custody_baseline",
-        "entity-free remembered-custody checksum projection",
-        crate::lifecycle::CustodyBaseline::checksum,
-    );
-    // ⭐ **AND THE TWO CHANNELS THAT DRIVE THEM.** A reader's cursor is `Local`
-    // state GGRS never rewinds, so a rewind past a commit leaves the capture's
-    // cursor beyond a message the new timeline has not sent — or before one it
-    // already consumed. Either direction is a baseline recorded for a world that
-    // did not happen, and the value is not self-correcting: nothing republishes
-    // a baseline, so the mistake survives until the next checkpoint.
-    //
-    // ⚠ a WAIVER would have been available and would have been wrong. The
-    // question a waiver answers is *"can a stale cursor change the
-    // simulation?"*, and here it decides what a later death restores.
-    registrar.clear_message_on_rollback::<crate::lifecycle::CheckpointCommitted>(
-        OWNER,
-        "message.checkpoint_committed",
-    );
-    registrar.clear_message_on_rollback::<crate::lifecycle::ResetToCheckpoint>(
-        OWNER,
-        "message.reset_to_checkpoint",
-    );
+    // Checkpoint-baseline values and their message cursors are declared beside
+    // the lifecycle horizon that owns them. The crate-wide registrar composes
+    // the offer; it no longer enumerates the horizon's concrete types.
+    crate::lifecycle::horizon::register_checkpoint_rollback_state(registrar);
     registrar.rollback_component_canonical::<crate::projectile::ProjectileGameplay>(
         OWNER,
         "projectile.gameplay",

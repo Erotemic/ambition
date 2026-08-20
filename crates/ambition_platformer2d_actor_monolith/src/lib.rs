@@ -82,6 +82,8 @@ pub mod body_mode;
 // it the same day, and the two names it still reached upward for
 // (`CutsceneTriggerQueue`, `MountDied`) moved BELOW the monolith instead. No
 // facade re-export stands here on purpose: callers name the crate.
+mod checkpoint_horizon;
+pub use checkpoint_horizon::ActorCheckpointHorizonPlugin;
 pub mod character_runtime;
 pub mod character_sprites;
 pub mod config;

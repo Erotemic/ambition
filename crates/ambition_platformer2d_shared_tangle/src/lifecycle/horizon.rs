@@ -49,18 +49,16 @@
 //! fact edit one struct, and makes every reader of that struct able to reach
 //! facts it has no business knowing.
 //!
-//! So this module owns **vocabulary and ordering only**: two messages and two
-//! sets. Each domain declares its own baseline value, captures it from its own
-//! live authority, and restores it into that same authority.
+//! The shared layer owns the vocabulary plus its own typed domain contribution:
+//! [`LifecycleCheckpointHorizonPlugin`] installs the occurrence/custody baselines
+//! and their systems, while the host owns only cross-domain phase placement. Other
+//! domains contribute their own plugins rather than extending a central type list.
 //!
-//! ⚠ **and the cost of that choice is stated rather than defended against: a
-//! domain that acquires reset-relevant state and never subscribes here loses it
-//! silently.** There is no registry that would notice. A registry was considered
-//! and refused — it would have to be type-erased to hold unrelated domain values,
-//! and a type-erased registry that nothing can enumerate meaningfully is a
-//! hand-kept list wearing a checker's clothes. What defends this instead is that
-//! the behavioural fixture drives real domains: a domain that silently drops its
-//! state fails the scenario, not a registration assertion.
+//! ⛔ **there is still no erased registry.** A registry of unrelated baseline
+//! values would need `Any` / `TypeId` or boxed callbacks and would recreate the
+//! hand-kept census behind a dynamic facade. Typed Bevy plugins and the existing
+//! rollback registrar give each domain a compile-time offer without creating a
+//! universal mutable service locator.
 //!
 //! # The two messages
 //!
@@ -70,7 +68,16 @@
 //! touched, an act cleared. Restoring a reset baseline when the player just WON
 //! would take the reward back off them.
 
-use bevy::prelude::{Message, SystemSet};
+use bevy::prelude::{App, IntoScheduleConfigs, Message, Plugin, SystemSet};
+
+use ambition_platformer2d_core::snapshot::RollbackRegistrar;
+
+use crate::schedule::SimScheduleExt;
+
+use super::{
+    capture_custody_baseline, capture_occurrence_baseline, restore_occurrence_baseline,
+    CustodyBaseline, OccurrenceBaseline,
+};
 
 /// **A checkpoint was committed: every contributing domain records its baseline
 /// now.**
@@ -121,3 +128,79 @@ pub struct CheckpointCapture;
 /// looks like nothing until somebody dies twice in different rooms.
 #[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct CheckpointRestore;
+
+/// The lifecycle domain's checkpoint contribution.
+///
+/// This plugin owns the concrete baseline types that live in the reusable
+/// lifecycle layer. A host composes the contribution; it does not enumerate
+/// `OccurrenceBaseline` / `CustodyBaseline` or their capture systems itself.
+///
+/// `CustodyBaseline` is captured here because the relation vocabulary is
+/// lifecycle-owned. Its materializing restore is item policy and therefore
+/// joins [`CheckpointRestore`] from the item-domain contribution instead.
+pub struct LifecycleCheckpointHorizonPlugin;
+
+impl Plugin for LifecycleCheckpointHorizonPlugin {
+    fn build(&self, app: &mut App) {
+        let sim = app.sim_schedule();
+        app.init_resource::<OccurrenceBaseline>()
+            .init_resource::<CustodyBaseline>()
+            .add_systems(
+                sim,
+                (capture_occurrence_baseline, capture_custody_baseline)
+                    .in_set(CheckpointCapture),
+            )
+            .add_systems(sim, restore_occurrence_baseline.in_set(CheckpointRestore));
+    }
+}
+
+/// Register the rollback obligations of the lifecycle checkpoint horizon beside
+/// the horizon vocabulary rather than in the crate-wide rollback census.
+///
+/// The host still supplies the backend-neutral registrar. This is the same
+/// ownership inversion used by the rest of rollback federation: a domain names
+/// its concrete state; composition only invokes the domain offer.
+pub(crate) fn register_checkpoint_rollback_state<R>(registrar: &mut R)
+where
+    R: RollbackRegistrar,
+{
+    const OWNER: &str = env!("CARGO_PKG_NAME");
+
+    registrar.rollback_resource_clone_checksum::<OccurrenceBaseline>(
+        OWNER,
+        "resource.occurrence_baseline",
+        "entity-free remembered-whereabouts checksum projection",
+        OccurrenceBaseline::checksum,
+    );
+    registrar.rollback_resource_clone_checksum::<CustodyBaseline>(
+        OWNER,
+        "resource.custody_baseline",
+        "entity-free remembered-custody checksum projection",
+        CustodyBaseline::checksum,
+    );
+    registrar.clear_message_on_rollback::<CheckpointCommitted>(
+        OWNER,
+        "message.checkpoint_committed",
+    );
+    registrar.clear_message_on_rollback::<ResetToCheckpoint>(
+        OWNER,
+        "message.reset_to_checkpoint",
+    );
+}
+
+#[cfg(test)]
+mod participant_tests {
+    use bevy::prelude::App;
+
+    use super::{
+        CustodyBaseline, LifecycleCheckpointHorizonPlugin, OccurrenceBaseline,
+    };
+
+    #[test]
+    fn lifecycle_checkpoint_offer_installs_its_baselines() {
+        let mut app = App::new();
+        app.add_plugins(LifecycleCheckpointHorizonPlugin);
+        assert!(app.world().contains_resource::<OccurrenceBaseline>());
+        assert!(app.world().contains_resource::<CustodyBaseline>());
+    }
+}

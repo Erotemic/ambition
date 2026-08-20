@@ -219,7 +219,7 @@ fn walk_through_the_door_to(sim: &mut Platformer2dSimHarness, target: &str) -> S
 // The save and the load.
 // ───────────────────────────────────────────────────────────────────────────
 
-/// **THE FILE.** What `persist_durable_horizon_to_save` has mirrored into
+/// **THE FILE.** What `persist_occurrence_horizon_to_save` has mirrored into
 /// `AmbitionGameSave` — the exact value the autosave would commit to disk.
 ///
 /// ⚠ read out of the save rather than out of the live ledger, because the
@@ -234,7 +234,7 @@ fn the_file(sim: &Platformer2dSimHarness) -> AmbitionGameSaveData {
 ///
 /// That pair — the bytes in `AmbitionGameSave`, the latch `false` — is exactly
 /// what `load_save_at_startup` leaves behind before the first frame of a real
-/// process. Everything after it is shipped: `restore_durable_horizon` installs
+/// process. Everything after it is shipped: the durable domain adopters install
 /// the three values and asks for a checkpoint resume, and the resume is the road
 /// a death already takes.
 fn boot_with(room: &str, file: &AmbitionGameSaveData) -> Platformer2dSimHarness {

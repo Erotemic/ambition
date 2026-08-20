@@ -7,10 +7,10 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`causal`](src/causal.rs) | The ECS side of causal recording. |
-| [`checkpoint_horizon`](src/checkpoint_horizon.rs) | **Wiring the reset horizon into the tick.** |
+| [`checkpoint_horizon`](src/checkpoint_horizon.rs) | Host wiring for the reset/checkpoint horizon. |
 | [`combat_schedule`](src/combat_schedule.rs) | Combat-phase schedule plugin. |
 | [`content_identity`](src/content_identity.rs) | Immutable prepared-content identity shared by preparation, activation, snapshots, and transactional hot reload. |
-| [`durable_save_horizon`](src/durable_save_horizon.rs) | **Wiring the DURABLE save horizon into every composition, not just the visible one.** |
+| [`durable_save_horizon`](src/durable_save_horizon.rs) | Host installation of the durable save horizon. |
 | [`external_effects`](src/external_effects.rs) | Holding external effects at the confirmed-frame boundary. |
 | [`input_drive`](src/input_drive.rs) | Backend-neutral authored input delivery for simulation drivers. |
 | [`input_stream`](src/input_stream.rs) | **Input-stream capture** (netcode N0.2) — the one place a session's input is recorded. |

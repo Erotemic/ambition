@@ -21,10 +21,10 @@
 //! quantity. The two populations stay disjoint, which is what stops the "one
 //! weapon saved, two loaded" failure from arriving by the new road instead.
 //!
-//! ⚠ **what still does NOT coordinate is a granted QUANTITY that has been turned
-//! into an instance.** The mint does not spend the row, so the same quantity can
-//! manifest a second object; spending it needs `OwnedItems` inside the checkpoint
-//! horizon first. That is D132's surviving half, unchanged by the durable slice.
+//! ⭐ **the quantity/instance boundary now coordinates at both horizons.** The
+//! mint spends a granted quantity, `OwnedItemsBaseline` restores it on death,
+//! and this module adopts that baseline only after the saved bag itself has been
+//! applied. A held object remains an occurrence; a stored row remains a quantity.
 
 use bevy::prelude::*;
 
@@ -37,15 +37,17 @@ use ambition_persistence::save::AmbitionGameSave;
 /// is loaded and the player exists. A fresh save (never persisted —
 /// `inventory_saved == false`) keeps the live starter set.
 ///
-/// ⚠ **it OWNS the [`SaveRestored`] latch and its siblings only read it.** The
-/// latch means "the file has been applied to this world", and this is the leg
-/// whose precondition is strictest — it waits for a body carrying a
-/// `BodyWallet` — so setting it here is what makes the occurrence leg chained
-/// in front of it land on the same frame rather than one frame apart.
+/// The final durable-horizon completion system owns [`SaveRestored`]. This
+/// domain leg waits for a body carrying a `BodyWallet`, applies the saved bag,
+/// and adopts the item checkpoint baselines from those post-load values. The
+/// completion system runs after this one and cannot raise the latch or request a
+/// checkpoint resume until this domain has had its turn.
 pub fn restore_inventory_from_save(
-    mut restored: ResMut<SaveRestored>,
+    restored: Res<SaveRestored>,
     save: Res<AmbitionGameSave>,
     mut owned: ResMut<OwnedItems>,
+    mut minted_baseline: Option<ResMut<crate::items::pickup::minted_horizon::MintedItemBaseline>>,
+    mut owned_baseline: Option<ResMut<crate::items::pickup::minted_horizon::OwnedItemsBaseline>>,
     // SLOT-0 BY DESIGN: the SAVE FILE belongs to the local player. `BodyWallet` is
     // body vocabulary (a currency-dropping NPC carries one), but only slot 0's
     // balance round-trips through the save.
@@ -62,7 +64,17 @@ pub fn restore_inventory_from_save(
         owned.apply_persisted(&data.items);
         wallet.balance = data.wallet;
     }
-    restored.0 = true;
+    // Domain-owned durable adoption. This must happen AFTER the saved bag is
+    // applied and BEFORE the latch is raised: the old central adopter ran in the
+    // opposite order and therefore captured the pre-load bag on a fresh process.
+    crate::items::pickup::minted_horizon::adopt_checkpoint_baselines_from_save(
+        data,
+        &owned,
+        minted_baseline.as_deref_mut(),
+        owned_baseline.as_deref_mut(),
+    );
+    // Do not raise `SaveRestored` here. The durable-horizon completion system
+    // runs after every domain adopter and owns the one global completion fact.
 }
 
 /// Mirror the live inventory + wallet into the save whenever they differ from

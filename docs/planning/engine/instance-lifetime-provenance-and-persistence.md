@@ -407,12 +407,12 @@ disk form added is the same lesson `PersistedCheckpoint` already carried:
 **INTEGER pixels**, because a float costs `AmbitionGameSaveData`'s `Eq` and a NaN
 makes the value-comparing autosave rewrite the file every frame forever.
 
-⭐⭐ **AND A LOAD IS A CHECKPOINT RESUME.** `restore_durable_horizon` adopts the
-ledger, adopts the three baselines from the same file, and writes exactly one
+⭐⭐ **AND A LOAD IS A CHECKPOINT RESUME.** The occurrence adapter adopts the
+ledger + lifecycle baselines, then the item restore applies the saved bag and
+adopts the item baselines before raising `SaveRestored` and writing exactly one
 `ResetToCheckpoint`. Everything after that is the death road unchanged — restore
 the ledger, put the hands back (materializing what has no entity), rebuild the
-room from the restored ledger. ⇒ **the durable slice added ~two systems and no
-reconstruction logic at all**, and there is still exactly one authority on what a
+room from the restored ledger. There is still exactly one authority on what a
 room owes the world.
 
 ⚠ **the loaded state becomes this process's BASELINE**, stated rather than
@@ -446,14 +446,12 @@ answers to a single question. ⭐⭐ **the save file is not rollback state**: th
 three values it serializes were already registered at v32/v33, which is the same
 sentence as "the durable horizon is a serialization of the checkpoint one".
 
-⚠ **what horizon 3 still does NOT cover**: a runtime mint that is not in a hand
-when the file is written (lying in a room, in flight) is still undescribed and
-still lost — the description remembers no position; `OwnedItems` is still a
-QUANTITY table persisted by a leg that does not coordinate with this one;
-`Consumed` round-trips through the file and still has no live producer, so
-nothing yet WRITES a terminal row; and `load_save_at_startup` itself is still
-installed only by the presentation assembly, so a headless composition mirrors
-into `AmbitionGameSave` and never commits it to a file.
+⚠ **what horizon 3 still does NOT cover** is now narrower. Resting runtime
+mints are described and reconstructed, headless persistence is installed, and
+the quantity leg coordinates its checkpoint baseline with durable load. A truly
+IN-FLIGHT occurrence remains outside the remembered-occurrence ledger by design,
+and `Consumed` round-trips through the file but still has no live producer, so
+nothing yet WRITES a terminal row.
 
 ## D132 — the two authorities, measured (2026-08-16)
 
@@ -516,49 +514,53 @@ checkpoint horizon it serializes, so every composition that simulates a world
 saves and loads. `two_persistence_authorities_for_one_item` no longer calls the
 shipped systems by hand — it steps a frame.
 
-## Checkpoint participation is still five manual enrollments (2026-08-19)
+## ✔ Checkpoint participation is federated by domain (2026-08-19)
 
-A checkpoint/durable baseline is a domain concept, but PARTICIPATING in the reset
-horizon is a set of separately synchronised sites, in three crates:
+The five-site baseline census is gone from the generic runtime. The omission that
+forced the migration was `OwnedItemsBaseline`: it joined initialization, capture,
+restore and rollback but missed durable-load adoption, so the first death after a
+load could restore an empty bag over what the file remembered.
+
+The landed shape mirrors rollback federation without copying its API:
 
 ```text
-1  init_resource                    CheckpointHorizonPlugin      runtime
-2  a capture system in CheckpointCapture                         runtime
-3  a restore system in CheckpointRestore                         runtime
-4  durable-load adoption            restore_durable_horizon      actor monolith
-5  rollback declaration + checksum  rollback_registration.rs     actor monolith
+runtime checkpoint host
+  -> LifecycleCheckpointHorizonPlugin
+       owns occurrence/custody baseline installation + capture + ledger restore
+  -> ActorCheckpointHorizonPlugin
+       owns item checkpoint participation + shrine resume policy
+       -> ItemCheckpointHorizonPlugin
+            owns minted/quantity baseline installation + capture + item restore
 ```
 
-`OwnedItemsBaseline` got 1, 2, 3 and 5 on 2026-08-19 and missed 4. Nothing
-failed: a missing adoption is silent until the **first death after a load**,
-which then restores the default empty bag over everything the file remembered.
-That is the persistence equivalent of the old central rollback census — a domain
-concept whose participation is a hand-kept list.
+Rollback obligations moved beside those domain offers and still use the existing
+backend-neutral `RollbackRegistrar`; no second snapshot framework was added.
+Durable load likewise stopped destructuring a central `DurableBaselines` census:
+the occurrence adapter adopts occurrence/custody state, while
+`restore_inventory_from_save` applies the saved item bag and adopts BOTH item
+baselines. A final durable completion system then raises `SaveRestored` and emits
+the one checkpoint-resume request after every domain adopter has run.
 
-**What was done now.** Obligation 4 is the one whose omission is invisible, so
-the four baselines were gathered into one `DurableBaselines` `SystemParam` and
-`restore_durable_horizon` destructures it exhaustively. A fifth baseline cannot
-be added to that type without the destructure failing to compile at the exact
-site that must handle it. ⚠ this does NOT guard 1–3 or 5 — saying so is the
-point; the guard closes one leg, it does not close the class.
+⭐ **the migration exposed a second ordering defect while closing the first.**
+The old central `restore_durable_horizon` ran before
+`restore_inventory_from_save` but adopted `OwnedItemsBaseline` from the live bag,
+so on a genuinely fresh process it captured the PRE-LOAD starter bag. The old
+poison reloaded into the same process, where live state already matched disk, and
+masked that ordering error. The item restore now adopts the baseline after
+`apply_persisted`; only the final completion system raises the latch afterward. A
+fresh-process unit poison starts from a deliberately different bag and pins that
+ordering.
 
-**What the class wants.** A typed, domain-owned checkpoint participant that
-carries all five obligations together, composed by the session — so the item
-domain declares "here is my baseline, here is how it captures, restores, is
-adopted after a load, and is checksummed", once, and the horizon composes
-participants rather than enumerating resources. Constraints, unchanged and
-non-negotiable:
+Deletion gates that now hold:
 
-- no `Any` / `TypeId`;
-- no string-dispatched restore callbacks;
-- no universal mutable service locator;
-- and no speculative framework — the item domain's two baselines are the second
-  customer, which is what makes this legitimate pressure rather than hypothetical
-  abstraction work.
-
-⛔ **the shape to avoid is the one that looks tidiest**: a central registry that
-maps a name to a boxed capture/restore pair. That reintroduces exactly the
-runtime census this program spent its first half removing.
+- `ambition_platformer2d_runtime::checkpoint_horizon` names no concrete baseline
+  type or domain capture/restore function;
+- `DurableBaselines` is deleted;
+- adding another item baseline changes the item-domain offer/adopter, not runtime
+  composition;
+- rollback remains domain-owned through `RollbackRegistrar`;
+- no `Any`, `TypeId`, boxed callback registry, string dispatch or service locator
+  was introduced.
 
 ## Candidate crate / Bevy shape
 

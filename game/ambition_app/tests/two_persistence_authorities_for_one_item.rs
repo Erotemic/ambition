@@ -655,13 +655,10 @@ fn a_granted_quantity_survives_the_death_that_retracts_the_instance_minted_from_
 /// first death after a load restored *nothing* over everything the file
 /// remembered.
 ///
-/// ⭐ **the module header of `durable_horizon` names this exact failure** — *"a
-/// fresh process has no checkpoint history… leaving the empty default baseline
-/// in place would make the FIRST death after a load take back everything the
-/// file remembered"* — and I reached it anyway, by adding a baseline after the
-/// header was written. ⇒ **a stated invariant only protects the members it
-/// knows about**; a new one has to be enrolled by hand, which is what this test
-/// makes loud.
+/// ⭐ **this now also pins the ordering that the original version accidentally
+/// hid.** Reloading inside one process leaves the live bag equal to the file, so
+/// a baseline captured BEFORE the restore looks correct. The second harness below
+/// starts from a deliberately different bag; only post-load adoption can pass.
 #[test]
 fn a_load_then_a_death_keeps_what_the_file_remembered() {
     let mut sim = fixed_60hz_room_sim(ROOM);
@@ -679,17 +676,28 @@ fn a_load_then_a_death_keeps_what_the_file_remembered() {
     let before = catalog_count(&sim, COUNTED_ITEM);
     assert_eq!(before, 1, "the grant must land, or this measures nothing");
 
-    // A second load, so the baseline is whatever THIS process adopted.
-    load_the_save(&mut sim);
-    sim.step_n(base(), 4);
+    // A genuinely fresh process, with a DIFFERENT live bag before the file is
+    // applied. The old poison reloaded inside `sim`; by then its live bag already
+    // matched disk, so a baseline captured on the wrong side of the restore
+    // still looked correct. Copy only the file into a second harness.
+    let persisted = sim.world().resource::<AmbitionGameSave>().clone();
+    let mut reloaded = fixed_60hz_room_sim(ROOM);
+    reloaded.step_n(base(), 8);
+    assert_eq!(
+        catalog_count(&reloaded, COUNTED_ITEM),
+        0,
+        "the fresh-process poison requires pre-load live state to differ from disk",
+    );
+    *reloaded.world_mut().resource_mut::<AmbitionGameSave>() = persisted;
+    load_the_save(&mut reloaded);
+    reloaded.step_n(base(), 4);
 
-    die(&mut sim);
-    sim.step_n(base(), 60);
+    die(&mut reloaded);
+    reloaded.step_n(base(), 60);
 
     assert_eq!(
-        catalog_count(&sim, COUNTED_ITEM),
+        catalog_count(&reloaded, COUNTED_ITEM),
         before,
-        "the first death after a load took back what the file remembered — the \
-         entitlement baseline was never adopted, so it restored an empty bag"
+        "the first death after a fresh-process load took back what the file remembered —          the entitlement baseline captured the pre-load bag instead of the restored one"
     );
 }

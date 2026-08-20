@@ -39,7 +39,9 @@ use ambition_platformer2d::character::CharacterCatalog;
 /// character, which is the job Jon is asking about; this list is the floor.
 const KNOWN_UNARMED: &[&str] = &[
     "player_robot_v3",
-    "mary_o",
+    // ⭐ TALL Mary-O is the one on the grid now; her kit is byte-identical to the
+    // short form's, so she arrives here unarmed exactly as `mary_o` did.
+    "mary_o_tall",
     "sanic",
     "npc_alice",
     "npc_bob",

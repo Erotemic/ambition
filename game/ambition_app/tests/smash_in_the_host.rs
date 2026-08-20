@@ -3207,7 +3207,8 @@ fn the_capture_tools_documented_taps_seat_two_cpus_on_two_fighters() {
 fn a_fighter_from_another_game_reads_its_percent_against_this_stages_pool() {
     use ambition_platformer2d::characters::actor::{BodyHealth, WornCharacter};
 
-    const CROSSOVER: &str = "mary_o";
+    // the grid seats TALL Mary-O; the short form is not on it.
+    const CROSSOVER: &str = "mary_o_tall";
     // ⚠ **Ambition's own robot, not this demo's George.** The pair is Jon's
     // capture's pair, and it is also the honest poison: `player_robot_v3`
     // authors a real 60-point pool, so the two characters disagree about their
@@ -3468,7 +3469,7 @@ fn report_what_an_unarmed_fighter_swings_once_the_stage_has_armed_it() {
     // Hall NPC, so the answer is not about one provider.
     app.world_mut()
         .insert_resource(ambition_demo_smash::select::SmashRoster(vec![
-            "mary_o".to_string(),
+            "mary_o_tall".to_string(),
             "npc_alice".to_string(),
         ]));
     decide_a_solo_match(&mut app);

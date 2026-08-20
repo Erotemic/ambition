@@ -105,7 +105,11 @@ pub const SMASH_ROSTER: &[&str] = &[
     // This demo's own, on a sheet nobody else claims.
     crate::SMASH_GEORGE_BOOUL,
     // The other demos' protagonists — present only when a host composes them.
-    "mary_o",
+    // ⭐ **TALL Mary-O fights here, not the short form.** Her kit is byte-identical
+    // to `mary_o` — same grants, same `axis_tuning`, same authored moveset — so
+    // this changes only which sprite sheet she brings, and the taller art reads
+    // far better against a roster of full-height fighters.
+    "mary_o_tall",
     "sanic",
     // Ambition's own cast.
     "npc_pirate_admiral",

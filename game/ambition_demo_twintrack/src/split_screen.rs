@@ -114,8 +114,22 @@ impl SplitObserverPane {
     /// objective and teacher readouts still sit on top of them.
     fn camera_order(self) -> isize {
         match self {
-            Self::Laboratory => 6,
-            Self::Traveler => 7,
+            Self::Traveler => 6,
+            Self::Laboratory => 7,
+        }
+    }
+
+    /// Which half of the window this pane draws into.
+    ///
+    /// ⚠ **participant order, not exhibit order.** The traveler is seat zero and
+    /// takes the left pane, because that is the pane its gameplay camera is
+    /// already drawing into (`participants::place_the_two_views`) — an
+    /// instrument that reported the traveler's numbers over the laboratory
+    /// twin's picture would be worse than no instrument.
+    fn column(self) -> u32 {
+        match self {
+            Self::Traveler => 0,
+            Self::Laboratory => 1,
         }
     }
 
@@ -128,8 +142,8 @@ impl SplitObserverPane {
 
     fn side_caption(self) -> &'static str {
         match self {
-            Self::Laboratory => "LEFT",
-            Self::Traveler => "RIGHT",
+            Self::Traveler => "LEFT",
+            Self::Laboratory => "RIGHT",
         }
     }
 
@@ -543,13 +557,13 @@ fn pane_viewport(pane: SplitObserverPane, target: UVec2) -> Option<Viewport> {
         return None;
     }
     let half = target.x / 2;
-    Some(match pane {
-        SplitObserverPane::Laboratory => Viewport {
+    Some(match pane.column() {
+        0 => Viewport {
             physical_position: UVec2::ZERO,
             physical_size: UVec2::new(half, target.y),
             ..default()
         },
-        SplitObserverPane::Traveler => Viewport {
+        _ => Viewport {
             physical_position: UVec2::new(half, 0),
             physical_size: UVec2::new(target.x - half, target.y),
             ..default()
@@ -595,8 +609,12 @@ fn pane_point(frame_offset: Vec2) -> Vec2 {
 
 fn clamp_to_pane(point: Vec2) -> Vec2 {
     Vec2::new(
-        point.x.clamp(-PANE_WIDTH * 0.5 + 30.0, PANE_WIDTH * 0.5 - 30.0),
-        point.y.clamp(BEACON_ROW_Y - 130.0, PANE_HEIGHT * 0.5 - 90.0),
+        point
+            .x
+            .clamp(-PANE_WIDTH * 0.5 + 30.0, PANE_WIDTH * 0.5 - 30.0),
+        point
+            .y
+            .clamp(BEACON_ROW_Y - 130.0, PANE_HEIGHT * 0.5 - 90.0),
     )
 }
 

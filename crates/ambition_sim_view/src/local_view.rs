@@ -54,6 +54,111 @@ impl LocalViewId {
     pub const FIRST: Self = Self(0);
 }
 
+/// **WHERE A VIEW SITS INSIDE THE GAMEPLAY RECTANGLE**, as a fraction of it.
+///
+/// ⭐ **this is the layout answer [`compose_local_views`] used to have to
+/// decline.** Two views composed there came up on the same rectangle and drew on
+/// top of each other, because the host publisher that owns
+/// [`crate::camera_snapshot::CameraViewport`] wrote ONE resolved gameplay rect
+/// onto every view. The publisher now carves that rect by this component, so a
+/// composition states its layout as data on the views it already owns.
+///
+/// ⚠ **a FRACTION, never pixels.** The gameplay rectangle is resolved from the
+/// window, the safe area and the on-screen controls every frame; a placement in
+/// pixels would be a second, staler answer to a question the display resolve has
+/// already answered, and it would be wrong the moment the window is dragged
+/// between monitors.
+///
+/// ⚠ **absent means FULL, and that is what every single-view composition is.**
+/// Nothing has to opt in for the shipped picture to stay byte-identical.
+///
+/// ⛔ **it is not a POLICY.** Adaptive share/split — merge two views when their
+/// subjects are close, split with hysteresis when they separate — is a system
+/// that WRITES this component. Encoding "adaptive" in the component itself would
+/// put a decision in the place the decision's OUTPUT belongs.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct ViewPlacement {
+    /// Top-left corner, as a fraction of the gameplay rectangle.
+    pub min: ambition_platformer2d_core::Vec2,
+    /// Bottom-right corner, as a fraction of the gameplay rectangle.
+    pub max: ambition_platformer2d_core::Vec2,
+}
+
+impl Default for ViewPlacement {
+    fn default() -> Self {
+        Self::FULL
+    }
+}
+
+impl ViewPlacement {
+    /// The whole gameplay rectangle — one view, no layout.
+    pub const FULL: Self = Self {
+        min: ambition_platformer2d_core::Vec2::ZERO,
+        max: ambition_platformer2d_core::Vec2::ONE,
+    };
+
+    /// Vertical slice `index` of `of`, left to right.
+    ///
+    /// ⚠ **`of == 0` is FULL rather than a division by zero**, and `index`
+    /// saturates at the last column: a caller that has miscounted its views gets
+    /// a legible picture and a wrong one, not a NaN rectangle that silently
+    /// removes the view from the screen.
+    pub fn column(index: usize, of: usize) -> Self {
+        if of <= 1 {
+            return Self::FULL;
+        }
+        let of = of as f32;
+        let index = (index.min(usize::from(u8::MAX)) as f32).min(of - 1.0);
+        Self {
+            min: ambition_platformer2d_core::Vec2::new(index / of, 0.0),
+            max: ambition_platformer2d_core::Vec2::new((index + 1.0) / of, 1.0),
+        }
+    }
+
+    /// This placement's rectangle within a gameplay rectangle given as
+    /// `(origin, size)` in logical pixels — the shape
+    /// [`crate::camera_snapshot::CameraViewport`] holds.
+    ///
+    /// ⚠ **the size FLOORS at one pixel.** A zero-width viewport is a division
+    /// by zero in every orthographic-scale consumer downstream, and a placement
+    /// with `min == max` is a caller error that should show as a sliver rather
+    /// than as NaN framing.
+    pub fn carve(
+        self,
+        origin: ambition_platformer2d_core::Vec2,
+        size: ambition_platformer2d_core::Vec2,
+    ) -> (
+        ambition_platformer2d_core::Vec2,
+        ambition_platformer2d_core::Vec2,
+    ) {
+        let min = self.min.min(self.max);
+        let max = self.min.max(self.max);
+        (
+            origin + min * size,
+            ((max - min) * size).max(ambition_platformer2d_core::Vec2::ONE),
+        )
+    }
+}
+
+/// **THE BODY THIS VIEW FRAMES**, when it is not the session's controlled one.
+///
+/// ⭐ **a view's subject is a policy layered on the participant projection, not
+/// a second copy of it.** `ControlledSubject` answers *which body is the primary
+/// participant driving* and its fifty readers all mean PARTICIPANT — a blink, an
+/// interact, a HUD meter. Exactly one of them means VIEW: the camera resolve,
+/// where it is the DEFAULT framing policy (*this view watches the local
+/// participant*). This component is how a view says otherwise, and a view that
+/// carries none keeps that default.
+///
+/// ⚠ **it may name a body nobody drives** — a spectated fighter, a second local
+/// participant's body, a cutscene subject. Framing is not authority.
+///
+/// ⛔ **presentation only.** A view is not a rollback participant (it carries no
+/// `Name` for exactly that reason), so this `Entity` never crosses the durable
+/// horizon and needs no authority travelling with it.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ViewSubject(pub Entity);
+
 /// **The view, for a caller that knows there is exactly one.**
 ///
 /// ⚠ the name is the disclaimer: this asserts the single-view assumption out
@@ -346,17 +451,15 @@ pub struct BoundLocalView {
 /// only one an N-view game may have, and the portal capture rigs are the
 /// standing proof that compositions legitimately differ.
 ///
-/// # ⚠ WHAT THIS DOES **NOT** DO: LAYOUT
+/// # ⚠ LAYOUT IS THE CALLER'S TOO, AND IT IS ONE COMPONENT
 ///
-/// Every view comes up with a DEFAULT [`crate::camera_snapshot::CameraViewport`]
-/// — the whole design window — so N views spawned here all claim the same
-/// rectangle and overlap. Where a view SITS is a layout policy, and the host
-/// publisher that owns that component today
+/// Every view comes up claiming the WHOLE gameplay rectangle, so N views
+/// composed here overlap until the caller says where they sit. It says so by
+/// putting a [`ViewPlacement`] on each returned view; the host publisher that
+/// owns the rectangle
 /// (`ambition_platformer2d_host::gameplay_presentation::publish_camera_viewport`)
-/// writes ONE resolved gameplay rect onto EVERY view each frame. Until that
-/// publisher learns about split layouts, a composition using this helper gets N
-/// correctly-bound views stacked on one rectangle. That is a separate seam and
-/// naming it here is cheaper than a caller discovering it on screen.
+/// carves its resolved gameplay rect by that fraction. Absent, a view keeps the
+/// whole rectangle, which is what every single-view composition is.
 ///
 /// # ⛔⛔ CALL IT AT PLUGIN BUILD TIME
 ///
@@ -448,8 +551,94 @@ mod tests {
         CameraObservationPlugin, CameraPresentationInputs, CameraReferenceFrame,
         CameraScreenFraming, CameraViewport, ResolvedCameraSnapshot,
     };
+    use ambition_platformer2d_core as ae;
     use ambition_platformer2d_shared_tangle::camera_ease::CameraEaseState;
     use bevy::prelude::*;
+
+    /// **A LAYOUT THAT COVERS THE DISPLAY EXACTLY ONCE.**
+    ///
+    /// ⚠ **the columns must TILE**, and both halves of that are checked: no gap
+    /// (a strip of unpainted display between two panes) and no overlap (two
+    /// observers drawing into the same pixels, which looks healthy in every
+    /// single-view assertion). Derived from the carve rather than compared
+    /// against hand-written pixel values, so the test cannot agree with itself.
+    #[test]
+    fn columns_tile_the_gameplay_rectangle_with_no_gap_and_no_overlap() {
+        let origin = ae::Vec2::new(40.0, 10.0);
+        let size = ae::Vec2::new(1920.0, 1080.0);
+        let carved: Vec<(ae::Vec2, ae::Vec2)> = (0..3)
+            .map(|column| ViewPlacement::column(column, 3).carve(origin, size))
+            .collect();
+
+        assert_eq!(carved[0].0, origin, "the first column starts at the origin");
+        for pane in &carved {
+            assert_eq!(pane.1.y, size.y, "a column is full height");
+        }
+        for pair in carved.windows(2) {
+            assert_eq!(
+                pair[0].0.x + pair[0].1.x,
+                pair[1].0.x,
+                "columns must meet exactly: {pair:?}",
+            );
+        }
+        let last = carved.last().expect("three columns");
+        assert_eq!(
+            last.0.x + last.1.x,
+            origin.x + size.x,
+            "the last column must reach the right edge",
+        );
+    }
+
+    /// **A COUNT OF ONE IS NOT A LAYOUT, and neither is a count of zero.**
+    ///
+    /// ⛔ the zero case is the one that matters: `index / 0.0` is NaN, and a NaN
+    /// viewport does not draw a wrong picture — it draws nothing, silently, which
+    /// is this repository's most expensive failure shape.
+    #[test]
+    fn a_degenerate_column_count_keeps_the_whole_rectangle() {
+        let origin = ae::Vec2::ZERO;
+        let size = ae::Vec2::new(800.0, 600.0);
+        for of in [0, 1] {
+            assert_eq!(
+                ViewPlacement::column(0, of).carve(origin, size),
+                (origin, size),
+                "a layout of {of} view(s) must leave the rectangle alone",
+            );
+        }
+        // And an index past the end lands on the LAST column rather than off the
+        // screen: a caller that has miscounted gets a legible wrong picture.
+        assert_eq!(
+            ViewPlacement::column(9, 2).carve(origin, size),
+            ViewPlacement::column(1, 2).carve(origin, size),
+        );
+    }
+
+    /// **A REVERSED OR EMPTY PLACEMENT STILL PRODUCES A DRAWABLE RECTANGLE.**
+    ///
+    /// ⛔ a zero-width viewport is a division by zero in every orthographic-scale
+    /// consumer downstream. One pixel is visibly wrong; zero is invisible.
+    #[test]
+    fn a_reversed_placement_is_normalized_and_never_collapses_to_nothing() {
+        let size = ae::Vec2::new(400.0, 400.0);
+        let reversed = ViewPlacement {
+            min: ae::Vec2::new(0.75, 1.0),
+            max: ae::Vec2::new(0.25, 0.0),
+        };
+        assert_eq!(
+            reversed.carve(ae::Vec2::ZERO, size),
+            ViewPlacement {
+                min: ae::Vec2::new(0.25, 0.0),
+                max: ae::Vec2::new(0.75, 1.0),
+            }
+            .carve(ae::Vec2::ZERO, size),
+        );
+
+        let empty = ViewPlacement {
+            min: ae::Vec2::splat(0.5),
+            max: ae::Vec2::splat(0.5),
+        };
+        assert_eq!(empty.carve(ae::Vec2::ZERO, size).1, ae::Vec2::ONE);
+    }
 
     /// **⛔⛔ THE VIEW EXISTS BEFORE ANY SCHEDULE RUNS, CARRYING EVERYTHING THE
     /// RESOLVE REQUIRES.**
@@ -522,9 +711,7 @@ mod tests {
         let bound = compose_local_views(
             app.world_mut(),
             [LocalViewId(1), LocalViewId::FIRST],
-            |_id| {
-                (ambition_platformer2d_shared_tangle::camera_layers::MainCamera,)
-            },
+            |_id| (ambition_platformer2d_shared_tangle::camera_layers::MainCamera,),
         );
 
         // Asked for out of order on purpose: the result is ascending by id, not
@@ -548,9 +735,7 @@ mod tests {
         );
 
         let views: Vec<Entity> = {
-            let mut q = app
-                .world_mut()
-                .query_filtered::<Entity, With<LocalView>>();
+            let mut q = app.world_mut().query_filtered::<Entity, With<LocalView>>();
             q.iter(app.world()).collect()
         };
         assert_eq!(
@@ -612,8 +797,7 @@ mod tests {
 
         assert_eq!(bound.len(), 1);
         assert_eq!(
-            bound[0].view,
-            plugins_view,
+            bound[0].view, plugins_view,
             "asking for one view must adopt the only view, not add a second"
         );
         assert_eq!(

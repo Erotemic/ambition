@@ -199,3 +199,53 @@ fn the_presented_view_refuses_to_pick_between_two_cameras_that_name_different_vi
          state; if this fails the refusal above is just a broken resolver"
     );
 }
+
+/// **⛔⛔ HOW MANY VIEWS THERE ARE IS A PROPERTY OF THE LIVE SESSION, NOT OF WHAT
+/// THE BINARY LINKS.**
+///
+/// TwinTrack seats two participants and splits its screen between them. It is
+/// also one of the experiences `ambition_app` links, beside Mary-O, Smash and
+/// the launcher — so composing that split at PLUGIN BUILD time gave the whole
+/// host two local views from the first frame, at every route, forever.
+///
+/// ⚠ **and the symptom was nowhere near the cause.** With two views the shared
+/// camera-spawn site correctly declines to bind a rig it cannot honestly pair,
+/// TwinTrack's own two rigs appeared instead, and `bevy_egui` — which attaches
+/// its primary context to the first camera it sees and panics if a second one
+/// claims the same pass — took down 95 tests with a message about schedules.
+/// Nothing in that chain mentions a view.
+///
+/// ⭐ **the honest rule is the one this asserts**: the launcher has one observer,
+/// so it has one view and no layout at all. A second view appears when a second
+/// participant does, which is also what couch co-op will need.
+#[test]
+fn the_launcher_has_one_view_and_no_split_layout() {
+    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    for _ in 0..ambition_app::app::shared_host_startup_ticks() {
+        app.update();
+    }
+
+    let world = app.world_mut();
+    let mut views = world
+        .query_filtered::<Option<&ambition_platformer2d::sim_view::ViewPlacement>, With<LocalView>>(
+        );
+    let placements: Vec<Option<ambition_platformer2d::sim_view::ViewPlacement>> = views
+        .iter(world)
+        .map(|placement| placement.copied())
+        .collect();
+
+    assert_eq!(
+        placements.len(),
+        1,
+        "the shipped host came up with {} local views before any session started: \
+         an experience composed its split screen into the process instead of into \
+         its own session",
+        placements.len(),
+    );
+    assert_eq!(
+        placements[0], None,
+        "the only view carries a layout placement, so something has already \
+         decided the display is shared — absent means the whole rectangle, which \
+         is what one observer gets",
+    );
+}

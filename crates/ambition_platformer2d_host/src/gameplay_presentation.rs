@@ -413,20 +413,30 @@ pub fn describe_resolved_layout(
 ///
 /// ⚠ **one display resolve, N views.** `ResolvedGameplayPresentation` describes
 /// the physical screen; each local view is told the rectangle it presents into.
-/// Ambition has one view and one rectangle, so this writes the same rectangle to
-/// every row — a split layout is what makes them differ, and that is the phase
-/// that gives each view its own rect. The POLICY that chooses rectangles is not
-/// this system's and does not exist yet; what exists is the place to put the
-/// answer.
+///
+/// ⭐ **and each view may take a FRACTION of it** — `ambition_sim_view::ViewPlacement`,
+/// absent on every single-view composition and therefore the whole rectangle.
+/// This is where a split layout becomes real: the placement is the composition's
+/// data, this system is the one place the display rect and that fraction meet,
+/// and `apply_gameplay_camera_viewport` already hands each camera its own view's
+/// rectangle. The POLICY that CHOOSES a placement (adaptive share/split with
+/// hysteresis) is a writer of that component and still does not exist; what a
+/// permanently-split composition needs is only to state it.
 pub fn publish_camera_viewport(
     presentation: Res<ResolvedGameplayPresentation>,
-    mut views: Query<&mut CameraViewport, With<ambition_sim_view::LocalView>>,
+    mut views: Query<
+        (
+            &mut CameraViewport,
+            Option<&ambition_sim_view::ViewPlacement>,
+        ),
+        With<ambition_sim_view::LocalView>,
+    >,
 ) {
-    let rect = CameraViewport {
-        px: presentation.gameplay_rect.size().max(ae::Vec2::ONE),
-        origin_px: presentation.gameplay_rect.min,
-    };
-    for mut viewport in &mut views {
+    let origin = presentation.gameplay_rect.min;
+    let size = presentation.gameplay_rect.size().max(ae::Vec2::ONE);
+    for (mut viewport, placement) in &mut views {
+        let (origin_px, px) = placement.copied().unwrap_or_default().carve(origin, size);
+        let rect = CameraViewport { px, origin_px };
         // Compare before writing: a change tick on every frame is a needless
         // re-run for anything gated on `is_changed()`.
         if *viewport != rect {
@@ -488,10 +498,11 @@ fn publish_one_views_screen_framing(
 /// view's rectangle.
 ///
 /// ⚠ **the single-view case is unchanged, deliberately.**
-/// `publish_camera_viewport` writes the gameplay rectangle onto every view, so
-/// the "full-bleed needs no viewport at all" test below still compares exactly
-/// the same two rectangles it always did and still leaves `Camera::viewport`
-/// cleared. Nothing about the shipped picture moves.
+/// `publish_camera_viewport` writes the whole gameplay rectangle onto any view
+/// that declares no `ambition_sim_view::ViewPlacement`, so the "full-bleed needs
+/// no viewport at all" test below still compares exactly the same two rectangles
+/// it always did and still leaves `Camera::viewport` cleared. Nothing about the
+/// shipped picture moves.
 ///
 /// `Camera::viewport` is in PHYSICAL pixels while the whole layout is resolved
 /// in logical pixels (the space window cursors, touches, and `bevy_ui` share),

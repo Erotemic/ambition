@@ -919,30 +919,30 @@ fn the_device_diagnostic_labels_are_truthful() {
 /// # ⚠ WHAT THIS IS NOT
 ///
 /// **A FIXTURE, NOT A POLICY.** It does not say Ambition ships split screen, and
-/// it does not choose a layout: the two rectangles here are stated by the test,
-/// side by side, because they are the simplest pair that are unmistakably
-/// different. Which rectangles a real two-view session would get — shared, fixed
-/// split, adaptive — is a product decision nobody has made, and building an enum
-/// for it here would be answering it by refactor.
+/// it does not choose a layout for the game: it states one — two columns — the
+/// way a split-screen composition states it, with an `ambition_sim_view::ViewPlacement`
+/// per view. WHICH layout a real two-view session should get — shared, fixed
+/// split, adaptive with hysteresis — is still a product decision nobody has
+/// made, and the component is the OUTPUT of that decision rather than the
+/// decision itself.
 ///
-/// # ⛔ AND TWO SEAMS ARE GENUINELY MISSING, WHICH IS THE FINDING
+/// # ⭐ THE WHOLE CHAIN IS THE SHIPPED ONE NOW
 ///
-/// - **Nothing in production spawns a second main camera.** Both camera-spawn
-///   sites (`PlatformerPresentationPlugin::spawn_main_camera` and the app's
-///   `host_presentation_scaffold`) spawn exactly ONE, and as of this commit both
-///   REFUSE to bind it when several views exist rather than taking the first. So
-///   the two cameras below are spawned by the fixture — a `MainCamera` plus a
-///   `PresentsView`, which is precisely what those two sites spawn, and is the
-///   composition decision a split-screen host would own.
-/// - **`publish_camera_viewport` writes ONE rectangle to every view**, by
-///   construction: it projects the single `ResolvedGameplayPresentation`, which
-///   describes the physical screen. So distinct rectangles cannot come out of the
-///   shipped schedule today, and the fixture writes them onto the two views
-///   directly — standing in for exactly the layout policy that does not exist.
-///   The applier is then run for real, unchanged, over that state.
+/// The rectangles are not written onto the views by hand any more. `App::update()`
+/// runs `resolve_host_gameplay_presentation` → `publish_camera_viewport` (which
+/// carves the display rect by each view's placement) →
+/// `apply_gameplay_camera_viewport`, so what this measures is production wiring
+/// end to end rather than a hand-built state the applier was pointed at.
+///
+/// ⛔ **one seam is still genuinely missing, and it is the finding that remains.**
+/// Nothing in the ENGINE spawns a second main camera: both camera-spawn sites
+/// (`PlatformerPresentationPlugin::spawn_main_camera` and the app's
+/// `host_presentation_scaffold`) spawn exactly ONE and REFUSE to bind it when
+/// several views exist. A composition that wants two rigs calls
+/// `ambition_sim_view::compose_local_views`; the two cameras below are spawned by
+/// the fixture in exactly that shape — a `MainCamera` plus a `PresentsView`.
 mod two_views_one_host {
     use super::*;
-    use bevy::ecs::system::RunSystemOnce as _;
 
     /// A 1920x1080 desktop full-bleed composition — the shipped default — with
     /// two views and two cameras. `swap_links` changes NOTHING but which view
@@ -1026,26 +1026,26 @@ mod two_views_one_host {
             .map(|viewport| (viewport.physical_position, viewport.physical_size))
     }
 
-    /// Give the two views two different rectangles, in the order they were
-    /// spawned. This is the layout policy's job, and there is no layout policy.
+    /// State the layout the way a split-screen composition states it — one
+    /// `ViewPlacement` per view — then run the SHIPPED schedule and read back
+    /// the rectangles `publish_camera_viewport` carved.
+    ///
+    /// ⚠ **read back, never asserted here.** What the columns come out as is the
+    /// publisher's answer; hard-coding `960.0` in this helper would make the test
+    /// agree with itself instead of with production.
     fn split_side_by_side(app: &mut App, views: [Entity; 2]) -> [CameraViewport; 2] {
-        let rects = [
-            CameraViewport {
-                px: ae::Vec2::new(960.0, 1080.0),
-                origin_px: ae::Vec2::ZERO,
-            },
-            CameraViewport {
-                px: ae::Vec2::new(960.0, 1080.0),
-                origin_px: ae::Vec2::new(960.0, 0.0),
-            },
-        ];
-        for (view, rect) in views.into_iter().zip(rects) {
-            *app.world_mut()
+        for (index, view) in views.into_iter().enumerate() {
+            app.world_mut()
                 .entity_mut(view)
-                .get_mut::<CameraViewport>()
-                .expect("a view spawned with a viewport") = rect;
+                .insert(ambition_sim_view::ViewPlacement::column(index, views.len()));
         }
-        rects
+        app.update();
+        views.map(|view| {
+            *app.world()
+                .entity(view)
+                .get::<CameraViewport>()
+                .expect("a view spawned with a viewport")
+        })
     }
 
     /// The physical rectangle `apply_gameplay_camera_viewport` owes a view with
@@ -1103,10 +1103,8 @@ mod two_views_one_host {
                 "the fixture must give the two views genuinely different rectangles, or \
                  nothing below can tell a per-camera resolve from a shared one",
             );
-            app.world_mut()
-                .run_system_once(apply_gameplay_camera_viewport)
-                .expect("the applier should run: the fixture provides the window and layout");
-
+            // No hand-run applier: `split_side_by_side` advanced the shipped
+            // schedule, which is where `apply_gameplay_camera_viewport` lives.
             let presented: Vec<Option<(UVec2, UVec2)>> = cameras
                 .iter()
                 .map(|camera| physical_viewport(&app, *camera))

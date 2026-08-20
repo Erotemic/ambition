@@ -8,13 +8,14 @@ use ambition_demo_twintrack::{
 };
 use ambition_platformer2d::actor::BodyKinematics;
 use ambition_platformer2d::engine_core::BodyAbilities;
-use ambition_platformer2d::world::rooms::CameraClampMode;
 use ambition_platformer2d::relativity2d::{
     LightEmitter2d, LightReceiver2d, LightSignal2d, ProperTimeCooldown2d, ProperTimeElapsed,
     RelativisticOpticalView2d, RelativisticTargetingView2d, RelativityClockView2d,
     RelativitySignalView2d, SpacetimeCoordinateTime2d, WorldlineHistoryView2d, WorldlineTrackId,
 };
-use ambition_platformer2d::sim::{drive_control_frame, ControlFrame};
+use ambition_platformer2d::sim::{drive_control_frame, drive_seat_frame, ControlFrame, PlayerSlot};
+use ambition_platformer2d::sim_view::{LocalView, LocalViewId, ViewPlacement, ViewSubject};
+use ambition_platformer2d::world::rooms::CameraClampMode;
 use bevy::prelude::*;
 
 fn activate(app: &mut App) {
@@ -52,6 +53,46 @@ fn experiment(app: &mut App) -> TwinTrackExperiment {
         .world_mut()
         .query_filtered::<&TwinTrackExperiment, With<LaboratoryTwin>>();
     *query.single(app.world()).unwrap()
+}
+
+fn laboratory_body(app: &mut App) -> BodyKinematics {
+    let mut query = app
+        .world_mut()
+        .query_filtered::<&BodyKinematics, With<LaboratoryTwin>>();
+    *query.single(app.world()).unwrap()
+}
+
+/// What each view's camera resolve decided to look at, in ascending id order.
+fn follow_points(app: &mut App) -> Vec<Vec2> {
+    use ambition_platformer2d::sim_view::camera_snapshot::ResolvedCameraSnapshot;
+    let mut query = app
+        .world_mut()
+        .query_filtered::<(&LocalViewId, &ResolvedCameraSnapshot), With<LocalView>>();
+    let mut rows: Vec<(LocalViewId, Vec2)> = query
+        .iter(app.world())
+        .map(|(id, resolved)| (*id, resolved.follow_world))
+        .collect();
+    rows.sort_by_key(|(id, _)| *id);
+    rows.into_iter().map(|(_, point)| point).collect()
+}
+
+/// Every local view as `(id, placement, subject)`, in ascending id order.
+fn views(app: &mut App) -> Vec<(LocalViewId, ViewPlacement, Option<Entity>)> {
+    let mut query = app
+        .world_mut()
+        .query_filtered::<(&LocalViewId, Option<&ViewPlacement>, Option<&ViewSubject>), With<LocalView>>();
+    let mut rows: Vec<(LocalViewId, ViewPlacement, Option<Entity>)> = query
+        .iter(app.world())
+        .map(|(id, placement, subject)| {
+            (
+                *id,
+                placement.copied().unwrap_or_default(),
+                subject.map(|subject| subject.0),
+            )
+        })
+        .collect();
+    rows.sort_by_key(|(id, _, _)| *id);
+    rows
 }
 
 fn traveler_body(app: &mut App) -> BodyKinematics {
@@ -402,7 +443,10 @@ fn view_console_toggles_optical_without_replacing_gameplay_with_spacetime() {
 #[test]
 fn plaza_is_centered_open_and_camera_follow_is_unclamped() {
     let room = twintrack_room();
-    assert!(room.world.blocks.is_empty(), "TwinTrack should not have perimeter walls");
+    assert!(
+        room.world.blocks.is_empty(),
+        "TwinTrack should not have perimeter walls"
+    );
     assert_eq!(LAB_POS, Vec2::new(ROOM_WIDTH * 0.5, ROOM_HEIGHT * 0.5));
     assert!(room.world.blast_margin > 1_000_000.0);
 
@@ -475,7 +519,13 @@ fn complete_plaza_course_exchanges_clock_dialogue_dances_tags_and_reunites() {
     let census = experiment(&mut app);
     assert_eq!(census.clock_report_mask, 0b111);
     assert!(census.last_report_clock > 0.0);
-    assert!(census.last_receive_lab_time > census.last_message_departure_time);
+    assert!(
+        census.last_receive_lab_time > census.last_message_departure_time,
+        "the reply reached the traveler before it was sent: lab clock read \
+         {} at the arrival, and the message left at coordinate time {}",
+        census.last_receive_lab_time,
+        census.last_message_departure_time,
+    );
 
     complete_doppler_dance(&mut app);
     let dance = experiment(&mut app);
@@ -651,9 +701,7 @@ fn every_plaza_character_has_a_distinct_role_and_receiver() {
 }
 
 fn dual_observer_view(app: &mut App) -> TwinTrackDualObserverView {
-    app.world()
-        .resource::<TwinTrackDualObserverView>()
-        .clone()
+    app.world().resource::<TwinTrackDualObserverView>().clone()
 }
 
 /// Pin the traveler onto the beacons' midpoint with a chosen velocity and run
@@ -914,5 +962,261 @@ fn the_two_observers_time_one_light_cone_arrival_differently() {
         "the two observers timed one arrival at {} s and {} s",
         lab.omega_arrival_frame_seconds,
         traveler.omega_arrival_frame_seconds,
+    );
+}
+
+/// **⛔⛔ TWO PARTICIPANTS, TWO BODIES, ONE SIMULATION — and each seat moves
+/// only its own.**
+///
+/// The exhibit's whole claim is that two observers of one Minkowski simulation
+/// disagree, and until 2026-08-20 only one of those observers was a person: the
+/// laboratory twin was a bare entity with a clock and no way to be driven.
+///
+/// ⚠ **the falsifier is the OTHER body in every direction.** A composition that
+/// routed both seats through one control frame — which is what a second
+/// participant that never got its own `InputParticipant` would degrade to —
+/// passes "the twin moved" and fails here, because the traveler moves with her.
+/// Both halves are asserted both ways round for that reason.
+#[test]
+fn each_seat_moves_its_own_body_and_leaves_the_others_alone() {
+    let mut app = ambition_demo_twintrack_app::build_demo_app();
+    activate(&mut app);
+
+    let twin_start = laboratory_body(&mut app).pos;
+    let traveler_start = traveler_body(&mut app).pos;
+
+    // Seat one presses right; seat zero presses nothing.
+    for _ in 0..45 {
+        drive_seat_frame(
+            app.world_mut(),
+            PlayerSlot(1),
+            ControlFrame {
+                axis_x: 1.0,
+                ..Default::default()
+            },
+        );
+        step(&mut app, ControlFrame::default());
+    }
+    let twin_moved = laboratory_body(&mut app).pos;
+    let traveler_held = traveler_body(&mut app).pos;
+    assert!(
+        twin_moved.x - twin_start.x > 20.0,
+        "seat one pressed right for 45 ticks and the laboratory twin went from \
+         {twin_start} to {twin_moved}: the second participant is not driving her",
+    );
+    assert!(
+        (traveler_held - traveler_start).length() < 1.0,
+        "seat one's input moved the TRAVELER as well ({traveler_start} → \
+         {traveler_held}): the two seats are sharing one control frame",
+    );
+
+    // And back the other way, in a FRESH plaza. ⚠ not a continuation of the run
+    // above: free flight has drag rather than a brake, so a twin that was just
+    // pushed for 45 ticks is still coasting, and "did the other body move" then
+    // measures the previous phase instead of this one.
+    let mut app = ambition_demo_twintrack_app::build_demo_app();
+    activate(&mut app);
+    let twin_start = laboratory_body(&mut app).pos;
+    let traveler_start = traveler_body(&mut app).pos;
+    for _ in 0..45 {
+        step(
+            &mut app,
+            ControlFrame {
+                axis_x: 1.0,
+                ..Default::default()
+            },
+        );
+    }
+    let traveler_moved = traveler_body(&mut app).pos;
+    assert!(
+        traveler_moved.x - traveler_start.x > 20.0,
+        "seat zero pressed right and the traveler went from {traveler_start} to \
+         {traveler_moved}",
+    );
+    let twin_held = laboratory_body(&mut app).pos;
+    assert!(
+        (twin_held - twin_start).length() < 1.0,
+        "seat zero's input moved the LABORATORY TWIN as well ({twin_start} → \
+         {twin_held}): the two seats are sharing one control frame",
+    );
+}
+
+/// **⛔ THE SPLIT IS THE SHAPE OF THE GAME, not a view mode you have to find.**
+///
+/// Jon's report (2026-08-20): *"I did not see a split screen in twin track."* It
+/// existed, as `TwinTrackViewMode::SplitObservers`, reachable only by walking to
+/// an in-world console and cycling it — and even then it was an opaque diagram
+/// over the top of one gameplay camera, not two gameplay views.
+///
+/// ⚠ **the two placements must be DISJOINT, which is the part a shared rectangle
+/// passes.** Two views both claiming the whole display draw on top of each other
+/// and look, from any single-view assertion, entirely healthy.
+#[test]
+fn the_plaza_opens_split_between_its_two_participants() {
+    let mut app = ambition_demo_twintrack_app::build_demo_app();
+    activate(&mut app);
+
+    let rows = views(&mut app);
+    assert_eq!(
+        rows.len(),
+        2,
+        "TwinTrack seats two participants, so it publishes two local views; found {rows:?}",
+    );
+    let (left, right) = (rows[0].1, rows[1].1);
+    assert!(
+        left.max.x <= right.min.x + f32::EPSILON,
+        "the two panes overlap ({left:?} and {right:?}), so both observers are \
+         drawing into the same rectangle",
+    );
+    assert!(
+        left.min.x <= f32::EPSILON && right.max.x >= 1.0 - f32::EPSILON,
+        "the two panes leave part of the display unclaimed ({left:?} and {right:?})",
+    );
+
+    let twin = {
+        let mut query = app
+            .world_mut()
+            .query_filtered::<Entity, With<LaboratoryTwin>>();
+        query.single(app.world()).unwrap()
+    };
+    assert_eq!(
+        rows[1].2,
+        Some(twin),
+        "the right pane must frame the laboratory twin, not whatever the session \
+         is following",
+    );
+    // ⭐ and the LEFT pane names nobody on purpose: a view with no `ViewSubject`
+    // frames the session's controlled body, which is seat zero's — including
+    // while that seat is possessing something else. Naming it here would be a
+    // second answer to a question the engine already answers.
+    assert_eq!(
+        rows[0].2, None,
+        "the traveler's pane names its own subject, which is a second authority \
+         on who seat zero is driving",
+    );
+
+    // ⛔⛔ **AND THE CAMERAS ACTUALLY LOOK THERE.** A `ViewSubject` the resolve
+    // ignores is the exact defect this slice exists to remove: the followed
+    // body, the framing focus and the reference-frame down axis were resolved
+    // ONCE above the per-view loop, so N observers still shared one answer to
+    // *what is everybody looking at*. Two views naming two bodies must resolve
+    // two follow points.
+    set_traveler_state(&mut app, LAB_POS + Vec2::new(900.0, 0.0), Vec2::ZERO);
+    idle(&mut app, 4);
+    let follows = follow_points(&mut app);
+    let separation = (follows[0] - follows[1]).length();
+    assert!(
+        separation > 400.0,
+        "the two panes resolved follow points {} and {} — {separation} apart — \
+         while their subjects are {} apart: the camera resolve is still \
+         answering \"who is everybody watching\" once for every view",
+        follows[0],
+        follows[1],
+        (traveler_body(&mut app).pos - laboratory_body(&mut app).pos).length(),
+    );
+    assert!(
+        (follows[0] - traveler_body(&mut app).pos).length() < 64.0,
+        "the traveler's pane is not framing the traveler",
+    );
+    assert!(
+        (follows[1] - laboratory_body(&mut app).pos).length() < 64.0,
+        "the laboratory twin's pane is not framing the laboratory twin",
+    );
+}
+
+/// **⚠ ONE CONTROLLER IS A COMPLETE, SUPPORTED SESSION.**
+///
+/// Jon's ruling: *"If there is no second controller just let the second screen
+/// do nothing and have the character be uncontrolled"* — and then *"it will
+/// still be useful to watch it as an observer."* Both sentences are asserted
+/// here: nothing is driving the twin, so she does not move, and her pane keeps
+/// framing her regardless.
+///
+/// ⛔ **the failure this forbids is a seat with no pad reading somebody ELSE's
+/// pad.** `assign_local_seat_devices` clears an association it cannot satisfy
+/// rather than falling back to any-pad, which is exactly the leafwing default
+/// that would have made player one's stick move both bodies.
+#[test]
+fn with_nobody_in_the_second_seat_the_twin_stands_still_and_stays_watched() {
+    let mut app = ambition_demo_twintrack_app::build_demo_app();
+    activate(&mut app);
+
+    let twin = laboratory_body(&mut app);
+    idle(&mut app, 90);
+    let after = laboratory_body(&mut app);
+    assert!(
+        (after.pos - twin.pos).length() < 1.0,
+        "an unattended laboratory twin drifted from {} to {}",
+        twin.pos,
+        after.pos,
+    );
+
+    let rows = views(&mut app);
+    let watched = rows
+        .iter()
+        .find(|(id, _, _)| *id == LocalViewId(1))
+        .and_then(|(_, _, subject)| *subject);
+    let entity = {
+        let mut query = app
+            .world_mut()
+            .query_filtered::<Entity, With<LaboratoryTwin>>();
+        query.single(app.world()).unwrap()
+    };
+    assert_eq!(
+        watched,
+        Some(entity),
+        "the second pane stopped watching the twin because nobody was driving \
+         her — an unattended observer is still an observer",
+    );
+}
+
+/// **⛔⛔ A SEAT COUNT WITHOUT AN ASSIGNMENT POLICY IS A DEAD SECOND SEAT.**
+///
+/// Measured on real hardware before this test existed (Jon, 2026-08-20): *"I
+/// have a keyboard and controller hooked up to twin track, but they both control
+/// patent clerk, neither controls emmy."* Both seats existed and seat one was
+/// inert, because the default policy is `UnifiedPrimary` — every local device
+/// drives the primary participant — so the one pad joined the keyboard on seat
+/// zero instead of claiming seat one.
+///
+/// ⚠ **this asserts the DECLARATION, and says so.** The integration suite builds
+/// without the `input` feature: there are no `InputParticipant`s, no gamepads and
+/// no device-assignment pass here, so it cannot watch a pad reach Emmy. What it
+/// can do is refuse to let the declaration go missing again. The mechanism the
+/// declaration buys is pinned upstream, in `ambition_input::local_seats`
+/// (`a_single_pad_beside_a_keyboard_player_drives_the_second_seat`): under
+/// `JoinToClaim`, one keyboard player beside one pad player puts the pad on
+/// SEAT TWO and makes the keyboard seat deaf to it.
+///
+/// ⛔ and the retirement half is asserted too. Both resources are process-global
+/// and TwinTrack is one route in a host that also runs Mary-O and Smash.
+#[test]
+fn the_plaza_declares_two_seats_and_a_couch_policy_only_while_it_is_live() {
+    use ambition_platformer2d::input::{DeclaredInputSeats, InputAssignmentPolicy};
+
+    let mut app = ambition_demo_twintrack_app::build_demo_app();
+    app.update();
+    assert_eq!(
+        app.world().get_resource::<DeclaredInputSeats>().copied(),
+        Some(DeclaredInputSeats(0)),
+        "TwinTrack offered seats before its session existed",
+    );
+    assert_eq!(
+        app.world().get_resource::<InputAssignmentPolicy>().copied(),
+        Some(InputAssignmentPolicy::default()),
+        "TwinTrack partitioned the room's controllers before anybody was playing",
+    );
+
+    activate(&mut app);
+    assert_eq!(
+        app.world().get_resource::<DeclaredInputSeats>().copied(),
+        Some(DeclaredInputSeats(2)),
+        "the exhibit is two observers, so the session seats two participants",
+    );
+    assert_eq!(
+        app.world().get_resource::<InputAssignmentPolicy>().copied(),
+        Some(InputAssignmentPolicy::JoinToClaim),
+        "the seats are declared but every device still drives seat zero: a \
+         keyboard and one controller are two people at this exhibit",
     );
 }

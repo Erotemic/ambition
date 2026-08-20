@@ -37,7 +37,7 @@ impl MenuInputFrame {
 /// Keyed by the participant's SLOT, which is also the seat and also the device
 /// index — one numbering, because two that have to agree eventually disagree
 /// (see [`crate::ParticipantId::slot`]).
-/// **How many local seats a FRONTEND surface is offering right now.**
+/// **How many local seats a live SURFACE is offering right now.**
 ///
 /// ⚠ **a lobby needs input before a roster exists, and that is a genuine
 /// chicken-and-egg.** Gameplay seats are declared by the
@@ -49,9 +49,22 @@ impl MenuInputFrame {
 /// one cursor between them, and the other three panels could not be joined at
 /// all.
 ///
+/// ⭐ **and an EXPERIENCE may be such a surface too** (TwinTrack, 2026-08-20).
+/// Its exhibit is two observers disagreeing about the order of two events, so a
+/// second seat is what the thing IS rather than something a connected controller
+/// imposed — and it has no match, no roster and no stocks to declare one
+/// through. That is the same statement a lobby makes, made by a session, so it
+/// is said with the same resource rather than with a fourth authority on who is
+/// playing.
+///
+/// ⚠ **it is a COUNT, and a count can only say "seats 0..n, densely".** A
+/// session whose people are not on the first n sources — somebody on the
+/// keyboard below somebody on a pad — needs a `LocalChannelPlan`, which this
+/// cannot express and must not be stretched to.
+///
 /// A surface sets this while it is up and clears it when it leaves; the same
 /// sweep that retires a match's seats retires these. `0` — the default — means
-/// "no lobby is open", which is every other route.
+/// "nothing is offering seats", which is every single-participant route.
 #[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct DeclaredInputSeats(pub u8);
 

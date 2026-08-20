@@ -456,6 +456,16 @@ pub mod sim {
     /// pending seat input directly, which is what a headless or replay driver
     /// wants.
     pub use ambition_characters::brain::PlayerSlot;
+
+    /// **WHO DRIVES THIS BODY.** A body wearing one is steered by that seat's
+    /// `SlotControls` frame; a body without one is left to its own `Brain`.
+    ///
+    /// Exported beside [`PlayerSlot`] because a composition that seats a second
+    /// local participant has to say which body that seat holds, and the seat
+    /// number alone cannot say it. Possession is the only thing that MOVES one
+    /// at runtime; a spawn site authoring one is stating a seat, not competing
+    /// with that reconcile.
+    pub use ambition_characters::brain::DrivingParticipant;
     #[cfg(feature = "rollback")]
     pub use ambition_platformer2d_rollback_ggrs::drive_seat_frame;
     #[cfg(not(feature = "rollback"))]

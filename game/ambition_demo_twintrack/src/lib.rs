@@ -13,6 +13,7 @@ mod dual_observer;
 mod light_pulse;
 #[cfg(feature = "visible")]
 mod observatory;
+mod participants;
 #[cfg(feature = "visible")]
 mod spacetime_3d;
 #[cfg(feature = "visible")]
@@ -22,11 +23,13 @@ pub use observatory::ObservatoryCamera;
 #[cfg(feature = "visible")]
 pub use split_screen::{SplitObserverCamera, SplitObserverPane};
 
+pub use participants::LAB_TWIN_SLOT;
+
 pub use dual_observer::{
     beacon_alpha_position, beacon_midpoint, beacon_omega_position, flash_coordinate_time,
     observe_beacon_pair, observer_frame_offset, BeaconReading, EventOrdering,
-    ObserverOrderingReport, TwinTrackBeacon, TwinTrackDualObserverView,
-    BEACON_FLASH_GLOW_SECONDS, BEACON_FLASH_PERIOD_SECONDS, BEACON_HALF_SEPARATION,
+    ObserverOrderingReport, TwinTrackBeacon, TwinTrackDualObserverView, BEACON_FLASH_GLOW_SECONDS,
+    BEACON_FLASH_PERIOD_SECONDS, BEACON_HALF_SEPARATION,
 };
 pub use light_pulse::{
     aberrated_direction, latest_pulse_index, measure_pulse_ray, observe_light_pulse,
@@ -56,10 +59,10 @@ use ambition_platformer2d::relativity2d::{
     RelativityClockView2d, RelativitySignalView2d, SignalArrival2d, SignalArrivalHistory2d,
     SpacetimeCoordinateTime2d, WorldlineHistoryView2d, WorldlineTracked2d,
 };
+use ambition_platformer2d::rollback::AmbitionRollbackApp;
 use ambition_platformer2d::runtime::demo_fixture::{
     ActiveRoomMetadata, RoomSet, StartingCharacter,
 };
-use ambition_platformer2d::rollback::AmbitionRollbackApp;
 use ambition_platformer2d::runtime::PreparedPlatformerSource;
 use ambition_platformer2d::world::rooms::{
     CameraClampMode, CameraScrollPolicy, CameraZoneSpec, RoomSpec,
@@ -70,6 +73,14 @@ pub const TWINTRACK_EXPERIENCE: &str = "twintrack";
 pub const TWINTRACK_GAMEPLAY_ROUTE: &str = "twintrack_gameplay";
 pub const TWINTRACK_LAUNCHER_ROUTE: &str = "twintrack_launcher";
 pub const TWINTRACK_CHARACTER_ID: &str = "twintrack_traveler";
+/// **The SECOND participant's character** — Emmy, at rest in the laboratory
+/// until somebody on a second controller moves her.
+///
+/// ⚠ she is the LABORATORY TWIN, not a third body beside it. The plaza's
+/// at-rest observer used to be a prop nobody could reach: a bare entity with a
+/// clock, a worldline and no way to be driven. Making the exhibit's reference
+/// frame a person is what makes the second pane worth watching.
+pub const TWINTRACK_LAB_TWIN_CHARACTER_ID: &str = "twintrack_lab_twin";
 pub const TWINTRACK_ROOM_ID: &str = "twintrack_plaza";
 
 pub const INVARIANT_SPEED: f32 = 600.0;
@@ -169,6 +180,43 @@ const TWINTRACK_CATALOG_RON: &str = r#"(
         ),
     },
     characters: {
+        "twintrack_lab_twin": (
+            display_name: "Emmy No-Ether",
+            spritesheet: "sprites/noether_spritesheet.png",
+            manifest: "sprites/noether_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            abilities: Some([FreeFlight]),
+            axis_tuning: Some((
+                horizontal_law: Responsive,
+                jump_law: VelocityCut,
+                gravity: 0.0,
+                air_jumps: 0,
+                jump_speed: 0.0,
+                max_run_speed: 540.0,
+                run_accel: 960.0,
+                air_accel: 960.0,
+                max_fall_speed: 540.0,
+                coyote_time: 0.0,
+                jump_buffer: 0.0,
+                flight_accel: 700.0,
+                flight_drag: 180.0,
+                flight_terminal_speed: 540.0,
+                flight_direct_velocity: false,
+                flight_invariant_speed: Some(600.0),
+            )),
+            max_health: Some(1),
+            tags: ["participant", "relativity", "free_flight", "plaza"],
+            barks: (
+                hall: [
+                    "Stay put and my clock is the plaza's clock.",
+                    "Every symmetry here hides a conservation law.",
+                ],
+            ),
+        ),
         "twintrack_traveler": (
             display_name: "TwinTrack Traveler",
             spritesheet: "sprites/patent_clerk_spritesheet.png",
@@ -492,6 +540,34 @@ pub fn install_twintrack_content(app: &mut App) {
                 "The visible image is old light.",
             ]),
         );
+        app.register_character(
+            CharacterDefinition::new(
+                TWINTRACK_LAB_TWIN_CHARACTER_ID,
+                "Emmy No-Ether",
+                TWINTRACK_EXPERIENCE,
+            )
+            .with_sheet("noether")
+            // ⛔ **a character has to author its own locomotion to be BUILT.**
+            // The traveler never needed this: the starting character is worn by
+            // the session's home avatar, which brings its own body. A second
+            // participant goes through ordinary actor construction, and that
+            // road refuses a character that cannot say how it moves rather than
+            // inheriting somebody's idea of a walk.
+            .with_locomotion(
+                ambition_platformer2d::characters::actor::CharacterLocomotion {
+                    run_speed: 540.0,
+                    move_style: ambition_platformer2d::characters::brain::MoveStyleSpec::Float,
+                    // The plaza has no gravity. Silence would resolve to GROUNDED,
+                    // which is a body falling forever through an open room.
+                    baseline_free_flight: Some(true),
+                    ..Default::default()
+                },
+            )
+            .with_voice([
+                "I am the frame everybody else is moving in.",
+                "My clock is the plaza's, by construction.",
+            ]),
+        );
     }
     app.register_audio_catalog_fragment(
         AudioCatalogFragment::new(
@@ -633,8 +709,19 @@ impl Plugin for TwinTrackExperiencePlugin {
         )
         .install(app, twintrack_prepared_session_world);
 
+        participants::install(app);
+
         let sim = app.sim_schedule();
         app.add_systems(
+            sim,
+            participants::adopt_the_laboratory_twin
+                .run_if(ambition_platformer2d::runtime::in_mode(
+                    TWINTRACK_EXPERIENCE,
+                ))
+                .before(Relativity2dSet::AdvanceCoordinateTime)
+                .in_set(WorldPrepSet::BeforeIntegrate),
+        )
+        .add_systems(
             sim,
             install_twintrack_session
                 .run_if(ambition_platformer2d::runtime::in_mode(
@@ -716,6 +803,7 @@ fn twintrack_prepared_session_world() -> PreparedPlatformerSource {
 
 fn install_twintrack_session(
     mut commands: Commands,
+    mut spawns: MessageWriter<ambition_platformer2d::actor::SpawnActorRequest>,
     mut worldlines: ResMut<WorldlineHistoryView2d>,
     roots: Query<(Entity, &SessionRoot, &ActiveRoomMetadata), Without<ActiveSpacetime2d>>,
     traveler: Query<
@@ -773,23 +861,13 @@ fn install_twintrack_session(
         .consuming(),
     ));
 
-    commands.spawn((
-        LaboratoryTwin,
-        RelativisticClock2d,
-        RelativityClockLabel("laboratory".to_owned()),
-        WorldlineTracked2d::new("laboratory"),
-        OpticalSource2d::new("laboratory", 180.0, 1.0, 18.0),
-        ProperTimeElapsed::ZERO,
-        TwinTrackExperiment::default(),
-        ae::BodyKinematics {
-            pos: LAB_POS,
-            vel: Vec2::ZERO,
-            size: Vec2::splat(32.0),
-            facing: 1.0,
-        },
-        SessionScopedEntity(root.0),
-        ambition_platformer2d::platformer::sim_id::SimId::placement("twintrack_laboratory"),
-    ));
+    // ⭐ **THE LABORATORY TWIN IS A PERSON NOW.** She used to be spawned here as
+    // a bare entity — a clock, a worldline and a 32-unit box — which is exactly
+    // why nobody could ever drive the frame the whole exhibit is measured
+    // against. `participants` asks the actor construction road for her body and
+    // adopts it the moment it exists; everything the old literal said is on
+    // `adopt_the_laboratory_twin`, beside the seat that makes it playable.
+    spawns.write(participants::laboratory_twin_request());
 
     spawn_character(
         &mut commands,

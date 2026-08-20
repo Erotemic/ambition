@@ -226,9 +226,6 @@ fn spawn_main_camera(
 ) {
     let layers = bevy::camera::visibility::RenderLayers::layer(0)
         .with(ambition_platformer2d_shared_tangle::camera_layers::PARALLAX_BACKGROUND_LAYER);
-    let camera = commands
-        .spawn((Camera2d, MainCamera, layers, Name::new("Main Camera")))
-        .id();
     // ⛔ **this read `views.iter().next()`, which is the take this whole seam
     // exists to delete.** With one view it is right; with two it silently binds
     // this rig to whichever view the archetype happened to yield first, and every
@@ -246,23 +243,43 @@ fn spawn_main_camera(
     //
     // ⭐ **and "binds them itself" is now a call, not an instruction to copy this
     // wiring**: `ambition_sim_view::compose_local_views` spawns N views with
-    // exactly the facts the engine's single-view path spawns and binds one camera
-    // to each. A composition using it skips this `Startup` set.
+    // exactly the facts the engine's single-view path spawns, binds one camera to
+    // each, and takes a `ViewPlacement` to lay them out.
+    //
+    // ⛔⛔ **AND THE UNBINDABLE RIG IS NOT SPAWNED AT ALL.** Declining only the
+    // LINK left a full-screen `MainCamera` in the world that every consumer
+    // refused — so a split-screen composition got its two correct panes plus a
+    // third camera drawing the world at the origin over the top of them, and the
+    // only trace was an `error_once` line. A rig this function cannot honestly
+    // bind is a rig nobody asked for; the front HUD camera below is spawned
+    // either way, because a composition owning its own gameplay rigs still wants
+    // one full-screen UI camera and there is nothing ambiguous about that one.
     let on_hand = ambition_sim_view::ViewsOnHand::survey(views.iter());
-    if let Some(view) = on_hand.presented_by(None) {
-        commands
-            .entity(camera)
-            .insert(ambition_sim_view::PresentsView(view));
+    match on_hand.presented_by(None) {
+        Some(view) => {
+            let camera = commands
+                .spawn((
+                    Camera2d,
+                    MainCamera,
+                    layers,
+                    ambition_sim_view::PresentsView(view),
+                    Name::new("Main Camera"),
+                ))
+                .id();
+            // ⚠ **published through the shared writer, which refuses a SECOND rig
+            // instead of letting the last one win.** `MainCameraEntity` is a
+            // single-camera spawn record with no production reader — a full-screen
+            // UI node that wants the whole display targets a display-scoped
+            // camera, not whichever gameplay rig this happens to be.
+            ambition_platformer2d_shared_tangle::camera_layers::publish_main_camera(
+                &mut commands,
+                camera,
+            );
+        }
+        None => bevy::log::info_once!(
+            "several local views exist, so the shared presentation plugin spawned no              gameplay camera: the composition that asked for those views owns their rigs              (`ambition_sim_view::compose_local_views`)."
+        ),
     }
-    // ⚠ **published through the shared writer, which refuses a SECOND rig
-    // instead of letting the last one win.** `MainCameraEntity` is a
-    // single-camera spawn record with no production reader — a full-screen UI
-    // node that wants the whole display targets a display-scoped camera, not
-    // whichever gameplay rig this happens to be.
-    ambition_platformer2d_shared_tangle::camera_layers::publish_main_camera(
-        &mut commands,
-        camera,
-    );
 
     commands.spawn((
         Camera2d,

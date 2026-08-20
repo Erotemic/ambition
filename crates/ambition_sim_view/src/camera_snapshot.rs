@@ -1230,6 +1230,10 @@ pub fn resolve_camera_observation(
             &CameraScreenFraming,
             &CameraPresentationInputs,
             &CameraReferenceFrame,
+            // **THIS VIEW's subject**, when it names one. Absent — every
+            // single-view composition — the view frames the session's, resolved
+            // once above the loop.
+            Option<&crate::local_view::ViewSubject>,
             &mut ambition_platformer2d_shared_tangle::camera_ease::CameraEaseState,
             &mut ResolvedCameraSnapshot,
         ),
@@ -1481,12 +1485,69 @@ pub fn resolve_camera_observation(
         blink_camera_from: blink_cam.blink_camera_from,
     };
     let subject_down = subject_frames.get(followed).ok().map(|frame| frame.down());
+    // **THIS VIEW's own subject, framed on its own terms.** Same three answers
+    // the session resolve produces — where to look, which way is down there, and
+    // what the snapshot should report as the follow point — for a body the
+    // session is not following.
+    //
+    // ⚠ **its own extent is its own baseline**, which is the same answer the
+    // no-home-avatar arm above gives: the crouch compensation in
+    // `CameraFocus2d::stable_center` subtracts `(base_size.y - size.y) / 2`, and
+    // there is no baseline pose to compare a spectated body against.
+    let view_focus = |subject: bevy::prelude::Entity| {
+        let kin = body_kinematics.get(subject).ok()?;
+        // The PRESENTED position, on the frame clock, for the same reason the
+        // session subject uses it: framing the tick pose while the sprite is
+        // drawn on the frame clock makes the subject shudder at speed.
+        let center = kin.pos + presented.get(subject).map_or(ae::Vec2::ZERO, |p| p.delta());
+        Some((
+            CameraFocus2d {
+                center_world: center,
+                size: kin.size,
+                base_size: kin.size,
+                facing: kin.facing,
+                velocity_world: kin.vel,
+            },
+            subject_frames.get(subject).ok().map(|frame| frame.down()),
+            center,
+        ))
+    };
     // ⭐ **what to look at is a world question; how to present it is a VIEW
     // question.** Everything above is resolved once — the followed body, the
     // room, the framing focus — and everything below is answered per observer.
-    for (viewport, screen_framing, presentation, reference_frame, mut camera_state, mut resolved) in
-        &mut views
+    for (
+        viewport,
+        screen_framing,
+        presentation,
+        reference_frame,
+        view_subject,
+        mut camera_state,
+        mut resolved,
+    ) in &mut views
     {
+        // ⭐ **A VIEW MAY NAME ITS OWN SUBJECT**, and everything that follows
+        // from whose body it is moves with it: the framing focus, the down axis
+        // orientation resolves against, and the follow point the snapshot
+        // reports.
+        //
+        // ⛔ the two the override DROPS are as deliberate as the three it
+        // replaces. `blink` is the HOME AVATAR's arrival easing — handing it to a
+        // pane watching somebody else would yank that pane when the participant
+        // blinks — and `must_frame_world` is the declared CAST's box, which is a
+        // constraint on the view that is watching the cast and on no other.
+        let (focus, subject_down, follow_world, blink, must_frame_world) =
+            match view_subject.and_then(|subject| view_focus(subject.0)) {
+                Some((own_focus, own_down, own_center)) => {
+                    (own_focus, own_down, own_center, None, None)
+                }
+                None => (
+                    focus,
+                    subject_down,
+                    player_body.pos,
+                    Some(blink),
+                    must_frame_world,
+                ),
+            };
         if room_changed {
             // Disjoint LDtk areas: reset target easing so it never interpolates
             // through unrelated world coordinates. PER VIEW, because each view
@@ -1506,7 +1567,7 @@ pub fn resolve_camera_observation(
                 encounter_scale,
                 overview_camera: developer_tools.overview_camera,
                 snap_camera,
-                blink: Some(blink),
+                blink,
                 dt: time.delta_secs(),
                 mode: CameraSnapshotResolveMode::Eased,
                 extra_clamp_center_world: presentation.extra_clamp_center_world,
@@ -1530,7 +1591,7 @@ pub fn resolve_camera_observation(
         );
         *resolved = ResolvedCameraSnapshot {
             snapshot,
-            follow_world: player_body.pos,
+            follow_world,
         };
     }
 }

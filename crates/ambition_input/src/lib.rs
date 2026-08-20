@@ -122,9 +122,9 @@ pub use bindings::{
     action_for_slot, action_name, action_named, publish_seat_bindings, rebuild_maps_from_recipes,
     ActionBindings, BindingBase, BindingRecipe, PhysicalControl, SeatBindings,
 };
+pub use cues::{ActiveUiCues, UiCue};
 #[cfg(feature = "input")]
 pub use layout::{BindingLayout, DeclaredBindingLayout, PadSlot};
-pub use cues::{ActiveUiCues, UiCue};
 pub use menu::{
     analog_to_dir, DeclaredInputSeats, MenuControlFrame, MenuDir, MenuInputFrame, MenuInputState,
     SeatMenuFrames,
@@ -138,6 +138,15 @@ pub use participant::{
 #[cfg(feature = "input")]
 pub use rebind::{also_bound_to, bindable, capture, pressed_controls_this_frame};
 pub use settings::{BindingOverride, ControlFilters, OverrideControl, OverrideDeviceClass};
+/// **HOW LOCAL SOURCES BECOME PARTICIPANTS**, and who owns the keyboard when
+/// that is a question.
+///
+/// Re-exported beside [`DeclaredInputSeats`] because the two are one statement:
+/// a surface that says *two people may play* and stops there gets two seats and
+/// one of them inert, since the default policy gives every device to the primary
+/// participant. Saying the count without saying the policy is the shape that
+/// shipped a dead second seat (TwinTrack, 2026-08-20).
+pub use sources::{InputAssignmentPolicy, KeyboardOwner};
 // ⚠ `key_name` joins this list rather than the module being opened: the crate
 // exposes a chosen surface, and a HUD legend needs exactly one function from it.
 pub use presets::{key_name, ActionKeys, KeyboardPreset, MovementKeys, PresetId};

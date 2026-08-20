@@ -83,13 +83,33 @@ pub const CAPTURE_PUMMEL: &str = "smash.capture_pummel";
 /// The effect key a throw's authored RELEASE frame emits, once.
 pub const CAPTURE_THROW: &str = "smash.capture_throw";
 
-/// **The three capture cues.** Generic shipped rows, not per-fighter art: a grab
-/// chain that reads at all beats one that reads beautifully for one character.
-/// A fighter that wants its own composes another burst on top, exactly as it
-/// would for any move.
-const GRAB_FX: &str = "smoke_burst";
-const PUMMEL_FX: &str = "classic_burst";
-const THROW_FX: &str = "shockwave";
+/// **THE THREE CUES A CAPTURE SHOWS**, authored per fighter.
+///
+/// ⛔ **they are not constants here, and three guards are the reason.** Carl,
+/// Emmy and Oiler each assert that every effect in their kit is drawn off their
+/// OWN sheet — so a shared `classic_burst` from `generic_explosions` is a real
+/// violation of a property somebody chose, not a test being fussy. The helper
+/// owns WHEN a cue fires; the fighter owns WHICH effect it is. Same split as the
+/// repertoire: centralise the vocabulary, never the design.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CaptureCues {
+    /// Fires on the grab's first LIVE frame, so a whiff reads as an attempt at
+    /// the moment it could have caught somebody.
+    pub reach: &'static str,
+    /// Fires on the pummel's own `at_s`.
+    pub impact: &'static str,
+    /// Fires on the throw's RELEASE frame.
+    pub release: &'static str,
+}
+
+impl CaptureCues {
+    /// The shipped generic rows, for a fighter whose art is generic anyway.
+    pub const GENERIC: Self = Self {
+        reach: "smoke_burst",
+        impact: "classic_burst",
+        release: "shockwave",
+    };
+}
 
 /// Authored parameters of a grab attempt.
 ///
@@ -269,16 +289,7 @@ pub fn author_standing_grab(mut spec: MoveSpec, params: CaptureAttemptParams) ->
          be live — it would play, cost its recovery, and be unable to catch anybody",
         spec.id
     );
-    // ⭐ the REACH, cued at the first live frame — so a WHIFFED grab reads as an
-    // attempt rather than as a fighter briefly doing nothing. That is the half a
-    // player needs to learn the punish window.
-    let reach_at = spec
-        .windows
-        .iter()
-        .find(|w| w.tag == ambition_entity_catalog::WindowTag::Active)
-        .map(|w| w.start_s)
-        .unwrap_or(0.0);
-    burst(spec, reach_at, GRAB_FX, 0.45)
+    spec
 }
 
 
@@ -302,6 +313,30 @@ fn burst(mut spec: MoveSpec, at_s: f32, effect: &str, scale: f32) -> MoveSpec {
     spec
 }
 
+
+/// The cue for a beat that already carries a gameplay `Effect`: it rides the
+/// SAME instant, so retuning the beat cannot leave its flash behind.
+fn cue_at_effect(spec: MoveSpec, effect: &str, scale: f32) -> MoveSpec {
+    let at = spec
+        .events
+        .iter()
+        .find(|e| matches!(e.kind, ambition_entity_catalog::MoveEventKind::Effect(_)))
+        .map(|e| e.at_s)
+        .unwrap_or(0.0);
+    burst(spec, at, effect, scale)
+}
+
+/// The grab's cue, on the first LIVE frame rather than at zero.
+fn cue_at_reach(spec: MoveSpec, effect: &str) -> MoveSpec {
+    let at = spec
+        .windows
+        .iter()
+        .find(|w| w.tag == ambition_entity_catalog::WindowTag::Active)
+        .map(|w| w.start_s)
+        .unwrap_or(0.0);
+    burst(spec, at, effect, 0.45)
+}
+
 /// Attach a pummel impact to `spec` at `at_s` of its own timeline.
 pub fn author_pummel(mut spec: MoveSpec, at_s: f32, params: CapturePummelParams) -> MoveSpec {
     spec.events.push(ambition_entity_catalog::MoveEvent {
@@ -311,9 +346,7 @@ pub fn author_pummel(mut spec: MoveSpec, at_s: f32, params: CapturePummelParams)
             params: ParamValue::from_typed(&params).expect("capture pummel params serialize"),
         }),
     });
-    // ⭐ the cue rides the SAME instant as the damage, so the hit and the flash
-    // are one beat rather than two that drift apart when a fighter retunes `at_s`.
-    burst(spec, at_s, PUMMEL_FX, 0.55)
+    spec
 }
 
 /// Attach a throw RELEASE to `spec` at `at_s` of its own timeline.
@@ -329,9 +362,7 @@ pub fn author_throw(mut spec: MoveSpec, at_s: f32, params: CaptureThrowParams) -
             params: ParamValue::from_typed(&params).expect("capture throw params serialize"),
         }),
     });
-    // Bigger than a pummel, at the RELEASE frame: a throw is the beat that ends
-    // the relationship, and it should look like the loudest thing in it.
-    burst(spec, at_s, THROW_FX, 1.15)
+    spec
 }
 
 /// **WHAT A PLATFORM-FIGHTER HOLD KNOWS ABOUT ITSELF — the policy half of a
@@ -415,6 +446,10 @@ pub struct SmashCaptureRepertoire {
     pub back_throw: Option<MoveSpec>,
     pub up_throw: Option<MoveSpec>,
     pub down_throw: Option<MoveSpec>,
+    /// **What this fighter's capture SHOWS.** [`CaptureCues::GENERIC`] for a
+    /// fighter whose art is generic; its own rows for one whose kit guards that
+    /// every effect comes off its own sheet.
+    pub cues: CaptureCues,
 }
 
 /// The verb a capture move answers to. **The one place these strings exist.**
@@ -455,11 +490,19 @@ impl SmashCaptureRepertoire {
             back_throw,
             up_throw,
             down_throw,
+            cues,
         } = self;
+        // ⭐ **the cues land HERE, in the one place that already walks every
+        // beat**, rather than inside each `author_*` helper. A fighter cannot
+        // author a throw and forget its release flash, and there is no second
+        // site to keep in agreement.
         let mut out = vec![
-            (verbs::GRAB, grab),
-            (verbs::PUMMEL, pummel),
-            (verbs::THROW_FORWARD, forward_throw),
+            (verbs::GRAB, cue_at_reach(grab, cues.reach)),
+            (verbs::PUMMEL, cue_at_effect(pummel, cues.impact, 0.55)),
+            (
+                verbs::THROW_FORWARD,
+                cue_at_effect(forward_throw, cues.release, 1.15),
+            ),
         ];
         for (verb, spec) in [
             (verbs::THROW_BACK, back_throw),
@@ -467,7 +510,7 @@ impl SmashCaptureRepertoire {
             (verbs::THROW_DOWN, down_throw),
         ] {
             if let Some(spec) = spec {
-                out.push((verb, spec));
+                out.push((verb, cue_at_effect(spec, cues.release, 1.15)));
             }
         }
         out
@@ -581,6 +624,7 @@ mod tests {
     #[test]
     fn an_unauthored_throw_is_absent_rather_than_substituted() {
         let kit = SmashCaptureRepertoire {
+            cues: CaptureCues::GENERIC,
             grab: author_standing_grab(
                 spec("g", vec![window(WindowTag::Active, 0.0, 0.1)]),
                 attempt(),
@@ -624,62 +668,86 @@ mod capture_cue_tests {
             .collect()
     }
 
-    /// **EVERY BEAT OF A CAPTURE SHOWS SOMETHING.**
+    fn kit(cues: CaptureCues) -> SmashCaptureRepertoire {
+        SmashCaptureRepertoire {
+            cues,
+            grab: author_standing_grab(
+                grab_shell("g", "attack", 0.07, 0.05, 0.2),
+                CaptureAttemptParams {
+                    offset: (12.0, 1.0),
+                    half_extents: (18.0, 15.0),
+                    hold_offset: (13.0, 3.0),
+                },
+            ),
+            pummel: author_pummel(
+                capture_beat("p", "attack", 0.18),
+                0.08,
+                CapturePummelParams { damage: 3 },
+            ),
+            forward_throw: author_throw(
+                capture_beat("t", "attack", 0.26),
+                0.14,
+                CaptureThrowParams {
+                    damage: 8,
+                    knockback: 120.0,
+                    knockback_growth: 2.0,
+                    launch_dir: (0.85, -0.55),
+                },
+            ),
+            back_throw: None,
+            up_throw: None,
+            down_throw: None,
+        }
+    }
+
+    /// **EVERY BEAT OF A CAPTURE SHOWS SOMETHING, AND SHOWS THE FIGHTER'S OWN.**
     ///
     /// ⛔ the gap this closes: the grab chain simulated correctly and was
-    /// completely invisible. A grab, a pummel and a throw each emitted their
-    /// gameplay effect and NO cue at all, so a hold read as two fighters
-    /// standing unusually close together.
+    /// completely invisible — a hold read as two fighters standing unusually
+    /// close together. ⚠ and the cue is AUTHORED, because three kits guard that
+    /// every effect in them is drawn off their own sheet; a shared row is a real
+    /// violation of that, which is how the first version of this was caught.
     #[test]
-    fn a_grab_a_pummel_and_a_throw_each_carry_a_cue() {
-        let grab = author_standing_grab(
-            grab_shell("g", "attack", 0.07, 0.05, 0.2),
-            CaptureAttemptParams {
-                offset: (12.0, 1.0),
-                half_extents: (18.0, 15.0),
-                hold_offset: (13.0, 3.0),
-            },
-        );
-        let pummel = author_pummel(
-            capture_beat("p", "attack", 0.18),
-            0.08,
-            CapturePummelParams { damage: 3 },
-        );
-        let throw = author_throw(
-            capture_beat("t", "attack", 0.26),
-            0.14,
-            CaptureThrowParams {
-                damage: 8,
-                knockback: 120.0,
-                knockback_growth: 2.0,
-                launch_dir: (0.85, -0.55),
-            },
-        );
+    fn every_capture_beat_carries_the_fighters_own_cue() {
+        let bound = kit(CaptureCues {
+            reach: "mine_reach",
+            impact: "mine_impact",
+            release: "mine_release",
+        })
+        .bound();
 
-        for (what, spec) in [("grab", &grab), ("pummel", &pummel), ("throw", &throw)] {
+        let by_verb = |v: &str| -> Vec<(f32, String)> {
+            effects(&bound.iter().find(|(verb, _)| *verb == v).unwrap().1)
+        };
+
+        // ⭐ the grab's cue sits on the REACH — the first LIVE frame, not zero —
+        // so a whiff reads as an attempt at the moment it could have caught
+        // somebody, which is the punish window a player has to learn.
+        assert_eq!(by_verb(verbs::GRAB), vec![(0.07, "mine_reach".to_string())]);
+        // The pummel and the throw ride the SAME instant as their own gameplay
+        // effect, so retuning a beat cannot leave its flash behind.
+        assert_eq!(
+            by_verb(verbs::PUMMEL),
+            vec![(0.08, "mine_impact".to_string())]
+        );
+        assert_eq!(
+            by_verb(verbs::THROW_FORWARD),
+            vec![(0.14, "mine_release".to_string())]
+        );
+    }
+
+    /// **AND A GENERIC KIT GETS THE SHIPPED ROWS**, so the eleven fighters with
+    /// no bespoke sheet are not left silent to keep the three honest.
+    #[test]
+    fn a_generic_kit_still_shows_its_capture() {
+        let bound = kit(CaptureCues::GENERIC).bound();
+        for (verb, spec) in &bound {
             assert_eq!(
                 effects(spec).len(),
                 1,
-                "the {what} carries {} cues, not one",
+                "`{verb}` carries {} cues, not one",
                 effects(spec).len()
             );
         }
-
-        // ⭐ **the grab's cue sits on the REACH, not at zero**, so a whiff reads
-        // as an attempt at the moment it could have caught somebody.
-        let reach = spec_active_start(&grab);
-        assert_eq!(effects(&grab)[0].0, reach);
-        // The pummel and the throw ride the SAME instant as their damage, which
-        // is what stops the flash drifting when a fighter retunes `at_s`.
-        assert_eq!(effects(&pummel)[0].0, 0.08);
-        assert_eq!(effects(&throw)[0].0, 0.14);
-    }
-
-    fn spec_active_start(spec: &MoveSpec) -> f32 {
-        spec.windows
-            .iter()
-            .find(|w| w.tag == ambition_entity_catalog::WindowTag::Active)
-            .map(|w| w.start_s)
-            .expect("a grab has an active window")
     }
 }

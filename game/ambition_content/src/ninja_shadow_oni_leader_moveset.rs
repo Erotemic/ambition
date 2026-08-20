@@ -41,6 +41,7 @@
 //! wearing a content commit.
 
 use ambition_characters::smash_capture::{
+    CaptureCues,
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CapturePummelParams, CaptureThrowParams, SmashCaptureRepertoire,
 };
@@ -459,6 +460,7 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
         // ⚠ the VALUES are per character on purpose. A roster whose grabs are
         // twelve copies of one number set is one grab wearing twelve names.
         capture: SmashCaptureRepertoire {
+            cues: CaptureCues::GENERIC,
             grab,
             pummel,
             forward_throw,

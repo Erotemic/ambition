@@ -55,6 +55,7 @@
 
 use ambition_characters::moveset_prefabs::{SLASH_ARC_VFX, SLASH_POKE_VFX};
 use ambition_characters::smash_capture::{
+    CaptureCues,
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CapturePummelParams, CaptureThrowParams, SmashCaptureRepertoire,
 };
@@ -610,6 +611,13 @@ pub fn oiler_moveset() -> MovesetContract {
         // ⚠ the VALUES are per character on purpose. A roster whose grabs are
         // twelve copies of one number set is one grab wearing twelve names.
         capture: SmashCaptureRepertoire {
+            // ⭐ the bearing he closes on, the friction each pummel adds, and the geyser that launches you — his kit guards that every effect comes off his
+            // own sheet, and a shared `classic_burst` would violate it.
+            cues: CaptureCues {
+                reach: "bearing_ping",
+                impact: "friction_tick",
+                release: "oil_geyser_impact",
+            },
             grab,
             pummel,
             forward_throw,

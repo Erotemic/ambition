@@ -591,6 +591,7 @@ pub fn fighter_moveset() -> MovesetContract {
     // already author one: slower than the admiral's `0.07` snatch, faster than
     // George's `0.16` commitment, and its throw sits below both a smash and his.
     let capture = ambition_platformer2d::characters::smash_capture::SmashCaptureRepertoire {
+        cues: ambition_platformer2d::characters::smash_capture::CaptureCues::GENERIC,
         grab: ambition_platformer2d::characters::smash_capture::author_standing_grab(
             ambition_platformer2d::characters::smash_capture::grab_shell(
                 "grab", "grab", 0.12, 0.05, 0.24,

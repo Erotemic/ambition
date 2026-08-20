@@ -41,6 +41,7 @@ use ambition_platformer2d::characters::moveset_authoring::{
     committed_tail, impulse, on_contact, sfx, strike, vfx_at,
 };
 use ambition_platformer2d::characters::smash_capture::{
+    CaptureCues,
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CapturePummelParams, CaptureThrowParams, SmashCaptureRepertoire,
 };
@@ -470,6 +471,7 @@ pub fn sanic_moveset() -> MovesetContract {
         // proven on George and the Pirate Admiral, and the point of proving it
         // was to stop being the only two.
         capture: SmashCaptureRepertoire {
+            cues: CaptureCues::GENERIC,
             grab,
             pummel,
             forward_throw,

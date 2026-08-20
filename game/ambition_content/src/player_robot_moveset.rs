@@ -18,6 +18,7 @@
 //! Smash read it as a platform fighter.
 
 use ambition_characters::smash_capture::{
+    CaptureCues,
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CapturePummelParams, CaptureThrowParams, SmashCaptureRepertoire,
 };
@@ -453,6 +454,7 @@ pub fn player_robot_moveset() -> MovesetContract {
         // ⚠ the VALUES are per character on purpose. A roster whose grabs are
         // twelve copies of one number set is one grab wearing twelve names.
         capture: SmashCaptureRepertoire {
+            cues: CaptureCues::GENERIC,
             grab,
             pummel,
             forward_throw,

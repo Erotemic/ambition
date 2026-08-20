@@ -53,6 +53,7 @@
 //! `RangedExecution` exists to prevent.
 
 use ambition_characters::smash_capture::{
+    CaptureCues,
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CapturePummelParams, CaptureThrowParams, SmashCaptureRepertoire,
 };
@@ -532,6 +533,7 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
         // provider** — this crate, not the smash demo. That is the falsifier:
         // the capture vocabulary is not quietly tied to one game-owned file.
         capture: SmashCaptureRepertoire {
+            cues: CaptureCues::GENERIC,
             grab,
             pummel,
             forward_throw,

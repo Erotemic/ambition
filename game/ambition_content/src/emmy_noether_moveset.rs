@@ -76,6 +76,7 @@
 
 use ambition_characters::moveset_prefabs::{SLASH_ARC_VFX, SLASH_POKE_VFX};
 use ambition_characters::smash_capture::{
+    CaptureCues,
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CapturePummelParams, CaptureThrowParams, SmashCaptureRepertoire,
 };
@@ -771,6 +772,13 @@ pub fn emmy_noether_moveset() -> MovesetContract {
         // ⚠ the VALUES are per character on purpose. A roster whose grabs are
         // twelve copies of one number set is one grab wearing twelve names.
         capture: SmashCaptureRepertoire {
+            // ⭐ the axis she snaps you onto, the transfer each pummel makes, and the bridge she throws you across — her kit guards that every effect comes off her
+            // own sheet, and a shared `classic_burst` would violate it.
+            cues: CaptureCues {
+                reach: "symmetry_axis_snap",
+                impact: "conservation_transfer",
+                release: "equivalence_bridge",
+            },
             grab,
             pummel,
             forward_throw,

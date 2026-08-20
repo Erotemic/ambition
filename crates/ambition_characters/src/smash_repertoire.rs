@@ -317,6 +317,7 @@ mod tests {
             // that reaches `bound()` is the honest fixture — not a placeholder
             // that would make the capture verbs untested here.
             capture: crate::smash_capture::SmashCaptureRepertoire {
+            cues: crate::smash_capture::CaptureCues::GENERIC,
                 grab: crate::smash_capture::author_standing_grab(
                     crate::smash_capture::grab_shell("grab", "attack", 0.07, 0.05, 0.2),
                     crate::smash_capture::CaptureAttemptParams {

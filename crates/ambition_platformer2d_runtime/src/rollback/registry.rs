@@ -319,6 +319,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// it also moved `ambition_cutscene` and `ambition_demo_twintrack`, which is the
 /// instrument CHANGING and NOT a wire change in either: neither file was edited.
 ///
+/// ⚠ **v44 (2026-08-20) is `ShieldTuning::pushback_per_damage`**, one float in
+/// the motion codec, put and read. The guard's third cost — a block moves the
+/// body behind it — and the tuning rides the axis-swept projection like the
+/// other six.
 /// ⚠ **v43 (2026-08-20) is `BodyJumpState::footstool_claimed`**, one bool on a
 /// `snapshot_pod!` component, so the pod body folds it by name and the row moves.
 /// ⭐ **it exists because v42's footstool was arbitrated in the wrong place.** The
@@ -434,7 +438,7 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// `message.spawn_projectile` keeps its stable key while its concrete message
 /// becomes `ProjectileSpawnRequest`, so abandoned-future spawn requests remain
 /// cleared on load through the same wire identity.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 43;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 44;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

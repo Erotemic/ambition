@@ -40,9 +40,9 @@ you add a `▢`, and before you work one.
 | Grab beats shield | ✔ | same |
 | Pummel | ✔ | `CapturePummelRequested` |
 | Four throws authored per fighter | ✔ | `characters/smash_capture.rs` |
-| Mash escape | ✔ | `actor_monolith/features/ecs/capture.rs` |
-| Timed hold limit | ✔ | `CAPTURE_HOLD_LIMIT_SECONDS` |
-| Escape difficulty scales with victim damage | ▢ | `CAPTURE_ESCAPE_PER_PRESS` is a constant |
+| Mash escape | ✔ | `capture.rs`; `DeclaredCombatRules::grab_mash_seconds`, 14.4f per press |
+| Timed hold limit | ✔ | `grab_hold_max_seconds`; the baseline's flat 4.0s is `FLAT_GRAB_HOLD_SECONDS` |
+| Escape difficulty scales with victim damage | ✔ | `grab_hold_base_seconds` + `grab_hold_per_damage`, Ultimate's 90 + 1.7p, read ONCE at the grab |
 | Grab release (grounded/aerial) as its own beat | ▢ | — |
 | Dash grab / pivot grab distinction | ▢ | one standing grab per fighter |
 | Command grabs (a special that captures) | ▢ | the capture effect is reachable; no fighter authors one |
@@ -153,8 +153,10 @@ and leaves the values rough; tuning is not this lane's licence.
 2. ~~**The missing sprite rows**~~ — landed 2026-08-20, and the row was WRONG:
    the art ships. Carl's sheet has `grabbed`, `pummel`, `throw_forward/_back/
    _up/_down`, `grab_hold` and `dizzy`; nothing ever asked the sheet for them.
-3. **Grab depth** — escape difficulty scaling with damage, dash/pivot grabs,
-   grab release as its own beat.
+3. **Grab depth** — ~~escape difficulty scaling with damage~~ (landed
+   2026-08-20: `DeclaredCombatRules::grab_hold_*`, Ultimate's 90 + 1.7p read
+   ONCE at the grab); still open are dash/pivot grabs and grab release as its
+   own beat.
 4. **Ledge trump and ledge-intangibility decay.**
 5. **Match rules** — timer, sudden death, friendly-fire toggle, respawn platform.
 6. **SDI, spot dodge, crouch cancel, jostle, wall tech** — the remaining verbs.

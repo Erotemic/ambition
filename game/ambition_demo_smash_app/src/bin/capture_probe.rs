@@ -234,10 +234,8 @@ fn main() {
             &CapturedBy,
             &ambition_platformer2d::characters::smash_capture::SmashHoldState,
         )>();
-        let now: HashMap<bevy::prelude::Entity, SmashHoldState> = query
-            .iter(world)
-            .map(|(e, _, state)| (e, *state))
-            .collect();
+        let now: HashMap<bevy::prelude::Entity, SmashHoldState> =
+            query.iter(world).map(|(e, _, state)| (e, *state)).collect();
         for (victim, held) in &now {
             if !live.contains_key(victim) {
                 tally.holds += 1;
@@ -252,7 +250,7 @@ fn main() {
             if now.contains_key(victim) {
                 continue;
             }
-            if last.escape_progress >= 1.0 {
+            if last.escaped() {
                 tally.escaped += 1;
             } else if last.held_for >= 3.9 {
                 tally.timed_out += 1;

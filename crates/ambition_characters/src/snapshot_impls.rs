@@ -31,12 +31,13 @@ snapshot_unit_enum!(crate::actor::ai::CharacterAiMode {
 
 // **The platform-fighter half of a capture.** Split off
 // `ambition_combat::capture::CapturedBy` on 2026-08-19: the relation is generic
-// and these three are the ruleset's, so they rewind under this crate's ownership
+// and these four are the ruleset's, so they rewind under this crate's ownership
 // rather than widening a row somebody else owns.
 snapshot_pod!(crate::smash_capture::SmashHoldState {
     pummels_landed: u8,
     held_for: f32,
-    escape_progress: f32,
+    mash_credit: f32,
+    escape_seconds: f32,
 });
 
 snapshot_pod!(crate::actor::body::BodyCombat {

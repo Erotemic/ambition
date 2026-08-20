@@ -773,6 +773,13 @@ fn track_versus_roster(
                 // enough for a queue to mean anything.
                 stale_step: 0.0,
                 stale_floor: 1.0,
+                // ⚠ a versus round ends on health, and its grabs are the
+                // engine's flat hold rather than a percent mechanic.
+                grab_hold_base_seconds:
+                    ambition_platformer2d::combat::rules::FLAT_GRAB_HOLD_SECONDS,
+                grab_hold_per_damage: 0.0,
+                grab_hold_max_seconds: ambition_platformer2d::combat::rules::FLAT_GRAB_HOLD_SECONDS,
+                grab_mash_seconds: ambition_platformer2d::combat::rules::FLAT_GRAB_MASH_SECONDS,
                 // ⚠ the generic versus stage stays FLAT for now: its rounds end
                 // on health rather than on a blast zone, so a launch that grows
                 // without bound is a different game's mechanic. Smash declares
@@ -1042,9 +1049,7 @@ pub fn compose_versus_experience(app: &mut App) {
             // frame this route opens sized the whole match from what was
             // plugged in. Same schedule, so this is a real edge; a cross-
             // schedule `.after` would be silently vacuous.
-            .before(
-                ambition_platformer2d::rollback::local_session::LocalSessionSet::Maintain,
-            ),
+            .before(ambition_platformer2d::rollback::local_session::LocalSessionSet::Maintain),
     );
 
     declare_versus_experience_scope(app);

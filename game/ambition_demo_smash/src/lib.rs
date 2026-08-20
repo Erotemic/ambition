@@ -914,6 +914,21 @@ pub fn smash_declared_combat_rules() -> ambition_platformer2d::combat::rules::De
         // barely half. Vary and the old one recovers — the ring forgets.
         stale_step: 0.05,
         stale_floor: 0.55,
+        // ⭐ **A GRAB HOLDS THE HURT FIGHTER LONGER**, which is Ultimate's
+        // 90 + 1.7p frames: 1.5s at 0%, ~4.3s at 100%. It makes the grab a
+        // percent mechanic like the launch is, so the body that is losing is
+        // the body a grab is worth spending your commitment on.
+        //
+        // ⚠ the percent is read AT THE GRAB, so pummelling does not extend the
+        // hold it earns you — a pummel is a decision, not a free extension.
+        grab_hold_base_seconds: 90.0 / 60.0,
+        grab_hold_per_damage: 1.7 / 60.0,
+        // The captor's answer to the same question: however hurt the captive
+        // is, a hold nobody ends still ends.
+        grab_hold_max_seconds: 6.0,
+        // ⚠ 14.4 frames per press, Ultimate's rate, so mashing is the captive's
+        // real option rather than a gesture at one.
+        grab_mash_seconds: 14.4 / 60.0,
         // ⚠ teams already decide who may hit whom. Switching global friendly
         // fire on to let two humans trade would make TEAMMATES hittable too.
         friendly_fire: false,

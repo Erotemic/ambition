@@ -112,7 +112,10 @@ pub fn acquire_captures(
     mut playbacks: Query<&mut ambition_combat::moveset::MovePlayback>,
     tuning: Option<Res<ambition_combat::rules::ResolvedCombatTuning>>,
 ) {
-    let friendly_fire = tuning.map(|t| t.friendly_fire()).unwrap_or_default();
+    // ⚠ the WHOLE resolved row, not just the friendly-fire flag: a hold's
+    // deadline is a declared rule too, and it is decided at acquisition.
+    let rules = tuning.map(|t| *t).unwrap_or_default();
+    let friendly_fire = rules.friendly_fire();
     for attempt in attempts.read() {
         let Ok(captor) = captors.get(attempt.captor) else {
             continue;
@@ -253,9 +256,21 @@ pub fn acquire_captures(
         // Pummel count, hold age and escape progress are platform-fighter
         // policy; `CapturedBy` is the relation and answers none of them. A hold
         // without this component is one this ruleset has no opinion about.
-        commands
-            .entity(victim)
-            .insert(ambition_characters::smash_capture::SmashHoldState::default());
+        //
+        // ⭐ **and its deadline is decided HERE, once, from the captive's damage
+        // at the moment it was caught.** That is the genre's rule — a hold does
+        // not grow because its captor pummelled — and it is why the seconds are
+        // stored rather than asked for again every tick.
+        commands.entity(victim).insert(
+            ambition_characters::smash_capture::SmashHoldState::lasting(
+                rules.grab_hold_seconds(
+                    participants
+                        .get(victim)
+                        .map(|body| body.health.damage_taken())
+                        .unwrap_or(0),
+                ),
+            ),
+        );
     }
 }
 
@@ -314,15 +329,12 @@ impl CaptureFacts {
     }
 }
 
-// ⭐ **THE TWO ESCAPE/TIMEOUT CONSTANTS MOVED TO THE FIGHTER CAPABILITY**
-// (`ambition_characters::smash_capture`) on 2026-08-19. A grab timeout and a
-// mash rate are platform-fighter rules; this crate is the generic actor road
-// and had no business deciding either. Re-exported rather than deleted so the
-// call sites and tests that name them here keep working, and so the move is
-// visible to anyone who looks for them where they used to be.
-pub use ambition_characters::smash_capture::{
-    CAPTURE_ESCAPE_PER_PRESS, CAPTURE_HOLD_LIMIT_SECONDS,
-};
+// ⭐ **AND THEN THE CONSTANTS STOPPED BEING CONSTANTS** (2026-08-20). They moved
+// to the fighter capability on 2026-08-19 because a grab timeout and a mash rate
+// are platform-fighter rules; they are now `DeclaredCombatRules::grab_hold_*` and
+// `grab_mash_seconds`, because they are rules a MATCH declares rather than
+// numbers a crate holds. The baseline an undeclared world falls back to is
+// `combat::rules::FLAT_GRAB_HOLD_SECONDS`, which is the 4.0 that lived here.
 
 /// **The captive's restricted channel: a mash reaches the hold, and nothing
 /// else does.**
@@ -366,7 +378,9 @@ pub fn sample_capture_escape(
         // which is exactly why it would not have shown up as a bug.
         bevy::prelude::With<CapturedBy>,
     >,
+    tuning: Option<Res<ambition_combat::rules::ResolvedCombatTuning>>,
 ) {
+    let rules = tuning.map(|t| *t).unwrap_or_default();
     for (mut held, control) in &mut captives {
         let frame = &control.0;
         // Any action press. Asking for one specific button would be a
@@ -379,7 +393,7 @@ pub fn sample_capture_escape(
             || frame.grab_pressed
             || frame.projectile_pressed;
         if pressed {
-            held.escape_progress += CAPTURE_ESCAPE_PER_PRESS;
+            held.mash_credit += rules.grab_mash_seconds;
         }
     }
 }
@@ -413,7 +427,7 @@ pub fn tick_capture_holds(
     let dt = time.scaled_dt;
     for (victim, held, mut state, surface, holds) in &mut captives {
         state.held_for += dt;
-        if state.escape_progress < 1.0 && state.held_for < CAPTURE_HOLD_LIMIT_SECONDS {
+        if !state.escaped() {
             continue;
         }
         let ended = *held;
@@ -518,6 +532,15 @@ mod tests {
         }
     }
 
+    /// A hold built the way `acquire_captures` builds one, for a fixture that
+    /// hands a body its relation directly. ⛔ NOT `SmashHoldState::default()`:
+    /// that row's `escape_seconds` is `0.0`, which is a hold already over.
+    fn fresh_hold() -> ambition_characters::smash_capture::SmashHoldState {
+        ambition_characters::smash_capture::SmashHoldState::lasting(
+            ambition_combat::rules::ResolvedCombatTuning::default().grab_hold_seconds(0),
+        )
+    }
+
     fn capture_app() -> App {
         let mut app = App::new();
         app.add_message::<CaptureAttemptRequested>();
@@ -580,6 +603,78 @@ mod tests {
             facts(&app, captor),
             (false, false),
             "the captor kept the hold pose after letting go"
+        );
+    }
+
+    /// **A HURT CAPTIVE IS HELD LONGER, AND THE HOLD DOES NOT GROW UNDER IT.**
+    ///
+    /// ⛔ two claims, and the second is the one a caching shortcut would lose.
+    /// Ultimate reads the captive's percent AT THE GRAB; a hold that re-read it
+    /// every tick would lengthen every time its captor pummelled, which turns a
+    /// pummel from a decision into a free extension of an advantage you already
+    /// hold. So the deadline is measured once and then damage is piled on with
+    /// the hold still running.
+    #[test]
+    fn a_hold_is_measured_from_the_damage_the_captive_had_when_it_was_caught() {
+        let rules = ambition_combat::rules::ResolvedCombatTuning {
+            grab_hold_base_seconds: 1.0,
+            grab_hold_per_damage: 0.02,
+            grab_hold_max_seconds: 10.0,
+            ..Default::default()
+        };
+        let deadline = |damage: i32| {
+            let mut app = capture_app();
+            app.insert_resource(rules);
+            let captor = grounded_body(&mut app, "captor", ae::Vec2::ZERO);
+            let victim = grounded_body(&mut app, "victim", ae::Vec2::new(16.0, 0.0));
+            // ⚠ a DIFFERENT faction: `grounded_body` makes everybody an enemy,
+            // and a captor may not grab its own side with friendly fire off.
+            app.world_mut()
+                .entity_mut(victim)
+                .insert(crate::features::ActorFaction::Player);
+            app.world_mut().entity_mut(victim).insert(
+                ambition_characters::actor::BodyHealth::restored(
+                    ambition_characters::actor::Health {
+                        current: 100,
+                        max: 100,
+                        invulnerable: Default::default(),
+                    },
+                    damage,
+                    Default::default(),
+                ),
+            );
+            app.world_mut().write_message(attempt(captor));
+            app.update();
+            assert!(
+                app.world().get::<CapturedBy>(victim).is_some(),
+                "no capture was established, so this measured nothing"
+            );
+            let held = *app
+                .world()
+                .get::<ambition_characters::smash_capture::SmashHoldState>(victim)
+                .expect("a held body carries the ruleset's hold state");
+            (app, victim, held.escape_seconds)
+        };
+
+        let (_, _, fresh) = deadline(0);
+        let (mut app, victim, hurt) = deadline(50);
+        assert_eq!(fresh, 1.0);
+        assert_eq!(hurt, 2.0, "the captive's damage did not lengthen the hold");
+
+        // ⛔ and now hurt it FURTHER, mid-hold. The deadline must not move.
+        app.world_mut()
+            .get_mut::<ambition_characters::actor::BodyHealth>(victim)
+            .expect("the captive kept its health")
+            .damage(40);
+        app.update();
+        assert_eq!(
+            app.world()
+                .get::<ambition_characters::smash_capture::SmashHoldState>(victim)
+                .expect("still held")
+                .escape_seconds,
+            hurt,
+            "damage dealt DURING the hold extended it — a pummel is supposed to \
+             cost the captor its throw window, not buy more of one"
         );
     }
 
@@ -655,7 +750,7 @@ mod tests {
             .world()
             .get::<ambition_characters::smash_capture::SmashHoldState>(victim)
             .expect("a held body carries the ruleset's hold state")
-            .escape_progress;
+            .mash_credit;
         assert!(
             while_held > 0.0,
             "mashing while held credited nothing, so the sampler is not running"
@@ -670,7 +765,7 @@ mod tests {
             .world()
             .get::<ambition_characters::smash_capture::SmashHoldState>(victim)
             .expect("the state stays on the body, and that is fine")
-            .escape_progress;
+            .mash_credit;
         assert_eq!(
             after_release, while_held,
             "a body nobody is holding kept accumulating escape progress — the \
@@ -764,7 +859,7 @@ mod tests {
                 hold_offset_local: ae::Vec2::new(20.0, -4.0),
                 prior_gravity_scale: 1.0,
             },
-            ambition_characters::smash_capture::SmashHoldState::default(),
+            fresh_hold(),
         ));
         app.update();
         let kin = app.world().get::<ae::BodyKinematics>(victim).unwrap();
@@ -824,7 +919,7 @@ mod tests {
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
                 prior_gravity_scale: 1.0,
             },
-            ambition_characters::smash_capture::SmashHoldState::default(),
+            fresh_hold(),
         ));
         app.update();
         let held = &app
@@ -940,7 +1035,7 @@ mod tests {
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
                 prior_gravity_scale: 1.0,
             },
-            ambition_characters::smash_capture::SmashHoldState::default(),
+            fresh_hold(),
         ));
 
         app.update();
@@ -974,7 +1069,7 @@ mod tests {
             },
             // ⚠ the ruleset's half of the hold: without it there is no
             // clock and nothing to mash out of.
-            ambition_characters::smash_capture::SmashHoldState::default(),
+            fresh_hold(),
         ));
         app.world_mut().entity_mut(captor).despawn();
 
@@ -1035,8 +1130,12 @@ mod tests {
                     prior_gravity_scale: 1.0,
                 },
                 // ⚠ the ruleset's half of the hold: without it there is no
-                // clock and nothing to mash out of.
-                ambition_characters::smash_capture::SmashHoldState::default(),
+                // clock and nothing to mash out of. ⛔ built the way acquisition
+                // builds it — this app installs no `ResolvedCombatTuning`, so
+                // the deadline is the undeclared world's flat hold.
+                ambition_characters::smash_capture::SmashHoldState::lasting(
+                    ambition_combat::rules::ResolvedCombatTuning::default().grab_hold_seconds(0),
+                ),
             ));
 
             let mut ticks = 0;
@@ -1077,8 +1176,12 @@ mod tests {
              {waited}) — the captive's input never reached the relationship, \
              which is the whole claim the restricted channel makes"
         );
+        // ⚠ this app installs no `ResolvedCombatTuning`, so the ceiling is the
+        // undeclared world's — asked of the same value the system asks, rather
+        // than of a constant a reader would have to trust still matches it.
+        let ceiling = ambition_combat::rules::ResolvedCombatTuning::default().grab_hold_max_seconds;
         assert!(
-            waited <= (CAPTURE_HOLD_LIMIT_SECONDS * 60.0).ceil() as i32 + 1,
+            waited <= (ceiling * 60.0).ceil() as i32 + 1,
             "the hold outlived its own stated ceiling"
         );
     }
@@ -1119,7 +1222,7 @@ mod tests {
                 },
                 // ⚠ the ruleset's half of the hold: without it there is no
                 // clock and nothing to mash out of.
-                ambition_characters::smash_capture::SmashHoldState::default(),
+                fresh_hold(),
             ));
             // The interruption: the captor is hit.
             app.world_mut()
@@ -1222,7 +1325,7 @@ mod tests {
             },
             // ⚠ the ruleset's half of the hold: without it there is no
             // clock and nothing to mash out of.
-            ambition_characters::smash_capture::SmashHoldState::default(),
+            fresh_hold(),
         ));
 
         for _ in 0..2 {
@@ -1294,7 +1397,7 @@ mod tests {
             },
             // ⚠ the ruleset's half of the hold: without it there is no
             // clock and nothing to mash out of.
-            ambition_characters::smash_capture::SmashHoldState::default(),
+            fresh_hold(),
         ));
         (app, captor, victim)
     }
@@ -1412,7 +1515,7 @@ mod tests {
                 hold_offset_local: ae::Vec2::new(18.0, 0.0),
                 prior_gravity_scale: 1.0,
             },
-            ambition_characters::smash_capture::SmashHoldState::default(),
+            fresh_hold(),
         ));
         app.world_mut().write_message(attempt(captor));
         app.update();

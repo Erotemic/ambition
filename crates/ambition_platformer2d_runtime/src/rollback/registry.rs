@@ -319,6 +319,22 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// it also moved `ambition_cutscene` and `ambition_demo_twintrack`, which is the
 /// instrument CHANGING and NOT a wire change in either: neither file was edited.
 ///
+/// ⚠ **v48 (2026-08-20) is `SmashHoldState::escape_seconds`**, one f32 on a
+/// `snapshot_pod!` component, so the pod body folds it by name and the row
+/// widens. ⚠ `escape_progress` is RENAMED to `mash_credit` in the same commit;
+/// the rename moves no bytes, and the codec's one extra primitive is the new
+/// field alone.
+/// ⭐ **the field exists because the hold's length stopped being a constant.** A
+/// grab now holds a body for `90 + 1.7p` frames of ITS OWN damage, read once
+/// when the hold begins — Ultimate's rule, and the reason it is stored rather
+/// than recomputed is that a hold which re-read the percent every tick would
+/// grow every time its captor pummelled.
+/// ⚠ **the codec-shape guard reddened on the RENAME too, and that is a known
+/// false positive of its `snapshot_pod!` fold**: it hashes the macro body
+/// verbatim, field names included, where the array fold deliberately takes *"the
+/// COUNT, never the names"*. Harmless here — the new field is a real wire change
+/// and the bump is owed anyway — but a commit that ONLY renamed a pod field
+/// would redden it for nothing.
 /// ⚠ **v47 (2026-08-20) is `FootstoolTuning::air_tumble_time` and
 /// `stomper_invuln`**, two floats in the motion codec, put and read
 /// (338 -> 342 primitives). The first splits the
@@ -467,7 +483,7 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// `message.spawn_projectile` keeps its stable key while its concrete message
 /// becomes `ProjectileSpawnRequest`, so abandoned-future spawn requests remain
 /// cleared on load through the same wire identity.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 47;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 48;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

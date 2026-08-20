@@ -398,27 +398,48 @@ pub struct SmashHoldState {
     /// is a third party's. Without an age, a fighter who grabs and then does
     /// nothing holds a body for the rest of the match.
     pub held_for: f32,
-    /// **What the captive's OWN input has contributed toward getting out**, as a
-    /// fraction of one escape.
+    /// **What the captive's OWN input has bought toward getting out**, in the
+    /// same seconds [`Self::held_for`] counts.
     ///
     /// ⭐ **the shape matters more than the number.** A captive is not a body
     /// whose input ceased to exist — it is a body whose input reaches a
     /// restricted channel, and this is that channel's accumulator.
-    pub escape_progress: f32,
+    ///
+    /// ⚠ **seconds rather than a fraction of one escape, since 2026-08-20**, so
+    /// that mashing and waiting are the same currency: the hold a fighter earns
+    /// now depends on the captive's damage, and a fraction of a variable target
+    /// is a number nothing can compare against anything.
+    pub mash_credit: f32,
+    /// **How long THIS hold lasts**, decided when it began.
+    ///
+    /// ⛔ **stored rather than recomputed, and that is the genre's rule rather
+    /// than a caching trick.** Ultimate reads the captive's percent AT THE GRAB;
+    /// a hold that re-read it every tick would grow every time its captor
+    /// pummelled, which turns a pummel from a decision into a free extension of
+    /// the advantage you already have.
+    pub escape_seconds: f32,
 }
 
-/// **How long a hold lasts before it lets go on its own.**
-///
-/// ⚠ moved here from the generic actor monolith on 2026-08-19: a timeout is a
-/// platform-fighter rule, not a property of one body constraining another.
-pub const CAPTURE_HOLD_LIMIT_SECONDS: f32 = 4.0;
+impl SmashHoldState {
+    /// **A fresh hold that lasts `escape_seconds`.**
+    ///
+    /// ⛔ **the only way to start one, and `Default` is not it.** A default row
+    /// has `escape_seconds == 0.0`, which [`Self::escaped`] correctly reads as a
+    /// hold already over — so a fixture that reached for `default()` would watch
+    /// its capture end on tick one and call that a timeout.
+    pub fn lasting(escape_seconds: f32) -> Self {
+        Self {
+            escape_seconds,
+            ..Default::default()
+        }
+    }
 
-/// **What one mash press buys the captive**, as a fraction of one escape.
-///
-/// ⚠ chosen so a captive mashing at a human rate gets out in less than
-/// [`CAPTURE_HOLD_LIMIT_SECONDS`] — the only property v1 claims. Moved here with
-/// its sibling, and for the same reason.
-pub const CAPTURE_ESCAPE_PER_PRESS: f32 = 0.05;
+    /// **Is this hold over?** The ONE place the two clocks are compared, so no
+    /// caller can end a hold by half the rule.
+    pub fn escaped(&self) -> bool {
+        self.held_for + self.mash_credit >= self.escape_seconds
+    }
+}
 
 /// **A fighter's capture kit.**
 ///

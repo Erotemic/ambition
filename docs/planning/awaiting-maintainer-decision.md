@@ -892,6 +892,46 @@ see still fails in the independent consumer.
 
 ### 23. ▢ NEW 2026-08-19 — five `the_stage_kills` guards are RED, three of them from the legality filter, and the prescribed fix contradicts a deliberate fairness property
 
+⛔⛔ **MEASURED 2026-08-20: THOSE FIVE TESTS RUN A MATCH WITH NO SMASH COMBAT
+RULES AT ALL, AND THAT INVALIDATES EVERY DIAGNOSIS TAKEN IN THEM — INCLUDING THE
+LIMIT-CYCLE ONE BELOW.**
+
+Probed inside a live `the_stage_kills` run, every tick for 2398 ticks:
+
+```text
+jostle_accel        = 0      declared 600.0 by smash
+crouch_cancel_scale = 1.0    declared 0.85 by smash   ← the BASELINE
+DeclaredCombatRules present = false
+```
+
+⭐ **the cause is one call site.** `smash_declared_combat_rules()` is invoked
+only inside `start_the_battle_when_asked` — the system that starts a battle
+**from the select screen**. All five of these tests reach the match by writing
+`ShellCommand::GoTo(SMASH_GAMEPLAY_ROUTE)` directly, which is a real shell road
+and skips that system entirely.
+
+⇒ **so meteor lock, rage, staling, crouch cancel, grab depth, SDI, the parry
+timing and jostle are ALL inert in this suite.** Every one of them was built and
+gated on evidence taken somewhere else; none of them has ever been exercised
+here. A fighter in these tests is playing the undeclared baseline ruleset.
+
+⚠ **and the limit cycle is still real but its explanation is not settled.** The
+measurement that produced it — two brains closing, passing through, overshooting
+to opposite edges forever — was taken in this same ruleless match. Jostle may
+well be the missing mechanic; it cannot be shown to be by a suite where jostle
+is switched off.
+
+⇒ **the next step is a FIXTURE repair, not a feature.** Either these tests enter
+through select the way a player does, or they declare the ruleset explicitly and
+say why. ⛔ do not "fix" them by relaxing an assertion: the standing rule is to
+repair an unrealistic fixture to model production construction, and a match with
+no declared rules is exactly that.
+
+⚠ **the open question this raises for the ENGINE, not the test**: can production
+reach `SMASH_GAMEPLAY_ROUTE` without passing through select — a resume, a debug
+route, a deep link? If it can, this is a live defect and not a fixture problem,
+and the declaration belongs on ROUTE ENTRY rather than on leaving the lobby.
+
 **The question: what breaks the two CPUs' mirror, given that the fix the code
 prescribes is a per-seat spawn ASYMMETRY and seat placement is deliberately
 SYMMETRIC?**

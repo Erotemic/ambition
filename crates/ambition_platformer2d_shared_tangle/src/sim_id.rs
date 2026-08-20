@@ -112,7 +112,7 @@ impl SimId {
     }
 
     /// A player body, by its slot. Not by which entity happens to hold the brain:
-    /// possession transfers `Brain::Player(slot)` between bodies, and the body's
+    /// possession transfers `DrivingParticipant(slot)` between bodies, and the body's
     /// identity does not travel with it.
     pub fn player_slot(slot: u8) -> Self {
         Self(format!("slot:{slot}"))

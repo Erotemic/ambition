@@ -200,9 +200,10 @@ pub fn host_presentation_scaffold(commands: &mut Commands) {
     // portal-window meshes, and the main-camera-only parallax layer. It NO LONGER
     // carries `IsDefaultUiCamera`: the default UI camera is now the dedicated
     // FRONT camera below (order 9), so all bevy_ui draws IN FRONT of the order-8
-    // cube-menu `Camera3d`. The cube's dim-scrim is the one exception and is
-    // explicitly retargeted back to this camera (see
-    // `lunex_kaleidoscope_app::spawn_kaleidoscope_scrim`) so it stays BEHIND the cube.
+    // cube-menu `Camera3d`. The cube's dim-scrim is the one exception — it must
+    // draw BEHIND the cube — and it owns a display-scoped UI camera of its own
+    // for that (see `menu::kaleidoscope_app::scrim`). It used to borrow THIS
+    // camera, which made a full-screen scrim inherit the gameplay rectangle.
     let mut main_camera_layers = bevy::camera::visibility::RenderLayers::layer(0)
         .with(ambition_platformer2d::platformer::camera_layers::PARALLAX_BACKGROUND_LAYER);
     #[cfg(feature = "portal_render")]
@@ -262,7 +263,10 @@ pub fn host_presentation_scaffold(commands: &mut Commands) {
     // camera, so with several views there is no view it can honestly claim to
     // present. Refusing (the rule's own answer, logged once) leaves the link off,
     // and every consumer then declines loudly instead of drawing an arbitrary
-    // view through this rig. A composition that wants two rigs binds them itself.
+    // view through this rig. A composition that wants two rigs binds them itself
+    // with `ambition_platformer2d::sim_view::compose_local_views`, which spawns N
+    // views carrying exactly the facts the engine's single-view path spawns and
+    // binds one camera to each.
     commands.queue(move |world: &mut bevy::prelude::World| {
         let mut views = world.query_filtered::<
             bevy::prelude::Entity,
@@ -277,8 +281,16 @@ pub fn host_presentation_scaffold(commands: &mut Commands) {
         }
     });
 
-    commands.insert_resource(
-        ambition_platformer2d::platformer::camera_layers::MainCameraEntity(main_camera),
+    // ⚠ **a single-camera SPAWN RECORD, published through the shared writer that
+    // complains about a second rig instead of letting the last one win.** Nothing
+    // in production reads it: `camera_follow` and the viewport applier each
+    // resolve through the camera's own `PresentsView` link, and the cube's
+    // full-screen dim-scrim now targets its own display-scoped UI camera rather
+    // than borrowing this one (which carries a `Camera::viewport` under any
+    // fixed-aspect profile, and is one pane of several under a split).
+    ambition_platformer2d::platformer::camera_layers::publish_main_camera(
+        commands,
+        main_camera,
     );
 }
 

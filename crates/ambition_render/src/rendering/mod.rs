@@ -29,7 +29,10 @@
 //!   plates are ranked against each other instead of each family only against
 //!   itself.
 //! - [`parallax`] — optional generated sky/background/atmosphere layers
-//!   ([`spawn_parallax_layers`], [`sync_parallax_layers`]).
+//!   ([`spawn_parallax_layers`], [`mirror_parallax_layers_per_view`],
+//!   [`sync_parallax_layers`]). Per-view like the two label families: a panel's
+//!   offset and size come from the camera that draws it and that camera's own
+//!   viewport, never from a window global.
 //! - [`camera`] — player-following camera with eased zoom around
 //!   encounter transitions ([`camera_follow`]).
 //! - [`view_isolation`] — the render-side half of `PresentedForView`: which
@@ -142,9 +145,14 @@ pub use nameplates::{
 pub use parallax::sync_portal_capture_parallax_layers;
 pub use parallax::{
     ensure_active_room_parallax_theme,
+    mirror_parallax_layers_per_view,
     refresh_parallax_layers_on_quality_change,
     spawn_parallax_layers,
     sync_parallax_layers,
+    // The per-view copy's key back to the panel the room spawned. Exported
+    // beside the marker for the same reason: a consumer asking "is my sky
+    // drawn" in a two-view session has to be able to tell a ROOT from a COPY.
+    MirroredParallaxLayer,
     // ⚠ the MARKER, not just the systems. A consumer could install the whole
     // parallax family and had no way to ask whether a backdrop existed — the
     // component was behind a private module, so "is my sky drawn" was a question

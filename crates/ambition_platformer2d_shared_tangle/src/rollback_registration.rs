@@ -53,7 +53,7 @@ where
     registrar.declare_rollback_derived_resource::<crate::markers::ControlledSubject>(
         OWNER,
         "derived.controlled_subject",
-        "resolved from the entity carrying Brain::Player for the active slot",
+        "resolved from the entity holding DrivingParticipant for the active slot",
     );
     registrar.declare_rollback_derived_resource::<crate::class_b::ClassBRemapLog>(
         OWNER,

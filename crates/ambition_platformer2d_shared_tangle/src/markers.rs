@@ -66,7 +66,7 @@ pub struct FramedCast(pub Vec<Entity>);
 /// "exactly one" this line used to claim directly contradicts.
 ///
 /// IMPORTANT: `PrimaryPlayer` does NOT mean "the currently controlled body". The
-/// controlled body is whichever entity carries `Brain::Player(PlayerSlot::PRIMARY)`
+/// controlled body is whichever entity holds `DrivingParticipant(PlayerSlot::PRIMARY)`
 /// — during possession that is a DIFFERENT entity (the possessed actor). Input,
 /// abilities, camera, portal viewer, and the melee lifecycle derive from the
 /// `ControlledSubject` resource (`abilities::traversal::possession`), not from this

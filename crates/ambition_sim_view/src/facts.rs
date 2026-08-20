@@ -127,22 +127,17 @@ pub struct ControlledBodyFact {
 
 pub fn rebuild_controlled_bodies_view(
     mut view: ResMut<ControlledBodiesView>,
-    bodies: Query<(&ambition_characters::brain::Brain, &BodyKinematics)>,
+    bodies: Query<&BodyKinematics, With<ambition_characters::brain::DrivingParticipant>>,
 ) {
     // AMBITION_REVIEW(determinism): query order is not stable, and this Vec is
     // built in it. Safe: the only consumer asks "does any of these boxes
     // overlap mine", which is order-independent, and this is derived
     // presentation state that never enters a sim trajectory.
     view.0.clear();
-    view.0.extend(
-        bodies
-            .iter()
-            .filter(|(brain, _)| brain.is_player())
-            .map(|(_, kin)| ControlledBodyFact {
-                center: kin.pos,
-                size: kin.size,
-            }),
-    );
+    view.0.extend(bodies.iter().map(|kin| ControlledBodyFact {
+        center: kin.pos,
+        size: kin.size,
+    }));
 }
 
 /// Every ground item's visual facts (position, box, item id).
@@ -717,7 +712,7 @@ pub fn rebuild_blink_preview_fact(
         ),
     >,
     // The blink reticle previews from the CONTROLLED SUBJECT (the body
-    // carrying `Brain::Player(PRIMARY)`) — the body you are driving — so it
+    // holding `DrivingParticipant(PRIMARY)`) — the body you are driving — so it
     // follows a possessed body instead of hovering at the vacated home
     // avatar. Both player and actor bodies carry these blink clusters.
     controlled: Res<ControlledSubject>,

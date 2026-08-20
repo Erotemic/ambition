@@ -18,8 +18,11 @@
 //! ## What it does, and what it deliberately does not
 //!
 //! Adds the generic platformer presentation:
-//! - the main `Camera2d` (gameplay layer + the parallax background layer), and
-//!   the [`MainCameraEntity`] resource the host's camera-follow reads;
+//! - the main `Camera2d` (gameplay layer + the parallax background layer), bound
+//!   to the local view it presents. (It also publishes the
+//!   `MainCameraEntity` spawn record; nothing in production reads it —
+//!   `camera_follow` resolves each camera through its own `PresentsView` link,
+//!   and has since D116 M2.);
 //! - the active room's static visuals — blocks, grid, water, ladders, props —
 //!   spawned at `Startup`. Room transitions rebuild them through
 //!   `respawn_room_visuals_on_request`, which the animation plugin already
@@ -45,7 +48,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_shared_tangle::camera_layers::{MainCamera, MainCameraEntity};
+use ambition_platformer2d_shared_tangle::camera_layers::MainCamera;
 use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionScopeId, SessionScopeSet, SessionSpawnScope,
 };
@@ -135,11 +138,40 @@ impl Plugin for SessionRoomVisualsPlugin {
         // REGISTERED by `ambition_platformer2d_host`, so ordering against it here is legal
         // and is a no-op in a composition that has no camera follow.
         //
-        // No `session_world_exists` guard: it reads a camera transform and layer
-        // transforms, both of which exist or do not on their own.
+        // ⭐ **and each LIVE VIEW gets its own set of them, then each set is
+        // placed against its own camera.** A panel's offset is a function of
+        // where its camera stands and its size a function of that camera's
+        // viewport rectangle, so one shared panel cannot serve two views — the
+        // same reason world labels and nameplates became per-view projections.
+        // The mirror claims the room's panel for the lowest-id view and copies
+        // it for the rest; the sync places every copy against the camera that
+        // draws it.
+        //
+        // ⚠ **`chain()` is load-bearing for its SYNC POINT**, exactly as it is in
+        // `WorldLabelLayoutPlugin`: the mirror spawns copies and re-keys the
+        // roots through `Commands`, and the sync immediately after selects panels
+        // BY that key. Ordered without the flush between them, every copy would
+        // be placed one frame after it appeared — one frame of a screen-sized sky
+        // at the world origin, which is the picture this whole family exists to
+        // stop drawing.
+        //
+        // ⚠ **and it runs after the refresh**, so a quality change that despawns
+        // and respawns the whole backdrop has flushed before the mirror counts
+        // what is mirrored; otherwise the mirror would copy roots that are
+        // already condemned and leave the copies orphaned for a frame.
+        //
+        // No `session_world_exists` guard: it reads camera transforms, view
+        // components and layer transforms, all of which exist or do not on their
+        // own.
         app.add_systems(
             Update,
-            crate::rendering::sync_parallax_layers.after(crate::rendering::camera_follow),
+            (
+                crate::rendering::mirror_parallax_layers_per_view,
+                crate::rendering::sync_parallax_layers,
+            )
+                .chain()
+                .after(crate::rendering::camera_follow)
+                .after(crate::rendering::refresh_parallax_layers_on_quality_change),
         );
     }
 }
@@ -211,13 +243,26 @@ fn spawn_main_camera(
     // give — a composition that wants two rigs binds them itself. Leaving the
     // link off makes every consumer decline loudly rather than present the wrong
     // view, which is the standard the rest of this seam already holds.
+    //
+    // ⭐ **and "binds them itself" is now a call, not an instruction to copy this
+    // wiring**: `ambition_sim_view::compose_local_views` spawns N views with
+    // exactly the facts the engine's single-view path spawns and binds one camera
+    // to each. A composition using it skips this `Startup` set.
     let on_hand = ambition_sim_view::ViewsOnHand::survey(views.iter());
     if let Some(view) = on_hand.presented_by(None) {
         commands
             .entity(camera)
             .insert(ambition_sim_view::PresentsView(view));
     }
-    commands.insert_resource(MainCameraEntity(camera));
+    // ⚠ **published through the shared writer, which refuses a SECOND rig
+    // instead of letting the last one win.** `MainCameraEntity` is a
+    // single-camera spawn record with no production reader — a full-screen UI
+    // node that wants the whole display targets a display-scoped camera, not
+    // whichever gameplay rig this happens to be.
+    ambition_platformer2d_shared_tangle::camera_layers::publish_main_camera(
+        &mut commands,
+        camera,
+    );
 
     commands.spawn((
         Camera2d,

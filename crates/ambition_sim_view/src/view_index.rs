@@ -862,7 +862,7 @@ pub fn rebuild_nameplate_index(
     >,
 ) {
     // The camera/HUD/nameplates all follow the CONTROLLED SUBJECT — the body
-    // carrying `Brain::Player(PRIMARY)` — with the primary-player fallback
+    // holding `DrivingParticipant(PRIMARY)` — with the primary-player fallback
     // for the startup frame before the subject resolver has run.
     let controlled_body = controlled
         .as_deref()

@@ -293,6 +293,154 @@ pub fn spawn_local_view(
     world.spawn((LocalView, id, bundle)).id()
 }
 
+/// **ONE VIEW AND THE CAMERA THAT PRESENTS IT**, as
+/// [`compose_local_views`] hands them back.
+///
+/// The `id` is repeated here on purpose: the caller asked for views BY id, and
+/// making it read the id back off the entity to know which row is which would
+/// reintroduce exactly the "whichever one the query yielded" pairing this seam
+/// exists to delete.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct BoundLocalView {
+    /// The identity the composition asked for.
+    pub id: LocalViewId,
+    /// The view entity — freshly spawned, or the one already carrying this id.
+    pub view: Entity,
+    /// The camera spawned for it, carrying [`PresentsView`] pointing at `view`.
+    pub camera: Entity,
+}
+
+/// **"GIVE ME THESE VIEWS, EACH WITH ITS OWN CAMERA, EACH BOUND."**
+///
+/// ⭐ **this is the helper the refusal rule assumed existed.** Both shipped
+/// camera-spawn sites (`ambition_render::platformer_presentation::spawn_main_camera`
+/// and the app's `scene_setup`) spawn ONE camera and decline to bind
+/// [`PresentsView`] once several views exist, on the stated principle that *"a
+/// composition that wants two rigs binds them itself"*. The principle is right
+/// and is unchanged here — what was missing was any way to DO it without copying
+/// private wiring, which made the refusal a dead end rather than a handoff. This
+/// is the handoff.
+///
+/// # What it does
+///
+/// For each requested [`LocalViewId`], in ASCENDING id order:
+///
+/// 1. adopts the view already carrying that id, or spawns one carrying exactly
+///    [`crate::camera_snapshot::local_view_facts`] — the same call the engine's
+///    single-view path makes, so the two cannot drift;
+/// 2. spawns the camera the caller's `camera_for` describes and binds
+///    [`PresentsView`] to that view.
+///
+/// ⚠ **ADOPTION, not duplication, is the load-bearing half.**
+/// [`crate::camera_snapshot::CameraObservationPlugin`] already spawned
+/// [`LocalViewId::FIRST`] at BUILD time, so a composition asking for ids 0 and 1
+/// must end with two views and not three — and view 0 must be the SAME entity,
+/// because anything a plugin already wrote onto it (a reference-frame policy, a
+/// resolved snapshot) belongs to that entity and not to a fresh copy of it.
+///
+/// # ⛔ THE CAMERA RIG IS THE CALLER'S, DELIBERATELY
+///
+/// `camera_for` returns a `Bundle`, so what a rig IS — `Camera2d`, render
+/// layers, projection, clear colour, `MainCamera` — stays a composition
+/// decision. Baking a rig in here would make the engine's idea of a camera the
+/// only one an N-view game may have, and the portal capture rigs are the
+/// standing proof that compositions legitimately differ.
+///
+/// # ⚠ WHAT THIS DOES **NOT** DO: LAYOUT
+///
+/// Every view comes up with a DEFAULT [`crate::camera_snapshot::CameraViewport`]
+/// — the whole design window — so N views spawned here all claim the same
+/// rectangle and overlap. Where a view SITS is a layout policy, and the host
+/// publisher that owns that component today
+/// (`ambition_platformer2d_host::gameplay_presentation::publish_camera_viewport`)
+/// writes ONE resolved gameplay rect onto EVERY view each frame. Until that
+/// publisher learns about split layouts, a composition using this helper gets N
+/// correctly-bound views stacked on one rectangle. That is a separate seam and
+/// naming it here is cheaper than a caller discovering it on screen.
+///
+/// # ⛔⛔ CALL IT AT PLUGIN BUILD TIME
+///
+/// Same reason as [`spawn_local_view`]: a view that appears during `Startup`
+/// gives every reader one frame with no view, and the shape that answers that is
+/// `single()` + `else { return }` — a system that silently does nothing,
+/// indistinguishable from one that ran. It also means the camera-spawn sites
+/// above, which run in `Startup`, see the finished view set and refuse honestly
+/// rather than binding half of it.
+///
+/// ⚠ **a composition that calls this should not ALSO install a single-camera
+/// spawn site.** It would get an extra, unbound `MainCamera`; that camera is
+/// refused loudly by every consumer rather than drawing the wrong view, so the
+/// failure is visible in the log — but it is still a rig nobody asked for.
+pub fn compose_local_views<C, F>(
+    world: &mut bevy::prelude::World,
+    ids: impl IntoIterator<Item = LocalViewId>,
+    mut camera_for: F,
+) -> Vec<BoundLocalView>
+where
+    C: bevy::prelude::Bundle,
+    F: FnMut(LocalViewId) -> C,
+{
+    // ⚠ **ascending id, never query order.** The returned order is what a
+    // caller lays out left-to-right and what a log line names, so deriving it
+    // from archetype iteration would make the LEFT pane a property of spawn
+    // history. Deduped too: two rows for one id would spawn two cameras onto one
+    // view, which is the "two cameras fight over one snapshot" case
+    // `PresentsView` exists to make impossible.
+    let mut wanted: Vec<LocalViewId> = ids.into_iter().collect();
+    wanted.sort_unstable();
+    let before = wanted.len();
+    wanted.dedup();
+    if wanted.len() != before {
+        bevy::log::error_once!(
+            "compose_local_views was asked for the same LocalViewId twice; each id \
+             names ONE view, so the duplicates were dropped."
+        );
+    }
+
+    let mut existing = existing_views_by_id(world);
+
+    let mut bound = Vec::with_capacity(wanted.len());
+    for id in wanted.iter().copied() {
+        let view = match existing.binary_search_by_key(&id, |(existing_id, _)| *existing_id) {
+            Ok(at) => existing[at].1,
+            Err(_) => spawn_local_view(world, id, crate::camera_snapshot::local_view_facts()),
+        };
+        let camera = world.spawn((camera_for(id), PresentsView(view))).id();
+        bound.push(BoundLocalView { id, view, camera });
+    }
+
+    // A view the composition did not ask for is still a view, and its presence
+    // is what makes every unlinked camera in the app refuse. Saying so beats
+    // despawning it — this helper does not own another plugin's view.
+    existing.retain(|(existing_id, _)| wanted.binary_search(existing_id).is_err());
+    if let Some((stray, _)) = existing.first() {
+        bevy::log::error_once!(
+            "compose_local_views left {} local view(s) it was not asked about (first: \
+             {stray:?}); every camera that names no view now refuses to present one. \
+             Ask for every view the composition has.",
+            existing.len()
+        );
+    }
+
+    bound
+}
+
+/// The live views as `(id, entity)`, sorted and therefore binary-searchable.
+///
+/// ⚠ sorted by `(id, entity)` rather than by id alone so the result is a total
+/// order even in the broken case where two views share an id — a tie broken by
+/// archetype order would make this function's output depend on spawn history.
+fn existing_views_by_id(world: &mut bevy::prelude::World) -> Vec<(LocalViewId, Entity)> {
+    let mut views =
+        world.query_filtered::<(Entity, &LocalViewId), bevy::prelude::With<LocalView>>();
+    let mut rows: Vec<(LocalViewId, Entity)> = views
+        .iter(world)
+        .map(|(entity, id)| (*id, entity))
+        .collect();
+    rows.sort_unstable();
+    rows
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -341,6 +489,151 @@ mod tests {
         assert!(
             view.contains::<ResolvedCameraSnapshot>(),
             "nowhere to publish the resolved snapshot"
+        );
+    }
+
+    /// The component set an entity actually has, sorted — the exhaustive form of
+    /// "the same facts", so a fact added to `local_view_facts` cannot reach one
+    /// spawn path and miss the other without this failing.
+    fn component_set(world: &World, entity: Entity) -> Vec<bevy::ecs::component::ComponentId> {
+        let mut ids: Vec<_> = world.entity(entity).archetype().components().to_vec();
+        ids.sort_unstable();
+        ids
+    }
+
+    /// **TWO VIEWS COME UP, EACH BOUND TO ITS OWN CAMERA.**
+    ///
+    /// This is the claim the whole helper exists for, and every part of it can
+    /// fail silently: two cameras both naming view 0 draws one view twice and
+    /// looks like a working split until you read a nameplate; one camera left
+    /// unlinked draws nothing and logs a refusal nobody watches; two views
+    /// sharing a `LocalViewId` makes the render side's ordinal ambiguous.
+    ///
+    /// ⚠ **and view 0 must be the PLUGIN'S view, not a third one.** The plugin
+    /// spawned `LocalViewId::FIRST` at build time; a helper that spawned its own
+    /// id-0 view would leave three views in a two-view composition, and the
+    /// extra one would silently make every unlinked camera in the app refuse.
+    #[test]
+    fn two_views_come_up_each_bound_to_its_own_camera() {
+        let mut app = App::new();
+        app.add_plugins(CameraObservationPlugin);
+        let plugins_view = the_only_view(app.world_mut());
+
+        let bound = compose_local_views(
+            app.world_mut(),
+            [LocalViewId(1), LocalViewId::FIRST],
+            |_id| {
+                (ambition_platformer2d_shared_tangle::camera_layers::MainCamera,)
+            },
+        );
+
+        // Asked for out of order on purpose: the result is ascending by id, not
+        // in call order and not in archetype order.
+        assert_eq!(
+            bound.iter().map(|row| row.id).collect::<Vec<_>>(),
+            vec![LocalViewId::FIRST, LocalViewId(1)],
+            "the composition's views must come back in ascending LocalViewId order"
+        );
+        assert_eq!(
+            bound[0].view, plugins_view,
+            "id 0 must ADOPT the view the plugin already spawned, not duplicate it"
+        );
+        assert_ne!(
+            bound[0].view, bound[1].view,
+            "two views that are one entity are one view"
+        );
+        assert_ne!(
+            bound[0].camera, bound[1].camera,
+            "each view needs its OWN camera; one camera cannot hold two transforms"
+        );
+
+        let views: Vec<Entity> = {
+            let mut q = app
+                .world_mut()
+                .query_filtered::<Entity, With<LocalView>>();
+            q.iter(app.world()).collect()
+        };
+        assert_eq!(
+            views.len(),
+            2,
+            "a two-view composition must end with exactly two views"
+        );
+
+        for row in &bound {
+            assert_eq!(
+                app.world().entity(row.camera).get::<PresentsView>(),
+                Some(&PresentsView(row.view)),
+                "camera for {:?} does not name its own view",
+                row.id
+            );
+            assert_eq!(
+                *app.world().entity(row.view).get::<LocalViewId>().unwrap(),
+                row.id,
+                "the view carries an id the caller did not ask for"
+            );
+        }
+
+        // ⭐ the "N times what the single-view path produces" claim, asked
+        // exhaustively rather than by re-listing the components by hand.
+        assert_eq!(
+            component_set(app.world(), bound[0].view),
+            component_set(app.world(), bound[1].view),
+            "the second view does not carry the same facts as the engine's own \
+             single view — a fact present on one and missing on the other is not a \
+             compile error, it is a view that silently drops out of the resolve"
+        );
+
+        // And the refusal rule is untouched: with two views, a camera naming
+        // none still gets no answer.
+        let on_hand = ViewsOnHand::survey(views.iter().copied());
+        assert_eq!(
+            on_hand.presented_by(None),
+            None,
+            "with several views an unlinked camera must still be refused"
+        );
+    }
+
+    /// **A COMPOSITION THAT ASKS FOR ONE VIEW GETS TODAY'S RESULT.**
+    ///
+    /// The refusal rule is deliberately unchanged, so the thing that must not
+    /// move is what an UNLINKED camera resolves to — that is what both shipped
+    /// camera-spawn sites do, and it is the only observable difference a
+    /// single-view host could suffer from this helper existing.
+    #[test]
+    fn asking_for_one_view_leaves_the_single_view_composition_alone() {
+        let mut app = App::new();
+        app.add_plugins(CameraObservationPlugin);
+        let plugins_view = the_only_view(app.world_mut());
+        let before = component_set(app.world(), plugins_view);
+
+        let bound = compose_local_views(app.world_mut(), [LocalViewId::FIRST], |_id| {
+            (ambition_platformer2d_shared_tangle::camera_layers::MainCamera,)
+        });
+
+        assert_eq!(bound.len(), 1);
+        assert_eq!(
+            bound[0].view,
+            plugins_view,
+            "asking for one view must adopt the only view, not add a second"
+        );
+        assert_eq!(
+            the_only_view(app.world_mut()),
+            plugins_view,
+            "the composition still has exactly one view"
+        );
+        assert_eq!(
+            component_set(app.world(), plugins_view),
+            before,
+            "adopting a view must not add to or remove from it"
+        );
+
+        // The single-view fallback — what `spawn_main_camera` and the app's
+        // `scene_setup` rely on to bind at all.
+        let on_hand = ViewsOnHand::survey([plugins_view]);
+        assert_eq!(
+            on_hand.presented_by(None),
+            Some(plugins_view),
+            "a camera naming no view must still take the only view"
         );
     }
 

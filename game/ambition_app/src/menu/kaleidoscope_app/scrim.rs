@@ -1,19 +1,87 @@
-//! The cube-menu scrim (dimming backdrop): spawn, camera retarget, and the
-//! open/close alpha fade.
+//! The cube-menu scrim (dimming backdrop): its display camera, spawn, target,
+//! and the open/close alpha fade.
 //!
 //! Split out of the kaleidoscope menu host (2026-06-15).
+//!
+//! # ⛔⛔ A FULL-SCREEN SCRIM IS A DISPLAY FACT, NOT A VIEW FACT
+//!
+//! The scrim dims THE WORLD so the cube's text reads, and it must draw BEHIND
+//! the order-8 cube. The default UI camera is the order-9 front HUD camera, so
+//! it cannot simply inherit that; it needs a target with a lower order.
+//!
+//! It used to borrow the gameplay camera through the `MainCameraEntity` resource
+//! — the last process-global "THE main camera" in the tree — and that was wrong
+//! in two ways `bevy_ui` makes silent, because a node is laid out against its
+//! TARGET camera's rect:
+//!
+//! - under any fixed-aspect presentation profile the gameplay camera already
+//!   carries a `Camera::viewport` (`apply_gameplay_camera_viewport`), so the
+//!   "full-screen" scrim covered the gameplay rectangle and left the surround
+//!   bars undimmed;
+//! - under a split layout there is one gameplay camera per local view, and the
+//!   resource is whichever rig was inserted last — so the scrim would dim ONE
+//!   PANE.
+//!
+//! So the scrim owns [`KaleidoscopeScrimCamera`]: a full-screen, viewport-free
+//! `Camera2d` that sits one order behind the cube and renders no sprites at all.
+//! It answers "the whole display" by construction, and it keeps answering it
+//! however many gameplay views the composition grows.
 
 use super::*;
 
-/// Spawn the readability dim-scrim node (full-screen, starts fully transparent).
+/// The scrim's own UI camera — full-screen, one order behind the cube.
 ///
-/// The scrim DIMS THE WORLD, so it must render BEHIND the order-8 cube. Since the
-/// default UI camera is now the order-9 [`FrontHudCamera`] (which draws in front of
-/// the cube), the scrim is explicitly retargeted onto the order-0 main camera via
-/// [`retarget_kaleidoscope_scrim`] (the `MainCameraEntity` resource isn't guaranteed to
-/// exist yet at this Startup point, so the target is attached from an Update guard).
-/// [`fade_kaleidoscope_scrim`] drives its alpha.
-pub(crate) fn spawn_kaleidoscope_scrim(mut commands: Commands) {
+/// ⚠ **it deliberately carries `RenderLayers::none()`.** Node→camera resolution
+/// in `bevy_ui` is by `IsDefaultUiCamera` / `UiTargetCamera` and is independent
+/// of sprite render layers, so the scrim still renders here while nothing in the
+/// world can. That is the same trick the front HUD camera uses to avoid
+/// re-drawing the world over the cube, one layer over.
+#[derive(Component)]
+pub(crate) struct KaleidoscopeScrimCamera;
+
+/// Order fallback when the cube's config is not installed: one behind the cube's
+/// own default (`KaleidoscopeMenuConfig::camera_order`, 8).
+const SCRIM_CAMERA_ORDER_FALLBACK: isize = 7;
+
+/// Spawn the scrim's display camera and the readability dim-scrim node
+/// (full-screen, starts fully transparent).
+///
+/// The scrim is targeted at its own camera HERE rather than from an `Update`
+/// guard, because the camera is spawned in the same call — there is no ordering
+/// question left to defer. [`retarget_kaleidoscope_scrim`] stays as the repair
+/// path for a scrim spawned by anything else.
+///
+/// [`fade_kaleidoscope_scrim`] drives the alpha.
+pub(crate) fn spawn_kaleidoscope_scrim(
+    mut commands: Commands,
+    // ⚠ the cube's order is a knob (`KaleidoscopeMenuConfig::camera_order`), and
+    // "behind the cube" is the whole requirement — so the scrim's order is
+    // DERIVED from it rather than hardcoded next to it and left to drift. The
+    // config is inserted at plugin build time, so it is here by `Startup`;
+    // `Option` keeps a fixture that skips the cube plugin from panicking.
+    config: Option<Res<KaleidoscopeMenuConfig>>,
+) {
+    let order = config
+        .map(|config| config.camera_order - 1)
+        .unwrap_or(SCRIM_CAMERA_ORDER_FALLBACK);
+    let camera = commands
+        .spawn((
+            KaleidoscopeScrimCamera,
+            Camera2d,
+            Camera {
+                order,
+                // Clearing here would wipe the world the scrim exists to dim.
+                clear_color: ClearColorConfig::None,
+                // ⛔ **never a viewport.** The absence is the feature: an
+                // unclipped camera is what makes this the DISPLAY rect rather
+                // than a gameplay pane.
+                ..default()
+            },
+            bevy::camera::visibility::RenderLayers::none(),
+            Name::new("Cube scrim display camera"),
+        ))
+        .id();
+
     commands.spawn((
         KaleidoscopeScrim,
         Name::new("Cube readability scrim"),
@@ -26,41 +94,35 @@ pub(crate) fn spawn_kaleidoscope_scrim(mut commands: Commands) {
             ..default()
         },
         BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.0)),
+        UiTargetCamera(camera),
         // Never eat clicks meant for the world/cube; purely a visual dimmer.
         GlobalZIndex(-1),
         Pickable::IGNORE,
     ));
 }
 
-/// Retarget the dim-scrim onto the order-0 main camera so it renders BEHIND the cube.
+/// Repair path: give any untargeted scrim the scrim camera.
 ///
-/// The default UI camera is the order-9 front HUD camera (so the HUD draws in front
-/// of the cube); without this retarget the scrim would inherit that default and dim
-/// the cube itself. Runs once, as soon as both the scrim and the `MainCameraEntity`
-/// resource exist (Startup ordering between them is not guaranteed, so this Update
-/// guard does it on the first frame both are present). `Option<Res<_>>` keeps it
-/// B0002-safe and never panics on an uninserted resource.
+/// [`spawn_kaleidoscope_scrim`] already targets the node it spawns, so in the
+/// shipped composition this matches nothing. It stays because the scrim is a
+/// marker anything may spawn (fixtures do), and an untargeted full-screen node
+/// silently inherits the order-9 front HUD camera — which dims the cube instead
+/// of the world, the exact failure this module exists to prevent.
 pub(crate) fn retarget_kaleidoscope_scrim(
     mut commands: Commands,
-    main_camera: Option<Res<ambition_platformer2d::platformer::camera_layers::MainCameraEntity>>,
+    scrim_camera: Query<Entity, With<KaleidoscopeScrimCamera>>,
     scrim: Query<Entity, (With<KaleidoscopeScrim>, Without<UiTargetCamera>)>,
-    mut done: Local<bool>,
 ) {
-    if *done {
+    if scrim.is_empty() {
         return;
     }
-    let Some(main_camera) = main_camera else {
+    let Ok(camera) = scrim_camera.single() else {
+        // No camera, or somehow several: targeting an arbitrary one would be the
+        // guess this module replaced.
         return;
     };
-    let mut any = false;
     for entity in &scrim {
-        commands
-            .entity(entity)
-            .insert(UiTargetCamera(main_camera.0));
-        any = true;
-    }
-    if any {
-        *done = true;
+        commands.entity(entity).insert(UiTargetCamera(camera));
     }
 }
 
@@ -73,5 +135,90 @@ pub(crate) fn fade_kaleidoscope_scrim(
     let alpha = open_state.amount.clamp(0.0, 1.0) * SCRIM_PEAK_ALPHA;
     for mut bg in &mut scrim {
         bg.0 = Color::srgba(0.0, 0.0, 0.0, alpha);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// **THE SCRIM TARGETS THE DISPLAY, NOT A GAMEPLAY PANE.**
+    ///
+    /// ⛔ **the poison is a gameplay camera that is NOT full-screen**, which is
+    /// not a hypothetical: `apply_gameplay_camera_viewport` puts a
+    /// `Camera::viewport` on the main camera under every fixed-aspect
+    /// presentation profile, and a split layout gives one to each of several. A
+    /// scrim that resolved through "the main camera" would target this one and
+    /// be laid out against its rectangle — a full-screen dimmer covering part of
+    /// the screen, which renders as a picture rather than as a failure.
+    ///
+    /// The assertion is on the OUTPUT: whatever camera the scrim ends up
+    /// targeting must be unclipped and must not be a gameplay rig.
+    #[test]
+    fn the_scrim_targets_an_unclipped_display_camera() {
+        let mut app = App::new();
+        let config = KaleidoscopeMenuConfig::default();
+        let cube_order = config.camera_order;
+        app.insert_resource(config);
+
+        // The poison: a gameplay camera confined to one rectangle.
+        let gameplay_camera = app
+            .world_mut()
+            .spawn((
+                Camera2d,
+                ambition_platformer2d::platformer::camera_layers::MainCamera,
+                Camera {
+                    viewport: Some(bevy::camera::Viewport {
+                        physical_position: UVec2::new(0, 60),
+                        physical_size: UVec2::new(640, 360),
+                        ..default()
+                    }),
+                    ..default()
+                },
+            ))
+            .id();
+
+        app.add_systems(Startup, spawn_kaleidoscope_scrim);
+        app.update();
+
+        let scrim = {
+            let mut q = app
+                .world_mut()
+                .query_filtered::<&UiTargetCamera, With<KaleidoscopeScrim>>();
+            let found: Vec<Entity> = q.iter(app.world()).map(|target| target.0).collect();
+            assert_eq!(
+                found.len(),
+                1,
+                "expected exactly one targeted scrim node, found {}",
+                found.len()
+            );
+            found[0]
+        };
+
+        assert_ne!(
+            scrim, gameplay_camera,
+            "the scrim targeted the gameplay camera, so a full-screen dimmer is laid \
+             out against one viewport rectangle"
+        );
+
+        let target = app.world().entity(scrim);
+        assert!(
+            target.contains::<KaleidoscopeScrimCamera>(),
+            "the scrim's target is not the display camera it owns"
+        );
+        let camera = target
+            .get::<Camera>()
+            .expect("the scrim's target must be a camera");
+        assert!(
+            camera.viewport.is_none(),
+            "the scrim's target camera is clipped to a viewport, so the scrim cannot \
+             cover the display"
+        );
+        assert!(
+            camera.order < cube_order,
+            "the scrim must render BEHIND the cube (order {} vs the cube's {cube_order}); \
+             in front of it, it dims the menu it exists to make readable",
+            camera.order
+        );
     }
 }

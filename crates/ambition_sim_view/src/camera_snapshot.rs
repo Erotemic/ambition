@@ -1740,6 +1740,37 @@ fn apply_camera_reference_frame_setting(
     }
 }
 
+/// **EVERY FACT A LOCAL VIEW CARRIES, IN ONE PLACE.**
+///
+/// ⛔⛔ **it is a function, not a comment, because the alternative is a
+/// hand-kept carry list.** The single-view path
+/// ([`CameraObservationPlugin`]) and the N-view composition helper
+/// ([`crate::local_view::compose_local_views`]) both need a view that satisfies
+/// the resolve's query, and a component present in one and missing in the other
+/// is not a compile error, not a panic, and not a log line — it is a view that
+/// silently does not match `resolve_camera_observation`'s query, which reads as
+/// a camera frozen at the origin. With one definition the two paths cannot
+/// differ; adding a fact here reaches both by construction.
+///
+/// ⚠ the count is the contract `local_view::tests` pins component-by-component:
+/// the identity ([`crate::local_view::LocalViewId`]) is passed separately, so
+/// what is here is exactly the six facts D116 M2 moved off process-globals.
+pub fn local_view_facts() -> impl bevy::prelude::Bundle {
+    (
+        CameraViewport::default(),
+        CameraScreenFraming::default(),
+        CameraPresentationInputs::default(),
+        CameraReferenceFrame::default(),
+        ambition_platformer2d_shared_tangle::camera_ease::CameraEaseState::default(),
+        ResolvedCameraSnapshot::default(),
+        // Sixth fact on the view (D116 M2): the live camera diagnostics the
+        // overlays read. Carried here for the same reason as the others — a
+        // reader must never see a frame where the view exists and its state
+        // does not.
+        CameraViewState::default(),
+    )
+}
+
 pub struct CameraObservationPlugin;
 
 impl bevy::prelude::Plugin for CameraObservationPlugin {
@@ -1760,19 +1791,7 @@ impl bevy::prelude::Plugin for CameraObservationPlugin {
         crate::local_view::spawn_local_view(
             app.world_mut(),
             crate::local_view::LocalViewId::FIRST,
-            (
-                CameraViewport::default(),
-                CameraScreenFraming::default(),
-                CameraPresentationInputs::default(),
-                CameraReferenceFrame::default(),
-                ambition_platformer2d_shared_tangle::camera_ease::CameraEaseState::default(),
-                ResolvedCameraSnapshot::default(),
-                // Sixth fact on the view (D116 M2): the live camera diagnostics
-                // the overlays read. Spawned here for the same reason as the
-                // others — a reader must never see a frame where the view exists
-                // and its state does not.
-                CameraViewState::default(),
-            ),
+            local_view_facts(),
         );
 
         // Declared ONLY when the sim shares this schedule. In fixed-tick and

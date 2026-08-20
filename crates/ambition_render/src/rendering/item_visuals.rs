@@ -524,7 +524,7 @@ pub struct HeldItemVisual;
 /// Draw a small quad in the CONTROLLED SUBJECT's hand for whatever they're
 /// holding, tinted per item (axe / javelin). Clear-and-rebuild each frame.
 ///
-/// Keyed on [`ControlledSubject`] (the body carrying `Brain::Player(PRIMARY)`),
+/// Keyed on [`ControlledSubject`] (the body holding `DrivingParticipant(PRIMARY)`),
 /// not `PrimaryPlayer`: while possessing, the held-item sprite draws on the body
 /// you are DRIVING (reading ITS own `HeldItem`), never lingering on the vacated
 /// home avatar — the same rule the blink reticle, camera, and nameplate follow.

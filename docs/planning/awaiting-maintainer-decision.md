@@ -871,6 +871,45 @@ whether attacks connect at all — 'the brain travels but never commits'. Too hi
 a price."* So this suite is the tripwire for exactly this class, and it caught
 this change too — it simply was not being run.
 
+⭐⭐ **MEASURED 2026-08-20, AND IT CHANGES THE DIAGNOSIS: they are not fighting
+hard and synchronised. They exchange ONCE and then never touch again.**
+
+`a_match_whose_last_loser_is_removed_still_decides`, instrumented per body:
+
+```text
+tick  120   s0 pct=0  x=224      s1 pct=0  x=416
+tick  240   s0 pct=0  x=387      s1 pct=0  x=253     closing
+tick  360   s0 pct=19 x=416      s1 pct=19 x=224     ONE exchange, and they SWAPPED SIDES
+tick  480   s0 pct=19 x=326      s1 pct=19 x=314     12px apart — passing THROUGH
+tick 1800   s0 pct=19 x=236      s1 pct=19 x=404     still 19, still oscillating
+```
+
+⇒ **damage goes 0 → 19 in a single window near tick 300 and is FLAT for the
+remaining 75 seconds.** Every post-hit timer is `0.00` the whole time —
+`damage_invuln_timer`, `recoil_lock_timer`, `hitstun_timer` — so nothing is
+latched and nobody is invulnerable. They simply stop connecting.
+
+⛔ **the shape is a LIMIT CYCLE, and it is the thing to explain**: each brain
+closes on the other, the two bodies PASS THROUGH each other, both overshoot to
+opposite stage edges, both turn around, and it repeats forever, perfectly
+anti-phase about the stage centre. The one exchange is the first meeting; after
+that the crossing happens too fast for anything to land.
+
+⭐⭐ **AND THIS IMPLICATES §25 (JOSTLE) DIRECTLY.** With body-vs-body contact,
+two fighters closing on each other STALL where they meet — which is where
+attacks land. Without it there is no such thing as being in front of somebody,
+so a closing brain's reward is to sail past them. ⇒ the fairness question in §25
+and this suite's five reds may be ONE question, and jostle may be the fix for
+both.
+
+⚠ **and one premise above is now doubtful.** These two seats wear DIFFERENT
+characters (`smash_duelist_a` / `smash_duelist_b`) at the same level, so their
+`fighter_cognition_seed` values genuinely differ — `preserves_mirror_symmetry`
+only collapses the seat suffix, not two different character ids. Yet the motion
+is still perfectly anti-phase. ⇒ seed divergence is not reaching MOTION at all,
+only the press timing that never fires, so "the two streams advance in lockstep"
+understates it: even two separated streams produce mirrored bodies.
+
 ⇒ **why this needs you rather than a fix from me.** The note prescribes the
 answer: *"what would actually move it is asymmetric CIRCUMSTANCES, not more
 randomness — a per-seat spawn offset"*, and it bans a third randomness fix. But

@@ -160,6 +160,12 @@ pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster) {
     // ⛔ ticks rather than seconds, because the release is a comparison against
     // the sim clock — see `MatchRules::opening_countdown_ticks`.
     roster.opening_countdown_ticks = 3 * 60;
+    // ⭐ **THE MATCH CLOCK.** Ultimate's default stock match runs eight minutes,
+    // and the clock exists so a match between two fighters who will not approach
+    // each other still ends — the stock economy alone has no answer to that.
+    // ⚠ derived from `ActiveMatch::activated_on`, so it costs no rollback state;
+    // see `MatchRules::time_remaining`.
+    roster.time_limit_ticks = 8 * 60 * 60;
     roster.fighter_stocks = Some(STARTING_STOCKS);
     // **EVERY FIGHTER IN THIS MATCH IS READ AGAINST THE SAME 100%.**
     //

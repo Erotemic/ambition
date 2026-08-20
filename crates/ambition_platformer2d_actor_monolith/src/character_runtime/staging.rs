@@ -283,6 +283,19 @@ pub struct MatchParticipantRoster {
     /// instant the match went live, and the comment above (*"taken off by
     /// whoever put the countdown up"*) described a countdown that did not exist.
     pub opening_countdown_ticks: u32,
+    /// **How long the match runs before the clock decides it**, in sim ticks.
+    /// `0` (the default) is a match with no clock, which is what every roster
+    /// had before one existed.
+    ///
+    /// ⭐ **it is TICKS and it is DERIVED, so nothing counts down.** The phase is
+    /// `now - ActiveMatch::activated_on` against this number — the same shape
+    /// [`opening_countdown_ticks`](Self::opening_countdown_ticks) already uses —
+    /// which means a match clock costs no new mutable state inside the rollback
+    /// window and a rewind recomputes it identically.
+    ///
+    /// On the roster for the same reason as `fighter_stocks`: the engine does
+    /// not get an opinion about what a match's economy is.
+    pub time_limit_ticks: u32,
     /// **Whether anybody has agreed to seat this roster yet.** See
     /// [`RosterSeating`].
     pub seating: RosterSeating,

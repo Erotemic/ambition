@@ -266,6 +266,9 @@ pub fn versus_roster_from(local_players: usize, seating: RosterSeating) -> Match
         // count. `0` says "not mine to end" rather than "no countdown" — the
         // versus round very much has one.
         opening_countdown_ticks: 0,
+        // ⚠ no clock: a versus round ends on health, and a stalemate there is
+        // already answered by the round's own economy.
+        time_limit_ticks: 0,
         // **A FAIR FIGHT.** Seat 0 is the ADOPTED primary player and arrives
         // carrying whatever the session granted it — in the shipped host, the
         // sandbox dev kit (blink, fly, shield). Every other seat is spawned with

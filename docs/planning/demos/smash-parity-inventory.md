@@ -84,9 +84,10 @@ you add a `▢`, and before you work one.
 |---|---|---|
 | Stocks, elimination, outcome | ✔ | `combat/stocks.rs` |
 | Blast zones | ✔ | `demo_smash_app/tests/the_stage_kills.rs` |
-| Timer mode | ▢ | — |
-| Sudden death | ▢ | — |
-| Teams and friendly fire toggle | ~ | `MatchTeam` exists; no attack toggle |
+| Timer mode | ✔ | `MatchRules::time_remaining`, DERIVED from `ActiveMatch::activated_on` (no rollback state); smash declares 8 minutes |
+| Timeout tiebreak: stocks, then damage | ✔ | `stocks_match::clock_outcome` |
+| Sudden death | ▢ | a level timeout is a DRAW; sudden death is a second match staged from the first's result |
+| Teams and friendly fire toggle | ~ | `DeclaredCombatRules::friendly_fire` IS the toggle (smash declares `false`); no menu exposes it |
 | Items | ~ | `combat/held_items.rs` holds one; no pickup, throw or spawner |
 | Final Smash | ▢ | — |
 | Respawn platform | ▢ | — |
@@ -161,5 +162,7 @@ and leaves the values rough; tuning is not this lane's licence.
    and the second row's word was wrong: the genre buys the window with AIRTIME,
    not a regrab counter. Still open on the ledge: the trumped body is dropped
    where Ultimate pops it outward into a brief helpless state.
-5. **Match rules** — timer, sudden death, friendly-fire toggle, respawn platform.
+5. **Match rules** — ~~timer~~ (landed 2026-08-20, derived from the activation
+   tick); still open are sudden death, a menu for the friendly-fire toggle the
+   rules already carry, and the respawn platform.
 6. **SDI, spot dodge, crouch cancel, jostle, wall tech** — the remaining verbs.

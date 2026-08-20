@@ -127,6 +127,7 @@ fn two_human_roster() -> MatchParticipantRoster {
         // No ceremony in a rollback fixture: the stage that owns the opening
         // is not part of what these tests exercise.
         opening_countdown_ticks: 0,
+        time_limit_ticks: 0,
         seating: ambition_platformer2d::actor::RosterSeating::default(),
         fighter_abilities: None,
         fighter_body: None,

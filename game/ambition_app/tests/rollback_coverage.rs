@@ -333,9 +333,7 @@ pub(crate) fn unaccounted_components(sim: &mut Platformer2dSimHarness) -> BTreeM
         .get_resource::<ambition_platformer2d::rollback::RollbackRegistry>()
         .expect("rollback registry is installed by the engine plugins")
         .descriptors()
-        .filter(|d| {
-            d.kind != ambition_platformer2d::rollback::RollbackEntryKind::RequiredRollback
-        })
+        .filter(|d| d.kind != ambition_platformer2d::rollback::RollbackEntryKind::RequiredRollback)
         .map(|d| d.type_name.clone())
         .collect();
 
@@ -833,6 +831,7 @@ fn seat_a_two_cpu_match(sim: &mut Platformer2dSimHarness) -> usize {
         // No ceremony in a rollback fixture: the stage that owns the opening
         // is not part of what these tests exercise.
         opening_countdown_ticks: 0,
+        time_limit_ticks: 0,
         seating: ambition_platformer2d::actor::RosterSeating::activated_at(7),
         fighter_abilities: None,
         fighter_body: None,

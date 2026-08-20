@@ -130,6 +130,7 @@ snapshot_pod!(crate::body_clusters::BodyWallState {
 
 snapshot_pod!(crate::body_clusters::BodyJumpState {
     air_jumps_available: u8,
+    footstool_claimed: bool,
     ladder_jump_boost: f32,
     ladder_drop_through_timer: f32,
     ladder_drop_through_hold_lock: bool,

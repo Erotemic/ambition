@@ -319,6 +319,14 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// it also moved `ambition_cutscene` and `ambition_demo_twintrack`, which is the
 /// instrument CHANGING and NOT a wire change in either: neither file was edited.
 ///
+/// ⚠ **v43 (2026-08-20) is `BodyJumpState::footstool_claimed`**, one bool on a
+/// `snapshot_pod!` component, so the pod body folds it by name and the row moves.
+/// ⭐ **it exists because v42's footstool was arbitrated in the wrong place.** The
+/// bounce was applied AFTER the kernel by overwriting velocity, on the argument
+/// that a later write wins; the kernel had already spent an air jump and emitted
+/// `MovementOp::DoubleJump` by then, so the same footstool cost a charge when
+/// you had one and nothing when you did not. The claim is read by the jump chain
+/// AHEAD of the air jump, which makes one input edge mean one thing.
 /// ⚠ **v42 (2026-08-20) is the FOOTSTOOL's wire, and ONLY that.** Two things
 /// move, and they are measured differently:
 ///
@@ -421,7 +429,7 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// `message.spawn_projectile` keeps its stable key while its concrete message
 /// becomes `ProjectileSpawnRequest`, so abandoned-future spawn requests remain
 /// cleared on load through the same wire identity.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 42;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 43;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

@@ -273,6 +273,36 @@ pub fn handle_jump_buffer_clusters(
                 events,
             );
         }
+    } else if jump_state.footstool_claimed && tuning.abilities.footstool.is_enabled() {
+        // ⭐⭐ **AHEAD OF THE AIR JUMP, and that ordering IS the mechanic.** The
+        // press resolves as a footstool and costs nothing: a body that has spent
+        // every midair jump can still bounce off a head, which is the genre's
+        // rule. When this was applied AFTER the kernel by overwriting velocity,
+        // the same footstool cost an air jump when you had one and nothing when
+        // you did not — one input edge with two meanings.
+        //
+        // ⚠ the claim is spent here, so one press is one footstool however many
+        // heads are under the feet. The pair pass owns WHICH head; this owns
+        // what the press means.
+        jump_state.footstool_claimed = false;
+        super::integration::set_jump_velocity(
+            &mut kinematics.vel,
+            frame.down(),
+            tuning.abilities.footstool.rise_speed,
+        );
+        match tuning.locomotion.jump_law {
+            AxisJumpLaw::VelocityCut => state.phased_jump.clear(),
+            AxisJumpLaw::PhasedGravity(params) => {
+                let band = params.band_for_side_speed(kinematics.vel.dot(frame.side()).abs());
+                state.phased_jump.begin(band);
+            }
+        }
+        ground.on_ground = false;
+        wall.on_wall = false;
+        state.wall_clinging = false;
+        state.wall_climbing = false;
+        state.buffer_jump = 0.0;
+        events.op_clusters(combo_trace, MovementOp::Footstool);
     } else if abilities.abilities.double_jump && !flying && jump_state.air_jumps_available > 0 {
         super::integration::set_jump_velocity(
             &mut kinematics.vel,

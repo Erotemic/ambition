@@ -54,7 +54,8 @@ you add a `▢`, and before you work one.
 | Full hop, double jump, wall jump, fast fall | ✔ | `core::movement` |
 | Jump squat, and a release inside it short-hops | ✔ | `movement/simulation.rs::tick_jump_squat` |
 | Short hop as its own authored height (not a velocity cut) | ▢ | — |
-| Footstool jump (teammates included, as the genre does) | ✔ | `features/ecs/footstool.rs`, `collision_semantics::feet_on_head` |
+| Footstool jump — claims the press, costs no air jump, Team-Attack gated | ~ | `features/ecs/footstool.rs`; every victim takes one shove, where the genre separates a grounded freeze from an airborne tumble |
+| Phantom footstool (a target mid-move is not interrupted) | ▢ | — |
 | Jostle / body pushback between fighters | ▢ | — |
 | Ledge grab with intangibility window | ✔ | `core/ledge_grab/` |
 | Ledge getup: climb / roll / attack | ✔ | `LedgeGetupKind` |
@@ -145,17 +146,21 @@ shake · the shield-break dizzy stars.
 Ordered by fun per slice. Each exposes the numbers a Smash game keeps tunable
 and leaves the values rough; tuning is not this lane's licence.
 
-1. ~~**Shield as a resource**~~, ~~**shieldstun**~~, ~~**Taunt**~~ and ~~**Footstool**~~ — landed 2026-08-19.
-2. **Grab presentation** — the missing sprite rows, cues and VFX for the grab
+1. ~~**Shield as a resource**~~, ~~**shieldstun**~~ and ~~**Taunt**~~ — landed 2026-08-19.
+2. **Finish the footstool** — the victim reaction is one shove for everybody.
+   Ultimate freezes a grounded target briefly and tumbles an airborne one, and
+   does not interrupt a target executing a move. The arbitration and the geometry
+   are done; this is the reaction half.
+3. **Grab presentation** — the missing sprite rows, cues and VFX for the grab
    chain that already simulates correctly.
-3. **Shield pushback and shield-shrink poke** — the two halves of shield
+4. **Shield pushback and shield-shrink poke** — the two halves of shield
    pressure that shieldstun does not cover.
-4. **Meteor lock and cancel** — the spike already lands; what is missing is
+5. **Meteor lock and cancel** — the spike already lands; what is missing is
    the window in which the spiked body cannot recover, and the cancel that
    ends it.
-5. **Stale moves and rage** — two multipliers on the shared knockback road.
-6. **Grab depth** — escape difficulty scaling with damage, dash/pivot grabs,
+6. **Stale moves and rage** — two multipliers on the shared knockback road.
+7. **Grab depth** — escape difficulty scaling with damage, dash/pivot grabs,
    grab release as its own beat.
-7. **Ledge trump and ledge-intangibility decay.**
-8. **Match rules** — timer, sudden death, friendly-fire toggle, respawn platform.
-9. **SDI, spot dodge, crouch cancel, jostle, wall tech** — the remaining verbs.
+8. **Ledge trump and ledge-intangibility decay.**
+9. **Match rules** — timer, sudden death, friendly-fire toggle, respawn platform.
+10. **SDI, spot dodge, crouch cancel, jostle, wall tech** — the remaining verbs.

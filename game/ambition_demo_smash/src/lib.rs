@@ -709,14 +709,18 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 .chain()
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Materialize),
         );
-        // **The footstool lands in `Settle`, and that is the whole reason it
-        // needs no scheduling argument with the air jump.** Both bodies' velocity
-        // has already been integrated by the time it runs, so whatever the jump
-        // press also produced, the head-bounce is what the tick ends with.
+        // ⛔⛔ **THE FOOTSTOOL CLAIMS THE PRESS BEFORE THE KERNEL SPENDS IT, so
+        // it runs in `PlayerInput` and NOT in `Settle`.** It shipped in `Settle`
+        // on the argument that a later velocity write wins; that is true of the
+        // velocity and false of the air jump, which the kernel had already spent
+        // by then. A body with a charge paid one and a body without paid nothing
+        // for the identical footstool. The claim now reaches
+        // `BodyJumpState::footstool_claimed` ahead of the jump chain.
         app.add_systems(
             sim,
-            ambition_platformer2d::actors::features::ecs::footstool::apply_footstools
-                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle),
+            ambition_platformer2d::actors::features::ecs::footstool::claim_footstools.in_set(
+                ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::PlayerInput,
+            ),
         );
         // **A capture ends in `Settle`, where post-damage bookkeeping belongs.**
         // Hitstun and the recoil lock are written by damage resolution in

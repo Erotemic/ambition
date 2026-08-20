@@ -348,6 +348,13 @@ pub struct BodyWallState {
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct BodyJumpState {
     pub air_jumps_available: u8,
+    /// **A head is under this body's feet, and the next jump press belongs to
+    /// it.** Written by the pair pass BEFORE the kernel runs and consumed by
+    /// [`crate::movement`]'s jump chain AHEAD of the air jump, so one press has
+    /// one meaning: a footstool costs no air jump, and a body with none left can
+    /// still take one — which is the genre's rule and was not true when the
+    /// bounce merely overwrote the velocity afterwards.
+    pub footstool_claimed: bool,
     pub ladder_jump_boost: f32,
     pub ladder_drop_through_timer: f32,
     pub ladder_drop_through_hold_lock: bool,
@@ -709,6 +716,7 @@ pub fn reset_body_clusters(
         ladder_jump_boost: 0.0,
         ladder_drop_through_timer: 0.0,
         ladder_drop_through_hold_lock: false,
+        ..Default::default()
     };
     *clusters.dash = BodyDashState {
         charges_available: dash_charges,
@@ -946,6 +954,7 @@ impl BodyClusterScratch {
                 ladder_jump_boost: 0.0,
                 ladder_drop_through_timer: 0.0,
                 ladder_drop_through_hold_lock: false,
+                ..Default::default()
             },
             dash: BodyDashState {
                 charges_available: dash_charges,

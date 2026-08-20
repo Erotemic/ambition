@@ -25,9 +25,12 @@
 /// - **Authored home.** A rebuild uses the actor's restored [`AuthoredBrainContext`]
 ///   (its spawn anchor + patrol radius), not its current pose, so a restored patrol
 ///   brain recenters where it was authored.
-/// - **Temporary control is untouchable.** A body under player possession
-///   (`Brain::Player`) or mount control (`Mounted`) is skipped — its live brain is
-///   control, not its autonomous selection; reconciling would clobber it.
+/// - **A DISPLACED brain is untouchable.** A body under mount control
+///   (`Mounted`) is skipped — its live brain is the controller's, not its
+///   autonomous selection, and reconciling would clobber it.
+///   ⭐ **possession is no longer on that list.** A possessed body keeps its own
+///   policy the whole time (the seat moved, the brain did not), so its live brain
+///   IS its autonomous selection and reconciling it is exactly right.
 /// - **Externally-owned brains are left to their authority.** A binding whose
 ///   selection is `External` (provoke/challenge installed a non-catalog hostile
 ///   brain) has no `active_preset()` — reconcile skips it, so the disposition/provoke
@@ -49,8 +52,8 @@ pub fn reconcile_brain_bindings(world: &mut bevy::ecs::world::World) {
     }
 
     // 1. Collect each AUTONOMOUS catalog-backed NPC's active preset, authored build
-    //    context, and a clone of its live brain (an immutable pass). Player /
-    //    mounted / external actors are filtered out here (see the doc note).
+    //    context, and a clone of its live brain (an immutable pass). Mounted /
+    //    external actors are filtered out here (see the doc note).
     //    `query` (not `try_query`) so the optional `AuthoredBrainContext` / `Mounted`
     //    component types are initialized even in a world that never spawned one — a
     //    `try_query` returns `None` there and would silently skip reconciliation.
@@ -65,7 +68,7 @@ pub fn reconcile_brain_bindings(world: &mut bevy::ecs::world::World) {
         )>();
         q.iter(world)
             .filter_map(|(entity, binding, authored, pose, brain, mounted)| {
-                if brain.is_player() || mounted {
+                if mounted {
                     return None;
                 }
                 // `None` => External => an authority other than the catalog owns it.

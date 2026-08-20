@@ -57,7 +57,7 @@ fn items_in_world(app: &mut App) -> usize {
 }
 
 /// Stamp the body-facing semantic control frame directly. Production reaches
-/// this state through `SlotControls -> Brain::Player -> ActorControl`; pickup and
+/// this state through `SlotControls -> DrivingParticipant -> ActorControl`; pickup and
 /// held-item mechanics consume only the body-facing end of that seam.
 fn set_control(app: &mut App, player: Entity, attack: bool, shield: bool) {
     let mut control = app

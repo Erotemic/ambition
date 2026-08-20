@@ -1,6 +1,6 @@
 //! The character a body **wears** — the canonical playable-persona identity.
 //!
-//! A player entity is a *control box*: it carries `Brain::Player(slot)`, the
+//! A player entity is a *control box*: it carries `DrivingParticipant(slot)`, the
 //! movement clusters, and the player markers. WHICH catalog character that box
 //! wears — its movement identity, its moveset, its name, and its sprite — is a
 //! single simulation-owned relationship recorded by [`WornCharacter`].

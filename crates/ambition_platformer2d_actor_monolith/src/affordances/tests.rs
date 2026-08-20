@@ -12,7 +12,7 @@ use ambition_platformer2d_core as ae;
 fn build_test_app() -> (App, Entity) {
     use crate::actor::{BodyEnvironmentContact, BodyGroundState, BodyModeState};
     use crate::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
-    use ambition_characters::brain::{Brain, PlayerSlot, SlotControls};
+    use ambition_characters::brain::{DrivingParticipant, PlayerSlot, SlotControls};
     use ambition_input::ControlFrame;
 
     let mut app = App::new();
@@ -30,14 +30,14 @@ fn build_test_app() -> (App, Entity) {
     // The affordance compute reads exactly these four body facts:
     // ground (on_ground), motion facts (ledge), body_mode
     // (body_mode), env_contact (water). Plus kinematics for the
-    // intent system's facing read and `Brain::Player` for the slot
+    // intent system's facing read and `DrivingParticipant` for the slot
     // input lookup. Start with grounded baseline + neutral input.
     let entity = app
         .world_mut()
         .spawn((
             PlayerEntity,
             PrimaryPlayer,
-            Brain::Player(PlayerSlot::PRIMARY),
+            DrivingParticipant(PlayerSlot::PRIMARY),
             BodyKinematics::default(),
             BodyGroundState {
                 on_ground: true,
@@ -57,7 +57,7 @@ fn read_affordances(app: &App) -> PlayerAffordances {
 }
 
 /// Stamp the primary slot's input axes (the intent compute reads the
-/// controlled body's slot frame from `SlotControls` via its `Brain::Player`,
+/// controlled body's slot frame from `SlotControls` via its `DrivingParticipant`,
 /// not the global `Res<ControlFrame>` and not a per-body input mirror).
 fn set_axis(app: &mut App, _player: Entity, x: f32, y: f32) {
     use ambition_characters::brain::{PlayerSlot, SlotControls};
@@ -154,19 +154,19 @@ fn ledge_grab_flips_jump_and_shield() {
 #[test]
 fn affordances_follow_the_possessed_body_not_the_home_avatar() {
     use crate::actor::{BodyEnvironmentContact, BodyGroundState, BodyKinematics, BodyModeState};
-    use ambition_characters::brain::{Brain, PlayerSlot};
+    use ambition_characters::brain::{DrivingParticipant, PlayerSlot};
     use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 
     let (mut app, home) = build_test_app();
     // The home avatar stays grounded, no ledge → its own verbs would be Jump/Shield.
-    // Possess an actor hanging on a ledge: as in production, the player brain
-    // TRANSFERS onto the target (which never carries `PlayerEntity` /
+    // Possess an actor hanging on a ledge: as in production, the SEAT
+    // moves onto the target (which never carries `PlayerEntity` /
     // `PrimaryPlayer` identity) and `ControlledSubject`
     // names it.
     let possessed = app
         .world_mut()
         .spawn((
-            Brain::Player(PlayerSlot::PRIMARY),
+            DrivingParticipant(PlayerSlot::PRIMARY),
             BodyKinematics::default(),
             BodyGroundState {
                 on_ground: false,
@@ -184,7 +184,9 @@ fn affordances_follow_the_possessed_body_not_the_home_avatar() {
             crate::physics::ResolvedMotionFrame::default(),
         ))
         .id();
-    app.world_mut().entity_mut(home).remove::<Brain>();
+    app.world_mut()
+        .entity_mut(home)
+        .remove::<DrivingParticipant>();
     app.world_mut()
         .insert_resource(ControlledSubject(Some(possessed)));
 
@@ -201,7 +203,7 @@ fn affordances_follow_the_possessed_body_not_the_home_avatar() {
     // Drop possession back to the home avatar: the hints snap back to its verbs.
     app.world_mut()
         .entity_mut(home)
-        .insert(Brain::Player(PlayerSlot::PRIMARY));
+        .insert(DrivingParticipant(PlayerSlot::PRIMARY));
     app.world_mut().insert_resource(ControlledSubject(None));
     app.update();
     let aff = read_affordances(&app);
@@ -211,14 +213,14 @@ fn affordances_follow_the_possessed_body_not_the_home_avatar() {
 
 /// The intent (aim) must ALSO follow the possessed body — live slot input
 /// resolved against the DRIVEN body's facing. A possessed actor carries no
-/// entity-local input mirror (possession transfers only the brain), so an
+/// entity-local input mirror (possession moves only the seat), so an
 /// intent compute that reads the mirror component would silently freeze at the
 /// home avatar's last pre-possession aim; reading the slot frame through the
-/// body's own `Brain::Player` is what keeps it live.
+/// body's own `DrivingParticipant` is what keeps it live.
 #[test]
 fn intent_reads_the_possessed_bodys_slot_input_and_facing() {
     use crate::actor::BodyKinematics;
-    use ambition_characters::brain::{Brain, PlayerSlot};
+    use ambition_characters::brain::{DrivingParticipant, PlayerSlot};
     use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 
     let (mut app, home) = build_test_app();
@@ -227,11 +229,11 @@ fn intent_reads_the_possessed_bodys_slot_input_and_facing() {
     app.update();
     assert_eq!(app.world().resource::<PlayerIntent>().aim, Aim::Forward);
 
-    // Possess a LEFT-facing actor (brain transfer; no entity-local input copy).
+    // Possess a LEFT-facing actor (seat redirect; no entity-local input copy).
     let possessed = app
         .world_mut()
         .spawn((
-            Brain::Player(PlayerSlot::PRIMARY),
+            DrivingParticipant(PlayerSlot::PRIMARY),
             BodyKinematics {
                 facing: -1.0,
                 ..Default::default()
@@ -239,7 +241,9 @@ fn intent_reads_the_possessed_bodys_slot_input_and_facing() {
             crate::physics::ResolvedMotionFrame::default(),
         ))
         .id();
-    app.world_mut().entity_mut(home).remove::<Brain>();
+    app.world_mut()
+        .entity_mut(home)
+        .remove::<DrivingParticipant>();
     app.world_mut()
         .insert_resource(ControlledSubject(Some(possessed)));
 

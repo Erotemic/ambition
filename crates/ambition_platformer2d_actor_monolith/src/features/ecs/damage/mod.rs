@@ -38,7 +38,7 @@ use ambition_vfx::vfx::VfxMessage;
 /// One side of a combat relationship, as this module reads it off a body.
 type CombatSide<'w> = (
     &'w crate::combat::components::ActorFaction,
-    Option<&'w ambition_characters::brain::Brain>,
+    Option<&'w ambition_characters::brain::DrivingParticipant>,
     Option<&'w crate::combat::targeting::MatchTeam>,
 );
 
@@ -59,15 +59,15 @@ pub(crate) fn boss_damage_allowed(
     boss_entity: Entity,
 ) -> bool {
     let (
-        Some((attacker_faction, attacker_brain, attacker_team)),
-        Some((boss_faction, boss_brain, boss_team)),
+        Some((attacker_faction, attacker_driver, attacker_team)),
+        Some((boss_faction, boss_driver, boss_team)),
     ) = (attacker, boss)
     else {
         return true;
     };
     crate::combat::targeting::damage_lands_between(
-        crate::combat::targeting::effective_faction(*attacker_faction, attacker_brain),
-        crate::combat::targeting::effective_faction(*boss_faction, boss_brain),
+        crate::combat::targeting::effective_faction(*attacker_faction, attacker_driver),
+        crate::combat::targeting::effective_faction(*boss_faction, boss_driver),
         attacker_team,
         boss_team,
         friendly_fire,
@@ -411,12 +411,13 @@ pub fn apply_feature_hit_events(
         // check. Read-only and looked up by entity, so it may overlap the
         // mutable actor and boss queries freely.
         //
-        // `Brain` rides along because allegiance is EFFECTIVE, not authored: a
-        // possessed boss fights as its driver's side, and a policy that read the
-        // authored faction would have it defending the team it was taken from.
+        // `DrivingParticipant` rides along because allegiance is EFFECTIVE, not
+        // authored: a possessed boss fights as its driver's side, and a policy
+        // that read the authored faction would have it defending the team it was
+        // taken from.
         Query<(
             &'static crate::combat::components::ActorFaction,
-            Option<&'static ambition_characters::brain::Brain>,
+            Option<&'static ambition_characters::brain::DrivingParticipant>,
             Option<&'static crate::combat::targeting::MatchTeam>,
         )>,
     ),

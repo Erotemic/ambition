@@ -50,7 +50,7 @@ pub struct HealShrine {
 ///
 /// Acts on the **controlled subject** — the body the player is driving — reading
 /// its body-generic [`ActorControl`] interact intent (populated for any body
-/// carrying `Brain::Player`) and healing THAT body. So a possessed actor resting
+/// holding the primary seat) and healing THAT body. So a possessed actor resting
 /// at a shrine heals itself, not the vacated home avatar. The intent belongs to
 /// the body at the shrine, not to one machine-wide input frame (relativity
 /// principle / §4 of the restructuring blueprint). Falls back to the primary

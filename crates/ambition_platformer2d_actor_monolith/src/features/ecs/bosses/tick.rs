@@ -380,9 +380,9 @@ pub fn tick_boss_brains_system(
     world_time: Res<WorldTime>,
     // The composed collision read-API rather than its three ingredients.
     collision: ambition_platformer2d_world::collision::CollisionWorld,
-    // A possessed boss carries `Brain::Player(slot)` and reads its controller
-    // frame from here, through the SAME universal-brain path every controlled
-    // body uses. Bosses are valid controllable bodies (architecturally); design
+    // A possessed boss carries `DrivingParticipant(slot)` and reads its
+    // controller frame from here, through the SAME universal-control path every
+    // driven body uses. Bosses are valid controllable bodies (architecturally); design
     // gating of WHICH boss is possessable lives above, in the possession target
     // filter — not as a "bosses can never be controlled" barrier in this tick.
     slot_controls: Res<ambition_characters::brain::SlotControls>,
@@ -393,6 +393,12 @@ pub fn tick_boss_brains_system(
             // The boss's HP authority (§A1) — liveness is `health.alive()`.
             &ambition_characters::actor::BodyHealth,
             &mut Brain,
+            // **WHO DRIVES THIS BOSS**, if anybody. The possession arm below keys
+            // on it; it used to key on `brain.player_slot()`, which meant the
+            // scripted pattern had to be stashed elsewhere to make room for the
+            // driver. The pattern now stays where it is and simply stops
+            // deciding.
+            Option<&ambition_characters::brain::DrivingParticipant>,
             &mut ActorControl,
             // The per-frame attack INTENT the trigger reads (§A1 intent/projection
             // split): the driver (autonomous pattern OR possession) writes which
@@ -437,6 +443,7 @@ pub fn tick_boss_brains_system(
         feature,
         health,
         mut brain,
+        driver,
         mut control,
         mut intent,
         target,
@@ -458,10 +465,14 @@ pub fn tick_boss_brains_system(
         // `velocity_target` (bosses float / SNAP-integrate in `update_ecs_bosses`)
         // at the shared body run capability, AND commands its own authored specials
         // through a deterministic input→special mapping over `BossCapability` — the
-        // boss body's full kit, nothing special-cased (unified-actors I2/I7). The
-        // scripted pattern is suspended (its brain is stashed); the human is the
-        // policy choosing from the same repertoire the pattern would.
-        if let Some(slot) = brain.player_slot() {
+        // boss body's full kit, nothing special-cased (unified-actors I2/I7).
+        //
+        // ⭐ **the scripted pattern is not stashed any more; it is simply not
+        // asked.** Its `Brain` sits on the body untouched for the whole
+        // possession — the human is the policy choosing from the same repertoire
+        // the pattern would, and the moment the seat leaves, the pattern resumes
+        // from the state it was in.
+        if let Some(slot) = driver.map(|driver| driver.0) {
             let mut snapshot = ambition_characters::brain::BrainSnapshot::idle();
             snapshot.actor_pos = boss.kin.pos;
             snapshot.actor_vel = boss.kin.vel;
@@ -471,7 +482,7 @@ pub fn tick_boss_brains_system(
             snapshot.dt = dt;
             snapshot.player_input = Some(slot_controls.get(slot));
             let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
-            brain.tick(&snapshot, &mut frame);
+            ambition_characters::brain::tick_player_brain(slot, &snapshot, &mut frame);
             control.0 = frame;
 
             // Map controller input onto the boss's authored repertoire and publish it as

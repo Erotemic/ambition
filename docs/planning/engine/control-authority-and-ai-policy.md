@@ -5,6 +5,29 @@
 construction work. ⛔ **the review also REFUSED the obvious version of it**, and
 that refusal is the first thing to read.
 
+## ✔ LANDED 2026-08-20 — `Brain::Player(PlayerSlot)` is DELETED
+
+`Brain` is now `StateMachine(StateMachineCfg)` and nothing else. Who drives a
+body is `ambition_characters::brain::DrivingParticipant(PlayerSlot)`, authored at
+the spawn/seat site and moved for a possession by exactly one system,
+`control::project_driving_participant`. `PossessionState::restore_brain` and
+`restore_scope` are gone with it — a driven body keeps its own policy for the
+whole possession, so there is nothing to stash and nothing to put back.
+
+⚠ **`DrivingParticipant` stopped being a DERIVE in the same change.** Its
+declaration's justification was *"reprojected from `Brain::Player` and possession
+every tick"*, and that upstream no longer exists: the seat lives in that component
+and nowhere else, so it is REGISTERED (`actor.driving_participant`,
+`rollback_component_clone`) and `derived.driving_participant` left the schema.
+`GGRS_ROLLBACK_SCHEMA_VERSION` 56 → 58 under Jon's standing 2026-08-08 ruling —
+no migration, no shim. See `awaiting-maintainer-decision.md` §21.
+
+⭐ **`Brain` is a ONE-VARIANT enum today.** Collapsing it into a struct is a
+separate decision and was deliberately NOT taken here.
+
+⚠ **the measurement below is PRE-DELETION** and is kept as the record of what the
+conflation cost.
+
 ## What was refused, and why it matters more than what is proposed
 
 > `Brain::Capability(BrainId)` + registered executable dispatch — that removes

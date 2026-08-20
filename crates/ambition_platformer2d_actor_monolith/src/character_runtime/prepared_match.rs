@@ -822,7 +822,7 @@ pub fn prepare_match(
         // answer used to be an adopted body: seat zero silently became the home
         // avatar. With construction unified, both bodies get built and
         // `resolve_controlled_subject` aborts the frame with
-        // *"2 entities carry Brain::Player(PRIMARY)"* — true, useless, and
+        // *"2 entities hold DrivingParticipant(PRIMARY)"* — true, useless, and
         // reported by a system that had nothing to do with the mistake.
         //
         // ⭐ a match experience declares `InitialBodyPolicy::NoInitialBody`;
@@ -1300,23 +1300,27 @@ fn realize_seat(
     // overlay's own answer be thrown away — two answers to one question, which
     // is the divergence this campaign exists to remove.
     let action_set = seat.action_set.clone();
-    // **THE BRAIN THIS SEAT WILL HAVE, chosen once and spawned WITH the body.**
+    // **THE AUTONOMOUS POLICY THIS SEAT WILL HAVE, chosen once and spawned WITH
+    // the body.**
     //
     // ⛔ this used to be the archetype's brain unconditionally, with a follow-up
     // `commands.entity(body).insert(Brain::Player(..))` for a local seat. Two
     // steps to say one thing, and this repo's own rule about that is
     // "an authority that needs a FOLLOW-UP CALL — the second step belongs inside
-    // the first". Here the cost is concrete: for one command-queue ordering
-    // there exists a world in which a seated fighter is AI-brained, and a
+    // the first". Here the cost was concrete: for one command-queue ordering
+    // there existed a world in which a seated fighter is AI-brained, and a
     // rollback snapshot that captures THAT world restores it forever, because
     // activation is one-shot and never rebinds.
+    //
+    // ⭐⭐ **and that race is now structurally impossible, not merely avoided.**
+    // A local seat's driver is [`DrivingParticipant`], a SEPARATE component from
+    // the policy — the two are no longer competing values of one field, so a
+    // dropped write cannot leave the body wearing the other one's answer. What
+    // a human-driven fighter gets here is the policy it falls back to when
+    // nobody is driving, and for a seat the roster describes only as "a person
+    // plays it", that is standing still.
     let derived_brain = match &seat.authority {
-        // ⭐ **through the one correspondence**, not `PlayerSlot(raw)`: the seat
-        // the simulation reads is a projection of the participant channel, and
-        // `participant_seat` is where that projection lives.
-        ControlAuthority::LocalInput { channel, .. } => ambition_characters::brain::Brain::Player(
-            crate::participant_seat::player_slot_of(*channel),
-        ),
+        ControlAuthority::LocalInput { .. } => ambition_characters::brain::Brain::stand_still(),
         ControlAuthority::Brain { .. } => {
             // ⭐ the AI's capability read asks the SAME effective set the kit was
             // derived against: a driver that believes it may shield in a match
@@ -1468,16 +1472,26 @@ fn realize_seat(
 /// the property that made a CPU-only match impossible to express before.
 fn bind_seat_control(commands: &mut Commands, body: Entity, authority: &ControlAuthority) {
     match authority {
-        ControlAuthority::LocalInput { .. } => {
-            // ⚠ the BRAIN is not here — it is in the spawn bundle, deliberately;
-            // see `realize_seat`. What is left is the local-input plumbing that
-            // has no archetype counterpart to race with.
-            commands
-                .entity(body)
-                .insert(crate::control::components::LocalPlayer);
+        ControlAuthority::LocalInput { channel, .. } => {
+            // ⚠ the POLICY is not here — it is in the spawn bundle, deliberately;
+            // see `realize_seat`. What is left is the local-input plumbing, and
+            // it has no archetype counterpart to race with: an autonomous seat
+            // writes no seat at all, so a dropped write here can only leave the
+            // component ABSENT, never holding somebody else's answer.
+            //
+            // ⭐ **through the one correspondence**, not `PlayerSlot(raw)`: the
+            // seat the simulation reads is a projection of the participant
+            // channel, and `participant_seat` is where that projection lives.
+            commands.entity(body).insert((
+                crate::control::components::LocalPlayer,
+                ambition_characters::brain::DrivingParticipant(
+                    crate::participant_seat::player_slot_of(*channel),
+                ),
+            ));
         }
         // The seed already carries the archetype's brain, derived in
-        // `realize_seat` exactly as the enemy spawner derives it.
+        // `realize_seat` exactly as the enemy spawner derives it, and nobody
+        // drives it.
         ControlAuthority::Brain { .. } => {}
     }
 }

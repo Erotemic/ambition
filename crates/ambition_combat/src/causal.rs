@@ -21,19 +21,19 @@
 //! ## Subjects
 //!
 //! The messages carry `Entity`, which is not an identity — indices are recycled.
-//! A seated body's `Brain::Player(slot)` is, and a stock investigation is
+//! A seated body's `DrivingParticipant(slot)` is, and a stock investigation is
 //! always about a seat ("seat 1 lost three stocks without being hit"), which
 //! survives the respawns in the middle of the answer.
 
 use ambition_causal::{CausalFact, CausalRecording, FactDetail, SubjectKey, domains};
-use ambition_characters::brain::Brain;
+use ambition_characters::brain::DrivingParticipant;
 use bevy::prelude::*;
 
 use crate::stocks::{BodyKnockedOut, FighterStockSpent, StocksMatchDecided};
 
 /// The seat a body is driven from, when it has one.
-fn seat_of(bodies: &Query<&Brain>, body: Entity) -> Option<u8> {
-    bodies.get(body).ok()?.player_slot().map(|slot| slot.0)
+fn seat_of(bodies: &Query<&DrivingParticipant>, body: Entity) -> Option<u8> {
+    Some(bodies.get(body).ok()?.0 .0)
 }
 
 /// **The strongest stable subject this body has** — and never `None`.
@@ -56,7 +56,7 @@ fn seat_of(bodies: &Query<&Brain>, body: Entity) -> Option<u8> {
 ///    can mislead one later query, while a world fact misleads every query
 ///    forever.
 fn subject_of(
-    bodies: &Query<&Brain>,
+    bodies: &Query<&DrivingParticipant>,
     identities: &Query<&crate::components::ActorIdentity>,
     body: Entity,
 ) -> (SubjectKey, Option<u8>) {
@@ -71,7 +71,8 @@ fn subject_of(
 
 /// Publish the stock lifecycle: knockouts, spends, eliminations, the decision.
 ///
-/// Takes `Brain` immutably and the messages by read — an observer by signature,
+/// Takes `DrivingParticipant` immutably and the messages by read — an observer by
+/// signature,
 /// which matters here because a rollback host resimulates a deciding frame and
 /// an instrument that nudged the ruleset would change who won.
 pub fn record_stock_lifecycle(
@@ -79,7 +80,7 @@ pub fn record_stock_lifecycle(
     mut knockouts: MessageReader<BodyKnockedOut>,
     mut spends: MessageReader<FighterStockSpent>,
     mut decided: MessageReader<StocksMatchDecided>,
-    bodies: Query<&Brain>,
+    bodies: Query<&DrivingParticipant>,
     identities: Query<&crate::components::ActorIdentity>,
 ) {
     let Some(mut log) = log else {

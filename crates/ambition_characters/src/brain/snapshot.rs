@@ -112,7 +112,7 @@ pub struct BrainSnapshot {
     pub subject: Option<String>,
     /// Whether the actor is alive. State-machine brain templates
     /// emit a neutral frame when `alive == false`; the player brain
-    /// (`Brain::Player`) currently doesn't gate on this — dead
+    /// (`tick_player_brain`) currently doesn't gate on this — dead
     /// players still translate their input. The integration layer
     /// ignores dead actors regardless.
     pub alive: bool,
@@ -213,10 +213,10 @@ pub struct BrainSnapshot {
     /// Distance to the first blocking wall in the boss's approach lane; `None` =
     /// clear (or non-boss).
     pub front_wall_clearance: Option<f32>,
-    /// Per-tick input snapshot for [`crate::brain::Brain::Player`].
+    /// Per-tick input snapshot for [`crate::brain::tick_player_brain`].
     /// `None` for non-player actors. The player-brain driver fills this directly
     /// from the [`SlotControls`](crate::brain::SlotControls) entry named by the
-    /// body's `Brain::Player(slot)`; no input frame is copied onto the entity.
+    /// body's `DrivingParticipant(slot)`; no input frame is copied onto the entity.
     pub player_input: Option<ambition_platformer2d_core::ControlFrame>,
 
     /// Per-tick crowding signal — same-faction + non-faction

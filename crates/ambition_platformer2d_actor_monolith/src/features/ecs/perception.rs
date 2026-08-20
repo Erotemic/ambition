@@ -346,7 +346,7 @@ pub struct PerceptionMemory(pub ambition_characters::perception::WorldMemory);
 ///
 /// ⚠ this grants by POPULATION (brained, non-`PlayerEntity`, non-boss), and
 /// `tick_actor_brains` decides by BRAIN — since 2026-08-14 it skips any body
-/// carrying a participant's `Brain::Player`, so a possessed actor keeps the
+/// carrying a participant's seat, so a possessed actor keeps the
 /// memory it was granted and stops having it rewritten by a world view nobody
 /// consulted. The belief is preserved across the possession rather than decayed
 /// by it, and re-enters use the moment an AI brain returns to the body.

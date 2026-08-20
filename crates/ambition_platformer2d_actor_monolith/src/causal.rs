@@ -28,7 +28,7 @@ use bevy::prelude::*;
 
 use crate::avatar::movement_components::{BodyGroundState, BodyKinematics};
 use crate::features::ecs::damage_apply::{BodyHitResolution, BodyHitResolved, BodyReactionApplied};
-use ambition_characters::brain::{ActorControl, Brain};
+use ambition_characters::brain::{ActorControl, DrivingParticipant};
 
 /// Publish one movement-intent fact per seated body per tick.
 ///
@@ -39,7 +39,12 @@ use ambition_characters::brain::{ActorControl, Brain};
 /// a position sample.
 pub fn record_player_movement_intent(
     log: Option<ResMut<CausalRecording>>,
-    bodies: Query<(&BodyKinematics, &BodyGroundState, &Brain, &ActorControl)>,
+    bodies: Query<(
+        &BodyKinematics,
+        &BodyGroundState,
+        &DrivingParticipant,
+        &ActorControl,
+    )>,
 ) {
     let Some(mut log) = log else {
         return;
@@ -47,13 +52,12 @@ pub fn record_player_movement_intent(
     if !log.is_recording() {
         return;
     }
-    for (kin, ground, brain, control) in &bodies {
+    for (kin, ground, driver, control) in &bodies {
         // Only seated bodies: the seat IS the identity, so a body without one
         // has nothing an explanation could be keyed on. Publishing it under a
-        // recycled entity index would be worse than not publishing it.
-        let Some(slot) = brain.player_slot() else {
-            continue;
-        };
+        // recycled entity index would be worse than not publishing it. The
+        // `&DrivingParticipant` in the query IS that filter.
+        let slot = driver.0;
         let frame = &control.0;
         log.record(
             CausalFact::new(
@@ -197,7 +201,7 @@ pub fn record_body_control_frame(
         &BodyGroundState,
         &ActorControl,
         &ambition_platformer2d_core::BodyDashState,
-        &Brain,
+        Option<&DrivingParticipant>,
         // ⛔ **WHY THE BODY MIGHT NOT BE OBEYING**, added 2026-08-01 after the
         // first real measurement of this seam. A plain two-CPU match shows seven
         // consecutive ticks pinned at exactly `-86` while the brain asks
@@ -230,11 +234,11 @@ pub fn record_body_control_frame(
     if !log.is_recording() {
         return;
     }
-    for (identity, kin, ground, control, dash, brain, combat, melee, motion_frame) in &bodies {
+    for (identity, kin, ground, control, dash, driver, combat, melee, motion_frame) in &bodies {
         // A seated body is already covered by `record_player_movement_intent`,
         // under its SEAT — which is the better key there, because a seat
         // survives death and respawn and an actor id does not.
-        if brain.player_slot().is_some() {
+        if driver.is_some() {
             continue;
         }
         let frame = &control.0;
@@ -316,16 +320,11 @@ pub fn record_body_control_frame(
 /// a recorded API leak and still beats global: a recycled index can mislead one
 /// later query; a world fact misleads every query forever.
 fn body_subject(
-    brains: &Query<&Brain>,
+    drivers: &Query<&DrivingParticipant>,
     identities: &Query<&crate::combat::components::ActorIdentity>,
     body: Entity,
 ) -> (SubjectKey, Option<u8>) {
-    if let Some(seat) = brains
-        .get(body)
-        .ok()
-        .and_then(|brain| brain.player_slot())
-        .map(|slot| slot.0)
-    {
+    if let Some(seat) = drivers.get(body).ok().map(|driver| driver.0 .0) {
         return (SubjectKey::Seat(seat), Some(seat));
     }
     if let Ok(identity) = identities.get(body) {
@@ -348,7 +347,7 @@ fn body_subject(
 pub fn record_hit_resolutions(
     log: Option<ResMut<CausalRecording>>,
     mut hits: MessageReader<BodyHitResolved>,
-    bodies: Query<&Brain>,
+    bodies: Query<&DrivingParticipant>,
     identities: Query<&crate::combat::components::ActorIdentity>,
 ) {
     let Some(mut log) = log else {
@@ -416,7 +415,7 @@ pub fn record_hit_resolutions(
 pub fn record_hit_reactions(
     log: Option<ResMut<CausalRecording>>,
     mut reactions: MessageReader<BodyReactionApplied>,
-    bodies: Query<&Brain>,
+    bodies: Query<&DrivingParticipant>,
     identities: Query<&crate::combat::components::ActorIdentity>,
 ) {
     let Some(mut log) = log else {
@@ -468,7 +467,7 @@ pub fn record_hit_reactions(
 mod tests {
     use super::*;
     use ambition_causal::{FactValue, RecordingPolicy};
-    use ambition_characters::brain::PlayerSlot;
+    use ambition_characters::brain::{Brain, PlayerSlot};
 
     fn app() -> App {
         let mut app = App::new();
@@ -489,7 +488,7 @@ mod tests {
                 ..Default::default()
             },
             BodyGroundState::default(),
-            Brain::Player(PlayerSlot(slot)),
+            DrivingParticipant(PlayerSlot(slot)),
             control,
         ));
     }
@@ -562,7 +561,7 @@ mod tests {
 mod damage_tests {
     use super::*;
     use ambition_causal::{FactValue, RecordingPolicy};
-    use ambition_characters::brain::PlayerSlot;
+    use ambition_characters::brain::{Brain, PlayerSlot};
 
     fn app() -> App {
         let mut app = App::new();
@@ -593,7 +592,10 @@ mod damage_tests {
             .resource_mut::<CausalRecording>()
             .set_policy(RecordingPolicy::All)
             .set_tick(12);
-        let body = app.world_mut().spawn(Brain::Player(PlayerSlot(2))).id();
+        let body = app
+            .world_mut()
+            .spawn(DrivingParticipant(PlayerSlot(2)))
+            .id();
 
         for (resolution, expected) in [
             (BodyHitResolution::Ignored, "ignored"),
@@ -636,7 +638,10 @@ mod damage_tests {
             .resource_mut::<CausalRecording>()
             .set_policy(RecordingPolicy::All)
             .set_tick(13);
-        let body = app.world_mut().spawn(Brain::Player(PlayerSlot(0))).id();
+        let body = app
+            .world_mut()
+            .spawn(DrivingParticipant(PlayerSlot(0)))
+            .id();
         announce(&mut app, body, BodyHitResolution::Blocked, 42);
         app.update();
 
@@ -662,7 +667,10 @@ mod damage_tests {
             .resource_mut::<CausalRecording>()
             .set_policy(RecordingPolicy::All)
             .set_tick(14);
-        let body = app.world_mut().spawn(Brain::Player(PlayerSlot(1))).id();
+        let body = app
+            .world_mut()
+            .spawn(DrivingParticipant(PlayerSlot(1)))
+            .id();
         announce(
             &mut app,
             body,
@@ -689,7 +697,7 @@ mod knockback_tests {
     use super::*;
     use crate::features::ecs::damage_apply::BodyReaction;
     use ambition_causal::{FactValue, RecordingPolicy};
-    use ambition_characters::brain::PlayerSlot;
+    use ambition_characters::brain::{Brain, PlayerSlot};
 
     fn reaction_app() -> App {
         let mut app = App::new();
@@ -708,7 +716,10 @@ mod knockback_tests {
     #[test]
     fn a_short_launch_distinguishes_a_weak_hit_from_a_well_steered_one() {
         let mut app = reaction_app();
-        let body = app.world_mut().spawn(Brain::Player(PlayerSlot(1))).id();
+        let body = app
+            .world_mut()
+            .spawn(DrivingParticipant(PlayerSlot(1)))
+            .id();
 
         // Steered: the victim held DI and the launch came out short.
         app.world_mut().write_message(BodyReactionApplied {
@@ -734,7 +745,10 @@ mod knockback_tests {
         // Not launched at all: hurt, no knockback. Same visible stillness, a
         // completely different finding.
         let mut app = reaction_app();
-        let body = app.world_mut().spawn(Brain::Player(PlayerSlot(1))).id();
+        let body = app
+            .world_mut()
+            .spawn(DrivingParticipant(PlayerSlot(1)))
+            .id();
         app.world_mut().write_message(BodyReactionApplied {
             body,
             reaction: BodyReaction {
@@ -769,7 +783,10 @@ mod knockback_tests {
     #[test]
     fn the_launch_records_its_speed_and_its_hitstun() {
         let mut app = reaction_app();
-        let body = app.world_mut().spawn(Brain::Player(PlayerSlot(0))).id();
+        let body = app
+            .world_mut()
+            .spawn(DrivingParticipant(PlayerSlot(0)))
+            .id();
         app.world_mut().write_message(BodyReactionApplied {
             body,
             reaction: BodyReaction {

@@ -24,8 +24,8 @@ use super::instance::ConversationInstanceId;
 pub enum ConversationInputOwner {
     /// The seat driving the initiator — somebody walked up and pressed Interact.
     ///
-    /// ⭐ derived from that body's `Brain::Player(slot)`, because the brain is
-    /// what actually answers "who drives this body". ⛔ not an entity index, and
+    /// ⭐ read off that body's `DrivingParticipant(slot)`, which is the one fact
+    /// that answers "who drives this body". ⛔ not an entity index, and
     /// not a device slot that happens to share a number with a seat.
     Participant(ambition_input::ParticipantId),
     /// The primary seat only. A scripted conversation nobody in the world

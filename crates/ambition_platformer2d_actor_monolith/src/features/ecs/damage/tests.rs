@@ -605,7 +605,7 @@ fn a_struck_peaceful_corpse_is_silent_but_a_living_one_barks() {
 /// ⛔ `apply_actor_hit` read the DISPOSITION to decide whether a hit takes
 /// health, so `ActorDisposition` answered two questions at once: how an actor
 /// regards combat, and whether its body can be hurt. A match fighter therefore
-/// had to stay `Hostile` merely to be damageable — and two `Brain::Player`
+/// had to stay `Hostile` merely to be damageable — and two participant-driven
 /// fighters hold no AI target, so both stood down to `Peaceful` and neither
 /// could hurt the other.
 ///
@@ -1908,12 +1908,12 @@ fn a_projectile_hit_flashes_its_victim_but_never_its_thrower() {
 fn a_boss_is_adjudicated_by_the_same_relationship_rule_as_any_other_body() {
     use crate::combat::components::ActorFaction;
     use crate::combat::targeting::FriendlyFire;
-    use ambition_characters::brain::Brain;
+    use ambition_characters::brain::DrivingParticipant;
 
     let boss_entity = bevy::prelude::Entity::from_raw_u32(7).expect("nonzero raw index");
     let ff = FriendlyFire::default();
-    let side = |faction: &'static ActorFaction, brain: Option<&'static Brain>| {
-        Some((faction, brain, None))
+    let side = |faction: &'static ActorFaction, driver: Option<&'static DrivingParticipant>| {
+        Some((faction, driver, None))
     };
 
     assert!(
@@ -1943,7 +1943,9 @@ fn a_boss_is_adjudicated_by_the_same_relationship_rule_as_any_other_body() {
         super::boss_damage_allowed(
             side(
                 &ActorFaction::Boss,
-                Some(&Brain::Player(ambition_characters::brain::PlayerSlot(0)))
+                Some(&DrivingParticipant(ambition_characters::brain::PlayerSlot(
+                    0
+                )))
             ),
             side(&ActorFaction::Boss, None),
             ff,

@@ -34,6 +34,11 @@ fn trigger_app() -> App {
             possession_trigger_system,
             release_possession_if_target_lost,
             crate::body_custody::project_body_custody,
+            // ⚠ **the SEAT is part of the mechanic too**, for the same reason the
+            // custody projection is: `possession_trigger_system` states the
+            // decision and this is the one system that moves
+            // `DrivingParticipant` onto the driven body and back.
+            crate::control::project_driving_participant,
         )
             .chain(),
     );
@@ -45,7 +50,10 @@ fn spawn_home(app: &mut App) -> Entity {
         .spawn((
             PlayerEntity,
             PrimaryPlayer,
-            Brain::Player(PlayerSlot::PRIMARY),
+            // The home avatar is SEATED, and its own policy is to stand still —
+            // which is what it does while somebody drives something else.
+            DrivingParticipant(PlayerSlot::PRIMARY),
+            Brain::stand_still(),
             ActorControl::default(),
             BodyKinematics {
                 pos: vec2(0.0, 0.0),
@@ -78,8 +86,9 @@ fn spawn_candidate(app: &mut App, pos: ambition_platformer2d_core::Vec2) -> Enti
         .id()
 }
 
+/// The participant seat this body holds, if any.
 fn brain_slot(app: &App, e: Entity) -> Option<PlayerSlot> {
-    app.world().get::<Brain>(e).and_then(|b| b.player_slot())
+    app.world().get::<DrivingParticipant>(e).map(|d| d.0)
 }
 
 fn faction_of(app: &App, e: Entity) -> ActorFaction {
@@ -95,12 +104,12 @@ fn hold_down_interact(app: &mut App, held: bool) {
 }
 
 #[test]
-fn possession_transfers_the_player_brain_and_release_restores_it() {
+fn possession_transfers_the_seat_and_release_hands_it_back() {
     let mut app = trigger_app();
     let home = spawn_home(&mut app);
     let actor = spawn_candidate(&mut app, vec2(80.0, 0.0)); // in range
 
-    // Before possession: home carries the player brain; the actor its own.
+    // Before possession: home holds the seat; the actor holds none.
     assert_eq!(brain_slot(&app, home), Some(PlayerSlot::PRIMARY));
     assert_eq!(brain_slot(&app, actor), None);
 
@@ -110,18 +119,29 @@ fn possession_transfers_the_player_brain_and_release_restores_it() {
     assert_eq!(brain_slot(&app, actor), None, "not possessed mid-hold");
     app.update(); // hold_timer = 2.0 ≥ threshold → transfer
 
-    // After possession: the ACTOR carries the player brain; the home avatar
-    // no longer does; the actor is player-aligned; its old brain is stashed.
+    // After possession: the ACTOR holds the seat; the home avatar no longer
+    // does; the actor is player-aligned; its own brain is UNTOUCHED.
     assert_eq!(brain_slot(&app, actor), Some(PlayerSlot::PRIMARY));
     assert_eq!(
         brain_slot(&app, home),
         None,
-        "home avatar's player brain is vacated"
+        "home avatar's seat is vacated"
     );
-    assert!(app.world().get::<Brain>(home).is_none());
+    assert!(
+        app.world().get::<DrivingParticipant>(home).is_none(),
+        "the home avatar still holds the seat it handed over"
+    );
+    assert!(
+        matches!(
+            app.world().get::<Brain>(actor),
+            Some(Brain::StateMachine(StateMachineCfg::StandStill))
+        ),
+        "the driven body's OWN policy was displaced — possession moves a seat, \
+         never a brain"
+    );
     // Effective allegiance: the target's AUTHORED faction is NOT mutated by
     // possession (it stays Enemy). Combat treats it as Player because it
-    // carries `Brain::Player` — verified by the targeting/damage tests — so
+    // holds a `DrivingParticipant` — verified by the targeting/damage tests — so
     // there is no flip to bookkeep and no restore on release.
     assert_eq!(
         faction_of(&app, actor),
@@ -135,7 +155,7 @@ fn possession_transfers_the_player_brain_and_release_restores_it() {
     // The REPORTED BUG's root cause is gone: the vacated home avatar has a
     // neutral `ActorControl` and no brain to repopulate it, so it emits no
     // melee/attack this frame or any frame while possessed — attack authority
-    // can only originate from the body carrying `Brain::Player`.
+    // can only originate from the body holding the seat.
     assert_eq!(
         app.world().get::<ActorControl>(home).map(|c| c.0),
         Some(ambition_characters::actor::control::ActorControlFrame::neutral()),
@@ -151,12 +171,12 @@ fn possession_transfers_the_player_brain_and_release_restores_it() {
     assert_eq!(
         brain_slot(&app, home),
         Some(PlayerSlot::PRIMARY),
-        "release restores the home avatar's player brain"
+        "release hands the seat back to the home avatar"
     );
     assert_eq!(
         brain_slot(&app, actor),
         None,
-        "release restores the actor's autonomous brain"
+        "release takes the seat off the actor, which resumes its own policy"
     );
     assert_eq!(
         faction_of(&app, actor),
@@ -316,7 +336,7 @@ fn out_of_range_actors_are_not_possessed() {
 /// The mandate's headline invariant: while controlling a possessed target,
 /// pressing attack emits `ActorActionMessage` for the TARGET, and the vacated
 /// home avatar emits nothing. The collapse of the bug: attack authority
-/// follows the body carrying `Brain::Player`, resolved by the SAME
+/// follows the body holding the seat, resolved by the SAME
 /// `emit_brain_action_messages` stream for every body.
 #[test]
 fn attack_while_controlling_target_emits_only_for_the_target() {
@@ -337,7 +357,7 @@ fn attack_while_controlling_target_emits_only_for_the_target() {
         .world_mut()
         .spawn((ActorControl::default(), kit.clone(), ActorPose::default()))
         .id();
-    // Possessed target: its `Brain::Player` produced a melee-pressed frame.
+    // Possessed target: its seat produced a melee-pressed frame.
     let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
     frame.melee_pressed = true;
     frame.facing = 1.0;
@@ -407,7 +427,7 @@ fn spawn_dead_candidate(app: &mut App, pos: ambition_platformer2d_core::Vec2) ->
 #[test]
 fn possession_skips_a_nearer_corpse_for_a_farther_living_body() {
     // A dead enemy is an intangible corpse — you cannot possess it, even when it
-    // is the NEAREST brain-driven body. (Enemies die and linger with ActorControl
+    // is the NEAREST brain-bearing body. (Enemies die and linger with ActorControl
     // + Brain + no PlayerEntity, so this is reachable.) Poison: drop the
     // body_is_corpse filter in possession_trigger_system and the nearer corpse is
     // possessed instead of the living body.
@@ -429,7 +449,7 @@ fn possession_skips_a_nearer_corpse_for_a_farther_living_body() {
         "the nearer corpse is NOT possessed"
     );
     assert!(
-        app.world().get::<Brain>(home).is_none(),
+        app.world().get::<DrivingParticipant>(home).is_none(),
         "the home avatar vacated into the living body"
     );
 }
@@ -445,7 +465,7 @@ fn possession_finds_no_target_in_a_world_of_only_corpses() {
     assert_eq!(
         brain_slot(&app, home),
         Some(PlayerSlot::PRIMARY),
-        "no living candidate → the home avatar keeps the player brain (no transfer)"
+        "no living candidate → the home avatar keeps the seat (no transfer)"
     );
     assert_eq!(
         brain_slot(&app, corpse),

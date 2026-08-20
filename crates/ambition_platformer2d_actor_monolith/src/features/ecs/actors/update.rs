@@ -48,7 +48,7 @@ pub struct ActorSteering {
 
 /// PHASE — tick actor brains. For every brain-driven actor: advance its reaction
 /// timers, derive disposition standdown, build the perception snapshot (+ slot
-/// input for a possessed `Brain::Player` body), tick the brain, and write the
+/// input for a possessed body), tick the brain, and write the
 /// resulting `ActorControlFrame` into `ActorControl`. This phase ticks NO body
 /// position and mirrors NO read-model — brain → intent, full stop. The movement
 /// phase (`integrate_actor_bodies`) reads the `ActorControl` written here. Also
@@ -180,6 +180,13 @@ pub fn tick_actor_brains(
             // both because dynamically-spawned actors (debug tools,
             // scripted spawns) might skip brain attachment.
             Option<&mut ambition_characters::brain::Brain>,
+            // **WHO DRIVES THIS BODY**, if anybody. Two things read it here: the
+            // skip below (a body a participant is driving does not get decided
+            // for) and the EFFECTIVE faction in its own world-out view.
+            //
+            // ⭐ it used to be `brain.player_slot()` — the same question asked of
+            // an AI-policy enum, which is the conflation `Brain::Player` was.
+            Option<&ambition_characters::brain::DrivingParticipant>,
             Option<&mut ambition_characters::brain::ActorControl>,
             // ActionSet — read for the Smash brain so it knows which
             // attacks (melee / ranged) the actor can commit. `Option`
@@ -190,7 +197,7 @@ pub fn tick_actor_brains(
             // carries it. The tick integrates through it via `ActorMut`.
             //
             // ⚠ **a possessed body is MATCHED here and deliberately not decided
-            // for.** It carries `Brain::Player(slot)` (transferred by
+            // for.** It carries `DrivingParticipant(slot)` (redirected by
             // `crate::abilities::traversal::possession`), and since 2026-08-14
             // `tick_controlled_brains` owns its intent frame a phase earlier —
             // this loop still runs the facts a body in a world has (reaction
@@ -379,6 +386,10 @@ pub fn tick_actor_brains(
         _,
         target,
         _,
+        // The driving seat, which this loop does not consult: hostility is a
+        // disposition question and a body is in a fight for the same reasons
+        // whether a person or a policy is steering it.
+        _,
         _,
         _,
         _,
@@ -428,6 +439,7 @@ pub fn tick_actor_brains(
         mut combat,
         target,
         mut brain,
+        driver,
         mut control,
         action_set,
         _mounted,
@@ -493,7 +505,7 @@ pub fn tick_actor_brains(
         // could not be knocked out, and could not lose a stock.
         //
         // ⚠ **measured 2026-08-07, and it is worse than the test that found it.**
-        // Two `Brain::Player` fighters hold no combat target — targeting hunts
+        // Two participant-driven fighters hold no combat target — targeting hunts
         // live foes for a BRAIN — so in a human-versus-human match BOTH sides
         // stood down and neither could damage the other at all. The stage-kill
         // test only caught the blast-zone corner of it: seat 1 launched at
@@ -544,7 +556,7 @@ pub fn tick_actor_brains(
                 };
                 let enemy_gravity_dir = resolved_frame.down();
                 // ⭐⭐ **A PARTICIPANT'S BODY IS NOT THIS SYSTEM'S TO DECIDE FOR.**
-                // A possessed actor carries `Brain::Player(slot)`, and its
+                // A possessed actor carries `DrivingParticipant(slot)`, and its
                 // `ActorControl` is produced a whole phase earlier by
                 // `tick_controlled_brains` — the one seam that turns participant
                 // control into an intent frame, for the home avatar and for this
@@ -562,7 +574,7 @@ pub fn tick_actor_brains(
                 // reaction-timer decay, target liveness, disposition standdown and
                 // the crowd observation are facts about a body in a world, not
                 // decisions a driver makes.
-                if brain.as_deref().is_some_and(|b| b.player_slot().is_some()) {
+                if driver.is_some() {
                     continue;
                 }
                 let brain_frame = if let Some(brain_ref) = brain.as_deref_mut() {
@@ -621,7 +633,12 @@ pub fn tick_actor_brains(
                         faction
                             .copied()
                             .unwrap_or(ambition_characters::actor::ActorFaction::Enemy),
-                        Some(&*brain_ref),
+                        // ⚠ always `None` on this branch — the loop `continue`s
+                        // above for any body a participant drives — and stated
+                        // rather than folded away, because the SELF-view is
+                        // documented as "real (possession-aware) faction" and a
+                        // future reader must see which term carries that.
+                        driver,
                     );
                     // The other bodies this actor perceives (§A7): the pre-collected
                     // snapshot minus SELF.
@@ -1290,8 +1307,8 @@ pub fn sync_actor_read_model(
 /// A pure observer of integrated body state: it ticks no brain, moves no body,
 /// and mirrors no read-model — it only watches the world and emits damage facts.
 /// Runs after `update_ecs_actors` (movement) so the overlap it checks is this
-/// frame's resolved position. Body-contact is OFF for a player-controlled
-/// (possessed) body — its brain is `Brain::Player`, it fights for you, and its
+/// frame's resolved position. Body-contact is OFF for a participant-driven
+/// (possessed) body — it holds a `DrivingParticipant`, it fights for you, and its
 /// body must not harm you on contact (the same effective-allegiance rule the melee
 /// strike + boss damage use).
 #[allow(clippy::too_many_arguments)]
@@ -1309,7 +1326,7 @@ pub fn apply_actor_contact_damage(
             (
                 Entity,
                 &super::super::super::components::ActorTarget,
-                Option<&ambition_characters::brain::Brain>,
+                Option<&ambition_characters::brain::DrivingParticipant>,
                 Option<super::super::actor_clusters::ActorClusterQueryData>,
             ),
             // Bosses are contact attackers through THIS shared system now (fable
@@ -1332,16 +1349,15 @@ pub fn apply_actor_contact_damage(
     // Pass 1 — snapshot each live contact attack while the attacker's clusters
     // are borrowed.
     let mut pending: Vec<(Entity, Entity, crate::features::enemies::ContactAttack)> = Vec::new();
-    for (actor_entity, target, brain, clusters) in &mut set.p0() {
+    for (actor_entity, target, driver, clusters) in &mut set.p0() {
         let Some(mut cq) = clusters else {
             continue;
         };
         let em = cq.as_actor_mut();
-        // Body-contact hazard is off for any player-controlled body; derived from
-        // the brain (no possession special-case), gated by the body's authored
-        // `body_contact_damage` tuning.
-        let enabled = !brain.is_some_and(ambition_characters::brain::Brain::is_player)
-            && em.config.tuning.body_contact_damage;
+        // Body-contact hazard is off for any participant-driven body; derived
+        // from the DRIVER (no possession special-case), gated by the body's
+        // authored `body_contact_damage` tuning.
+        let enabled = driver.is_none() && em.config.tuning.body_contact_damage;
         if !enabled || !em.health.alive() {
             continue;
         }

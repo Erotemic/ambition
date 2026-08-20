@@ -96,7 +96,7 @@ pub fn interact_ecs_actors_and_switches(
     // or the room transition takes camera focus.
     const INTERACT_ANIM_HOLD_SECS: f32 = 0.28;
     // The body actually doing the interacting: the controlled subject (the body
-    // carrying `Brain::Player`), falling back to the primary player itself for
+    // holding the primary seat), falling back to the primary player itself for
     // the startup frame before the subject resolver has run.
     let Some(subject) = controlled
         .and_then(|subject| subject.0)

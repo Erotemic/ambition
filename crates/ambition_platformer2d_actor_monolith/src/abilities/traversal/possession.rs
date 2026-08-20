@@ -1,74 +1,83 @@
-//! Possession — Down + Interact transfers the player's controller brain onto a
-//! nearby actor. Bosses are valid targets: the boss tick consumes
-//! `Brain::Player`, driving boss movement AND its authored specials via a
-//! deterministic input mapping over `BossCapability`.
+//! Possession — Down + Interact hands the player's SEAT to a nearby actor.
+//! Bosses are valid targets: the boss tick reads whichever slot drives the body,
+//! driving boss movement AND its authored specials via a deterministic input
+//! mapping over `BossCapability`.
 //!
-//! Possession is NOT input-copying. It is **brain transfer**. On possess we move
-//! [`Brain::Player`]`(PlayerSlot::PRIMARY)` off the home avatar and onto the
-//! target actor. The target then reads slot-0 input through the SAME
-//! universal-brain path every player-controlled body uses:
-//! `Brain::Player` → [`SlotControls`] → its own `ActorControl` → its own
-//! `ActionSet`. It moves, attacks, and fires through its own body path — no
-//! `Possessed` marker, no input mirror, no possession-specific override in the
-//! actor tick.
+//! Possession is NOT input-copying, and it is no longer brain transfer either.
+//! It is a **seat redirect**: while a possession is live, the primary
+//! participant's [`DrivingParticipant`] sits on the target instead of on the home
+//! avatar. The target then reads slot-0 input through the SAME universal-control
+//! path every driven body uses: `DrivingParticipant` → [`SlotControls`] → its own
+//! `ActorControl` → its own `ActionSet`. It moves, attacks, and fires through its
+//! own body path — no `Possessed` marker, no input mirror, no possession-specific
+//! override in the actor tick.
 //!
-//! The home avatar, now without a player brain, is inert (a neutral
-//! `ActorControl`, no local attack authority) until release restores its brain.
+//! ⭐⭐ **the target KEEPS ITS OWN BRAIN THE WHOLE TIME, and that is what deleted
+//! two fields.** Taking control used to move a `Brain::Player` variant onto the
+//! body, destroying the policy that was there and forcing this resource to stash
+//! it in `restore_brain` (plus a `restore_scope` beside it). Nothing is displaced
+//! now, so nothing is put back: release is the seat going home and nothing else.
+//!
+//! The home avatar, now without a seat, is inert (a neutral `ActorControl`, no
+//! local attack authority) until release hands the seat back.
 //!
 //! Everything downstream — camera, portal viewer, nameplates, the melee
-//! lifecycle — derives from [`ControlledSubject`], i.e. "who carries
-//! `Brain::Player(PRIMARY)` this frame", never from a possession flag. That is
-//! the whole point: possession is proof that control is actor-generic.
+//! lifecycle — derives from [`ControlledSubject`], i.e. "who holds the primary
+//! seat this frame", never from a possession flag. That is the whole point:
+//! possession is proof that control is actor-generic.
 //!
 //! Bosses are in scope: the boss tick (`crate::features::ecs::bosses::tick`)
-//! handles a `Brain::Player` boss — reading slot input for movement and mapping
+//! handles a driven boss — reading slot input for movement and mapping
 //! attack/special input onto its authored `BossCapability`. Restricting WHICH
 //! boss is possessable (progression / design) is a targeting-policy gate to add
 //! above this trigger, not a "bosses can never be controlled" barrier.
+//!
+//! ⛔ **the seat is not written here.** `possession_trigger_system` states the
+//! DECISION (`PossessionState::possessed` / `home`) and
+//! `crate::control::project_driving_participant` is the one system that acts on
+//! it. Two writers of *who drives this body* is the defect the whole seam exists
+//! to remove, and this is the site that would reintroduce it.
 
 use bevy::prelude::*;
 
-use ambition_characters::brain::{ActorControl, Brain, PlayerSlot};
+use ambition_characters::brain::{ActorControl, Brain, DrivingParticipant, PlayerSlot};
 
 use crate::features::TemporaryControl;
-use ambition_platformer2d_shared_tangle::lifecycle::{
-    RoomScopedEntity, SessionScopeId, SessionScopedEntity,
-};
 use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
 use crate::actor::PlayerEntity;
 use crate::features::{CenteredAabb, FeatureSimEntity};
 
-/// Exact lifecycle ownership a possessed body had before control transfer.
-/// Release restores this value rather than assuming every candidate began as a
-/// room fixture.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum PossessionRestoreScope {
-    #[default]
-    Unscoped,
-    Room,
-    Session(SessionScopeId),
-}
-
-/// Brain-transfer bookkeeping for possession.
+/// Seat bookkeeping for possession.
 ///
-/// `controlled == None` means the local player drives the home avatar;
-/// `Some(actor)` means slot-0's brain has been transferred to `actor`. The
-/// remaining fields remember what to restore on release. This resource is
-/// possession-INTERNAL: no gameplay/presentation system branches on it. Ask
-/// [`ControlledSubject`] instead.
+/// `possessed == None` means the local player drives the home avatar;
+/// `Some(actor)` means slot 0's seat has been redirected onto `actor`. This
+/// resource is possession-INTERNAL: no gameplay/presentation system branches on
+/// it. Ask [`ControlledSubject`] instead.
+///
+/// ⛔⛔ **`restore_brain` and `restore_scope` are GONE, and they were the whole
+/// cost of saying "who drives this" with a brain variant.** `restore_brain`
+/// stashed the policy the transferred `Brain::Player` displaced; nothing is
+/// displaced any more, so there is nothing to put back. `restore_scope` had
+/// already been recorded as vestigial in this file — *"it is a no-op on this
+/// path (nothing is removed) … it is read nowhere"* — and was kept only because
+/// retiring a field of a rollback-registered resource is a schema change. This
+/// change IS that schema change.
 #[derive(Resource, Clone, Default)]
 pub struct PossessionState {
-    /// The actor currently possessed (its `Brain::Player(PRIMARY)` was
-    /// transferred here), or `None` while driving the home avatar.
+    /// The actor currently possessed (the primary seat is redirected here), or
+    /// `None` while driving the home avatar.
     pub possessed: Option<Entity>,
-    /// The home avatar whose player brain was vacated, restored on release.
+    /// The home avatar whose seat was redirected away.
+    ///
+    /// ⚠ **it outlives `possessed` by design, and only just.** The seat has to
+    /// go somewhere on release, and this is the record of where; the ONE writer
+    /// of [`DrivingParticipant`] (`crate::control::project_driving_participant`)
+    /// consumes it and clears it in the same tick it hands the seat back. A
+    /// `home` that outlived the possession would retract the seat from whichever
+    /// body held it next.
     pub home: Option<Entity>,
-    /// The possessed actor's brain before transfer, restored on release.
-    pub restore_brain: Option<Brain>,
-    /// Exact lifecycle scope to restore on release.
-    pub restore_scope: PossessionRestoreScope,
     /// How long Down+Interact has been held toward the possess threshold.
     ///
     /// Lives HERE rather than in a `Local<f32>` on the trigger system because
@@ -82,25 +91,25 @@ pub struct PossessionState {
     pub prev_down_interact: bool,
 }
 
-/// Derive [`ControlledSubject`] from the ECS: the entity carrying
-/// `Brain::Player(PRIMARY)`. Runs early each frame; there is exactly one such
-/// entity during normal play (the home avatar, or the possessed actor while
-/// possessing). A one-frame lag across a possess/release transition (commands
-/// apply at a later sync point) is benign — no consumer double-acts, because
-/// each body only emits actions for itself and only when it carries the brain.
+/// Derive [`ControlledSubject`] from the ECS: the entity holding the PRIMARY
+/// participant's seat. Runs early each frame; there is exactly one such entity
+/// during normal play (the home avatar, or the possessed actor while possessing).
+/// A one-frame lag across a possess/release transition (commands apply at a later
+/// sync point) is benign — no consumer double-acts, because each body only emits
+/// actions for itself and only while it holds the seat.
 pub fn resolve_controlled_subject(
-    brains: Query<(Entity, &Brain)>,
+    drivers: Query<(Entity, &DrivingParticipant)>,
     mut subject: ResMut<ControlledSubject>,
 ) {
-    // HARD INVARIANT: exactly one entity carries `Brain::Player(PRIMARY)` during
-    // normal play (zero only during a load/transition frame). Two is a bug the
-    // whole architecture rests on NOT happening — a stale home brain that wasn't
-    // vacated, or a double-assigned slot. Surface it loudly instead of silently
+    // HARD INVARIANT: exactly one entity holds the PRIMARY seat during normal
+    // play (zero only during a load/transition frame). Two is a bug the whole
+    // architecture rests on NOT happening — a home avatar whose seat was never
+    // retracted, or a double-assigned slot. Surface it loudly instead of silently
     // picking one and diverging.
     let mut chosen = None;
     let mut count = 0u32;
-    for (entity, brain) in &brains {
-        if brain.player_slot() == Some(PlayerSlot::PRIMARY) {
+    for (entity, driver) in &drivers {
+        if driver.0 == PlayerSlot::PRIMARY {
             count += 1;
             if chosen.is_none() {
                 chosen = Some(entity);
@@ -109,12 +118,12 @@ pub fn resolve_controlled_subject(
     }
     debug_assert!(
         count <= 1,
-        "control invariant violated: {count} entities carry Brain::Player(PRIMARY) \
-         (expected exactly one); possession/vacate left a stale player brain"
+        "control invariant violated: {count} entities hold DrivingParticipant(PRIMARY) \
+         (expected exactly one); possession/vacate left a stale seat"
     );
     if count > 1 {
         bevy::log::error!(
-            "control invariant: {count} entities carry Brain::Player(PRIMARY); \
+            "control invariant: {count} entities hold DrivingParticipant(PRIMARY); \
              using the first as the controlled subject"
         );
     }
@@ -186,10 +195,9 @@ pub fn possession_trigger_system(
     frames: Query<&crate::physics::ResolvedMotionFrame>,
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     world_time: Res<ambition_time::WorldTime>,
-    // The active session's lifetime scope. Possessing an actor PROMOTES it out of
-    // room scope into this scope (see the possess handover below), so the body you
-    // took over survives room transitions and can be walked anywhere — it is your
-    // character now, not a fixture of the room you found it in (Jon).
+    // The possession DECISION — who is driven and where the seat returns to. The
+    // seat itself is written by `crate::control::project_driving_participant`,
+    // which reads this.
     mut state: ResMut<PossessionState>,
     mut commands: Commands,
     // Home avatar kinematics: its position seeds the candidate search, and on
@@ -205,9 +213,9 @@ pub fn possession_trigger_system(
         ),
         crate::actor::PrimaryPlayerOnly,
     >,
-    // Possession candidates: any brain-driven feature body — INCLUDING bosses.
-    // Bosses are valid controllable bodies (their tick consumes `Brain::Player`),
-    // so there is no `Without<BossConfig>` barrier here. Restricting WHICH boss is
+    // Possession candidates: any brain-bearing feature body — INCLUDING bosses.
+    // Bosses are valid controllable bodies (their tick reads whichever slot drives
+    // the body), so there is no `Without<BossConfig>` barrier here. Restricting WHICH boss is
     // possessable (progression/design) is a targeting-policy gate to add above
     // this, not a "bosses can never be controlled" exclusion in the body model.
     candidates: Query<
@@ -223,15 +231,6 @@ pub fn possession_trigger_system(
             Without<PlayerEntity>,
         ),
     >,
-    // The target's authored brain, snapshotted for restore on release. Its
-    // faction is NOT touched — effective allegiance (`Brain::Player` ⇒ combat
-    // treats it as Player) makes the possessed body fight its former allies
-    // without mutating `ActorFaction`.
-    target_data: Query<(
-        &Brain,
-        Option<&RoomScopedEntity>,
-        Option<&SessionScopedEntity>,
-    )>,
     // Read-only AABB lookup for the vacate exit on release.
     actor_aabbs: Query<&CenteredAabb>,
 ) {
@@ -291,33 +290,26 @@ pub fn possession_trigger_system(
     let Some((target, _)) = nearest else {
         return;
     };
-    let Ok((target_brain, room_scope, session_scope)) = target_data.get(target) else {
-        return;
-    };
 
-    // BRAIN TRANSFER. Remember the target's brain to restore, then move the
-    // player brain from the home avatar to the target. Both bodies get a fresh
-    // neutral `ActorControl` so no stale edge-triggered intent (a held jump, a
-    // pressed attack) leaks across the handover. The target's `ActorFaction` is
-    // left untouched — effective allegiance handles its player-side combat.
+    // **THE SEAT MOVES; NOTHING ELSE DOES.** Record the decision — who is
+    // driving and where the seat goes back to — and let
+    // `crate::control::project_driving_participant` be the one system that acts
+    // on it. Both bodies get a fresh neutral `ActorControl` so no stale
+    // edge-triggered intent (a held jump, a pressed attack) leaks across the
+    // handover.
+    //
+    // ⭐⭐ **the target's BRAIN is not read and not touched.** It used to be
+    // cloned into `state.restore_brain` and overwritten with `Brain::Player`,
+    // which is why release had to put a policy back; the body keeps its own
+    // policy throughout and simply stops being the one deciding while somebody
+    // else is. Its `ActorFaction` is likewise left alone — effective allegiance
+    // (a DRIVEN body fights as Player) handles its player-side combat.
     state.home = Some(home_entity);
-    state.restore_brain = Some(target_brain.clone());
-    state.restore_scope = if let Some(scope) = session_scope {
-        PossessionRestoreScope::Session(scope.0)
-    } else if room_scope.is_some() {
-        PossessionRestoreScope::Room
-    } else {
-        PossessionRestoreScope::Unscoped
-    };
     state.possessed = Some(target);
 
+    commands.entity(home_entity).insert(ActorControl::default());
     commands
-        .entity(home_entity)
-        .remove::<Brain>()
-        .insert(ActorControl::default());
-    let mut target_cmds = commands.entity(target);
-    target_cmds
-        .insert(Brain::Player(PlayerSlot::PRIMARY))
+        .entity(target)
         .insert(ActorControl::default())
         // Record the possession by stable id so a snapshot restores the control
         // MODE across a rewind (the home avatar is always the primary player).
@@ -353,21 +345,27 @@ pub fn possession_trigger_system(
     // which IS rollback state — so the declaration's justification stays true for
     // both populations.
     //
-    // ⚠ `restore_scope` below still records and restores the exact scope. It is a
-    // no-op on this path (nothing is removed), and it is kept because it is a
-    // field of a rollback-registered resource: retiring it is a schema change and
-    // belongs to a bump, not to a bug fix.
-    //
-    // ⭐ the `ActiveSessionScope` parameter is GONE with the promotion it served:
-    // its scope id was needed to mint `SessionScopedEntity(scope_id)`, and
-    // nothing here mints a scope any more. A `let _ = &param` suppression would
-    // have kept an authority this system no longer consults, which is exactly
-    // what makes a later reader think it matters.
+    // ⭐ **and `restore_scope` is GONE with the promotion it served.** It recorded
+    // the exact pre-possession lifetime scope so release could put it back, and
+    // this comment had already recorded that it was a no-op read nowhere — kept
+    // only because retiring a field of a rollback-registered resource is a schema
+    // change. That schema change has now happened.
 }
 
-/// Restore the home avatar's player brain and the target's authored brain plus
-/// exact pre-possession lifecycle scope, then step the home body out to the
-/// vacated actor's position so the camera does not snap back.
+/// End the possession and step the home body out to the vacated actor's
+/// position so the camera does not snap back.
+///
+/// ⭐⭐ **there is nothing to RESTORE, which is why this function shrank.** It
+/// used to re-insert the target's stashed `restore_brain`, re-insert
+/// `Brain::Player` on the home avatar, and reason about a `restore_scope` it
+/// then declined to use. The target never lost its policy and the home avatar
+/// never lost anything but its seat, so all that is left is: clear the decision
+/// (the seat goes home in `crate::control::project_driving_participant`), clear
+/// the stale control edges, and put the body where the player expects it.
+///
+/// ⚠ **`state.home` is deliberately NOT cleared here.** The seat still has to go
+/// somewhere, and the writer that hands it back is the one that consumes the
+/// record — see [`PossessionState::home`].
 fn release_possession(
     commands: &mut Commands,
     state: &mut PossessionState,
@@ -385,49 +383,26 @@ fn release_possession(
 ) {
     state.possessed = None;
 
-    // Restore the actor's authored brain, clearing stale edges. Its faction was
-    // never touched (effective allegiance), so there is nothing to restore. The
-    // cached `restore_brain` is kept in sync with the actor's autonomous SOURCE
-    // (refreshed by `BrainCommand` if it switched during possession), so releasing
-    // resumes the CURRENT selected source. Its temporary-control record returns to
-    // `Autonomous`.
-    if let Some(brain) = state.restore_brain.take() {
-        if let Ok(mut ec) = commands.get_entity(target) {
-            // Taken INSIDE the guard: the recorded scope is only consumed on the
-            // path that actually restores it. Taking it above would, on any
-            // inconsistent state where the brain is already gone, discard the
-            // record while leaving the body wearing the possession-time session
-            // scope forever.
-            // ⭐⭐ **RELEASE TOUCHES NO SCOPE, because possession touched none.**
-            // Dropping the custody marker is the whole of it, and residency
-            // resumes in whatever room is active NOW — the marker's own
-            // contract: `RoomScopedEntity` carries no room id, so a body
-            // released two rooms later is resident THERE and the next transition
-            // out retires it correctly. Nothing has to remember where it came
-            // from.
-            //
-            // ⛔ **and removing-then-restoring the scope would now be a BUG, not
-            // a no-op.** It used to be the point; today nothing has changed the
-            // scope during possession, so a remove/re-insert pair would silently
-            // revert any scope write some OTHER system made while the body was
-            // being driven.
-            //
-            // ⚠ `restore_scope` is still recorded above and is now vestigial. It
-            // is a field of a rollback-registered resource, so retiring it is a
-            // schema change and belongs to a bump rather than to a bug fix; it is
-            // read nowhere.
-            let _ = &state.restore_scope;
-            ec.insert(brain)
-                .insert(ActorControl::default())
-                .insert(TemporaryControl::Autonomous);
-        }
+    // Clear the stale edges on the body being let go and hand its
+    // temporary-control record back to `Autonomous`. Its faction was never
+    // touched (effective allegiance), and neither was its brain — the policy it
+    // resumes deciding with is the one it has been carrying the whole time,
+    // including any `BrainCommand` switch that landed mid-possession.
+    //
+    // ⭐⭐ **RELEASE TOUCHES NO SCOPE, because possession touched none.**
+    // Residency resumes in whatever room is active NOW — `RoomScopedEntity`
+    // carries no room id, so a body released two rooms later is resident THERE
+    // and the next transition out retires it correctly. Nothing has to remember
+    // where it came from.
+    if let Ok(mut ec) = commands.get_entity(target) {
+        ec.insert(ActorControl::default())
+            .insert(TemporaryControl::Autonomous);
     }
 
-    // Restore the home avatar's player brain and vacate-exit to the actor's spot.
-    if let Some(home) = state.home.take() {
+    // The home avatar sheds its stale edges and vacate-exits to the actor's spot.
+    if let Some(home) = state.home {
         if let Ok(mut ec) = commands.get_entity(home) {
-            ec.insert(Brain::Player(PlayerSlot::PRIMARY))
-                .insert(ActorControl::default());
+            ec.insert(ActorControl::default());
         }
         if let (Ok(aabb), Ok((_, mut cluster_item, mut motion_model))) =
             (actor_aabbs.get(target), home_q.get_mut(home))
@@ -445,13 +420,17 @@ fn release_possession(
     }
 }
 
-/// If the possessed actor is gone (despawned / removed), hand control back to
-/// the home avatar so the player isn't stranded driving nothing. The actor's
-/// brain can't be restored (it's gone); only the home brain is re-attached.
+/// If the possessed actor is gone (despawned / removed), end the possession so
+/// the player isn't stranded driving nothing.
+///
+/// ⭐ **it clears the decision and nothing else.** This used to duplicate the
+/// home-brain restore from `release_possession` — the same two lines in two
+/// places, agreeing by inspection. The seat goes home through
+/// `crate::control::project_driving_participant`, which handles a vanished
+/// target for exactly this reason, so there is one restore road instead of two.
 pub fn release_possession_if_target_lost(
     mut state: ResMut<PossessionState>,
-    mut commands: Commands,
-    still_present: Query<(), With<Brain>>,
+    still_present: Query<()>,
 ) {
     let Some(target) = state.possessed else {
         return;
@@ -460,15 +439,7 @@ pub fn release_possession_if_target_lost(
         return;
     }
     // Target vanished mid-possession.
-    if let Some(home) = state.home.take() {
-        if let Ok(mut ec) = commands.get_entity(home) {
-            ec.insert(Brain::Player(PlayerSlot::PRIMARY))
-                .insert(ActorControl::default());
-        }
-    }
     state.possessed = None;
-    state.restore_brain = None;
-    state.restore_scope = PossessionRestoreScope::Unscoped;
 }
 
 #[cfg(test)]

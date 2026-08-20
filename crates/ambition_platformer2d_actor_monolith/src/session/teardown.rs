@@ -48,7 +48,7 @@ pub struct SessionScopedResources<'w> {
     /// Possession pair (`possessed`/`home` entity handles + restore brain). The
     /// player is despawned on retirement, so these would dangle.
     possession: ResMut<'w, PossessionState>,
-    /// The driven-body handle. It self-heals each tick from the `Brain::Player`
+    /// The driven-body handle. It self-heals each tick from the `DrivingParticipant`
     /// query while a session is live, but the sim sleeps at the launcher, so
     /// without an explicit reset it would hold the retired session's dead body
     /// across the whole frontend visit.

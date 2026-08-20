@@ -8,7 +8,8 @@ use super::movement_components::{BodyGroundState, BodyKinematics};
 use crate::features::ActorPose;
 use ambition_characters::actor::BodyHealth;
 use ambition_characters::brain::{
-    ActorControl, Brain, BrainSnapshot, ScriptedControl, SlotControls,
+    tick_player_brain, ActorControl, BrainSnapshot, DrivingParticipant, ScriptedControl,
+    SlotControls,
 };
 use ambition_platformer2d_core as ae;
 
@@ -69,11 +70,12 @@ pub struct ControlledBrainTick;
 
 /// **Translate participant control into `ActorControl`, for ANY controlled body.**
 ///
-/// The INPUT AUTHORITY is [`SlotControls`], keyed by the `Brain::Player(slot)`
-/// the body itself carries — never an entity-local copy and never an identity
-/// marker. A body is controlled because it holds a participant's brain, which is
-/// equally true of the home avatar and of an actor somebody possessed. Body
-/// mechanics consume the translated [`ActorControl`] written here.
+/// The INPUT AUTHORITY is [`SlotControls`], keyed by the
+/// [`DrivingParticipant`]`(slot)` the body itself carries — never an entity-local
+/// copy and never an identity marker. A body is controlled because a participant
+/// is driving it, which is equally true of the home avatar and of an actor
+/// somebody possessed. Body mechanics consume the translated [`ActorControl`]
+/// written here.
 ///
 /// ⭐⭐ **THE `With<PlayerEntity>` FILTER IS GONE, AND THAT IS THE POINT.** It
 /// was here because a possessed actor otherwise had TWO producers writing its
@@ -84,7 +86,7 @@ pub struct ControlledBrainTick;
 /// world, a believed-target derivation, and a MUTATION of its
 /// `PerceptionMemory` — none of which `tick_player_brain_from_control` reads.
 /// It reads six facts, and all six are here. So the arbitration is no longer by
-/// identity: `tick_actor_brains` now leaves a player-brained body alone, and a
+/// identity: `tick_actor_brains` now leaves a DRIVEN body alone, and a
 /// human piloting a body no longer constructs AI perception to move a stick.
 ///
 /// ⇒ the one fact that WAS actor-specific is the movement scale, and it does not
@@ -94,10 +96,15 @@ pub struct ControlledBrainTick;
 /// component every movable body already carries. A body with no movement policy
 /// commands no speed, which is what the home avatar did explicitly before.
 ///
-/// The query requires `&mut Brain`, so a vacated home avatar (its player brain
-/// transferred away by `possession`) carries no `Brain` and is skipped — it stays
-/// inert with a neutral `ActorControl`. A body whose brain is not a participant's
-/// is skipped too: its `ActorControl` belongs to an AI producer.
+/// The query requires `&DrivingParticipant`, so a vacated home avatar (its seat
+/// redirected away by `possession`) is skipped — it stays inert with a neutral
+/// `ActorControl`, and its own `Brain` says what it does when nobody is driving.
+/// A body nobody is driving is skipped for the same reason: its `ActorControl`
+/// belongs to an AI producer.
+///
+/// ⛔ **it does NOT need the body's `Brain`, and that is the deletion.** This used
+/// to hold `&mut Brain` and ask it `player_slot()` — a mutable borrow of an
+/// AI-policy component, taken to read a person's seat number out of it.
 ///
 /// ⚠ **one filter is deliberately NOT inherited from the actor tick:
 /// `Without<Dormant>`.** Dormancy sleeps a BRAIN — *"only the brain sleeps: the
@@ -111,7 +118,7 @@ pub fn tick_controlled_brains(
         &BodyGroundState,
         &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
         Option<&ambition_platformer2d_core::MotionModel>,
-        &mut Brain,
+        &DrivingParticipant,
         &mut ActorControl,
     )>,
 ) {
@@ -121,22 +128,19 @@ pub fn tick_controlled_brains(
             s.gameplay.control_frame_modes()
         });
 
-    for (kin, ground, resolved_frame, motion_model, mut brain, mut control) in &mut controlled {
+    for (kin, ground, resolved_frame, motion_model, driver, mut control) in &mut controlled {
         // The body's OWN per-tick resolved frame (ADR 0024): the same value
         // this tick's integration moves the body under, so controller
         // interpretation and physics can never disagree at a zone boundary.
         let control_down = resolved_frame.down();
-        // INPUT AUTHORITY: this body's OWN slot frame, keyed by the brain it
-        // carries — the SAME `Brain::Player(slot)` → `SlotControls` path a
-        // possessed actor reads. A body whose brain isn't a player brain is
-        // skipped (its `ActorControl` is owned by an AI tick, not this one).
-        let Some(slot) = brain.player_slot() else {
-            continue;
-        };
+        // INPUT AUTHORITY: this body's OWN slot frame, keyed by the seat it
+        // holds — the SAME `DrivingParticipant(slot)` → `SlotControls` path a
+        // possessed actor reads.
+        let slot = driver.0;
         let input = slots.get(slot);
         // Build the snapshot from the player's cluster components plus
         // the per-tick slot frame. The input is what makes
-        // Brain::Player's translation deterministic: same input +
+        // the translation deterministic: same input +
         // same body snapshot → same ActorControlFrame.
         let snapshot = BrainSnapshot {
             // A possessed body's brain drives a body a person is steering; it is
@@ -213,7 +217,11 @@ pub fn tick_controlled_brains(
             air_jumps_remaining: 0,
         };
         let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
-        brain.tick(&snapshot, &mut frame);
+        // ⭐ the player-input translator, called DIRECTLY rather than reached
+        // through an enum arm. It was only ever a `Brain` variant because the
+        // seat was; with the seat named on the body there is nothing left to
+        // dispatch on.
+        tick_player_brain(slot, &snapshot, &mut frame);
         control.0 = frame;
     }
 }

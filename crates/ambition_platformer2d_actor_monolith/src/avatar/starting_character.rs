@@ -1,6 +1,6 @@
 //! Which character the local player STARTS as.
 //!
-//! The player entity is a *control box*: it carries `Brain::Player(slot)`, the
+//! The player entity is a *control box*: it carries `DrivingParticipant(slot)`, the
 //! home-body integration loop, the player markers, and the full traversal
 //! ability kit. WHICH character that box *wears* — its sprite, its combat
 //! moveset, and its name — is chosen by the session-owned [`StartingCharacter`] component.
@@ -12,7 +12,7 @@
 //! character for PCA or a pirate ... just spawn the character and make its
 //! brain the keyboard input."* Possession
 //! ([`crate::abilities::traversal::possession`]) already proves
-//! `Brain::Player` drives ANY body; this makes the *starting* body a choice
+//! A participant seat drives ANY body; this makes the *starting* body a choice
 //! too without creating a character-specific movement route. The worn body
 //! still enters the same frame-aware movement kernel as every other body.
 //!

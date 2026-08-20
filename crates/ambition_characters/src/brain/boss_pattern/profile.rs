@@ -237,7 +237,7 @@ pub struct BossBehaviorProfile {
     #[serde(default)]
     pub limb_routing: Vec<(String, LimbRoute)>,
     /// G5 (R10.6): the POSSESSED-VERB map — controller verb → this boss's move
-    /// key, consulted when a human possesses the boss (`Brain::Player`). The
+    /// key, consulted when a human possesses the boss (`DrivingParticipant`). The
     /// possession arm reduces the controller's aim to a directional attack verb
     /// through the SAME chain every actor melee resolves
     /// ([`ambition_entity_catalog::directional_verb_chain`]: `attack_down` →

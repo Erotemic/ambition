@@ -11,7 +11,7 @@ use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::body_mode::BodyModeCapabilities;
 use crate::control::SlotInteractionState;
 use ambition_characters::actor::control::ActorControlFrame;
-use ambition_characters::brain::{ActorControl, Brain, PlayerSlot};
+use ambition_characters::brain::{ActorControl, DrivingParticipant, PlayerSlot};
 use ambition_platformer2d_core::world::{ClimbableKind, ClimbableRegion, ClimbableSpec, World};
 use ambition_platformer2d_core::Vec2;
 use bevy::prelude::{App, Entity, Update};
@@ -78,8 +78,8 @@ fn build_body_mode_test_app() -> (App, Entity) {
             PlayerEntity,
             PrimaryPlayer,
             // Controlled by the primary slot, with the full body-mode kit — the
-            // driver keys on `Brain::Player` + `BodyModeCapabilities`, not `PlayerEntity`.
-            Brain::Player(PlayerSlot::PRIMARY),
+            // driver keys on `DrivingParticipant` + `BodyModeCapabilities`, not `PlayerEntity`.
+            DrivingParticipant(PlayerSlot::PRIMARY),
             ActorControl::default(),
             BodyModeCapabilities::full(),
             BodyKinematics {
@@ -110,8 +110,8 @@ fn build_body_mode_test_app() -> (App, Entity) {
 }
 
 /// Spawn a body-mode-capable body at `pos`. `slot = Some` → it carries
-/// `Brain::Player(slot)` (a controlled body); `None` → no brain (a vacated / inert
-/// body the driver must skip).
+/// `DrivingParticipant(slot)` (a driven body); `None` → no seat (a vacated /
+/// inert body the driver must skip).
 fn spawn_mode_body(app: &mut App, pos: Vec2, slot: Option<PlayerSlot>) -> Entity {
     let mut body = app.world_mut().spawn((
         BodyModeCapabilities::full(),
@@ -140,14 +140,14 @@ fn spawn_mode_body(app: &mut App, pos: Vec2, slot: Option<PlayerSlot>) -> Entity
         ),
     ));
     if let Some(slot) = slot {
-        body.insert(Brain::Player(slot));
+        body.insert(DrivingParticipant(slot));
     }
     body.id()
 }
 
 /// The headline controlled-body guarantee: while a controller drives a non-player
 /// ACTOR body, its body-mode input curls THAT body — and the vacated home body,
-/// which no longer carries a player brain, is untouched.
+/// which no longer holds the seat, is untouched.
 #[test]
 fn controlled_actor_body_mode_input_does_not_affect_home_body() {
     let mut app = App::new();
@@ -187,11 +187,11 @@ fn controlled_actor_body_mode_input_does_not_affect_home_body() {
 }
 
 /// Symmetric case: during normal play the home body IS the controlled body (it
-/// carries `Brain::Player`), so its body mode still changes through the new path.
+/// holds the seat), so its body mode still changes through the new path.
 #[test]
 fn home_body_mode_still_works_when_home_is_controlled() {
     let (mut app, home) = build_body_mode_test_app();
-    // The home body carries PlayerEntity + PrimaryPlayer + Brain::Player(PRIMARY).
+    // The home body carries PlayerEntity + PrimaryPlayer + DrivingParticipant(PRIMARY).
     arm_double_tap_down(&mut app);
     app.update();
     assert_eq!(

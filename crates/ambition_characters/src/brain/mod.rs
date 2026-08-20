@@ -88,7 +88,7 @@ impl PlayerSlot {
 /// The canonical slot-based controller input model: `PlayerSlot -> ControlFrame`.
 ///
 /// This is the SINGLE source of player control. The body that consumes slot
-/// `S`'s frame is whichever entity carries [`Brain::Player`]`(S)` — the home
+/// `S`'s frame is whichever entity carries [`DrivingParticipant`]`(S)` — the home
 /// avatar, a possessed NPC, or any future controlled body. Local
 /// keyboard/gamepad input populates [`PlayerSlot::PRIMARY`]; co-op /
 /// split-screen / netcode will fill higher slots via their own adapters.
@@ -184,34 +184,47 @@ impl SlotControlLatches {
 
 /// **The participant slot driving this body**, this tick.
 ///
-/// ⭐⭐ **the half of `Brain::Player(slot)` that is not a brain.** *"A participant
-/// drives this body"* is not an AI backend; it sits in that enum because the enum
-/// was the only place to say it, which is why possession has to MOVE a policy
-/// variant in order to change who is driving, and why `PossessionState` needs a
-/// `restore_brain` to put the displaced policy back.
+/// ⭐⭐ **this WAS the `slot` inside `Brain::Player(slot)`, and it is not a
+/// brain.** *"A participant drives this body"* is not an AI backend; it sat in
+/// that enum because the enum was the only place to say it, which is why
+/// possession used to MOVE a policy variant in order to change who is driving,
+/// and why `PossessionState` needed a `restore_brain` to put the displaced
+/// policy back. `Brain` is AI policy only now, and this is the driver.
 ///
-/// ⛔ **DERIVED, never authored and never written by hand.** The projection lives
-/// in the actor domain (`control::project_driving_participant`) because it needs
-/// `PossessionState`; the TYPE lives here because it is vocabulary — `PlayerSlot`
-/// is here, `Brain` is here, and the two crates that ask *who drives this body*
-/// (the interaction seam and the conversation seam) can both already see this
-/// module and neither can see the other. A component reprojected each tick from
-/// state that IS in the snapshot needs no snapshot entry of its own, so this
-/// costs no wire format and no schema version.
+/// ⭐ **AUTHORED at the spawn/seat site, RECONCILED by exactly one system.** A
+/// body that a participant drives is spawned wearing this; the one runtime writer
+/// is `control::project_driving_participant`, which moves the PRIMARY seat onto a
+/// possessed body and back. Nothing else inserts or removes it, because two
+/// writable answers to *who drives this body* is the defect this type exists to
+/// end.
+///
+/// ⛔ **it is REGISTERED rollback state, not a derive.** It was declared derived
+/// while it was reprojected from `Brain::Player`, which IS in the snapshot; with
+/// the variant gone there is no upstream to reproject from — the seat assignment
+/// lives here and nowhere else, so a rewind that did not carry it would restore a
+/// body nobody drives.
+///
+/// The TYPE lives here because it is vocabulary — `PlayerSlot` is here, `Brain`
+/// is here, and the two crates that ask *who drives this body* (the interaction
+/// seam and the conversation seam) can both already see this module and neither
+/// can see the other.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct DrivingParticipant(pub PlayerSlot);
 
-/// Identifies which brain backend drives an actor this tick.
+/// Identifies which **autonomous policy** drives an actor when no participant is.
+///
+/// ⭐⭐ **a `Brain` is an AI backend and nothing else.** It used to carry a
+/// `Player(PlayerSlot)` variant, so every exhaustive match over it had an arm for
+/// a thing that is not a policy and possession had to swap policies around in
+/// order to say who was driving. Who drives a body is [`DrivingParticipant`]; a
+/// driven body KEEPS whatever policy it has, and gets it back by never having
+/// lost it.
 ///
 /// Brains are dispatched via enum match (not trait objects) to keep
 /// the per-tick cost a single switch. New backends extend the enum;
 /// future variants will include `Remote`, `Scripted`, and `RlPolicy`.
 #[derive(Component, Clone, Debug)]
 pub enum Brain {
-    /// Human participant (or in the future, anything that "presses inputs").
-    /// The slot identifies which [`SlotControls`] entry to read, so control
-    /// authority is participant-scoped rather than copied onto a body.
-    Player(PlayerSlot),
     /// Pre-canned AI policy template. The variant carries both the
     /// cfg (tuning) and the per-actor runtime state.
     StateMachine(StateMachineCfg),
@@ -248,7 +261,6 @@ impl Brain {
         out: &mut crate::actor::control::ActorControlFrame,
     ) {
         match self {
-            Brain::Player(slot) => player::tick_player_brain(*slot, snapshot, out),
             Brain::StateMachine(cfg) => tick_state_machine(cfg, snapshot, out),
         }
     }
@@ -268,7 +280,6 @@ impl Brain {
         out: &mut crate::actor::control::ActorControlFrame,
     ) {
         match self {
-            Brain::Player(slot) => player::tick_player_brain(*slot, snapshot, out),
             Brain::StateMachine(cfg) => state_machine::tick_state_machine_with_actions(
                 cfg, actions, snapshot, perception, out,
             ),
@@ -276,29 +287,16 @@ impl Brain {
     }
 
     /// Is this brain currently hostile? Debug tooling / "is this
-    /// actor a threat right now" queries use this. Player brains are
-    /// treated as "hostile" (they attack when they choose to);
-    /// state-machine brains delegate to their cfg.
+    /// actor a threat right now" queries use this. State-machine
+    /// brains delegate to their cfg.
+    ///
+    /// ⚠ **this answers a question about a POLICY.** Whether a body a person is
+    /// driving is a threat is a question about the person, and the honest place
+    /// to ask it is [`DrivingParticipant`] on the body — a driven body's
+    /// autonomous policy has no opinion about what its driver is about to do.
     pub fn is_hostile(&self) -> bool {
         match self {
-            Brain::Player(_) => true,
             Brain::StateMachine(cfg) => cfg.is_hostile(),
-        }
-    }
-
-    /// True iff this brain backend is the player input translator.
-    /// Useful for systems that need to special-case the human-driven
-    /// path — e.g. multi-player input routing or HUD focus rules.
-    pub fn is_player(&self) -> bool {
-        matches!(self, Brain::Player(_))
-    }
-
-    /// The PlayerSlot this brain reads input for, if any. `None` for
-    /// state-machine brains.
-    pub fn player_slot(&self) -> Option<PlayerSlot> {
-        match self {
-            Brain::Player(slot) => Some(*slot),
-            Brain::StateMachine(_) => None,
         }
     }
 
@@ -328,7 +326,6 @@ impl Brain {
     /// and trace dumps. Single word per backend.
     pub fn label(&self) -> &'static str {
         match self {
-            Brain::Player(_) => "player",
             Brain::StateMachine(cfg) => match cfg {
                 StateMachineCfg::StandStill => "stand_still",
                 StateMachineCfg::Patrol { .. } => "patrol",
@@ -368,11 +365,9 @@ impl Brain {
     ///   movement / cycle attacks, via the encounter registry) or captured from
     ///   the live runtime (`spawn` / `combat_size`), so comparing the two
     ///   authored fields is both minimal and complete for the catalog path.
-    /// - `Player` compares its slot (the only state a `Player` brain carries).
     pub fn same_authored_configuration(&self, other: &Self) -> bool {
         use StateMachineCfg as C;
         match (self, other) {
-            (Brain::Player(a), Brain::Player(b)) => a == b,
             (Brain::StateMachine(a), Brain::StateMachine(b)) => match (a, b) {
                 (C::StandStill, C::StandStill) => true,
                 (C::Patrol { cfg: x, .. }, C::Patrol { cfg: y, .. }) => x == y,
@@ -392,7 +387,6 @@ impl Brain {
                 }
                 _ => false,
             },
-            _ => false,
         }
     }
 }
@@ -629,7 +623,7 @@ impl bevy::app::Plugin for BrainPlugin {
         app.add_message::<ActorActionMessage>();
         app.init_resource::<BrainActionCounter>();
         // The slot-based controller input model. One entry per participant
-        // slot; the body carrying `Brain::Player(slot)` reads its frame.
+        // slot; the body carrying `DrivingParticipant(slot)` reads its frame.
         app.init_resource::<SlotControls>();
     }
 }
@@ -637,7 +631,6 @@ impl bevy::app::Plugin for BrainPlugin {
 impl std::fmt::Display for Brain {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Brain::Player(slot) => write!(f, "Player(slot={})", slot.0),
             Brain::StateMachine(_) => write!(f, "StateMachine({})", self.label()),
         }
     }

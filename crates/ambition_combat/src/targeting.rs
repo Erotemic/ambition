@@ -116,18 +116,24 @@ pub fn can_damage(
     friendly_fire.enabled || attacker != victim
 }
 
-/// Effective combat allegiance: a body currently under player control (it carries
-/// [`ambition_characters::brain::Brain::Player`]) fights as [`ActorFaction::Player`]
-/// regardless of its AUTHORED faction. This is why possession never overwrites
-/// `ActorFaction` (no flip, no restore bookkeeping): every combat faction read —
-/// targeting, damage gates, hitbox stamps — resolves through this, so a possessed
-/// body attacks its former allies and is targeted by them, then reverts the
-/// instant control leaves (the authored faction was never touched).
+/// Effective combat allegiance: a body a participant is currently driving (it
+/// carries [`ambition_characters::brain::DrivingParticipant`]) fights as
+/// [`ActorFaction::Player`] regardless of its AUTHORED faction. This is why
+/// possession never overwrites `ActorFaction` (no flip, no restore bookkeeping):
+/// every combat faction read — targeting, damage gates, hitbox stamps — resolves
+/// through this, so a possessed body attacks its former allies and is targeted by
+/// them, then reverts the instant control leaves (the authored faction was never
+/// touched).
+///
+/// ⭐ **it asks WHO DRIVES, not what the body's policy is.** It used to read
+/// `Brain::Player`, which was the same question only because the enum was the
+/// only place a driver could be named; a driven body now keeps its own AI policy
+/// throughout, so the policy could never have answered this.
 pub fn effective_faction(
     authored: ActorFaction,
-    brain: Option<&ambition_characters::brain::Brain>,
+    driver: Option<&ambition_characters::brain::DrivingParticipant>,
 ) -> ActorFaction {
-    if brain.is_some_and(ambition_characters::brain::Brain::is_player) {
+    if driver.is_some() {
         ActorFaction::Player
     } else {
         authored
@@ -267,12 +273,12 @@ pub fn combat_relation(
     // hate, which is the bystander bug in reverse.
     relations: Option<&FactionRelations>,
     attacker_faction: ActorFaction,
-    attacker_brain: Option<&ambition_characters::brain::Brain>,
+    attacker_driver: Option<&ambition_characters::brain::DrivingParticipant>,
     attacker_team: Option<&MatchTeam>,
     attacker_grudge: Option<Entity>,
     candidate: Entity,
     candidate_faction: ActorFaction,
-    candidate_brain: Option<&ambition_characters::brain::Brain>,
+    candidate_driver: Option<&ambition_characters::brain::DrivingParticipant>,
     candidate_team: Option<&MatchTeam>,
 ) -> CombatRelation {
     if attacker_grudge == Some(candidate) {
@@ -285,8 +291,8 @@ pub fn combat_relation(
             CombatRelation::Ally
         };
     }
-    let attacker_faction = effective_faction(attacker_faction, attacker_brain);
-    let candidate_faction = effective_faction(candidate_faction, candidate_brain);
+    let attacker_faction = effective_faction(attacker_faction, attacker_driver);
+    let candidate_faction = effective_faction(candidate_faction, candidate_driver);
     if relations.is_some_and(|r| r.is_hostile(attacker_faction, candidate_faction)) {
         CombatRelation::Foe
     } else if attacker_faction == candidate_faction {
@@ -384,17 +390,18 @@ pub fn select_actor_targets(
     // Non-player actors are candidate targets too (the relational, non-player-
     // centric part): an actor can target another actor whose faction it's hostile
     // to. Snapshotted, so this read-only borrow ends before the mutable pass.
-    // `Option<&Brain>` on both candidate and acting queries: a possessed body
-    // (carrying `Brain::Player`) is a Player-EFFECTIVE candidate/actor without
-    // its authored `ActorFaction` being mutated — so former allies target it and
-    // it targets them, purely through effective allegiance.
+    // `Option<&DrivingParticipant>` on both candidate and acting queries: a
+    // possessed body (one a participant drives) is a Player-EFFECTIVE
+    // candidate/actor without its authored `ActorFaction` being mutated — so
+    // former allies target it and it targets them, purely through effective
+    // allegiance.
     others: Query<
         (
             Entity,
             &CenteredAabb,
             &ActorFaction,
             &BodyHealth,
-            Option<&ambition_characters::brain::Brain>,
+            Option<&ambition_characters::brain::DrivingParticipant>,
             // A match seat, when this body is in one. Selection has to see it or
             // it answers a different question from the damage side — see
             // [`combat_relation`].
@@ -409,7 +416,7 @@ pub fn select_actor_targets(
             &mut ActorTarget,
             &ActorAggression,
             Option<&ActorFaction>,
-            Option<&ambition_characters::brain::Brain>,
+            Option<&ambition_characters::brain::DrivingParticipant>,
             Option<&MatchTeam>,
         ),
         With<FeatureSimEntity>,
@@ -448,11 +455,11 @@ pub fn select_actor_targets(
             others
                 .iter()
                 .filter(|(_, _, _, hp, _, _)| hp.current() > 0)
-                .map(|(e, aabb, faction, _, brain, team)| {
+                .map(|(e, aabb, faction, _, driver, team)| {
                     (
                         e,
                         aabb.center,
-                        effective_faction(*faction, brain),
+                        effective_faction(*faction, driver),
                         sim_ids.get(e).ok().cloned(),
                         team.cloned(),
                     )
@@ -477,16 +484,16 @@ pub fn select_actor_targets(
     if candidates.is_empty() {
         return;
     }
-    for (self_entity, aabb, mut target, aggression, faction, brain, self_team) in actors.iter_mut()
+    for (self_entity, aabb, mut target, aggression, faction, driver, self_team) in actors.iter_mut()
     {
         let actor_pos = aabb.center;
         // The acting body's OWN effective allegiance (Player while possessed). A
         // body with neither an authored faction nor player control has no
         // faction-relational foes (only a personal grudge can point it) — same as
         // the old `faction.is_some()` gate.
-        let player_controlled = brain.is_some_and(ambition_characters::brain::Brain::is_player);
+        let player_controlled = driver.is_some();
         let has_allegiance = faction.is_some() || player_controlled;
-        let self_faction = effective_faction(faction.copied().unwrap_or_default(), brain);
+        let self_faction = effective_faction(faction.copied().unwrap_or_default(), driver);
         let policy = aggression.target_policy();
         if policy == AggressionTarget::None {
             // Passive: no combat target. Point at self so a zero direction keeps

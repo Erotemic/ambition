@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v56
+ggrs-rollback-schema-v59
 actor.action_set	component-clone	ActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.active_combatant	component-canonical	ActiveCombatant	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.aggression	component-clone-cursor	ActorAggression	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
@@ -25,6 +25,7 @@ actor.death_interlude	component-canonical	DeathInterlude	bevy_ggrs canonical cod
 actor.disposition	component-canonical	ActorDisposition	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.dormancy_policy	component-clone	DormancyPolicy	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.dormant	component-clone	Dormant	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+actor.driving_participant	component-clone	DrivingParticipant	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.faction	component-clone	ActorFaction	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.held_item	component-clone	HeldItem	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.identity	component-clone	ActorIdentity	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
@@ -147,9 +148,8 @@ derived.body_pose_view	derived	BodyPoseView	SimView projection rebuilt every tic
 derived.boss_animation_frame_sample	derived	BossAnimationFrameSample	republished every tick by drive_boss_animators from the rewound BossAnimFrame cursor
 derived.class_b_remap_log	derived	ClassBRemapLog	frame-local diagnostic ledger cleared before every simulation step
 derived.control_frame	derived	ControlFrame	per-tick input frame regenerated from the synchronized input stream
-derived.controlled_subject	derived	ControlledSubject	resolved from the entity carrying Brain::Player for the active slot
+derived.controlled_subject	derived	ControlledSubject	resolved from the entity holding DrivingParticipant for the active slot
 derived.custody_residency	derived	InCustodyOf	room residency reprojected from ItemCustody every tick
-derived.driving_participant	derived	DrivingParticipant	the driving seat reprojected from Brain::Player and possession every tick
 derived.encounter_progress	derived	EncounterProgress	recomputed from lifecycle and participant health every tick
 derived.encounter_switch_index	derived	EncounterSwitchIndex	rebuilt from SwitchFeature + SwitchOn components each frame
 derived.encounter_view	derived	EncounterView	presentation-intent read model republished each tick

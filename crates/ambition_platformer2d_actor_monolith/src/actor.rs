@@ -172,7 +172,7 @@ impl AncillaryMovementBundle {
 /// Use this ONLY for genuine home-body concerns (respawn, save sync, sandbox
 /// reset, HUD/debug subject). It does NOT identify the currently CONTROLLED body:
 /// during possession the controlled body is a different entity (the one carrying
-/// `Brain::Player(PlayerSlot::PRIMARY)`). Systems that act on "whoever the player
+/// `DrivingParticipant(PlayerSlot::PRIMARY)`). Systems that act on "whoever the player
 /// is driving" — camera, portal viewer, abilities, melee — read the
 /// `ControlledSubject` resource instead of this filter.
 ///

@@ -7,12 +7,6 @@ use super::*;
 use crate::brain::action_set::RangedStyle;
 
 #[test]
-fn brain_player_is_always_hostile() {
-    let b = Brain::Player(PlayerSlot(0));
-    assert!(b.is_hostile());
-}
-
-#[test]
 fn brain_display_contains_label() {
     // Display impl for state-machine brains embeds the label —
     // a future label rename should automatically reflect in
@@ -259,10 +253,7 @@ fn brain_tick_is_deterministic_given_same_snapshot() {
 // behavior went with them.
 
 #[test]
-fn brain_display_includes_slot_for_player_and_label_for_state_machine() {
-    let p = Brain::Player(PlayerSlot(2));
-    assert_eq!(format!("{}", p), "Player(slot=2)");
-
+fn brain_display_includes_the_label_for_a_state_machine() {
     let sm = Brain::StateMachine(StateMachineCfg::MeleeBrute {
         cfg: MeleeBruteCfg::STRIKER_DEFAULT,
         state: MeleeBruteState::default(),
@@ -298,15 +289,30 @@ fn brain_npc_patrol_ctor_inherits_spawn_and_radius() {
     assert!(!b.is_hostile());
 }
 
+/// **A `Brain` cannot say who drives a body, and that is the point.**
+///
+/// ⛔ this used to assert `is_player()` / `player_slot()` — an AI-policy enum
+/// answering a question about a person. The answer lives on the body as
+/// [`DrivingParticipant`], so a driven body keeps its own policy and gets it back
+/// by never having lost it.
 #[test]
-fn brain_is_player_predicate_distinguishes_backends() {
-    let p = Brain::Player(PlayerSlot(2));
-    assert!(p.is_player());
-    assert_eq!(p.player_slot(), Some(PlayerSlot(2)));
+fn the_driving_participant_is_a_component_on_the_body_not_a_brain_variant() {
+    let mut world = bevy::prelude::World::new();
+    let driven = world
+        .spawn((Brain::stand_still(), DrivingParticipant(PlayerSlot(2))))
+        .id();
+    let cpu = world.spawn(Brain::stand_still()).id();
 
-    let sm = Brain::StateMachine(StateMachineCfg::StandStill);
-    assert!(!sm.is_player());
-    assert!(sm.player_slot().is_none());
+    assert_eq!(
+        world.get::<DrivingParticipant>(driven).map(|d| d.0),
+        Some(PlayerSlot(2))
+    );
+    assert_eq!(world.get::<DrivingParticipant>(cpu).map(|d| d.0), None);
+    assert!(
+        matches!(world.get::<Brain>(driven), Some(Brain::StateMachine(_))),
+        "the driven body lost its own policy — nothing may swap a brain to say \
+         who is driving"
+    );
 }
 
 #[test]
@@ -342,7 +348,6 @@ fn actor_action_message_predicates_match_request_variant() {
 
 #[test]
 fn brain_label_is_per_backend() {
-    assert_eq!(Brain::Player(PlayerSlot(0)).label(), "player");
     assert_eq!(
         Brain::StateMachine(StateMachineCfg::StandStill).label(),
         "stand_still"

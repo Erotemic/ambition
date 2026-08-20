@@ -246,10 +246,10 @@ impl SnapshotState for crate::features::ecs::perception::PerceptionMemory {
 /// **Temporary-control state**: whether an autonomous body is masked by a player
 /// possession or a mount, by STABLE `SimId`. Registered so a rewind restores the
 /// control MODE across time (not just avoids clobbering a live one): the `Brain`
-/// cursor is a no-op for `Brain::Player`, and possession/mount relationships were
+/// cursor is a no-op for a body nobody drives, and possession/mount relationships were
 /// re-derived from live components, so without this a rollback across a
 /// possess/release boundary left the body in the wrong mode. Reconciliation
-/// rebuilds the live control (`Brain::Player` / `Mounted`) and its relationships
+/// rebuilds the live control (`DrivingParticipant` / `Mounted`) and its relationships
 /// from the restored id.
 impl SnapshotState for crate::features::TemporaryControl {
     fn encode(&self, out: &mut Vec<u8>) {

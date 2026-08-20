@@ -15,11 +15,11 @@
 //! attributing a conversation.
 //!
 //! ⚠ **it used to read `Brain::Player(slot)` directly, and the answer has not
-//! changed.** Possession MOVES that variant (one system asserts exactly one body
-//! carries `Brain::Player(PRIMARY)`), so the brain and the derive agree today by
-//! construction. What moved is the DEPENDENCY: this asks who is driving, and it
-//! no longer has to know that the answer is currently spelled inside an AI-policy
-//! enum. When possession stops swapping brains, nothing here changes.
+//! changed.** That variant is gone: possession now moves `DrivingParticipant`
+//! and leaves every body's own policy alone, and — exactly as this note
+//! predicted — nothing here changed when it did. What moved is the DEPENDENCY:
+//! this asks who is driving, and it never has to know how the answer is
+//! spelled.
 //!
 //! ⛔ **this is not a new participant model.** It is the one place the two
 //! interaction systems agree on the question, so the primary-seat fallback below
@@ -41,8 +41,8 @@ pub struct ActingParticipant<'w, 's> {
 
 impl ActingParticipant<'_, '_> {
     /// **Which controller slot drives this body**, or `None` for a body no
-    /// participant is driving (a CPU actor, a prop, a body whose brain has not
-    /// been built yet).
+    /// participant is driving (a CPU actor, a prop, a body whose seat has not
+    /// been attached yet).
     pub fn driving_slot(&self, body: Entity) -> Option<PlayerSlot> {
         self.drivers.get(body).ok().map(|driver| driver.0)
     }
@@ -51,7 +51,7 @@ impl ActingParticipant<'_, '_> {
     ///
     /// ⚠ **the fallback is the STARTUP frame, and it is stated here so the call
     /// sites do not each invent one.** The controlled subject resolves from the
-    /// brain, so a subject without one is a world that has not finished being
+    /// seat, so a subject without one is a world that has not finished being
     /// built; answering `PRIMARY` there preserves the behaviour every existing
     /// single-player fixture depends on. It is NOT a claim that a body with no
     /// participant may consume the primary seat's input during play — a body

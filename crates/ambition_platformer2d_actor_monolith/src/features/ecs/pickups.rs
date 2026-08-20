@@ -12,7 +12,7 @@ use ambition_sfx::{SfxMessage, SfxWriter};
 /// * `collect_ecs_pickups` / [`magnetize_pickups`] claimed `With<PlayerEntity>`
 ///   — every body in the player population, which is right for a couch (four
 ///   seats, four collectors, each credited on its own wallet) and **excludes a
-///   possessed body**, because possession moves `Brain::Player` onto an ACTOR
+///   possessed body**, because possession moves the primary seat onto an ACTOR
 ///   and an actor carries no `PlayerEntity`. A possessed body walked through
 ///   coins.
 /// * [`collect_world_items`](crate::items::world_item::collect_world_items)

@@ -566,12 +566,12 @@ pub fn advance_move_playback(
         Entity,
         &mut MovePlayback,
         &ActorFaction,
-        // The owner's brain, so a POSSESSED body's strike carries its EFFECTIVE
-        // faction (a controlled body fights as `Player`): `effective_faction`'s
+        // The owner's DRIVER, so a POSSESSED body's strike carries its EFFECTIVE
+        // faction (a driven body fights as `Player`): `effective_faction`'s
         // contract is that every hitbox stamp resolves through it, and this move
-        // strike is one of them. `None`/non-player-brain ⇒ the authored faction
-        // (identity for every ordinary actor + the player's own body).
-        Option<&ambition_characters::brain::Brain>,
+        // strike is one of them. `None` (nobody drives it) ⇒ the authored faction
+        // (identity for every ordinary actor).
+        Option<&ambition_characters::brain::DrivingParticipant>,
         // §7.1: actors project their sprite catalog id onto combat tuning;
         // controllable bodies carry the same identity as WornCharacter. Both
         // resolve authored per-animation blade geometry from the App-local catalog.
@@ -610,7 +610,7 @@ pub fn advance_move_playback(
         owner,
         mut playback,
         faction,
-        brain,
+        driver,
         config,
         worn,
         body_source,
@@ -619,7 +619,7 @@ pub fn advance_move_playback(
         owner_sim_id,
     ) in &mut players
     {
-        let strike_faction = crate::targeting::effective_faction(*faction, brain);
+        let strike_faction = crate::targeting::effective_faction(*faction, driver);
         let character_id = worn
             .map(ambition_characters::actor::WornCharacter::id)
             .or_else(|| config.and_then(|tuning| tuning.sprite_character_id.as_deref()));
@@ -1545,8 +1545,16 @@ pub fn trigger_moveset_moves(
             // itself runs through the normal locomotion path this same tick.
             //
             // ⚠ the edge is now the BURST press, but the AUTHORED cancel class
-            // stays `"dash"`: it is content vocabulary (`CANCEL_CLASS_NAMES`,
-            // spelled in shipped `.ron` movesets), not the channel's name.
+            // stays `"dash"`: it is content vocabulary (`CANCEL_CLASS_NAMES`),
+            // not the channel's name. Renaming it is a CONTENT migration.
+            //
+            // ⭐ **and it is cheaper than it reads, measured 2026-08-20.** No
+            // `.ron` in the workspace carries a `Cancelable` window at all —
+            // movesets are authored in Rust through `cancelable(..)` — and the
+            // ONE authored window there is (`george_booul_moveset.rs:112`)
+            // names `["smash", "special"]`. Zero content sites spell `"dash"`
+            // today; the word survives only here, in `CANCEL_CLASS_NAMES` and
+            // in `ambition_entity_catalog`'s own tests.
             let loco = if frame.jump_pressed {
                 Some("jump")
             } else if frame.burst_pressed {

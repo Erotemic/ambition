@@ -4,7 +4,12 @@
 use super::super::CenteredAabb;
 use super::*;
 use ambition_boss_encounter::behavior::BossBehaviorProfileExt;
+use ambition_characters::brain::DrivingParticipant;
 use bevy::prelude::*;
+
+/// A patrol lane centre no derivation would ever produce — the marker the
+/// boss-rider dismount tests below check for.
+const AUTHORED_BOSS_LANE_X: f32 = 4242.0;
 
 type ActorClusterBundle = (
     super::super::actor_clusters::BodyKinematics,
@@ -257,7 +262,7 @@ fn dead_mount_dissolves_link_keeping_records() {
 /// still running its authored brain — gnuton stepping off his dead giant.
 #[test]
 fn boss_rider_keeps_its_brain_and_emits_mount_died_on_dismount() {
-    use ambition_characters::brain::{Brain, PlayerSlot};
+    use ambition_characters::brain::Brain;
 
     #[derive(Resource, Default)]
     struct MountDiedLog(Vec<(Entity, Entity)>);
@@ -277,9 +282,14 @@ fn boss_rider_keeps_its_brain_and_emits_mount_died_on_dismount() {
     // A dead mount + a live mounted rider (default `Dismount` impact).
     let (mount, rider) = spawn_dead_mount_with_impact(&mut app, MountDeathImpact::Dismount);
     // Make the rider a BOSS: an authored `BossConfig` marker + a distinctive
-    // `Brain::Player` marker. The dismount rebuild would produce a
-    // `Brain::StateMachine`, so a surviving `Player` proves the brain is
-    // untouched — no new flag, the component IS the marker (Q19b).
+    // authored brain. The dismount rebuild derives a solo melee policy from the
+    // rider's kit, so a surviving hand-authored PATROL LANE (a number nothing
+    // derives) proves the brain is untouched — no new flag, the component IS the
+    // marker (Q19b).
+    //
+    // ⚠ it used to be `Brain::Player`, which was distinctive only because that
+    // variant could never be derived. With the variant gone, the marker has to
+    // be a VALUE nothing else would produce.
     app.world_mut().entity_mut(rider).insert((
         ambition_boss_encounter::BossConfig {
             id: "boss_rider".into(),
@@ -291,17 +301,18 @@ fn boss_rider_keeps_its_brain_and_emits_mount_died_on_dismount() {
                 "boss_rider",
             ),
         },
-        Brain::Player(PlayerSlot(0)),
+        Brain::npc_patrol(AUTHORED_BOSS_LANE_X, 17.0),
     ));
 
     app.update();
 
-    // Brain untouched: still the authored `Player` marker, not a rebuilt
-    // solo-melee `StateMachine`.
+    // Brain untouched: still the authored patrol lane, not a rebuilt solo-melee
+    // policy.
     assert!(
         matches!(
             app.world().entity(rider).get::<Brain>().unwrap(),
-            Brain::Player(_)
+            Brain::StateMachine(ambition_characters::brain::StateMachineCfg::Patrol { cfg, .. })
+                if cfg.lane.center_x == AUTHORED_BOSS_LANE_X
         ),
         "a BossConfig rider must keep its authored Brain on dismount",
     );
@@ -522,7 +533,7 @@ fn total_grant_routes_rider_locomotion_to_mount_but_not_fire() {
 /// rider-agnostic.** A PLAYER-driven rider pilots the mount through the exact
 /// same two coupling systems an AI rider uses. Coupling keys on the STRUCTURAL
 /// facts (both bodies alive + carrying their mount-role components), never on
-/// disposition: this rider carries `Brain::Player` and a `Peaceful` disposition
+/// disposition: this rider holds a seat and a `Peaceful` disposition
 /// (the shape a possessed / human-driven body has — possession transfers the
 /// player brain but never touches disposition; `Peaceful` here proves the
 /// coupling ignores disposition entirely). It both (a) STEERS the mount — its
@@ -533,7 +544,7 @@ fn total_grant_routes_rider_locomotion_to_mount_but_not_fire() {
 #[test]
 fn a_player_controlled_rider_pilots_the_mount_agnostically() {
     use ambition_characters::actor::control::ActorControlFrame;
-    use ambition_characters::brain::{ActorControl, Brain, PlayerSlot};
+    use ambition_characters::brain::{ActorControl, PlayerSlot};
 
     let mut app = build_app();
     // The two coupling systems in their schedule order: steer routes the rider's
@@ -556,7 +567,7 @@ fn a_player_controlled_rider_pilots_the_mount_agnostically() {
         ))
         .id();
 
-    // A hand-authored PLAYER locomotion intent (what `Brain::Player` would emit
+    // A hand-authored PLAYER locomotion intent (what the player translator would emit
     // from slot input): drive right at 200 px/s, facing left.
     let mut rider_frame = ActorControlFrame::neutral();
     rider_frame.locomotion = ae::LocalAxes::new(1.0, 0.0);
@@ -566,7 +577,7 @@ fn a_player_controlled_rider_pilots_the_mount_agnostically() {
     let rider_start = ae::Vec2::new(999.0, 999.0);
     let rider_size = ae::Vec2::new(44.0, 78.0);
     // The full actor-cluster body, but spawned with a PLAYER identity: a
-    // `Peaceful` disposition + `Brain::Player` instead of the enemy default.
+    // `Peaceful` disposition + a `DrivingParticipant` instead of the enemy default.
     let (_enemy_disposition, rider_bundle) =
         hostile("rider", "pirate_raider", rider_start, rider_size);
     let rider = app
@@ -575,7 +586,7 @@ fn a_player_controlled_rider_pilots_the_mount_agnostically() {
             crate::features::ActorDisposition::Peaceful,
             rider_bundle,
             CenteredAabb::from_center_size(rider_start, rider_size),
-            Brain::Player(PlayerSlot::PRIMARY),
+            DrivingParticipant(PlayerSlot::PRIMARY),
             ActorControl(rider_frame),
             Mounted,
             RidingOn { mount },
@@ -709,7 +720,7 @@ fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
     use ambition_boss_encounter::{
         BossEncounterPhase, BossProfile, PhaseTrigger, PhaseTriggerCondition,
     };
-    use ambition_characters::brain::{Brain, PlayerSlot};
+    use ambition_characters::brain::Brain;
 
     // (1) **The giant's "I am a rideable giant-class mount, and touching me does
     // not hurt" assertion lives with the CHARACTER now**, in
@@ -738,8 +749,11 @@ fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
     // (3) The authored `gnu_ton_rider` boss profile carries the on-foot
     // `mount_died` External trigger (this is what makes the mini-phase authored,
     // not test-injected).
-    let profile = BossProfile::from_id(ambition_boss_encounter::test_boss_catalog(), "gnu_ton_rider")
-        .expect("gnu_ton_rider boss profile+encounter are authored");
+    let profile = BossProfile::from_id(
+        ambition_boss_encounter::test_boss_catalog(),
+        "gnu_ton_rider",
+    )
+    .expect("gnu_ton_rider boss profile+encounter are authored");
     assert_eq!(
         profile.behavior.pilotable_mount_classes,
         vec!["giant".to_string()],
@@ -783,7 +797,7 @@ fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
         .id();
 
     // The gnu_ton_rider BOSS — a live mounted rider carrying the authored
-    // encounter phase state (at Phase1) + a distinctive `Brain::Player` marker
+    // encounter phase state (at Phase1) + a distinctive authored patrol lane
     // so a surviving marker proves the BossConfig brain-keep rule. The dismount
     // rebuild would produce a `Brain::StateMachine`, so `Player` surviving is
     // load-bearing.
@@ -810,7 +824,7 @@ fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
             CenteredAabb::from_center_size(rider_pos, rider_size),
             boss_encounter,
             boss_config,
-            Brain::Player(PlayerSlot(0)),
+            Brain::npc_patrol(AUTHORED_BOSS_LANE_X, 17.0),
             CanPilot {
                 classes: vec![MountClass("giant".into())],
             },
@@ -829,7 +843,8 @@ fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
     assert!(
         matches!(
             app.world().entity(rider).get::<Brain>().unwrap(),
-            Brain::Player(_)
+            Brain::StateMachine(ambition_characters::brain::StateMachineCfg::Patrol { cfg, .. })
+                if cfg.lane.center_x == AUTHORED_BOSS_LANE_X
         ),
         "the dismounted gnu_ton_rider boss must keep its authored Brain",
     );
@@ -874,17 +889,20 @@ fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
 /// active strike, the same limbs fall back to their home-station intent.
 #[test]
 fn gnu_ton_rider_hand_slam_routes_both_giant_hands_downward_with_a_strike_edge() {
-    use ambition_boss_encounter::BossConfig;
-    use ambition_boss_encounter::BossProfile;
     use crate::features::{
         fan_out_limb_intents, route_boss_strikes_to_limbs, ActorSurfaceState, BodyKinematics, Limb,
         LimbIntents, LimbRig, LimbRouteState, LimbSlot,
     };
+    use ambition_boss_encounter::BossConfig;
+    use ambition_boss_encounter::BossProfile;
     use ambition_characters::actor::control::ActorControlFrame;
     use ambition_characters::brain::{ActorControl, BossAttackProfile, BossAttackState};
 
-    let profile = BossProfile::from_id(ambition_boss_encounter::test_boss_catalog(), "gnu_ton_rider")
-        .expect("gnu_ton_rider boss profile is authored");
+    let profile = BossProfile::from_id(
+        ambition_boss_encounter::test_boss_catalog(),
+        "gnu_ton_rider",
+    )
+    .expect("gnu_ton_rider boss profile is authored");
     // The RON `limb_routing` loaded: hand_slam is authored as a limb route.
     assert!(
         profile
@@ -1034,20 +1052,23 @@ fn gnu_ton_rider_hand_slam_routes_both_giant_hands_downward_with_a_strike_edge()
 /// and the moveset is the production `boss_attack_moveset` build.
 #[test]
 fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
-    use ambition_boss_encounter::BossConfig;
-    use ambition_boss_encounter::{BossEncounterPhase, BossProfile, PhaseTrigger};
     use crate::features::{
         fan_out_limb_intents, route_boss_strikes_to_limbs, ActorSurfaceState, BodyKinematics, Limb,
         LimbIntents, LimbRig, LimbRouteState, LimbSlot,
     };
+    use ambition_boss_encounter::BossConfig;
+    use ambition_boss_encounter::{BossEncounterPhase, BossProfile, PhaseTrigger};
     use ambition_characters::actor::control::ActorControlFrame;
     use ambition_characters::brain::{
         ActorControl, BossAttackIntent, BossAttackState, BossCapability, Brain, PlayerSlot,
         SlotControls,
     };
 
-    let profile = BossProfile::from_id(ambition_boss_encounter::test_boss_catalog(), "gnu_ton_rider")
-        .expect("gnu_ton_rider boss profile is authored");
+    let profile = BossProfile::from_id(
+        ambition_boss_encounter::test_boss_catalog(),
+        "gnu_ton_rider",
+    )
+    .expect("gnu_ton_rider boss profile is authored");
     assert!(
         profile
             .behavior
@@ -1150,7 +1171,7 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
     });
 
     // The POSSESSED rider boss: the real cluster components + the production
-    // moveset built from its authored repertoire, driven by `Brain::Player(0)`.
+    // moveset built from its authored repertoire, driven by seat 0.
     let rider_pos = giant_pos + ae::Vec2::new(0.0, -140.0);
     let capability = BossCapability {
         specials: profile
@@ -1191,7 +1212,9 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
                 brain: ambition_entity_catalog::placements::BossBrain::Dormant,
                 behavior: profile.behavior.clone(),
             },
-            Brain::Player(PlayerSlot(0)),
+            // ⭐ the SEAT is what makes this boss possessed; its own `Brain` stays
+            // put and simply stops deciding while a person is driving.
+            (Brain::stand_still(), DrivingParticipant(PlayerSlot(0))),
             ActorControl(ActorControlFrame::neutral()),
             BossAttackIntent::default(),
             BossAttackState::default(),

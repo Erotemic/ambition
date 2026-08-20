@@ -160,10 +160,9 @@ impl DialogueDispatch<'_, '_> {
     /// here without this knowing possession exists.
     ///
     /// ⚠ **it used to match `Brain::Player(slot)`, and the answer has not
-    /// changed** — possession moves that variant today, so the two agree by
-    /// construction. What moved is the dependency: attributing a conversation no
-    /// longer requires knowing that "who drives" is currently spelled inside an
-    /// AI-policy enum. The component is derived in the actor domain and lives in
+    /// changed** — that variant is gone, and possession moves this component
+    /// instead. What moved is the dependency: attributing a conversation never
+    /// required knowing how "who drives" is spelled. The component lives in
     /// `ambition_characters::brain`, so this costs no new crate edge.
     ///
     /// ⛔ **it returns the SLOT, and the conversion to a participant is the

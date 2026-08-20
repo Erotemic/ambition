@@ -5,29 +5,27 @@
 
 use super::*;
 use crate::components::{ActorAggression, ActorFaction, ActorTarget, CenteredAabb};
+use ambition_characters::brain::DrivingParticipant;
 use ambition_characters::brain::PlayerSlot;
-use ambition_characters::brain::{Brain, StateMachineCfg};
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 
-/// Effective allegiance: a body carrying `Brain::Player` fights as `Player`
+/// Effective allegiance: a body a participant drives fights as `Player`
 /// regardless of its authored faction (that's why possession never mutates
-/// `ActorFaction`); any other brain — or none — keeps the authored faction.
+/// `ActorFaction`); a body nobody drives keeps the authored faction.
 #[test]
-fn effective_faction_maps_player_brain_to_player_side() {
-    let player_brain = Brain::Player(PlayerSlot::PRIMARY);
-    let ai_brain = Brain::StateMachine(StateMachineCfg::StandStill);
-    // A possessed enemy: authored Enemy, but player-controlled ⇒ Player.
+fn effective_faction_maps_a_driven_body_to_the_player_side() {
+    let driven = DrivingParticipant(PlayerSlot::PRIMARY);
+    // A possessed enemy: authored Enemy, but participant-driven ⇒ Player.
     assert_eq!(
-        effective_faction(ActorFaction::Enemy, Some(&player_brain)),
+        effective_faction(ActorFaction::Enemy, Some(&driven)),
         ActorFaction::Player,
     );
-    // Same body, autonomous AI brain ⇒ keeps authored Enemy.
+    // Nobody drives it ⇒ keeps authored Enemy, whatever its AI policy is.
     assert_eq!(
-        effective_faction(ActorFaction::Enemy, Some(&ai_brain)),
+        effective_faction(ActorFaction::Enemy, None),
         ActorFaction::Enemy,
     );
-    // No brain ⇒ authored faction unchanged.
     assert_eq!(
         effective_faction(ActorFaction::Boss, None),
         ActorFaction::Boss,
@@ -565,7 +563,7 @@ fn a_dead_foe_is_dropped_so_the_fighter_goes_target_less() {
 
 /// **A team outranks faction for "may this hit land".** (queue L9)
 ///
-/// `effective_faction` maps ANY player-brained body to `Player`, which is
+/// `effective_faction` maps ANY participant-driven body to `Player`, which is
 /// load-bearing for possession and fatal for a match: two humans are always the
 /// same faction no matter what the roster declared. A versus stage got around
 /// that by switching on GLOBAL friendly fire, which is right for a free-for-all

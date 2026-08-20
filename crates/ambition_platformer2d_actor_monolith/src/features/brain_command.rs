@@ -14,9 +14,16 @@
 //! - **Authored home.** A rebuild uses the actor's [`AuthoredBrainContext`] (its
 //!   spawn anchor + patrol radius), never its current pose, so a restored patrol
 //!   brain recenters where it was authored, not wherever it wandered.
-//! - **Temporary control is untouchable.** An actor under player possession
-//!   (`Brain::Player`) or mount control (`Mounted`) is skipped: its autonomous
-//!   selection is not the live brain, so switching it would corrupt live control.
+//! - **A DISPLACED brain is untouchable.** An actor under mount control
+//!   (`Mounted`) is skipped: the mount cached its policy and put a controller's
+//!   in its place, so switching the live one would corrupt live control.
+//!   ⭐ **possession is no longer on that list, and that is the point of the
+//!   `Brain::Player` deletion.** A possessed body keeps its own policy the whole
+//!   time — the seat moved, the brain did not — so a switch mid-possession
+//!   applies LIVE, and release resumes it because it was never displaced. This
+//!   used to be a two-step dance: update the SOURCE only, then re-derive
+//!   `PossessionState::restore_brain` so a release would resume the new
+//!   selection. Both halves are gone with the field.
 //!
 //! Provocation/challenge installs a hostile brain through its own authority
 //! (`provoke_actor_in_place`); it records WHICH policy in the binding — the
@@ -263,10 +270,10 @@ fn apply_brain_selection(
 ///
 /// Deterministic: commands are grouped by target id in a `BTreeMap` (canonical
 /// order) and applied in arrival order; each command mutates exactly the one
-/// entity whose `SimId` matches, so ECS iteration order is irrelevant. An actor
-/// under temporary control (player possession or mounted) is skipped — its live
-/// brain is not its autonomous selection, and overwriting it would corrupt
-/// control.
+/// entity whose `SimId` matches, so ECS iteration order is irrelevant. A MOUNTED
+/// actor is skipped — the mount displaced its policy, so its live brain is not
+/// its autonomous selection and overwriting it would corrupt control. A POSSESSED
+/// actor is NOT skipped: nothing displaced its policy.
 pub fn apply_brain_commands(
     catalog: Res<CharacterCatalog>,
     // **The cast**, for a body whose autonomous default is its own character's
@@ -275,7 +282,6 @@ pub fn apply_brain_commands(
     // because compositions that register no cast are ordinary.
     prepared: Option<Res<crate::character_runtime::PreparedCharacterRegistry>>,
     mut commands_in: MessageReader<BrainCommand>,
-    mut possession: ResMut<crate::abilities::traversal::possession::PossessionState>,
     mut actors: Query<(
         Entity,
         &SimId,
@@ -307,7 +313,12 @@ pub fn apply_brain_commands(
         return;
     }
     for (
-        entity,
+        // ⚠ **the entity handle is no longer read**, and the reason is the
+        // `Brain::Player` deletion: this used to compare it against
+        // `PossessionState::possessed` to decide whether to refresh a resume
+        // brain. Nothing is displaced by a possession any more, so there is
+        // nothing to refresh and nobody to identify.
+        _entity,
         sim_id,
         mut brain,
         mut binding,
@@ -340,44 +351,30 @@ pub fn apply_brain_commands(
             crate::features::ecs::character_policy::character_autonomous_profile(registry, worn)
         });
 
-        // Under temporary control (player possession / mount) the live `Brain` is
-        // the controller's, not the autonomous selection — so a switch updates only
-        // the SOURCE that resumes when control ends, and is NEVER silently lost. We
-        // do NOT touch any mount cache (that is the MOUNTED mode, not the autonomous
-        // resume mode) — the suspended-autonomous-runtime pass owns resumption. The
-        // possession resume-brain is kept agreeing with the new source so a LIVE
-        // release resumes the newly selected mode; a snapshot restore reconstructs
-        // it from the source directly (`reconcile_autonomous_actors`).
-        if brain.is_player() || mounted {
+        // Under MOUNT control the live `Brain` is the controller's, not the
+        // autonomous selection — so a switch updates only the SOURCE that resumes
+        // when control ends, and is NEVER silently lost. We do NOT touch any
+        // mount cache (that is the MOUNTED mode, not the autonomous resume mode)
+        // — the suspended-autonomous-runtime pass owns resumption.
+        //
+        // ⭐⭐ **POSSESSION IS NOT HERE ANY MORE.** It used to share this arm
+        // because possession moved `Brain::Player` onto the body and destroyed
+        // whatever policy was there, so the only honest thing a switch could do
+        // was update the source and re-derive `PossessionState::restore_brain`.
+        // A possessed body keeps its own brain now: the switch applies LIVE
+        // below, the human's input still drives the body through its seat, and
+        // the release resumes the switched policy because it was never displaced.
+        // The `restore_brain` re-derivation that made a provoke → possess →
+        // release-provocation → release sequence resume the PROVOKED mind cannot
+        // exist, because there is no cached mind.
+        if mounted {
             let mut changed = false;
             for kind in kinds {
                 changed |= update_source_only(&catalog, sim_id, &mut binding, kind);
             }
-            if changed && possession.possessed == Some(entity) {
-                // ⭐ **THE RESUME BRAIN FOLLOWS THE SAME TWO ROADS THE SOURCE
-                // DOES.** A character-first body has no preset to look up, and
-                // asking only the preset road left `restore_brain` holding
-                // whatever mind the body carried when it was possessed — which
-                // for a provoke → possess → release-provocation → release
-                // sequence is the PROVOKED one, resumed after the release that
-                // was supposed to end it.
-                let resumed = match (&binding.source, config.as_deref()) {
-                    (
-                        ambition_characters::actor::character_catalog::AutonomousSource::CharacterProfile,
-                        Some(config),
-                    ) => character_profile.map(|profile| {
-                        crate::features::ecs::character_policy::brain_from_profile(
-                            config, profile, abilities,
-                        )
-                    }),
-                    _ => binding
-                        .active_preset()
-                        .and_then(|preset| catalog.build_brain_from_preset(preset.as_str(), &ctx)),
-                };
-                if let Some(resumed) = resumed {
-                    possession.restore_brain = Some(resumed);
-                }
-            }
+            // ⚠ the return value is the "did anything actually change" signal the
+            // resume-brain refresh consumed; nothing consumes it on this arm.
+            let _ = changed;
             continue;
         }
 

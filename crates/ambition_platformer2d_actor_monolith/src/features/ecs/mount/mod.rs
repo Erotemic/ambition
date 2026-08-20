@@ -277,7 +277,7 @@ pub fn steer_mount_from_rider(
 ///
 /// **Controller-agnostic coupling (M5, ADR 0020 §4):** the pair welds on the
 /// STRUCTURAL facts — both bodies are alive and carry their mount-role
-/// components — never on disposition. A rider driven by `Brain::Player` (a human
+/// components — never on disposition. A rider a participant drives (a human
 /// piloting the vehicle through possession / the control seam) welds and rides
 /// identically to an AI rider; the mount does not care WHO is aboard. Gating on
 /// `is_hostile` here would have been exactly the player-centrism the relativity

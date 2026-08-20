@@ -31,7 +31,7 @@ fn tick_player_brain_without_snapshot_input_falls_back_to_neutral() {
     // When snapshot.player_input is None, tick_player_brain
     // emits a neutral frame + facing only (no garbage from
     // uninitialized fields). Pins the safe-default path so
-    // an actor with Brain::Player but no input snapshot
+    // a driven actor with no input snapshot
     // doesn't fire random actions.
     let mut s = BrainSnapshot::idle();
     s.actor_facing = -1.0;

@@ -319,6 +319,32 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// it also moved `ambition_cutscene` and `ambition_demo_twintrack`, which is the
 /// instrument CHANGING and NOT a wire change in either: neither file was edited.
 ///
+/// ⚠ **v58 (2026-08-20) DELETES `Brain::Player(PlayerSlot)` and REGISTERS the
+/// seat it was carrying.** `actor.driving_participant` joins as a
+/// `component-clone`, and `derived.driving_participant` leaves — the same
+/// component, moving from DECLARED-DERIVED to REGISTERED, plus
+/// `derived.controlled_subject`'s reason string, which is wire.
+/// ⭐⭐ **the declaration's justification was deleted out from under it.** It
+/// read *"the driving seat reprojected from `Brain::Player` and possession every
+/// tick"*, and that is what excused it from the snapshot: both inputs were
+/// registered, so a restore rebuilt it. `Brain` is AI policy only now — the seat
+/// a participant drives from is authored at the spawn/seat site and lives in this
+/// component and nowhere else, so a rewind that did not carry it would restore a
+/// body nobody drives. `control::project_driving_participant` still MOVES it for
+/// a possession, and that is a reconcile over registered state (`PossessionState`)
+/// rather than a reprojection of it.
+/// ⚠ **`actor.brain`'s KEY and CODEC are both unchanged.** The cursor only ever
+/// encoded `StateMachineCfg` runtime state — the `Player` arm carried no cursor —
+/// so `scripts/rollback_codec_shape.py` is silent here and correctly so. What
+/// moved is the SET, which the schema fingerprint hashes.
+/// ⚠ **`PossessionState` loses `restore_brain` and `restore_scope`.** Neither was
+/// encoded (it is a `rollback_resource_clone_entity_set` registration, so the
+/// snapshot is a Clone), so this changes no bytes and no key — it is recorded
+/// here because the file's own comment had deferred retiring `restore_scope` to
+/// "a bump, not a bug fix", and this is that bump.
+/// ⚠ **v57 IS SKIPPED, deliberately.** The number was offered to a concurrent
+/// lane so two branches could not both take one; a hole in a monotonic log costs
+/// nothing and a collision costs a wire format — the same reasoning v53 records.
 /// ⚠ **v55 (2026-08-20) MOVES `BodyStaleMoves` from the ENGINE domain to
 /// COMBAT's**: `body.stale_moves` becomes `combat.stale_moves`, owned by
 /// `ambition_combat`. The component's ENCODING is byte-identical — this is a
@@ -350,8 +376,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⚠ **v53 IS DELIBERATELY SKIPPED, and it is a HOLE rather than a reservation.**
 /// It was offered to the lane working `ControlAuthority` on main so two branches
 /// could not both take one number; that lane then found it needed no bump at all
-/// (`DrivingParticipant` is a per-tick DERIVE — no registry entry, no snapshot,
-/// no wire) and handed it back. Renumbering down would have churned two recorded
+/// (`DrivingParticipant` was then a per-tick DERIVE — no registry entry, no
+/// snapshot, no wire; it became REGISTERED state in v58) and handed it back. Renumbering down would have churned two recorded
 /// baselines to save a number nobody needs. ⭐ a hole in a monotonic log costs
 /// nothing; a collision costs a wire format.
 /// ⚠ **v52 (2026-08-20) is `MovementTuning::parry_timing`**, one DISCRIMINANT in
@@ -553,8 +579,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⚠ **2026-08-19 FINISHES the slot-owned control migration, with NO version
 /// bump.** It removes only `derived.player_input_frame`: the entity-local frame
 /// was a declared-derived copy of `derived.slot_controls`, not snapshot payload.
-/// `Brain::Player(slot)` now reads the slot snapshot directly and body mechanics
-/// consume `ActorControl`. Removing a stable descriptor changes the schema
+/// `Brain::Player(slot)` (deleted in v58) then read the slot snapshot directly
+/// and body mechanics consume `ActorControl`. Removing a stable descriptor changes the schema
 /// fingerprint by itself; v38 remains correct because no payload changed behind
 /// an unchanged stable key.
 /// ⚠ **v38 (2026-08-18) FINISHES the projectile spawn-road migration.** It
@@ -570,7 +596,7 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// `message.spawn_projectile` keeps its stable key while its concrete message
 /// becomes `ProjectileSpawnRequest`, so abandoned-future spawn requests remain
 /// cleared on load through the same wire identity.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 56;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 59;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

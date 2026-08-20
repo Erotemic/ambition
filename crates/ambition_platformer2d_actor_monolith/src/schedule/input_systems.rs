@@ -19,7 +19,7 @@ use leafwing_input_manager::prelude::ActionState;
 use ambition_input::participant::{context_priority, ContextClaim};
 use ambition_input::{
     analog_to_dir, ControlFrame, InputParticipant, KeyboardPreset, MenuControlFrame,
-    MenuInputState, ParticipantContexts, PlayerDashTriggerState, SeatInputContexts,
+    MenuInputState, ParticipantContexts, PlayerBurstTriggerState, SeatInputContexts,
     CUTSCENE_CONTEXT, DIALOGUE_CONTEXT, GAMEPLAY_CONTEXT,
 };
 #[cfg(feature = "input")]
@@ -301,7 +301,7 @@ pub fn seat_input_participants_for_roster(
             ActionState::<Platformer2dInputActionMonolith>::default(),
             recipe.build(),
             recipe,
-            SeatDashTriggerState::default(),
+            SeatBurstTriggerState::default(),
         ));
     }
 }
@@ -358,7 +358,7 @@ pub fn declare_gameplay_input_context(
 ///
 /// ⛔ **the owner is asked, never inferred.** A conversation declares whose it is
 /// when it opens (`ConversationInputOwner`), derived from the initiator's
-/// `Brain::Player(slot)`. There is deliberately no "nobody said, so capture
+/// `DrivingParticipant(slot)`. There is deliberately no "nobody said, so capture
 /// everybody" arm — that was the behaviour, and an absence of attribution is
 /// exactly when claiming the whole couch is least defensible.
 ///
@@ -474,7 +474,7 @@ pub fn populate_control_frame_from_actions(
     )>,
     mut frame: ResMut<ControlFrame>,
     user_settings: Res<ambition_persistence::settings::UserSettings>,
-    mut dash_state: ResMut<PlayerDashTriggerState>,
+    mut burst_state: ResMut<PlayerBurstTriggerState>,
     windows: Query<&Window>,
 ) {
     // The participant persists across the whole app lifetime, so "no player
@@ -487,16 +487,16 @@ pub fn populate_control_frame_from_actions(
     // `find` below), so it asks the primary seat's context. Every other seat is
     // gated individually in `populate_secondary_slot_controls`.
     if !active_context.primary().gameplay_owned() {
-        dash_state.edge = ambition_persistence::settings::TriggerEdgeState::default();
+        burst_state.edge = ambition_persistence::settings::TriggerEdgeState::default();
         *frame = ControlFrame::default();
         return;
     }
 
     // Optional unfocus guard: clear gameplay input while the window is unfocused
-    // (and the setting is on). Reset the dash edge too so the post-refocus re-press
+    // (and the setting is on). Reset the burst edge too so the post-refocus re-press
     // starts clean, mirroring the pause path.
     if input_suppressed_by_unfocus(&user_settings, windows.iter().map(|w| w.focused)) {
-        dash_state.edge = ambition_persistence::settings::TriggerEdgeState::default();
+        burst_state.edge = ambition_persistence::settings::TriggerEdgeState::default();
         *frame = ControlFrame::default();
         return;
     }
@@ -512,7 +512,7 @@ pub fn populate_control_frame_from_actions(
     // * the semantic MENU frame is still the sole producer of cutscene
     //   advance/skip, so this bridge only neutralises the simulation packet and
     //   cannot double-count a held confirm;
-    // * the dash edge is now reset on a CUTSCENE too, which it was not before.
+    // * the burst edge is now reset on a CUTSCENE too, which it was not before.
     //   That is the pause and dialogue rule applied to the third case rather
     //   than a fourth policy — a trigger held across a cutscene needs a
     //   re-press, like one held across a pause.
@@ -544,15 +544,15 @@ pub fn populate_control_frame_from_actions(
                 let (next_frame, next_state) = read_gameplay_control_frame_with_settings(
                     action_state,
                     ambition_input::ControlFilters::from_settings(&user_settings.controls),
-                    dash_state.edge,
+                    burst_state.edge,
                 );
-                dash_state.edge = next_state;
+                burst_state.edge = next_state;
                 next_frame
             } else {
                 // While paused, suppress gameplay input AND reset the
-                // dash trigger state so the post-pause re-press starts
+                // burst trigger state so the post-pause re-press starts
                 // from a clean Released edge.
-                dash_state.edge = ambition_persistence::settings::TriggerEdgeState::default();
+                burst_state.edge = ambition_persistence::settings::TriggerEdgeState::default();
                 read_menu_control_frame(action_state)
             }
         }
@@ -562,15 +562,15 @@ pub fn populate_control_frame_from_actions(
     };
 }
 
-/// Per-seat dash edge state.
+/// Per-seat burst edge state.
 ///
-/// The primary seat's lives in the `PlayerDashTriggerState` RESOURCE, which is
+/// The primary seat's lives in the `PlayerBurstTriggerState` RESOURCE, which is
 /// correct for exactly one seat and wrong for two: a shared edge means player
-/// one's dash release cancels player two's press. A second seat carries its own
+/// one's burst release cancels player two's press. A second seat carries its own
 /// on its participant entity.
 #[cfg(feature = "input")]
 #[derive(Component, Clone, Copy, Debug, Default)]
-pub struct SeatDashTriggerState(pub ambition_persistence::settings::TriggerEdgeState);
+pub struct SeatBurstTriggerState(pub ambition_persistence::settings::TriggerEdgeState);
 
 /// **Every non-primary seat writes its OWN slot.** (C4 couch versus)
 ///
@@ -613,7 +613,7 @@ pub fn populate_secondary_slot_controls(
     mut seats: Query<(
         &InputParticipant,
         &ActionState<Platformer2dInputActionMonolith>,
-        &mut SeatDashTriggerState,
+        &mut SeatBurstTriggerState,
     )>,
     mut slots: ResMut<ambition_characters::brain::SlotControls>,
     // Present only under a fixed-tick host, mirroring `ControlFrameLatch`.
@@ -633,7 +633,7 @@ pub fn populate_secondary_slot_controls(
     let world_running = !mode
         .get()
         .stops_the_world(dialogue_policy.map(|p| *p).unwrap_or_default());
-    for (participant, actions, mut dash) in &mut seats {
+    for (participant, actions, mut burst) in &mut seats {
         if participant.id == ambition_input::ParticipantId::PRIMARY {
             continue;
         }
@@ -646,7 +646,7 @@ pub fn populate_secondary_slot_controls(
         if !gameplay {
             // Neutral, and RESET the edge, so the post-pause re-press starts from
             // a clean Released state — the same rule the primary seat follows.
-            dash.0 = ambition_persistence::settings::TriggerEdgeState::default();
+            burst.0 = ambition_persistence::settings::TriggerEdgeState::default();
             slots.set(slot, ControlFrame::default());
             // The latch is CLEARED rather than drained: a seat that has stopped
             // being driven must not hand a held direction to the tick after the
@@ -661,11 +661,11 @@ pub fn populate_secondary_slot_controls(
         // hand-tuned deadzone here meant player two's drifty 360 pad ran on
         // whatever suited player one's DualSense. A deadzone is a fact about the
         // stick in somebody's hands. (Jon, 2026-08-06: filtering per pad,
-        // bindings shared.) The PREFERENCES inside `ControlFilters` — dash mode,
+        // bindings shared.) The PREFERENCES inside `ControlFilters` — burst mode,
         // inverted aim — stay machine-wide, because those are about the person.
         let filters = filters_for_seat(&user_settings, devices.as_deref(), participant.id.slot());
-        let (frame, next) = read_gameplay_control_frame_with_settings(actions, filters, dash.0);
-        dash.0 = next;
+        let (frame, next) = read_gameplay_control_frame_with_settings(actions, filters, burst.0);
+        burst.0 = next;
         match latches.as_deref_mut() {
             // Fixed tick: fold this device sample in and let the tick drain it.
             // Writing `SlotControls` here as well would be the sample racing its
@@ -798,7 +798,7 @@ pub fn populate_menu_control_frame_from_actions(
 /// ⚠ **calibration is per PAD, preferences stay per MACHINE.** Jon, 2026-08-06:
 /// *"filtering per pad, bindings shared."* `ControlFilters::for_pad` carries that
 /// split — it replaces the deadzones and trigger thresholds from the detected
-/// pad's table while leaving dash mode and inverted aim alone, because those are
+/// pad's table while leaving burst mode and inverted aim alone, because those are
 /// choices about the PERSON rather than properties of the hardware.
 ///
 /// `None` — a headless fixture with no device tracking — reads the machine-wide
@@ -1431,7 +1431,7 @@ mod focus_gate_tests {
                 },
                 contexts,
                 actions,
-                super::SeatDashTriggerState::default(),
+                super::SeatBurstTriggerState::default(),
             )
         }
 
@@ -1513,7 +1513,7 @@ mod focus_gate_tests {
                 },
                 contexts,
                 actions,
-                super::SeatDashTriggerState::default(),
+                super::SeatBurstTriggerState::default(),
             )
         }
 
@@ -1647,7 +1647,7 @@ mod focus_gate_tests {
             },
             contexts,
             actions,
-            super::SeatDashTriggerState::default(),
+            super::SeatBurstTriggerState::default(),
         ));
         app.add_systems(
             Update,

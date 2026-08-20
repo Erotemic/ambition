@@ -116,8 +116,8 @@ fn rebuild_provoked_brain(
     }
     commands.queue(move |world: &mut bevy::prelude::World| {
         let driven = world
-            .get::<ambition_characters::brain::Brain>(entity)
-            .is_some_and(ambition_characters::brain::Brain::is_player);
+            .get::<ambition_characters::brain::DrivingParticipant>(entity)
+            .is_some();
         if driven {
             return;
         }
@@ -294,19 +294,24 @@ pub(crate) fn provoke_actor_in_place(
         //
         // This inserted the archetype's brain unconditionally, and for a body
         // under player control that is a silent seizure: the first hit a SEATED
-        // FIGHTER took replaced its `Brain::Player(slot)` with the Smash state
+        // FIGHTER took replaced its participant-driven brain with the Smash state
         // machine, in place, permanently — activation is one-shot and never
         // rebinds — so a human's fighter became a CPU mid-fight and the couch
         // test read it as input crosstalk. Measured: both seats opened as
         // `Player(0)`/`Player(1)` and seat one flipped 28 frames after its pad
         // went quiet, which is when it traded its first blows.
         //
-        // ⚠ **every other brain writer already knew this** — `brain_command`,
-        // `reconcile_autonomous_actors` and `reconcile_brain_bindings` all open
-        // with `if brain.is_player() { .. }` and update the SOURCE that resumes
-        // instead of the live brain. This was the one path that did not, and it
-        // was unreachable until a player-driven body could also be a provokable
+        // ⚠ **this used to be the one path that did not know it**, and it was
+        // unreachable until a player-driven body could also be a provokable
         // actor. Seating one is what made that ordinary.
+        //
+        // ⚠ **the sibling writers have since stopped needing the rule.** With
+        // `Brain::Player` deleted, `brain_command` and `reconcile_brain_bindings`
+        // let a switch apply LIVE to a driven body — nothing displaced its
+        // policy, so nothing can be clobbered. This site still skips, and the
+        // reason is different: a provocation replaces the body's whole policy
+        // from OUTSIDE, and doing that to somebody's fighter mid-fight is the
+        // seizure the comment above measured.
         //
         // The ACTION SET still lands: what a body fights with is part of what it
         // is, and a provoked fighter should swing the archetype's kit. Only the
@@ -317,8 +322,8 @@ pub(crate) fn provoke_actor_in_place(
         let provoked_action_set = proj.action_set;
         commands.queue(move |world: &mut bevy::prelude::World| {
             let driven = world
-                .get::<ambition_characters::brain::Brain>(entity)
-                .is_some_and(ambition_characters::brain::Brain::is_player);
+                .get::<ambition_characters::brain::DrivingParticipant>(entity)
+                .is_some();
             let Ok(mut em) = world.get_entity_mut(entity) else {
                 return;
             };

@@ -88,7 +88,7 @@ pub struct Dormant;
 /// `PlayerEntity`.** This asked for `PlayerEntity` and that was wrong for the
 /// one case the distinction exists for: `markers.rs` states the rule outright —
 /// *"`PrimaryPlayer` does NOT mean 'the currently controlled body'. The
-/// controlled body is whichever entity carries `Brain::Player(PlayerSlot::…)` —
+/// controlled body is whichever entity holds `DrivingParticipant(PlayerSlot::…)` —
 /// during possession that is a DIFFERENT entity (the possessed actor). Input,
 /// abilities, camera, portal viewer, and the melee lifecycle derive from"* it.
 /// Dormancy belongs on that list and was not on it.
@@ -106,11 +106,10 @@ pub struct Dormant;
 /// ⭐ **the predicate IS the query now.** This used to ask for every `Brain` and
 /// then `matches!(.., Brain::Player(_))` — a filter written because *"somebody is
 /// driving this body"* had nowhere of its own to live. It has one now:
-/// `control::project_driving_participant` reprojects
-/// [`ambition_characters::brain::DrivingParticipant`] every tick from the same
-/// facts, so the observer set is a `With<>` and there is no filter left to get
-/// wrong. The rule quoted above still holds — what changed is that the fact it
-/// describes is no longer spelled inside an AI-policy enum.
+/// [`ambition_characters::brain::DrivingParticipant`] is authored at the seat and
+/// moved by possession alone, so the observer set is a `With<>` and there is no
+/// filter left to get wrong. The rule quoted above still holds — what changed is
+/// that the fact it describes is no longer spelled inside an AI-policy enum.
 pub fn assess_dormancy(
     mut commands: Commands,
     observers: Query<&ae::BodyKinematics, With<ambition_characters::brain::DrivingParticipant>>,
@@ -172,15 +171,19 @@ mod tests {
     use super::*;
     use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
 
-    // **WHY EVERY FIXTURE BELOW RUNS THE PROJECTION.**
+    // **WHY EVERY FIXTURE BELOW SPAWNS A SEAT, NOT JUST A MARKER.**
     //
-    // ⛔ The observers these tests spawn carry a player BRAIN;
-    // `DrivingParticipant` is DERIVED from it. A fixture that spawned the brain
-    // and never ran the projection would find NO OBSERVERS AT ALL — and "no
-    // observer nearby" is precisely this system's dormancy condition. Every
-    // actor would fall asleep, so the tests asserting sleep would pass for the
-    // wrong reason while only the ones asserting wakefulness failed. A dead
-    // input road is half invisible from its own failures.
+    // ⛔ an observer is a body a participant is DRIVING, and that is
+    // `DrivingParticipant`. A fixture that spawned `PlayerEntity` alone would
+    // find NO OBSERVERS AT ALL — and "no observer nearby" is precisely this
+    // system's dormancy condition. Every actor would fall asleep, so the tests
+    // asserting sleep would pass for the wrong reason while only the ones
+    // asserting wakefulness failed. A dead input road is half invisible from its
+    // own failures.
+    //
+    // ⚠ the possession reconcile is still chained in below and is now a NO-OP
+    // here (no possession is in flight), kept so the fixtures keep running the
+    // production ordering rather than a shape that only exists in a test.
 
     fn body_at(x: f32) -> ae::BodyKinematics {
         ae::BodyKinematics {
@@ -201,13 +204,13 @@ mod tests {
         );
         for x in observers {
             // ⚠ **an observer is a body being DRIVEN**, which is why this spawns
-            // a player BRAIN and not only the `PlayerEntity` marker. The fixture
-            // used to spawn the marker alone, and it was encoding the definition
-            // this module had wrong: during possession `PlayerEntity` stays on
-            // the parked body while the brain moves to the possessed one.
+            // a SEAT and not only the `PlayerEntity` marker. The fixture used to
+            // spawn the marker alone, and it was encoding the definition this
+            // module had wrong: during possession `PlayerEntity` stays on the
+            // parked body while the seat moves to the possessed one.
             app.world_mut().spawn((
                 PlayerEntity,
-                ambition_characters::brain::Brain::Player(
+                ambition_characters::brain::DrivingParticipant(
                     ambition_characters::brain::PlayerSlot::PRIMARY,
                 ),
                 body_at(*x),
@@ -235,7 +238,7 @@ mod tests {
     /// through.
     ///
     /// `markers.rs` already states the rule this test enforces: *"the controlled
-    /// body is whichever entity carries `Brain::Player(…)` — during possession
+    /// body is whichever entity holds `DrivingParticipant(…)` — during possession
     /// that is a DIFFERENT entity"*. Dormancy simply was not on the list of
     /// things that derive from it.
     #[test]
@@ -249,9 +252,9 @@ mod tests {
         );
         // The home avatar, parked at the origin and NOT being driven.
         app.world_mut().spawn((PlayerEntity, body_at(0.0)));
-        // The possessed body, far away, carrying the player brain.
+        // The possessed body, far away, holding the primary seat.
         app.world_mut().spawn((
-            ambition_characters::brain::Brain::Player(
+            ambition_characters::brain::DrivingParticipant(
                 ambition_characters::brain::PlayerSlot::PRIMARY,
             ),
             body_at(5_000.0),
@@ -363,7 +366,7 @@ mod tests {
         // Driven, not merely marked — see `app_with`.
         app.world_mut().spawn((
             PlayerEntity,
-            ambition_characters::brain::Brain::Player(
+            ambition_characters::brain::DrivingParticipant(
                 ambition_characters::brain::PlayerSlot::PRIMARY,
             ),
             body_at(0.0),

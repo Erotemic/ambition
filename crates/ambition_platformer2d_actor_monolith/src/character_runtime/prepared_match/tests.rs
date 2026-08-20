@@ -422,12 +422,12 @@ fn a_match_builds_its_own_cast_and_leaves_other_bodies_alone() {
 ///
 /// The engine has been ready for this for a while and nobody had asked it:
 /// `SlotControls` holds four slots and `tick_controlled_brains` drives any body whose
-/// `Brain::Player(slot)` names one. What was missing was a seat that produces the
+/// `DrivingParticipant(slot)` names one. What was missing was a seat that produces the
 /// second body — and, still, a device writer for the second slot, which is the
 /// part `populate_slot_controls` names in its own docs as co-op's job.
 ///
 /// So this asserts the half that exists: seat 1 gets its own body carrying
-/// `Brain::Player(1)` and `LocalPlayer`. The brain names the canonical slot
+/// `DrivingParticipant(1)` and `LocalPlayer`. The seat names the canonical slot
 /// directly; a body whose slot receives no frame simply stands still, which is
 /// the correct behaviour for an unplugged controller.
 ///
@@ -437,7 +437,7 @@ fn a_match_builds_its_own_cast_and_leaves_other_bodies_alone() {
 /// experience declares no session body at all.
 #[test]
 fn a_second_human_seat_gets_its_own_body_on_its_own_slot() {
-    use ambition_characters::brain::{Brain, PlayerSlot};
+    use ambition_characters::brain::PlayerSlot;
 
     let mut app = seating_app();
     app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
@@ -457,15 +457,13 @@ fn a_second_human_seat_gets_its_own_body_on_its_own_slot() {
     finalize_and_update(&mut app);
 
     let world = app.world_mut();
-    let mut bodies = world.query::<(&ambition_characters::actor::WornCharacter, Option<&Brain>)>();
+    let mut bodies = world.query::<(
+        &ambition_characters::actor::WornCharacter,
+        Option<&ambition_characters::brain::DrivingParticipant>,
+    )>();
     let mut seats: Vec<(String, Option<u8>)> = bodies
         .iter(world)
-        .map(|(worn, brain)| {
-            (
-                worn.id().to_string(),
-                brain.and_then(Brain::player_slot).map(|slot| slot.0),
-            )
-        })
+        .map(|(worn, driver)| (worn.id().to_string(), driver.map(|d| d.0 .0)))
         .collect();
     seats.sort();
 
@@ -486,15 +484,13 @@ fn a_second_human_seat_gets_its_own_body_on_its_own_slot() {
 }
 
 /// A locally driven human body keeps local-source identity while its control
-/// authority remains the slot named by `Brain::Player`.
+/// authority remains the slot named by `DrivingParticipant`.
 ///
 /// `LocalPlayer` answers where the source lives; it does not carry or duplicate
-/// the source's per-tick frame. That distinction lets possession move the brain
+/// the source's per-tick frame. That distinction lets possession move the seat
 /// without manufacturing a second input authority on the new body.
 #[test]
 fn a_local_human_body_keeps_local_source_identity_on_the_slot_model() {
-    use ambition_characters::brain::Brain;
-
     let mut app = seating_app();
     app.register_character(CharacterDefinition::new("sanic", "Sanic", "sanic_demo"));
     app.insert_resource(MatchParticipantRoster {
@@ -509,19 +505,23 @@ fn a_local_human_body_keeps_local_source_identity_on_the_slot_model() {
     finalize_and_update(&mut app);
 
     let world = app.world_mut();
-    let mut locals = world.query::<(&crate::control::components::LocalPlayer, &Brain)>();
-    let brains: Vec<_> = locals
+    let mut locals = world.query::<(
+        &crate::control::components::LocalPlayer,
+        Option<&ambition_characters::brain::DrivingParticipant>,
+    )>();
+    let seats: Vec<_> = locals
         .iter(world)
-        .map(|(_, brain)| brain.player_slot())
+        .map(|(_, driver)| driver.copied())
         .collect();
     assert_eq!(
-        brains.len(),
+        seats.len(),
         1,
         "the human seat must produce one locally sourced body"
     );
     assert!(
-        brains[0].is_some(),
-        "a locally sourced human body must name its control slot through Brain::Player"
+        seats[0].is_some(),
+        "a locally sourced human body must name its control slot through \
+         DrivingParticipant"
     );
 }
 
@@ -538,7 +538,7 @@ fn a_local_human_body_keeps_local_source_identity_on_the_slot_model() {
 /// dense channel, and the plan still remembers which controller feeds it.
 #[test]
 fn a_human_behind_a_cpu_seat_still_lands_on_channel_zero() {
-    use ambition_characters::brain::{Brain, PlayerSlot};
+    use ambition_characters::brain::{DrivingParticipant, PlayerSlot};
 
     let mut app = seating_app();
     app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
@@ -569,10 +569,13 @@ fn a_human_behind_a_cpu_seat_still_lands_on_channel_zero() {
     );
 
     let world = app.world_mut();
-    let mut bodies = world.query::<(&ambition_characters::actor::WornCharacter, &Brain)>();
+    let mut bodies = world.query::<(
+        &ambition_characters::actor::WornCharacter,
+        Option<&DrivingParticipant>,
+    )>();
     let seated: Vec<(String, Option<PlayerSlot>)> = bodies
         .iter(world)
-        .map(|(worn, brain)| (worn.id().to_string(), brain.player_slot()))
+        .map(|(worn, driver)| (worn.id().to_string(), driver.map(|d| d.0)))
         .collect();
     assert!(
         seated.contains(&("sanic".to_string(), Some(PlayerSlot::PRIMARY))),
@@ -589,7 +592,7 @@ fn a_human_behind_a_cpu_seat_still_lands_on_channel_zero() {
 /// Three channels, no holes; three sources, one hole.
 #[test]
 fn three_people_on_pads_zero_one_and_three_get_channels_zero_one_and_two() {
-    use ambition_characters::brain::{Brain, PlayerSlot};
+    use ambition_characters::brain::{DrivingParticipant, PlayerSlot};
 
     let mut app = seating_app();
     for id in ["mary_o", "sanic", "duelist"] {
@@ -620,12 +623,8 @@ fn three_people_on_pads_zero_one_and_three_get_channels_zero_one_and_two() {
     );
 
     let world = app.world_mut();
-    let mut bodies = world.query::<&Brain>();
-    let mut slots: Vec<u8> = bodies
-        .iter(world)
-        .filter_map(Brain::player_slot)
-        .map(|slot| slot.0)
-        .collect();
+    let mut bodies = world.query::<&DrivingParticipant>();
+    let mut slots: Vec<u8> = bodies.iter(world).map(|driver| driver.0 .0).collect();
     slots.sort();
     assert_eq!(
         slots,

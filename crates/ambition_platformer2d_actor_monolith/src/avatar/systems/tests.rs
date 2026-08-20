@@ -388,7 +388,7 @@ fn player_brain_seam_translates_control_frame_to_actor_control() {
 /// one game's authoring type reaching into a generic controlled seam.
 #[test]
 fn a_possessed_actor_is_driven_by_the_controlled_brain_producer() {
-    use ambition_characters::brain::{Brain, PlayerSlot};
+    use ambition_characters::brain::{DrivingParticipant, PlayerSlot};
 
     const POSSESSED_TOP_SPEED: f32 = 137.0;
 
@@ -419,9 +419,9 @@ fn a_possessed_actor_is_driven_by_the_controlled_brain_producer() {
         .spawn((
             seed.into_components(),
             // What the production spawn sites add beside the cluster: an intent
-            // frame and a brain. Possession replaces only the second.
+            // frame and a seat. Possession moves only the second.
             ambition_characters::brain::ActorControl::default(),
-            Brain::Player(PlayerSlot::PRIMARY),
+            DrivingParticipant(PlayerSlot::PRIMARY),
         ))
         .id();
     app.world_mut()
@@ -472,7 +472,7 @@ fn a_possessed_actor_is_driven_by_the_controlled_brain_producer() {
 /// one back across the other turns this red.
 #[test]
 fn a_scripted_sequence_silences_a_possessed_body() {
-    use ambition_characters::brain::{Brain, PlayerSlot, ScriptedControl};
+    use ambition_characters::brain::{DrivingParticipant, PlayerSlot, ScriptedControl};
 
     let mut app = App::new();
     app.init_resource::<ControlFrame>();
@@ -504,7 +504,7 @@ fn a_scripted_sequence_silences_a_possessed_body() {
         .spawn((
             seed.into_components(),
             ambition_characters::brain::ActorControl::default(),
-            Brain::Player(PlayerSlot::PRIMARY),
+            DrivingParticipant(PlayerSlot::PRIMARY),
             ScriptedControl,
         ))
         .id();

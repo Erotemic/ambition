@@ -437,23 +437,17 @@ fn interaction_app() -> App {
     app.add_message::<QuestAdvanceRequested>();
     app.add_message::<SwitchActivated>();
     app.add_message::<VfxMessage>();
-    // ⭐⭐ **the derive runs HERE, ahead of its reader, because it IS the input
-    // road.** `ActingParticipant` answers *which seat drives this body* off
-    // `DrivingParticipant`, and a fixture that spawned bodies with brains but
-    // never projected the component would hand every reader `None` — which
-    // `acting_slot` turns into `PRIMARY`. Both second-seat tests below would then
-    // pass by attributing seat 1's press to seat 0, which is the exact defect
-    // they exist to catch. `PossessionState` is the projection's other input and
-    // is empty here: no possession, so authority follows the brains.
-    app.init_resource::<crate::abilities::traversal::possession::PossessionState>();
-    app.add_systems(
-        Update,
-        (
-            crate::control::project_driving_participant,
-            interact_ecs_actors_and_switches,
-        )
-            .chain(),
-    );
+    // ⭐⭐ **the SEAT is spawned on the body, because it IS the input road.**
+    // `ActingParticipant` answers *which seat drives this body* off
+    // `DrivingParticipant`, and a fixture whose bodies carried no seat would hand
+    // every reader `None` — which `acting_slot` turns into `PRIMARY`. Both
+    // second-seat tests below would then pass by attributing seat 1's press to
+    // seat 0, which is the exact defect they exist to catch.
+    //
+    // ⚠ the possession reconcile is deliberately NOT here: it only moves the
+    // primary seat between a home avatar and a possessed body, and no possession
+    // happens in this fixture.
+    app.add_systems(Update, interact_ecs_actors_and_switches);
     app
 }
 
@@ -474,8 +468,8 @@ fn spawn_switch(app: &mut App, id: &str, pos: ae::Vec2) -> Entity {
         .id()
 }
 
-/// A body a seat is driving: kinematics, a pose to play, and the brain that
-/// says WHOSE body it is.
+/// A body a seat is driving: kinematics, a pose to play, and the seat that says
+/// WHOSE body it is.
 fn spawn_driven_body(app: &mut App, pos: ae::Vec2, slot: u8) -> Entity {
     app.world_mut()
         .spawn((
@@ -486,7 +480,9 @@ fn spawn_driven_body(app: &mut App, pos: ae::Vec2, slot: u8) -> Entity {
                 facing: 1.0,
             },
             crate::actor::BodyAnimFacts::default(),
-            ambition_characters::brain::Brain::Player(ambition_characters::brain::PlayerSlot(slot)),
+            ambition_characters::brain::DrivingParticipant(ambition_characters::brain::PlayerSlot(
+                slot,
+            )),
         ))
         .id()
 }

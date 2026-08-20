@@ -179,7 +179,7 @@ impl ActorDisposition {
 /// wrong for a fighter somebody entered into a match. So a human-driven match
 /// fighter had to stay `Hostile` merely to be *damageable*, despite using no
 /// hostile-AI targeting at all — and it did not: targeting hunts live foes for a
-/// BRAIN, so two `Brain::Player` fighters hold no target, both stood down to
+/// BRAIN, so two participant-driven fighters hold no target, both stood down to
 /// `Peaceful`, and neither could hurt the other.
 ///
 /// ⭐ **the two facts that answer it, together.** A ruleset owning a body's

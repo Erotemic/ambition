@@ -43,13 +43,13 @@ pub fn update_body_mode(
     // Slot gestures (double-tap-down → morph) keyed by the controlling slot. The
     // body reads ITS controller's gesture, never a privileged home avatar's.
     mut slot_gestures: ResMut<crate::control::SlotInteractionState>,
-    // Every CONTROLLED body (carrying `Brain::Player(slot)`) that has body-mode
+    // Every DRIVEN body (carrying `DrivingParticipant(slot)`) that has body-mode
     // capability + posture clusters. Not `With<PlayerEntity>`: a possessed actor with
-    // the capability body-modes through the same system; a vacated home body has no
-    // `Brain` so it never matches. Presence of `BodyModeCapabilities` gates it —
+    // the capability body-modes through the same system; a vacated home body holds
+    // no seat so it never matches. Presence of `BodyModeCapabilities` gates it —
     // a body without the kit is skipped entirely.
     mut bodies: Query<(
-        &ambition_characters::brain::Brain,
+        &ambition_characters::brain::DrivingParticipant,
         &mut crate::actor::BodyKinematics,
         &crate::actor::BodyBaseSize,
         &mut crate::actor::BodyModeState,
@@ -73,7 +73,7 @@ pub fn update_body_mode(
         return;
     };
     for (
-        brain,
+        driver,
         mut kinematics,
         base_size,
         mut body_mode_state,
@@ -86,12 +86,10 @@ pub fn update_body_mode(
         (caps, flight, resolved_frame),
     ) in &mut bodies
     {
-        // Only bodies a controller is DRIVING act — the entity carrying
-        // `Brain::Player(slot)`. An AI-brained body (or a vacated home body) is
-        // skipped; body mode is a controlled-body concern here.
-        let Some(slot) = brain.player_slot() else {
-            continue;
-        };
+        // Only bodies a participant is DRIVING act — the query's
+        // `DrivingParticipant(slot)` IS that filter now, so an autonomous body
+        // (or a vacated home body) never reaches this loop at all.
+        let slot = driver.0;
         // Intent comes from the body's own `ActorControl` (already gravity/mode
         // resolved by the brain), and the double-tap-down morph gesture from the
         // controller's slot — never raw device input or an entity-local copy.

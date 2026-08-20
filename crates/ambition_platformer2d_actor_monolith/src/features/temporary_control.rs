@@ -3,7 +3,7 @@
 //! [`SimId`] so it survives a snapshot rewind in both directions.
 //!
 //! The live `Brain` alone cannot answer "who controls this body across time": a
-//! `Brain::Player` is restored by no cursor (it is a no-op), and possession /
+//! the seat is restored by no cursor (it is a no-op), and possession /
 //! mount relationships were re-derived each frame from live components, so a
 //! rollback that crossed a possess/release boundary left the body in the WRONG
 //! control mode. This component is the durable fact reconciliation reads to

@@ -187,7 +187,10 @@ pub struct StrikeVictim {
     /// Authored allegiance. Run it through [`StrikeVictimItem::effective_faction`]
     /// rather than reading it raw — a possessed body fights as its driver's side.
     pub faction: &'static ActorFaction,
-    pub brain: Option<&'static ambition_characters::brain::Brain>,
+    /// **Who drives this body**, if anybody. The one input to effective
+    /// allegiance; it used to be `Option<&Brain>` back when a driver could only
+    /// be named by swapping the body's AI policy for one.
+    pub driver: Option<&'static ambition_characters::brain::DrivingParticipant>,
     /// The published silhouette, when this body publishes one. See
     /// [`strike_reaches_victim`] for why absent and empty mean opposite things.
     pub volumes: Option<&'static super::components::DamageableVolumes>,
@@ -215,10 +218,10 @@ pub struct StrikeVictim {
 
 impl StrikeVictimItem<'_, '_> {
     /// Allegiance as this body actually fights: a possessed victim carrying
-    /// `Brain::Player` is a Player-effective body, without its authored faction
-    /// being mutated.
+    /// `DrivingParticipant` is a Player-effective body, without its authored
+    /// faction being mutated.
     pub fn effective_faction(&self) -> ActorFaction {
-        effective_faction(*self.faction, self.brain)
+        effective_faction(*self.faction, self.driver)
     }
 
     /// A dead body is an intangible corpse — the strike passes through it.

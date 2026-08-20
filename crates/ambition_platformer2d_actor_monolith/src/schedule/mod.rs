@@ -27,6 +27,6 @@ pub use input_systems::{
     populate_secondary_slot_controls, publish_latched_slot_controls,
     seat_input_participants_for_roster, spawn_primary_input_participant,
     sync_primary_recipe_from_settings, toggle_player_trail_emission_from_actions, MenuFrameConsume,
-    MenuFrameCutsceneSkip, MenuFramePopulate, MenuNavConsume, SeatDashTriggerState,
+    MenuFrameCutsceneSkip, MenuFramePopulate, MenuNavConsume, SeatBurstTriggerState,
 };
 pub use schedule::configure_platformer2d_simulation_phases;

@@ -131,7 +131,7 @@ pub mod host_input {
         seat_input_participants_for_roster, spawn_primary_input_participant,
         sync_primary_recipe_from_settings, toggle_player_trail_emission_from_actions,
         MenuFrameConsume, MenuFrameCutsceneSkip, MenuFramePopulate, MenuNavConsume,
-        SeatDashTriggerState, SimulationSetupSet,
+        SeatBurstTriggerState, SimulationSetupSet,
     };
     // The secondary seats' frame→tick latch (queue Y2). Re-exported beside the
     // system that drains it so the host installs both through one path — the

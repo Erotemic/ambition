@@ -12,7 +12,7 @@ use crate::body_mode::BodyModeCapabilities;
 use crate::control::{LocalPlayer, PlayerSlot};
 use crate::features::{ActorFaction, ActorPose, DamageableVolumes, PogoPolicy, PogoTargetVolumes};
 use ambition_characters::actor::{BodyCombat, BodyHealth, BodyWallet};
-use ambition_characters::brain::{ActionSet, ActorControl, Brain};
+use ambition_characters::brain::{ActionSet, ActorControl, Brain, DrivingParticipant};
 use ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState;
 
 /// All simulation components required on the player entity.
@@ -61,10 +61,22 @@ pub struct PlayerSimulationBundle {
     pub safety: PlayerSafetyState,
     pub faction: ActorFaction,
     pub name: Name,
-    /// Universal-brain seam. The player entity carries a
-    /// `Brain::Player(slot)`, an `ActionSet` (its full moveset), and an
-    /// `ActorControl` that the brain driver fills each frame from the canonical
-    /// `SlotControls[slot]`. No input frame is copied onto the body.
+    /// **Who drives this body.** The home avatar is spawned already seated:
+    /// `DrivingParticipant(PRIMARY)` is what `tick_controlled_brains` keys on to
+    /// turn `SlotControls[PRIMARY]` into this body's `ActorControl`. No input
+    /// frame is copied onto the body.
+    ///
+    /// ⭐ this replaced `brain: Brain::Player(slot)` — the seat is a fact about a
+    /// PERSON, and it never belonged inside an AI-policy enum.
+    pub driver: DrivingParticipant,
+    /// **What this body does when NOBODY is driving it**, which for the home
+    /// avatar is: nothing.
+    ///
+    /// ⭐ it is a real answer, not a placeholder. Possession redirects the seat
+    /// and leaves every body's own policy alone, so a vacated home avatar falls
+    /// back to its policy exactly as a released NPC falls back to its own — and
+    /// standing still is what the home avatar did while vacated before, when the
+    /// vacate REMOVED its `Brain` outright.
     pub brain: Brain,
     pub action_set: ActionSet,
     /// The player's melee as DATA (fable review R2.5 / I7): the controlled
@@ -85,8 +97,8 @@ pub struct PlayerSimulationBundle {
     pub actor_control: ActorControl,
     /// Capability marker: this body uses the chargeable-projectile (Fireball)
     /// ability. Gates `emit_player_projectile_tick_messages` by CAPABILITY rather
-    /// than `brain.is_player()`, so possession of this body keeps the charge
-    /// mechanic. Pay-for-use: actors without it never enter the charge stream.
+    /// than "is a participant driving it", so possession of this body keeps the
+    /// charge mechanic. Pay-for-use: actors without it never enter the charge stream.
     pub charges_projectiles: ambition_characters::brain::ChargesProjectiles,
     /// Gameplay-space action origin / facing read model shared with
     /// non-player actors. Synced from `BodyKinematics`, not from any
@@ -185,7 +197,8 @@ impl PlayerSimulationBundle {
             safety: PlayerSafetyState::new(initial_safe_pos),
             faction: ActorFaction::Player,
             name: Name::new("Player"),
-            brain: Brain::Player(PlayerSlot::PRIMARY),
+            driver: DrivingParticipant(PlayerSlot::PRIMARY),
+            brain: Brain::stand_still(),
             // Player ActionSet derived from the player's AbilitySet.
             // Today nothing reads it for combat effects —
             // update_player still spawns hitboxes via the existing
@@ -221,7 +234,7 @@ impl PlayerSimulationBundle {
     /// goblin swipes, a pirate fires a pistol, a peaceful character does not
     /// secretly shoot the robot's fireballs). Slots the character leaves empty
     /// stay EMPTY. The player box is otherwise untouched — same
-    /// `Brain::Player`, same markers, same collision. The chosen character's
+    /// seat, same markers, same collision. The chosen character's
     /// SPRITE is bound presentation-side by the reusable `ambition_render`
     /// binder, which reads the `WornCharacter` identity the spawn records — not
     /// here, and not app-locally.
@@ -394,7 +407,7 @@ mod tests {
             &mut ambition_characters::brain::RangedExecution::ChargedProjectile,
         );
         assert_eq!(bundle.name.as_str(), "Player Robot v3");
-        assert!(bundle.brain.is_player());
+        assert_eq!(bundle.driver.0, PlayerSlot::PRIMARY);
         // ⚠ the ROW's kit, which for this character is its Hall pedestal face —
         // `default_action_set: "peaceful"`. Its playable repertoire is authored on
         // its definition and reaches a body through the PREPARED cast, which this
@@ -408,7 +421,7 @@ mod tests {
 
     #[test]
     fn player_wears_pirate_admiral_identity_and_moveset() {
-        // The player box stays (Brain::Player, PlayerEntity by type), but it now
+        // The player box stays (the primary seat, PlayerEntity by type), but it now
         // reads as the Pirate Admiral: its name and its authored PISTOL — the
         // worn character's ActionSet IS the kit (no fallback to the player's
         // bolt). Pin the installed default so the protagonist branch is
@@ -423,7 +436,11 @@ mod tests {
             &mut ambition_characters::brain::RangedExecution::ChargedProjectile,
         );
         assert_eq!(bundle.name.as_str(), "Pirate Admiral");
-        assert!(bundle.brain.is_player(), "still keyboard-controlled");
+        assert_eq!(
+            bundle.driver.0,
+            PlayerSlot::PRIMARY,
+            "still keyboard-controlled"
+        );
         assert!(
             matches!(
                 bundle.action_set.ranged,
@@ -439,8 +456,8 @@ mod tests {
     #[test]
     fn unknown_character_id_still_spawns_a_controllable_player() {
         // A stale / unknown id keeps the player fully playable: the KIT falls back
-        // to the defined code kit (rebuilt from the body's abilities), and it is
-        // still Brain::Player. The NAME becomes the id itself — a legible
+        // to the defined code kit (rebuilt from the body's abilities), and it
+        // still holds the primary seat. The NAME becomes the id itself — a legible
         // diagnostic, never a stale prior name. The sprite falls back to the
         // colored rectangle presentation-side.
         let catalog = catalog();
@@ -452,7 +469,7 @@ mod tests {
             None,
             &mut ambition_characters::brain::RangedExecution::ChargedProjectile,
         );
-        assert!(bundle.brain.is_player());
+        assert_eq!(bundle.driver.0, PlayerSlot::PRIMARY);
         assert_eq!(
             bundle.name.as_str(),
             "not_a_real_character",

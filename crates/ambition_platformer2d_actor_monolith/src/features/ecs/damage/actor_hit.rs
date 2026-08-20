@@ -143,7 +143,7 @@ pub(crate) fn apply_actor_hit(
     // `ActorDisposition` answer two things at once: *how does this actor regard
     // combat* and *may this body be hurt*. A fighter somebody entered into a
     // match had to stay `Hostile` merely to be damageable — and two
-    // `Brain::Player` fighters hold no AI target, so both stood down and neither
+    // participant-driven fighters hold no AI target, so both stood down and neither
     // could hurt the other.
     //
     // ⭐ being IN a fight is the stated decision, and it outranks whatever this

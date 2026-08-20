@@ -3,8 +3,8 @@
 //! These pin the campaign's runtime-switching requirements: `UsePreset` replaces
 //! the live brain, `RestoreDefault` rebuilds a fresh default around the AUTHORED
 //! home (not the current pose), the same command replays deterministically, a
-//! command only touches its target, and temporary control (player / mount) is
-//! never overwritten by an autonomous switch.
+//! command only touches its target, and a MOUNT's displaced brain is never
+//! overwritten by an autonomous switch.
 
 use super::*;
 use ambition_characters::actor::character_catalog::{
@@ -12,7 +12,7 @@ use ambition_characters::actor::character_catalog::{
     CharacterCatalog,
 };
 use ambition_characters::actor::ActorPose;
-use ambition_characters::brain::{Brain, PlayerSlot, StateMachineCfg};
+use ambition_characters::brain::{Brain, DrivingParticipant, PlayerSlot, StateMachineCfg};
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use bevy::ecs::message::Messages;
@@ -53,10 +53,6 @@ fn app() -> App {
     let mut app = App::new();
     app.add_message::<BrainCommand>();
     app.insert_resource(catalog());
-    // apply_brain_commands keeps the possession/mount resume-brain in sync when a
-    // command lands during temporary control; the resource is present in prod
-    // (abilities plugin).
-    app.init_resource::<crate::abilities::traversal::possession::PossessionState>();
     app.add_systems(Update, apply_brain_commands);
     app
 }
@@ -217,11 +213,17 @@ fn an_unknown_preset_is_rejected() {
     );
 }
 
-/// A brain command during PLAYER possession does not disturb the live control
-/// brain, but it is NOT silently lost: it updates the autonomous SOURCE that
-/// resumes when possession ends.
+/// **A brain command during POSSESSION applies LIVE, because possession
+/// displaces nothing.**
+///
+/// ⛔ this used to assert the opposite — source-only, live brain untouched — and
+/// the reason was `Brain::Player`: taking control OVERWROTE the body's policy, so
+/// the live brain was the driver's and a switch had to be deferred into
+/// `PossessionState::restore_brain` to survive the release. A driven body keeps
+/// its own policy now, so the live brain IS the autonomous selection and there is
+/// nothing to defer.
 #[test]
-fn a_player_controlled_body_updates_its_source_not_its_control() {
+fn a_driven_body_applies_a_brain_command_live_because_nothing_displaced_its_policy() {
     let mut app = app();
     let binding = BrainBinding::new(
         BrainPresetId::new("wanderer_puppy_slug"),
@@ -231,7 +233,14 @@ fn a_player_controlled_body_updates_its_source_not_its_control() {
         .world_mut()
         .spawn((
             SimId::placement("possessed"),
-            Brain::Player(PlayerSlot::PRIMARY),
+            // Its OWN policy, plus the seat somebody is driving it from.
+            Brain::StateMachine(StateMachineCfg::Wanderer {
+                cfg: ambition_characters::brain::WandererCfg {
+                    speed: 36.0,
+                    aggressiveness: 0.0,
+                },
+            }),
+            DrivingParticipant(PlayerSlot::PRIMARY),
             binding,
             AuthoredBrainContext::from_placement(100.0, 0.0),
             ActorPose::from_parts(ae::Vec2::new(100.0, 0.0), ae::Vec2::new(8.0, 8.0), 1.0),
@@ -244,14 +253,21 @@ fn a_player_controlled_body_updates_its_source_not_its_control() {
     );
     app.update();
 
-    assert!(
-        app.world().get::<Brain>(e).unwrap().is_player(),
-        "a possessed body keeps player control; the live brain is not overwritten"
+    assert_eq!(
+        app.world().get::<Brain>(e).unwrap().label(),
+        "stand_still",
+        "the switch was deferred on a body whose policy nothing displaced — the \
+         release would resume a mind that is not the one the command selected"
     );
     assert_eq!(
         app.world().get::<BrainBinding>(e).unwrap().source,
         AutonomousSource::CatalogPreset(BrainPresetId::new("stand_still")),
         "the command updates the autonomous source that resumes on release — never lost"
+    );
+    assert_eq!(
+        app.world().get::<DrivingParticipant>(e).map(|d| d.0),
+        Some(PlayerSlot::PRIMARY),
+        "a brain command took somebody's seat away"
     );
 }
 
@@ -568,7 +584,7 @@ fn a_release_during_temporary_control_still_changes_the_source() {
     let e = spawn_provoked_character_first(&mut app, "villager");
     app.world_mut()
         .entity_mut(e)
-        .insert(Brain::Player(PlayerSlot::PRIMARY));
+        .insert(DrivingParticipant(PlayerSlot::PRIMARY));
 
     send(
         &mut app,
@@ -581,9 +597,11 @@ fn a_release_during_temporary_control_still_changes_the_source() {
         AutonomousSource::CharacterProfile,
         "the source a release resumes into is the character's own policy"
     );
-    assert!(
-        app.world().get::<Brain>(e).unwrap().is_player(),
-        "and live control is untouched — the rule every other command follows"
+    assert_eq!(
+        app.world().get::<DrivingParticipant>(e).map(|d| d.0),
+        Some(PlayerSlot::PRIMARY),
+        "and the SEAT is untouched — a brain command decides what a body does on \
+         its own, never who is driving it"
     );
 }
 

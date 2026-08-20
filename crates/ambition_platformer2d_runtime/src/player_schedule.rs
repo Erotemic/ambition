@@ -177,12 +177,12 @@ impl Plugin for PlayerSchedulePlugin {
                 // subsystem owns its input seam.
                 // Controller-input setup, nested into one chained group:
                 // 1. Resolve the CONTROLLED SUBJECT — the body carrying
-                //    `Brain::Player(PRIMARY)` this frame (home avatar, or a
+                //    `DrivingParticipant(PRIMARY)` this frame (home avatar, or a
                 //    possessed actor).
                 // 2. Publish the local device frame into the canonical slot-based
                 //    controller model (`SlotControls[PRIMARY]`). This is the end
                 //    of the local-device adapter; bodies read their slot through
-                //    `Brain::Player(slot)` and no input component is copied.
+                //    `DrivingParticipant(slot)` and no input component is copied.
                 (
                     ambition_platformer2d_actor_monolith::abilities::traversal::possession::resolve_controlled_subject,
                     ambition_platformer2d_actor_monolith::control::populate_slot_controls
@@ -333,7 +333,7 @@ impl Plugin for PlayerSchedulePlugin {
         // Possession is pure BRAIN TRANSFER: the vacated home avatar is inert
         // because it no longer carries a player brain, and the possessed
         // actor is driven through the actor tick by the transferred
-        // `Brain::Player`. The host's home-reset/presentation pair slots
+        // the primary seat. The host's home-reset/presentation pair slots
         // between `release_possession_if_target_lost` and
         // `apply_player_hit_events` (module docs).
         app.add_systems(

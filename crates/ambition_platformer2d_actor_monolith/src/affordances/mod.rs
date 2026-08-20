@@ -85,7 +85,7 @@ pub struct PlayerAffordances {
 /// `Changed<PlayerAffordances>`.
 ///
 /// The body it reads is the [`ControlledSubject`] (the entity carrying
-/// `Brain::Player(PRIMARY)` — the home avatar, or a possessed actor while
+/// `DrivingParticipant(PRIMARY)` — the home avatar, or a possessed actor while
 /// possessing), falling back to the primary player when nothing is possessed.
 /// The button hints therefore describe what the body you are DRIVING would do,
 /// not the vacated home avatar — the same relativity rule the camera, input,

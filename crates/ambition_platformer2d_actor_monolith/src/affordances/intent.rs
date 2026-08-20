@@ -134,10 +134,10 @@ pub struct PlayerIntent {
 /// Reads the facing from the CONTROLLED subject's own entity (the
 /// [`ControlledSubject`] — a possessed actor while possessing, else the home
 /// avatar; the actor-local frame, not the global `Res<ControlFrame>`) and the
-/// input from that body's own `Brain::Player(slot)` — the same control seam
-/// the universal brain tick uses, so the intent is the driven body's own
-/// intent without requiring any player-specific input component on the body. A body whose player
-/// brain is mid-transfer reads neutral, the conservative default.
+/// input from that body's own `DrivingParticipant(slot)` — the same control seam
+/// the universal control tick uses, so the intent is the driven body's own
+/// intent without requiring any player-specific input component on the body. A
+/// body whose seat is mid-handover reads neutral, the conservative default.
 pub fn compute_controlled_actor_intent(
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     slots: Res<ambition_characters::brain::SlotControls>,
@@ -150,7 +150,7 @@ pub fn compute_controlled_actor_intent(
         ),
     >,
     player_q: Query<(
-        Option<&ambition_characters::brain::Brain>,
+        Option<&ambition_characters::brain::DrivingParticipant>,
         &crate::actor::BodyKinematics,
         &crate::physics::ResolvedMotionFrame,
     )>,
@@ -160,20 +160,17 @@ pub fn compute_controlled_actor_intent(
     let subject = controlled
         .and_then(|subject| subject.0)
         .or_else(|| primary.single().ok());
-    let Some((brain, kinematics, resolved_frame)) = subject.and_then(|s| player_q.get(s).ok())
+    let Some((driver, kinematics, resolved_frame)) = subject.and_then(|s| player_q.get(s).ok())
     else {
         // No player yet — leave the resource at its default. Any
         // downstream consumer reads `Aim::Neutral`, which is the
         // correct conservative behavior pre-spawn.
         return;
     };
-    // The body's input is its slot's frame, resolved through its own player
-    // brain. A possessed actor changes bodies without copying input state, so this is
-    // the ONE input read that is correct for every controlled body.
-    let frame = brain
-        .and_then(ambition_characters::brain::Brain::player_slot)
-        .map(|slot| slots.get(slot))
-        .unwrap_or_default();
+    // The body's input is its slot's frame, resolved through its own seat. A
+    // possessed actor changes bodies without copying input state, so this is the
+    // ONE input read that is correct for every controlled body.
+    let frame = driver.map(|driver| slots.get(driver.0)).unwrap_or_default();
     // The body's own per-tick resolved frame (ADR 0024), not a global field.
     let gravity_dir = resolved_frame.down();
     let movement_mode = user_settings.as_deref().map_or(

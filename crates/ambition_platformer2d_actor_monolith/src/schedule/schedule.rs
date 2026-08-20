@@ -80,7 +80,7 @@ pub fn configure_platformer2d_simulation_phases(app: &mut App) {
     // slot-input invariant — `PlayerInput` finalizes this frame's device input,
     // publishes it into `SlotControls`, and resolves `ControlledSubject`; only
     // THEN does `WorldPrep` tick the actor/boss brains (`update_ecs_actors` /
-    // `tick_boss_brains_system`). So a possessed body carrying `Brain::Player`
+    // `tick_boss_brains_system`). So a possessed body holding a seat
     // reads THIS frame's input, not last frame's. The `ActorActionMessage`
     // emitters were moved out of `PlayerInput` to run after `WorldPrep` (see
     // `register_player_input_systems`) so they observe both the player's and the

@@ -524,7 +524,7 @@ fn a_provoked_body_keeps_the_health_pool_its_character_authored() {
 ///
 /// ⛔⛔ the flip inserted the provoked `Brain` unconditionally, and for a body
 /// under player control that is a silent seizure: the first hit a SEATED FIGHTER
-/// took replaced its `Brain::Player(slot)` with the Smash state machine, in
+/// took replaced its own policy with the Smash state machine, in
 /// place and permanently — activation is one-shot and never rebinds — so a
 /// human's fighter became a CPU mid-fight and the couch test read it as input
 /// crosstalk. Measured at the time: both seats opened as `Player(0)`/`Player(1)`
@@ -532,7 +532,7 @@ fn a_provoked_body_keeps_the_health_pool_its_character_authored() {
 /// traded its first blows.
 ///
 /// ⚠ **the fix landed with no test, which is why this is here.** Every other
-/// brain writer already opened with `if brain.is_player()`; this was the one
+/// brain writer already skipped a driven body; this was the one
 /// path that did not, and it was unreachable until a player-driven body could
 /// also be a provokable actor. Seating one made that ordinary, and nothing was
 /// stopping it from becoming ordinary again.
@@ -547,7 +547,9 @@ fn provoking_a_player_driven_body_changes_its_mood_and_not_its_driver() {
     use ambition_characters::actor::character_catalog::{
         AutonomousSource, BrainBinding, BrainPresetId,
     };
-    use ambition_characters::brain::{ActionSet, Brain, PlayerSlot, StateMachineCfg};
+    use ambition_characters::brain::{
+        ActionSet, Brain, DrivingParticipant, PlayerSlot, StateMachineCfg,
+    };
 
     let mut app = App::new();
     app.add_message::<ActorStimulus>();
@@ -564,7 +566,7 @@ fn provoking_a_player_driven_body_changes_its_mood_and_not_its_driver() {
     }
     app.world_mut()
         .entity_mut(driven)
-        .insert(Brain::Player(PlayerSlot::PRIMARY));
+        .insert(DrivingParticipant(PlayerSlot::PRIMARY));
 
     for body in [driven, free] {
         app.world_mut().write_message(ActorStimulus::Challenged {
@@ -587,10 +589,19 @@ fn provoking_a_player_driven_body_changes_its_mood_and_not_its_driver() {
          would pass on a build where provocation had stopped working entirely"
     );
 
-    assert!(
-        matches!(app.world().get::<Brain>(driven), Some(Brain::Player(slot)) if *slot == PlayerSlot::PRIMARY),
+    assert_eq!(
+        app.world().get::<DrivingParticipant>(driven).map(|d| d.0),
+        Some(PlayerSlot::PRIMARY),
         "a body under player control must still be under player control — \
          provocation changes what a body IS, never who drives it"
+    );
+    assert!(
+        !matches!(
+            app.world().get::<Brain>(driven),
+            Some(Brain::StateMachine(StateMachineCfg::Smash { .. }))
+        ),
+        "the driven body's own policy was seized — the provoked mind must not be \
+         installed over the one a person is currently playing with"
     );
     assert_eq!(
         *app.world().get::<ActorDisposition>(driven).unwrap(),

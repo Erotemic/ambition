@@ -23,7 +23,7 @@ use bevy::prelude::*;
 ///
 /// The roster's index, on the body. Match RULES need to name a fighter — whose
 /// health bar is on the left, who won the round, where to put them back — and
-/// every other way to identify one is a guess: `Brain::Player(slot)` misses the
+/// every other way to identify one is a guess: `DrivingParticipant(slot)` misses the
 /// CPU seat, the worn character id collides in a mirror match, and entity order
 /// is not an order. Activation is the only place that knows, so it says so.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]

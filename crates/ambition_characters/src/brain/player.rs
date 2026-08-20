@@ -171,7 +171,7 @@ pub fn tick_player_brain_from_control(
     // normalized `locomotion` stick (scaled by the body's own run capability);
     // a FLYING body (free-mover, or a hybrid with flight toggled on) steers by
     // absolute `velocity_target` instead. Deriving it here from the snapshot's
-    // run capability keeps `Brain::Player` fully body-generic: a possessed flyer
+    // run capability keeps the player translator fully body-generic: a possessed flyer
     // moves at its own speed with no possession-specific plumbing. The human
     // player passes `max_run_speed == 0` (its integrator ignores this field), so
     // this is inert for the grounded avatar.

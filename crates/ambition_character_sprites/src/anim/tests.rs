@@ -456,6 +456,45 @@ fn swing_with_intent(intent: ambition_combat::AttackIntent) -> MeleeSwing {
     })
 }
 
+/// **A CPU FIGHTER AT FULL SPRINT DRAWS `run`, NOT `walk`.**
+///
+/// ⛔⛔ **the gait used to be decided by a threshold whose two setters
+/// DISAGREED along the player/actor line**: `pick_player_anim` set
+/// `run_above = Some(220.0)` and `pick_actor_anim` set `None`, and `None` means
+/// *cap at Walk*. So the protagonist could run and **every CPU fighter in the
+/// game walked at full sprint**, drawing `walk` off a sheet that ships a `run`
+/// row. The bodies doing most of the running were the ones that could not.
+///
+/// ⭐ the same shape D114 ruled on — a body semantic must not depend on which
+/// control road the body happens to occupy — so the fix is the published
+/// `BodyMotionFacts::running`, which is speed against THIS body's own top speed
+/// rather than an absolute number no heavyweight could reach.
+///
+/// ⚠ **the second half is the floor**: a body under the gait line must still be
+/// `Walk`, or this would have deleted the walk instead of the run.
+#[test]
+fn an_actor_in_the_run_gait_is_not_drawn_walking() {
+    let (_, _, _, mut c) = pick_inputs();
+    c.ground.on_ground = true;
+    c.kinematics = walking_in_gravity(ae::Vec2::new(0.0, 1.0), 240.0);
+
+    c.facts.running = true;
+    assert_eq!(
+        pick_actor(&c, None, actor_state()),
+        CharacterAnim::Run,
+        "a CPU fighter in the run gait was drawn walking — the actor road is \
+         capping the gait again"
+    );
+
+    c.facts.running = false;
+    assert_eq!(
+        pick_actor(&c, None, actor_state()),
+        CharacterAnim::Walk,
+        "a body below the gait line was drawn running, so the run row has \
+         swallowed the walk"
+    );
+}
+
 fn pick_actor(
     c: &PickClusters,
     swing: Option<&MeleeSwing>,

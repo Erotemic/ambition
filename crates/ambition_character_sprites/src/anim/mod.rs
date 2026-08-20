@@ -152,8 +152,26 @@ pub struct BodyAnimView {
     pub speed: f32,
     /// Grounded: `speed < idle_below` ⇒ Idle.
     pub idle_below: f32,
-    /// Grounded: `Some(t)` ⇒ `speed >= t` is Run; `None` ⇒ caps at Walk.
-    pub run_above: Option<f32>,
+    /// **Grounded: this body is in a RUN** (`BodyMotionFacts::running`).
+    ///
+    /// ⛔⛔ **this replaces a `run_above: Option<f32>` whose two setters
+    /// DISAGREED, along the player/actor line.** `pick_player_anim` set
+    /// `Some(220.0)` and `pick_actor_anim` set `None`, and `None` means
+    /// *cap at Walk* — so the protagonist could run and **every CPU fighter in
+    /// the game was capped at a walk**, drawing `walk` at full sprint. The `run`
+    /// row every fighter sheet draws was unreachable for the bodies that do most
+    /// of the running.
+    ///
+    /// ⭐ **the asymmetry is the defect, not the number** — the same shape D114
+    /// ruled on: *"a combat/body semantic should not depend on whether a body
+    /// happens to occupy the primary local-control road"*. A gait is a fact
+    /// about a body.
+    ///
+    /// ⚠ and a raw speed threshold was the wrong question anyway: `220.0` is an
+    /// absolute px/s, so a slow heavy could never run and a fast character was
+    /// always running. A gait is speed against THIS body's own top speed, which
+    /// is what `MovementTuning::run_commit_frac` asks and the kernel publishes.
+    pub running: bool,
     /// Aerial: `speed > fly_above` ⇒ Fly, else Idle (hover).
     pub fly_above: f32,
 }
@@ -465,10 +483,10 @@ pub fn pick_body_anim(v: &BodyAnimView) -> CharacterAnim {
         Locomotion::Grounded => {
             if v.speed < v.idle_below {
                 Idle
-            } else if v.run_above.map_or(true, |t| v.speed < t) {
-                Walk
-            } else {
+            } else if v.running {
                 Run
+            } else {
+                Walk
             }
         }
     }
@@ -583,6 +601,7 @@ pub fn body_view_from_body(
         // ⛔ the grounded metric is the RUN component, not total speed: a body
         // sliding straight down its own wall must stay Idle, not walk in place.
         speed: along_run.abs(),
+        running: facts.running,
         ..Default::default()
     }
 }
@@ -646,7 +665,6 @@ pub fn pick_player_anim(
     v.dash_startup = anim.dash_startup_timer > 0.0;
     v.landing = (anim.land_anim_timer > 0.0).then_some(anim.land_anim_hard);
     v.idle_below = 12.0;
-    v.run_above = Some(220.0);
     v.fly_above = 0.0;
     pick_body_anim(&v)
 }
@@ -728,7 +746,8 @@ pub struct ActorAnimState {
 /// The actor overlays only what isn't in those clusters: liveness / hit-flash
 /// (from `ActorStatus`), its melee row (the swing's own intent, shared with the
 /// player via [`directional_attack_anim`]), and the aerial locomotion metric +
-/// thresholds (total speed, `Walk`-capped on the ground via `run_above: None`).
+/// metric (total speed), with the grounded gait taken from the published
+/// `BodyMotionFacts::running` rather than a threshold.
 pub fn pick_actor_anim(
     kinematics: &ae::BodyKinematics,
     ground: &ae::BodyGroundState,
@@ -787,7 +806,6 @@ pub fn pick_actor_anim(
         v.speed = kinematics.vel.length();
     }
     v.idle_below = 8.0;
-    v.run_above = None;
     v.fly_above = 12.0;
     pick_body_anim(&v)
 }

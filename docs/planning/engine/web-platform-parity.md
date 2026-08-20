@@ -7,31 +7,18 @@
 >
 > **Closed 2026-08-14.** Four separate defects, not one. Each is measured below.
 
-## ⭐ THE CAUSE WAS MEASURED, AND THE SOURCE HAD ALREADY NAMED IT
+## The cause
 
-`run_web()` composed the plugin trio and ran. `build_visible_app_with` composed
-all of that **and three more things**:
+`run_web()` composed the plugin trio and ran; `build_visible_app_with` composed
+all of that plus three calls absent on web: `app.insert_resource(AmbitionShellHosted)`,
+`compose_ambition_shell_host`/`..._booting_to`, and `install_ambition_shell_visuals`.
+No shell host ⇒ no route ⇒ nothing to boot into ⇒ no room: the blank canvas.
 
-```text
-app.insert_resource(AmbitionShellHosted)              ⟵ absent on web
-compose_ambition_shell_host / ..._booting_to(app)     ⟵ absent on web
-install_ambition_shell_visuals(app)                   ⟵ absent on web
-```
-
-No shell host ⇒ no route. No route ⇒ nothing to boot into. No
-`install_ambition_shell_visuals` ⇒ no room. That is the blank canvas.
-
-⛔⛔ **and `build_visible_app_with`'s own doc comment described this exact
-failure, from the last time somebody hand-spelled the composition:**
-
-> *`capture_scene` therefore spelled the whole composition out by hand — and the
-> hand-spelled copy silently lost the `--route` positional, the headless display
-> surface, `--dev-overlays`, `--combat-overlay`, and (2026-08-06 → 08-08, for two
-> days) **the entire room**, because `install_ambition_shell_visuals` was never
-> added to it.*
-
-Two hand-spelled copies, two silent blanks, one lesson written down between them
-and not acted on. **A build gate proves *links*. Nothing proved *composes*.**
+⛔⛔ `build_visible_app_with`'s own doc comment already described this exact
+failure from the last hand-spelled composition (`capture_scene`, which silently
+lost the room for two days, 2026-08-06 → 08-08). Two hand-spelled copies, two
+silent blanks, one lesson written down between them and not acted on: **a build
+gate proves *links*. Nothing proved *composes*.**
 
 ## What landed
 

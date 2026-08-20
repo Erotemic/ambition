@@ -484,6 +484,20 @@ pub struct BodyShieldState {
     /// Shieldstun: the defender owes this after blocking, and it is what makes
     /// a blocked hit cost the blocker tempo instead of nothing.
     pub stun_timer: f32,
+    /// **How long THIS break was**, stamped when the guard shatters, so
+    /// [`Self::break_phase`] can say how far through it the body is.
+    ///
+    /// ⛔ **not a derive memo.** The phase needs
+    /// `break_timer / ShieldTuning::break_stun_time`, and the tuning is not
+    /// available where the phase is READ — both presentation sites hold this
+    /// component and no tuning, and reaching for `MotionModel::shield_tuning()`
+    /// from the view would put presentation back inside policy internals. So
+    /// the authority for the denominator is written ONCE at the break, and a
+    /// rewind restores the same answer rather than recomputing it against
+    /// whatever tuning is live later.
+    ///
+    /// `0.0` when no break is running, which is what makes the phase `None`.
+    pub break_total: f32,
 }
 
 impl BodyShieldState {
@@ -505,6 +519,18 @@ impl BodyShieldState {
         self.break_timer > 0.0
     }
 
+    /// **How far through the break this body is**: `0.0` the instant the guard
+    /// shatters, approaching `1.0` as it recovers. `None` when no break runs.
+    ///
+    /// ⭐ the genre draws a break as a SEQUENCE — launched, falling, collapsed,
+    /// recovering — and the sim publishes one countdown. This is the whole
+    /// distinction, derived rather than stored: four beats out of one timer and
+    /// the length it started at.
+    pub fn break_phase(self) -> Option<f32> {
+        (self.break_timer > 0.0 && self.break_total > 0.0)
+            .then(|| 1.0 - (self.break_timer / self.break_total).clamp(0.0, 1.0))
+    }
+
     /// `1.0` fresh, `0.0` about to break — and `1.0` for a body whose shield is
     /// not a resource, so a presentation reader needs no special case.
     pub fn integrity_fraction(self, tuning: crate::ShieldTuning) -> f32 {
@@ -519,6 +545,7 @@ impl BodyShieldState {
 pub fn break_shield(shield: &mut BodyShieldState, tuning: crate::ShieldTuning) {
     shield.depleted = tuning.max_health;
     shield.break_timer = tuning.break_stun_time;
+    shield.break_total = tuning.break_stun_time;
     shield.active = false;
     shield.parry_window_timer = 0.0;
 }

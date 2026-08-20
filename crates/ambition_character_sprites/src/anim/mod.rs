@@ -169,17 +169,76 @@ pub struct BodyAnimView {
 /// [`body_state_clip`].
 ///
 /// ⚠ they are separate because they are owned elsewhere: `held` is combat's
-/// capture relation mirrored onto `BodyAnimFacts`, and `guard_broken` is the
+/// capture relation mirrored onto `BodyAnimFacts`, and `guard_break` is the
 /// shield cluster's. Neither is something the movement kernel publishes about
 /// itself, and folding them into the motion facts would say it does.
+/// **Which beat of a shield break a body is in.**
+///
+/// ⭐ the genre draws a break as a SEQUENCE — launched off the ground, falling,
+/// collapsed, recovering — and the simulation publishes ONE countdown. The beat
+/// is derived from that countdown and the length it started at
+/// (`BodyShieldState::break_phase`), so four poses cost no new state.
+///
+/// ⚠ **the boundaries live HERE and nowhere else.** They are presentation
+/// timing, not feel: a sheet that draws the four rows wants them apportioned the
+/// way the art was drawn, and a sheet that draws none is unaffected because
+/// every chain falls back to `dizzy`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum GuardBreakBeat {
+    /// The shatter itself — the body is thrown off the ground.
+    Launch,
+    /// Falling back down from the shatter.
+    Fall,
+    /// Face-down and helpless. The long middle, and the beat that reads as the
+    /// punish window.
+    Collapse,
+    /// Coming back up, still unable to act.
+    Recover,
+}
+
+impl GuardBreakBeat {
+    /// `phase` is `0.0` at the shatter, approaching `1.0` at recovery.
+    pub fn from_phase(phase: f32) -> Self {
+        // The shatter and the fall are quick; the collapse is what the punish is
+        // aimed at, so it holds the middle.
+        const FALL: f32 = 0.12;
+        const COLLAPSE: f32 = 0.30;
+        const RECOVER: f32 = 0.85;
+        if phase < FALL {
+            Self::Launch
+        } else if phase < COLLAPSE {
+            Self::Fall
+        } else if phase < RECOVER {
+            Self::Collapse
+        } else {
+            Self::Recover
+        }
+    }
+
+    /// ⚠ every chain ends at `dizzy`, so a sheet that draws none of the four
+    /// rows is answered exactly as it was before the sequence existed.
+    pub fn clip_chain(self) -> &'static [&'static str] {
+        match self {
+            Self::Launch => &["shield_break_launch", "shield_break_fall", "dizzy", "hit", "idle"],
+            Self::Fall => &["shield_break_fall", "dizzy", "hit", "idle"],
+            Self::Collapse => &["shield_break_collapse", "dizzy", "hit", "idle"],
+            Self::Recover => &["shield_break_recover", "dizzy", "hit", "idle"],
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct FighterClipFacts {
     /// This body is in another body's hands.
     pub held: bool,
     /// This body has somebody in ITS hands.
     pub holding: bool,
-    /// This body's guard shattered and it is stunned.
-    pub guard_broken: bool,
+    /// This body's guard shattered, and WHICH BEAT of the break it is in.
+    /// `None` when no break is running.
+    ///
+    /// ⭐ a beat rather than a bool because the sheets draw four poses for one
+    /// timer; see [`GuardBreakBeat`].
+    pub guard_break: Option<GuardBreakBeat>,
     /// This body's PERFECT-SHIELD window is live
     /// (`BodyShieldState::parrying()`).
     ///
@@ -189,7 +248,7 @@ pub struct FighterClipFacts {
     /// This body's guard TOOK a hit and is paying shieldstun for it
     /// (`BodyShieldState::stun_timer`).
     ///
-    /// ⛔ **not [`Self::guard_broken`]** — the shield HELD. A break is the
+    /// ⛔ **not [`Self::guard_break`]** — the shield HELD. A break is the
     /// floor game; this is the beat a blocked hit costs a defender.
     pub guard_stunned: bool,
 }
@@ -233,12 +292,18 @@ pub fn body_state_clip(
     if facts.getup_invulnerable {
         return Some(&["getup", "land_recovery", "idle"]);
     }
-    // ⚠ ONE row, where the genre has a sequence (launch, fall, collapse, dizzy,
-    // recover). The sim publishes ONE `break_timer`, so splitting the pose would
-    // mean inventing a distinction it has not made — the same honesty as
-    // tech-versus-getup above.
-    if fighter.guard_broken {
-        return Some(&["dizzy", "hit", "idle"]);
+    // ⭐ FOUR beats out of ONE timer, and no new simulation state: the sim still
+    // publishes one `break_timer`, and `BodyShieldState::break_total` records how
+    // long THIS break was, so the phase — and the beat — is derived.
+    //
+    // ⛔ this used to be one `dizzy` row, and the comment here argued that
+    // splitting it would invent a distinction the sim had not made. That was
+    // true while the denominator was missing; it stopped being true the moment
+    // the break stamped its own length. ⚠ the tech-versus-getup row above is
+    // still in the honest position, because ONE `getup_invulnerable` flag really
+    // does carry no such distinction.
+    if let Some(beat) = fighter.guard_break {
+        return Some(beat.clip_chain());
     }
     if facts.tumbling {
         return Some(&["tumble", "hit", "fall", "idle"]);
@@ -750,6 +815,71 @@ mod state_clip_tests {
     /// ordinary block keeps falling through to `CharacterAnim::Block`. A pair of
     /// rows that also answered the plain case would silently take the block away
     /// from every non-fighter sheet in the game.
+    /// **FOUR BEATS OUT OF ONE TIMER, AND NO NEW SIMULATION STATE.**
+    ///
+    /// Every fighter sheet in the repo draws `shield_break_launch`, `_fall`,
+    /// `_collapse` and `_recover`; the sim publishes one `break_timer` and the
+    /// picker answered all four with `dizzy`. `BodyShieldState::break_total`
+    /// stamps how long THIS break was, so the phase — and the beat — is derived.
+    ///
+    /// ⛔ **the last assertion is the one that makes this safe to ship**: every
+    /// chain still ends at `dizzy`, so a sheet that draws NONE of the four rows
+    /// resolves exactly as it did before the sequence existed. Without it this
+    /// change would take the dizzy pose away from every character that has one
+    /// and no break art.
+    #[test]
+    fn a_shield_break_is_four_beats_that_all_fall_back_to_dizzy() {
+        use super::GuardBreakBeat;
+        let first = |phase: f32| {
+            super::body_state_clip(
+                &BodyMotionFacts::default(),
+                super::FighterClipFacts {
+                    guard_break: Some(GuardBreakBeat::from_phase(phase)),
+                    ..Default::default()
+                },
+            )
+            .map(|chain| chain[0].to_string())
+        };
+
+        assert_eq!(first(0.0), Some("shield_break_launch".to_string()));
+        assert_eq!(first(0.2), Some("shield_break_fall".to_string()));
+        assert_eq!(first(0.5), Some("shield_break_collapse".to_string()));
+        assert_eq!(first(0.95), Some("shield_break_recover".to_string()));
+
+        // ⛔ **NON-VACUITY: the four must be DISTINCT.** A `from_phase` that
+        // returned one beat for everything would satisfy "it returns something"
+        // at every phase above, and this is a sequence or it is nothing.
+        let beats: std::collections::BTreeSet<String> = [0.0, 0.2, 0.5, 0.95]
+            .into_iter()
+            .filter_map(first)
+            .collect();
+        assert_eq!(beats.len(), 4, "the four beats collapsed onto {beats:?}");
+
+        // ⛔ **THE FLOOR.** A sheet with no break art must still reach `dizzy`,
+        // which is what every chain ends at.
+        for phase in [0.0, 0.2, 0.5, 0.95] {
+            let chain = super::body_state_clip(
+                &BodyMotionFacts::default(),
+                super::FighterClipFacts {
+                    guard_break: Some(GuardBreakBeat::from_phase(phase)),
+                    ..Default::default()
+                },
+            )
+            .expect("a broken guard names a chain");
+            assert!(
+                chain.contains(&"dizzy"),
+                "the {phase} beat cannot fall back to `dizzy`, so a sheet \
+                 without break art loses the pose it already had: {chain:?}"
+            );
+        }
+
+        // ⚠ and no break, no rows: a body whose guard is intact is untouched.
+        assert_eq!(
+            super::body_state_clip(&BodyMotionFacts::default(), Default::default()),
+            None,
+        );
+    }
+
     #[test]
     fn a_parry_and_a_struck_guard_are_not_the_same_pose_as_holding_one() {
         let fighter = |f: super::FighterClipFacts| {
@@ -787,14 +917,16 @@ mod state_clip_tests {
         );
 
         // ⛔ and a SHATTERED guard outranks both — it is the floor game.
+        // ⚠ the row is the BEAT now, not `dizzy`; what is asserted is still that
+        // the break wins, which is why the fixture keeps both losers set.
         assert_eq!(
             fighter(super::FighterClipFacts {
-                guard_broken: true,
+                guard_break: Some(super::GuardBreakBeat::Collapse),
                 parrying: true,
                 guard_stunned: true,
                 ..Default::default()
             }),
-            Some("dizzy".to_string()),
+            Some("shield_break_collapse".to_string()),
         );
 
         assert_eq!(
@@ -883,10 +1015,10 @@ mod state_clip_tests {
         );
         assert_eq!(
             fighter(super::FighterClipFacts {
-                guard_broken: true,
+                guard_break: Some(super::GuardBreakBeat::Collapse),
                 ..Default::default()
             }),
-            Some("dizzy".to_string())
+            Some("shield_break_collapse".to_string())
         );
         assert_eq!(
             fighter(super::FighterClipFacts {
@@ -979,7 +1111,7 @@ mod state_clip_tests {
                 ..Default::default()
             },
             super::FighterClipFacts {
-                guard_broken: true,
+                guard_break: Some(super::GuardBreakBeat::Collapse),
                 ..Default::default()
             },
             super::FighterClipFacts {

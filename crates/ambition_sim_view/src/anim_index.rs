@@ -255,7 +255,10 @@ pub fn rebuild_actor_anim_index(mut index: ResMut<ActorAnimIndex>, actors: Query
                             ambition_character_sprites::FighterClipFacts {
                                 held: a.anim.is_some_and(|f| f.held),
                                 holding: a.anim.is_some_and(|f| f.holding),
-                                guard_broken: a.shield.broken(),
+                                guard_break: a
+                                    .shield
+                                    .break_phase()
+                                    .map(ambition_character_sprites::GuardBreakBeat::from_phase),
                                 parrying: a.shield.parrying(),
                                 guard_stunned: a.shield.stun_timer > 0.0,
                             },

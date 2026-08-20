@@ -319,6 +319,20 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// it also moved `ambition_cutscene` and `ambition_demo_twintrack`, which is the
 /// instrument CHANGING and NOT a wire change in either: neither file was edited.
 ///
+/// ⚠ **v57 (2026-08-20) is `BodyShieldState::break_total`**, one `f32` behind an
+/// unchanged stable key — a payload change, so the codec-shape checker sees it
+/// and the app-level key baseline does not.
+/// ⭐ **it buys FOUR POSES OUT OF ONE TIMER and no new simulation state.** Every
+/// fighter sheet draws `shield_break_launch`, `_fall`, `_collapse` and
+/// `_recover`; the sim publishes one `break_timer` and the picker answered all
+/// four with `dizzy`. The beat needs the break's PHASE, which is
+/// `break_timer / break_stun_time` — and the tuning is not available where the
+/// phase is READ: both presentation sites hold the component and no tuning, and
+/// reaching for `MotionModel::shield_tuning()` from the view would put
+/// presentation back inside policy internals.
+/// ⛔ **it is NOT a derive memo.** It is the authority for how long THIS break
+/// was, written once at the shatter, so a rewind restores the same denominator
+/// rather than recomputing it against whatever tuning is live later.
 /// ⚠ **v55 (2026-08-20) MOVES `BodyStaleMoves` from the ENGINE domain to
 /// COMBAT's**: `body.stale_moves` becomes `combat.stale_moves`, owned by
 /// `ambition_combat`. The component's ENCODING is byte-identical — this is a
@@ -570,7 +584,7 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// `message.spawn_projectile` keeps its stable key while its concrete message
 /// becomes `ProjectileSpawnRequest`, so abandoned-future spawn requests remain
 /// cleared on load through the same wire identity.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 56;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 57;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

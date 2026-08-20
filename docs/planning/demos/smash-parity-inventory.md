@@ -85,7 +85,7 @@ you add a `▢`, and before you work one.
 | Short hop as its own authored height (not a velocity cut) | ▢ | — |
 | Footstool jump — claims the press, costs no air jump, 4f i-frames, Team-Attack gated | ✔ | `features/ecs/footstool.rs`; grounded victim flinches, airborne one tumbles (`ae::footstool_victim`) |
 | Phantom footstool (a target mid-move is not interrupted) | ✔ | the stomper still takes the bounce; `BodyMelee::phase()` is the committed test |
-| Jostle / body pushback between fighters | ▢ | ⛔ ASKED, not skipped: `awaiting-maintainer-decision.md` §25 — Jon's "AVOID PUSHOUT" rule may or may not reach body-vs-body |
+| Jostle / body pushback between fighters | ▢ | ✔ ANSWERED 2026-08-20 (`awaiting-maintainer-decision.md` §25): AVOID PUSHOUT is about PORTALS. Body contact is an OPT-IN capability of the movement SWEEP — proposed motion constrained BEFORE integration, never separated after — and smash opts its fighters into it. ⛔ an acceleration term cannot work: the kernel overwrites `vx` toward the input target |
 | Ledge grab with intangibility window | ✔ | `core/ledge_grab/` |
 | Ledge getup: climb / roll / attack | ✔ | `LedgeGetupKind` |
 | Ledge jump getup | ✔ | `MovementOp::LedgeJump` |
@@ -297,8 +297,9 @@ and leaves the values rough; tuning is not this lane's licence.
    tick); still open are sudden death, a menu for the friendly-fire toggle the
    rules already carry, and the respawn platform.
 6. ~~**SDI**~~, ~~**crouch cancel**~~, ~~**wall tech**~~ and ~~**spot dodge**~~
-   (landed 2026-08-20); still open: ceiling tech, and jostle — which is ASKED
-   rather than skipped (`awaiting-maintainer-decision.md` §25).
+   (landed 2026-08-20); still open: ceiling tech, and jostle — now DESIGNED
+   rather than asked (`awaiting-maintainer-decision.md` §25 is answered): an
+   opt-in body-contact capability in the movement sweep, unbuilt.
 7. **What the 2026-08-20 review left open.** ~~Dash attack keyed to the wrong
    state~~ and ~~the footstool claim's lifetime~~ landed the same day; three
    items did not:

@@ -73,9 +73,15 @@ may not have transparent edges, or the collision stops being visible.
   `WorldTime.scaled_dt` is the fixed tick — consuming it per rendered frame
   ties animation to refresh rate); never mutate `time_scale` directly, fire
   `ClockScaleRequest`. `docs/concepts/input-and-game-modes.md`, ADR 0011.
-- **No pushout, ever** (one exception: portal-close straddle eviction) —
-  sweep to TOI; nothing teleports. `docs/planning/vision.md` §8,
-  `docs/concepts/movement-collision.md`.
+- **No GEOMETRY-REPAIR pushout** (one exception: portal-close straddle eviction)
+  — sweep to TOI; nothing teleports out of an overlap it should never have
+  entered. ⚠ **this is a rule about repairing a mistake, not about contact.** Jon,
+  2026-08-20: *"The no pushout rule I think is for portals… For bodies I think it
+  might be ok. This isn't a hack, it is a game feel feature… It should never be a
+  mandatory part of the movement kernel though."* An intentional mechanic may
+  constrain, impulse or displace a body against another one — what it may not do
+  is become a term every body pays for. `docs/planning/vision.md` §8,
+  `docs/concepts/movement-collision.md`, `maintainer-decisions.md` 2026-08-20.
 - **Feet = the +gravity face of the contact box** (`AabbExt::feet`) — never
   screen-down. `engine/unified-movement-kernel.md`.
 - **ONE BODY, ONE PATH** — before keying anything on player-vs-actor, run the

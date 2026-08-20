@@ -199,10 +199,15 @@ HEAD; nothing needs deleting first.
 
 Counting reader/writer parameters, excluding tests:
 
+✔ **The presentation half is DONE** (2026-08-14 → 2026-08-20): all seven are
+components on a `LocalView`, cameras name the view they present, and framing is
+resolved per view. The `ControlledSubject` row below is a measurement of a
+campaign that was then deliberately NOT run — see the ruling under it.
+
 | One-view state | Sites |
 | --- | --- |
-| `ResolvedCameraSnapshot`, `CameraViewport`, `CameraExtraClamp`, `CameraEaseState`, `CameraScreenFraming`, `FramedCast`, `PortalCameraContinuityState` | **15 across all seven** |
-| `ControlledSubject` | **49** |
+| `ResolvedCameraSnapshot`, `CameraViewport`, `CameraExtraClamp`, `CameraEaseState`, `CameraScreenFraming`, `FramedCast`, `PortalCameraContinuityState` | **15 across all seven** ✔ indexed |
+| `ControlledSubject` | **49** — ⛔ and they all mean PARTICIPANT, so this campaign does not exist |
 
 ⭐ **the presentation state is cheap and `ControlledSubject` is the campaign.**
 Seven camera/view resources total fifteen sites — indexing them is a contained
@@ -474,10 +479,42 @@ change; per-view subjects is a presentation change. They meet only at that
 default, and conflating them is how a process-global gets replaced by a
 process-global with a longer name.
 
-### M2 — two local views, one room
+### M2 — two local views, one room ✔ LANDED 2026-08-20 (TwinTrack)
 
 Render two independently framed gameplay views over one simulation. Prove local
 HUD ownership and input routing.
+
+**TwinTrack does it.** Two participants, two bodies, two `LocalView`s, two
+gameplay cameras, one simulation and one room — see
+[`../demos/twintrack.md`](../demos/twintrack.md) SR-11. Three seams landed with
+it, and each closes a gap this document named:
+
+| gap this doc named | what closed it |
+| --- | --- |
+| no layout policy: `publish_camera_viewport` wrote one rect to every view | `ambition_sim_view::ViewPlacement`, a fraction of the gameplay rect per view; the publisher carves, the applier already placed |
+| framing resolved ONE subject above the per-view loop | `ambition_sim_view::ViewSubject`; the followed body, focus and reference-frame down axis are per view |
+| a second view unbound the shared gameplay camera | `spawn_main_camera` declines to spawn a rig it cannot honestly bind, so a composition owning N views owns N rigs and inherits everything else |
+
+⛔ **and one rule the slice discovered.** How many views there are is a property
+of the LIVE SESSION, not of what the binary links. Composing a second view at
+plugin build time gave the whole host two views at every route — and the symptom
+was `bevy_egui` panicking about schedules in 95 unrelated tests, because it
+attaches its primary context to the first camera it sees. A view APPEARING is the
+ordinary couch event of somebody joining.
+
+⛔ **two seats is TWO statements.** `DeclaredInputSeats(n)` makes seat entities;
+it does not give them DEVICES. The default `InputAssignmentPolicy` is
+`UnifiedPrimary` — every local source drives the primary participant — so a
+session that declares seats and stops there gets a dead second seat, measured on
+real hardware. A couch session claims `JoinToClaim` for as long as it is up and
+restores the default when it ends, which is what Smash already did route-scoped.
+
+▢ **HUD ownership is still not proved.** TwinTrack's HUD is full-screen on the
+front camera; nothing yet targets a slot at a view or a local participant.
+
+▢ **`RelativisticOpticalView2d` is single-observer**, so a per-view relativistic
+optical presentation is still owed. That is a resource shape, not a view
+architecture question.
 
 ### M3 — adaptive share/split
 

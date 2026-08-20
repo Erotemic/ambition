@@ -1756,6 +1756,10 @@ fn present_the_select_screen(
     // routes restores the default exactly once and never stamps over a policy
     // some other experience set.
     mut claimed_policy: bevy::prelude::Local<bool>,
+    // The same question for the seat OFFER, which is a separate claim with a
+    // separate lifetime: the policy is held across both smash routes, the offer
+    // only while the select screen is up.
+    mut claimed_seats: bevy::prelude::Local<bool>,
     mut pointer: bevy::prelude::ResMut<select_screen::cursor::SelectCursor>,
     mut start: bevy::prelude::ResMut<select_screen::StartRequested>,
     fighters: bevy::prelude::Res<select::SmashRoster>,
@@ -1833,10 +1837,24 @@ fn present_the_select_screen(
         .as_deref()
         .map(|devices| select::seats_offered_under(devices, policy))
         .unwrap_or(1) as u8;
-    let want_seats =
-        ambition_platformer2d::input::DeclaredInputSeats(if on_select { offered } else { 0 });
-    if *lobby_seats != want_seats {
-        *lobby_seats = want_seats;
+    // ⛔ **THE SAME RULE THE POLICY ABOVE ALREADY LEARNED, and the seats write
+    // escaped it.** This was `DeclaredInputSeats(if on_select { offered } else { 0 })`
+    // written unconditionally — so while ANOTHER experience was offering a
+    // couch, every frame this demo was not on its select screen retracted that
+    // offer. It only stayed invisible while smash was the sole surface that
+    // declared seats. A claim is released by whoever made it.
+    if on_select {
+        let want = ambition_platformer2d::input::DeclaredInputSeats(offered);
+        if *lobby_seats != want {
+            *lobby_seats = want;
+        }
+        *claimed_seats = true;
+    } else if *claimed_seats {
+        *claimed_seats = false;
+        // Only undo OUR offer. A count somebody else published is theirs.
+        if lobby_seats.0 != 0 {
+            *lobby_seats = ambition_platformer2d::input::DeclaredInputSeats(0);
+        }
     }
     if on_select {
         // **ARRIVING is where a rematch becomes possible.** The screen's own

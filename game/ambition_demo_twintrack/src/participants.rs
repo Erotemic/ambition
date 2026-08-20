@@ -213,28 +213,45 @@ fn declare_the_couch(
     roots: Query<&ActiveRoomMetadata>,
     mut seats: ResMut<ambition_platformer2d::input::DeclaredInputSeats>,
     mut policy: ResMut<ambition_platformer2d::input::InputAssignmentPolicy>,
+    // ⛔⛔ **WHETHER THIS EXPERIENCE IS THE ONE HOLDING THE CLAIM.** Both
+    // resources are process-global and TwinTrack is one route in a host that
+    // also runs Mary-O, Smash and a launcher — so "not live ⇒ write the
+    // default" is a demo plugin stamping a global while another game owns the
+    // screen. It is not hypothetical: writing `UnifiedPrimary` unconditionally
+    // retracted SMASH's couch policy on every frame of every smash match, and
+    // its select screen then offered one seat to two people
+    // (`smash_in_the_host::two_participants_start_a_match_and_can_still_pause_it`).
+    //
+    // A claim is released by whoever made it, exactly once, and only if the
+    // value is still the one that was claimed.
+    mut claimed: Local<bool>,
 ) {
     let live = roots
         .iter()
         .any(|metadata| metadata.0.mode.as_deref() == Some(TWINTRACK_EXPERIENCE));
-    let wanted =
-        ambition_platformer2d::input::DeclaredInputSeats(if live { TWINTRACK_SEATS } else { 0 });
-    // Written only on a change: this is read by a system that spawns and
-    // despawns seat entities.
-    if *seats != wanted {
-        *seats = wanted;
+    let couch = ambition_platformer2d::input::InputAssignmentPolicy::JoinToClaim;
+    if live {
+        let wanted = ambition_platformer2d::input::DeclaredInputSeats(TWINTRACK_SEATS);
+        // Written only on a change: this is read by a system that spawns and
+        // despawns seat entities.
+        if *seats != wanted {
+            *seats = wanted;
+        }
+        if *policy != couch {
+            *policy = couch;
+        }
+        *claimed = true;
+        return;
     }
-    let wanted = if live {
-        ambition_platformer2d::input::InputAssignmentPolicy::JoinToClaim
-    } else {
-        // ⛔ RESTORED, not left behind: this is a process-global and TwinTrack is
-        // one route in a host that also runs Mary-O, Smash and a launcher. A
-        // couch policy that outlived the session would make a solo player's
-        // spare controller stop working in the next game they opened.
-        ambition_platformer2d::input::InputAssignmentPolicy::default()
-    };
-    if *policy != wanted {
-        *policy = wanted;
+    if !*claimed {
+        return;
+    }
+    *claimed = false;
+    if seats.0 == TWINTRACK_SEATS {
+        *seats = ambition_platformer2d::input::DeclaredInputSeats(0);
+    }
+    if *policy == couch {
+        *policy = ambition_platformer2d::input::InputAssignmentPolicy::default();
     }
 }
 
@@ -345,4 +362,123 @@ pub(crate) fn adopt_the_laboratory_twin(
             ..default()
         },
     ));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ambition_platformer2d::input::{DeclaredInputSeats, InputAssignmentPolicy};
+
+    fn couch_app(live: bool) -> App {
+        let mut app = App::new();
+        app.init_resource::<DeclaredInputSeats>()
+            .init_resource::<InputAssignmentPolicy>()
+            .add_systems(Update, declare_the_couch);
+        if live {
+            let mut metadata = ambition_platformer2d::world::rooms::RoomMetadata::default();
+            metadata.mode = Some(TWINTRACK_EXPERIENCE.to_owned());
+            app.world_mut().spawn(ActiveRoomMetadata(metadata));
+        }
+        app
+    }
+
+    fn couch(app: &App) -> (DeclaredInputSeats, InputAssignmentPolicy) {
+        (
+            *app.world().resource::<DeclaredInputSeats>(),
+            *app.world().resource::<InputAssignmentPolicy>(),
+        )
+    }
+
+    /// **⛔⛔ A DEMO PLUGIN MAY NOT RETRACT A CLAIM IT DID NOT MAKE.**
+    ///
+    /// Both of these are process-globals and `ambition_app` links this crate
+    /// beside Mary-O, Smash and the launcher. The first version wrote the
+    /// DEFAULTS on every frame TwinTrack was not live — which retracted Smash's
+    /// couch policy on every frame of every smash match, and its select screen
+    /// then offered one seat to two people
+    /// (`app_it::smash_in_the_host::two_participants_start_a_match_and_can_still_pause_it`).
+    ///
+    /// ⚠ **and the plaza is ALWAYS live in its own standalone app**, which is
+    /// why this is a unit over the system rather than a run of the demo: the
+    /// dormant case does not exist there and the regression was invisible until
+    /// another game was in the process.
+    #[test]
+    fn a_dormant_plaza_leaves_another_surfaces_couch_alone() {
+        let mut app = couch_app(false);
+        app.insert_resource(DeclaredInputSeats(4));
+        app.insert_resource(InputAssignmentPolicy::JoinToClaim);
+        for _ in 0..3 {
+            app.update();
+        }
+        assert_eq!(
+            couch(&app),
+            (DeclaredInputSeats(4), InputAssignmentPolicy::JoinToClaim),
+            "a dormant TwinTrack wrote over a couch somebody else was holding",
+        );
+    }
+
+    /// **A LIVE PLAZA CLAIMS BOTH, and a count alone would not be enough.**
+    ///
+    /// `DeclaredInputSeats(2)` gets seat one an `InputParticipant`; it does NOT
+    /// get it a device, because `UnifiedPrimary` means every local source drives
+    /// the primary participant. Jon measured exactly that on hardware.
+    #[test]
+    fn a_live_plaza_claims_two_seats_and_the_couch_policy() {
+        let mut app = couch_app(true);
+        app.update();
+        assert_eq!(
+            couch(&app),
+            (
+                DeclaredInputSeats(TWINTRACK_SEATS),
+                InputAssignmentPolicy::JoinToClaim
+            ),
+        );
+    }
+
+    /// **THE RELEASE UNDOES ITS OWN VALUE AND NOTHING ELSE.**
+    ///
+    /// ⛔ the falsifier is the value written BETWEEN: somebody else's claim
+    /// arrives while TwinTrack still holds the latch, and the release must find
+    /// a value that is no longer its own and leave it there.
+    #[test]
+    fn leaving_the_plaza_restores_only_what_it_claimed() {
+        let mut app = couch_app(true);
+        app.update();
+        // The session ends.
+        {
+            let mut roots = app
+                .world_mut()
+                .query_filtered::<Entity, With<ActiveRoomMetadata>>();
+            let live: Vec<Entity> = roots.iter(app.world()).collect();
+            for root in live {
+                app.world_mut().entity_mut(root).despawn();
+            }
+        }
+        app.update();
+        assert_eq!(
+            couch(&app),
+            (DeclaredInputSeats(0), InputAssignmentPolicy::UnifiedPrimary),
+            "leaving the plaza left its couch behind for the next game",
+        );
+
+        // Now the same run again, but somebody else takes both over first.
+        let mut app = couch_app(true);
+        app.update();
+        {
+            let mut roots = app
+                .world_mut()
+                .query_filtered::<Entity, With<ActiveRoomMetadata>>();
+            let live: Vec<Entity> = roots.iter(app.world()).collect();
+            for root in live {
+                app.world_mut().entity_mut(root).despawn();
+            }
+        }
+        app.insert_resource(DeclaredInputSeats(4));
+        app.update();
+        assert_eq!(
+            couch(&app),
+            (DeclaredInputSeats(4), InputAssignmentPolicy::UnifiedPrimary),
+            "the release retracted a seat offer that was no longer TwinTrack's",
+        );
+    }
 }

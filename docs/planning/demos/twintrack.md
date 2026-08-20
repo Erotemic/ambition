@@ -1,10 +1,10 @@
 # TwinTrack — Relativity Plaza
 
-> **Status (2026-08-12): SR-8 open-follow composition candidate implemented.**
-> TwinTrack keeps the default-on 3D spacetime minimap, recenters the clock race
-> around the laboratory, removes collision walls, and authors an effectively
-> unbounded unclamped follow-camera region so free flight is never pinned to the
-> old room rectangle. Local compile and classroom-feel validation remain.
+> **Status (2026-08-20): TwinTrack is a TWO-PLAYER game with a real split
+> screen.** The laboratory twin is Emmy No-Ether, driven by seat one; the plaza
+> opens split, one gameplay view per participant. See SR-11 below for what that
+> cost the engine and what it still owes. Earlier: SR-8's open-follow camera and
+> centered plaza (2026-08-12) are the spatial baseline it sits on.
 
 TwinTrack is Ambition's executable acceptance game for flat-spacetime
 relativity. Its first duty remains technical: prove that clocks, worldlines,
@@ -12,41 +12,39 @@ light signals, local measurements, observer views, and rollback compose through
 normal engine seams. Its second duty is now equally explicit: show recognizable
 gameplay ideas that could grow into a visually strange relativity game.
 
-The next major gameplay direction is **dual-observer split screen**: two controlled
-participants share one authoritative Minkowski simulation while each viewport is
-resolved from that participant's own reference frame. That work is deliberately
-after SR-8; the open-follow camera and centered plaza land first so the single-
-observer experience has a clean spatial baseline.
+✔ **Dual-observer split screen landed 2026-08-20** (SR-11): two controlled
+participants share one authoritative Minkowski simulation and each viewport is
+framed from that participant's own body. What is NOT yet per-view is the
+relativistic OPTICAL presentation — `RelativisticOpticalView2d` is a
+single-observer resource — so the two panes differ in framing and in every
+instrument reading, and not yet in aberration and Doppler.
 
-> **Landed 2026-08-20 — SR-9 ordering exhibit, PERMANENTLY SPLIT.** A
-> `SplitObservers` view mode draws two demo-owned panes: the laboratory twin at
-> rest and the controlled traveler. Two beacons at rest in the laboratory,
-> symmetric about the lab twin, flash together in laboratory coordinate time;
-> each pane reports **which flash's light reached its observer first** and
-> **which flash happened first in its observer's own frame** (an exact
-> `lorentz_boost_event`), plus that observer's own length contraction of the
-> beacon axis. The lab pane answers `SIMULTANEOUS` by construction; the traveler
-> pane answers with an order whose sign is the sign of its velocity. Headless
-> tests in `twintrack_it` assert the two panes disagree and that reversing the
-> traveler reverses its answer.
+> **Landed 2026-08-20 — SR-9 ordering exhibit.** An instrument drawing two
+> demo-owned panes: the laboratory twin at rest and the controlled traveler. Two
+> beacons at rest in the laboratory, symmetric about the lab twin, flash together
+> in laboratory coordinate time; each pane reports **which flash's light reached
+> its observer first** and **which flash happened first in its observer's own
+> frame** (an exact `lorentz_boost_event`), plus that observer's own length
+> contraction of the beacon axis. The lab pane answers `SIMULTANEOUS` by
+> construction; the traveler pane answers with an order whose sign is the sign of
+> its velocity. Headless tests in `twintrack_it` assert the two panes disagree and
+> that reversing the traveler reverses its answer.
 >
-> ⚠ **this is deliberately not the acceptance target below.** There is still one
-> controlled body and one `LocalView`; the panes are demo-owned composited
-> cameras in the shape of the 2+1D minimap, not engine per-view rectangles. What
-> the acceptance list needs from the engine is a **split layout policy** (today
-> `publish_camera_viewport` writes the display rect to every view by
-> construction), a **second `LocalView` plus explicit `PresentsView` binding on
-> both cameras** (the shared rule refuses to bind at all once several views
-> exist, so a naive second view unbinds the gameplay camera), a **per-view view
-> SUBJECT** (framing resolves one subject above the per-view loop), and
-> **per-view parallax**.
+> ⚠ **it is an INSTRUMENT, not the split screen** — a diagram over the top of the
+> gameplay panes, selected from the in-world view console like the optical view
+> and the 2+1D minimap. The real split landed separately (below); this stays what
+> it always was and only swapped sides, so its left pane is now the traveler's,
+> matching the participant order underneath it.
 >
-> ⚠ **`RelativisticOpticalView2d` is single-observer.** `publish_optical_view`
+> ⚠ **`RelativisticOpticalView2d` is still single-observer.** `publish_optical_view`
 > does `observers.single()`, so a second `RelativisticObserver2d` would blank the
 > optical view entirely rather than produce a second one. The ordering exhibit
 > is computed demo-side from `WorldlineHistoryView2d`-shaped facts and the public
 > SR kernel instead; a genuine per-view aberration/Doppler presentation is
-> blocked on that resource becoming view-indexed.
+> blocked on that resource becoming view-indexed. **This is the one remaining
+> gap between the split below and the acceptance target** — the panes are real
+> gameplay views resolved from real per-view framing, but only ONE of them can
+> carry a relativistic optical presentation.
 >
 > **Adaptive vs permanently split, for THIS demo:** permanently split. §11's
 > adaptive-with-hysteresis ruling is Ambition's product layout policy; a view
@@ -95,6 +93,64 @@ observer experience has a clean spatial baseline.
 > owed whenever the schema is free to move.
 
 
+> **Landed 2026-08-20 — SR-11 TWO PARTICIPANTS, TWO REAL VIEWS.** The laboratory
+> twin is Emmy No-Ether: a constructed character body wearing
+> `DrivingParticipant(PlayerSlot(1))`, so the plaza's at-rest reference frame is
+> a person a second controller steers instead of a prop with a clock. The screen
+> is split by construction — one gameplay `LocalView` per participant, the
+> traveler on the left and the twin on the right — and the panes are engine
+> rectangles resolved from engine per-view framing, not composited diagrams.
+>
+> The three engine seams the acceptance list called for landed with it:
+>
+> - **`ambition_sim_view::ViewPlacement`** — where a view SITS, as a fraction of
+>   the gameplay rectangle. `publish_camera_viewport` carves its resolved rect by
+>   it, and `apply_gameplay_camera_viewport` already handed each camera the
+>   rectangle of the view it presents. Absent means the whole rectangle, so every
+>   single-view composition is unchanged.
+> - **`ambition_sim_view::ViewSubject`** — the body a view FRAMES.
+>   `resolve_camera_observation` resolved the followed body, the framing focus and
+>   the reference-frame down axis ONCE above the per-view loop; those three are
+>   per view now. A view naming no subject keeps the session's controlled body,
+>   which is what that default always meant. `ControlledSubject` is untouched.
+> - **`spawn_main_camera` declines to spawn a rig it cannot honestly bind**,
+>   instead of spawning one and leaving the link off for every consumer to refuse.
+>   A composition owning N views owns N rigs; the shared plugin's room visuals,
+>   sprite chain and front HUD camera are unchanged.
+>
+> ⛔ **the second view is composed by the SESSION, never at plugin build time.**
+> `ambition_app` links this crate beside the launcher, Mary-O and Smash, so a
+> build-time second view splits the screen of every route in the game. The
+> symptom is nowhere near the cause: with two views the shared camera-spawn site
+> correctly refuses to bind, the demo's own rigs appear instead, and `bevy_egui`
+> — which attaches its primary context to the first camera it sees — takes down
+> 95 `app_it` tests with a message about schedules. A view APPEARING is the
+> ordinary couch event of somebody joining. Guarded by
+> `camera_names_its_view::the_launcher_has_one_view_and_no_split_layout`.
+>
+> ⛔ **two seats is TWO statements.** `DeclaredInputSeats(2)` gets seat one an
+> `InputParticipant`; it does not get it a DEVICE, because the default
+> `InputAssignmentPolicy` is `UnifiedPrimary` — every local source drives the
+> primary participant, which is right for solo play and hands the only pad to the
+> seat that already has the keyboard. Jon measured exactly that: *"I have a
+> keyboard and controller hooked up to twin track, but they both control patent
+> clerk, neither controls emmy."* TwinTrack claims `JoinToClaim` while its session
+> is live and restores the default when it ends, which is the same route-scoped
+> claim Smash makes. ⚠ **the headless suite cannot catch this class at all**: the
+> integration tests build without the `input` feature, so they have no
+> participants, no devices and no assignment pass — they write `SlotControls`
+> directly. The declaration is asserted where a test can read it; the mechanism it
+> buys is pinned in `ambition_input::local_seats`.
+>
+> ⚠ **one controller is a complete session.** A seat with no pad reads neutral
+> input, so the twin stands still in the laboratory and her pane keeps framing
+> her — an unattended observer is still an observer (Jon, 2026-08-20).
+>
+> ▢ **adaptive share/split is deliberately absent.** TwinTrack is permanently
+> split for the reason recorded below; the policy that WRITES a `ViewPlacement`
+> from subject separation with hysteresis is Ambition's product requirement and
+> has no customer yet.
+
 ## Dual-observer / split-screen acceptance
 
 TwinTrack is the strongest acceptance customer for the engine's multi-view
@@ -118,6 +174,13 @@ This should consume
 not create a TwinTrack-only camera manager. The first proof can be fixed 50/50
 split; adaptive grouping is primarily an Ambition product requirement and should
 come from the same engine view-index model.
+
+✔ **Everything above except the last sentence landed on 2026-08-20** — see SR-11.
+What is still owed is *"each view may choose laboratory or observer-local
+presentation independently"*: `RelativisticOpticalView2d` is a single-observer
+resource, so only one pane can carry a relativistic optical presentation. That is
+the whole of the remaining gap, and it is a resource shape rather than a view
+architecture question.
 
 Acceptance:
 

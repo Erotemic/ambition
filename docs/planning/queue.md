@@ -291,6 +291,42 @@ made of. ⛔ do not delete `collision_scale` before counting: a shipped
 capability can have zero adopters, and so can a legacy path still carrying half
 the roster.
 
+- ▢ **D172 — BODY-VS-BODY CONTACT IS RULED, DESIGNED AND UNBUILT.**
+  (promoted 2026-08-20)
+
+Jon answered `awaiting-maintainer-decision.md` §25 on 2026-08-20 and the ruling
+is complete enough to build from. AVOID PUSHOUT is about **portals**; a body
+mechanic may express contact, and *"games will want this, so we should be able to
+express it"* makes it ENGINE vocabulary rather than a smash detail.
+
+**The mechanism, from Jon's own constraints:**
+
+- a **sweep** capability — proposed motion is CONSTRAINED before integration,
+  never separated after the fact;
+- **opt-in and typed** — never a term every body in `step_body` pays for;
+- pairs come from a **common pre-integration snapshot** with a stable ordering
+  (ADR 0023), so two bodies cannot each see the other's already-moved position;
+- **grounded lateral only** for the first slice;
+- a **pre-existing overlap is never teleported apart** — that is the pushout the
+  rule does forbid;
+- the core mechanism is **unnamed for any game**; smash opts its fighters in and
+  calls the result jostle.
+
+⛔ **AN ACCELERATION TERM CANNOT WORK, AND THIS IS PROVEN.** `bbbc5e46c` deleted
+one that had eight passing tests: the movement kernel treats `vx` as a velocity
+TARGET and `approach()` overwrites it every tick, so a force added beside it is
+erased before integration. The tests passed because the fixture had no movement
+kernel in it — **a test that supplies its own precondition cannot prove the
+mechanism reaches production**, and the tell (unit green, end-to-end unmoved) was
+available and misread. Any new attempt must be measured in a fixture that runs
+the real sweep.
+
+⛔ **AND IT IS NOT PROVEN TO FIX THE SEVEN SMASH REDS.** The limit-cycle
+diagnosis in §23 was taken in a match running no smash combat rules at all;
+`a1c251b44` fixed that and the suite went five red → **seven**. Build the
+capability because the genre wants it and Jon has ruled on it; then RE-MEASURE
+those seven under the corrected construction before touching the brain.
+
 - ▢ **D171 — THREE MORE DOCS CARRY OPEN ITEMS NO LEDGER ROW CAN REACH.**
   (promoted 2026-08-20)
 
@@ -548,6 +584,30 @@ is *who is driving*.
 component, move possession onto it, delete `restore_brain`; nothing changes crates.
 Only then is the Smash/Fighter move priced by measurement — the way gravity priced
 the construction federation.
+
+✔ **THAT SLICE LANDED, 2026-08-19 → 2026-08-20** (`1a9f3a372`, `bbf02bf47`).
+`ambition_characters::brain::DrivingParticipant(PlayerSlot)` is control
+authority; `Brain` is AI policy and nothing else — `Brain::Player` is gone from
+executable code, so the 194 sites and the 13 exhaustive matches are settled, and
+`PossessionState::restore_brain` is deleted because a possession no longer takes
+a policy away to give back. `project_driving_participant` is the ONE runtime
+writer. Rollback schema v59; the seat is registered AND value-probed, because two
+peers can agree a body is driven and disagree about by whom.
+
+▢ **WHAT IS LEFT IS THE CRATE CARVE, and it is priced but not started.** 8,950
+non-test lines of platform-fighter policy (`brain/fighter`, `brain/smash`) still
+sit inside `ambition_characters`, a floor crate every composition links. The
+reason they were there — policy sharing a component with control authority — is
+gone, so the carve is now an ordinary move rather than a coupling.
+
+⚠ **`Brain` is a ONE-VARIANT enum now** (`StateMachine(StateMachineCfg)`).
+Collapsing it to a struct is a separate decision and deliberately not taken here:
+the enum is where a future non-state-machine policy attaches, and flattening it
+would be a rename campaign that buys one indirection.
+
+⚠ **naming residue, and it can wait** (GPT 5.6, 2026-08-20): `DrivingParticipant`
+lives under `characters::brain`, which is the module it was carved OUT of. That
+is a module question, not a coupling — do not reopen this row for it.
 
 - ▢ **D117 — Finish the controlled-character actor kernel. UNBLOCKED 2026-08-17:
   the decision it rested on is ANSWERED.**

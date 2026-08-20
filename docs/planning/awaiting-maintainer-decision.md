@@ -892,12 +892,22 @@ see still fails in the independent consumer.
 
 ### 23. ◐ ANSWERED VIA §25, 2026-08-20 — five `the_stage_kills` guards are RED, three of them from the legality filter, and the prescribed fix contradicts a deliberate fairness property
 
-⭐⭐ **THE QUESTION BELOW IS SUPERSEDED — §25 answers it.** Jon, 2026-08-20:
-*"the limit cycle is very plausibly exposing a missing physical spacing primitive
-rather than a brain defect. The agent was right to stop rather than compensating
-for missing contact by making the AI stranger."* ⇒ the fix is opt-in body contact
-in the movement sweep (§25), NOT a spawn asymmetry and NOT more randomness. This
-row stays ◐ until that lands and the five are re-run.
+⭐⭐ **THE QUESTION BELOW IS SUPERSEDED — §25 answers what to BUILD.** Jon,
+2026-08-20: *"the limit cycle is very plausibly exposing a missing physical
+spacing primitive rather than a brain defect. The agent was right to stop rather
+than compensating for missing contact by making the AI stranger."* ⇒ the change
+to make is opt-in body contact in the movement sweep (§25), NOT a spawn asymmetry
+and NOT more randomness.
+
+⛔⛔ **BUT BODY CONTACT IS NOT PROVEN TO FIX THESE TESTS, AND NOTHING SHOULD SAY
+IT IS.** The limit-cycle diagnosis was taken in a match running NO smash combat
+rules — see the measurement below — so it is a CANDIDATE explanation, not a
+finding. `a1c251b44` closed the route-entry hole and the suite went from five red
+to **seven**: two repertoire guards had been green only because staling and the
+rest of the ruleset were absent. ⇒ the order is: build the capability because the
+genre wants it and Jon has ruled on it, then RE-MEASURE the seven under the
+corrected construction, and only then decide what they were saying. This row
+stays ◐ until that re-measurement exists.
 
 ⛔⛔ **MEASURED 2026-08-20: THOSE FIVE TESTS RUN A MATCH WITH NO SMASH COMBAT
 RULES AT ALL, AND THAT INVALIDATES EVERY DIAGNOSIS TAKEN IN THEM — INCLUDING THE

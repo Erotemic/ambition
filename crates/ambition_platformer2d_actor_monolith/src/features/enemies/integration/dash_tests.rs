@@ -6,7 +6,7 @@
 //! S3d: dash as a body-enforced capability. These drive the REAL grounded
 //! integration (`ActorMut::update` → the shared spine), so they prove the
 //! body owns the burst — a possessing human and an AI brain dash identically
-//! because both only set `dash_pressed` (invariants I2/I3).
+//! because both only set `burst_pressed` (invariants I2/I3).
 use super::*;
 use crate::features::ecs::actor_clusters::{ActorBody, ActorClusterSeed};
 use ambition_characters::actor::control::ActorControlFrame;
@@ -61,7 +61,7 @@ fn dash_run(can_dash: bool, ticks: u32) -> f32 {
     let mut em = seed.as_actor_mut();
     let mut frame = ActorControlFrame::neutral();
     frame.locomotion = ae::LocalAxes::new(1.0, 0.0);
-    frame.dash_pressed = true;
+    frame.burst_pressed = true;
     frame.facing = 1.0;
     let dt = 1.0 / 60.0;
     for _ in 0..ticks {
@@ -249,7 +249,7 @@ fn a_staggered_body_loses_input_authority_like_the_player() {
 
 #[test]
 fn an_uncapable_body_does_not_burst_and_just_walks() {
-    // Sanity: with the capability off, `dash_pressed` never opens a window —
+    // Sanity: with the capability off, `burst_pressed` never opens a window —
     // the body's attack state stays dash-inert (the body enforces the kit).
     let world = floored_world();
     let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
@@ -269,7 +269,7 @@ fn an_uncapable_body_does_not_burst_and_just_walks() {
     let mut em = seed.as_actor_mut();
     let mut frame = ActorControlFrame::neutral();
     frame.locomotion = ae::LocalAxes::new(1.0, 0.0);
-    frame.dash_pressed = true;
+    frame.burst_pressed = true;
     em.update(
         &world,
         ae::Vec2::new(2000.0, em.kin.pos.y),

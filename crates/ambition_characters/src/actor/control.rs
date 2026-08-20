@@ -260,9 +260,11 @@ pub struct ActorControlFrame {
     /// integrations cap upward velocity on release to make short
     /// taps feel responsive.
     pub jump_released: bool,
-    /// Rising edge: brain wants to dash this tick. The simulation
-    /// half handles cooldowns and direction selection.
-    pub dash_pressed: bool,
+    /// Rising edge on the SHARED burst press — brain wants its dodge-or-dash
+    /// this tick. WHICH of the two it gets is the body's answer
+    /// (`resolve_burst_maneuver`), not the brain's; the simulation half handles
+    /// cooldowns and direction selection.
+    pub burst_pressed: bool,
     /// Rising edge: brain wants to interact with whatever is nearby
     /// (doors, NPCs, switches). E / F / RB on player binding; AI
     /// brains may toggle this for scripted door-opens or NPC chats.
@@ -408,9 +410,9 @@ impl ActorControlFrame {
                     },
                 )
                 .with(
-                    ambition_platformer2d_core::MovementAction::Dash,
+                    ambition_platformer2d_core::MovementAction::Burst,
                     ambition_platformer2d_core::Edge {
-                        pressed: self.dash_pressed,
+                        pressed: self.burst_pressed,
                         held: false,
                         released: false,
                     },
@@ -451,7 +453,7 @@ impl ActorControlFrame {
         }
     }
 
-    /// True iff any action verb (melee / pogo / fire / jump / dash /
+    /// True iff any action verb (melee / pogo / fire / jump / burst /
     /// interact / shield / special) is requested this tick. Useful
     /// for debug HUD ("brain is asking for something"), perf
     /// counters, and trace recording predicates.
@@ -467,7 +469,7 @@ impl ActorControlFrame {
             || self.fire.is_some()
             || self.jump_pressed
             || self.jump_held
-            || self.dash_pressed
+            || self.burst_pressed
             || self.interact_pressed
             || self.shield_held
             || self.special_pressed
@@ -500,7 +502,7 @@ impl ActorControlFrame {
     pub fn clear_edges(&mut self) {
         self.jump_pressed = false;
         self.jump_released = false;
-        self.dash_pressed = false;
+        self.burst_pressed = false;
         self.interact_pressed = false;
         self.special_pressed = false;
         self.melee_pressed = false;
@@ -538,14 +540,14 @@ mod tests {
         let mut frame = ActorControlFrame::neutral();
         frame.locomotion = LocalAxes::new(0.6, -0.2);
         frame.jump_pressed = true;
-        frame.dash_pressed = true;
+        frame.burst_pressed = true;
         frame.melee_pressed = true;
         frame.melee_strong_hint = true;
         frame.shield_held = true;
         let input = frame.to_input_state();
         assert_eq!(input.axes.x, 0.6, "locomotion.x → local x");
         assert_eq!(input.axes.y, -0.2, "locomotion.y → local y");
-        assert!(input.jump_pressed() && input.dash_pressed() && input.shield_held);
+        assert!(input.jump_pressed() && input.burst_pressed() && input.shield_held);
         assert!(input.attack_pressed, "melee_pressed → attack_pressed");
     }
 
@@ -602,7 +604,7 @@ mod tests {
         assert!(!frame.jump_pressed);
         assert!(!frame.jump_held);
         assert!(!frame.jump_released);
-        assert!(!frame.dash_pressed);
+        assert!(!frame.burst_pressed);
         assert!(!frame.interact_pressed);
         assert!(!frame.body_contact_damage_enabled);
         assert!(!frame.shield_held);
@@ -634,7 +636,7 @@ mod tests {
         b.jump_pressed = true;
         assert_ne!(baseline, b);
         let mut c = baseline;
-        c.dash_pressed = true;
+        c.burst_pressed = true;
         assert_ne!(baseline, c);
         let mut d = baseline;
         d.interact_pressed = true;
@@ -662,7 +664,7 @@ mod tests {
         frame.jump_pressed = true;
         frame.jump_held = true;
         frame.jump_released = true;
-        frame.dash_pressed = true;
+        frame.burst_pressed = true;
         frame.interact_pressed = true;
         frame.special_pressed = true;
         frame.melee_pressed = true;
@@ -672,7 +674,7 @@ mod tests {
         frame.clear_edges();
         assert!(!frame.jump_pressed);
         assert!(!frame.jump_released);
-        assert!(!frame.dash_pressed);
+        assert!(!frame.burst_pressed);
         assert!(!frame.interact_pressed);
         assert!(!frame.special_pressed);
         assert!(!frame.melee_pressed);
@@ -715,8 +717,8 @@ mod tests {
         frame.fire = Some(ActorFireRequest::world_space(Vec2::new(1.0, 0.0), 0.0));
         assert!(frame.wants_any_action());
         let mut frame = ActorControlFrame::neutral();
-        frame.dash_pressed = true;
-        assert!(frame.wants_any_action(), "dash_pressed should count");
+        frame.burst_pressed = true;
+        assert!(frame.wants_any_action(), "burst_pressed should count");
         let mut frame = ActorControlFrame::neutral();
         frame.interact_pressed = true;
         assert!(frame.wants_any_action(), "interact_pressed should count");
@@ -753,7 +755,7 @@ mod tests {
             jump_pressed: frame.jump_pressed,
             jump_held: frame.jump_held,
             jump_released: frame.jump_released,
-            dash_pressed: frame.dash_pressed,
+            burst_pressed: frame.burst_pressed,
             interact_pressed: frame.interact_pressed,
             body_contact_damage_enabled: frame.body_contact_damage_enabled,
             shield_held: frame.shield_held,

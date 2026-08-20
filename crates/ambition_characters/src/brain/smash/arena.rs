@@ -578,7 +578,7 @@ fn classify_verb(frame: &ActorControlFrame, f: &Fighter) -> Verb {
         return Verb::Idle;
     }
     // A throttle near full is a sprint; a partial throttle is a walk. ⚠ this
-    // reads the LOCOMOTION throttle and never `dash_pressed` — which is why the
+    // reads the LOCOMOTION throttle and never `burst_pressed` — which is why the
     // variety metric survived dash leaving the smash vocabulary unchanged.
     let sprint = mag > 0.9;
     match (x > 0.0, sprint) {

@@ -462,7 +462,7 @@ pub fn action_for_slot(
         ControlSlot::Attack => Platformer2dInputActionMonolith::Attack,
         ControlSlot::Special => Platformer2dInputActionMonolith::Special,
         ControlSlot::Projectile => Platformer2dInputActionMonolith::Projectile,
-        ControlSlot::Dash => Platformer2dInputActionMonolith::Dash,
+        ControlSlot::Burst => Platformer2dInputActionMonolith::Dash,
         ControlSlot::Blink => Platformer2dInputActionMonolith::Blink,
         ControlSlot::Interact => Platformer2dInputActionMonolith::Interact,
         ControlSlot::Utility => Platformer2dInputActionMonolith::Utility,

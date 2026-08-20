@@ -21,11 +21,11 @@
 
 #![cfg(feature = "rl_sim")]
 
-use ambition_platformer2d::engine_core::{ControlFrame, InputStream};
-use ambition_platformer2d::runtime::InputStreamRecorder;
 use ambition_app::rl_sim::TimestepMode;
 use ambition_app::AmbitionSim;
 use ambition_app::Platformer2dSimHarness;
+use ambition_platformer2d::engine_core::{ControlFrame, InputStream};
+use ambition_platformer2d::runtime::InputStreamRecorder;
 
 const TICK_HZ: u32 = 60;
 const TICKS: usize = 90;
@@ -58,7 +58,7 @@ fn scripted_input(tick: usize) -> ControlFrame {
         }
         50 => {
             frame.axis_x = -1.0;
-            frame.dash_pressed = true;
+            frame.burst_pressed = true;
         }
         _ => {
             frame.axis_x = -0.35;
@@ -68,7 +68,8 @@ fn scripted_input(tick: usize) -> ControlFrame {
 }
 
 fn new_sim() -> Platformer2dSimHarness {
-    Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("Platformer2dSimHarness builds")
+    Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("Platformer2dSimHarness builds")
 }
 
 fn arm_recorder(sim: &mut Platformer2dSimHarness) {

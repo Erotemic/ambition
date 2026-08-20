@@ -364,7 +364,7 @@ fn flying_pca_vs_grounded_robot_is_non_degenerate() {
 /// survive is the BEHAVIOUR — a fighter across the stage comes to meet you.
 ///
 /// ⛔ this asserts the SEPARATION shrank, not that a field was set. The old
-/// coverage for this behaviour watched `dash_pressed`, which is exactly the bit
+/// coverage for this behaviour watched `burst_pressed`, which is exactly the bit
 /// that had to go; a test written that way would have had to be deleted rather
 /// than kept.
 ///

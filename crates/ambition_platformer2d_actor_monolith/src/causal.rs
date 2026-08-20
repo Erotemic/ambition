@@ -262,12 +262,12 @@ pub fn record_body_control_frame(
             .field("pos_y", kin.pos.y)
             .field("on_ground", ground.on_ground)
             .field("facing", kin.facing)
-            .field("dash_pressed", frame.dash_pressed)
+            .field("burst_pressed", frame.burst_pressed)
             // ⚠ the dash state is here for a NAMED suspicion: the trace showed
             // the body reaching 750/s, which is dash speed (a run caps at 270),
             // while `Dash` appeared zero times in the brain's decisions. A dash
             // armed by something other than the decision shows up as a spent
-            // charge and a live cooldown with `dash_pressed` false.
+            // charge and a live cooldown with `burst_pressed` false.
             .field("dash_charges", i64::from(dash.charges_available))
             .field("dash_cooldown", dash.cooldown)
             // A HARD lock means the body has no input authority at all this
@@ -283,7 +283,10 @@ pub fn record_body_control_frame(
             // exactly like the bug it hunts: a causal trace exists to say WHY two
             // runs diverged, and this one would have sent the reader past the
             // reason. It asks the body for the whole gate now.
-            .field("hard_lock", combat.map_or(0.0, ambition_characters::actor::BodyCombat::hard_lock_timer))
+            .field(
+                "hard_lock",
+                combat.map_or(0.0, ambition_characters::actor::BodyCombat::hard_lock_timer),
+            )
             .field("hitstun", combat.map_or(0.0, |c| c.hitstun_timer))
             .field("attacking", melee.is_some_and(|m| m.is_swinging()))
             // The two acceleration terms the integrator adds, in world units per

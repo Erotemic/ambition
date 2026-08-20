@@ -70,7 +70,7 @@ pub fn emit_inputs(
             // speed — the same surface `Walk` uses at a partial throttle, and the
             // whole difference between the two.
             //
-            // ⛔⛔ **`out.dash_pressed = true` used to ride along here** and it
+            // ⛔⛔ **`out.burst_pressed = true` used to ride along here** and it
             // was never the closing. The comment defending it said the throttle
             // was the "body-agnostic floor" and the press an optional burst on
             // top — but the press is the SHARED burst button, and once

@@ -1014,7 +1014,7 @@ fn touch_button_slot(action: TouchActionButton) -> Option<ControlSlot> {
         TouchActionButton::Jump => ControlSlot::Jump,
         TouchActionButton::Attack => ControlSlot::Attack,
         TouchActionButton::Special => ControlSlot::Special,
-        TouchActionButton::Dash => ControlSlot::Dash,
+        TouchActionButton::Dash => ControlSlot::Burst,
         TouchActionButton::Blink => ControlSlot::Blink,
         TouchActionButton::Interact => ControlSlot::Interact,
         TouchActionButton::Projectile => ControlSlot::Projectile,

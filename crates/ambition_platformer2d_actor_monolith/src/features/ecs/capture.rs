@@ -388,7 +388,7 @@ pub fn sample_capture_escape(
         // mashing the "wrong" one would look like a broken mechanic.
         let pressed = frame.melee_pressed
             || frame.jump_pressed
-            || frame.dash_pressed
+            || frame.burst_pressed
             || frame.special_pressed
             || frame.grab_pressed
             || frame.projectile_pressed;
@@ -1632,7 +1632,7 @@ pub fn restrict_captor_control(
         frame.jump_pressed = false;
         frame.jump_held = false;
         frame.jump_released = false;
-        frame.dash_pressed = false;
+        frame.burst_pressed = false;
         frame.blink_pressed = false;
         frame.blink_held = false;
         frame.blink_released = false;

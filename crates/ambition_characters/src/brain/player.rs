@@ -94,7 +94,7 @@ pub fn tick_player_brain_from_control(
         jump_pressed: _,
         jump_held: _,
         jump_released: _,
-        dash_pressed: _,
+        burst_pressed: _,
         interact_pressed: _,
         shield_held: _,
         grab_pressed: _,
@@ -240,8 +240,8 @@ pub fn tick_player_brain_from_control(
     // unless a specific mode opts in.
     out.body_contact_damage_enabled = false;
 
-    // Dash, interact, shield, grab, special.
-    out.dash_pressed = c.dash_pressed;
+    // Burst, interact, shield, grab, special.
+    out.burst_pressed = c.burst_pressed;
     out.interact_pressed = c.interact_pressed;
     out.shield_held = c.shield_held;
     // ⛔⛔ **THE LINE THAT WAS NOT HERE, AND THE WHOLE CAPTURE MECHANIC WAS

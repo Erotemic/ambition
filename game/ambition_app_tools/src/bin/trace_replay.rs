@@ -50,7 +50,7 @@ struct RecordedControls {
     jump_pressed: bool,
     jump_held: bool,
     jump_released: bool,
-    dash_pressed: bool,
+    burst_pressed: bool,
     left_pressed: bool,
     right_pressed: bool,
     up_pressed: bool,
@@ -95,7 +95,7 @@ impl From<RecordedControls> for AgentAction {
             jump: c.jump_pressed,
             jump_held: c.jump_held,
             jump_released: c.jump_released,
-            dash: c.dash_pressed,
+            dash: c.burst_pressed,
             attack: c.attack_pressed,
             attack_held: c.attack_held,
             attack_released: c.attack_released,
@@ -155,7 +155,9 @@ fn parse_trace_json(text: &str) -> Result<Vec<RecordedFrame>, String> {
                 jump_pressed: bool_field(controls, "jump_pressed"),
                 jump_held: bool_field(controls, "jump_held"),
                 jump_released: bool_field(controls, "jump_released"),
-                dash_pressed: bool_field(controls, "dash_pressed"),
+                // ⚠ the RECORDED key stays `dash_pressed`: renaming the Rust channel to
+                // BURST did not rewrite traces already on disk.
+                burst_pressed: bool_field(controls, "dash_pressed"),
                 left_pressed: bool_field(controls, "left_pressed"),
                 right_pressed: bool_field(controls, "right_pressed"),
                 up_pressed: bool_field(controls, "up_pressed"),

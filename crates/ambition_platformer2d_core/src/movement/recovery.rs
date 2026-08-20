@@ -1320,7 +1320,7 @@ mod dodge_shadows_the_dash {
             axes: LocalAxes::new(side, 0.0),
             movement: ActionEdges::<MovementAction>::EMPTY
                 .with(MovementAction::Jump, jump)
-                .with(MovementAction::Dash, burst),
+                .with(MovementAction::Burst, burst),
             ..Default::default()
         }
     }

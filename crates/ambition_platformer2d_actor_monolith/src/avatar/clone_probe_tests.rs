@@ -17,11 +17,11 @@
 //! `single_mut()`-keyed to the one `PlayerEntity` — see the player-clone probe
 //! in `docs/journals/content-authoring-pain-points.md`.)
 
-use ae::Vec2;
 use ae::movement::{
-    DEFAULT_AXIS_SWEPT_PARAMS, InputState, MotionModel, MotionStepContext, step_motion,
+    step_motion, InputState, MotionModel, MotionStepContext, DEFAULT_AXIS_SWEPT_PARAMS,
 };
 use ae::world::{Block, World};
+use ae::Vec2;
 use ambition_characters::actor::control::ActorControlFrame;
 use ambition_characters::brain::state_machine::PlayerDemoCfg;
 use ambition_characters::brain::{Brain, BrainSnapshot, StateMachineCfg};
@@ -73,9 +73,9 @@ fn input_from_frame(f: &ActorControlFrame) -> InputState {
                 },
             )
             .with(
-                ambition_platformer2d_core::MovementAction::Dash,
+                ambition_platformer2d_core::MovementAction::Burst,
                 ambition_platformer2d_core::Edge {
-                    pressed: f.dash_pressed,
+                    pressed: f.burst_pressed,
                     held: false,
                     released: false,
                 },

@@ -1084,7 +1084,7 @@ fn tick_aerial_hostile(
 // in a repeating cycle. It exists to PROVE the universal-brain seam: an entity
 // carrying the player movement clusters + this brain is driven through the exact
 // same `update_player_control_with_clusters` integration the human player uses,
-// with no player-specific code path. It emits `jump_pressed` / `dash_pressed` /
+// with no player-specific code path. It emits `jump_pressed` / `burst_pressed` /
 // `fly_toggle_pressed` on the shared [`ActorControlFrame`] — byte-identical to a
 // human pressing those buttons. The clock comes from `snapshot.sim_time`.
 
@@ -1181,7 +1181,7 @@ fn tick_player_demo(
         PlayerDemoPhase::Dash => {
             out.facing = 1.0;
             out.locomotion = ae::LocalAxes::new(run, 0.0);
-            out.dash_pressed = just_entered;
+            out.burst_pressed = just_entered;
         }
         PlayerDemoPhase::Fly => {
             // Toggle fly ON when entering the phase, then climb (engine `+y` is

@@ -46,7 +46,11 @@ pub enum ControlSlot {
     /// slot maps 1:1 to the `"ranged"` moveset verb, so the three combat slots
     /// Attack/Special/Projectile line up with the three moveset verbs.)
     Projectile,
-    Dash,
+    /// **The BURST slot — one press, several meanings.** Dodge and dash are the
+    /// same input; which one a press buys is the BODY's answer, not the slot's,
+    /// so the slot is named for the channel rather than for whichever outcome a
+    /// given body happens to own.
+    Burst,
     Blink,
     Interact,
     /// Utility slot — fly toggle / form toggle and similar mode switches.
@@ -58,7 +62,7 @@ pub enum ControlSlot {
     ///
     /// ⚠ **this was `QuickAction`, and the generic name was the lie.** Every other
     /// slot here is named for its DEFAULT action — Jump, Attack, Special,
-    /// Projectile, Dash, Blink, Interact — and each of them still hosts a content
+    /// Projectile, Burst, Blink, Interact — and each of them still hosts a content
     /// technique without the name misleading anybody. `QuickAction` was the one
     /// slot named for its ceremony instead, and the measurement that settled it is
     /// that its only occupant anywhere in the workspace is the shield: the sole
@@ -111,7 +115,7 @@ pub const CANONICAL_SLOT_ORDER: [ControlSlot; 12] = [
     ControlSlot::Special,
     ControlSlot::Projectile,
     ControlSlot::Grab,
-    ControlSlot::Dash,
+    ControlSlot::Burst,
     ControlSlot::Blink,
     ControlSlot::Interact,
     ControlSlot::Utility,
@@ -145,7 +149,8 @@ impl From<&str> for ActionId {
 /// their own ids; these name the engine primitives the derivation emits.
 pub mod ids {
     pub const JUMP: &str = "jump";
-    pub const DASH: &str = "dash";
+    /// The shared BURST press — the dodge/dash channel, not either verb.
+    pub const BURST: &str = "burst";
     pub const BLINK: &str = "blink";
     pub const FLY_TOGGLE: &str = "fly_toggle";
     pub const SHIELD: &str = "shield";
@@ -175,7 +180,7 @@ pub struct VisualId(pub String);
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ActionGate {
     /// Drives the movement kernel. String is the movement-action id
-    /// (`"jump"`, `"dash"`, `"blink"`, `"fly_toggle"`).
+    /// (`"jump"`, `"burst"`, `"blink"`, `"fly_toggle"`).
     Movement(String),
     /// A content-defined movement technique (Sanic ball, ground-pound). String
     /// is the technique id its content system consumes.
@@ -423,30 +428,30 @@ mod tests {
     #[test]
     fn scheme_iteration_is_canonical_regardless_of_insertion_order() {
         // Assemble deliberately out of canonical order; `new` sorts.
-        let dash = ActionSpec {
-            id: ActionId::new(ids::DASH),
-            slot: ControlSlot::Dash,
+        let burst = ActionSpec {
+            id: ActionId::new(ids::BURST),
+            slot: ControlSlot::Burst,
             display_name: None,
             visual: None,
-            gate: ActionGate::Movement(ids::DASH.to_owned()),
+            gate: ActionGate::Movement(ids::BURST.to_owned()),
         };
         let jump = ActionSpec {
             slot: ControlSlot::Jump,
             id: ActionId::new(ids::JUMP),
             gate: ActionGate::Movement(ids::JUMP.to_owned()),
-            ..dash.clone()
+            ..burst.clone()
         };
         let attack = ActionSpec {
             slot: ControlSlot::Attack,
             id: ActionId::new(ids::ATTACK),
             gate: ActionGate::Move(ids::ATTACK.to_owned()),
-            ..dash.clone()
+            ..burst.clone()
         };
-        let scheme = ActionSchemeContract::new(vec![dash, attack, jump]);
+        let scheme = ActionSchemeContract::new(vec![burst, attack, jump]);
         let order: Vec<ControlSlot> = scheme.iter().map(|a| a.slot).collect();
         assert_eq!(
             order,
-            vec![ControlSlot::Jump, ControlSlot::Attack, ControlSlot::Dash]
+            vec![ControlSlot::Jump, ControlSlot::Attack, ControlSlot::Burst]
         );
         assert!(scheme.has_slot(ControlSlot::Jump));
         assert!(!scheme.has_slot(ControlSlot::Blink));

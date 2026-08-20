@@ -111,7 +111,7 @@ impl From<AgentAction> for ControlFrame {
             jump_pressed: a.jump,
             jump_held: a.jump_held,
             jump_released: a.jump_released,
-            dash_pressed: a.dash,
+            burst_pressed: a.dash,
             // up_pressed / down_pressed are edge-triggered (just-
             // pressed) on the desktop input pipeline. Auto-deriving
             // them from move_y > 0.5 every frame breaks gestures

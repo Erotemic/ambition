@@ -144,8 +144,10 @@ pub(super) fn apply_intent(
     // that did not ALSO carry the traversal burst it has nothing to do with.
     // Invisible while the shipped fighter kit happened to author both.
     // `movement_actions` in the character action scheme already asks the
-    // question this way (`dash || dodge` earns the slot); the kernel now agrees.
-    if input.dash_pressed() && (abilities.abilities.dash || abilities.abilities.dodge) {
+    // question this way (`dash || dodge` earns `ControlSlot::Burst`); the kernel
+    // now agrees, and the slot is named for the channel rather than for one
+    // outcome of it.
+    if input.burst_pressed() && (abilities.abilities.dash || abilities.abilities.dodge) {
         state.buffer_burst = tuning.abilities.dash_buffer;
     }
 }
@@ -499,7 +501,7 @@ mod burst_maneuver_tests {
         let mut input = InputState::default();
         input
             .movement
-            .set_pressed(crate::movement::input::MovementAction::Dash, true);
+            .set_pressed(crate::movement::input::MovementAction::Burst, true);
         let grounded = BodyGroundState {
             on_ground: true,
             ..Default::default()

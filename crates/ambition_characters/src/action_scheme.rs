@@ -100,7 +100,7 @@ impl ResolvedTechniqueEdges {
 }
 
 /// A technique the derived scheme declared on a control slot the combat frame
-/// has NO device verb for — a movement slot (Jump / Dash / Blink) or Interact.
+/// has NO device verb for — a movement slot (Jump / Burst / Blink) or Interact.
 /// Those need the Phase-3 kernel re-key before a technique can fire from them;
 /// until then [`resolve_control_slots`] REFUSES to pretend it wired one, and
 /// returns it here so the caller can surface the mistake (a debug-assert)
@@ -159,7 +159,7 @@ fn clear_projectile(control: &mut ActorControlFrame) {
 /// `held` and is not consumed), Utility switches mode (a one-shot press, cleared
 /// after routing).
 ///
-/// A `Technique` declared on a slot WITHOUT a device verb here (Jump / Dash /
+/// A `Technique` declared on a slot WITHOUT a device verb here (Jump / Burst /
 /// Blink / Interact) is returned in the [`UnroutableTechnique`] list rather than
 /// dropped: those cannot fire until the kernel consumes actions (Phase 3).
 ///
@@ -336,7 +336,7 @@ pub fn resolve_control_slots(
             }
             // Movement + Interact slots have NO device verb in this frame. A
             // technique placed there has no wired path yet → reject, never drop.
-            ControlSlot::Jump | ControlSlot::Dash | ControlSlot::Blink | ControlSlot::Interact => {
+            ControlSlot::Jump | ControlSlot::Burst | ControlSlot::Blink | ControlSlot::Interact => {
                 if let Some(ActionGate::Technique(id)) = gate.as_ref() {
                     unroutable.push(UnroutableTechnique {
                         slot,
@@ -350,18 +350,45 @@ pub fn resolve_control_slots(
     unroutable
 }
 
-/// One movement ability → (slot, action-id, movement-action-id) mapping. The
+/// One movement CAPABILITY → (slot, action-id, movement-action-id) mapping. The
 /// bool is read off the `AbilitySet`; only enabled ones become actions, so a
 /// body simply lacks a slot for a capability it doesn't have (no phantom
 /// buttons, no post-hoc stripping).
+///
+/// ⚠ **a slot is a CHANNEL, so one row may read more than one ability bit.**
+/// `Burst` is the example: dodge and dash are one press, and the kernel's
+/// `resolve_burst_maneuver` is what decides which of them a given body gets —
+/// so a body owning EITHER earns the button, and neither verb's name belongs on
+/// it. The slot used to be spelled `Dash`, which handed all fifteen smash
+/// fighters (`dash: false, dodge: true`) a touch button labelled **Dash** for a
+/// traversal dash they do not have: a phantom button by NAME, under a comment
+/// promising there were none.
 fn movement_actions(abilities: &AbilitySet) -> Vec<ActionSpec> {
-    // (has-ability, slot, id) — id doubles as the movement-action gate string.
+    // **The burst button's player-facing word, and it follows the KERNEL'S
+    // PRECEDENCE rather than a preference.**
+    //
+    // The slot is `Burst` because dodge and dash are one press — but "Burst" is
+    // engine vocabulary and no player has ever pressed one. Naming it after the
+    // channel would trade a wrong word (`Dash` on a fighter that cannot dash)
+    // for a meaningless one on every body.
+    //
+    // ⭐ `resolve_burst_maneuver` asks `available_dodge` FIRST and only reaches
+    // `dash_available` when no dodge is on offer, so a body owning both mostly
+    // DODGES when this is pressed. The label says the same thing the kernel
+    // does, which is why it is derived from that order and not chosen.
+    //
+    // ⚠ this is a per-BODY fact, not a per-position one: it depends on which
+    // capabilities the body owns, so it is stable while the player moves. That
+    // is the distinction that makes it acceptable under `PromptNaming::ByMove`
+    // where naming an attack slot after its currently-resolvable move is not.
+    let burst_word = if abilities.dodge { "Dodge" } else { "Dash" };
+    // (has-capability, slot, id) — id doubles as the movement-action gate string.
     let table: [(bool, ControlSlot, &str); 5] = [
         (abilities.jump, ControlSlot::Jump, ids::JUMP),
         (
             abilities.dash || abilities.dodge,
-            ControlSlot::Dash,
-            ids::DASH,
+            ControlSlot::Burst,
+            ids::BURST,
         ),
         (abilities.blink, ControlSlot::Blink, ids::BLINK),
         (
@@ -377,7 +404,9 @@ fn movement_actions(abilities: &AbilitySet) -> Vec<ActionSpec> {
         .map(|(_, slot, id)| ActionSpec {
             id: ActionId::new(id),
             slot,
-            display_name: None,
+            // Only the burst row needs one; every other movement id title-cases
+            // into the word a player already uses ("jump" -> "Jump").
+            display_name: (slot == ControlSlot::Burst).then(|| burst_word.to_owned()),
             visual: None,
             gate: ActionGate::Movement(id.to_owned()),
         })
@@ -708,7 +737,7 @@ mod tests {
                 ControlSlot::Attack,
                 ControlSlot::Special,
                 ControlSlot::Projectile,
-                ControlSlot::Dash,
+                ControlSlot::Burst,
                 ControlSlot::Blink,
                 ControlSlot::Interact,
             ]
@@ -743,7 +772,7 @@ mod tests {
         let scheme = derive_action_scheme(&ab, None, None, &[]);
         assert_eq!(
             slots(&scheme),
-            vec![ControlSlot::Jump, ControlSlot::Dash, ControlSlot::Interact]
+            vec![ControlSlot::Jump, ControlSlot::Burst, ControlSlot::Interact]
         );
         assert!(!scheme.has_slot(ControlSlot::Attack));
         assert!(!scheme.has_slot(ControlSlot::Special));
@@ -812,7 +841,7 @@ mod tests {
             let scheme = derive_action_scheme(&ab, Some(&ms), None, &[]);
 
             assert_eq!(scheme.has_slot(ControlSlot::Jump), jump);
-            assert_eq!(scheme.has_slot(ControlSlot::Dash), dash);
+            assert_eq!(scheme.has_slot(ControlSlot::Burst), dash);
             assert_eq!(scheme.has_slot(ControlSlot::Blink), blink);
             assert_eq!(
                 scheme.has_slot(ControlSlot::Attack),
@@ -1008,7 +1037,7 @@ mod tests {
     fn technique_on_a_non_combat_slot_is_rejected_not_dropped() {
         for slot in [
             ControlSlot::Jump,
-            ControlSlot::Dash,
+            ControlSlot::Burst,
             ControlSlot::Blink,
             ControlSlot::Interact,
         ] {

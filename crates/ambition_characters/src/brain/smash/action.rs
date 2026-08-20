@@ -41,7 +41,7 @@ pub enum SpecificAction {
     /// **Close hard** — the same direction as `Walk`, at FULL locomotion
     /// throttle instead of the walk's partial one.
     ///
-    /// ⛔ this was `Dash`, and the name was the bug. It emitted `dash_pressed`
+    /// ⛔ this was `Dash`, and the name was the bug. It emitted `burst_pressed`
     /// on top of the throttle, so a brain that had decided *close the gap* was
     /// also asking for whatever the shared burst button meant on that body —
     /// which on a smash fighter is a DODGE ROLL, i.e. an evade in the direction

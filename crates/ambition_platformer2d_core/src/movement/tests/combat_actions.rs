@@ -30,7 +30,7 @@ fn dodge_roll_triggers_on_ground_with_ability() {
         &mut scratch,
         InputState {
             movement: crate::ActionEdges::EMPTY.with(
-                crate::MovementAction::Dash,
+                crate::MovementAction::Burst,
                 crate::Edge {
                     pressed: true,
                     held: false,
@@ -65,7 +65,7 @@ fn dodge_roll_blocked_by_cooldown() {
         &mut scratch,
         InputState {
             movement: crate::ActionEdges::EMPTY.with(
-                crate::MovementAction::Dash,
+                crate::MovementAction::Burst,
                 crate::Edge {
                     pressed: true,
                     held: false,
@@ -94,7 +94,7 @@ fn dodge_roll_disabled_when_ability_off() {
         &mut scratch,
         InputState {
             movement: crate::ActionEdges::EMPTY.with(
-                crate::MovementAction::Dash,
+                crate::MovementAction::Burst,
                 crate::Edge {
                     pressed: true,
                     held: false,
@@ -261,7 +261,7 @@ fn shield_disabled_when_ability_off() {
 fn air_dodge_input(x: f32, y: f32) -> InputState {
     InputState {
         movement: crate::ActionEdges::EMPTY.with(
-            crate::MovementAction::Dash,
+            crate::MovementAction::Burst,
             crate::Edge {
                 pressed: true,
                 held: false,
@@ -646,7 +646,7 @@ fn a_tech_on_the_landing_skips_the_knockdown_entirely() {
     launch(&world, &mut scratch, 900.0);
     let dash = InputState {
         movement: crate::ActionEdges::EMPTY.with(
-            crate::MovementAction::Dash,
+            crate::MovementAction::Burst,
             crate::Edge {
                 pressed: true,
                 held: false,
@@ -706,7 +706,7 @@ fn down_on_the_stick_spot_dodges_instead_of_rolling() {
             InputState {
                 axes: stick,
                 movement: crate::ActionEdges::EMPTY.with(
-                    crate::MovementAction::Dash,
+                    crate::MovementAction::Burst,
                     crate::Edge {
                         pressed: true,
                         held: false,
@@ -762,7 +762,7 @@ fn a_tumbling_body_can_tech_off_a_wall() {
 
     let dash = InputState {
         movement: crate::ActionEdges::EMPTY.with(
-            crate::MovementAction::Dash,
+            crate::MovementAction::Burst,
             crate::Edge {
                 pressed: true,
                 held: false,
@@ -819,7 +819,7 @@ fn a_mistimed_tech_locks_the_option_out() {
     launch(&world, &mut scratch, 900.0);
     let dash = InputState {
         movement: crate::ActionEdges::EMPTY.with(
-            crate::MovementAction::Dash,
+            crate::MovementAction::Burst,
             crate::Edge {
                 pressed: true,
                 held: false,

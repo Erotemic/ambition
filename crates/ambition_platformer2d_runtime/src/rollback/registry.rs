@@ -319,6 +319,34 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// it also moved `ambition_cutscene` and `ambition_demo_twintrack`, which is the
 /// instrument CHANGING and NOT a wire change in either: neither file was edited.
 ///
+/// ⛔⛔ **v41's ENTRY BELOW WAS INCOMPLETE, AND THE DECISION WAS STILL RIGHT.**
+/// Corrected 2026-08-20 the same day, after a peer lane found the rest. The bump
+/// was correct and `--record` captured the whole tree, so the BASELINE never
+/// lied; what was short is the prose, which is the human-readable contract for
+/// what a version MEANS. THREE codec files moved at v41, not one — measured by
+/// diffing the recorded baseline across the commit rather than by re-reading the
+/// diff that prompted it:
+///
+/// ```text
+/// ambition_characters/snapshot_impls.rs        240 prims (unchanged)  hash moved   the taunt bool
+/// ambition_platformer2d_core/motion_codec.rs   314 -> 326 prims       +12          ShieldTuning's SIX fields, put and read
+/// ambition_platformer2d_core/snapshot_impls.rs 102 prims (unchanged)  hash moved   BodyShieldState + depleted/break_timer/stun_timer
+/// plus `MovementOp::ShieldBreak = 33`, a new wire CODE
+/// ```
+///
+/// ⭐ **the lesson is about the instrument, not the miss.** `pytest
+/// scripts/tests/` truncates its diff — it printed *"At index 1 diff"* and one
+/// row, and I described the tree from that one row. ⇒ **when a recorded baseline
+/// reddens, diff the RECORDED FILE across the commit and enumerate every moved
+/// row**; the test's message names an example, not the change. Two of the three
+/// rows above have an UNCHANGED primitive count and a moved hash, which is
+/// exactly the array/struct-folded case the checker was taught to catch and the
+/// case a reader skimming counts would call unmoved.
+///
+/// ⚠ **`MovementOp` codes are the least wire-looking wire there is.** A
+/// `BodyComboTrace` carrying op 33 is undecodable to a v40 peer, and nothing
+/// about the name says "wire".
+///
 /// ⚠ **v41 (2026-08-20) is ONE BIT: `ActorControlFrame::taunt_pressed`.** The
 /// taunt verb travels the road a grab travels, and its codec edge exists for the
 /// same reason the grab edge does — a resimulated tick that lost the press did
@@ -758,7 +786,6 @@ pub fn descriptor_owned<T: 'static>(
         detail,
     }
 }
-
 
 /// Record one schema descriptor on an app, independent of the active rollback backend.
 ///

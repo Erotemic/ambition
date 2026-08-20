@@ -112,20 +112,15 @@ yet; it is not a one-line correction and must not be attempted as one.
 
 ### ⛔⛔ The orphan — FIXED 2026-08-15
 
-`unequip_held` empties the hand and touches nothing else, so the inventory menu's
+`unequip_held` emptied the hand and touched nothing else, so the inventory menu's
 **Stow** and its **equip-swap** (`game/ambition_app/src/menu/effects.rs` lines 154
 and 192) left a picked-up object recording `ItemCustody::Held` by a body with an
-empty hand — a third state the enum does not have: skipped by physics, by the
-pickup, by the drawn view, and unfindable by the throw. An authored axe carrying
-`SimId::placement(..)` silently ceased to exist **through the menu**, which is the
-exact loss `ItemCustody` was introduced to prevent at the despawn. It is "retract
-by REMOVING" wearing a different hat.
-
-⭐ Fixed by `return_released_items` (first in the `CoreHeldItems` chain): custody
-is **re-derived from the hand each tick** and reset to `InWorld` at the holder's
-position. A derive rather than a call inside `unequip_held` because every
-orphaning caller lives in `Update`, in another crate, holding no item query — what
-a caller cannot be given it cannot be trusted to remember.
+empty hand — a third state the enum does not have, invisible to physics, pickup,
+drawn view and throw. It is "retract by REMOVING" wearing a different hat. Fixed
+by `return_released_items` (first in the `CoreHeldItems` chain): custody is
+**re-derived from the hand each tick** and reset to `InWorld` at the holder's
+position, rather than released once inside `unequip_held`, because every
+orphaning caller lives in `Update`, in another crate, holding no item query.
 
 ⚠ **still open:** a holder that DESPAWNS while carrying. That is the death
 resolver's question (`caps.drops_held_item` already MINTS a replacement

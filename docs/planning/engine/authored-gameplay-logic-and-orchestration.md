@@ -274,10 +274,7 @@ semantic conditions/commands to preparation and discovery.
 enumerates both; ⭐ **no central engine enum is edited to add the second
 provider** — this is the behavioral test, not a review opinion.
 
-✔✔ **MET FOR CONDITIONS, 2026-08-15; consumer side closed 2026-08-16 — and this
-milestone said "not authorized to start" for a day after it had already been
-satisfied.** ⛔ that is the failure
-this program's own routing warns about; check HEAD before scheduling a milestone.
+✔✔ **MET FOR CONDITIONS, 2026-08-15; consumer side closed 2026-08-16.**
 
 Landed evidence, all at HEAD:
 

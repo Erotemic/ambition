@@ -318,6 +318,9 @@ pub fn apply_hitbox_damage(
     // The swing owner's team, looked up the same way its grudge is. Read-only,
     // so it may overlap the victim query.
     attacker_team: Query<&crate::targeting::MatchTeam>,
+    // The swing owner's own accumulated damage, for RAGE. Looked up exactly like
+    // its grudge and its team, and read-only for the same reason.
+    attacker_health: Query<&ambition_characters::actor::BodyHealth>,
     // The attacker's own move state, read for ONE thing: the per-strike dedup
     // accumulator that keeps a multi-tick Active window from re-smashing the same
     // breakable every frame. `MovePlayback` is authoritative move-timeline state
@@ -346,6 +349,9 @@ pub fn apply_hitbox_damage(
         .as_deref()
         .map(|t| t.knockback_growth)
         .unwrap_or_default();
+    // RAGE is read here for the same reason growth is read per victim below:
+    // the resource is borrowed once and each rule takes what it needs.
+    let rules = tuning.as_deref().copied().unwrap_or_default();
     let friendly_fire = tuning.map(|t| t.friendly_fire()).unwrap_or_default();
     for (hitbox_entity, hitbox, mut hits) in &mut hitboxes {
         // Resolve the owner's collision-box center for FollowOwner tracking.
@@ -430,6 +436,18 @@ pub fn apply_hitbox_damage(
                     victim_damage_taken,
                     victim_weight,
                     ruleset_growth,
+                );
+                // ⭐ **RAGE, and it is the mirror of the percent mechanic.** The
+                // victim's damage already scaled that launch; without this the
+                // fighter behind is punished twice — easier to launch and no
+                // harder to launch with. `1.0` in a game that declares no rage.
+                let magnitude = magnitude.scaled(
+                    rules.rage_scale(
+                        attacker_health
+                            .get(hitbox.owner)
+                            .map(|h| h.damage_taken())
+                            .unwrap_or(0),
+                    ),
                 );
                 let knockback = Some(HitKnockback {
                     dir,

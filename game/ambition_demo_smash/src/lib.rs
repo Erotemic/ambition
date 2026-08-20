@@ -892,6 +892,12 @@ pub fn smash_declared_combat_rules() -> ambition_platformer2d::combat::rules::De
         // stage is survivable. The window ENDING is what the genre calls the
         // meteor cancel; there is no second verb.
         meteor_lock_time: 0.30,
+        // ⭐ **RAGE, capped at 1.4x.** The percent mechanic already makes a hurt
+        // fighter easier to launch; without this it is punished twice, and the
+        // last stock stops being a fight. The cap is what keeps a comeback a
+        // chance rather than a coin flip.
+        rage_per_damage: 0.004,
+        rage_max_scale: 1.4,
         // ⚠ teams already decide who may hit whom. Switching global friendly
         // fire on to let two humans trade would make TEAMMATES hittable too.
         friendly_fire: false,

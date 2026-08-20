@@ -765,6 +765,10 @@ fn track_versus_roster(
                 // has nowhere to send you and a window you cannot recover in
                 // would be a stun with no payoff.
                 meteor_lock_time: 0.0,
+                // ⚠ and no rage, for the third time the same reason: health
+                // rounds have no percent mechanic to mirror.
+                rage_per_damage: 0.0,
+                rage_max_scale: 1.0,
                 // ⚠ the generic versus stage stays FLAT for now: its rounds end
                 // on health rather than on a blast zone, so a launch that grows
                 // without bound is a different game's mechanic. Smash declares

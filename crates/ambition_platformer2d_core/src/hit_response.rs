@@ -34,6 +34,17 @@ pub enum HitKnockbackMagnitude {
     LaunchSpeed(f32),
 }
 
+impl HitKnockbackMagnitude {
+    /// **The same launch, harder.** Multiplies whichever way this magnitude is
+    /// expressed, so a caller scaling a hit does not have to know which.
+    pub fn scaled(self, scale: f32) -> Self {
+        match self {
+            Self::FeelScale(v) => Self::FeelScale(v * scale),
+            Self::LaunchSpeed(v) => Self::LaunchSpeed(v * scale),
+        }
+    }
+}
+
 /// Knockback impulse carried by a hit. Producers fill this on hits that
 /// should push the victim around (enemy melee, enemy projectile, boss swing);
 /// leave `None` for impulse-free hits (player slash, pogo).

@@ -107,6 +107,21 @@ pub struct DeclaredCombatRules {
     /// ⚠ what the genre calls "meteor cancel" is this window ENDING. There is no
     /// second verb to press.
     pub meteor_lock_time: f32,
+    /// **RAGE — how much a body's OWN accumulated damage raises the knockback it
+    /// DEALS**, per point. `0.0` (the baseline) is no rage at all.
+    ///
+    /// ⭐ the mirror of the percent mechanic and the reason a losing fighter is
+    /// dangerous: a body already scales the knockback it TAKES by its own
+    /// damage, so without this the fighter behind is punished twice — easier to
+    /// launch and no harder to be launched by. Rage is what makes a comeback a
+    /// thing the rules produce rather than a thing a player hopes for.
+    ///
+    /// ⚠ capped by [`Self::rage_max_scale`], because uncapped it turns the last
+    /// stock into a coin flip.
+    pub rage_per_damage: f32,
+    /// The ceiling on [`Self::rage_per_damage`], as a multiplier. `1.0` = rage
+    /// can never help, whatever the per-point rate says.
+    pub rage_max_scale: f32,
     /// Whether same-faction bodies damage each other.
     ///
     /// ⚠ a match with declared TEAMS should leave this `false`. `MatchTeam`
@@ -154,6 +169,10 @@ pub struct ResolvedCombatTuning {
     pub downward_hit: DownwardHitStyle,
     /// See [`DeclaredCombatRules::meteor_lock_time`].
     pub meteor_lock_time: f32,
+    /// See [`DeclaredCombatRules::rage_per_damage`].
+    pub rage_per_damage: f32,
+    /// See [`DeclaredCombatRules::rage_max_scale`].
+    pub rage_max_scale: f32,
     pub friendly_fire: bool,
 }
 
@@ -181,6 +200,17 @@ impl DeclaredCombatRules {
 }
 
 impl ResolvedCombatTuning {
+    /// **What an attacker's own damage multiplies its knockback by**, capped.
+    /// `1.0` for a game that declares no rage, and for a fresh fighter in one
+    /// that does.
+    pub fn rage_scale(self, attacker_damage_taken: i32) -> f32 {
+        if self.rage_per_damage <= 0.0 {
+            return 1.0;
+        }
+        (1.0 + self.rage_per_damage * attacker_damage_taken.max(0) as f32)
+            .min(self.rage_max_scale.max(1.0))
+    }
+
     /// The fold: a declaration wins outright, the baseline stands otherwise.
     pub fn resolve(
         declared: Option<DeclaredCombatRules>,
@@ -193,6 +223,8 @@ impl ResolvedCombatTuning {
                 knockback_growth: rules.knockback_growth,
                 downward_hit: rules.downward_hit,
                 meteor_lock_time: rules.meteor_lock_time,
+                rage_per_damage: rules.rage_per_damage,
+                rage_max_scale: rules.rage_max_scale,
                 friendly_fire: rules.friendly_fire,
             },
             // ⚠ growth has NO world baseline to fall back to, unlike DI and
@@ -206,6 +238,8 @@ impl ResolvedCombatTuning {
                 // room to buy a Smash feature.
                 downward_hit: DownwardHitStyle::Pogo,
                 meteor_lock_time: 0.0,
+            rage_per_damage: 0.0,
+            rage_max_scale: 1.0,
                 friendly_fire: baseline_ff,
             },
         }
@@ -232,6 +266,8 @@ impl Default for ResolvedCombatTuning {
             knockback_growth: 0.0,
             downward_hit: DownwardHitStyle::Pogo,
                 meteor_lock_time: 0.0,
+            rage_per_damage: 0.0,
+            rage_max_scale: 1.0,
             friendly_fire: false,
         }
     }
@@ -261,6 +297,8 @@ mod tests {
                 knockback_growth: 0.0,
                 downward_hit: DownwardHitStyle::Pogo,
                 meteor_lock_time: 0.0,
+            rage_per_damage: 0.0,
+            rage_max_scale: 1.0,
                 friendly_fire: false,
                 unarmed_melee: None,
             }),
@@ -285,6 +323,8 @@ mod tests {
             knockback_growth: 0.0,
             downward_hit: DownwardHitStyle::Pogo,
                 meteor_lock_time: 0.0,
+            rage_per_damage: 0.0,
+            rage_max_scale: 1.0,
             friendly_fire: true,
             unarmed_melee: None,
         });
@@ -299,8 +339,60 @@ mod tests {
                 knockback_growth: 0.0,
                 downward_hit: DownwardHitStyle::Pogo,
                 meteor_lock_time: 0.0,
+            rage_per_damage: 0.0,
+            rage_max_scale: 1.0,
                 friendly_fire: false,
             }
         );
+    }
+}
+
+#[cfg(test)]
+mod rage_tests {
+    use super::*;
+
+    fn raging(per_damage: f32, max_scale: f32) -> ResolvedCombatTuning {
+        ResolvedCombatTuning {
+            rage_per_damage: per_damage,
+            rage_max_scale: max_scale,
+            ..ResolvedCombatTuning::default()
+        }
+    }
+
+    /// **A LOSING FIGHTER HITS HARDER, UP TO A CEILING.**
+    ///
+    /// ⛔ the reason rage exists at all: a body already scales the knockback it
+    /// TAKES by its own damage, so without this the fighter behind is punished
+    /// twice — easier to launch and no harder to launch with. And the cap is not
+    /// decoration: uncapped, the last stock stops being a fight.
+    #[test]
+    fn rage_grows_with_the_attackers_own_damage_and_stops_at_the_cap() {
+        let rules = raging(0.01, 1.5);
+        assert_eq!(rules.rage_scale(0), 1.0, "a fresh fighter got a bonus");
+        assert_eq!(rules.rage_scale(50), 1.5);
+        assert!(rules.rage_scale(20) > 1.0 && rules.rage_scale(20) < 1.5);
+        assert_eq!(
+            rules.rage_scale(500),
+            1.5,
+            "rage ran past its ceiling, so the last stock is a coin flip"
+        );
+        assert_eq!(rules.rage_scale(-7), 1.0, "healed below zero paid a bonus");
+    }
+
+    /// **AND A GAME THAT DECLARES NO RAGE NEVER GETS ANY.**
+    ///
+    /// ⛔ the floor that keeps Ambition's PvE unchanged: the baseline declares
+    /// `0.0`, and a rate of zero must be exactly `1.0` however hurt the attacker
+    /// is — not `1.0 + 0.0 * n` rounded, but the early return.
+    #[test]
+    fn an_undeclared_world_has_no_rage() {
+        let plain = ResolvedCombatTuning::default();
+        assert_eq!(plain.rage_per_damage, 0.0);
+        for damage in [0, 1, 50, 999] {
+            assert_eq!(plain.rage_scale(damage), 1.0);
+        }
+        // ⚠ and a rate with a ceiling of 1.0 cannot help either, whatever the
+        // rate says — the cap is the authority.
+        assert_eq!(raging(0.05, 1.0).rage_scale(200), 1.0);
     }
 }

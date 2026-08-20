@@ -874,6 +874,25 @@ pub struct BodyReaction {
     pub had_knockback: bool,
 }
 
+/// **How a victim was standing when a hit landed**, and the two facts a
+/// reaction reads off it.
+///
+/// ⛔ **a struct rather than the `(bool, bool)` it would otherwise be**, and the
+/// capture kit's own note is the argument: *"inserting it mid-list silently
+/// shifted two positional arguments into the wrong slots and the compiler
+/// reported it as a type error three parameters away."* Two adjacent booleans in
+/// a twelve-argument list is that failure waiting.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct VictimStance {
+    /// **Standing on something?** The meteor rule reads it: a spike on a
+    /// grounded body is not a spike.
+    pub grounded: bool,
+    /// **Crouching?** CROUCH CANCEL — a crouching body takes less knockback, so
+    /// ducking is a defensive option at low percent rather than only a shorter
+    /// hurtbox. See [`ambition_combat::rules::DeclaredCombatRules::crouch_cancel_scale`].
+    pub crouching: bool,
+}
+
 pub(crate) fn apply_body_hit_reaction(
     vel: &mut ae::Vec2,
     // **The carried-momentum channel.** The launch is momentum the WORLD
@@ -892,14 +911,18 @@ pub(crate) fn apply_body_hit_reaction(
     knockback: Option<&crate::combat::HitKnockback>,
     // The struck body's held control (local frame) for DI (CM2). `ZERO` = none.
     di_input_local: ae::Vec2,
-    // **Is the victim standing on something?** Only for the meteor rule: a
-    // spike on a grounded body is not a spike.
-    grounded: bool,
+    // **How the victim was STANDING when the hit landed.** See [`VictimStance`].
+    stance: VictimStance,
     feel: Platformer2dFeelTuningMonolith,
 ) -> BodyReactionOutcome {
     // ONE tuning row for the whole reaction, so the launch and the hitstun
     // cannot disagree about which feel numbers this hit uses (FB6b).
     let response = hit_response_tuning(&feel, boss_hit);
+    // ⭐ **CROUCH CANCEL** — a crouching body takes less of the launch, so
+    // ducking is a defensive READ at low percent rather than only a shorter
+    // hurtbox. ⚠ flat, with no percent threshold, because the threshold is
+    // emergent: 85% of a kill move is still a kill, and the option stops
+    // mattering by itself exactly where the genre stops using it.
     let launch = ae::hit_response::knockback_velocity(
         body_pos,
         body_facing,
@@ -907,7 +930,11 @@ pub(crate) fn apply_body_hit_reaction(
         knockback,
         di_input_local,
         &response,
-    );
+    ) * if stance.crouching {
+        feel.crouch_cancel_scale
+    } else {
+        1.0
+    };
     *vel = launch;
     // ⭐ **and PUBLISH it, because the write above is not authoritative for every
     // body.** `BodyKinematics::vel` is the authority for an axis-swept body and a
@@ -937,7 +964,7 @@ pub(crate) fn apply_body_hit_reaction(
     // silence of a stated length rather than two stacked. And airborne only: a
     // body already standing on the floor is driven into a floor it is on, and
     // charging it a recovery window for that would be a free stun.
-    let meteor = !grounded
+    let meteor = !stance.grounded
         && feel.meteor_lock_time > 0.0
         && launch.dot(gravity_dir) > 0.0
         && launch.length_squared() > 0.0;
@@ -1055,7 +1082,10 @@ pub(crate) fn apply_player_knockback(
         boss_hit,
         knockback,
         di_input_local,
-        clusters.ground.on_ground,
+        VictimStance {
+            grounded: clusters.ground.on_ground,
+            crouching: clusters.body_mode.body_mode == ae::BodyMode::Crouching,
+        },
         feel,
     );
     ae::refresh_movement_resources_clusters(
@@ -1410,6 +1440,7 @@ pub fn apply_player_hit_events(
     // ⭐ the same fold, for the same reason: a stage's rule is the authority and
     // the baseline is only what an undeclared world keeps.
     feel.meteor_lock_time = combat_rules.meteor_lock_time;
+    feel.crouch_cancel_scale = combat_rules.crouch_cancel_scale;
     // The bare authored room, for the death path that must NOT see moving
     // platforms or overlay solids. `solids()` below proves one is loaded.
     let Some(room) = collision.base() else {

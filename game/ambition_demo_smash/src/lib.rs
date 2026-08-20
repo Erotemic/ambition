@@ -944,6 +944,10 @@ pub fn smash_declared_combat_rules() -> ambition_platformer2d::combat::rules::De
         // barely half. Vary and the old one recovers — the ring forgets.
         stale_step: 0.05,
         stale_floor: 0.55,
+        // ⭐ **CROUCH CANCEL, 0.85x.** Ducking is a defensive read, not just a
+        // shorter hurtbox — and the 15% is what makes it one at low percent
+        // without saving anybody from a kill move.
+        crouch_cancel_scale: 0.85,
         // ⭐ **A GRAB HOLDS THE HURT FIGHTER LONGER**, which is Ultimate's
         // 90 + 1.7p frames: 1.5s at 0%, ~4.3s at 100%. It makes the grab a
         // percent mechanic like the launch is, so the body that is losing is

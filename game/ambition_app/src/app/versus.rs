@@ -776,6 +776,10 @@ fn track_versus_roster(
                 // enough for a queue to mean anything.
                 stale_step: 0.0,
                 stale_floor: 1.0,
+                // ⚠ and no crouch cancel: this stage has no crouch verb to
+                // reward, and a rule nothing can reach is a rule that lies about
+                // what the stage does.
+                crouch_cancel_scale: 1.0,
                 // ⚠ a versus round ends on health, and its grabs are the
                 // engine's flat hold rather than a percent mechanic.
                 grab_hold_base_seconds:

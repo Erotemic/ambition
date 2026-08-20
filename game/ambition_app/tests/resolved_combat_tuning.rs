@@ -142,6 +142,8 @@ fn a_declaration_wins_and_the_world_it_plays_over_is_untouched() {
         rage_max_scale: 1.0,
         stale_step: 0.0,
         stale_floor: 1.0,
+        // ...nor crouch cancel: this fixture is about DI and knockback growth.
+        crouch_cancel_scale: 1.0,
         // ...nor the grab clock: this fixture throws no grab, so it takes the
         // undeclared world's flat hold rather than inventing a rule.
         grab_hold_base_seconds: ambition_platformer2d::combat::rules::FLAT_GRAB_HOLD_SECONDS,

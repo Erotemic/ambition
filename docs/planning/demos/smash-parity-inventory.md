@@ -74,6 +74,7 @@ you add a `▢`, and before you work one.
 | SDI | ▢ | — |
 | Spike (a downward hit drives the victim, no attacker rebound) | ✔ | `rules::DownwardHitStyle::Spike`, declared by the smash stage |
 | Meteor lock (a spiked body cannot recover for a window; the window ending IS the cancel) | ✔ | `DeclaredCombatRules::meteor_lock_time`, declared 0.30 by the smash stage and 0.0 by versus |
+| Crouch cancel (a crouching victim takes less launch) | ✔ | `DeclaredCombatRules::crouch_cancel_scale`, declared 0.85 by smash |
 | SDI (a frozen body shifts itself during hitlag) | ✔ | `hit_response::smash_di_shift` off `MovementTuning::sdi_step`; a HOLD where the genre counts stick inputs |
 | Rage (damage taken raises knockback dealt) | ✔ | `DeclaredCombatRules::rage_per_damage` + `rage_max_scale`, declared 0.004/1.4 by smash |
 | Stale-move queue (repeat use weakens) | ✔ | `BodyStaleMoves` (a nine-slot ring of move-id hashes) + `DeclaredCombatRules::stale_step`/`stale_floor` |
@@ -166,5 +167,5 @@ and leaves the values rough; tuning is not this lane's licence.
 5. **Match rules** — ~~timer~~ (landed 2026-08-20, derived from the activation
    tick); still open are sudden death, a menu for the friendly-fire toggle the
    rules already carry, and the respawn platform.
-6. ~~**SDI**~~ (landed 2026-08-20, `MovementTuning::sdi_step`); still open:
-   spot dodge, crouch cancel, jostle, wall tech.
+6. ~~**SDI**~~ and ~~**crouch cancel**~~ (landed 2026-08-20); still open: spot
+   dodge, jostle, wall tech.

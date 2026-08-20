@@ -432,7 +432,10 @@ pub(crate) fn apply_actor_hit(
                 boss_hit,
                 Some(&k),
                 di_input_local,
-                em.ground.on_ground,
+                crate::features::ecs::damage_apply::VictimStance {
+                    grounded: em.ground.on_ground,
+                    crouching: em.body_mode.body_mode == ae::BodyMode::Crouching,
+                },
                 feel,
             );
             #[cfg(feature = "causal")]

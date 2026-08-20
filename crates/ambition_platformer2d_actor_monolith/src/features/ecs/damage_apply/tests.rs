@@ -1570,7 +1570,7 @@ fn a_hit_publishes_its_launch_where_the_motion_model_will_find_it() {
         false,
         Some(&knockback),
         ae::Vec2::ZERO,
-        false,
+        Default::default(),
         feel,
     );
 
@@ -1608,7 +1608,7 @@ fn a_hit_with_no_knockback_publishes_no_launch() {
         false,
         None,
         ae::Vec2::ZERO,
-        false,
+        Default::default(),
         Platformer2dFeelTuningMonolith::default(),
     );
 
@@ -1834,10 +1834,72 @@ fn meteor_reaction(
         false,
         Some(&knockback),
         ae::Vec2::ZERO,
-        grounded,
+        VictimStance {
+            grounded,
+            ..Default::default()
+        },
         feel,
     );
     combat.recoil_lock_timer
+}
+
+/// **CROUCHING TAKES LESS OF THE LAUNCH, AND ONLY WHEN THE GAME SAYS SO.**
+///
+/// ⛔ three assertions, and the first two are the pair: a standing body takes the
+/// whole launch and a crouching one takes the declared fraction, so a version
+/// that scaled EVERYBODY would fail the first and one that scaled nobody the
+/// second. The third is the floor — an undeclared world's `1.0` must leave
+/// crouching worth nothing but a shorter hurtbox, which is every room in
+/// Ambition.
+#[test]
+fn crouching_takes_less_of_the_launch_when_the_rules_declare_it() {
+    let launched = |crouching: bool, scale: f32| {
+        let knockback = crate::combat::HitKnockback {
+            dir: 1.0,
+            magnitude: crate::combat::HitKnockbackMagnitude::LaunchSpeed(400.0),
+            source_pos: ae::Vec2::ZERO,
+            impact_pos: ae::Vec2::ZERO,
+            launch_dir: Some(ae::Vec2::new(1.0, 0.0)),
+        };
+        let mut feel = Platformer2dFeelTuningMonolith::default();
+        feel.crouch_cancel_scale = scale;
+        let mut vel = ae::Vec2::ZERO;
+        let mut flight = ae::BodyFlightState::default();
+        let mut combat = BodyCombat::default();
+        apply_body_hit_reaction(
+            &mut vel,
+            &mut flight,
+            &mut combat,
+            ae::Vec2::ZERO,
+            1.0,
+            ae::Vec2::new(0.0, 1.0),
+            false,
+            Some(&knockback),
+            ae::Vec2::ZERO,
+            VictimStance {
+                grounded: true,
+                crouching,
+            },
+            feel,
+        );
+        vel.length()
+    };
+
+    let standing = launched(false, 0.85);
+    let ducked = launched(true, 0.85);
+    assert!(
+        standing > 0.0,
+        "the fixture launched nobody, so this measured nothing"
+    );
+    assert!(
+        (ducked - standing * 0.85).abs() < 0.01,
+        "a crouching body took {ducked} where the declared 0.85 of {standing} was owed"
+    );
+    assert_eq!(
+        launched(true, 1.0),
+        standing,
+        "an undeclared world charged a crouching body a discount it never declared"
+    );
 }
 
 /// **A SPIKE ON AN AIRBORNE BODY BUYS A LONGER SILENCE.**

@@ -1911,8 +1911,11 @@ pub fn apply_capture_throws(
             ae::Vec2::ZERO,
             // ⚠ a thrown body is AIRBORNE by construction — the hold suspended
             // its gravity and the release hands it back — so a downward throw is
-            // eligible for the meteor lock exactly like a spike is.
-            false,
+            // eligible for the meteor lock exactly like a spike is. ⚠ and it is
+            // not crouching: a captive has no stance of its own, and letting a
+            // thrown body crouch-cancel its own throw would refund the captor
+            // the only beat a grab is paid for.
+            Default::default(),
             feel,
         );
     }

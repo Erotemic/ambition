@@ -135,6 +135,15 @@ pub struct DeclaredCombatRules {
     /// The floor [`Self::stale_step`] cannot take a move below, as a multiplier.
     /// `1.0` = staling can never weaken anything.
     pub stale_floor: f32,
+    /// **CROUCH CANCEL — what a CROUCHING victim multiplies an incoming launch
+    /// by.** `1.0` (the baseline) = crouching buys nothing but a shorter
+    /// hurtbox.
+    ///
+    /// ⭐ it makes ducking a defensive READ rather than only a shape. ⚠ flat,
+    /// with no percent threshold, because the threshold is emergent: 85% of a
+    /// kill move is still a kill, so the option stops mattering by itself
+    /// exactly where the genre stops using it.
+    pub crouch_cancel_scale: f32,
     /// **How long a grab holds a body at 0%**, in seconds. Ultimate's 90 frames.
     pub grab_hold_base_seconds: f32,
     /// **How much longer per point of the CAPTIVE's damage.** Ultimate's 1.7
@@ -209,6 +218,8 @@ pub struct ResolvedCombatTuning {
     pub stale_step: f32,
     /// See [`DeclaredCombatRules::stale_floor`].
     pub stale_floor: f32,
+    /// See [`DeclaredCombatRules::crouch_cancel_scale`].
+    pub crouch_cancel_scale: f32,
     /// See [`DeclaredCombatRules::grab_hold_base_seconds`].
     pub grab_hold_base_seconds: f32,
     /// See [`DeclaredCombatRules::grab_hold_per_damage`].
@@ -302,6 +313,7 @@ impl ResolvedCombatTuning {
                 rage_max_scale: rules.rage_max_scale,
                 stale_step: rules.stale_step,
                 stale_floor: rules.stale_floor,
+                crouch_cancel_scale: rules.crouch_cancel_scale,
                 grab_hold_base_seconds: rules.grab_hold_base_seconds,
                 grab_hold_per_damage: rules.grab_hold_per_damage,
                 grab_hold_max_seconds: rules.grab_hold_max_seconds,
@@ -323,6 +335,7 @@ impl ResolvedCombatTuning {
                 rage_max_scale: 1.0,
                 stale_step: 0.0,
                 stale_floor: 1.0,
+                crouch_cancel_scale: 1.0,
                 grab_hold_base_seconds: FLAT_GRAB_HOLD_SECONDS,
                 grab_hold_per_damage: 0.0,
                 grab_hold_max_seconds: FLAT_GRAB_HOLD_SECONDS,
@@ -357,6 +370,7 @@ impl Default for ResolvedCombatTuning {
             rage_max_scale: 1.0,
             stale_step: 0.0,
             stale_floor: 1.0,
+            crouch_cancel_scale: 1.0,
             grab_hold_base_seconds: FLAT_GRAB_HOLD_SECONDS,
             grab_hold_per_damage: 0.0,
             grab_hold_max_seconds: FLAT_GRAB_HOLD_SECONDS,
@@ -421,6 +435,7 @@ mod tests {
                 rage_max_scale: 1.0,
                 stale_step: 0.0,
                 stale_floor: 1.0,
+                crouch_cancel_scale: 1.0,
                 grab_hold_base_seconds: FLAT_GRAB_HOLD_SECONDS,
                 grab_hold_per_damage: 0.0,
                 grab_hold_max_seconds: FLAT_GRAB_HOLD_SECONDS,
@@ -453,6 +468,7 @@ mod tests {
             rage_max_scale: 1.0,
             stale_step: 0.0,
             stale_floor: 1.0,
+            crouch_cancel_scale: 1.0,
             grab_hold_base_seconds: FLAT_GRAB_HOLD_SECONDS,
             grab_hold_per_damage: 0.0,
             grab_hold_max_seconds: FLAT_GRAB_HOLD_SECONDS,
@@ -475,6 +491,7 @@ mod tests {
                 rage_max_scale: 1.0,
                 stale_step: 0.0,
                 stale_floor: 1.0,
+                crouch_cancel_scale: 1.0,
                 grab_hold_base_seconds: FLAT_GRAB_HOLD_SECONDS,
                 grab_hold_per_damage: 0.0,
                 grab_hold_max_seconds: FLAT_GRAB_HOLD_SECONDS,

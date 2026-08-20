@@ -809,6 +809,111 @@ def _stop(repo: Path, session: str) -> dict:
     return run(repo, stdin={"session_id": session, "hook_event_name": "Stop"})
 
 
+def _cli_raw(repo: Path, *args: str) -> subprocess.CompletedProcess:
+    """Like `_cli` but tolerates a non-zero exit — a REFUSAL is a real outcome
+    with its own status, and asserting success would make it untestable."""
+    return subprocess.run(
+        [sys.executable, str(guard_in(repo)), *args],
+        cwd=str(repo),
+        input="{}",
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+
+
+def _roster(repo: Path) -> list[str]:
+    owner = repo / ".goal" / "owner"
+    return owner.read_text().split() if owner.exists() else []
+
+
+def test_a_bare_clear_refuses_to_disarm_a_roster_it_does_not_own(repo: Path) -> None:
+    """⛔⛔ **One lane standing down used to release every other lane.**
+
+    On 2026-08-20 an agent finished its work, typed `--clear`, and silently
+    disarmed a second session that was still running — its Stops stopped being
+    blocked and nobody noticed until the human asked why it had gone quiet. The
+    guard cannot know which window typed the command, so the only safe answer
+    when several sessions hold the goal is to refuse and make the caller say
+    which one it is.
+    """
+    arm(repo, goal="shared work", checks=[])
+    _cli(repo, "--own", "sess-A")
+    _cli(repo, "--own", "sess-B")
+
+    proc = _cli_raw(repo, "--clear")
+
+    assert proc.returncode != 0, "a bare --clear on a shared roster must not succeed"
+    assert "REFUS" in proc.stdout.upper()
+    assert "sess-A" in proc.stdout and "sess-B" in proc.stdout, (
+        "the refusal has to name who is holding it, or the caller cannot act on it"
+    )
+    assert (repo / ".goal" / "active.json").exists(), "the goal was disarmed anyway"
+    assert _roster(repo) == ["sess-A", "sess-B"], "the roster was disturbed"
+
+
+def test_clearing_by_session_leaves_the_other_holders_armed(repo: Path) -> None:
+    """The per-session stand-down: one name leaves, the goal does not."""
+    arm(repo, goal="shared work", checks=[])
+    _cli(repo, "--own", "sess-A")
+    _cli(repo, "--own", "sess-B")
+
+    _cli(repo, "--clear", "sess-A")
+
+    assert _roster(repo) == ["sess-B"]
+    assert (repo / ".goal" / "active.json").exists(), (
+        "a session leaving is not the goal ending — sess-B is still working"
+    )
+
+
+def test_the_last_holder_leaving_disarms_the_goal(repo: Path) -> None:
+    """⚠ the other half, and without it the fix would strand goals forever: a
+    goal nobody holds is not armed, it is litter."""
+    arm(repo, goal="shared work", checks=[])
+    _cli(repo, "--own", "sess-A")
+    _cli(repo, "--own", "sess-B")
+
+    _cli(repo, "--clear", "sess-A")
+    assert (repo / ".goal" / "active.json").exists()
+    _cli(repo, "--clear", "sess-B")
+
+    assert not (repo / ".goal" / "active.json").exists(), (
+        "the last holder left and the goal stayed armed with nobody to enforce it"
+    )
+    assert _roster(repo) == []
+
+
+def test_clear_all_disarms_a_shared_roster_on_purpose(repo: Path) -> None:
+    """The escape hatch the refusal points at. Named separately so that ending a
+    run for everybody is a thing you TYPE, not a thing you get by accident."""
+    arm(repo, goal="shared work", checks=[])
+    _cli(repo, "--own", "sess-A")
+    _cli(repo, "--own", "sess-B")
+
+    _cli(repo, "--clear-all")
+
+    assert not (repo / ".goal" / "active.json").exists()
+    assert _roster(repo) == []
+
+
+def test_help_stays_short_enough_for_an_agent_to_read(repo: Path) -> None:
+    """⛔ `--help` used to print the module docstring — 296 lines of design
+    history — to an agent that was mid-task and wanted to know which flag stops
+    the blocking. A reference nobody can skim is a reference nobody reads.
+
+    ⚠ the bound is deliberately loose: this guards the ORDER OF MAGNITUDE, not a
+    line count somebody has to keep updating. The docstring itself is untouched
+    and still in the file for whoever opens it.
+    """
+    proc = _cli_raw(repo, "--help")
+
+    lines = proc.stdout.splitlines()
+    assert proc.returncode == 0
+    assert len(lines) < 90, f"--help is {len(lines)} lines again"
+    assert "--clear-all" in proc.stdout, "the way out has to be IN the way out"
+    assert "--status" in proc.stdout
+
+
 def _cli(repo: Path, *args: str) -> str:
     """A management flag prints prose, not a hook decision, so it does not go
     through `run` (which parses stdout as JSON)."""

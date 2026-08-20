@@ -955,17 +955,46 @@ def run_checks(goal: dict, root: Path) -> list[CheckResult]:
     return results
 
 
-def clear_goal(root: Path, reason: str, remove: bool = True) -> None:
+def clear_goal(
+    root: Path,
+    reason: str,
+    remove: bool = True,
+    session: str = "",
+) -> None:
     """Archive rather than delete: what a finished run was asked to do is
     evidence, and the next run's post-mortem wants it.
 
     `remove=False` archives the outgoing goal WITHOUT disarming, which is what
     `--arm` needs: replacing a goal is not clearing one, but the thing being
     replaced is still evidence and still gone forever if nobody writes it down.
+
+    ⛔⛔ **`session` MAKES A CLEAR PER-SESSION, and its absence is a GLOBAL
+    clear.** Ownership is a roster (see `owner_sessions`), so one session
+    finishing is one name leaving it — not the end of the goal. Without this,
+    an agent typing `--clear` in its own window disarmed every other session in
+    the repository, which is what happened on 2026-08-20: one lane wrapped up
+    and silently released the lane that was still working.
+
+    ⭐ the two cases are genuinely different and both are wanted:
+      * `session` given  — a HAND clear. Drop that name; disarm only if the
+        roster is now empty, because a goal nobody holds is not armed.
+      * `session` empty  — the goal itself is OVER for everybody: its checks
+        passed, its deadline expired, or a fuse blew. Those are facts about the
+        GOAL, not about who was watching it.
     """
     active = active_path(root)
     if not active.exists():
         return
+    if session and remove:
+        leave_owner(root, session)
+        if owner_sessions(root):
+            # Somebody else is still holding this goal. Leave it armed for them
+            # and say so; a silent return here reads as "cleared" to the caller.
+            print(
+                f"left the goal to {len(owner_sessions(root))} other session(s); "
+                "it stays armed for them"
+            )
+            return
     stamp = now_utc().strftime("%Y%m%dT%H%M%SZ")
     archive = goal_dir(root) / f"done-{stamp}.json"
     payload = load_json(active) or {}
@@ -2088,11 +2117,53 @@ def mode_arm(root: Path, source: str) -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+    # ⛔ **NOT `description=__doc__`.** The module docstring is this file's DESIGN
+    # RECORD — why the arbiter is a command hook and not a model, what the four
+    # ways out are and why each exists — and it is 296 lines of `--help`. An agent
+    # running `--help` is mid-task and wants the operational answer, not the
+    # history; a reference nobody can skim is a reference nobody reads. The
+    # docstring stays exactly where it is, for whoever opens the file.
+    parser = argparse.ArgumentParser(
+        description=(
+            "Goal guard: blocks a session's Stop until repository checks pass. "
+            "Checks are shell commands recorded in .goal/active.json; the guard "
+            "reads the repository, never the conversation."
+        ),
+        epilog=(
+            "typical use\n"
+            "  --status                 what is armed, who holds it, what is failing\n"
+            "  --arm goal.json          arm a goal (replaces any current one)\n"
+            "  --clear <session-id>     stand down; others keep the goal\n"
+            "  --extend 4h              push the deadline out\n"
+            "\n"
+            "if it will not let you stop\n"
+            "  --status                 read which check is red -- fix that\n"
+            "  --pause <reason>         stop enforcing for a while\n"
+            "  --hold <reason>          stop enforcing until --unhold\n"
+            "  --clear-all              disarm it for every session\n"
+            "\n"
+            "ownership is a ROSTER: several sessions can hold one goal. A bare\n"
+            "--clear refuses when more than one does; name your session instead.\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("--inject", action="store_true", help="SessionStart mode")
     parser.add_argument("--status", action="store_true")
     parser.add_argument("--arm", metavar="GOAL_JSON")
-    parser.add_argument("--clear", action="store_true")
+    parser.add_argument(
+        "--clear",
+        nargs="?",
+        const="",
+        metavar="SESSION_ID",
+        help="stand down. With a session id, only that session leaves the roster "
+        "and the goal stays armed for the rest. Bare, it disarms the goal for "
+        "everyone -- and REFUSES if more than one session holds it.",
+    )
+    parser.add_argument(
+        "--clear-all",
+        action="store_true",
+        help="disarm for every session, even a shared roster",
+    )
     parser.add_argument(
         "--own",
         metavar="SESSION_ID",
@@ -2214,7 +2285,33 @@ def main() -> int:
         return mode_resume(root)
     if args.arm:
         return mode_arm(root, args.arm)
-    if args.clear:
+    if args.clear_all:
+        clear_goal(root, "cleared by hand for every session")
+        print("goal cleared for every session")
+        return 0
+    if args.clear is not None:
+        roster = owner_sessions(root) or []
+        if args.clear:
+            # ⛔ per-session: drops THIS window and disarms only if it held the
+            # goal alone. See `clear_goal`'s `session` argument.
+            clear_goal(root, "cleared by hand", session=args.clear.strip())
+            return 0
+        # ⛔⛔ **A BARE `--clear` USED TO DISARM EVERY SESSION SILENTLY**, which on
+        # 2026-08-20 released a lane that was still working when a different lane
+        # wrapped up. It is only ambiguous when the roster is shared, so refuse
+        # exactly there rather than making the common case ceremonious.
+        if len(roster) > 1:
+            print(
+                "REFUSING: this goal is held by "
+                + str(len(roster))
+                + " sessions ("
+                + ", ".join(roster)
+                + ").\n"
+                "A bare --clear would disarm all of them. Either:\n"
+                "  --clear <your-session-id>   leave, and let the others keep it\n"
+                "  --clear-all                 disarm it for everybody"
+            )
+            return 1
         clear_goal(root, "cleared by hand")
         print("goal cleared")
         return 0

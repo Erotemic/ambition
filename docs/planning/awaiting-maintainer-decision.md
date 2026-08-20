@@ -1013,7 +1013,7 @@ per-turn gate, so a behavioural suite went five-red across at least two
 regressions without anything saying so. `cargo test --workspace --lib` and
 `-p ambition_app --test app_it` do not reach it.
 
-### 25. ▢ NEW 2026-08-20 — does "AVOID PUSHOUT" cover fighter-vs-fighter JOSTLE?
+### 25. ✔ ANSWERED 2026-08-20 — AVOID PUSHOUT is about PORTALS; body jostle is allowed, but never in the kernel
 
 **The mechanic.** Every platform fighter pushes two grounded bodies apart when
 they occupy the same space — Ultimate calls it jostle, and without it two
@@ -1047,9 +1047,33 @@ written, reversibility is untouched, and the visible behaviour is the genre's.
 It is slower to separate than a displacement, which in this genre reads as weight
 rather than as a bug.
 
-⇒ **the question**: is the third option acceptable, or does the rule extend to
-body-vs-body entirely and jostle should not be built? ⛔ not answered by refactor
-— I have left the row `▢` rather than guessing at a rule Jon stated twice.
+⭐⭐ **JON, 2026-08-20, verbatim:**
+
+> The no pushout rule I think is for portals, because I wanted them to be
+> elegant. For bodies I think it might be ok. This isn't a hack, it is a game
+> feel feature. If ultimate does it they must have rollback code for it. This is
+> something that games will want, so we should be able to express it. It should
+> never be a mandatory part of the movement kernel though. It should be
+> composable and not add to tech dept.
+
+⇒ **the rule's SCOPE was the thing in question and it is narrower than both
+readings above assumed.** AVOID PUSHOUT is about PORTALS and the elegance of
+emerging at a face carrying momentum. It was never a statement about two live
+bodies, so the whole "does it extend" framing was the wrong question — and both
+readings recorded above spent their effort on it.
+
+⛔⛔ **THE BINDING CONSTRAINT IS NOT WHETHER, IT IS WHERE.** *"It should never be
+a mandatory part of the movement kernel. It should be composable and not add to
+tech dept."* So jostle is a body-vs-body PASS that a game opts into — the fourth
+beside capture, footstool and the ledge trump — and NOT a term in `step_body`.
+A kernel that jostles unconditionally would make every body in every composition
+pay for a platform-fighter rule, which is the shape this repo has removed twice
+already (the stale-move ring rode the generic movement bundle; the capture
+timeout lived on a shared constant).
+
+⚠ **and "games will want this" is a statement about the ENGINE, not about
+smash.** The knob belongs where a game declares its rules, so a second game can
+turn it on without touching the fighter demo.
 
 ### 27. ✔ ANSWERED 2026-08-20 — the parry timing is a KNOB, because the target is smash-LIKE and not Ultimate
 

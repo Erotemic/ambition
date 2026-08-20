@@ -521,9 +521,33 @@ platform fighter. Mary-O's `World` has a `blast_margin`.
 ⇒ **the generic fact underneath is a boundary region with a CONSEQUENCE.** Smash
 calls it a blast zone and loses a stock; Mary-O calls it a pit and respawns;
 Ambition calls it out of bounds. Engine owns the geometry, the game owns the
-meaning — the plan's own principle 1. ⭐ **the slice is shaped like a DELETION**,
-which is the strongest form a first customer can take, and deletion is this
-project's standing proof.
+meaning — the plan's own principle 1.
+
+⛔⛔ **BUT THE MECHANISM IS ALREADY GENERIC, AND THE PLAN NAMES THE WRONG LAYER —
+measured 2026-08-20 before touching anything.** `apply_world_hazard_gate`
+(`platformer2d_core/src/movement/kernel.rs:422`) computes a per-axis distance
+past the world AABB and emits `ResetCause::LeftTheWorld`; *"policies flag; the
+body's owner applies its reset policy."* The consequence is already the game's.
+`blast_margin`'s own doc says so: *"a platformer's pit depth and a platform
+fighter's blast zone — the same number, and it belongs to the STAGE."*
+⇒ **there is no bespoke platform-fighter PRIMITIVE to remove.** What is
+genre-specific is the WORD.
+
+⭐ **and the word's load-bearing home is the AUTHORING SCHEMA, not the struct.**
+The LDtk converter reads the authored key by that name
+(`level_field("blast_margin", ..)`), and **all SIX shipped worlds carry all THREE
+fields in `defs.levelFields`** — `sanic_speedway`, `intro`, `sandbox`,
+`you_have_to_cut_the_rope`, `hall_of_characters`, `mary_o`. Every author of every
+world in this project is shown three platform-fighter fields.
+
+⭐⭐ **ZERO levels author a VALUE.** 18 schema entries, no data behind any of
+them. So the rename costs **no content migration** — only a schema rename in
+files the LDtk editor owns, which is why the authoring half is Jon's call and is
+written up in [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md).
+
+⛔ **do NOT do the Rust half alone.** The struct field and the authored key are
+one name; renaming one and not the other needs a mapping, and a mapping is the
+shim this project refuses. It is one change or it is not worth 206 sites.
 
 ⛔ **the error the plan itself records, because it is the cheap kind to repeat:**
 its own 2026-08-15 triage tested trigger #1 of five, found it negative, and

@@ -43,7 +43,7 @@ pub use combat_geometry_view::{
 };
 pub use control_prompt::{
     publish_frontend_context_prompt, rebuild_control_prompt, ControlContextKind, ControlPrompt,
-    ControlPromptRebuilt, PromptEntry,
+    ControlPromptRebuilt, PromptEntry, PromptNaming,
 };
 // Re-exported so `ControlPrompt` consumers (the touch overlay) can name the
 // slot vocabulary without a direct `entity_catalog` dep.

@@ -2072,6 +2072,22 @@ fn start_the_battle_when_asked(
         SMASH_EXPERIENCE,
         ambition_platformer2d::input::BindingLayout::Smash,
     ));
+    // **PLAIN BUTTON NAMES.** Jon, 2026-08-20: *"I also just want the button
+    // indicators to be plain. E.g. \"Attack\" \"Special\" \"Jump\" \"Grab\", no
+    // context sensitive naming of the move in smash, at least not yet."*
+    //
+    // ⭐ **the default reads well for a platformer and badly for a fighter, and
+    // that is the whole reason this is a knob.** Mary-O has a handful of
+    // signature techniques, so naming her button "Spin Dash" tells the player
+    // something true and stable. A smash fighter's Attack slot hosts a dozen
+    // moves selected by stick direction and posture, so the same rule names
+    // whichever one happens to be resolvable where the body is standing — a
+    // label that changes as you walk and never answers the question the prompt
+    // exists for, which is WHICH BUTTON.
+    //
+    // ⚠ "at least not yet" — the move-naming road stays live and default
+    // everywhere else; this only declines it here.
+    commands.insert_resource(ambition_platformer2d::sim_view::PromptNaming::ByButton);
     shell.write(ambition_platformer2d::game_shell::ShellCommand::GoTo(
         ambition_platformer2d::game_shell::ShellRouteId::new(SMASH_GAMEPLAY_ROUTE),
     ));

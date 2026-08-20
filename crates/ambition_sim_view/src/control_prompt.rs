@@ -48,6 +48,64 @@ pub enum ControlContextKind {
     Empty,
 }
 
+/// **Does a gameplay prompt name the BUTTON, or the MOVE currently on it?**
+///
+/// ⭐ Jon, 2026-08-20, for smash: *"I also just want the button indicators to be
+/// plain. E.g. \"Attack\" \"Special\" \"Jump\" \"Grab\", no context sensitive naming
+/// of the move in smash, at least not yet."*
+///
+/// ⚠ **`ByMove` stays the DEFAULT**, so every experience that did not ask keeps
+/// exactly the prompt it had. This is a knob, not a policy change — "at least
+/// not yet" is a decision that may come back, and the move-naming machinery is
+/// worth keeping working while it is switched off.
+#[derive(Resource, Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum PromptNaming {
+    /// The move on the slot right now — "Spin Dash", "Shoulder Check". Reads
+    /// well for a platformer with a handful of signature techniques.
+    #[default]
+    ByMove,
+    /// The button itself. In a fighting game a slot hosts a dozen moves chosen
+    /// by stick direction and posture, so naming it after whichever one is
+    /// currently resolvable tells the player something that changes as they
+    /// walk — and never the thing they need, which is which button to press.
+    ByButton,
+}
+
+/// The plain, player-facing name of a button.
+///
+/// ⛔ **this lives in the PRESENTATION layer on purpose, not on `ControlSlot`.**
+/// A slot is an engine identity — `Burst` is the right internal name for the
+/// channel dodge and dash share — and the player-facing word is a different
+/// question the engine should not get to answer. It is also why this is not
+/// `title_case_id` over the variant name: `"Projectile"` is what the engine
+/// calls it and `"Shot"` is what the button says.
+///
+/// ⚠ **exhaustive on purpose.** A new `ControlSlot` variant must choose its word
+/// here rather than inherit a wrong one from a catch-all arm.
+fn button_label(slot: ControlSlot) -> &'static str {
+    match slot {
+        ControlSlot::Jump => "Jump",
+        ControlSlot::Attack => "Attack",
+        ControlSlot::Special => "Special",
+        ControlSlot::Projectile => "Shot",
+        // ⚠ **the one GENRE-DEPENDENT word here, flagged rather than settled.**
+        // The slot is `Burst` because dodge and dash are one press; "Dodge" is
+        // what a platform fighter's player calls that button and "Dash" is what
+        // a platformer's does. `ByButton` has exactly one adopter today (smash),
+        // so this is true for every current reader — but the second experience
+        // to opt in may need the other word, and at that point the label belongs
+        // on the experience rather than here.
+        ControlSlot::Burst => "Dodge",
+        ControlSlot::Blink => "Blink",
+        ControlSlot::Interact => "Interact",
+        ControlSlot::Utility => "Utility",
+        ControlSlot::Shield => "Shield",
+        ControlSlot::Grab => "Grab",
+        ControlSlot::Modifier => "Modifier",
+        ControlSlot::Taunt => "Taunt",
+    }
+}
+
 /// One control's current meaning: the slot it sits on, its player-facing
 /// label, and an optional visual. Ordered within [`ControlPrompt::entries`] by
 /// the scheme's canonical slot order.
@@ -174,6 +232,10 @@ pub fn rebuild_control_prompt(
         Option<Ref<ActorTechniques>>,
     )>,
     cues: Option<Res<ActiveUiCues>>,
+    // Whether this experience wants the BUTTON named or the MOVE on it. Absent
+    // (the ordinary case) is `ByMove` — the behaviour every experience had
+    // before the knob existed.
+    naming: Option<Res<PromptNaming>>,
     mut prompt: ResMut<ControlPrompt>,
     // (last subject, authority-presence bits, resource-presence bits) from the
     // previous rebuild. `None` = never rebuilt, so the first frame always
@@ -184,7 +246,7 @@ pub fn rebuild_control_prompt(
     // `ControlledSubject` / `SeatBindings` / `SeatActiveDevices` would be
     // skipped and the prompt would keep describing a context that no longer
     // exists.
-    mut last: Local<Option<(Option<Entity>, [bool; 3], [bool; 5])>>,
+    mut last: Local<Option<(Option<Entity>, [bool; 3], [bool; 6])>>,
 ) {
     // A frontend context (startup cards, launcher) owns the participant's
     // actions: its provider (`publish_frontend_context_prompt`) writes the
@@ -223,7 +285,11 @@ pub fn rebuild_control_prompt(
         // so `SeatBindings` is quiet — only the SPELLING changed, and a cache
         // keyed on the binding alone would keep telling a DualSense player to
         // press A. Same defect as the line above, one authority further out.
-        || devices.as_ref().is_some_and(|r| r.is_changed());
+        || devices.as_ref().is_some_and(|r| r.is_changed())
+        // ⚠ AND FLIPPING THE NAMING MUST TOO. It changes every label without
+        // touching a binding, an authority or a subject, so a cache keyed on
+        // those alone would keep publishing the old vocabulary forever.
+        || naming.as_ref().is_some_and(|r| r.is_changed());
     // Presence is tracked separately from change: an `Option<Res<T>>` that went
     // `Some -> None` reports no change at all (see `last`'s doc).
     let resources = [
@@ -232,6 +298,7 @@ pub fn rebuild_control_prompt(
         cues.is_some(),
         bindings.is_some(),
         devices.is_some(),
+        naming.is_some(),
     ];
 
     // Menu / dialogue own input: no gameplay scheme. Publish an explicit context
@@ -305,7 +372,10 @@ pub fn rebuild_control_prompt(
         .iter()
         .map(|action| PromptEntry {
             slot: action.slot,
-            label: action.display(),
+            label: match naming.as_deref().copied().unwrap_or_default() {
+                PromptNaming::ByButton => button_label(action.slot).to_owned(),
+                PromptNaming::ByMove => action.display(),
+            },
             visual: action.visual.clone(),
             binding: bindings.as_deref().and_then(|seats| {
                 seats.label_for_slot(

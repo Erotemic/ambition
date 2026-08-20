@@ -171,10 +171,10 @@ pub fn claim_footstools(
                 if !victim.model.footstool_tuning().is_enabled() {
                     continue;
                 }
-                if !frames_agree(gravity_dir, gravity_dir) {  // POISON
+                if !frames_agree(gravity_dir, victim.gravity_dir()) {
                     continue;
                 }
-                if !team_permits(stomper.team, victim.team, true) {  // POISON
+                if !team_permits(stomper.team, victim.team, friendly_fire) {
                     continue;
                 }
                 if !ae::collision_semantics::feet_on_head(
@@ -205,9 +205,10 @@ pub fn claim_footstools(
         // ⛔ BOTH ends. A stomper over two heads takes ONE footstool, and a head
         // under two stompers is jumped off ONCE. The first version spent only
         // the victim, so one press shoved every body it happened to overlap.
-        if spent.contains(&victim) {  // POISON
+        if spent.contains(&stomper) || spent.contains(&victim) {
             continue;
         }
+        spent.push(stomper);
         spent.push(victim);
 
         // The stomper's half is a CLAIM on its own jump press. The kernel writes

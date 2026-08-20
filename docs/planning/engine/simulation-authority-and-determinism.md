@@ -70,86 +70,44 @@ The design must avoid simply pushing `bevy_ggrs` into every leaf crate. Prefer a
 small engine-owned registration vocabulary or capability fragment that domains
 can implement without depending on the transport/integration backend.
 
-#### ⭐⭐ MEASURED 2026-08-15 — semantics and installation both federate
+#### DONE — semantics and installation both federate
 
-A bounded slice took `GatePortalPhases` as a representative customer because its
-correct rollback semantics had just been established by a real desync fix. The
-first reading was that only the semantic half could move because `bevy_ggrs`'s
-registration API is generic over the concrete type. The falsifier on the same day
-showed that conclusion was wrong: genericity constrains where monomorphisation
-happens, not which crate owns the list of types.
+`RollbackRegistrar` (`ambition_platformer2d_core::snapshot`, depends on
+`bevy_ecs` only — no `bevy_app`, no `bevy_ggrs`) lets each domain call a
+backend-neutral registration method with its own concrete type; the generic
+runtime never names it. It is deliberately not object-safe (`&mut impl
+RollbackRegistrar`), so monomorphisation lands at the host's call site rather
+than in a central list — a generic API constrains where monomorphisation
+happens, not where the list of types lives (the correction to the reopened
+conclusion below). The orphan rule is why the implementor is a wrapper: `impl
+RollbackRegistrar for App` inside the runtime is foreign-trait-on-foreign-type
+(E0117), so `GgrsRollbackRegistrar<'a>(&'a mut App)` implements it instead.
 
-- ✔ **SEMANTICS — codec and value projection — federate.** `SnapshotState` moved
-  down to `ambition_platformer2d_core::snapshot` on 2026-07-30, and
-  `ambition_platformer2d_world::snapshot_impls` records that the move deleted
-  **2,688 lines** from the runtime. The gate-portal projection now lives with its
-  domain, so adding a phase variant breaks an exhaustive match beside the type.
-- ✔ **INSTALLATION federates through a generic trait call.** The domain invokes a
-  backend-neutral `RollbackRegistrar` method with its concrete `T`; the dedicated
-  rollback backend's `GgrsRollbackRegistrar` performs the generic `bevy_ggrs` call.
-  The domain therefore supplies the monomorphized type without gaining a netcode
-  dependency.
+`GatePortalPhases` was the representative customer: its snapshot/projection
+moved to `ambition_platformer2d_world::snapshot_impls` (2026-07-30, −2,688
+lines from the runtime), with zero new `bevy_ggrs` dependency edges and schema
+unchanged (31).
 
-✔✔ **THE SHAPE WORKS.** A domain registers its own rollback state without any netcode
-dependency, and the generic runtime no longer names it.
-
-`RollbackRegistrar` lives in `ambition_platformer2d_core::snapshot` and depends on
-**`bevy_ecs` only** — no `bevy_app`, no `bevy_ggrs`. It is deliberately **not
-object-safe**: domains take `&mut impl RollbackRegistrar`, so monomorphisation
-lands at the host's call site rather than in a central list. ⭐ **that is the
-whole answer to the old argument — a generic API constrains where
-monomorphisation HAPPENS, not where the LIST lives.**
-
-⭐ **the orphan rule still binds, and it is WHY the implementor is a wrapper.**
-`impl RollbackRegistrar for App` inside the runtime is foreign-trait-on-foreign-type
-(`E0117`); `GgrsRollbackRegistrar<'a>(&'a mut App)` is local and clean.
-
-✔ **deleted from the generic runtime:** `GatePortalPhases`,
-`gate_portal_phases_checksum`, and the 28-line rationale block beside them.
-⭐ even the wording splits correctly — the domain supplies *"key-ordered
-phase/elapsed checksum projection"* and the GGRS wrapper prefixes its own half, so
-the recorded `detail` is **composed, not quoted**.
-
-✔ **zero new dependency edges**, verified by *executing* a manifest walk over the
-7 path-deps reachable from `ambition_platformer2d_world` — `grep bevy_ggrs` across
-all 7 manifests is empty. Restoration, schema/checksum and probing are preserved
-because the install body was **factored, not copied**: one
-`install_resource_clone_checksum::<T>` serves both the `App` façade and the
-registrar, so it is literally the same three calls, and the probe stays a **value**
-census. Baselines unchanged — `owner` is not in the dump and left the wire form in
-v5. Schema stays **31**.
-
-⚠ **one honest residue:** `sim_core_resources.rs:138` still names `GatePortalPhases`
-for `init_resource`. The runtime still knows the type exists; it no longer knows
-anything about **rewinding** it, which is the boundary that mattered.
-
-⇒ **the general rule this establishes:** federate *semantics* per domain **and**
-*installation* through a backend-neutral vocabulary.
-
-✔✔ **MIGRATION COMPLETED 2026-08-18.** `RollbackRegistrar` now exposes the
-backend-neutral forms used by the current gameplay domains (canonical/clone
+**Migration completed 2026-08-18:** every gameplay crate now owns one
+`register_rollback_state` declaration beside its types (canonical/clone
 component and resource state, cursor/resolved projections, entity-reference
-localization and remapping, rollback anchors, message clearing, derived-state
-claims, and value probes). Each gameplay crate owns one
-`register_rollback_state` declaration beside its types. The former
-`runtime/rollback/domains/*` adapter census is deleted; the runtime retains
-backend-neutral schema composition plus runtime-adjacent declarations. No gameplay
-crate gains `bevy_ggrs` or a runtime dependency.
+remapping, rollback anchors, message clearing, derived-state claims, value
+probes); the former `runtime/rollback/domains/*` adapter census is deleted.
 
-✔ **BACKEND OWNERSHIP EXTRACTED 2026-08-19.** The concrete GGRS schedule,
-snapshot/history installation, session lifecycle, checksum/restore probes, and
-load-world repair now live in `ambition_platformer2d_rollback_ggrs`. The generic
-`ambition_platformer2d_runtime` no longer depends on `bevy_ggrs`. The facade's
-`rollback` feature selects that backend explicitly, while a fixed-step minimal
-consumer can omit it entirely. Schema metadata remains in the generic runtime so
-prepared-content identity does not depend on whether a netcode backend is linked.
+**Backend ownership extracted 2026-08-19:** the concrete GGRS schedule,
+snapshot/history installation, session lifecycle, and checksum/restore probes
+now live in `ambition_platformer2d_rollback_ggrs`. The generic
+`ambition_platformer2d_runtime` no longer depends on `bevy_ggrs` at all; the
+facade's `rollback` feature selects the backend explicitly, and a fixed-step
+minimal consumer can omit it entirely. Schema metadata stays in the generic
+runtime so prepared-content identity doesn't depend on whether a netcode
+backend is linked.
 
-⭐ **the boundary after completion:** the host may know that an installed domain
-offers rollback state; it does not know the concrete types or projections inside
-that offer. Adding a rewindable type changes the owning domain, not a runtime
-census. If a future domain needs a genuinely new rollback semantic, extend the
-backend-neutral vocabulary only when that customer appears rather than growing a
-parallel snapshot abstraction.
+⭐ **The boundary now:** the host may know an installed domain offers rollback
+state; it does not know the concrete types or projections inside that offer.
+Adding a rewindable type changes the owning domain, not a runtime census.
+Extend the backend-neutral vocabulary only when a genuinely new rollback
+semantic appears, rather than growing a parallel snapshot abstraction.
 
 ---
 

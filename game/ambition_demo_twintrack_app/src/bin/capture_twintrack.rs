@@ -11,14 +11,22 @@
 //! chart alone — the half the observatory exists to contrast with — while
 //! reporting success. `adopt_the_observatory` is that one extra edge.
 //!
+//! ⛔ **the split-observer panes are two MORE such cameras**, and unlike the
+//! observatory they split the render target between them. They size their
+//! rectangles from the camera's own target rather than from a window, so
+//! adopting them is all this binary owes them — but `--split` is still needed to
+//! ask for the view, because it is a view mode rather than an overlay.
+//!
 //! ```text
-//! cargo run -p ambition_demo_twintrack_app --features visible \
-//!     --bin capture_twintrack -- OUT.png [WIDTHxHEIGHT] [--warmup N] [--run N] [--no-ui]
+//! cargo run -p ambition_demo_twintrack_app --features capture \
+//!     --bin capture_twintrack -- OUT.png [WIDTHxHEIGHT] [--warmup N] [--run N] [--no-ui] [--split]
 //! ```
 
 use std::path::PathBuf;
 
-use ambition_demo_twintrack::ObservatoryCamera;
+use ambition_demo_twintrack::{
+    LaboratoryTwin, ObservatoryCamera, SplitObserverCamera, TwinTrackExperiment, TwinTrackViewMode,
+};
 use ambition_platformer2d::render::capture::{
     adopt_cameras_into_capture_target, finish_after_capture, request_capture, CaptureAdopted,
     CaptureProgress, CaptureSettings, CaptureTarget,
@@ -39,6 +47,10 @@ struct Warmup {
     settle: u32,
 }
 
+/// Photograph the two-observer exhibit instead of the laboratory chart.
+#[derive(Resource, Clone, Copy)]
+struct SplitObservers(bool);
+
 fn main() {
     let mut args = std::env::args().skip(1);
     let mut output = PathBuf::from("twintrack.png");
@@ -46,6 +58,7 @@ fn main() {
     let mut warmup = 60u32;
     let mut run = 240u32;
     let mut include_ui = true;
+    let mut split = false;
 
     let mut positional_seen = false;
     while let Some(arg) = args.next() {
@@ -63,6 +76,7 @@ fn main() {
                     .unwrap_or_else(|| fail("--run needs a frame count"));
             }
             "--no-ui" => include_ui = false,
+            "--split" => split = true,
             other if other.starts_with("--") => fail(&format!("unknown flag '{other}'")),
             other if !positional_seen => {
                 output = PathBuf::from(other);
@@ -94,6 +108,7 @@ fn main() {
         run_right: run,
         settle: 1,
     });
+    app.insert_resource(SplitObservers(split));
     app.add_systems(
         Startup,
         ambition_platformer2d::render::capture::setup_capture_target,
@@ -105,6 +120,8 @@ fn main() {
         (
             adopt_cameras_into_capture_target,
             adopt_the_observatory,
+            adopt_the_split_observer_panes,
+            ask_for_the_split_observer_view,
             hold_right_while_running,
             shoot_when_warm,
             finish_after_capture,
@@ -139,6 +156,52 @@ fn adopt_the_observatory(
             bevy::render::view::Msaa::Off,
             CaptureAdopted,
         ));
+    }
+}
+
+/// Point the split-observer pane cameras at the capture texture too.
+///
+/// ⚠ **`is_active` is deliberately NOT forced here.** The demo's own sync owns
+/// it — it turns the panes off when the view mode is not the exhibit, and off
+/// again when the target is too small to split. Forcing it on would paint one
+/// observer's half over the whole picture whenever either is true.
+fn adopt_the_split_observer_panes(
+    mut commands: Commands,
+    target: Option<Res<CaptureTarget>>,
+    cameras: Query<Entity, (With<SplitObserverCamera>, Without<CaptureAdopted>)>,
+) {
+    let Some(target) = target else {
+        return;
+    };
+    let render_target = bevy::camera::RenderTarget::Image(bevy::camera::ImageRenderTarget::from(
+        target.image.clone(),
+    ));
+    for entity in &cameras {
+        commands.entity(entity).insert((
+            render_target.clone(),
+            bevy::render::view::Msaa::Off,
+            CaptureAdopted,
+        ));
+    }
+}
+
+/// Select the two-observer exhibit when `--split` asked for it.
+///
+/// ⚠ **written straight onto the experiment, not driven through the view
+/// console.** A capture is not a play session: flying to the console and timing
+/// an Interact edge would make the picture depend on the course script rather
+/// than on the flag.
+fn ask_for_the_split_observer_view(
+    split: Res<SplitObservers>,
+    mut experiment: Query<&mut TwinTrackExperiment, With<LaboratoryTwin>>,
+) {
+    if !split.0 {
+        return;
+    }
+    for mut experiment in &mut experiment {
+        if experiment.view_mode != TwinTrackViewMode::SplitObservers {
+            experiment.view_mode = TwinTrackViewMode::SplitObservers;
+        }
     }
 }
 
@@ -203,6 +266,9 @@ fn hold_right_while_running(
 
 fn fail(message: &str) -> ! {
     eprintln!("capture_twintrack: {message}");
-    eprintln!("usage: capture_twintrack OUT.png [WIDTHxHEIGHT] [--warmup N] [--run N] [--no-ui]");
+    eprintln!(
+        "usage: capture_twintrack OUT.png [WIDTHxHEIGHT] [--warmup N] [--run N] [--no-ui] \
+         [--split]"
+    );
     std::process::exit(2);
 }

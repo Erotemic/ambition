@@ -9,12 +9,32 @@
 //! becoming another movement or game-state path.
 
 mod chase_beacon;
+mod dual_observer;
+mod light_pulse;
 #[cfg(feature = "visible")]
 mod observatory;
 #[cfg(feature = "visible")]
 mod spacetime_3d;
 #[cfg(feature = "visible")]
+mod split_screen;
+#[cfg(feature = "visible")]
 pub use observatory::ObservatoryCamera;
+#[cfg(feature = "visible")]
+pub use split_screen::{SplitObserverCamera, SplitObserverPane};
+
+pub use dual_observer::{
+    beacon_alpha_position, beacon_midpoint, beacon_omega_position, flash_coordinate_time,
+    observe_beacon_pair, observer_frame_offset, BeaconReading, EventOrdering,
+    ObserverOrderingReport, TwinTrackBeacon, TwinTrackDualObserverView,
+    BEACON_FLASH_GLOW_SECONDS, BEACON_FLASH_PERIOD_SECONDS, BEACON_HALF_SEPARATION,
+};
+pub use light_pulse::{
+    aberrated_direction, latest_pulse_index, measure_pulse_ray, observe_light_pulse,
+    pulse_emission_position, pulse_emission_time, pulse_frame_sample, pulse_front_position,
+    PulseFrameSample, PulseObserverReport, PulseRay, PulseRayMeasurement, TwinTrackLightPulseView,
+    ABERRATION_EPSILON_DEGREES, PULSE_PERIOD_SECONDS, PULSE_REST_FREQUENCY_THZ,
+    PULSE_VISIBLE_SECONDS, SPEED_INVARIANCE_TOLERANCE,
+};
 
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::lifecycle::{
@@ -264,12 +284,21 @@ pub enum TwinTrackViewMode {
     Laboratory,
     Optical,
     Spacetime,
+    /// Two observers side by side, each pane resolved in its own frame.
+    ///
+    /// ⚠ **appended on purpose.** The discriminant is the snapshot byte, so a
+    /// new variant may only be added at the end or every stored view mode
+    /// shifts under an old save.
+    SplitObservers,
 }
 
 impl TwinTrackViewMode {
     fn next(self) -> Self {
         match self {
-            Self::Laboratory => Self::Optical,
+            // The split observers pane is the relativity exhibit, so it is the
+            // first thing the view console offers.
+            Self::Laboratory => Self::SplitObservers,
+            Self::SplitObservers => Self::Optical,
             Self::Optical | Self::Spacetime => Self::Laboratory,
         }
     }
@@ -382,6 +411,7 @@ impl ambition_platformer2d::engine_core::snapshot::SnapshotState for TwinTrackEx
             0 => TwinTrackViewMode::Laboratory,
             1 => TwinTrackViewMode::Optical,
             2 => TwinTrackViewMode::Spacetime,
+            3 => TwinTrackViewMode::SplitObservers,
             _ => return None,
         };
         let value = Self {
@@ -647,9 +677,27 @@ impl Plugin for TwinTrackExperiencePlugin {
             )),
         );
 
+        // ⚠ an `Update` read model, not a simulation system. It writes no
+        // canonical state and holds no memo, so it is deliberately absent from
+        // the rollback registration above; see `TwinTrackDualObserverView`.
+        app.init_resource::<TwinTrackDualObserverView>()
+            .init_resource::<TwinTrackLightPulseView>()
+            .add_systems(
+                Update,
+                (
+                    dual_observer::publish_dual_observer_view,
+                    light_pulse::publish_light_pulse_view,
+                )
+                    .run_if(ambition_platformer2d::runtime::in_mode(
+                        TWINTRACK_EXPERIENCE,
+                    ))
+                    .before(publish_twintrack_hud),
+            );
+
         #[cfg(feature = "visible")]
         {
             observatory::install(app);
+            split_screen::install(app);
             spacetime_3d::install(app);
         }
     }
@@ -1312,11 +1360,14 @@ fn consume_twintrack_signal_arrivals(
     let _ = traveler_entity;
 }
 
+#[allow(clippy::too_many_arguments)]
 fn publish_twintrack_hud(
     clocks: Res<RelativityClockView2d>,
     signals: Res<RelativitySignalView2d>,
     optics: Res<RelativisticOpticalView2d>,
     targeting: Res<RelativisticTargetingView2d>,
+    dual: Res<TwinTrackDualObserverView>,
+    pulse: Res<TwinTrackLightPulseView>,
     traveler_body: Query<&ae::BodyKinematics, With<TravelerTwin>>,
     characters: Query<(&TwinTrackCharacter, &ae::BodyKinematics)>,
     experiment: Query<&TwinTrackExperiment, With<LaboratoryTwin>>,
@@ -1385,10 +1436,14 @@ fn publish_twintrack_hud(
         TwinTrackViewMode::Laboratory => "LAB MAP",
         TwinTrackViewMode::Optical => "WHAT REACHES YOU NOW",
         TwinTrackViewMode::Spacetime => "3D SPACE + TIME",
+        TwinTrackViewMode::SplitObservers => "TWO OBSERVERS, TWO ORDERINGS",
     };
     let view_instruction = match experiment.view_mode {
         TwinTrackViewMode::Laboratory => {
-            "3D MINIMAP ON BY DEFAULT • M/SPECIAL TO HIDE   VIEW CONSOLE: OPTICAL"
+            "3D MINIMAP ON BY DEFAULT • M/SPECIAL TO HIDE   VIEW CONSOLE: SPLIT OBSERVERS"
+        }
+        TwinTrackViewMode::SplitObservers => {
+            "LEFT PANE = LAB TWIN AT REST • RIGHT PANE = YOU • FLY ALONG THE BEACON AXIS"
         }
         TwinTrackViewMode::Optical if experiment.phase == TwinTrackPhase::LightTag => {
             "ALIGN CYAN AIM; INTERACT FIRES   M/SPECIAL: MINIMAP"
@@ -1495,7 +1550,16 @@ fn publish_twintrack_hud(
         ambition_platformer2d::presentation::HudReadout::bare(dialogue),
     );
 
-    if experiment.view_mode == TwinTrackViewMode::Spacetime {
+    if experiment.view_mode == TwinTrackViewMode::SplitObservers {
+        readouts.set(
+            TEACHER_HUD_SLOT,
+            ambition_platformer2d::presentation::HudReadout::bare(format!(
+                "{}\n{}",
+                dual_observer_teacher_line(&dual),
+                light_pulse_teacher_line(&pulse),
+            )),
+        );
+    } else if experiment.view_mode == TwinTrackViewMode::Spacetime {
         let target = targeting
             .targets
             .iter()
@@ -1538,4 +1602,59 @@ fn publish_twintrack_hud(
     } else {
         readouts.clear_slot(RESULT_HUD_SLOT);
     }
+}
+
+/// One line naming, for each observer, which flash it saw first and which flash
+/// it says HAPPENED first. Two orderings that differ is the whole exhibit, so
+/// the line says so out loud rather than leaving a viewer to compare numbers.
+fn dual_observer_teacher_line(view: &TwinTrackDualObserverView) -> String {
+    let Some((lab, traveler)) = view.both() else {
+        return "BOTH BEACONS FLASH TOGETHER IN THE LAB — WAIT FOR THEIR LIGHT TO REACH BOTH \
+                OBSERVERS"
+            .to_owned();
+    };
+    let verdict = if view.frame_orders_disagree() {
+        "THE TWO OBSERVERS DISAGREE ABOUT WHICH FLASH HAPPENED FIRST"
+    } else {
+        "FLY ALONG THE BEACON AXIS UNTIL THE TWO PANES DISAGREE"
+    };
+    format!(
+        "FLASH #{} — BOTH BEACONS FLASH AT ONE LAB TIME\n\
+         LAB TWIN (REST): SAW {} · SAYS {}    YOU ({:.0}% c): SAW {} · SAYS {} BY {:.2} s\n{verdict}",
+        lab.compared_flash_index,
+        lab.seen_order.caption(),
+        lab.frame_order.caption(),
+        100.0 * traveler.beta,
+        traveler.seen_order.caption(),
+        traveler.frame_order.caption(),
+        traveler.frame_split_seconds().abs(),
+    )
+}
+
+/// One line comparing what the two observers measure about the SAME light
+/// pulse: the same speed, a different direction, a different colour.
+///
+/// The speeds are printed rather than asserted because printing them is the
+/// exhibit — a viewer who expects `c - v` in the right-hand pane has to read
+/// `1.000 c` there instead.
+fn light_pulse_teacher_line(view: &TwinTrackLightPulseView) -> String {
+    let Some((lab, traveler)) = view.both() else {
+        return format!(
+            "LIGHT PULSE — THE LAB FIRES A THREE-RAY FLARE EVERY {PULSE_PERIOD_SECONDS:.1} s"
+        );
+    };
+    let lab_cross = lab.ray(PulseRay::Crosswise);
+    let traveler_cross = traveler.ray(PulseRay::Crosswise);
+    format!(
+        "PULSE #{} — SPEED WE BOTH MEASURE: LAB {:.3} c · YOU {:.3} c   \
+         CROSSWISE RAY TRAVELS AT {:.0}° / {:.0}°   \
+         CHASED x{:.2} · HEAD-ON x{:.2}",
+        traveler.pulse_index,
+        lab.ray(PulseRay::TowardOmega).measured_speed_fraction,
+        traveler.ray(PulseRay::TowardOmega).measured_speed_fraction,
+        lab_cross.apparent_angle_degrees,
+        traveler_cross.apparent_angle_degrees,
+        traveler.ray(PulseRay::TowardOmega).doppler_factor,
+        traveler.ray(PulseRay::TowardAlpha).doppler_factor,
+    )
 }

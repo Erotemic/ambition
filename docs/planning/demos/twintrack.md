@@ -18,6 +18,82 @@ resolved from that participant's own reference frame. That work is deliberately
 after SR-8; the open-follow camera and centered plaza land first so the single-
 observer experience has a clean spatial baseline.
 
+> **Landed 2026-08-20 — SR-9 ordering exhibit, PERMANENTLY SPLIT.** A
+> `SplitObservers` view mode draws two demo-owned panes: the laboratory twin at
+> rest and the controlled traveler. Two beacons at rest in the laboratory,
+> symmetric about the lab twin, flash together in laboratory coordinate time;
+> each pane reports **which flash's light reached its observer first** and
+> **which flash happened first in its observer's own frame** (an exact
+> `lorentz_boost_event`), plus that observer's own length contraction of the
+> beacon axis. The lab pane answers `SIMULTANEOUS` by construction; the traveler
+> pane answers with an order whose sign is the sign of its velocity. Headless
+> tests in `twintrack_it` assert the two panes disagree and that reversing the
+> traveler reverses its answer.
+>
+> ⚠ **this is deliberately not the acceptance target below.** There is still one
+> controlled body and one `LocalView`; the panes are demo-owned composited
+> cameras in the shape of the 2+1D minimap, not engine per-view rectangles. What
+> the acceptance list needs from the engine is a **split layout policy** (today
+> `publish_camera_viewport` writes the display rect to every view by
+> construction), a **second `LocalView` plus explicit `PresentsView` binding on
+> both cameras** (the shared rule refuses to bind at all once several views
+> exist, so a naive second view unbinds the gameplay camera), a **per-view view
+> SUBJECT** (framing resolves one subject above the per-view loop), and
+> **per-view parallax**.
+>
+> ⚠ **`RelativisticOpticalView2d` is single-observer.** `publish_optical_view`
+> does `observers.single()`, so a second `RelativisticObserver2d` would blank the
+> optical view entirely rather than produce a second one. The ordering exhibit
+> is computed demo-side from `WorldlineHistoryView2d`-shaped facts and the public
+> SR kernel instead; a genuine per-view aberration/Doppler presentation is
+> blocked on that resource becoming view-indexed.
+>
+> **Adaptive vs permanently split, for THIS demo:** permanently split. §11's
+> adaptive-with-hysteresis ruling is Ambition's product layout policy; a view
+> that merges when the two observers are close would hide the phenomenon exactly
+> when the comparison is most instructive, and the lab observer never moves so
+> "close" is a statement about the traveler alone. The world-space entities are
+> still duplicated per pane, which is the part of §11 that is architectural.
+
+> **Landed 2026-08-20 — SR-10 LIGHT-SPEED PULSE, in the split panes.** The lab
+> twin fires a three-ray flare from the beacon midpoint every
+> `PULSE_PERIOD_SECONDS`: one ray down the axis toward Alpha, one toward Omega,
+> one square across it. Each pane prints the speed **its own observer measures**
+> for the pulse, the direction that observer measures it travelling in, and the
+> Doppler factor and colour it measures — so a viewer compares two numbers
+> rather than interpreting an animation.
+>
+> ⛔ **it is not a fast projectile, and that distinction is the exhibit.** A ray
+> has no stored position and nothing integrates it: its laboratory position is
+> `emission_position + c * (t - emission_time) * direction`, derived from the
+> **emission event** and the invariant speed. Every observer-frame number is an
+> exact `lorentz_boost_event` of that null displacement, which is why a traveler
+> flying at 0.9c alongside the toward-Omega ray reads `1.000 c` for it instead
+> of the `c - v` a velocity that something integrated would have produced. The
+> unit tests assert exactly that, with a falsifier that fails if the measured
+> speed ever lands near `c - v`.
+>
+> What the two panes disagree about at 0.9c: the crosswise ray travels at 90° in
+> the lab pane and about 154° in the traveler's (aberration, `sin θ' = 1/γ`);
+> the toward-Alpha ray is blueshifted ×4.36 and the toward-Omega ray redshifted
+> ×0.23 for the traveler and ×1.00 for the lab (and the two axial factors are
+> exact reciprocals, ×4.36 · ×0.23 = 1). The pane also plots each front on the
+> observer's own map at one instant of **that observer's** time, solved on the
+> ray's null worldline rather than length-contracted, and reports the one light
+> cone arrival — the toward-Omega ray reaching the Omega beacon — which both
+> observers agree happened and time differently on their own clocks.
+>
+> ⚠ **derived, not canonical, and no schema moved.** `TwinTrackLightPulseView`
+> is recomputed every frame from `SpacetimeCoordinateTime2d` and canonical
+> `BodyKinematics`, in the same shape as `TwinTrackDualObserverView`: no
+> entities, no accumulator, nothing for rollback to rewind.
+>
+> ▢ **not player-fired.** A pulse the participant triggers needs its emission
+> event to persist — an emission coordinate time, an emission position, and a
+> direction on `TwinTrackExperiment`, whose encoding is a snapshot schema. The
+> timer flare gives the same physics with none of that; the fired version is
+> owed whenever the schema is free to move.
+
 
 ## Dual-observer / split-screen acceptance
 

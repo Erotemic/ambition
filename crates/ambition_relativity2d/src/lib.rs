@@ -27,8 +27,8 @@ mod targeting;
 mod telemetry;
 
 pub use optics::{
-    solve_retarded_source_event, OpticalObserverObservation2d, OpticalSource2d,
-    OpticalSourceObservation2d, RelativisticObserver2d, RelativisticOpticalView2d,
+    solve_retarded_source_event, ObserverOpticalView2d, OpticalObserverObservation2d,
+    OpticalSource2d, OpticalSourceObservation2d, RelativisticObserver2d, RelativisticOpticalView2d,
     RetardedSourceEvent2d,
 };
 pub use signals::{

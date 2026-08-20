@@ -108,6 +108,19 @@ fn publish_targeting_view(
         return;
     };
 
+    // ⭐ **name whose sky this joins.** The optical view holds one image per
+    // observer; joining "the" sources would have silently paired this
+    // observer's intercept solutions with a different observer's light-delayed
+    // images the moment a second observer existed. With one observer this is
+    // that observer's row, which is exactly what the old `sources` field was.
+    //
+    // ⚠ targeting itself is still single-observer (`observers.single()` above);
+    // this is the join being correct in advance, not that gap being closed.
+    let optical_sources = optical
+        .for_observer(observer_entity)
+        .map(|view| view.sources.as_slice())
+        .unwrap_or_default();
+
     view.model_id = Some(model.model_id());
     view.coordinate_time = time.seconds;
     view.observer_entity = Some(observer_entity);
@@ -152,8 +165,7 @@ fn publish_targeting_view(
         .filter(|direction| *direction != Vec2::ZERO) else {
             continue;
         };
-        let optical_source = optical
-            .sources
+        let optical_source = optical_sources
             .iter()
             .find(|source| source.entity == entity);
         let apparent_source_direction = optical_source

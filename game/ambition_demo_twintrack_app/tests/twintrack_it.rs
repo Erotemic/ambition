@@ -1,8 +1,10 @@
 use ambition_demo_twintrack::{
-    twintrack_room, LaboratoryTwin, TravelerTwin, TwinTrackCharacter, TwinTrackExperiment,
-    TwinTrackIntroStep, TwinTrackPhase, TwinTrackRole, TwinTrackViewMode, COURIER_ID, DJ_ID,
+    beacon_alpha_position, beacon_midpoint, beacon_omega_position, pulse_emission_position,
+    twintrack_room, EventOrdering, LaboratoryTwin, PulseRay, TravelerTwin, TwinTrackCharacter,
+    TwinTrackDualObserverView, TwinTrackExperiment, TwinTrackIntroStep, TwinTrackLightPulseView,
+    TwinTrackPhase, TwinTrackRole, TwinTrackViewMode, BEACON_HALF_SEPARATION, COURIER_ID, DJ_ID,
     DJ_POS, DRIFTER_ID, INVARIANT_SPEED, LAB_POS, LIGHT_TAG_ROUNDS, ROOM_HEIGHT, ROOM_WIDTH,
-    SPINNER_ID, TAGGER_ID, TARGET_SPEED, VIEW_CONSOLE_POS,
+    SPEED_INVARIANCE_TOLERANCE, SPINNER_ID, TAGGER_ID, TARGET_SPEED, VIEW_CONSOLE_POS,
 };
 use ambition_platformer2d::actor::BodyKinematics;
 use ambition_platformer2d::engine_core::BodyAbilities;
@@ -354,6 +356,24 @@ fn view_console_toggles_optical_without_replacing_gameplay_with_spacetime() {
     complete_introduction(&mut app);
     set_traveler_state(&mut app, VIEW_CONSOLE_POS, Vec2::ZERO);
 
+    // The relativity exhibit is what the console offers first; the optical
+    // view is the second stop on the same cycle.
+    step(
+        &mut app,
+        ControlFrame {
+            interact_pressed: true,
+            ..Default::default()
+        },
+    );
+    assert_eq!(
+        experiment(&mut app).view_mode,
+        TwinTrackViewMode::SplitObservers
+    );
+
+    // Release Interact for a frame so the next press is a fresh edge rather
+    // than a held button.
+    idle(&mut app, 1);
+    set_traveler_state(&mut app, VIEW_CONSOLE_POS, Vec2::ZERO);
     step(
         &mut app,
         ControlFrame {
@@ -628,4 +648,271 @@ fn every_plaza_character_has_a_distinct_role_and_receiver() {
     channels.sort_unstable();
     channels.dedup();
     assert_eq!(channels.len(), rows.len());
+}
+
+fn dual_observer_view(app: &mut App) -> TwinTrackDualObserverView {
+    app.world()
+        .resource::<TwinTrackDualObserverView>()
+        .clone()
+}
+
+/// Pin the traveler onto the beacons' midpoint with a chosen velocity and run
+/// until both observers have a reading of the same flash pair.
+///
+/// ⚠ **re-pinned every tick on purpose.** Free flight drags the velocity down
+/// and carries the body off the midpoint, and both of those would quietly turn
+/// this into a test about distance instead of a test about frames.
+fn settle_dual_observer(app: &mut App, velocity: Vec2) -> TwinTrackDualObserverView {
+    let mut last = TwinTrackDualObserverView::default();
+    for _ in 0..1_200 {
+        set_traveler_state(app, beacon_midpoint(), velocity);
+        idle(app, 1);
+        last = dual_observer_view(app);
+        // ⚠ **both panes must be reading ONE pair of events.** Two panes
+        // comparing two different flash pairs would "disagree" for a reason
+        // that has nothing to do with relativity, so this is a precondition of
+        // the measurement rather than part of it.
+        if last.compares_the_same_flash_pair() {
+            return last;
+        }
+    }
+    panic!(
+        "the two TwinTrack observers never read one flash pair together: lab {:?}, traveler {:?}",
+        last.laboratory.as_ref().map(|row| row.compared_flash_index),
+        last.traveler.as_ref().map(|row| row.compared_flash_index),
+    );
+}
+
+#[test]
+fn the_two_beacons_straddle_the_laboratory_twin_symmetrically() {
+    // The laboratory observer's "simultaneous" answer is only meaningful
+    // because it is genuinely equidistant. If a relayout moves the lab, the
+    // exhibit stops being an exhibit and this says so.
+    assert_eq!(beacon_midpoint(), LAB_POS);
+    assert!((beacon_alpha_position().distance(LAB_POS) - BEACON_HALF_SEPARATION).abs() < 1.0e-3);
+    assert!((beacon_omega_position().distance(LAB_POS) - BEACON_HALF_SEPARATION).abs() < 1.0e-3);
+    assert!(beacon_alpha_position().x < beacon_omega_position().x);
+}
+
+#[test]
+fn two_observers_report_different_orderings_of_the_same_flash_pair() {
+    let mut app = ambition_demo_twintrack_app::build_demo_app();
+    activate(&mut app);
+    let view = settle_dual_observer(&mut app, Vec2::new(0.8 * INVARIANT_SPEED, 0.0));
+
+    let lab = view.laboratory.as_ref().expect("lab twin should observe");
+    let traveler = view.traveler.as_ref().expect("traveler should observe");
+
+    // The observer at rest and equidistant: both flashes happened together.
+    assert_eq!(lab.frame_order, EventOrdering::Simultaneous);
+    assert_eq!(lab.seen_order, EventOrdering::Simultaneous);
+    // The observer moving toward Omega: Omega happened first.
+    assert_eq!(traveler.frame_order, EventOrdering::OmegaFirst);
+    assert!(traveler.beta > 0.5, "traveler should be relativistic");
+
+    assert!(
+        view.frame_orders_disagree(),
+        "the two panes must disagree; lab said {:?} and the traveler said {:?}",
+        lab.frame_order,
+        traveler.frame_order,
+    );
+}
+
+#[test]
+fn reversing_the_traveler_reverses_which_flash_it_says_happened_first() {
+    let mut app = ambition_demo_twintrack_app::build_demo_app();
+    activate(&mut app);
+
+    let toward_omega = settle_dual_observer(&mut app, Vec2::new(0.8 * INVARIANT_SPEED, 0.0));
+    let toward_alpha = settle_dual_observer(&mut app, Vec2::new(-0.8 * INVARIANT_SPEED, 0.0));
+
+    let omega_first = toward_omega
+        .traveler
+        .as_ref()
+        .expect("traveler should observe")
+        .frame_order;
+    let alpha_first = toward_alpha
+        .traveler
+        .as_ref()
+        .expect("traveler should observe")
+        .frame_order;
+    assert_eq!(omega_first, EventOrdering::OmegaFirst);
+    assert_eq!(alpha_first, EventOrdering::AlphaFirst);
+
+    // ...and the observer at rest gave the same answer both times, so the flip
+    // is a property of the traveler's frame rather than of the flashes.
+    for view in [&toward_omega, &toward_alpha] {
+        assert_eq!(
+            view.laboratory
+                .as_ref()
+                .expect("lab twin should observe")
+                .frame_order,
+            EventOrdering::Simultaneous,
+        );
+    }
+}
+
+#[test]
+fn the_frame_disagreement_is_not_a_repackaged_light_delay() {
+    let mut app = ambition_demo_twintrack_app::build_demo_app();
+    activate(&mut app);
+    let view = settle_dual_observer(&mut app, Vec2::new(0.8 * INVARIANT_SPEED, 0.0));
+    let traveler = view.traveler.as_ref().expect("traveler should observe");
+
+    // The traveler sits where the light-delay answer is (almost) a tie, so the
+    // ordering it reports cannot be coming from being nearer one beacon.
+    let seen = traveler.seen_split_seconds().abs();
+    let framed = traveler.frame_split_seconds().abs();
+    assert!(
+        seen < 0.1,
+        "the traveler should be effectively equidistant, but its arrival split was {seen} s",
+    );
+    assert!(
+        framed > 1.0,
+        "the traveler's own-frame split should be a large fraction of a second, was {framed} s",
+    );
+}
+
+fn light_pulse_view(app: &mut App) -> TwinTrackLightPulseView {
+    app.world().resource::<TwinTrackLightPulseView>().clone()
+}
+
+/// Pin the traveler onto the emitter with a chosen velocity and run until both
+/// observers are reading the SAME flare.
+///
+/// ⚠ **re-pinned every tick for the same reason `settle_dual_observer` is.**
+/// Free flight drags the velocity down, and a decayed velocity would turn a
+/// test about the second postulate into a test about a slow observer.
+fn settle_light_pulse(app: &mut App, velocity: Vec2) -> TwinTrackLightPulseView {
+    let mut last = TwinTrackLightPulseView::default();
+    for _ in 0..1_200 {
+        set_traveler_state(app, pulse_emission_position(), velocity);
+        idle(app, 1);
+        last = light_pulse_view(app);
+        if last.compares_the_same_pulse() {
+            return last;
+        }
+    }
+    panic!(
+        "the two TwinTrack observers never read one flare together: lab {:?}, traveler {:?}",
+        last.laboratory.as_ref().map(|row| row.pulse_index),
+        last.traveler.as_ref().map(|row| row.pulse_index),
+    );
+}
+
+#[test]
+fn both_observers_measure_the_light_pulse_at_the_invariant_speed() {
+    let mut app = ambition_demo_twintrack_app::build_demo_app();
+    activate(&mut app);
+    let view = settle_light_pulse(&mut app, Vec2::new(0.9 * INVARIANT_SPEED, 0.0));
+
+    let lab = view.laboratory.as_ref().expect("lab twin should observe");
+    let traveler = view.traveler.as_ref().expect("traveler should observe");
+
+    // The premise. Without a real relative speed the invariance claim below is
+    // a statement about two observers who agree for the boring reason.
+    assert!(
+        lab.beta < 1.0e-4,
+        "the lab twin should be at rest, was {}",
+        lab.beta
+    );
+    // ⚠ a band, not a point. Flight drag bleeds a few units per tick off the
+    // pinned velocity between the pin and the read, and pinning the number
+    // exactly would make this a test about drag.
+    assert!(
+        (0.85..=0.95).contains(&traveler.beta),
+        "the traveler should be flying near 0.9c, was {}",
+        traveler.beta,
+    );
+
+    for report in [lab, traveler] {
+        for ray in PulseRay::ALL {
+            let measurement = report.ray(ray);
+            assert!(
+                (measurement.measured_speed_fraction - 1.0).abs() <= SPEED_INVARIANCE_TOLERANCE,
+                "{} measured {ray:?} at {} c",
+                report.label,
+                measurement.measured_speed_fraction,
+            );
+        }
+    }
+    assert!(view.speed_is_invariant_for_both());
+
+    // ⛔ the falsifier that makes this more than "the pulse moved": a fast
+    // projectile would hand the traveler `c - v` for the ray it chases.
+    let galilean = f64::from(INVARIANT_SPEED) * (1.0 - f64::from(traveler.beta));
+    let chased = traveler.ray(PulseRay::TowardOmega).measured_speed;
+    assert!(
+        (chased - galilean).abs() > 0.5 * f64::from(INVARIANT_SPEED),
+        "the traveler measured the chased ray at {chased}, near the velocity-addition \
+         answer {galilean}; the pulse is being integrated as an ordinary projectile",
+    );
+}
+
+#[test]
+fn the_two_observers_disagree_about_the_pulses_direction_and_colour() {
+    let mut app = ambition_demo_twintrack_app::build_demo_app();
+    activate(&mut app);
+    let view = settle_light_pulse(&mut app, Vec2::new(0.9 * INVARIANT_SPEED, 0.0));
+
+    let lab = view.laboratory.as_ref().expect("lab twin should observe");
+    let traveler = view.traveler.as_ref().expect("traveler should observe");
+
+    // Aberration: the crosswise ray leaves the laboratory square to the axis
+    // and the traveler measures it swept far around toward its own tail.
+    let lab_cross = lab.ray(PulseRay::Crosswise);
+    let traveler_cross = traveler.ray(PulseRay::Crosswise);
+    assert!((lab_cross.apparent_angle_degrees - 90.0).abs() < 1.0e-2);
+    assert!(
+        (traveler_cross.apparent_angle_degrees - lab_cross.apparent_angle_degrees).abs() > 45.0,
+        "the two panes should place the crosswise ray tens of degrees apart, got {} and {}",
+        lab_cross.apparent_angle_degrees,
+        traveler_cross.apparent_angle_degrees,
+    );
+    assert!(view.directions_disagree());
+
+    // Doppler: the same ray is one colour in one pane and another in the other,
+    // blueshifted head-on and redshifted when chased.
+    for measurement in &lab.rays {
+        assert!((measurement.doppler_factor - 1.0).abs() < 1.0e-6);
+    }
+    assert!(traveler.ray(PulseRay::TowardAlpha).doppler_factor > 2.0);
+    assert!(traveler.ray(PulseRay::TowardOmega).doppler_factor < 0.5);
+    assert!(view.doppler_factors_disagree());
+
+    // ...and both panes are still talking about ONE emission event, so none of
+    // the above is two observers comparing two different flares.
+    assert_eq!(lab.pulse_index, traveler.pulse_index);
+    assert_eq!(
+        lab.emission_coordinate_time,
+        traveler.emission_coordinate_time
+    );
+}
+
+#[test]
+fn the_two_observers_time_one_light_cone_arrival_differently() {
+    let mut app = ambition_demo_twintrack_app::build_demo_app();
+    activate(&mut app);
+    let view = settle_light_pulse(&mut app, Vec2::new(0.9 * INVARIANT_SPEED, 0.0));
+
+    let lab = view.laboratory.as_ref().expect("lab twin should observe");
+    let traveler = view.traveler.as_ref().expect("traveler should observe");
+
+    // Whether the light got to Omega is not up for debate.
+    assert_eq!(
+        lab.omega_arrival_coordinate_time,
+        traveler.omega_arrival_coordinate_time,
+    );
+    let crossing = f64::from(BEACON_HALF_SEPARATION) / f64::from(INVARIANT_SPEED);
+    assert!(
+        (lab.omega_arrival_coordinate_time - lab.emission_coordinate_time - crossing).abs()
+            < 1.0e-6,
+    );
+    // WHEN it got there is.
+    assert!(
+        (lab.omega_arrival_frame_seconds - traveler.omega_arrival_frame_seconds).abs() > 0.5,
+        "the two observers timed one arrival at {} s and {} s",
+        lab.omega_arrival_frame_seconds,
+        traveler.omega_arrival_frame_seconds,
+    );
 }

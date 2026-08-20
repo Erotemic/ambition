@@ -17,6 +17,10 @@ use bevy::camera::visibility::RenderLayers;
 use bevy::camera::{ClearColorConfig, OrthographicProjection, Projection, ScalingMode};
 use bevy::prelude::*;
 
+use crate::dual_observer::{
+    TwinTrackBeacon, TwinTrackDualObserverView, BEACON_FLASH_GLOW_SECONDS,
+    BEACON_FLASH_PERIOD_SECONDS,
+};
 use crate::{
     decoded_clock_seconds, doppler_frequency_for_target, musical_note_name, payload_parts,
     LaboratoryTwin, TravelerTwin, TwinTrackCharacter, TwinTrackExperiment, TwinTrackPhase,
@@ -103,6 +107,9 @@ struct LabInterceptMarker;
 struct LabTagGuideLabel;
 
 #[derive(Component)]
+struct LabBeaconVisual(TwinTrackBeacon);
+
+#[derive(Component)]
 struct ViewConsoleVisual;
 
 #[derive(Component)]
@@ -173,6 +180,7 @@ pub(crate) fn install(app: &mut App) {
             update_optical_aberration_beacons,
             update_optical_proxies,
             update_lab_orbit_visuals,
+            update_lab_beacon_visuals,
             cleanup_visuals_when_inactive,
         ),
     );
@@ -299,6 +307,27 @@ fn spawn_twintrack_visuals(
         Transform::from_translation(LAB_POS.extend(6.0)),
         Name::new("TwinTrack laboratory twin marker"),
     ));
+    for beacon in TwinTrackBeacon::ALL {
+        let position = beacon.position();
+        commands.spawn((
+            TwinTrackVisible,
+            LabBeaconVisual(beacon),
+            Sprite::from_color(beacon_map_color(beacon), Vec2::splat(38.0)),
+            Transform::from_translation(position.extend(6.5)),
+            Name::new(format!("TwinTrack lab beacon {}", beacon.label())),
+        ));
+        commands.spawn((
+            TwinTrackVisible,
+            Text2d::new(format!("BEACON {}\nFLASHES WITH ITS TWIN", beacon.label())),
+            TextFont {
+                font_size: 13.0,
+                ..default()
+            },
+            TextColor(beacon_map_color(beacon)),
+            Transform::from_translation((position + Vec2::new(0.0, -46.0)).extend(9.0)),
+            Name::new(format!("TwinTrack lab beacon label {}", beacon.label())),
+        ));
+    }
     spawn_clock_pair(&mut commands, ClockVisualTarget::Laboratory, "laboratory");
     spawn_clock_pair(&mut commands, ClockVisualTarget::Traveler, "traveler");
     commands.spawn((
@@ -665,7 +694,13 @@ fn sync_view_cameras(
         camera.viewport = None;
     }
     for mut camera in &mut laboratory {
-        camera.is_active = experiment.view_mode != TwinTrackViewMode::Optical;
+        // The split-observer panes cover the whole window with their own
+        // per-observer frames, so the laboratory map stands down for them the
+        // same way it does for the optical view.
+        camera.is_active = matches!(
+            experiment.view_mode,
+            TwinTrackViewMode::Laboratory | TwinTrackViewMode::Spacetime
+        );
         camera.viewport = None;
     }
 }
@@ -1341,6 +1376,7 @@ fn update_observatory_title(
         title.0 = match experiment.view_mode {
             TwinTrackViewMode::Laboratory => "LABORATORY MAP".to_owned(),
             TwinTrackViewMode::Optical => "WHAT REACHES YOU NOW".to_owned(),
+            TwinTrackViewMode::SplitObservers => "TWO OBSERVERS — TWO ORDERINGS".to_owned(),
             TwinTrackViewMode::Spacetime if experiment.phase == TwinTrackPhase::Complete => {
                 format!(
                     "3D SPACE + TIME REPLAY  {:>3}% — LEFT/RIGHT SCRUBS",
@@ -1640,4 +1676,35 @@ fn splitmix64(mut value: u64) -> u64 {
 
 fn unit_from_u64(value: u64) -> f32 {
     ((value >> 40) as f32) / ((1_u32 << 24) as f32)
+}
+
+fn beacon_map_color(beacon: TwinTrackBeacon) -> Color {
+    match beacon {
+        TwinTrackBeacon::Alpha => Color::srgb(0.34, 0.76, 1.0),
+        TwinTrackBeacon::Omega => Color::srgb(1.0, 0.70, 0.24),
+    }
+}
+
+/// The two beacons flash TOGETHER on the laboratory map, because in the
+/// laboratory frame they do.
+///
+/// ⛔ **this is the flash EVENT, not its arrival.** A laboratory map draws
+/// laboratory coordinate time, so lighting these on the light's arrival at any
+/// particular observer would smuggle one observer's perception into the frame
+/// that is supposed to be the shared reference. The split-observer panes are
+/// where arrival, and disagreement, belong.
+fn update_lab_beacon_visuals(
+    view: Res<TwinTrackDualObserverView>,
+    mut beacons: Query<(&LabBeaconVisual, &mut Sprite)>,
+) {
+    let lit = view.coordinate_time.rem_euclid(BEACON_FLASH_PERIOD_SECONDS)
+        < BEACON_FLASH_GLOW_SECONDS;
+    for (beacon, mut sprite) in &mut beacons {
+        sprite.color = if lit {
+            Color::WHITE
+        } else {
+            beacon_map_color(beacon.0).with_alpha(0.35)
+        };
+        sprite.custom_size = Some(Vec2::splat(if lit { 62.0 } else { 38.0 }));
+    }
 }

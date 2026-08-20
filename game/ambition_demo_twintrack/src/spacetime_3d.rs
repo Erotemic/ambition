@@ -419,7 +419,10 @@ fn spawn_spacetime_3d(
 fn toggle_spacetime_minimap(
     keys: Option<Res<ButtonInput<KeyCode>>>,
     slots: Res<ambition_platformer2d::characters::brain::SlotControls>,
-    traveler: Query<&ambition_platformer2d::characters::brain::Brain, With<TravelerTwin>>,
+    traveler: Query<
+        &ambition_platformer2d::characters::brain::DrivingParticipant,
+        With<TravelerTwin>,
+    >,
     mut special_was_pressed: Local<bool>,
     mut minimap: ResMut<SpacetimeMinimapState>,
 ) {
@@ -429,8 +432,7 @@ fn toggle_spacetime_minimap(
     let special = traveler
         .single()
         .ok()
-        .and_then(|brain| brain.player_slot())
-        .is_some_and(|slot| slots.get(slot).special_pressed);
+        .is_some_and(|driver| slots.get(driver.0).special_pressed);
     let special_edge = special && !*special_was_pressed;
     *special_was_pressed = special;
     let key_edge = keys.is_some_and(|keys| keys.just_pressed(KeyCode::KeyM));

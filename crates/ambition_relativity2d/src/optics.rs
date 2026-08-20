@@ -76,7 +76,13 @@ impl SnapshotState for OpticalSource2d {
     }
 }
 
-/// Select one body as an optical observer without changing simulation authority.
+/// Mark a body as an optical observer without changing simulation authority.
+///
+/// ⚠ **any number of bodies may carry this**, and each one gets its own image
+/// in [`RelativisticOpticalView2d`]. The string is the authored label — it is
+/// what the published rows are ORDERED by, so it is worth keeping unique, but
+/// nothing keys on it: [`RelativisticOpticalView2d::for_observer`] takes the
+/// entity.
 #[derive(Component, Clone, Debug, PartialEq, Eq)]
 pub struct RelativisticObserver2d(pub String);
 
@@ -128,15 +134,152 @@ pub struct OpticalSourceObservation2d {
     pub rest_intensity: f32,
 }
 
-/// Presentation/perception-facing optical state for the active observer.
-#[derive(Resource, Clone, Debug, Default, PartialEq)]
-pub struct RelativisticOpticalView2d {
+/// **One observer's own past-light-cone image of the world.**
+///
+/// ⛔ **this used to BE the resource, and there could only ever be one of it.**
+/// `publish_optical_view` resolved its observer with `observers.single()`, so a
+/// second [`RelativisticObserver2d`] did not produce a second image — it made
+/// that call `Err` and blanked the only image there was. Two observers of one
+/// world disagree about what they SEE — a different retarded event per source,
+/// a different aberration, a different Doppler shift — exactly as much as they
+/// disagree about the order of events, and that disagreement is the physics
+/// this module exists to publish. The row therefore left the resource, and
+/// [`RelativisticOpticalView2d`] holds one of these per observer.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct ObserverOpticalView2d {
     pub model_id: Option<&'static str>,
+    /// ⚠ an `Option` even though a published row always has one: this is also
+    /// the shape a consumer reads through [`RelativisticOpticalView2d`]'s
+    /// `Deref`, where "there is no observer at all" must still have an answer.
     pub observer: Option<OpticalObserverObservation2d>,
     pub sources: Vec<OpticalSourceObservation2d>,
     pub history_start_time: Option<f64>,
     pub history_end_time: Option<f64>,
     pub missed_sources: usize,
+}
+
+/// What "the observer's view" is when no observer published one.
+///
+/// Byte-for-byte [`ObserverOpticalView2d::default`]; it exists as a `static`
+/// because the `Deref` below must hand out a reference that outlives the call.
+static NO_OBSERVER_OPTICAL_VIEW: ObserverOpticalView2d = ObserverOpticalView2d {
+    model_id: None,
+    observer: None,
+    sources: Vec::new(),
+    history_start_time: None,
+    history_end_time: None,
+    missed_sources: 0,
+};
+
+/// Presentation/perception-facing optical state: **one image per observer**.
+///
+/// ⭐ **keyed by the OBSERVER ENTITY, not by a presentation view id.** The two
+/// candidates are not interchangeable and only one of them owns this value:
+///
+/// - This resource is written inside the SIMULATION schedule
+///   (`Platformer2dSimulationPhaseMonolith::FeatureViewSync`), out of simulation
+///   facts only — canonical [`BodyKinematics`], session coordinate time, and the
+///   bounded worldline history — and it is declared to rollback as DERIVED
+///   simulation state. An observer is one of those facts. A `LocalViewId` is
+///   not: it counts the cameras a particular machine happens to be running, so
+///   keying on it would make rollback-derived state change shape when a player
+///   opens a second viewport, and would make a simulation crate depend on
+///   `ambition_sim_view`.
+/// - The observer key also survives the case a view id cannot express: an
+///   observer nobody is looking through (an AI, a recorded worldline, a replay
+///   probe) still has a well-defined past light cone.
+///
+/// Choosing WHICH observer a given screen looks through is the presentation
+/// question, and it belongs where the cameras are — a view holds an observer
+/// entity and asks [`Self::for_observer`]. That mapping is deliberately not
+/// stored here: keying on both would give one image two owners.
+#[derive(Resource, Clone, Debug, Default, PartialEq)]
+pub struct RelativisticOpticalView2d {
+    /// ⚠ **ordered, not a `HashMap`** — a consumer that draws every observer's
+    /// image iterates this, and Bevy query order is not deterministic. The
+    /// writer sorts by the authored observer label, then by entity bits to
+    /// break a duplicate-label tie, so the same world publishes the same order
+    /// on every peer and every rewind.
+    views: Vec<(Entity, ObserverOpticalView2d)>,
+}
+
+impl RelativisticOpticalView2d {
+    pub fn is_empty(&self) -> bool {
+        self.views.is_empty()
+    }
+
+    pub fn len(&self) -> usize {
+        self.views.len()
+    }
+
+    /// Every observer's image, in the published deterministic order.
+    pub fn iter(&self) -> impl Iterator<Item = (Entity, &ObserverOpticalView2d)> + '_ {
+        self.views.iter().map(|(entity, view)| (*entity, view))
+    }
+
+    pub fn observers(&self) -> impl Iterator<Item = Entity> + '_ {
+        self.views.iter().map(|(entity, _)| *entity)
+    }
+
+    /// The image belonging to one observer — the accessor a per-view consumer
+    /// wants, because it names whose eyes it is drawing.
+    pub fn for_observer(&self, observer: Entity) -> Option<&ObserverOpticalView2d> {
+        self.views
+            .iter()
+            .find(|(entity, _)| *entity == observer)
+            .map(|(_, view)| view)
+    }
+
+    /// The image belonging to the observer with this authored label.
+    ///
+    /// ⚠ a label is authored text, and two observers may carry the same one;
+    /// this returns the first in published order. [`Self::for_observer`] is the
+    /// unambiguous lookup.
+    pub fn for_label(&self, label: &str) -> Option<&ObserverOpticalView2d> {
+        self.views
+            .iter()
+            .find(|(_, view)| {
+                view.observer
+                    .as_ref()
+                    .is_some_and(|observer| observer.label == label)
+            })
+            .map(|(_, view)| view)
+    }
+
+    /// The first observer's image in published order.
+    ///
+    /// ⚠ **this is a single-observer answer, and it says so.** It exists for
+    /// consumers that genuinely have one observer (and for the `Deref` below);
+    /// a consumer that must survive a second observer has to choose one, which
+    /// is [`Self::for_observer`].
+    pub fn primary(&self) -> Option<&ObserverOpticalView2d> {
+        self.views.first().map(|(_, view)| view)
+    }
+
+    pub(crate) fn clear(&mut self) {
+        self.views.clear();
+    }
+
+    pub(crate) fn push(&mut self, observer: Entity, view: ObserverOpticalView2d) {
+        self.views.push((observer, view));
+    }
+}
+
+/// **Field access reads the FIRST observer's image.**
+///
+/// ⚠ this is what keeps the one-observer world byte-identical to the version of
+/// this module that had exactly one image: `view.observer` and `view.sources`
+/// mean today what they meant then, and with no observer at all they still read
+/// `None` and empty. With two observers they read the first one's image instead
+/// of blanking, which is the whole point — but a consumer that reaches through
+/// this with two observers on the field is drawing one observer's sky for both,
+/// and should be reading [`RelativisticOpticalView2d::for_observer`].
+impl std::ops::Deref for RelativisticOpticalView2d {
+    type Target = ObserverOpticalView2d;
+
+    fn deref(&self) -> &Self::Target {
+        self.primary().unwrap_or(&NO_OBSERVER_OPTICAL_VIEW)
+    }
 }
 
 pub(crate) fn register_rollback_state(registrar: &mut impl ambition_platformer2d_core::snapshot::RollbackRegistrar) {
@@ -189,14 +332,11 @@ fn publish_optical_view(
     // "missed": it has no history to reconstruct from, which was always true.
     sources: Query<(Entity, &OpticalSource2d, &WorldlineTracked2d)>,
     worldlines: Res<WorldlineHistoryView2d>,
-    mut view: ResMut<RelativisticOpticalView2d>,
+    mut views: ResMut<RelativisticOpticalView2d>,
 ) {
-    *view = RelativisticOpticalView2d::default();
-    let (Ok(spacetime), Ok(coordinate_time), Ok((observer_entity, observer, body, proper_time))) = (
-        spacetime.single(),
-        coordinate_time.single(),
-        observers.single(),
-    ) else {
+    views.clear();
+    let (Ok(spacetime), Ok(coordinate_time)) = (spacetime.single(), coordinate_time.single())
+    else {
         return;
     };
     let model = spacetime.model();
@@ -204,20 +344,71 @@ fn publish_optical_view(
         return;
     };
     let reception_time = coordinate_time.seconds;
-    view.model_id = Some(model.model_id());
-    view.observer = Some(OpticalObserverObservation2d {
-        entity: observer_entity,
-        label: observer.0.clone(),
-        coordinate_time: reception_time,
-        proper_time: proper_time.map(|clock| clock.seconds),
-        position: body.pos,
-        coordinate_velocity: body.vel,
-        invariant_speed: invariant_speed.get(),
-    });
 
     let mut source_rows: Vec<_> = sources.iter().collect();
     source_rows.sort_by(|(_, lhs, _), (_, rhs, _)| lhs.label.cmp(&rhs.label));
-    for (entity, source, tracked) in source_rows {
+
+    // ⚠ **the published order is sorted, never Bevy query order.** Two peers
+    // spawn the same observers in the same authored order but need not hand
+    // them to this query in the same order, and a rewind need not either; a
+    // consumer that draws `views.iter()` in sequence would then differ between
+    // peers. The authored label is the stable key; entity bits only break a
+    // duplicate-label tie, which is an authoring ambiguity that affects the
+    // ORDER of two rows and never the contents of either.
+    let mut observer_rows: Vec<_> = observers.iter().collect();
+    observer_rows.sort_by(|(left_entity, left, ..), (right_entity, right, ..)| {
+        left.0
+            .cmp(&right.0)
+            .then_with(|| left_entity.to_bits().cmp(&right_entity.to_bits()))
+    });
+
+    for (observer_entity, observer, body, proper_time) in observer_rows {
+        let view = observe_from(
+            model.model_id(),
+            invariant_speed,
+            reception_time,
+            (observer_entity, observer, body, proper_time),
+            &source_rows,
+            &worldlines,
+        );
+        views.push(observer_entity, view);
+    }
+}
+
+/// Build one observer's image of every optical source.
+///
+/// ⭐ **the per-observer math was already per-observer.** Every quantity below
+/// is a function of THIS observer's event and velocity; nothing here reads a
+/// "the observer" singleton. Lifting it out of the system is what lets N
+/// observers each get their own image — and lets a test call it twice.
+fn observe_from(
+    model_id: &'static str,
+    invariant_speed: InvariantSpeed,
+    reception_time: f64,
+    (observer_entity, observer, body, proper_time): (
+        Entity,
+        &RelativisticObserver2d,
+        &BodyKinematics,
+        Option<&ProperTimeElapsed>,
+    ),
+    source_rows: &[(Entity, &OpticalSource2d, &WorldlineTracked2d)],
+    worldlines: &WorldlineHistoryView2d,
+) -> ObserverOpticalView2d {
+    let mut view = ObserverOpticalView2d {
+        model_id: Some(model_id),
+        observer: Some(OpticalObserverObservation2d {
+            entity: observer_entity,
+            label: observer.0.clone(),
+            coordinate_time: reception_time,
+            proper_time: proper_time.map(|clock| clock.seconds),
+            position: body.pos,
+            coordinate_velocity: body.vel,
+            invariant_speed: invariant_speed.get(),
+        }),
+        ..Default::default()
+    };
+
+    for (entity, source, tracked) in source_rows.iter().copied() {
         let Some(samples) = worldlines.tracks.get(&tracked.track) else {
             view.missed_sources += 1;
             continue;
@@ -306,16 +497,19 @@ fn publish_optical_view(
             rest_intensity: source.rest_intensity,
         });
     }
+    view
 }
 
 fn clear_optical_view_without_live_spacetime(
     spacetime: Query<(), (With<ActiveSpacetime2d>, With<SessionRoot>)>,
-    mut view: ResMut<RelativisticOpticalView2d>,
+    mut views: ResMut<RelativisticOpticalView2d>,
 ) {
-    if spacetime.is_empty()
-        && (view.model_id.is_some() || view.observer.is_some() || !view.sources.is_empty())
-    {
-        *view = RelativisticOpticalView2d::default();
+    // ⚠ the emptiness test guards CHANGE DETECTION, not correctness: taking
+    // `ResMut` mutably every frame with no spacetime would mark a derived
+    // resource changed forever. A row exists only when an observer published
+    // one, so "no rows" is the same condition the three-field test used to ask.
+    if spacetime.is_empty() && !views.is_empty() {
+        views.clear();
     }
 }
 
@@ -446,7 +640,10 @@ fn interpolate_velocity(
 
 #[cfg(test)]
 mod tests {
+    use ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId;
+
     use super::*;
+    use crate::telemetry::WorldlineTrackId;
 
     fn sample(time: f64, x: f32, velocity: f32) -> WorldlineSample2d {
         WorldlineSample2d {
@@ -486,5 +683,299 @@ mod tests {
         let event = solve_retarded_source_event(&samples, Vec2::ZERO, 20.0, c).unwrap();
         let light_distance = c.get() * (20.0 - event.coordinate_time);
         assert!((light_distance - f64::from(event.position.length())).abs() < 2.0e-2);
+    }
+
+    /// **The smallest world that can tell a per-observer image from a shared one.**
+    ///
+    /// ⚠ a FIXTURE, not a claim about how many observers a session should have.
+    /// One beacon drifting from x=100 toward x=60 at 2 units/s, an invariant
+    /// speed of 10, and reception at t=20 — chosen so the two observers' answers
+    /// are separable by hand:
+    ///
+    /// - an observer at the origin: `10·(20−t) = 100−2t` ⇒ emission at t=12.5,
+    ///   x=75, light age 7.5;
+    /// - an observer at x=160: `10·(20−t) = 60+2t` ⇒ emission at t≈11.667,
+    ///   x≈76.667, light age ≈8.333.
+    ///
+    /// The beacon is on OPPOSITE sides of the two, so even the sign of the
+    /// apparent direction disagrees.
+    const OBSERVER_ALPHA: (&str, Vec2, Vec2) = ("alpha", Vec2::new(0.0, 0.0), Vec2::new(5.0, 0.0));
+    const OBSERVER_BETA: (&str, Vec2, Vec2) = ("beta", Vec2::new(160.0, 0.0), Vec2::new(0.0, 6.0));
+
+    fn beacon_history() -> WorldlineHistoryView2d {
+        let mut history = WorldlineHistoryView2d::default();
+        history.tracks.insert(
+            WorldlineTrackId("beacon".to_owned()),
+            VecDeque::from([
+                sample(0.0, 100.0, -2.0),
+                sample(5.0, 90.0, -2.0),
+                sample(10.0, 80.0, -2.0),
+                sample(15.0, 70.0, -2.0),
+                sample(20.0, 60.0, -2.0),
+            ]),
+        );
+        history
+    }
+
+    /// Spawn one session, one beacon, and the given observers IN THE GIVEN
+    /// ORDER, then publish once.
+    fn publish_with(observers: &[(&str, Vec2, Vec2)]) -> (App, Vec<Entity>) {
+        let mut app = App::new();
+        app.init_resource::<RelativisticOpticalView2d>();
+        app.insert_resource(beacon_history());
+        app.add_systems(Update, publish_optical_view);
+        app.world_mut().spawn((
+            SessionRoot(SessionScopeId(0)),
+            ActiveSpacetime2d::minkowski(10.0).expect("10 units/s is a valid invariant speed"),
+            SpacetimeCoordinateTime2d {
+                seconds: 20.0,
+                epoch: 0,
+            },
+        ));
+        app.world_mut().spawn((
+            OpticalSource2d::new("Beacon", 100.0, 1.0, 4.0),
+            WorldlineTracked2d::new("beacon").with_label("Beacon"),
+        ));
+        let mut spawned = Vec::new();
+        for (label, position, velocity) in observers {
+            spawned.push(
+                app.world_mut()
+                    .spawn((
+                        RelativisticObserver2d((*label).to_owned()),
+                        BodyKinematics {
+                            pos: *position,
+                            vel: *velocity,
+                            ..Default::default()
+                        },
+                    ))
+                    .id(),
+            );
+        }
+        app.update();
+        (app, spawned)
+    }
+
+    fn beacon_image(view: &ObserverOpticalView2d) -> &OpticalSourceObservation2d {
+        view.sources
+            .iter()
+            .find(|source| source.label == "Beacon")
+            .expect("the beacon intersects both observers' retained past light cones")
+    }
+
+    /// Every number an observer's own light cone decides, as one comparable value.
+    fn beacon_numbers(view: &ObserverOpticalView2d) -> (f64, f32, f64, f64, f64) {
+        let beacon = beacon_image(view);
+        (
+            beacon.emission_event.coordinate_time,
+            beacon.retarded_position.x,
+            beacon.light_age,
+            beacon.apparent_range,
+            beacon.observed_frequency,
+        )
+    }
+
+    #[test]
+    fn two_observers_publish_two_different_retarded_images() {
+        let (app, spawned) = publish_with(&[OBSERVER_ALPHA, OBSERVER_BETA]);
+        let views = app.world().resource::<RelativisticOpticalView2d>();
+        assert_eq!(views.len(), 2, "two observers, two images");
+
+        let alpha = views
+            .for_observer(spawned[0])
+            .expect("alpha has its own image");
+        let beta = views
+            .for_observer(spawned[1])
+            .expect("beta has its own image");
+
+        // The retarded EVENT differs: the two observers are not reading the
+        // same photon, because they are not at the same place.
+        let alpha_beacon = beacon_image(alpha);
+        let beta_beacon = beacon_image(beta);
+        assert!(
+            (alpha_beacon.emission_event.coordinate_time - 12.5).abs() < 5.0e-3,
+            "alpha at the origin sees the beacon as it was at t=12.5, not {}",
+            alpha_beacon.emission_event.coordinate_time,
+        );
+        assert!((alpha_beacon.retarded_position.x - 75.0).abs() < 5.0e-3);
+        assert!((alpha_beacon.light_age - 7.5).abs() < 5.0e-3);
+        assert!(
+            (beta_beacon.emission_event.coordinate_time - 35.0 / 3.0).abs() < 5.0e-3,
+            "beta at x=160 sees an EARLIER beacon event, not {}",
+            beta_beacon.emission_event.coordinate_time,
+        );
+        assert!((beta_beacon.retarded_position.x - 230.0 / 3.0).abs() < 5.0e-3);
+        assert!((beta_beacon.light_age - 25.0 / 3.0).abs() < 5.0e-3);
+        assert_ne!(
+            alpha_beacon.emission_event, beta_beacon.emission_event,
+            "the two images must not be the same image published twice",
+        );
+
+        // The ABERRATION differs: the beacon is on opposite sides, and only
+        // beta's velocity has a component across its own line of sight.
+        assert!(
+            alpha_beacon.apparent_source_direction.x > 0.0
+                && beta_beacon.apparent_source_direction.x < 0.0,
+            "the beacon is ahead of alpha and behind beta",
+        );
+        assert!(
+            alpha_beacon.apparent_source_direction.y.abs() < 1.0e-3,
+            "alpha moves along its own line of sight, so nothing can tilt it: {}",
+            alpha_beacon.apparent_source_direction.y,
+        );
+        assert!(
+            beta_beacon.apparent_source_direction.y.abs() > 0.05,
+            "beta moves across its line of sight at 0.6c and must see the beacon \
+             displaced, not at {}",
+            beta_beacon.apparent_source_direction.y,
+        );
+
+        // The DOPPLER differs: one is closing on the beacon, the other is not.
+        assert!(
+            alpha_beacon.observed_frequency.is_finite() && alpha_beacon.observed_frequency > 0.0
+        );
+        assert!(beta_beacon.observed_frequency.is_finite() && beta_beacon.observed_frequency > 0.0);
+        assert!(
+            (alpha_beacon.observed_frequency - beta_beacon.observed_frequency).abs() > 5.0,
+            "two observers of one 100 Hz beacon measured {} and {}",
+            alpha_beacon.observed_frequency,
+            beta_beacon.observed_frequency,
+        );
+
+        // And each row knows whose it is.
+        assert_eq!(
+            alpha
+                .observer
+                .as_ref()
+                .map(|observer| observer.label.as_str()),
+            Some("alpha"),
+        );
+        assert_eq!(
+            beta.observer
+                .as_ref()
+                .map(|observer| observer.label.as_str()),
+            Some("beta"),
+        );
+        assert_eq!(
+            alpha.observer.as_ref().map(|observer| observer.entity),
+            Some(spawned[0])
+        );
+        assert_eq!(
+            beta.observer.as_ref().map(|observer| observer.entity),
+            Some(spawned[1])
+        );
+    }
+
+    /// ⛔ **the bug this whole shape exists to kill.** `observers.single()` made
+    /// a second observer blank the view that already worked; this asserts the
+    /// legacy field path still answers with two observers on the field.
+    #[test]
+    fn a_second_observer_no_longer_blanks_the_first() {
+        let (app, spawned) = publish_with(&[OBSERVER_ALPHA, OBSERVER_BETA]);
+        let views = app.world().resource::<RelativisticOpticalView2d>();
+        assert!(
+            views.observer.is_some() && !views.sources.is_empty(),
+            "a second observer must add an image, never erase one",
+        );
+        assert_eq!(
+            views.observer.as_ref().map(|observer| observer.entity),
+            Some(spawned[0]),
+        );
+    }
+
+    /// The one-observer world reads exactly as it did before the split, and
+    /// adding a second observer does not perturb the first one's numbers.
+    #[test]
+    fn one_observer_reads_exactly_as_it_did_before() {
+        let (alone_app, alone_spawned) = publish_with(&[OBSERVER_ALPHA]);
+        let alone = alone_app.world().resource::<RelativisticOpticalView2d>();
+        assert_eq!(alone.len(), 1);
+
+        // Field access through `Deref` is the pre-split reading.
+        assert_eq!(alone.model_id, Some("minkowski"));
+        assert_eq!(
+            alone.observer.as_ref().map(|observer| observer.entity),
+            Some(alone_spawned[0]),
+        );
+        assert_eq!(alone.sources.len(), 1);
+        assert_eq!(alone.missed_sources, 0);
+        assert_eq!(alone.history_start_time, Some(0.0));
+        assert_eq!(alone.history_end_time, Some(20.0));
+        assert_eq!(
+            alone.primary(),
+            alone.for_observer(alone_spawned[0]),
+            "with one observer the primary IS that observer",
+        );
+        assert_eq!(alone.for_label("alpha"), alone.primary());
+
+        let (pair_app, pair_spawned) = publish_with(&[OBSERVER_ALPHA, OBSERVER_BETA]);
+        let pair = pair_app.world().resource::<RelativisticOpticalView2d>();
+        assert_eq!(
+            beacon_numbers(alone.primary().expect("one observer publishes one row")),
+            beacon_numbers(
+                pair.for_observer(pair_spawned[0])
+                    .expect("alpha is still published"),
+            ),
+            "alpha's own light cone cannot depend on whether beta exists",
+        );
+    }
+
+    /// ⚠ the falsifier for the sort: the SAME world spawned in the OPPOSITE
+    /// order must publish the same rows in the same order. Bevy query order is
+    /// not a promise, so a consumer iterating these rows would otherwise be
+    /// order-dependent — which this repo treats as a desync.
+    #[test]
+    fn rows_are_published_in_label_order_not_spawn_order() {
+        let (forward_app, forward_spawned) = publish_with(&[OBSERVER_ALPHA, OBSERVER_BETA]);
+        let (reverse_app, reverse_spawned) = publish_with(&[OBSERVER_BETA, OBSERVER_ALPHA]);
+        let forward = forward_app.world().resource::<RelativisticOpticalView2d>();
+        let reverse = reverse_app.world().resource::<RelativisticOpticalView2d>();
+
+        let labels = |views: &RelativisticOpticalView2d| -> Vec<String> {
+            views
+                .iter()
+                .map(|(_, view)| {
+                    view.observer
+                        .as_ref()
+                        .expect("a published row always names its observer")
+                        .label
+                        .clone()
+                })
+                .collect()
+        };
+        assert_eq!(labels(forward), vec!["alpha".to_owned(), "beta".to_owned()]);
+        assert_eq!(labels(reverse), labels(forward));
+
+        // ⚠ and the order is not merely stable — it is keyed to the right row:
+        // alpha's numbers travel with alpha, whichever position it was spawned in.
+        assert_eq!(
+            beacon_numbers(
+                forward
+                    .for_observer(forward_spawned[0])
+                    .expect("forward alpha"),
+            ),
+            beacon_numbers(
+                reverse
+                    .for_observer(reverse_spawned[1])
+                    .expect("reverse alpha"),
+            ),
+        );
+        assert_eq!(
+            reverse.primary(),
+            reverse.for_observer(reverse_spawned[1]),
+            "the first row is alpha even though beta was spawned first",
+        );
+    }
+
+    #[test]
+    fn no_observer_publishes_no_rows_and_still_reads_blank() {
+        let (app, _) = publish_with(&[]);
+        let views = app.world().resource::<RelativisticOpticalView2d>();
+        assert!(views.is_empty());
+        assert_eq!(views.len(), 0);
+        assert!(views.primary().is_none());
+        assert_eq!(views.model_id, None);
+        assert!(views.observer.is_none());
+        assert!(views.sources.is_empty());
+        assert_eq!(views.missed_sources, 0);
     }
 }

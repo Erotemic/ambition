@@ -106,6 +106,15 @@ pub const DODGE_ROLL_TIME: f32 = 0.22;
 pub const DODGE_ROLL_SPEED: f32 = 530.0;
 /// Cooldown after a dodge roll before the next one may start.
 pub const DODGE_ROLL_COOLDOWN: f32 = 0.42;
+/// **Spot dodge** — the grounded evade IN PLACE, held down instead of a
+/// direction. Shorter than the roll's window because it covers no distance: the
+/// roll's commitment is where it takes you, and the spot dodge's is only the
+/// time, so a spot dodge that lasted as long would be strictly better.
+pub const SPOT_DODGE_TIME: f32 = 0.16;
+/// How far down the stick must be held for a grounded evade to read as a spot
+/// dodge rather than a roll. Above the roll's own `0.1` sideways threshold so a
+/// diagonal reads as the roll it looks like.
+pub const SPOT_DODGE_STICK: f32 = 0.5;
 /// **Air dodge** — the aerial evade's invulnerable window (seconds).
 ///
 /// Shorter than the ground roll's: the roll ends on its feet and pays a
@@ -392,9 +401,34 @@ pub struct MovementTuning {
     /// down, which is every body until one authors a fighter's floor game.
     #[serde(default)]
     pub tumble_speed: f32,
+    /// **SPOT DODGE** — the grounded evade IN PLACE's invulnerable window, in
+    /// seconds. `0.0` (the default) means a grounded evade is always the roll,
+    /// which is what every body had before a fighter wanted the other option.
+    #[serde(default)]
+    pub spot_dodge_time: f32,
+    /// **SMASH DIRECTIONAL INFLUENCE** — how far this body may shift itself per
+    /// tick of HITLAG, in px. `0.0` (the default) = no SDI, which is every body
+    /// until one authors a fighter.
+    ///
+    /// ⭐ **the defensive half of a mechanic whose offensive half already
+    /// ships.** DI ([`crate::hit_response::di_adjust`]) bends the launch you are
+    /// about to take; SDI moves you out of the NEXT hit's way while the current
+    /// one is still frozen, and it is what makes a combo answerable rather than
+    /// a sentence.
+    ///
+    /// ⚠ **a HOLD, where the genre counts INPUTS.** Ultimate rewards each fresh
+    /// stick input, so mashing beats holding; this rewards the hold at a fixed
+    /// rate. The simplification is stated rather than hidden: an edge-counting
+    /// version needs per-window state inside the rollback window, and the total
+    /// is bounded either way by how long the hitlag lasts.
+    #[serde(default)]
+    pub sdi_step: f32,
     /// See [`ShieldTuning`].
     #[serde(default)]
     pub shield: ShieldTuning,
+    /// See [`FootstoolTuning`].
+    #[serde(default)]
+    pub footstool: FootstoolTuning,
     pub parry_window_time: f32,
     /// Momentum-carry parameters for ledge getups. Set to
     /// `LedgeMomentumTuning::OFF` to disable the mechanic.
@@ -623,9 +657,18 @@ pub struct TraversalAbilityTuning {
     /// See [`TraversalAbilityTuning::tumble_speed`].
     #[serde(default)]
     pub tumble_speed: f32,
+    /// See [`MovementTuning::spot_dodge_time`].
+    #[serde(default)]
+    pub spot_dodge_time: f32,
+    /// See [`TraversalAbilityTuning::sdi_step`].
+    #[serde(default)]
+    pub sdi_step: f32,
     /// See [`ShieldTuning`].
     #[serde(default)]
     pub shield: ShieldTuning,
+    /// See [`FootstoolTuning`].
+    #[serde(default)]
+    pub footstool: FootstoolTuning,
     pub parry_window_time: f32,
     #[serde(default)]
     pub ledge_momentum: LedgeMomentumTuning,
@@ -651,6 +694,16 @@ pub struct ShieldTuning {
     /// Seconds of shieldstun the defender owes per point of damage it blocks.
     /// `0.0` makes blocking free, which is what it was.
     pub stun_per_damage: f32,
+    /// **How much of the body a SPENT guard still covers**, as a fraction of
+    /// its half-height, at zero integrity. `1.0` (the default) means the guard
+    /// never shrinks and a body behind it is never poked; Smash's shield sinks
+    /// until it exposes the head and the feet, and that is what makes chip
+    /// pressure end in a hit rather than in a stalemate.
+    pub min_coverage: f32,
+    /// Lateral push (px/s) the defender takes per point of damage it blocks.
+    /// The half of shield pressure that costs SPACE rather than tempo: hold a
+    /// guard near a ledge and the hits themselves move you toward it.
+    pub pushback_per_damage: f32,
 }
 
 impl Default for ShieldTuning {
@@ -668,6 +721,8 @@ impl ShieldTuning {
         damage_scale: 0.0,
         break_stun_time: 0.0,
         stun_per_damage: 0.0,
+        pushback_per_damage: 0.0,
+        min_coverage: 1.0,
     };
 
     /// Platform-fighter defaults: a guard that survives about six seconds held,
@@ -679,11 +734,89 @@ impl ShieldTuning {
         damage_scale: 1.0,
         break_stun_time: 2.0,
         stun_per_damage: 0.012,
+        pushback_per_damage: 6.0,
+        min_coverage: 0.45,
     };
 
     /// Whether this body's shield is a spendable resource at all.
     pub fn is_resource(self) -> bool {
         self.max_health > 0.0
+    }
+
+    /// **How much of the body the guard covers at `integrity`** (1.0 whole, 0.0
+    /// about to break), as a fraction of its half-height. Full coverage for a
+    /// guard that is not a resource, so an exploration body is never poked.
+    pub fn coverage_at(self, integrity: f32) -> f32 {
+        if !self.is_resource() {
+            return 1.0;
+        }
+        let t = integrity.clamp(0.0, 1.0);
+        self.min_coverage + (1.0 - self.min_coverage) * t
+    }
+}
+
+/// **THE FOOTSTOOL** — jumping off another body's head.
+///
+/// Set [`Self::rise_speed`] to `0.0` (the default) and no body can be stood on,
+/// which is what every body in the game had.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct FootstoolTuning {
+    /// Upward speed the stomper takes off the head (px/s). `0.0` = no footstool.
+    pub rise_speed: f32,
+    /// Downward speed the stomped body is driven at (px/s). This is the half
+    /// that makes a footstool a KILL move near a blast floor rather than a
+    /// mobility trick.
+    pub press_speed: f32,
+    /// Seconds the stomped body has no control authority when the footstool
+    /// does NOT tumble it — a grounded victim, or a body that never tumbles.
+    /// Short on purpose: Ultimate's grounded footstool is a beat you follow up
+    /// on, not a punish by itself.
+    pub flinch_time: f32,
+    /// Seconds an AIRBORNE victim tumbles for. Authored rather than derived
+    /// from [`Self::press_speed`] because a footstool "does not produce proper
+    /// knockback" — the tumble is the mechanic, the shove is only its distance.
+    pub air_tumble_time: f32,
+    /// Seconds of intangibility the STOMPER gets for taking the bounce. Four
+    /// frames in Ultimate, and the reason a footstool is an escape from
+    /// disadvantage rather than only a mobility trick.
+    pub stomper_invuln: f32,
+    /// Penetration tolerance for "feet on its head" (px). See
+    /// [`crate::collision_semantics::feet_on_head`] — reach, not hover.
+    pub band: f32,
+}
+
+impl Default for FootstoolTuning {
+    fn default() -> Self {
+        Self::OFF
+    }
+}
+
+impl FootstoolTuning {
+    /// Nobody can be stood on.
+    pub const OFF: Self = Self {
+        rise_speed: 0.0,
+        press_speed: 0.0,
+        flinch_time: 0.0,
+        air_tumble_time: 0.0,
+        stomper_invuln: 0.0,
+        band: 0.0,
+    };
+
+    /// Platform-fighter defaults: a hop a touch under a full jump, a shove that
+    /// costs the stomped body its airspace, a flinch short enough to be a combo
+    /// starter on the ground, and an air tumble long enough to be fatal off it.
+    pub const PLATFORM_FIGHTER: Self = Self {
+        rise_speed: 330.0,
+        press_speed: 220.0,
+        flinch_time: 0.12,
+        air_tumble_time: 0.40,
+        stomper_invuln: 4.0 / 60.0,
+        band: 14.0,
+    };
+
+    /// Whether any body may be stood on under this tuning.
+    pub fn is_enabled(self) -> bool {
+        self.rise_speed > 0.0
     }
 }
 
@@ -799,8 +932,11 @@ impl MovementTuning {
                 air_dodge_speed: self.air_dodge_speed,
                 air_dodge_endlag: self.air_dodge_endlag,
                 tumble_speed: self.tumble_speed,
+                spot_dodge_time: self.spot_dodge_time,
+                sdi_step: self.sdi_step,
                 parry_window_time: self.parry_window_time,
                 shield: self.shield,
+                footstool: self.footstool,
                 ledge_momentum: self.ledge_momentum,
             },
             flight: FlightTuning {
@@ -891,8 +1027,15 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     // ⛔ zero for the same reason the air dodge is: a wandering enemy that got
     // knocked down and had to stand up would be a different game.
     tumble_speed: 0.0,
+    // ⛔ zero for the same reason: an exploration body's grounded evade is the
+    // roll, and a second one it never asked for would take that press away.
+    spot_dodge_time: 0.0,
+    // ⛔ zero for the same reason: a body that cannot be launched has nothing to
+    // influence its way out of.
+    sdi_step: 0.0,
     parry_window_time: PARRY_WINDOW_TIME,
     shield: ShieldTuning::OFF,
+    footstool: FootstoolTuning::OFF,
     ledge_momentum: LedgeMomentumTuning::DEFAULT,
 };
 

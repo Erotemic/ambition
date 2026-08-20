@@ -77,7 +77,8 @@
 use ambition_characters::moveset_prefabs::{SLASH_ARC_VFX, SLASH_POKE_VFX};
 use ambition_characters::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
-    CaptureAttemptParams, CapturePummelParams, CaptureThrowParams, SmashCaptureRepertoire,
+    CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
+    SmashCaptureRepertoire,
 };
 use ambition_characters::smash_repertoire::{DownSpecial, NeutralSpecial, SmashRepertoire};
 use ambition_platformer2d::entity_catalog::{
@@ -748,6 +749,12 @@ pub fn emmy_noether_moveset() -> MovesetContract {
     );
     let repertoire = SmashRepertoire {
         taunt: ambition_characters::moveset_authoring::taunt("emmy_noether_taunt", 0.9),
+        dash_attack: ambition_characters::moveset_authoring::dash_attack(
+            "emmy_noether_dash_attack",
+            ambition_characters::moveset_authoring::DashAttackShape::GENRE,
+            11,
+            95.0,
+        ),
         jab,
         forward_tilt: f_tilt,
         up_tilt,
@@ -771,6 +778,13 @@ pub fn emmy_noether_moveset() -> MovesetContract {
         // ⚠ the VALUES are per character on purpose. A roster whose grabs are
         // twelve copies of one number set is one grab wearing twelve names.
         capture: SmashCaptureRepertoire {
+            // ⭐ the axis she snaps you onto, the transfer each pummel makes, and the bridge she throws you across — her kit guards that every effect comes off her
+            // own sheet, and a shared `classic_burst` would violate it.
+            cues: CaptureCues {
+                reach: "symmetry_axis_snap",
+                impact: "conservation_transfer",
+                release: "equivalence_bridge",
+            },
             grab,
             pummel,
             forward_throw,

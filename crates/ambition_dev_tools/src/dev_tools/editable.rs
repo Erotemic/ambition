@@ -180,6 +180,12 @@ pub struct EditableMovementTuning {
     /// See [`ae::TraversalAbilityTuning::tumble_speed`] — 0.0 means this body
     /// has no floor game.
     pub tumble_speed: f32,
+    /// See [`ae::MovementTuning::sdi_step`] — 0.0 means this body cannot
+    /// influence its way out of a combo, which is every body but a fighter.
+    pub sdi_step: f32,
+    /// See [`ae::MovementTuning::spot_dodge_time`] — 0.0 means the grounded
+    /// evade is always the roll.
+    pub spot_dodge_time: f32,
     pub parry_window_time: f32,
     /// Shield integrity, its drain/regen rates, its cost per blocked point, and
     /// the dizzy a break costs. `shield_max_health = 0.0` = unlimited guard.
@@ -189,6 +195,15 @@ pub struct EditableMovementTuning {
     pub shield_damage_scale: f32,
     pub shield_break_stun_time: f32,
     pub shield_stun_per_damage: f32,
+    pub shield_pushback_per_damage: f32,
+    pub shield_min_coverage: f32,
+    /// Footstool: the hop, the shove, the stun, and the head band. 0.0 rise = off.
+    pub footstool_rise_speed: f32,
+    pub footstool_press_speed: f32,
+    pub footstool_flinch_time: f32,
+    pub footstool_air_tumble_time: f32,
+    pub footstool_stomper_invuln: f32,
+    pub footstool_band: f32,
     // Ledge momentum-carry boost. Seconds-after-grab during which a
     // getup option can claim incoming momentum; gains scale incoming
     // velocity into the boost; caps clamp the post-gain magnitude.
@@ -269,6 +284,8 @@ impl EditableMovementTuning {
             air_dodge_speed: self.air_dodge_speed,
             air_dodge_endlag: self.air_dodge_endlag,
             tumble_speed: self.tumble_speed,
+            sdi_step: self.sdi_step,
+            spot_dodge_time: self.spot_dodge_time,
             parry_window_time: self.parry_window_time,
             shield: ae::ShieldTuning {
                 max_health: self.shield_max_health,
@@ -277,6 +294,16 @@ impl EditableMovementTuning {
                 damage_scale: self.shield_damage_scale,
                 break_stun_time: self.shield_break_stun_time,
                 stun_per_damage: self.shield_stun_per_damage,
+                pushback_per_damage: self.shield_pushback_per_damage,
+                min_coverage: self.shield_min_coverage,
+            },
+            footstool: ae::FootstoolTuning {
+                rise_speed: self.footstool_rise_speed,
+                press_speed: self.footstool_press_speed,
+                flinch_time: self.footstool_flinch_time,
+                air_tumble_time: self.footstool_air_tumble_time,
+                stomper_invuln: self.footstool_stomper_invuln,
+                band: self.footstool_band,
             },
             ledge_momentum: ae::LedgeMomentumTuning {
                 window: self.ledge_boost_window,
@@ -342,6 +369,8 @@ impl From<ae::MovementTuning> for EditableMovementTuning {
             air_dodge_speed: value.air_dodge_speed,
             air_dodge_endlag: value.air_dodge_endlag,
             tumble_speed: value.tumble_speed,
+            sdi_step: value.sdi_step,
+            spot_dodge_time: value.spot_dodge_time,
             parry_window_time: value.parry_window_time,
             shield_max_health: value.shield.max_health,
             shield_drain_per_second: value.shield.drain_per_second,
@@ -349,6 +378,14 @@ impl From<ae::MovementTuning> for EditableMovementTuning {
             shield_damage_scale: value.shield.damage_scale,
             shield_break_stun_time: value.shield.break_stun_time,
             shield_stun_per_damage: value.shield.stun_per_damage,
+            shield_pushback_per_damage: value.shield.pushback_per_damage,
+            shield_min_coverage: value.shield.min_coverage,
+            footstool_rise_speed: value.footstool.rise_speed,
+            footstool_press_speed: value.footstool.press_speed,
+            footstool_flinch_time: value.footstool.flinch_time,
+            footstool_air_tumble_time: value.footstool.air_tumble_time,
+            footstool_stomper_invuln: value.footstool.stomper_invuln,
+            footstool_band: value.footstool.band,
             ledge_boost_window: value.ledge_momentum.window,
             ledge_boost_x_gain: value.ledge_momentum.x_gain,
             ledge_boost_y_gain: value.ledge_momentum.y_gain,

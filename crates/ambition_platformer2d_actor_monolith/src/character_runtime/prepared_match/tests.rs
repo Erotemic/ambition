@@ -1194,7 +1194,10 @@ fn a_match_states_its_own_body_numbers_on_every_seat_and_disturbs_nothing_else()
         air_dodge_speed: 440.0,
         air_dodge_endlag: 0.16,
         tumble_speed: 500.0,
+        spot_dodge_time: 0.16,
+        sdi_step: 3.0,
         shield: ambition_platformer2d_core::ShieldTuning::OFF,
+        footstool: ambition_platformer2d_core::FootstoolTuning::OFF,
     };
     assert_eq!(
         ambition_platformer2d_core::DEFAULT_TUNING.air_dodge_time,

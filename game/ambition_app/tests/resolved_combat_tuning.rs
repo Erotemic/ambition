@@ -135,6 +135,21 @@ fn a_declaration_wins_and_the_world_it_plays_over_is_untouched() {
         knockback_growth: 0.0,
         friendly_fire: false,
         downward_hit: Default::default(),
+        // ...nor the meteor window: this fixture is about DI and knockback
+        // growth, and a spike it never throws needs no sentence.
+        meteor_lock_time: 0.0,
+        rage_per_damage: 0.0,
+        rage_max_scale: 1.0,
+        stale_step: 0.0,
+        stale_floor: 1.0,
+        // ...nor crouch cancel: this fixture is about DI and knockback growth.
+        crouch_cancel_scale: 1.0,
+        // ...nor the grab clock: this fixture throws no grab, so it takes the
+        // undeclared world's flat hold rather than inventing a rule.
+        grab_hold_base_seconds: ambition_platformer2d::combat::rules::FLAT_GRAB_HOLD_SECONDS,
+        grab_hold_per_damage: 0.0,
+        grab_hold_max_seconds: ambition_platformer2d::combat::rules::FLAT_GRAB_HOLD_SECONDS,
+        grab_mash_seconds: ambition_platformer2d::combat::rules::FLAT_GRAB_MASH_SECONDS,
         // this fixture is about DI and knockback growth, not the floor
         unarmed_melee: None,
     });

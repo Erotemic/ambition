@@ -56,7 +56,8 @@
 use ambition_characters::moveset_prefabs::{SLASH_ARC_VFX, SLASH_POKE_VFX};
 use ambition_characters::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
-    CaptureAttemptParams, CapturePummelParams, CaptureThrowParams, SmashCaptureRepertoire,
+    CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
+    SmashCaptureRepertoire,
 };
 use ambition_characters::smash_repertoire::{DownSpecial, NeutralSpecial, SmashRepertoire};
 use ambition_platformer2d::entity_catalog::{
@@ -587,6 +588,19 @@ pub fn oiler_moveset() -> MovesetContract {
     );
     let repertoire = SmashRepertoire {
         taunt: ambition_characters::moveset_authoring::taunt("oiler_taunt", 0.9),
+        // ⚠ **0.11 active, not the genre's 0.09** — Oiler's whole design is that
+        // every move that reaches holds its box for `TOLERANCE_S`, and his own
+        // `debug_assert` says so at the bottom of this function. The widest catch
+        // window on the grid is what he trades his growth ceiling for.
+        dash_attack: ambition_characters::moveset_authoring::dash_attack(
+            "oiler_dash_attack",
+            ambition_characters::moveset_authoring::DashAttackShape {
+                active_s: 0.11,
+                ..ambition_characters::moveset_authoring::DashAttackShape::GENRE
+            },
+            8,
+            97.5,
+        ),
         jab,
         forward_tilt: f_tilt,
         up_tilt,
@@ -610,6 +624,13 @@ pub fn oiler_moveset() -> MovesetContract {
         // ⚠ the VALUES are per character on purpose. A roster whose grabs are
         // twelve copies of one number set is one grab wearing twelve names.
         capture: SmashCaptureRepertoire {
+            // ⭐ the bearing he closes on, the friction each pummel adds, and the geyser that launches you — his kit guards that every effect comes off his
+            // own sheet, and a shared `classic_burst` would violate it.
+            cues: CaptureCues {
+                reach: "bearing_ping",
+                impact: "friction_tick",
+                release: "oil_geyser_impact",
+            },
             grab,
             pummel,
             forward_throw,
@@ -1169,6 +1190,15 @@ mod tests {
     ///
     /// ⚠ the oracle is the BAKED sheet record, so this fails the day somebody
     /// republishes the sheet without the fight rows.
+    ///
+    /// ⛔ **it asks about the CHAIN, not the head, and the difference is the
+    /// whole mechanism.** The predicate used to be *"the head row is in the
+    /// sheet"*, which is a proxy for the intent above and disagrees with it in
+    /// exactly the case a fallback chain exists for: `smash_capture::bound` asks
+    /// every fighter for `grab` / `pummel` / `throw_forward` — rows the RIGGED
+    /// sheets carry and Oiler's twelve-row sheet does not — with the author's own
+    /// `attack_side` still one step behind it. That draws Oiler's swing, which is
+    /// what this test is about; the head being absent is not.
     #[test]
     fn every_move_names_a_row_the_published_sheet_carries() {
         let record =
@@ -1184,12 +1214,15 @@ mod tests {
             "this is not Oiler's sheet: {rows:?}"
         );
         for m in &oiler_moveset().moves {
+            let chain: Vec<&str> = std::iter::once(m.clip.clip.as_str())
+                .chain(m.clip.fallbacks.iter().map(String::as_str))
+                .collect();
+            let drawn = chain.iter().find(|row| rows.contains(*row));
             assert!(
-                rows.contains(m.clip.clip.as_str()),
-                "`{}` draws `{}`, which the published sheet does not have, so it \
-                 falls all the way back to the standing pose. Rows: {rows:?}",
+                drawn.is_some_and(|row| *row != "idle"),
+                "`{}` draws {chain:?}, and the published sheet answers none of it \
+                 before `idle` — so the move draws the standing pose. Rows: {rows:?}",
                 m.id,
-                m.clip.clip
             );
         }
     }

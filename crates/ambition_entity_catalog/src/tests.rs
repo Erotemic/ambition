@@ -410,6 +410,64 @@ fn directional_verb_chain_orders_most_specific_first() {
     );
 }
 
+/// **THE DASH ATTACK IS A STANCE, AND IT OUTRANKS THE DIRECTION.**
+///
+/// ⛔ four cases, and each kills a different wrong version: a dashing body gets
+/// its dash attack even with a direction held (or the tilt would keep winning),
+/// a STANDING body never does (or every forward tilt is now a dash attack), an
+/// AIRBORNE dashing body never does (a dash is a ground stance), and a fighter
+/// that authors none resolves exactly what it did before — which is the property
+/// that lets this ship without touching thirteen non-smash movesets.
+#[test]
+fn a_dashing_body_gets_its_dash_attack_before_any_direction() {
+    let with_dash = MovesetContract {
+        verbs: BTreeMap::from([
+            ("attack".to_string(), "attack".to_string()),
+            ("attack_forward".to_string(), "ftilt".to_string()),
+            ("attack_dash".to_string(), "dash".to_string()),
+        ]),
+        moves: vec![
+            bare_move("attack", None),
+            bare_move("ftilt", Some(true)),
+            bare_move("dash", Some(true)),
+        ],
+    };
+    let pick = |grounded, dashing| {
+        with_dash
+            .move_for_attack("attack", AttackDir::Forward, grounded, dashing)
+            .unwrap()
+            .id
+            .clone()
+    };
+    assert_eq!(pick(true, true), "dash", "the direction beat the stance");
+    assert_eq!(
+        pick(true, false),
+        "ftilt",
+        "a standing press became a dash attack"
+    );
+    assert_eq!(
+        pick(false, true),
+        "attack",
+        "a dash attack was thrown in the air"
+    );
+
+    // ⛔ the floor: a fighter with no dash attack is untouched.
+    let without = MovesetContract {
+        verbs: BTreeMap::from([
+            ("attack".to_string(), "attack".to_string()),
+            ("attack_forward".to_string(), "ftilt".to_string()),
+        ]),
+        moves: vec![bare_move("attack", None), bare_move("ftilt", Some(true))],
+    };
+    assert_eq!(
+        without
+            .move_for_attack("attack", AttackDir::Forward, true, true)
+            .unwrap()
+            .id,
+        "ftilt",
+    );
+}
+
 #[test]
 fn directional_resolution_falls_back_and_respects_gates() {
     // Only `attack` authored: every direction resolves to it.

@@ -320,6 +320,8 @@ pub struct MatchRules {
     /// rollback re-runs it and reaches the same answer; a wall-clock timer
     /// would drift a peer's release by a frame and diverge the whole cast.
     pub opening_countdown_ticks: u32,
+    /// See [`MatchRoster::time_limit_ticks`](crate::character_runtime::MatchRoster::time_limit_ticks).
+    pub time_limit_ticks: u32,
 }
 
 /// **Where an opening ceremony has got to** — derived from the clock, never
@@ -437,6 +439,24 @@ impl MatchRules {
         OpeningPhase::Counting {
             beats_remaining: (beats - elapsed_beats.min(beats - 1)) as u32,
         }
+    }
+
+    /// **How many ticks are left on the match clock**, or `None` for an untimed
+    /// match — which is every roster that declares no limit.
+    ///
+    /// ⚠ **derived, never counted down.** `elapsed` is
+    /// `ActiveMatch::ticks_since_activation`, so this is a pure function of two
+    /// numbers the rollback window already carries: a rewind RECOMPUTES the
+    /// clock rather than restoring it, and a match clock costs no wire format.
+    pub fn time_remaining(&self, elapsed: u64) -> Option<u64> {
+        (self.time_limit_ticks > 0)
+            .then(|| u64::from(self.time_limit_ticks).saturating_sub(elapsed))
+    }
+
+    /// **Has the clock run out?** `false` for an untimed match, which is what
+    /// makes this safe to consult unconditionally.
+    pub fn time_expired(&self, elapsed: u64) -> bool {
+        self.time_remaining(elapsed) == Some(0)
     }
 }
 
@@ -706,6 +726,7 @@ pub fn prepare_match(
         health_pool: roster.fighter_health_pool,
         opens_suspended: roster.opens_suspended,
         opening_countdown_ticks: roster.opening_countdown_ticks,
+        time_limit_ticks: roster.time_limit_ticks,
     };
     let death_policy = rules.death_policy();
 

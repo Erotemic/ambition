@@ -42,7 +42,8 @@ use ambition_platformer2d::characters::moveset_authoring::{
 };
 use ambition_platformer2d::characters::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
-    CaptureAttemptParams, CapturePummelParams, CaptureThrowParams, SmashCaptureRepertoire,
+    CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
+    SmashCaptureRepertoire,
 };
 use ambition_platformer2d::characters::smash_repertoire::{
     DownSpecial, NeutralSpecial, SmashRepertoire,
@@ -448,8 +449,14 @@ pub fn sanic_moveset() -> MovesetContract {
     );
 
     SmashRepertoire {
-
         taunt: ambition_platformer2d::characters::moveset_authoring::taunt("sanic_taunt", 0.9),
+
+        dash_attack: ambition_platformer2d::characters::moveset_authoring::dash_attack(
+            "sanic_dash_attack",
+            ambition_platformer2d::characters::moveset_authoring::DashAttackShape::GENRE,
+            7,
+            77.5,
+        ),
         jab,
         forward_tilt: f_tilt,
         up_tilt: u_tilt,
@@ -470,6 +477,7 @@ pub fn sanic_moveset() -> MovesetContract {
         // proven on George and the Pirate Admiral, and the point of proving it
         // was to stop being the only two.
         capture: SmashCaptureRepertoire {
+            cues: CaptureCues::GENERIC,
             grab,
             pummel,
             forward_throw,

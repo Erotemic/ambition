@@ -1559,6 +1559,36 @@ impl MovesetContract {
     /// grounded-only `attack_down` is skipped for an airborne body, falling
     /// through to `attack`). A moveset that authors only `base` answers every
     /// direction with the same move.
+    /// **What an ATTACK press produces, stance included.** The dash attack is a
+    /// STANCE and not a direction, so it is asked BEFORE the directional chain
+    /// rather than added to [`AttackDir`] — a dashing body pressing forward and
+    /// a standing one pressing forward want different moves, and `AttackDir` has
+    /// no vocabulary for the difference.
+    ///
+    /// ⚠ **composes with [`Self::move_for_directional_verb`] rather than
+    /// replacing it**, and that is not a wrapper to unpick later: every OTHER
+    /// verb — special, smash, taunt — has no dash stance to ask about, and
+    /// giving them one would be a question with a constant answer. A fighter
+    /// that authors no `{base}_dash` resolves exactly what it did before.
+    pub fn move_for_attack(
+        &self,
+        base: &str,
+        dir: AttackDir,
+        grounded: bool,
+        dashing: bool,
+    ) -> Option<&MoveSpec> {
+        if grounded && dashing {
+            let dash_verb = format!("{base}_dash");
+            if let Some(mv) = self
+                .move_for_verb(&dash_verb)
+                .filter(|mv| mv.gates.permits(grounded))
+            {
+                return Some(mv);
+            }
+        }
+        self.move_for_directional_verb(base, dir, grounded)
+    }
+
     pub fn move_for_directional_verb(
         &self,
         base: &str,

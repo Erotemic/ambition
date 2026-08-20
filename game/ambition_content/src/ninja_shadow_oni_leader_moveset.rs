@@ -42,7 +42,8 @@
 
 use ambition_characters::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
-    CaptureAttemptParams, CapturePummelParams, CaptureThrowParams, SmashCaptureRepertoire,
+    CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
+    SmashCaptureRepertoire,
 };
 use ambition_characters::smash_repertoire::{DownSpecial, NeutralSpecial, SmashRepertoire};
 use ambition_platformer2d::entity_catalog::MovesetContract;
@@ -436,6 +437,18 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
     );
     SmashRepertoire {
         taunt: ambition_characters::moveset_authoring::taunt("ninja_shadow_oni_leader_taunt", 0.9),
+        // ⚠ **0.30 recovery, not the genre's 0.26** — nothing he swings recovers
+        // in under 3x its active window, which is what stops any of it being
+        // thrown casually. 0.09 active buys 0.27, and his law wants MORE.
+        dash_attack: ambition_characters::moveset_authoring::dash_attack(
+            "ninja_shadow_oni_leader_dash_attack",
+            ambition_characters::moveset_authoring::DashAttackShape {
+                recover_s: 0.30,
+                ..ambition_characters::moveset_authoring::DashAttackShape::GENRE
+            },
+            7,
+            82.5,
+        ),
         jab,
         forward_tilt: f_tilt,
         up_tilt,
@@ -459,6 +472,7 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
         // ⚠ the VALUES are per character on purpose. A roster whose grabs are
         // twelve copies of one number set is one grab wearing twelve names.
         capture: SmashCaptureRepertoire {
+            cues: CaptureCues::GENERIC,
             grab,
             pummel,
             forward_throw,

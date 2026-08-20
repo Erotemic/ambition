@@ -300,6 +300,27 @@ pub fn surface_supports_body_at_rest(
         && support_face_separation(body, surface, gravity_dir).abs() <= CONTACT_SLOP
 }
 
+/// **Are `stomper`'s feet on `victim`'s head?** — the body-vs-body twin of
+/// [`surface_supports_body_at_rest`], and the geometric half of a footstool.
+///
+/// ⭐ **the SAME two primitives a resting body uses**, so a footstool cannot
+/// disagree with a landing about where a head is: [`perpendicular_overlap`] for
+/// the lateral share (with its `EDGE_OVERLAP_SLOP`), [`support_face_separation`]
+/// for the gravity axis. Both are frame-relative, so this works under arbitrary
+/// gravity and a hand-rolled `feet.y >= head.y` never appears.
+///
+/// ⛔ **the band is PENETRATION tolerance, not reach.** Accepting a separation
+/// below zero would classify a body hovering above another as standing on it —
+/// the exact bug both hand-rolled copies of this geometry in the Mary-O demo had
+/// before they were unified.
+pub fn feet_on_head(stomper: Aabb, victim: Aabb, gravity_dir: Vec2, band: f32) -> bool {
+    if !perpendicular_overlap(stomper, victim, gravity_dir) {
+        return false;
+    }
+    let separation = support_face_separation(stomper, victim, gravity_dir);
+    (0.0..=band).contains(&separation)
+}
+
 /// The first world block that supports `body` at rest under this gravity, if any.
 pub fn supporting_block<'a>(
     world: &'a World,

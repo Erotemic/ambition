@@ -257,6 +257,80 @@ pub fn taunt(id: &str, duration_s: f32) -> MoveSpec {
 /// MATTER — how long you are committed, how far it reaches, how hard it throws,
 /// and how much of the throw scales with the victim's damage.
 #[allow(clippy::too_many_arguments)]
+/// **THE DASH ATTACK's shape**, with the fighter supplying only what it hits for.
+///
+/// ⭐ the same split [`taunt`] uses: the helper owns the SHAPE — the genre's fast
+/// startup, long recovery and forward carry — and the fighter owns the numbers.
+/// A dash attack that each of fourteen fighters designed from scratch would be
+/// fourteen chances to author something that is not a dash attack.
+///
+/// ⚠ **the frame shape is the mechanic**: it starts faster than a tilt because
+/// you already committed to the dash, and it recovers longer because that
+/// commitment is what you are paying for. A version with a tilt's recovery would
+/// be a strictly better tilt.
+pub fn dash_attack(id: &str, shape: DashAttackShape, damage: i32, knockback: f32) -> MoveSpec {
+    // ⚠ the impulse is FORWARD and lands at the swing, so the move carries the
+    // dash's own momentum rather than stopping the body to hit.
+    impulse(
+        strike(
+            id,
+            "dash_attack",
+            shape.startup_s,
+            shape.active_s,
+            shape.recover_s,
+            // ⚠ **`reach_px` IS what `reach_of` measures** — offset plus
+            // half-extent, not the offset alone. A fighter whose tests pin a
+            // reach (Carl's `NEAREST_REACH`) has to be able to say the number
+            // its own doc says, and a helper that meant something else by the
+            // same word made that impossible to write down.
+            (shape.reach_px * 0.6, -2.0),
+            (shape.reach_px * 0.4, 20.0),
+            damage,
+            knockback,
+            1.5,
+            Some((0.92, -0.39)),
+            None,
+        ),
+        shape.startup_s,
+        (260.0, 0.0),
+        ImpulseMode::Add,
+    )
+}
+
+/// **The frames a dash attack occupies**, so a fighter that authored a LAW about
+/// its own timings can honour it.
+///
+/// ⛔ **this is not "the shape became optional".** [`DashAttackShape::GENRE`] is
+/// still the one statement of what a dash attack is, and nine of the fourteen
+/// fighters take it unchanged. The five that do not are the five whose own
+/// tests assert a property the genre's numbers break — Oiler's tolerance band,
+/// the Oni's 3x recovery law, Carl's reach-monotonic line, George's poke/commit
+/// gap — and each of those is a fact about that CHARACTER that a shared default
+/// has no standing to overrule.
+///
+/// ⭐ **the guards found every one of them.** A generic move stamped over
+/// fourteen fighters violated five authored invariants, and five character
+/// censuses said so on the first run.
+#[derive(Clone, Copy, Debug)]
+pub struct DashAttackShape {
+    pub startup_s: f32,
+    pub active_s: f32,
+    pub recover_s: f32,
+    pub reach_px: f32,
+}
+
+impl DashAttackShape {
+    /// **The genre's dash attack.** Faster than a tilt because the dash is
+    /// already committed, and recovering longer because that commitment is what
+    /// is being paid for — a version with a tilt's recovery is a better tilt.
+    pub const GENRE: Self = Self {
+        startup_s: 0.05,
+        active_s: 0.09,
+        recover_s: 0.26,
+        reach_px: 40.0,
+    };
+}
+
 pub fn strike(
     id: &str,
     clip: &str,

@@ -160,6 +160,12 @@ pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster) {
     // ⛔ ticks rather than seconds, because the release is a comparison against
     // the sim clock — see `MatchRules::opening_countdown_ticks`.
     roster.opening_countdown_ticks = 3 * 60;
+    // ⭐ **THE MATCH CLOCK.** Ultimate's default stock match runs eight minutes,
+    // and the clock exists so a match between two fighters who will not approach
+    // each other still ends — the stock economy alone has no answer to that.
+    // ⚠ derived from `ActiveMatch::activated_on`, so it costs no rollback state;
+    // see `MatchRules::time_remaining`.
+    roster.time_limit_ticks = 8 * 60 * 60;
     roster.fighter_stocks = Some(STARTING_STOCKS);
     // **EVERY FIGHTER IN THIS MATCH IS READ AGAINST THE SAME 100%.**
     //
@@ -341,6 +347,12 @@ pub fn smash_reading_of_character(
 ///   the game. A platform fighter is the body that wants it: one directional
 ///   evade per trip through the air, refunded on landing, with endlag on the
 ///   far side so it is a read rather than a panic button.
+/// * **`sdi_step: 3.0` — SMASH DIRECTIONAL INFLUENCE.** DI bends the launch a
+///   fighter is about to take; SDI moves it out of the NEXT hit's way while the
+///   current one is still frozen. Three pixels a hitlag tick is small on one hit
+///   and decisive across a combo, which is the shape the mechanic wants. ⚠ ours
+///   rewards the HOLD where the genre counts fresh stick inputs — the
+///   simplification is named on `MovementTuning::sdi_step`.
 /// * **`tumble_speed: 500.0` — THE FLOOR GAME.** Above this launch speed a hit
 ///   sends the body tumbling, and the landing that follows is a knockdown
 ///   unless it is teched. 500 px/s sits above a jab's shove and below a smash's
@@ -363,8 +375,23 @@ pub const SMASH_FIGHTER_BODY: ambition_platformer2d::engine_core::MatchBody =
         air_dodge_time: ambition_platformer2d::engine_core::AIR_DODGE_TIME,
         air_dodge_speed: ambition_platformer2d::engine_core::AIR_DODGE_SPEED,
         air_dodge_endlag: ambition_platformer2d::engine_core::AIR_DODGE_ENDLAG,
+        // ⭐ **SPOT DODGE, 0.16s.** The grounded evade had one shape, so the
+        // option a cornered fighter takes — nowhere to roll TO, waiting out a
+        // committed swing — did not exist. Shorter than the roll's window
+        // because it covers no distance; a spot dodge that lasted as long would
+        // be strictly better than the roll and the roll would stop being a
+        // choice. The engine default is `0.0`: an exploration body keeps the
+        // roll that press already means.
+        spot_dodge_time: ambition_platformer2d::engine_core::SPOT_DODGE_TIME,
         tumble_speed: 500.0,
+        // ⭐ **SDI, 3px a hitlag tick.** DI already lets a launched fighter bend
+        // where it is thrown; this is the other half — shifting out of the NEXT
+        // hit's way while the current one is still frozen, which is what makes a
+        // combo answerable rather than a sentence. The engine default is `0.0`:
+        // a wandering enemy has no combo to escape.
+        sdi_step: 3.0,
         shield: ambition_platformer2d::engine_core::ShieldTuning::PLATFORM_FIGHTER,
+        footstool: ambition_platformer2d::engine_core::FootstoolTuning::PLATFORM_FIGHTER,
     };
 
 /// **THE BASIC SMASH ABILITIES** — the verbs every fighter on this stage has.
@@ -704,9 +731,50 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 // it has just left.
                 ambition_platformer2d::actors::features::ecs::capture::apply_capture_throws,
                 ambition_platformer2d::actors::features::ecs::capture::constrain_captive_bodies,
+                // ⭐ the captive's POSE, published beside the constraint that
+                // holds it. `CharacterAnim` has no held row, so this draws the
+                // hurt one — a body in somebody's hands reading as idle was the
+                // last thing about a grab that did not look like one.
+                ambition_platformer2d::actors::features::ecs::capture::mirror_capture_into_anim_facts,
             )
                 .chain()
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Materialize),
+        );
+        // ⛔⛔ **THE FOOTSTOOL CLAIMS THE PRESS BEFORE THE KERNEL SPENDS IT, so
+        // it runs in `PlayerInput` and NOT in `Settle`.** It shipped in `Settle`
+        // on the argument that a later velocity write wins; that is true of the
+        // velocity and false of the air jump, which the kernel had already spent
+        // by then. A body with a charge paid one and a body without paid nothing
+        // for the identical footstool. The claim now reaches
+        // `BodyJumpState::footstool_claimed` ahead of the jump chain.
+        app.add_systems(
+            sim,
+            ambition_platformer2d::actors::features::ecs::footstool::claim_footstools.in_set(
+                ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::PlayerInput,
+            ),
+        );
+        // ⭐ **THE LEDGE TRUMP RESOLVES AFTER THE KERNEL, so it sees the grabs
+        // this tick made.** Two bodies can catch one edge on the same frame, and
+        // arbitrating before `PlayerSimulation` would judge LAST tick's
+        // occupancy and leave both hanging for a frame — which is the frame an
+        // edge-guard reads. ⚠ `CombatSet::Settle` is not a claim that a trump is
+        // combat; it is the established post-kernel bookkeeping slot, beside the
+        // capture release and the stale-move recorder.
+        app.add_systems(
+            sim,
+            ambition_platformer2d::actors::features::ecs::ledge_trump::resolve_ledge_trumps
+                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle),
+        );
+        // **Staling is recorded in `Settle`, after the hits it remembers.**
+        // ⛔ it must run AFTER `Resolve`, not inside it: the resolver holds the
+        // victim query and the attacker's queue lives on a body in that same
+        // set, so writing there would need a `ParamSet` around the whole
+        // resolution to store one `u32`. `LandedBodyHit` already names the
+        // attacker and already exists.
+        app.add_systems(
+            sim,
+            ambition_platformer2d::combat::hitbox::record_landed_moves
+                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle),
         );
         // **A capture ends in `Settle`, where post-damage bookkeeping belongs.**
         // Hitstun and the recoil lock are written by damage resolution in
@@ -867,6 +935,42 @@ pub fn smash_declared_combat_rules() -> ambition_platformer2d::combat::rules::De
         // of a kill. Same move, two games, and the difference is declared rather
         // than authored twice.
         downward_hit: ambition_platformer2d::combat::rules::DownwardHitStyle::Spike,
+        // ⭐ **and the spike is a SENTENCE, not just a shove.** ~18 frames in
+        // which a body knocked down out of the air cannot recover — long enough
+        // that a spike offstage is a kill and short enough that one over the
+        // stage is survivable. The window ENDING is what the genre calls the
+        // meteor cancel; there is no second verb.
+        meteor_lock_time: 0.30,
+        // ⭐ **RAGE, capped at 1.4x.** The percent mechanic already makes a hurt
+        // fighter easier to launch; without this it is punished twice, and the
+        // last stock stops being a fight. The cap is what keeps a comeback a
+        // chance rather than a coin flip.
+        rage_per_damage: 0.004,
+        rage_max_scale: 1.4,
+        // ⭐ **STALING, floored at 0.55.** One reliable kill move should not be
+        // the only answer a fighter needs; nine landings of it and it is worth
+        // barely half. Vary and the old one recovers — the ring forgets.
+        stale_step: 0.05,
+        stale_floor: 0.55,
+        // ⭐ **CROUCH CANCEL, 0.85x.** Ducking is a defensive read, not just a
+        // shorter hurtbox — and the 15% is what makes it one at low percent
+        // without saving anybody from a kill move.
+        crouch_cancel_scale: 0.85,
+        // ⭐ **A GRAB HOLDS THE HURT FIGHTER LONGER**, which is Ultimate's
+        // 90 + 1.7p frames: 1.5s at 0%, ~4.3s at 100%. It makes the grab a
+        // percent mechanic like the launch is, so the body that is losing is
+        // the body a grab is worth spending your commitment on.
+        //
+        // ⚠ the percent is read AT THE GRAB, so pummelling does not extend the
+        // hold it earns you — a pummel is a decision, not a free extension.
+        grab_hold_base_seconds: 90.0 / 60.0,
+        grab_hold_per_damage: 1.7 / 60.0,
+        // The captor's answer to the same question: however hurt the captive
+        // is, a hold nobody ends still ends.
+        grab_hold_max_seconds: 6.0,
+        // ⚠ 14.4 frames per press, Ultimate's rate, so mashing is the captive's
+        // real option rather than a gesture at one.
+        grab_mash_seconds: 14.4 / 60.0,
         // ⚠ teams already decide who may hit whom. Switching global friendly
         // fire on to let two humans trade would make TEAMMATES hittable too.
         friendly_fire: false,

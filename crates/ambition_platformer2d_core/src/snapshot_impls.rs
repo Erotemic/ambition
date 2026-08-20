@@ -12,7 +12,7 @@
 //! decode must stay in the same order, and `snapshot_unit_enum!` codes are
 //! authored per variant so inserting one never renumbers the rest.
 
-use crate::snapshot::{put_bool, put_f32, put_u32, put_vec2, Reader, SnapshotState};
+use crate::snapshot::{put_bool, put_f32, put_u32, put_u8, put_vec2, Reader, SnapshotState};
 use crate::{snapshot_pod, snapshot_unit_enum};
 
 impl SnapshotState for crate::AbilitySet {
@@ -130,6 +130,7 @@ snapshot_pod!(crate::body_clusters::BodyWallState {
 
 snapshot_pod!(crate::body_clusters::BodyJumpState {
     air_jumps_available: u8,
+    footstool_claimed: bool,
     ladder_jump_boost: f32,
     ladder_drop_through_timer: f32,
     ladder_drop_through_hold_lock: bool,
@@ -160,6 +161,32 @@ snapshot_pod!(crate::body_clusters::BodyDodgeState {
     cooldown: f32,
     air_dodge_spent: bool
 });
+
+/// **The stale ring, by hand, because `snapshot_pod!` cannot spell an array.**
+///
+/// That macro maps a field to a READER METHOD, and there is none for `[u32; 9]`.
+/// Written out rather than flattened into nine named fields so the ring stays a
+/// ring — and the explicit `[0u32; 9]` on the decode side is what the codec-shape
+/// checker reads as the width.
+impl SnapshotState for crate::body_clusters::BodyStaleMoves {
+    fn encode(&self, out: &mut Vec<u8>) {
+        for slot in self.recent {
+            put_u32(out, slot);
+        }
+        put_u8(out, self.next);
+    }
+
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        let mut recent = [0u32; 9];
+        for slot in recent.iter_mut() {
+            *slot = r.u32()?;
+        }
+        Some(Self {
+            recent,
+            next: r.u8()?,
+        })
+    }
+}
 
 snapshot_pod!(crate::body_clusters::BodyShieldState {
     active: bool,
@@ -241,6 +268,8 @@ snapshot_unit_enum!(crate::movement::MovementOp {
     GetupRoll = 31,
     GetupAttack = 32,
     ShieldBreak = 33,
+    Footstool = 34,
+    SpotDodge = 35,
 });
 
 // The hang state machine (`Option<LedgeGrabState>`) is axis-policy maneuver

@@ -13,6 +13,12 @@ use bevy::prelude::{default, App, Messages, Update};
 /// now rather than a "is it up" bool, because a block SPENDS integrity and the
 /// cost belongs inside the decision that grants the block; `ShieldTuning::OFF`
 /// makes that spend a no-op, so these tests measure the block and nothing else.
+/// A velocity nobody reads, for the tests that only ask whether a block
+/// happens. `&mut ae::Vec2::ZERO` would borrow a fresh temporary of a `const`.
+fn sink() -> ae::Vec2 {
+    ae::Vec2::ZERO
+}
+
 fn raised_guard() -> ae::BodyShieldState {
     ae::BodyShieldState {
         active: true,
@@ -83,6 +89,10 @@ fn shield_side_test_uses_the_controlled_body_frame() {
 fn test_health(hp: i32) -> BodyHealth {
     BodyHealth::new(ambition_characters::actor::Health::new(hp))
 }
+
+/// The body every fixture here wears. ⚠ hits are aimed at its CENTRE, so a
+/// poke never fires and these keep measuring the facing and resource rules.
+const TEST_BODY: ae::Vec2 = ae::Vec2::new(24.0, 40.0);
 
 const TEST_FEEL: BodyHitFeel = BodyHitFeel {
     hit_flash: 0.16,
@@ -159,7 +169,12 @@ fn resolver_shield_blocks_a_faced_hit_and_arms_the_guard_i_frame() {
         Some(&mut health),
         None,
         None,
-        Some((&mut raised_guard(), ae::ShieldTuning::OFF)),
+        Some(GuardUnderFire {
+            state: &mut raised_guard(),
+            tuning: ae::ShieldTuning::OFF,
+            body_size: TEST_BODY,
+            vel: &mut sink(),
+        }),
         1.0,
         pos,
         pos + ae::Vec2::new(50.0, 0.0),
@@ -184,7 +199,12 @@ fn resolver_shield_blocks_a_faced_hit_and_arms_the_guard_i_frame() {
         Some(&mut health),
         None,
         None,
-        Some((&mut raised_guard(), ae::ShieldTuning::OFF)),
+        Some(GuardUnderFire {
+            state: &mut raised_guard(),
+            tuning: ae::ShieldTuning::OFF,
+            body_size: TEST_BODY,
+            vel: &mut sink(),
+        }),
         1.0,
         pos,
         pos + ae::Vec2::new(-50.0, 0.0),
@@ -1339,12 +1359,20 @@ fn an_unstoppable_hit_passes_every_defence_a_body_has() {
         let mut stopped_combat = combat.clone();
         let mut stopped_health = test_health(5);
         let mut guard = shield_active.then(raised_guard);
+        // The shove has its own test; these three only ask whether the block
+        // happens, so the velocity is a sink.
+        let mut scratch_vel = ae::Vec2::ZERO;
         let stopped = resolve_body_hit(
             &mut stopped_combat,
             Some(&mut stopped_health),
             None,
             None,
-            guard.as_mut().map(|g| (g, ae::ShieldTuning::OFF)),
+            guard.as_mut().map(|g| GuardUnderFire {
+                state: g,
+                tuning: ae::ShieldTuning::OFF,
+                body_size: TEST_BODY,
+                vel: &mut scratch_vel,
+            }),
             1.0,
             pos,
             impact,
@@ -1369,12 +1397,20 @@ fn an_unstoppable_hit_passes_every_defence_a_body_has() {
         let mut blasted_combat = combat.clone();
         let mut blasted_health = test_health(5);
         let mut guard = shield_active.then(raised_guard);
+        // The shove has its own test; these three only ask whether the block
+        // happens, so the velocity is a sink.
+        let mut scratch_vel = ae::Vec2::ZERO;
         let blasted = resolve_body_hit(
             &mut blasted_combat,
             Some(&mut blasted_health),
             None,
             None,
-            guard.as_mut().map(|g| (g, ae::ShieldTuning::OFF)),
+            guard.as_mut().map(|g| GuardUnderFire {
+                state: g,
+                tuning: ae::ShieldTuning::OFF,
+                body_size: TEST_BODY,
+                vel: &mut scratch_vel,
+            }),
             1.0,
             pos,
             impact,
@@ -1534,6 +1570,7 @@ fn a_hit_publishes_its_launch_where_the_motion_model_will_find_it() {
         false,
         Some(&knockback),
         ae::Vec2::ZERO,
+        Default::default(),
         feel,
     );
 
@@ -1571,6 +1608,7 @@ fn a_hit_with_no_knockback_publishes_no_launch() {
         false,
         None,
         ae::Vec2::ZERO,
+        Default::default(),
         Platformer2dFeelTuningMonolith::default(),
     );
 
@@ -1622,12 +1660,20 @@ fn a_raised_shield_blocks_the_hit_and_a_lowered_one_does_not() {
         let mut combat = BodyCombat::default();
         let mut health = BodyHealth::new(Health::new(START_HP));
         let mut guard = shield_active.then(raised_guard);
+        // The shove has its own test; these three only ask whether the block
+        // happens, so the velocity is a sink.
+        let mut scratch_vel = ae::Vec2::ZERO;
         let resolution = resolve_body_hit(
             &mut combat,
             Some(&mut health),
             None,
             None,
-            guard.as_mut().map(|g| (g, ae::ShieldTuning::OFF)),
+            guard.as_mut().map(|g| GuardUnderFire {
+                state: g,
+                tuning: ae::ShieldTuning::OFF,
+                body_size: TEST_BODY,
+                vel: &mut scratch_vel,
+            }),
             1.0,
             body,
             impact,
@@ -1674,4 +1720,224 @@ fn a_raised_shield_blocks_the_hit_and_a_lowered_one_does_not() {
          facing decides nothing"
     );
     assert!(hp < START_HP);
+}
+
+/// **A BLOCK COSTS THE BLOCKER GROUND, AWAY FROM THE HIT AND ALONG IT ONLY.**
+///
+/// ⛔ the third cost of shield pressure, after integrity and shieldstun. Without
+/// it a guard near a ledge is a safe place to stand forever; with it the hits
+/// themselves walk you toward the edge, which is what makes chip pressure a
+/// thing a player has to answer.
+#[test]
+fn a_blocked_hit_shoves_the_blocker_laterally_away_from_it() {
+    let mut combat = BodyCombat::default();
+    let mut health = test_health(20);
+    let body = ae::Vec2::new(100.0, 200.0);
+    let down = ae::Vec2::new(0.0, 1.0);
+    let mut guard = raised_guard();
+    let mut vel = ae::Vec2::ZERO;
+    let tuning = ae::ShieldTuning::PLATFORM_FIGHTER;
+
+    let res = resolve_body_hit(
+        &mut combat,
+        Some(&mut health),
+        None,
+        None,
+        Some(GuardUnderFire {
+            state: &mut guard,
+            tuning,
+            vel: &mut vel,
+            body_size: TEST_BODY,
+        }),
+        1.0,
+        body,
+        // Struck from the FRONT-RIGHT, so the shove goes left.
+        body + ae::Vec2::new(50.0, 0.0),
+        down,
+        10,
+        1.0,
+        false,
+        TEST_FEEL,
+        false,
+    );
+
+    assert_eq!(res, BodyHitResolution::Blocked);
+    assert!(
+        vel.x < 0.0,
+        "a blocked hit from the right pushed the blocker {vel:?}, not away from it"
+    );
+    assert_eq!(
+        vel.y, 0.0,
+        "a block shoved the blocker along GRAVITY — it is a push, not a launch"
+    );
+    assert_eq!(vel.x, -(tuning.pushback_per_damage * 10.0));
+}
+
+/// **AND A GUARD THAT IS NOT A RESOURCE STILL BLOCKS FOR FREE.**
+#[test]
+fn an_unlimited_guard_is_not_pushed() {
+    let mut combat = BodyCombat::default();
+    let mut health = test_health(20);
+    let body = ae::Vec2::new(100.0, 200.0);
+    let mut guard = raised_guard();
+    let mut vel = ae::Vec2::ZERO;
+
+    resolve_body_hit(
+        &mut combat,
+        Some(&mut health),
+        None,
+        None,
+        Some(GuardUnderFire {
+            state: &mut guard,
+            tuning: ae::ShieldTuning::OFF,
+            body_size: TEST_BODY,
+            vel: &mut vel,
+        }),
+        1.0,
+        body,
+        body + ae::Vec2::new(50.0, 0.0),
+        ae::Vec2::new(0.0, 1.0),
+        10,
+        1.0,
+        false,
+        TEST_FEEL,
+        false,
+    );
+
+    assert_eq!(vel, ae::Vec2::ZERO);
+}
+
+/// Run one hit through the reaction and report the recoil lock it charged.
+fn meteor_reaction(
+    launch_dir: ae::Vec2,
+    grounded: bool,
+    feel: Platformer2dFeelTuningMonolith,
+) -> f32 {
+    let body = ae::Vec2::new(100.0, 150.0);
+    let knockback = crate::combat::HitKnockback {
+        dir: 1.0,
+        magnitude: crate::combat::HitKnockbackMagnitude::LaunchSpeed(300.0),
+        source_pos: body,
+        impact_pos: body,
+        launch_dir: Some(launch_dir),
+    };
+    let mut vel = ae::Vec2::ZERO;
+    let mut flight = ae::BodyFlightState::default();
+    let mut combat = BodyCombat::default();
+    apply_body_hit_reaction(
+        &mut vel,
+        &mut flight,
+        &mut combat,
+        body,
+        1.0,
+        ae::Vec2::new(0.0, 1.0),
+        false,
+        Some(&knockback),
+        ae::Vec2::ZERO,
+        VictimStance {
+            grounded,
+            ..Default::default()
+        },
+        feel,
+    );
+    combat.recoil_lock_timer
+}
+
+/// **CROUCHING TAKES LESS OF THE LAUNCH, AND ONLY WHEN THE GAME SAYS SO.**
+///
+/// ⛔ three assertions, and the first two are the pair: a standing body takes the
+/// whole launch and a crouching one takes the declared fraction, so a version
+/// that scaled EVERYBODY would fail the first and one that scaled nobody the
+/// second. The third is the floor — an undeclared world's `1.0` must leave
+/// crouching worth nothing but a shorter hurtbox, which is every room in
+/// Ambition.
+#[test]
+fn crouching_takes_less_of_the_launch_when_the_rules_declare_it() {
+    let launched = |crouching: bool, scale: f32| {
+        let knockback = crate::combat::HitKnockback {
+            dir: 1.0,
+            magnitude: crate::combat::HitKnockbackMagnitude::LaunchSpeed(400.0),
+            source_pos: ae::Vec2::ZERO,
+            impact_pos: ae::Vec2::ZERO,
+            launch_dir: Some(ae::Vec2::new(1.0, 0.0)),
+        };
+        let mut feel = Platformer2dFeelTuningMonolith::default();
+        feel.crouch_cancel_scale = scale;
+        let mut vel = ae::Vec2::ZERO;
+        let mut flight = ae::BodyFlightState::default();
+        let mut combat = BodyCombat::default();
+        apply_body_hit_reaction(
+            &mut vel,
+            &mut flight,
+            &mut combat,
+            ae::Vec2::ZERO,
+            1.0,
+            ae::Vec2::new(0.0, 1.0),
+            false,
+            Some(&knockback),
+            ae::Vec2::ZERO,
+            VictimStance {
+                grounded: true,
+                crouching,
+            },
+            feel,
+        );
+        vel.length()
+    };
+
+    let standing = launched(false, 0.85);
+    let ducked = launched(true, 0.85);
+    assert!(
+        standing > 0.0,
+        "the fixture launched nobody, so this measured nothing"
+    );
+    assert!(
+        (ducked - standing * 0.85).abs() < 0.01,
+        "a crouching body took {ducked} where the declared 0.85 of {standing} was owed"
+    );
+    assert_eq!(
+        launched(true, 1.0),
+        standing,
+        "an undeclared world charged a crouching body a discount it never declared"
+    );
+}
+
+/// **A SPIKE ON AN AIRBORNE BODY BUYS A LONGER SILENCE.**
+///
+/// ⛔ the mechanic, and what it is FOR: a launch that merely points down is a big
+/// hit; one you cannot answer on the way down is a kill. The genre's "meteor
+/// cancel" is this window ENDING, so there is no second verb to press and
+/// nothing here to trigger.
+#[test]
+fn a_downward_launch_on_an_airborne_body_locks_it_longer() {
+    let mut feel = Platformer2dFeelTuningMonolith::default();
+    feel.knockback_recoil_lock_time = 0.10;
+    feel.meteor_lock_time = 0.45;
+
+    // Body-local +y is toward the feet: straight down.
+    assert_eq!(
+        meteor_reaction(ae::Vec2::new(0.0, 1.0), false, feel),
+        0.45,
+        "an airborne spike took the ordinary recoil, so it is just a big hit"
+    );
+
+    // ⛔ **the floor, three ways.**
+    assert_eq!(
+        meteor_reaction(ae::Vec2::new(0.0, 1.0), true, feel),
+        0.10,
+        "a body standing on the floor was charged a recovery window for being \
+         driven into a floor it was already on"
+    );
+    assert_eq!(
+        meteor_reaction(ae::Vec2::new(0.0, -1.0), false, feel),
+        0.10,
+        "an UPWARD launch was treated as a meteor"
+    );
+    let mut off = feel;
+    off.meteor_lock_time = 0.0;
+    assert_eq!(
+        meteor_reaction(ae::Vec2::new(0.0, 1.0), false, off),
+        0.10,
+        "a game with no meteor rule got one anyway"
+    );
 }

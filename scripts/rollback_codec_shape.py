@@ -136,7 +136,7 @@ def shape_of(path: Path) -> tuple[int, str]:
         if not body:
             continue
         tokens.append(f'arr[{len(body.split(",")) }]')
-    for match in re.finditer(r'\[\s*(?:false|true|0u8|0i32|0f32|0\.0)\s*;\s*(\d+)\s*\]', text):
+    for match in re.finditer(r'\[\s*(?:false|true|0u8|0u16|0u32|0u64|0i32|0f32|0\.0)\s*;\s*(\d+)\s*\]', text):
         tokens.append(f'fixed[{match.group(1)}]')
     # ⛔⛔ **AND `snapshot_unit_enum!` IS THE THIRD CONSTRUCT TO HIDE THE SAME WAY.**
     #

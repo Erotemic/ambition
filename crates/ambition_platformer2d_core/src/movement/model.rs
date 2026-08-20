@@ -97,6 +97,14 @@ pub struct AxisManeuverState {
     pub wall_climbing: bool,
     pub pre_wall_vel: Vec2,
     pub pre_wall_vel_age: f32,
+    /// **How long this body has been OFF a ledge**, in seconds, clamped at
+    /// [`crate::ledge_grab::LEDGE_INVULN_FULL_AIRTIME`].
+    ///
+    /// ⭐ what a fresh grab's intangibility is bought with — see
+    /// [`crate::ledge_grab::ledge_grab_invuln_earned`]. ⚠ it starts FULL, not
+    /// zero: a body that has never touched a ledge has been off one forever, and
+    /// a zero would hand every first grab in a match the minimum window.
+    pub time_off_ledge: f32,
     /// Buffered MOVEMENT actions (jump/burst/blink press windows). Combat
     /// buffers (attack/pogo/projectile) stay on the shared BodyActionBuffer.
     ///
@@ -126,6 +134,14 @@ pub struct AxisManeuverState {
     pub blink_aim_offset: Vec2,
     pub blink_grace_timer: f32,
     pub dodge_roll_timer: f32,
+    /// **The window on [`Self::dodge_roll_timer`] is a SPOT DODGE, not a roll.**
+    ///
+    /// ⭐ one timer, two verbs, and the flag is what tells them apart — the
+    /// i-frames are the same term the damage rule reads either way, so splitting
+    /// the TIMER would have made `evading()` a two-place question for no gain.
+    /// What differs is only what it is DRAWN as, and that is a presentation
+    /// fact.
+    pub spot_dodging: bool,
     /// **The AIR dodge's own clock** — seconds of the committed aerial evade.
     ///
     /// ⛔ **not `dodge_roll_timer`, and the separation is the design.** Both
@@ -186,6 +202,7 @@ impl Default for AxisManeuverState {
             wall_climbing: false,
             pre_wall_vel: Vec2::ZERO,
             pre_wall_vel_age: 0.0,
+            time_off_ledge: crate::ledge_grab::LEDGE_INVULN_FULL_AIRTIME,
             buffer_jump: 0.0,
             jump_squat_timer: 0.0,
             buffer_burst: 0.0,
@@ -197,6 +214,7 @@ impl Default for AxisManeuverState {
             blink_aim_offset: Vec2::new(BLINK_DISTANCE, 0.0),
             blink_grace_timer: 0.0,
             dodge_roll_timer: 0.0,
+            spot_dodging: false,
             air_dodge_timer: 0.0,
             air_dodge_endlag_timer: 0.0,
             tumble_timer: 0.0,
@@ -388,6 +406,15 @@ impl MotionModel {
         }
     }
 
+    /// **This body's footstool rules**, or [`FootstoolTuning::OFF`] for a policy
+    /// that has none. The sibling of [`Self::shield_tuning`].
+    pub fn footstool_tuning(&self) -> crate::FootstoolTuning {
+        match self {
+            Self::AxisSwept(axis) => axis.params.abilities.footstool,
+            Self::SurfaceMomentum(_) | Self::AdhesiveCrawler(_) => crate::FootstoolTuning::OFF,
+        }
+    }
+
     /// **What a full-deflection direct command means for this body**, in px/s.
     ///
     /// The projection a CONTROLLER wants, and the sibling of
@@ -473,6 +500,47 @@ impl MotionModel {
 /// cooldowns, and ability mode facts (`fly_enabled`) survive by construction.
 pub fn switch_motion_model(model: &mut MotionModel, spec: MotionModelSpec) {
     model.apply_spec(spec);
+}
+
+/// **A footstool landed on this body** — the victim's WHOLE reaction, and the
+/// typed footstool→movement op beside [`knock_off_ledge`].
+///
+/// Returns the seconds of hard control lock the caller must record on the
+/// body's combat state; `0.0` when the tumble this started already owns
+/// control, because the floor game neutralizes input for as long as it runs and
+/// a second lock beside it would only disagree with it.
+///
+/// ⭐ **the split is the mechanic.** Ultimate footstools two different things:
+/// a GROUNDED victim has nowhere to be shoved and takes a brief flinch — which
+/// is what makes a grounded footstool a combo starter rather than a punish —
+/// while an AIRBORNE one is driven down into a tumble it cannot cancel early.
+/// Both are techable on landing, and that comes free: the tech window is the
+/// floor game's, and this hands the body to it.
+pub fn footstool_victim(
+    model: &mut MotionModel,
+    kinematics: &mut crate::BodyKinematics,
+    grounded: bool,
+    gravity_dir: Vec2,
+    rules: crate::FootstoolTuning,
+) -> f32 {
+    if grounded {
+        return rules.flinch_time;
+    }
+    // ⚠ SET, not add: a body arriving at terminal velocity and one barely
+    // falling must be driven down at the same speed, or being stood on costs
+    // more the further your attacker fell to reach you.
+    let along = kinematics.vel.dot(gravity_dir);
+    kinematics.vel -= gravity_dir * (along - rules.press_speed);
+    let MotionModel::AxisSwept(axis) = model else {
+        return rules.flinch_time;
+    };
+    if super::knockdown::tumble_from_footstool(&mut axis.state, axis.params, rules.air_tumble_time)
+    {
+        0.0
+    } else {
+        // A body that does not tumble still owes the shove a beat.
+        rules.flinch_time
+    }
 }
 
 /// Drop any active ledge grab because the body was hit, arming a brief

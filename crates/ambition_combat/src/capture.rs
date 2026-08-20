@@ -67,7 +67,7 @@ pub struct CapturedBy {
     /// a floating character into a falling one — a bug that only ever appears
     /// for the characters least likely to be tested.
     pub prior_gravity_scale: f32,
-    // ⛔⛔ **`pummels_landed`, `held_for` and `escape_progress` LEFT THIS STRUCT
+    // ⛔⛔ **`pummels_landed`, `held_for` and the escape clock LEFT THIS STRUCT
     // on 2026-08-19** — see `ambition_characters::smash_capture::SmashHoldState`.
     //
     // They were fine here while capture was being proven and they are not

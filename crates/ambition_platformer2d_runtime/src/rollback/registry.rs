@@ -319,6 +319,125 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// it also moved `ambition_cutscene` and `ambition_demo_twintrack`, which is the
 /// instrument CHANGING and NOT a wire change in either: neither file was edited.
 ///
+/// ⚠ **v51 (2026-08-20) is the SPOT DODGE**, and it moves THREE things:
+///
+/// ```text
+/// MovementOp::SpotDodge = 35                       a new wire CODE
+/// MovementTuning::spot_dodge_time                  one float, motion codec
+/// AxisManeuverState::spot_dodging                  one bool, motion codec
+/// ```
+///
+/// ⭐ **one timer, two verbs.** The window rides `dodge_roll_timer` because the
+/// i-frames are the same term the damage rule reads either way; splitting the
+/// TIMER would have made `evading()` a two-place question for no gain. What
+/// differs is only what it is DRAWN as, and `spot_dodging` is that fact.
+/// ⚠ and the row it asks for — `spot_dodge` — was already in the shipped sheets.
+/// Fourth time this branch has found art nothing was asking for.
+/// ⚠ **v50 (2026-08-20) is `MovementTuning::sdi_step`**, one float in the
+/// motion codec, put and read. SMASH DIRECTIONAL INFLUENCE: how far a body may
+/// shift ITSELF per tick of hitlag.
+/// ⭐ **the defensive half of a mechanic whose offensive half already shipped.**
+/// DI bends the launch a fighter is about to take; SDI moves it out of the NEXT
+/// hit's way while the current one is still frozen, which is what makes hitlag a
+/// WINDOW rather than merely a pause. It needed no new state — the shift is
+/// written straight to `pos` on the tick `step_body` is about to zero `dt`.
+/// ⚠ ours rewards the HOLD where the genre counts fresh stick inputs; an
+/// edge-counting version would need per-window state inside the rollback window,
+/// and the total is bounded either way by the hitlag's own length.
+/// ⚠ **v49 (2026-08-20) is `AxisManeuverState::time_off_ledge`**, one f32 in
+/// the motion codec, put and read. It is what a ledge grab's intangibility is
+/// now BOUGHT with: the window used to be a flat 0.50s on every grab, so the
+/// edge was a free reset a fighter could hold forever.
+/// ⭐ **airtime, not a regrab counter** — the genre buys ledge intangibility
+/// with time spent off the edge, and a counter would punish a fighter who was
+/// knocked away and recovered exactly as hard as one stalling on the ledge.
+/// ⚠ it starts FULL rather than zero: a body that has never touched a ledge has
+/// been off one forever, and a zero would hand every first grab the floor.
+/// ⚠ **v48 (2026-08-20) is `SmashHoldState::escape_seconds`**, one f32 on a
+/// `snapshot_pod!` component, so the pod body folds it by name and the row
+/// widens. ⚠ `escape_progress` is RENAMED to `mash_credit` in the same commit;
+/// the rename moves no bytes, and the codec's one extra primitive is the new
+/// field alone.
+/// ⭐ **the field exists because the hold's length stopped being a constant.** A
+/// grab now holds a body for `90 + 1.7p` frames of ITS OWN damage, read once
+/// when the hold begins — Ultimate's rule, and the reason it is stored rather
+/// than recomputed is that a hold which re-read the percent every tick would
+/// grow every time its captor pummelled.
+/// ⚠ **the codec-shape guard reddened on the RENAME too, and that is a known
+/// false positive of its `snapshot_pod!` fold**: it hashes the macro body
+/// verbatim, field names included, where the array fold deliberately takes *"the
+/// COUNT, never the names"*. Harmless here — the new field is a real wire change
+/// and the bump is owed anyway — but a commit that ONLY renamed a pod field
+/// would redden it for nothing.
+/// ⚠ **v47 (2026-08-20) is `FootstoolTuning::air_tumble_time` and
+/// `stomper_invuln`**, two floats in the motion codec, put and read
+/// (338 -> 342 primitives). The first splits the
+/// victim's reaction in two: a grounded victim flinches, an airborne one
+/// tumbles, and a tumble's length is AUTHORED rather than derived from the
+/// shove — a footstool produces no real knockback, so feeding its 220 px/s to
+/// the launch threshold would tumble nobody. The second is the stomper's four
+/// frames of intangibility, which is what makes a footstool an escape from
+/// disadvantage. ⚠ `victim_stun` was RENAMED to `flinch_time` in the same
+/// commit; a rename moves no bytes, and the codec's four extra primitives are
+/// the two new fields alone.
+/// ⚠ **v46 (2026-08-20) is `BodyStaleMoves`**, a NEW rollback component
+/// (`body.stale_moves`): nine `u32` slots and a cursor, remembering what this
+/// body last LANDED so a repeated move is worth less. Both a new stable key and
+/// a new payload behind it.
+/// ⭐ **hashes rather than move ids, and that is what makes it snapshot state at
+/// all.** A `Vec<String>` of names would allocate per body per save; a `[u32; 9]`
+/// is copied like any other pod. Nothing reads the hash back as a name, so a
+/// collision costs one move a staleness it did not earn and nothing else.
+/// ⚠ it is hand-written rather than `snapshot_pod!` because that macro maps a
+/// field to a READER METHOD and there is none for an array — and the explicit
+/// `[0u32; 9]` on the decode side is what `rollback_codec_shape.py` reads as the
+/// width. ⛔ that regex did not accept `0u32` until this commit widened it, which
+/// would have made the ring's WIDTH invisible to the checker: the same
+/// no-primitive-call hole as `snapshot_pod!`, the array loop, and
+/// `snapshot_unit_enum!` before it. Fourth instance.
+/// ⚠ **v45 (2026-08-20) is `ShieldTuning::min_coverage`**, the last of the
+/// guard's numbers: how much of the body a SPENT shield still covers. One float
+/// in the motion codec beside the other seven.
+/// ⚠ **v44 (2026-08-20) is `ShieldTuning::pushback_per_damage`**, one float in
+/// the motion codec, put and read. The guard's third cost — a block moves the
+/// body behind it — and the tuning rides the axis-swept projection like the
+/// other six.
+/// ⚠ **v43 (2026-08-20) is `BodyJumpState::footstool_claimed`**, one bool on a
+/// `snapshot_pod!` component, so the pod body folds it by name and the row moves.
+/// ⭐ **it exists because v42's footstool was arbitrated in the wrong place.** The
+/// bounce was applied AFTER the kernel by overwriting velocity, on the argument
+/// that a later write wins; the kernel had already spent an air jump and emitted
+/// `MovementOp::DoubleJump` by then, so the same footstool cost a charge when
+/// you had one and nothing when you did not. The claim is read by the jump chain
+/// AHEAD of the air jump, which makes one input edge mean one thing.
+/// ⚠ **v42 and v43 arrive TOGETHER or not at all.** Main was at v41 when the
+/// footstool was held back from a merge, and v42's whole content is the
+/// footstool's floats and its op code — so a reader on main who sees v41 next to
+/// a v43 entry is not looking at a lost version, they are looking at one feature
+/// that bumped twice on its way in.
+/// ⚠ **v42 (2026-08-20) is the FOOTSTOOL's wire, and ONLY that.** Two things
+/// move, and they are measured differently:
+///
+/// ```text
+/// core/motion_codec.rs   326 -> 334   +8   four FootstoolTuning floats, put AND read
+/// MovementOp::Footstool = 34               a new wire CODE
+/// ```
+///
+/// ⛔ **an earlier draft of this entry also claimed `stun_per_damage` and
+/// `BodyShieldState`'s three fields. Both are v41's** — they were already on
+/// main when v41 was recorded, and v41's corrected entry below now names them.
+/// Two hand-written entries, two corrections in one hour, both understating the
+/// same way: ⇒ **the recorded baseline is MEASURED and this log is PROSE, so the
+/// prose is the side that drifts.** When they disagree, trust the baseline.
+///
+/// ⭐ **and `Footstool = 34` is the first op code any instrument has ever
+/// caught.** `snapshot_unit_enum!` was invisible to
+/// `scripts/rollback_codec_shape.py`: a variant list is bare idents with no
+/// primitive call, so `core/snapshot_impls.rs` hashed IDENTICALLY with the
+/// variant added — the third time that file's own docs describe this hole, after
+/// `snapshot_pod!` and the array-driven codec. The fold now takes the
+/// discriminants SORTED, so a rename and a reorder are not wire changes and an
+/// added or renumbered code is.
 /// ⛔⛔ **v41's ENTRY BELOW WAS INCOMPLETE, AND THE DECISION WAS STILL RIGHT.**
 /// Corrected 2026-08-20 the same day, after a peer lane found the rest. The bump
 /// was correct and `--record` captured the whole tree, so the BASELINE never
@@ -398,7 +517,7 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// `message.spawn_projectile` keeps its stable key while its concrete message
 /// becomes `ProjectileSpawnRequest`, so abandoned-future spawn requests remain
 /// cleared on load through the same wire identity.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 41;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 51;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

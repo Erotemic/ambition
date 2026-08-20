@@ -792,9 +792,16 @@ pub fn try_start_ledge_grab_clusters_in_frame(
     // Smash-Bros style ledge intangibility: a brief invuln window on
     // grab. Reuses `dodge_roll_timer` because that field already gates
     // damage — same pipeline, single source of truth.
-    if axis_state.dodge_roll_timer < LEDGE_GRAB_INVULN_TIME {
-        axis_state.dodge_roll_timer = LEDGE_GRAB_INVULN_TIME;
+    //
+    // ⭐ **and it is EARNED, not flat.** The window is bought with the time this
+    // body spent off a ledge, so a fighter that was knocked away and recovered
+    // gets all of it and one that drops and instantly re-catches gets the floor.
+    // A flat grant made the edge a free reset you could hold forever.
+    let earned = super::ledge_grab_invuln_earned(axis_state.time_off_ledge);
+    if axis_state.dodge_roll_timer < earned {
+        axis_state.dodge_roll_timer = earned;
     }
+    axis_state.time_off_ledge = 0.0;
     events.op_clusters(clusters.combo_trace, MovementOp::LedgeGrab);
     true
 }

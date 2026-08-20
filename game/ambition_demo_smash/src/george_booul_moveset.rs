@@ -572,8 +572,28 @@ pub fn george_booul_moveset() -> MovesetContract {
     let capture = crate::smash_pack::capture_kit(crate::SMASH_GEORGE_BOOUL);
 
     let repertoire = SmashRepertoire {
+        taunt: ambition_platformer2d::characters::moveset_authoring::taunt(
+            "george_booul_taunt",
+            0.9,
+        ),
 
-        taunt: ambition_platformer2d::characters::moveset_authoring::taunt("george_booul_taunt", 0.9),
+        // ⭐ **GEORGE'S DASH ATTACK IS A COMMITMENT, and his own law decided
+        // that.** `no_move_lives_between_the_pokes_and_the_commitments` splits
+        // his kit at `POKE_MAX_STARTUP_S`, and `the fast half must be the weak
+        // half` — his pokes top out at 5 damage where his softest commitment is
+        // 6. A 14-damage move cannot be fast HERE, so the genre's 0.05 startup
+        // becomes `COMMIT_MIN_STARTUP_S`. ⛔ that is not the law getting in the
+        // way: George is the heavy, and a shoulder charge you can see coming is
+        // what the heavy's dash attack should be.
+        dash_attack: ambition_platformer2d::characters::moveset_authoring::dash_attack(
+            "george_booul_dash_attack",
+            ambition_platformer2d::characters::moveset_authoring::DashAttackShape {
+                startup_s: COMMIT_MIN_STARTUP_S,
+                ..ambition_platformer2d::characters::moveset_authoring::DashAttackShape::GENRE
+            },
+            14,
+            175.0,
+        ),
         jab,
         forward_tilt: f_tilt,
         up_tilt,

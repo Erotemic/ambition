@@ -200,6 +200,9 @@ impl CaptureKitAuthoring {
             down_throw,
         } = self;
         SmashCaptureRepertoire {
+            // A facet-authored kit takes the shipped rows; a fighter whose art
+            // is its own overrides them where it builds its repertoire.
+            cues: crate::smash_capture::CaptureCues::GENERIC,
             grab: author_standing_grab(
                 grab_shell(
                     &grab.id,

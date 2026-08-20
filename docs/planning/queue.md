@@ -543,7 +543,7 @@ world in this project is shown three platform-fighter fields.
 ⭐⭐ **ZERO levels author a VALUE.** 18 schema entries, no data behind any of
 them. So the rename costs **no content migration** — only a schema rename in
 files the LDtk editor owns, which is why the authoring half is Jon's call and is
-written up in [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md).
+written up in [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md) §26.
 
 ⛔ **do NOT do the Rust half alone.** The struct field and the authored key are
 one name; renaming one and not the other needs a mapping, and a mapping is the
@@ -876,7 +876,7 @@ body-relative as an identity, so the movement/aim rows report inactive instead o
 being clobbered. ⛔ **do not continue it as a standalone campaign.** C5 — camera policy
 read off the view index — is N-VIEW work and belongs to D116; the feel questions
 (shake units, acceptance customers) are filed in
-[`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md). ⭐ **a row
+[`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md) §26. ⭐ **a row
 whose remainder lives in another row is a rest row, not a campaign.**
 
 Design lives in
@@ -2588,7 +2588,7 @@ negative term.
 
 ⇒ **what is left of this row is not plumbing.** Whether the peaceful cast should
 be armed by the stage at all, or re-authored as fighters, is Jon's and is filed
-in [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md). The
+in [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md) §26. The
 defect was real under either answer, and it is fixed under either answer.
 
 ⭐ **the four fighters it was about now author sixteen moves each** (D144), so
@@ -5400,7 +5400,7 @@ These are real unresolved items but are deliberately **not** `▢` queue work.
 anyone who came looking for the question finds the ruling instead of a gap.
 
 - **D23 — projectile collision feel:** authored hurt geometry versus coarse body
-  box; see [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md).
+  box; see [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md) §26.
 - **D50 — dropped held-item lifetime:** room-scoped versus persistent-world
   semantics; see the decision inbox.
 - **D53 — Android suspend/resume:** validate the residual behavior on a real

@@ -41,7 +41,7 @@ investigation that led to the question. Same rule as
 [`README.md`](README.md#queue-contract); on 2026-08-17 this file was **739 lines
 for 9 open questions**, and the four answered ones held a third of it.
 
-## Open decisions — 15 (§1, §6, §7, §9, §10, §11, §12 and §13 are ANSWERED; §8 is DEFERRED)
+## Open decisions — 17 (§1, §6, §7, §9, §10, §11, §12 and §13 are ANSWERED; §8 is DEFERRED)
 
 ### 1. ✔ ANSWERED 2026-08-17 — a bolt hits what a sword hits (former D23)
 
@@ -1040,6 +1040,13 @@ privileged"* — so the prescribed asymmetry contradicts a fairness property
 somebody chose on purpose. Inventing an asymmetry is a competitive-balance
 decision, not a compile fix.
 
+⚠ **RE-MEASURED 2026-08-20 on the `smash-parity` lane: still exactly 28 passed /
+5 failed, same five.** The shield-as-a-resource, the taunt, the footstool and two
+new anim reads all land on top of this suite and move the count by nothing. ⇒ the
+five are a STABLE tripwire rather than a drifting one, and a lane adding combat
+features is not what disturbs them — which is worth knowing before anybody reads
+a change in the count as noise.
+
 Options as I see them: (a) accept a small deliberate per-seat offset and record
 why fairness tolerates it; (b) give the jitter a consumer that fires on every
 decision rather than only on a committing one — explicitly banned by the note,
@@ -1094,6 +1101,76 @@ per-turn gate, so a behavioural suite went five-red across at least two
 regressions without anything saying so. `cargo test --workspace --lib` and
 `-p ambition_app --test app_it` do not reach it.
 
+### 24. ▢ NEW 2026-08-20 — does "AVOID PUSHOUT" cover fighter-vs-fighter JOSTLE?
+
+**The mechanic.** Every platform fighter pushes two grounded bodies apart when
+they occupy the same space — Ultimate calls it jostle, and without it two
+fighters stand inside each other and the stage's spacing game stops existing.
+It is the last unbuilt row in the smash inventory's Movement section
+(`docs/planning/demos/smash-parity-inventory.md`).
+
+**Why it is a decision and not research.** The genre's answer is not in doubt:
+bodies push each other apart, symmetrically, proportional to overlap. What is in
+doubt is whether Jon's own standing rule forbids it. The rule, as recorded:
+
+> **AVOID PUSHOUT.** Almost never artificially push a body out of geometry …
+> pushout corrupts position/reversibility and papers over the real bug. Emerging
+> at the face + carrying momentum is the intended physical behavior.
+
+⭐ **the reading that says jostle is FINE**: the rule names *geometry*, and every
+case behind it was a CORRECTION — an NPC embedded in a wall, a body straddling a
+closing portal. Jostle is neither. It is a designed, symmetric, momentum-carrying
+force between two LIVE bodies, which is much closer to the "intended physical
+behavior" the rule is protecting than to the correction it forbids.
+
+⚠ **the reading that says it is not**: it is still a position written by
+something other than the body's own velocity, and the rule's stated cost —
+*"corrupts position/reversibility"* — applies to any such write. Under rollback
+that cost is not rhetorical.
+
+**A third option, and probably the honest one:** jostle as an ACCELERATION rather
+than a displacement — two overlapping bodies each take a small push-apart
+velocity, and the kernel integrates it like any other force. Position is never
+written, reversibility is untouched, and the visible behaviour is the genre's.
+It is slower to separate than a displacement, which in this genre reads as weight
+rather than as a bug.
+
+⇒ **the question**: is the third option acceptable, or does the rule extend to
+body-vs-body entirely and jostle should not be built? ⛔ not answered by refactor
+— I have left the row `▢` rather than guessing at a rule Jon stated twice.
+
+### 25. ▢ NEW 2026-08-20 — our perfect shield is timed on the PRESS; Ultimate moved it to the RELEASE
+
+**What we have.** `resolve_shield` arms `BodyShieldState::parry_window_timer` on
+the guard's RISING EDGE, and `parrying()` is `active && parry_window_timer > 0.0`
+— so a parry is *"you raised the shield within the window before the hit"*, and
+a parried hit does not register at all (`combat::util::body_vulnerable`).
+
+**What Ultimate does.** It moved the perfect shield OFF the press: you RELEASE
+the shield within a few frames of the hit connecting, the defender takes nothing,
+and the attacker eats a large extra lag. The press-timed version is Smash 4's.
+
+⛔ **this is not a missing mechanic, and that is exactly why it is a decision.**
+Both are shipped platform-fighter standards. We do not lack a parry; we have the
+OTHER correct one. "Go and find what the genre does and ship that" does not
+resolve it, because the genre has done both and picked deliberately.
+
+**What each buys.** The press version rewards a read BEFORE the hit — commit
+early, be right. The release version makes the shield a two-decision object: you
+raise it under pressure and then time the drop, so a defender under a
+multi-hit string is making a choice every beat rather than one at the start.
+Ultimate's stated reason was the second.
+
+⚠ **the code cost is not the interesting part but it is not nothing**:
+`parrying()` currently requires `active`, and a release-timed window is live on
+frames when the shield is DOWN — so the term that separates a parry from a held
+shield would have to move, and `vulnerability_gate_tests` asserts that term by
+name.
+
+⇒ **the question**: keep the press-timed parry, or move it to the release? ⛔ left
+as-is pending an answer rather than changed under the "genre research" licence —
+changing a working feel behaviour is not the same as adding a missing one.
+
 ## ✔ CLOSED 2026-08-15 — every submodule remote is reachable and current
 
 **Was:** `git push` in `tools/ambition_sfx_renderer` failed with *"correct access
@@ -1120,7 +1197,7 @@ submodule content; the pointer is the symptom, the credential is the cause.
 
 ---
 
-### 24. Rename the blast zone out of every world's authoring schema? (D169)
+### 26. Rename the blast zone out of every world's authoring schema? (D169)
 
 ⭐ **the measurement first, because it changes the question the plan asked.**
 `world-geometry-and-spatial-semantics.md` argues the engine provides a bespoke

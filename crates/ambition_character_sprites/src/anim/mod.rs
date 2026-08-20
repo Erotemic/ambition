@@ -122,6 +122,13 @@ pub struct BodyAnimView {
     /// Persistent curled ball (spin dash roll / morph ball). Outranks the
     /// dash + airborne reads: a ball flying off a ramp is still a ball.
     pub rolling: bool,
+    /// Held in another body's hands. Outranks every locomotion read: a captive
+    /// is not walking, falling or idling, whatever its velocity says.
+    pub held: bool,
+    /// The guard shattered and this body is dizzy. Outranks `blocking` for the
+    /// obvious reason — there is no guard to draw — and sits with the reeling
+    /// reads because that is what it is.
+    pub guard_broken: bool,
     pub dash_startup: bool,
     pub dashing: bool,
     pub ladder_climbing: bool,
@@ -157,6 +164,24 @@ pub struct BodyAnimView {
 /// Punch swing row) folded in at their priorities. Inert states (a `None`
 /// ledge, `false` flags) fall straight through, so a sparse actor view lands on
 /// the shared locomotion tail.
+/// **The two fighter facts that are not the movement kernel's**, taken beside
+/// [`BodyMotionFacts`](ambition_platformer2d_core::BodyMotionFacts) by
+/// [`body_state_clip`].
+///
+/// ⚠ they are separate because they are owned elsewhere: `held` is combat's
+/// capture relation mirrored onto `BodyAnimFacts`, and `guard_broken` is the
+/// shield cluster's. Neither is something the movement kernel publishes about
+/// itself, and folding them into the motion facts would say it does.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct FighterClipFacts {
+    /// This body is in another body's hands.
+    pub held: bool,
+    /// This body has somebody in ITS hands.
+    pub holding: bool,
+    /// This body's guard shattered and it is stunned.
+    pub guard_broken: bool,
+}
+
 /// **The authored ROW a body's fighter state asks to be drawn as**, when the new
 /// sheets have one, with the fallback chain for the sheets that do not.
 ///
@@ -183,18 +208,45 @@ pub struct BodyAnimView {
 /// `MovementOp` ran, and the row set waits for it.
 pub fn body_state_clip(
     facts: &ambition_platformer2d_core::BodyMotionFacts,
+    fighter: FighterClipFacts,
 ) -> Option<&'static [&'static str]> {
+    // ⭐ ABOVE the floor game, for the same reason `pick_body_anim` puts it
+    // there: a body in somebody's hands is not doing anything else.
+    if fighter.held {
+        return Some(&["grabbed", "hit", "idle"]);
+    }
     if facts.knocked_down {
         return Some(&["knockdown", "prone", "land_hard", "hit", "idle"]);
     }
     if facts.getup_invulnerable {
         return Some(&["getup", "land_recovery", "idle"]);
     }
+    // ⚠ ONE row, where the genre has a sequence (launch, fall, collapse, dizzy,
+    // recover). The sim publishes ONE `break_timer`, so splitting the pose would
+    // mean inventing a distinction it has not made — the same honesty as
+    // tech-versus-getup above.
+    if fighter.guard_broken {
+        return Some(&["dizzy", "hit", "idle"]);
+    }
     if facts.tumbling {
         return Some(&["tumble", "hit", "fall", "idle"]);
     }
+    // ⚠ BELOW everything above it: a captor that got knocked down is not holding
+    // anybody any more, and a captor mid-throw has a MOVE, which outranks every
+    // state row. What is left is the beat between the grab and the decision,
+    // which drew the standing pose.
+    if fighter.holding {
+        return Some(&["grab_hold", "grab", "idle"]);
+    }
     if facts.air_dodging {
         return Some(&["air_dodge", "roll", "fall", "idle"]);
+    }
+    // ⚠ ABOVE no floor-game state and below all of them: a spot dodge is an
+    // ordinary grounded action, and the only thing it has to outrank is the ROLL
+    // it shares a timer with. `CharacterAnim` answers both as `DodgeRoll`, so
+    // without this row a body that stood its ground is drawn rolling.
+    if facts.spot_dodging {
+        return Some(&["spot_dodge", "crouch", "roll", "idle"]);
     }
     None
 }
@@ -207,13 +259,23 @@ pub fn pick_body_anim(v: &BodyAnimView) -> CharacterAnim {
     // ⭐ **the floor game outranks the hit flash.** A knocked-down body is still
     // inside its hitstun, so reading `hit` first would draw the struck pose for
     // the whole prone beat and the knockdown would be invisible.
+    // ⭐ ABOVE the floor game and the hit flash: a body in somebody's hands is
+    // not doing anything else, and its velocity is the captor's. ⚠ the tail
+    // again — `body_state_clip` asks for `grabbed` before this is reached.
+    if v.held {
+        return Hit;
+    }
     if v.knocked_down {
         return LandHard;
     }
     if v.getting_up {
         return LandRecovery;
     }
-    if v.hit || v.tumbling {
+    // ⭐ a shattered guard reads as reeling, which is the closest row this
+    // 56-variant vocabulary owns. ⚠ this is the TAIL of the ladder, not the
+    // answer: `body_state_clip` asks the sheet for `dizzy` first, and a fighter
+    // sheet has that row. This arm is what a sheet without one lands on.
+    if v.hit || v.tumbling || v.guard_broken {
         return Hit;
     }
     if v.dodge_roll {
@@ -395,6 +457,7 @@ pub fn body_view_from_body(
         // teching, and only while the body is NOT already prone again.
         getting_up: facts.getup_invulnerable && !facts.knocked_down,
         blocking: shield.active && abilities.abilities.shield,
+        guard_broken: shield.broken(),
         blink_out: facts.blink_telegraph,
         ledge: ledge_read(facts.ledge),
         flying: flight.fly_enabled,
@@ -478,6 +541,7 @@ pub fn pick_player_anim(
     v.wall_jump = anim.wall_jump_anim_timer > 0.0;
     v.interacting = anim.interact_anim_timer > 0.0;
     v.rolling = anim.rolling;
+    v.held = anim.held;
     v.dash_startup = anim.dash_startup_timer > 0.0;
     v.landing = (anim.land_anim_timer > 0.0).then_some(anim.land_anim_hard);
     v.idle_below = 12.0;
@@ -545,6 +609,11 @@ pub struct ActorAnimState {
     /// Persistent curled ball (`BodyAnimFacts::rolling`) — the same read the
     /// player overlays, so a brain-driven body that curls up shows its ball.
     pub rolling: bool,
+    /// Held in another body's hands (`BodyAnimFacts::held`). A CPU fighter is
+    /// grabbed exactly as often as a human one, so this rides the actor road
+    /// too — the alternative is a captive that reads as held only when a person
+    /// is playing it.
+    pub held: bool,
 }
 
 /// Pick any brain-driven actor's animation through the shared [`pick_body_anim`]
@@ -608,6 +677,7 @@ pub fn pick_actor_anim(
     v.landing = state.landing;
     v.shooting = state.shooting;
     v.rolling = state.rolling;
+    v.held = state.held;
     if state.aerial {
         // A flyer reads Fly/Idle from the locomotion tail; suppress the airborne
         // Jump/Fall gate (it floats — `on_ground` is false but it isn't falling).
@@ -640,7 +710,10 @@ mod state_clip_tests {
     #[test]
     fn a_fighter_state_asks_for_its_own_row_in_priority_order() {
         let head = |facts: &BodyMotionFacts| {
-            super::body_state_clip(facts).map(|chain| chain[0].to_string())
+            super::body_state_clip(facts, Default::default()).map(|chain| chain[0].to_string())
+        };
+        let fighter = |f: super::FighterClipFacts| {
+            super::body_state_clip(&BodyMotionFacts::default(), f).map(|chain| chain[0].to_string())
         };
 
         assert_eq!(
@@ -682,6 +755,59 @@ mod state_clip_tests {
             }),
             Some("getup".to_string())
         );
+        // ⛔ `spot_dodging` is a REFINEMENT of `dodge_rolling`, so both are true
+        // together and the pair is the assertion: the spot dodge must win, or a
+        // body that stood its ground is drawn rolling.
+        assert_eq!(
+            head(&BodyMotionFacts {
+                dodge_rolling: true,
+                spot_dodging: true,
+                ..Default::default()
+            }),
+            Some("spot_dodge".to_string())
+        );
+
+        // ⛔ the two facts the movement kernel does NOT publish, and the pair of
+        // them is the assertion: both drew `hit` before this seam existed, so a
+        // captive and a fighter with a shattered guard were the same picture.
+        assert_eq!(
+            fighter(super::FighterClipFacts {
+                held: true,
+                ..Default::default()
+            }),
+            Some("grabbed".to_string())
+        );
+        assert_eq!(
+            fighter(super::FighterClipFacts {
+                guard_broken: true,
+                ..Default::default()
+            }),
+            Some("dizzy".to_string())
+        );
+        assert_eq!(
+            fighter(super::FighterClipFacts {
+                holding: true,
+                ..Default::default()
+            }),
+            Some("grab_hold".to_string())
+        );
+        // ⛔ and the priority poison: a body knocked down while STILL held is
+        // held — the captor's pose owns it, the way `pick_body_anim` orders it.
+        assert_eq!(
+            super::body_state_clip(
+                &BodyMotionFacts {
+                    knocked_down: true,
+                    ..Default::default()
+                },
+                super::FighterClipFacts {
+                    held: true,
+                    ..Default::default()
+                }
+            )
+            .map(|chain| chain[0].to_string()),
+            Some("grabbed".to_string()),
+            "a held body drew the floor game it is not in"
+        );
     }
 
     /// **EVERY CHAIN ENDS SOMEWHERE A LEAN SHEET CAN REACH.**
@@ -708,8 +834,36 @@ mod state_clip_tests {
                 air_dodging: true,
                 ..Default::default()
             },
+            BodyMotionFacts {
+                dodge_rolling: true,
+                spot_dodging: true,
+                ..Default::default()
+            },
         ] {
-            let chain = super::body_state_clip(&facts).expect("this state asks for a row");
+            let chain = super::body_state_clip(&facts, Default::default())
+                .expect("this state asks for a row");
+            assert_eq!(
+                chain.last(),
+                Some(&"idle"),
+                "chain {chain:?} can fall through to nothing on a lean sheet"
+            );
+        }
+        for f in [
+            super::FighterClipFacts {
+                held: true,
+                ..Default::default()
+            },
+            super::FighterClipFacts {
+                guard_broken: true,
+                ..Default::default()
+            },
+            super::FighterClipFacts {
+                holding: true,
+                ..Default::default()
+            },
+        ] {
+            let chain = super::body_state_clip(&BodyMotionFacts::default(), f)
+                .expect("this state asks for a row");
             assert_eq!(
                 chain.last(),
                 Some(&"idle"),

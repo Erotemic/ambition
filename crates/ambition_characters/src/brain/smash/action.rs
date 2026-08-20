@@ -107,7 +107,7 @@ pub enum SpecificAction {
     /// frame is blanked before the combat phase sees it, and the one reader
     /// placed before that blanking credits the press to the hold's escape. So a
     /// CPU struggles through the same channel a person struggles through, and
-    /// there is no `cpu_escape_progress` anywhere.
+    /// there is no `cpu_mash_credit` anywhere.
     CaptureStruggle,
     /// Spot/air dodge in `dir`. Reserved.
     Dodge { dir: ae::Vec2 },

@@ -4299,7 +4299,7 @@ fn on_the_smash_pad_y_starts_the_fighters_authored_grab() {
 /// makes this a measurement.** Who grabbed whom is setup — the CPU's grab
 /// TIMING is a separate open question (queue D166) and waiting for one would
 /// make this a test of the brain. What is under test is only whether a pad
-/// press survives to `escape_progress`.
+/// press survives to `mash_credit`.
 #[test]
 fn on_the_smash_pad_a_held_player_can_mash_free() {
     use ambition_platformer2d::combat::capture::CapturedBy;
@@ -4337,7 +4337,10 @@ fn on_the_smash_pad_a_held_player_can_mash_free() {
                 hold_offset_local: ambition_platformer2d::engine_core::Vec2::new(20.0, -2.0),
                 prior_gravity_scale: 1.0,
             },
-            ambition_platformer2d::characters::smash_capture::SmashHoldState::default(),
+            ambition_platformer2d::characters::smash_capture::SmashHoldState::lasting(
+                ambition_platformer2d::combat::rules::ResolvedCombatTuning::default()
+                    .grab_hold_seconds(0),
+            ),
         ));
     };
 
@@ -4350,7 +4353,7 @@ fn on_the_smash_pad_a_held_player_can_mash_free() {
         pad_hold(&mut app, pad, GamepadButton::South, 0.0);
         app.update();
         if let Some(held) = app.world().get::<SmashHoldState>(body) {
-            best = best.max(held.escape_progress);
+            best = best.max(held.mash_credit);
             if best > 0.0 {
                 break;
             }
@@ -4360,7 +4363,7 @@ fn on_the_smash_pad_a_held_player_can_mash_free() {
     assert!(
         best > 0.0,
         "twenty-four presses of A, each against a freshly zeroed hold, moved \
-         `escape_progress` not once. A held person's frame is blanked by capture, \
+         `mash_credit` not once. A held person's frame is blanked by capture, \
          so if the escape sampler stops running while the frame is still theirs, \
          mashing does nothing and a hold is unbreakable by a human"
     );
@@ -4427,7 +4430,10 @@ fn on_the_smash_pad_attacking_while_holding_pummels() {
                 hold_offset_local: ambition_platformer2d::engine_core::Vec2::new(20.0, -2.0),
                 prior_gravity_scale: 1.0,
             },
-            ambition_platformer2d::characters::smash_capture::SmashHoldState::default(),
+            ambition_platformer2d::characters::smash_capture::SmashHoldState::lasting(
+                ambition_platformer2d::combat::rules::ResolvedCombatTuning::default()
+                    .grab_hold_seconds(0),
+            ),
         ));
         pad_hold(&mut app, pad, GamepadButton::South, 1.0);
         app.update();
@@ -4505,7 +4511,10 @@ fn on_the_smash_pad_forward_and_attack_while_holding_throws() {
                 hold_offset_local: ambition_platformer2d::engine_core::Vec2::new(20.0, -2.0),
                 prior_gravity_scale: 1.0,
             },
-            ambition_platformer2d::characters::smash_capture::SmashHoldState::default(),
+            ambition_platformer2d::characters::smash_capture::SmashHoldState::lasting(
+                ambition_platformer2d::combat::rules::ResolvedCombatTuning::default()
+                    .grab_hold_seconds(0),
+            ),
         ));
         // FORWARD is the captor's own facing, not a screen direction.
         let facing = app

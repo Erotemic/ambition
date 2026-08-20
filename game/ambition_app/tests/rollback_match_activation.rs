@@ -102,6 +102,7 @@ fn two_cpu_roster() -> MatchParticipantRoster {
         // No ceremony in a rollback fixture: the stage that owns the opening
         // is not part of what these tests exercise.
         opening_countdown_ticks: 0,
+        time_limit_ticks: 0,
         seating: ambition_platformer2d::actor::RosterSeating::activated_at(11),
         fighter_abilities: None,
         fighter_body: None,
@@ -705,6 +706,7 @@ fn two_local_seats_drive_independently_under_a_rollback_host() {
         // No ceremony in a rollback fixture: the stage that owns the opening
         // is not part of what these tests exercise.
         opening_countdown_ticks: 0,
+        time_limit_ticks: 0,
         seating: ambition_platformer2d::actor::RosterSeating::default(),
         fighter_abilities: None,
         fighter_body: None,
@@ -843,6 +845,7 @@ fn human_roster(count: usize) -> MatchParticipantRoster {
         // No ceremony in a rollback fixture: the stage that owns the opening
         // is not part of what these tests exercise.
         opening_countdown_ticks: 0,
+        time_limit_ticks: 0,
         seating: ambition_platformer2d::actor::RosterSeating::default(),
         fighter_abilities: None,
         fighter_body: None,

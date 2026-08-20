@@ -103,10 +103,16 @@ pub fn decide_stocks_match(
     mut settled: ResMut<StocksMatchSettled>,
     mut decided: MessageWriter<StocksMatchDecided>,
     active: Option<Res<ActiveMatch>>,
+    // **The CLOCK's half**, and both are optional for the same reason every
+    // other pair here is: a bare fixture has no sim clock and no prepared plan,
+    // and the honest answer there is a match with no time limit.
+    prepared: Option<Res<crate::character_runtime::PreparedMatch>>,
+    tick: Option<Res<ambition_time::SimTick>>,
     fighters: Query<(
         &crate::character_runtime::MatchSeat,
         Option<&ambition_combat::targeting::MatchTeam>,
         &ambition_combat::components::FighterStocks,
+        Option<&ambition_characters::actor::BodyHealth>,
         Has<FighterEliminated>,
     )>,
 ) {
@@ -125,7 +131,7 @@ pub fn decide_stocks_match(
         return;
     }
     let mut any = false;
-    let outcome = last_side_standing(fighters.iter().map(|(seat, team, _, eliminated)| {
+    let outcome = last_side_standing(fighters.iter().map(|(seat, team, _, _, eliminated)| {
         any = true;
         (
             // The same naming rule the stage's scoreboard uses: a declared team,
@@ -139,8 +145,28 @@ pub fn decide_stocks_match(
     if !any {
         return;
     }
-    let Some(outcome) = outcome else {
-        return;
+    // ⭐ **THE CLOCK IS THE SECOND WAY A MATCH ENDS, and it is asked SECOND.**
+    // A last-side-standing verdict on the tick the clock runs out is still a
+    // knockout — the fighters settled it themselves — and reading the clock
+    // first would relabel it as a timeout with the same winner and a worse
+    // story. So the timeout only speaks when the fight has not.
+    let outcome = match outcome {
+        Some(outcome) => outcome,
+        None => {
+            let expired = prepared
+                .as_ref()
+                .zip(tick.as_ref())
+                .and_then(|(prepared, tick)| {
+                    active
+                        .ticks_since_activation(tick.get())
+                        .map(|elapsed| prepared.rules().time_expired(elapsed))
+                })
+                .unwrap_or(false);
+            if !expired {
+                return;
+            }
+            decide_on_the_clock(&fighters)
+        }
     };
     settled.settle(&active);
     decided.write(StocksMatchDecided {
@@ -149,6 +175,67 @@ pub fn decide_stocks_match(
             SidesOutcome::Draw => None,
         },
     });
+}
+
+/// **Who is ahead when the clock runs out**, by the genre's tiebreak order.
+///
+/// ```text
+/// 1. most STOCKS left        the fight's own currency
+/// 2. least DAMAGE taken      how close each side came to losing one
+/// 3. a DRAW                  genuinely level
+/// ```
+///
+/// ⭐ **sides, not fighters, and the fold is what makes teams work**: a team's
+/// stocks are its members' summed, so a 2v2 where one side has three stocks
+/// spread over two bodies beats a side with two on one.
+///
+/// ⚠ **PARTIAL against the genre, and named rather than implied**: Ultimate
+/// sends a level match to SUDDEN DEATH — both fighters at 300%, one stock, first
+/// hit decides — where this calls it a draw. Sudden death is a second match
+/// staged from the first's result, which is a lifecycle question rather than a
+/// counting one, and belongs with whoever owns the stage transition.
+fn decide_on_the_clock(
+    fighters: &Query<(
+        &crate::character_runtime::MatchSeat,
+        Option<&ambition_combat::targeting::MatchTeam>,
+        &ambition_combat::components::FighterStocks,
+        Option<&ambition_characters::actor::BodyHealth>,
+        Has<FighterEliminated>,
+    )>,
+) -> SidesOutcome {
+    // BTreeMap, so a tie is broken the same way on a replay rather than by hash
+    // order — the same reason `last_side_standing` uses one.
+    let mut sides: std::collections::BTreeMap<String, (u32, i32)> =
+        std::collections::BTreeMap::new();
+    for (seat, team, stocks, health, _) in fighters.iter() {
+        let entry = sides
+            .entry(ambition_combat::stocks::side_label(seat.0, team))
+            .or_insert((0, 0));
+        entry.0 += stocks.remaining;
+        entry.1 += health.map_or(0, |h| h.damage_taken());
+    }
+    clock_outcome(&sides)
+}
+
+/// The tiebreak itself, over folded sides — split from the query so the RULE can
+/// be asked without a `World` and the fold cannot hide inside the answer.
+fn clock_outcome(sides: &std::collections::BTreeMap<String, (u32, i32)>) -> SidesOutcome {
+    // ⚠ one comparison on `(stocks, -damage)`, so the two rungs cannot disagree
+    // about which is the tiebreak.
+    let Some(best) = sides
+        .values()
+        .map(|(stocks, damage)| (*stocks, -*damage))
+        .max()
+    else {
+        return SidesOutcome::Draw;
+    };
+    let mut leaders = sides
+        .iter()
+        .filter(|(_, (stocks, damage))| (*stocks, -*damage) == best);
+    match (leaders.next(), leaders.next()) {
+        (Some((side, _)), None) => SidesOutcome::Winner(side.clone()),
+        _ => SidesOutcome::Draw,
+    }
 }
 
 /// **THE PACE A MATCH RUNS AT — full speed while it is undecided, STOPPED once
@@ -216,6 +303,80 @@ mod tests {
 
     fn match_activated_on(tick: u64) -> ActiveMatch {
         ActiveMatch::activated(2, None, Some(SessionScopeId(0)), Some(tick))
+    }
+
+    fn side(label: &str, stocks: u32, damage: i32) -> (String, u32, i32) {
+        (label.to_string(), stocks, damage)
+    }
+
+    /// **WHEN THE CLOCK RUNS OUT, THE SIDE WITH MOST STOCKS TAKES IT.**
+    ///
+    /// ⛔ three rungs and all three asserted, because a tiebreak that never
+    /// reaches its second rung is a tiebreak with one rung: stocks decide, then
+    /// damage, then it is genuinely level. A version that stopped at stocks
+    /// would call every equal-stock timeout a draw, which on a stock match is
+    /// nearly all of them.
+    #[test]
+    fn the_clock_decides_by_stocks_then_damage_then_calls_it_level() {
+        let decide = |rows: Vec<(String, u32, i32)>| {
+            let mut sides: std::collections::BTreeMap<String, (u32, i32)> =
+                std::collections::BTreeMap::new();
+            for (label, stocks, damage) in rows {
+                let entry = sides.entry(label).or_insert((0, 0));
+                entry.0 += stocks;
+                entry.1 += damage;
+            }
+            super::clock_outcome(&sides)
+        };
+
+        assert_eq!(
+            decide(vec![side("a", 2, 300), side("b", 1, 0)]),
+            SidesOutcome::Winner("a".to_string()),
+            "a stock lead lost to a damage lead"
+        );
+        assert_eq!(
+            decide(vec![side("a", 2, 300), side("b", 2, 80)]),
+            SidesOutcome::Winner("b".to_string()),
+            "level on stocks, and the tiebreak never reached damage"
+        );
+        assert_eq!(
+            decide(vec![side("a", 2, 80), side("b", 2, 80)]),
+            SidesOutcome::Draw,
+            "a genuinely level match invented a winner"
+        );
+        // ⭐ a team's stocks are its members' SUMMED — three across two bodies
+        // beats two on one.
+        assert_eq!(
+            decide(vec![
+                side("red", 2, 0),
+                side("red", 1, 0),
+                side("blue", 2, 0)
+            ]),
+            SidesOutcome::Winner("red".to_string()),
+        );
+    }
+
+    /// **AN UNTIMED MATCH NEVER EXPIRES, AND A TIMED ONE DOES EXACTLY ONCE.**
+    ///
+    /// ⛔ the floor: `time_limit_ticks == 0` is every roster that existed before
+    /// a clock did, and a clock that read zero as "already over" would decide
+    /// every one of them on their first tick.
+    #[test]
+    fn a_match_with_no_declared_clock_has_no_clock() {
+        let untimed = crate::character_runtime::MatchRules::default();
+        assert_eq!(untimed.time_remaining(0), None);
+        assert!(!untimed.time_expired(0));
+        assert!(!untimed.time_expired(u64::MAX));
+
+        let timed = crate::character_runtime::MatchRules {
+            time_limit_ticks: 120,
+            ..Default::default()
+        };
+        assert_eq!(timed.time_remaining(0), Some(120));
+        assert_eq!(timed.time_remaining(119), Some(1));
+        assert!(!timed.time_expired(119));
+        assert!(timed.time_expired(120));
+        assert!(timed.time_expired(10_000), "the clock un-expired");
     }
 
     /// **THE PROPERTY D147 BOUGHT, AND THE BUG D140 WAS.** (D147)

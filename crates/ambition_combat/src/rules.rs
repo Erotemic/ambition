@@ -92,6 +92,77 @@ pub struct DeclaredCombatRules {
     /// behaviour: the effect is authored on the volume, so an undeclared world
     /// keeps firing it. A stage that wants spikes says so.
     pub downward_hit: DownwardHitStyle,
+    /// **How long a body spiked out of the AIR cannot recover** (seconds).
+    /// `0.0` — the baseline — is no meteor rule at all, which is what an
+    /// exploration game wants: a downward hit there is a pogo or a shove, not a
+    /// sentence.
+    ///
+    /// ⭐ **it belongs beside [`Self::downward_hit`] and nowhere else.** That
+    /// field already decides whether this game reads a downward hit as a rebound
+    /// or a SPIKE; how long the spiked body is silent is the same question one
+    /// step further, and a game that declares `Spike` is exactly the game that
+    /// wants to answer it. It briefly lived on the global feel tuning, where it
+    /// had no way to be true for one experience and false for another.
+    ///
+    /// ⚠ what the genre calls "meteor cancel" is this window ENDING. There is no
+    /// second verb to press.
+    pub meteor_lock_time: f32,
+    /// **RAGE — how much a body's OWN accumulated damage raises the knockback it
+    /// DEALS**, per point. `0.0` (the baseline) is no rage at all.
+    ///
+    /// ⭐ the mirror of the percent mechanic and the reason a losing fighter is
+    /// dangerous: a body already scales the knockback it TAKES by its own
+    /// damage, so without this the fighter behind is punished twice — easier to
+    /// launch and no harder to be launched by. Rage is what makes a comeback a
+    /// thing the rules produce rather than a thing a player hopes for.
+    ///
+    /// ⚠ capped by [`Self::rage_max_scale`], because uncapped it turns the last
+    /// stock into a coin flip.
+    pub rage_per_damage: f32,
+    /// The ceiling on [`Self::rage_per_damage`], as a multiplier. `1.0` = rage
+    /// can never help, whatever the per-point rate says.
+    pub rage_max_scale: f32,
+    /// **STALING — how much of its strength a move loses per recent landing of
+    /// the same move.** `0.0` (the baseline) is no staling.
+    ///
+    /// ⭐ it exists to stop one good answer being the ONLY answer. A fighter
+    /// with a reliable kill move should have to vary, and a fighter who has
+    /// worn one out should find the others suddenly worth throwing.
+    ///
+    /// ⚠ what is remembered is what LANDED, not what was thrown. A whiff did
+    /// not answer anything.
+    pub stale_step: f32,
+    /// The floor [`Self::stale_step`] cannot take a move below, as a multiplier.
+    /// `1.0` = staling can never weaken anything.
+    pub stale_floor: f32,
+    /// **CROUCH CANCEL — what a CROUCHING victim multiplies an incoming launch
+    /// by.** `1.0` (the baseline) = crouching buys nothing but a shorter
+    /// hurtbox.
+    ///
+    /// ⭐ it makes ducking a defensive READ rather than only a shape. ⚠ flat,
+    /// with no percent threshold, because the threshold is emergent: 85% of a
+    /// kill move is still a kill, so the option stops mattering by itself
+    /// exactly where the genre stops using it.
+    pub crouch_cancel_scale: f32,
+    /// **How long a grab holds a body at 0%**, in seconds. Ultimate's 90 frames.
+    pub grab_hold_base_seconds: f32,
+    /// **How much longer per point of the CAPTIVE's damage.** Ultimate's 1.7
+    /// frames per percent, so a fighter at 100% is held roughly twice as long.
+    ///
+    /// ⭐ it makes the grab a percent mechanic like everything else here: the
+    /// body that is losing is the body a grab is worth throwing at.
+    ///
+    /// ⚠ read ONCE, when the hold begins — pummelling does not extend it, which
+    /// is the genre's rule and the reason a pummel is a decision rather than a
+    /// free extension of your own advantage.
+    pub grab_hold_per_damage: f32,
+    /// The ceiling on a hold however hurt the captive is. Also the answer to
+    /// *"what ends a hold nobody ends"*: a captor who grabs and then does
+    /// nothing must not hold a body for the rest of the match.
+    pub grab_hold_max_seconds: f32,
+    /// **What one mash press buys the captive**, in seconds off the hold.
+    /// Ultimate's 14.4 frames.
+    pub grab_mash_seconds: f32,
     /// Whether same-faction bodies damage each other.
     ///
     /// ⚠ a match with declared TEAMS should leave this `false`. `MatchTeam`
@@ -137,6 +208,26 @@ pub struct ResolvedCombatTuning {
     pub knockback_growth: f32,
     /// See [`DeclaredCombatRules::downward_hit`].
     pub downward_hit: DownwardHitStyle,
+    /// See [`DeclaredCombatRules::meteor_lock_time`].
+    pub meteor_lock_time: f32,
+    /// See [`DeclaredCombatRules::rage_per_damage`].
+    pub rage_per_damage: f32,
+    /// See [`DeclaredCombatRules::rage_max_scale`].
+    pub rage_max_scale: f32,
+    /// See [`DeclaredCombatRules::stale_step`].
+    pub stale_step: f32,
+    /// See [`DeclaredCombatRules::stale_floor`].
+    pub stale_floor: f32,
+    /// See [`DeclaredCombatRules::crouch_cancel_scale`].
+    pub crouch_cancel_scale: f32,
+    /// See [`DeclaredCombatRules::grab_hold_base_seconds`].
+    pub grab_hold_base_seconds: f32,
+    /// See [`DeclaredCombatRules::grab_hold_per_damage`].
+    pub grab_hold_per_damage: f32,
+    /// See [`DeclaredCombatRules::grab_hold_max_seconds`].
+    pub grab_hold_max_seconds: f32,
+    /// See [`DeclaredCombatRules::grab_mash_seconds`].
+    pub grab_mash_seconds: f32,
     pub friendly_fire: bool,
 }
 
@@ -163,7 +254,49 @@ impl DeclaredCombatRules {
     }
 }
 
+/// **The hold an UNDECLARED world gives**, in seconds — flat, whatever the
+/// captive's damage. It is the `CAPTURE_HOLD_LIMIT_SECONDS` that used to live in
+/// `smash_capture`, kept here as the baseline so a world that declares no combat
+/// rules behaves exactly as it did rather than releasing everybody instantly.
+pub const FLAT_GRAB_HOLD_SECONDS: f32 = 4.0;
+/// **What one mash press buys in an undeclared world**, in seconds. Twenty
+/// presses cleared the old fractional accumulator, and twenty of these clear
+/// [`FLAT_GRAB_HOLD_SECONDS`].
+pub const FLAT_GRAB_MASH_SECONDS: f32 = FLAT_GRAB_HOLD_SECONDS / 20.0;
+
 impl ResolvedCombatTuning {
+    /// **What a move is worth after `occurrences` recent landings of it**, as a
+    /// multiplier, floored. `1.0` for a game that declares no staling and for a
+    /// move nobody has thrown lately.
+    pub fn stale_scale(self, occurrences: u32) -> f32 {
+        if self.stale_step <= 0.0 || occurrences == 0 {
+            return 1.0;
+        }
+        (1.0 - self.stale_step * occurrences as f32).max(self.stale_floor.clamp(0.0, 1.0))
+    }
+
+    /// **What an attacker's own damage multiplies its knockback by**, capped.
+    /// `1.0` for a game that declares no rage, and for a fresh fighter in one
+    /// that does.
+    pub fn rage_scale(self, attacker_damage_taken: i32) -> f32 {
+        if self.rage_per_damage <= 0.0 {
+            return 1.0;
+        }
+        (1.0 + self.rage_per_damage * attacker_damage_taken.max(0) as f32)
+            .min(self.rage_max_scale.max(1.0))
+    }
+
+    /// **How long a grab holds a body at this damage**, in seconds, capped.
+    ///
+    /// ⚠ the caller asks ONCE, as the hold begins, and stores the answer: this
+    /// is the captive's percent AT THE GRAB, so damage dealt during the hold
+    /// does not extend it.
+    pub fn grab_hold_seconds(self, captive_damage_taken: i32) -> f32 {
+        (self.grab_hold_base_seconds
+            + self.grab_hold_per_damage * captive_damage_taken.max(0) as f32)
+            .min(self.grab_hold_max_seconds)
+    }
+
     /// The fold: a declaration wins outright, the baseline stands otherwise.
     pub fn resolve(
         declared: Option<DeclaredCombatRules>,
@@ -175,6 +308,16 @@ impl ResolvedCombatTuning {
                 di_max_angle: rules.di_max_angle,
                 knockback_growth: rules.knockback_growth,
                 downward_hit: rules.downward_hit,
+                meteor_lock_time: rules.meteor_lock_time,
+                rage_per_damage: rules.rage_per_damage,
+                rage_max_scale: rules.rage_max_scale,
+                stale_step: rules.stale_step,
+                stale_floor: rules.stale_floor,
+                crouch_cancel_scale: rules.crouch_cancel_scale,
+                grab_hold_base_seconds: rules.grab_hold_base_seconds,
+                grab_hold_per_damage: rules.grab_hold_per_damage,
+                grab_hold_max_seconds: rules.grab_hold_max_seconds,
+                grab_mash_seconds: rules.grab_mash_seconds,
                 friendly_fire: rules.friendly_fire,
             },
             // ⚠ growth has NO world baseline to fall back to, unlike DI and
@@ -187,6 +330,16 @@ impl ResolvedCombatTuning {
                 // effect already does. Anything else would change every Ambition
                 // room to buy a Smash feature.
                 downward_hit: DownwardHitStyle::Pogo,
+                meteor_lock_time: 0.0,
+                rage_per_damage: 0.0,
+                rage_max_scale: 1.0,
+                stale_step: 0.0,
+                stale_floor: 1.0,
+                crouch_cancel_scale: 1.0,
+                grab_hold_base_seconds: FLAT_GRAB_HOLD_SECONDS,
+                grab_hold_per_damage: 0.0,
+                grab_hold_max_seconds: FLAT_GRAB_HOLD_SECONDS,
+                grab_mash_seconds: FLAT_GRAB_MASH_SECONDS,
                 friendly_fire: baseline_ff,
             },
         }
@@ -212,6 +365,16 @@ impl Default for ResolvedCombatTuning {
             di_max_angle: 0.0,
             knockback_growth: 0.0,
             downward_hit: DownwardHitStyle::Pogo,
+            meteor_lock_time: 0.0,
+            rage_per_damage: 0.0,
+            rage_max_scale: 1.0,
+            stale_step: 0.0,
+            stale_floor: 1.0,
+            crouch_cancel_scale: 1.0,
+            grab_hold_base_seconds: FLAT_GRAB_HOLD_SECONDS,
+            grab_hold_per_damage: 0.0,
+            grab_hold_max_seconds: FLAT_GRAB_HOLD_SECONDS,
+            grab_mash_seconds: FLAT_GRAB_MASH_SECONDS,
             friendly_fire: false,
         }
     }
@@ -220,6 +383,33 @@ impl Default for ResolvedCombatTuning {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// **A GRAB HOLDS THE HURT FIGHTER LONGER, AND STILL LETS GO.**
+    ///
+    /// ⛔ three points and not one: the base alone would pass with the rate at
+    /// zero, and the rate alone would pass with no ceiling — which is the shape
+    /// that turns a grab at high percent into a body removed from the match.
+    #[test]
+    fn a_grab_holds_longer_the_more_damage_the_captive_has_taken() {
+        let rules = ResolvedCombatTuning {
+            grab_hold_base_seconds: 1.5,
+            grab_hold_per_damage: 0.02,
+            grab_hold_max_seconds: 3.0,
+            ..Default::default()
+        };
+        assert_eq!(rules.grab_hold_seconds(0), 1.5);
+        assert_eq!(rules.grab_hold_seconds(50), 2.5);
+        assert_eq!(
+            rules.grab_hold_seconds(999),
+            3.0,
+            "a hold at high percent outlived its own ceiling"
+        );
+        // ⚠ an undeclared world is FLAT, not zero: a rate of zero here would be
+        // an instant release rather than "no percent mechanic".
+        let flat = ResolvedCombatTuning::default();
+        assert_eq!(flat.grab_hold_seconds(0), flat.grab_hold_seconds(300));
+        assert!(flat.grab_hold_seconds(0) > 0.0);
+    }
 
     #[test]
     fn an_undeclared_world_reads_its_own_baseline() {
@@ -240,6 +430,16 @@ mod tests {
                 di_max_angle: 0.30,
                 knockback_growth: 0.0,
                 downward_hit: DownwardHitStyle::Pogo,
+                meteor_lock_time: 0.0,
+                rage_per_damage: 0.0,
+                rage_max_scale: 1.0,
+                stale_step: 0.0,
+                stale_floor: 1.0,
+                crouch_cancel_scale: 1.0,
+                grab_hold_base_seconds: FLAT_GRAB_HOLD_SECONDS,
+                grab_hold_per_damage: 0.0,
+                grab_hold_max_seconds: FLAT_GRAB_HOLD_SECONDS,
+                grab_mash_seconds: FLAT_GRAB_MASH_SECONDS,
                 friendly_fire: false,
                 unarmed_melee: None,
             }),
@@ -263,6 +463,16 @@ mod tests {
             di_max_angle: 0.30,
             knockback_growth: 0.0,
             downward_hit: DownwardHitStyle::Pogo,
+            meteor_lock_time: 0.0,
+            rage_per_damage: 0.0,
+            rage_max_scale: 1.0,
+            stale_step: 0.0,
+            stale_floor: 1.0,
+            crouch_cancel_scale: 1.0,
+            grab_hold_base_seconds: FLAT_GRAB_HOLD_SECONDS,
+            grab_hold_per_damage: 0.0,
+            grab_hold_max_seconds: FLAT_GRAB_HOLD_SECONDS,
+            grab_mash_seconds: FLAT_GRAB_MASH_SECONDS,
             friendly_fire: true,
             unarmed_melee: None,
         });
@@ -276,8 +486,107 @@ mod tests {
                 di_max_angle: 0.12,
                 knockback_growth: 0.0,
                 downward_hit: DownwardHitStyle::Pogo,
+                meteor_lock_time: 0.0,
+                rage_per_damage: 0.0,
+                rage_max_scale: 1.0,
+                stale_step: 0.0,
+                stale_floor: 1.0,
+                crouch_cancel_scale: 1.0,
+                grab_hold_base_seconds: FLAT_GRAB_HOLD_SECONDS,
+                grab_hold_per_damage: 0.0,
+                grab_hold_max_seconds: FLAT_GRAB_HOLD_SECONDS,
+                grab_mash_seconds: FLAT_GRAB_MASH_SECONDS,
                 friendly_fire: false,
             }
         );
+    }
+}
+
+#[cfg(test)]
+mod rage_tests {
+    use super::*;
+
+    fn raging(per_damage: f32, max_scale: f32) -> ResolvedCombatTuning {
+        ResolvedCombatTuning {
+            rage_per_damage: per_damage,
+            rage_max_scale: max_scale,
+            ..ResolvedCombatTuning::default()
+        }
+    }
+
+    /// **A LOSING FIGHTER HITS HARDER, UP TO A CEILING.**
+    ///
+    /// ⛔ the reason rage exists at all: a body already scales the knockback it
+    /// TAKES by its own damage, so without this the fighter behind is punished
+    /// twice — easier to launch and no harder to launch with. And the cap is not
+    /// decoration: uncapped, the last stock stops being a fight.
+    #[test]
+    fn rage_grows_with_the_attackers_own_damage_and_stops_at_the_cap() {
+        let rules = raging(0.01, 1.5);
+        assert_eq!(rules.rage_scale(0), 1.0, "a fresh fighter got a bonus");
+        assert_eq!(rules.rage_scale(50), 1.5);
+        assert!(rules.rage_scale(20) > 1.0 && rules.rage_scale(20) < 1.5);
+        assert_eq!(
+            rules.rage_scale(500),
+            1.5,
+            "rage ran past its ceiling, so the last stock is a coin flip"
+        );
+        assert_eq!(rules.rage_scale(-7), 1.0, "healed below zero paid a bonus");
+    }
+
+    /// **AND A GAME THAT DECLARES NO RAGE NEVER GETS ANY.**
+    ///
+    /// ⛔ the floor that keeps Ambition's PvE unchanged: the baseline declares
+    /// `0.0`, and a rate of zero must be exactly `1.0` however hurt the attacker
+    /// is — not `1.0 + 0.0 * n` rounded, but the early return.
+    #[test]
+    fn an_undeclared_world_has_no_rage() {
+        let plain = ResolvedCombatTuning::default();
+        assert_eq!(plain.rage_per_damage, 0.0);
+        for damage in [0, 1, 50, 999] {
+            assert_eq!(plain.rage_scale(damage), 1.0);
+        }
+        // ⚠ and a rate with a ceiling of 1.0 cannot help either, whatever the
+        // rate says — the cap is the authority.
+        assert_eq!(raging(0.05, 1.0).rage_scale(200), 1.0);
+    }
+}
+
+#[cfg(test)]
+mod stale_tests {
+    use super::*;
+
+    fn staling(step: f32, floor: f32) -> ResolvedCombatTuning {
+        ResolvedCombatTuning {
+            stale_step: step,
+            stale_floor: floor,
+            ..ResolvedCombatTuning::default()
+        }
+    }
+
+    /// **A MOVE THROWN AGAIN AND AGAIN IS WORTH LESS, DOWN TO A FLOOR.**
+    #[test]
+    fn staling_falls_with_repetition_and_stops_at_the_floor() {
+        let rules = staling(0.1, 0.5);
+        assert_eq!(rules.stale_scale(0), 1.0, "a fresh move was already stale");
+        assert!((rules.stale_scale(1) - 0.9).abs() < 1e-6);
+        assert!((rules.stale_scale(3) - 0.7).abs() < 1e-6);
+        assert_eq!(
+            rules.stale_scale(9),
+            0.5,
+            "staling ran past its floor, so a worn move stops being a move"
+        );
+    }
+
+    /// **AND AN UNDECLARED WORLD NEVER STALES ANYTHING.**
+    #[test]
+    fn an_undeclared_world_has_no_staling() {
+        let plain = ResolvedCombatTuning::default();
+        assert_eq!(plain.stale_step, 0.0);
+        for n in [0, 1, 5, 9] {
+            assert_eq!(plain.stale_scale(n), 1.0);
+        }
+        // A floor of 1.0 cannot weaken anything either, whatever the step says.
+        assert_eq!(staling(0.2, 1.0).stale_scale(9), 1.0);
     }
 }

@@ -363,3 +363,73 @@ fn an_invisible_block_is_not_a_floor_but_is_still_strikeable() {
         Vec2::new(0.0, 1.0)
     ));
 }
+
+/// **FEET ON A HEAD IS THE SAME QUESTION UNDER EVERY GRAVITY.**
+///
+/// ⛔ the poison it pins is a hand-rolled `feet.y >= head.y`: the identical
+/// stack, rotated into each cardinal frame, must give the identical answer, and
+/// a screen-space test passes exactly one of the four.
+#[test]
+fn a_stack_reads_as_feet_on_a_head_in_every_cardinal_frame() {
+    const BAND: f32 = 14.0;
+    let size = Vec2::new(24.0, 40.0);
+    let mut seen_true = 0;
+    for dir in CARDINALS {
+        // ⭐ ORIENTED boxes, the way `BodyKinematics::aabb_oriented` builds them:
+        // a body lies along the wall under sideways gravity, so its extent along
+        // the gravity axis is its HEIGHT in every frame. Building raw boxes here
+        // instead measured the wrong extent and reddened this test — the fixture
+        // was wrong, not the rule.
+        let half = crate::AccelerationFrame::new(dir).to_world_half(size * 0.5);
+        let victim = Aabb::new(Vec2::ZERO, half);
+        let stomper = Aabb::new(-dir * size.y, half);
+        assert!(
+            feet_on_head(stomper, victim, dir, BAND),
+            "a body resting on a head was not standing on it under gravity {dir:?}"
+        );
+        seen_true += 1;
+
+        // The mirror: the SAME two bodies with the stomper underneath.
+        let below = Aabb::new(dir * size.y, half);
+        assert!(
+            !feet_on_head(below, victim, dir, BAND),
+            "a body UNDER a head was reported as standing on it under gravity {dir:?}"
+        );
+    }
+    assert_eq!(seen_true, 4, "the frame sweep read no subjects at all");
+}
+
+/// **THE BAND IS PENETRATION TOLERANCE, NOT REACH.**
+#[test]
+fn hovering_above_a_head_is_not_standing_on_it() {
+    const BAND: f32 = 14.0;
+    let down = Vec2::new(0.0, 1.0);
+    let size = Vec2::new(24.0, 40.0);
+    let victim = Aabb::new(Vec2::ZERO, size * 0.5);
+
+    // Feet 8px INTO the head: inside the band.
+    let sunk = Aabb::new(Vec2::new(0.0, -size.y + 8.0), size * 0.5);
+    assert!(feet_on_head(sunk, victim, down, BAND));
+
+    // Feet 8px ABOVE the head: a hover, and the bug both hand-rolled copies had.
+    let hovering = Aabb::new(Vec2::new(0.0, -size.y - 8.0), size * 0.5);
+    assert!(
+        !feet_on_head(hovering, victim, down, BAND),
+        "a body hovering above another was standing on it"
+    );
+
+    // And past the band on the far side is through it, not on it.
+    let through = Aabb::new(Vec2::new(0.0, -size.y + BAND + 4.0), size * 0.5);
+    assert!(!feet_on_head(through, victim, down, BAND));
+}
+
+/// **AND IT NEEDS A REAL LATERAL SHARE, THROUGH THE SHARED PRIMITIVE.**
+#[test]
+fn a_body_beside_a_head_is_not_on_it() {
+    const BAND: f32 = 14.0;
+    let down = Vec2::new(0.0, 1.0);
+    let size = Vec2::new(24.0, 40.0);
+    let victim = Aabb::new(Vec2::ZERO, size * 0.5);
+    let beside = Aabb::new(Vec2::new(size.x * 1.5, -size.y), size * 0.5);
+    assert!(!feet_on_head(beside, victim, down, BAND));
+}

@@ -168,6 +168,20 @@ pub fn emit_movement_fx(
                     kind: ParticleKind::Dust,
                 });
             }
+            // ⚠ **the spot dodge is quieter and lower.** It covers no ground, so
+            // the roll's wide kick-up would read as travel that did not happen;
+            // a small puff at the feet is the tell that the body stood still and
+            // meant to.
+            ae::MovementOp::SpotDodge => {
+                sfx.write_for_body(source, SfxMessage::Dash { pos });
+                vfx.write(VfxMessage::Burst {
+                    pos,
+                    count: 4,
+                    speed: 90.0,
+                    color: [0.60, 1.0, 0.70, 0.65],
+                    kind: ParticleKind::Dust,
+                });
+            }
             // The aerial evade reads COOLER and thinner than the roll's dust —
             // no ground to kick up, and the colour is the tell a player uses to
             // recognize the maneuver mid-air.
@@ -291,6 +305,12 @@ pub fn emit_movement_fx(
                     color: [0.85, 0.95, 1.0, 0.95],
                     kind: ParticleKind::Shard,
                 });
+            }
+            ae::MovementOp::Footstool => {
+                // The bounce reads like a landing that went the other way: a
+                // dust puff where the feet were and the jump tone.
+                sfx.write_for_body(source, SfxMessage::DoubleJump { pos });
+                vfx.write(VfxMessage::Dust { pos, facing });
             }
             ae::MovementOp::LedgeClimbStart
             | ae::MovementOp::LedgeClimbFinish

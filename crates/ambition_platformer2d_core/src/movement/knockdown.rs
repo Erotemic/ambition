@@ -53,6 +53,12 @@ pub const TECH_LOCKOUT: f32 = 40.0 / 60.0;
 pub const GETUP_INVULN: f32 = 0.30;
 /// A teched landing keeps you moving if you were holding a direction.
 pub const TECH_ROLL_SPEED: f32 = 360.0;
+/// **A WALL TECH's push off the surface**, px/s along the wall's own normal.
+///
+/// ⭐ its own number rather than [`TECH_ROLL_SPEED`]'s, because the two are
+/// different motions: a tech roll RUNS ALONG the floor it kept its feet on, and
+/// a wall tech pushes PERPENDICULAR off a surface it must not stay against.
+pub const WALL_TECH_SPEED: f32 = 300.0;
 /// Prone time before the body stands up on its own.
 pub const KNOCKDOWN_TIME: f32 = 0.55;
 /// A getup roll's travel speed.
@@ -75,16 +81,45 @@ pub fn launch_into_tumble(
         return false;
     }
     let over = launch_speed - threshold;
-    state.tumble_timer = state
-        .tumble_timer
-        .max((TUMBLE_TIME_PER_SPEED * over).min(MAX_TUMBLE_TIME));
-    // A launch cancels the floor game the body was in: you cannot be prone and
-    // airborne, and a getup's i-frames do not survive being hit again.
+    enter_tumble(state, TUMBLE_TIME_PER_SPEED * over);
+    true
+}
+
+/// **A footstool put this body into tumble** — the same helplessness, with no
+/// launch behind it.
+///
+/// ⚠ separate from [`launch_into_tumble`] because a footstool's tumble is not
+/// proportional to anything. Ultimate's footstool does not produce real
+/// knockback, so the duration is AUTHORED
+/// ([`crate::FootstoolTuning::air_tumble_time`]) rather than derived from the
+/// shove; feeding the shove speed to `launch_into_tumble` instead would put
+/// every fighter's footstool below its own tumble threshold and tumble nobody.
+///
+/// ⚠ the body's own `tumble_speed` still gates it: a body that never tumbles
+/// does not start because somebody stood on it.
+pub fn tumble_from_footstool(
+    state: &mut AxisManeuverState,
+    tuning: AxisSweptParams,
+    seconds: f32,
+) -> bool {
+    if tuning.abilities.tumble_speed <= 0.0 || seconds <= 0.0 {
+        return false;
+    }
+    enter_tumble(state, seconds);
+    true
+}
+
+/// The floor-game half both tumble entry points share.
+///
+/// Entering tumble cancels the floor game the body was in: you cannot be prone
+/// and airborne, and a getup's i-frames do not survive being put back in the
+/// air.
+fn enter_tumble(state: &mut AxisManeuverState, seconds: f32) {
+    state.tumble_timer = state.tumble_timer.max(seconds.min(MAX_TUMBLE_TIME));
     state.tumble_until_landing = true;
     state.knockdown_timer = 0.0;
     state.getup_invuln_timer = 0.0;
     state.tumble_unannounced = true;
-    true
 }
 
 /// **Is the floor game holding the controller this tick?** The simulation half
@@ -112,6 +147,10 @@ pub(super) fn tick_knockdown(
     kinematics: &mut BodyKinematics,
     state: &mut AxisManeuverState,
     ground: &BodyGroundState,
+    // **The surface a WALL TECH is taken off**, from the previous tick's
+    // contact pass. A body slammed into a wall is against it for several ticks,
+    // so the frame of latency costs the read nothing.
+    wall: &crate::body_clusters::BodyWallState,
     combo_trace: &mut BodyComboTrace,
     input: InputState,
     dt: f32,
@@ -163,6 +202,28 @@ pub(super) fn tick_knockdown(
     }
 
     if !ground.on_ground {
+        // ⭐⭐ **THE WALL TECH — the floor is not the only thing you can catch
+        // yourself on.** A launch into a wall was a free continuation for the
+        // attacker: the victim kept tumbling, hit the ground still helpless, and
+        // the wall it slammed into was worth nothing to it. Ultimate lets that
+        // press land on the surface.
+        //
+        // ⚠ **above the helpless gate on purpose.** Being helpless is exactly
+        // the state a tech exists to escape, and putting this below `!helpless`
+        // would make the wall tech reachable only once the tumble had already
+        // let go — which is the tick nobody needs it.
+        if wall.on_wall && state.tech_press_timer > 0.0 {
+            state.tech_press_timer = 0.0;
+            state.tumble_timer = 0.0;
+            state.tumble_until_landing = false;
+            state.getup_invuln_timer = GETUP_INVULN;
+            // OFF the wall along its own normal. Not a pushout: the body's
+            // POSITION is untouched, and this is an impulse a timed press
+            // earned.
+            kinematics.vel = frame.side() * (wall.wall_normal_x * WALL_TECH_SPEED);
+            events.op_clusters(combo_trace, MovementOp::Tech);
+            return without_evade(input);
+        }
         // ⭐ **control comes back before the tumble does.** Once the helpless
         // window has passed, a jump / attack / evade press ACTS OUT of the
         // tumble — the escape that makes a launch a situation rather than a

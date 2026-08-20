@@ -266,6 +266,9 @@ pub fn versus_roster_from(local_players: usize, seating: RosterSeating) -> Match
         // count. `0` says "not mine to end" rather than "no countdown" — the
         // versus round very much has one.
         opening_countdown_ticks: 0,
+        // ⚠ no clock: a versus round ends on health, and a stalemate there is
+        // already answered by the round's own economy.
+        time_limit_ticks: 0,
         // **A FAIR FIGHT.** Seat 0 is the ADOPTED primary player and arrives
         // carrying whatever the session granted it — in the shipped host, the
         // sandbox dev kit (blink, fly, shield). Every other seat is spawned with
@@ -760,6 +763,30 @@ fn track_versus_roster(
                 // participant roster, the prepared match, now the rules.
                 declared_by: VERSUS_EXPERIENCE.to_string(),
                 di_max_angle: VERSUS_DI_MAX_ANGLE,
+                // ⚠ no meteor rule here for the same reason the knockback stays
+                // flat: rounds end on health, not on a blast zone, so a spike
+                // has nowhere to send you and a window you cannot recover in
+                // would be a stun with no payoff.
+                meteor_lock_time: 0.0,
+                // ⚠ and no rage, for the third time the same reason: health
+                // rounds have no percent mechanic to mirror.
+                rage_per_damage: 0.0,
+                rage_max_scale: 1.0,
+                // ⚠ and no staling: rounds this short do not repeat a move
+                // enough for a queue to mean anything.
+                stale_step: 0.0,
+                stale_floor: 1.0,
+                // ⚠ and no crouch cancel: this stage has no crouch verb to
+                // reward, and a rule nothing can reach is a rule that lies about
+                // what the stage does.
+                crouch_cancel_scale: 1.0,
+                // ⚠ a versus round ends on health, and its grabs are the
+                // engine's flat hold rather than a percent mechanic.
+                grab_hold_base_seconds:
+                    ambition_platformer2d::combat::rules::FLAT_GRAB_HOLD_SECONDS,
+                grab_hold_per_damage: 0.0,
+                grab_hold_max_seconds: ambition_platformer2d::combat::rules::FLAT_GRAB_HOLD_SECONDS,
+                grab_mash_seconds: ambition_platformer2d::combat::rules::FLAT_GRAB_MASH_SECONDS,
                 // ⚠ the generic versus stage stays FLAT for now: its rounds end
                 // on health rather than on a blast zone, so a launch that grows
                 // without bound is a different game's mechanic. Smash declares
@@ -1029,9 +1056,7 @@ pub fn compose_versus_experience(app: &mut App) {
             // frame this route opens sized the whole match from what was
             // plugged in. Same schedule, so this is a real edge; a cross-
             // schedule `.after` would be silently vacuous.
-            .before(
-                ambition_platformer2d::rollback::local_session::LocalSessionSet::Maintain,
-            ),
+            .before(ambition_platformer2d::rollback::local_session::LocalSessionSet::Maintain),
     );
 
     declare_versus_experience_scope(app);

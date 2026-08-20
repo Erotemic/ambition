@@ -32,7 +32,8 @@
 
 use ambition_characters::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
-    CaptureAttemptParams, CapturePummelParams, CaptureThrowParams, SmashCaptureRepertoire,
+    CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
+    SmashCaptureRepertoire,
 };
 use ambition_characters::smash_repertoire::{DownSpecial, NeutralSpecial, SmashRepertoire};
 use ambition_platformer2d::entity_catalog::{
@@ -515,8 +516,13 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
     );
 
     SmashRepertoire {
-
         taunt: ambition_characters::moveset_authoring::taunt("cellular_automaton_taunt", 0.9),
+        dash_attack: ambition_characters::moveset_authoring::dash_attack(
+            "cellular_automaton_dash_attack",
+            ambition_characters::moveset_authoring::DashAttackShape::GENRE,
+            8,
+            92.5,
+        ),
         jab,
         forward_tilt: f_tilt,
         up_tilt: u_tilt,
@@ -540,6 +546,7 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
         // ⚠ the VALUES are per character on purpose. A roster whose grabs are
         // twelve copies of one number set is one grab wearing twelve names.
         capture: SmashCaptureRepertoire {
+            cues: CaptureCues::GENERIC,
             grab,
             pummel,
             forward_throw,

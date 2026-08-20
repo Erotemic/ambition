@@ -61,6 +61,20 @@ pub struct Platformer2dFeelTuningMonolith {
     /// Hollow-Knight "get bopped out, then fight back while flashing" feel.
     /// Distinct from hitstun (the longer, softer partial-movement window).
     pub knockback_recoil_lock_time: f32,
+    /// **THE METEOR LOCK** — how long a body spiked out of the AIR cannot
+    /// recover. A floor under [`Self::knockback_recoil_lock_time`], never an
+    /// addition: a meteor is a longer version of the same silence.
+    ///
+    /// ⚠ **the value here is a BASELINE that an experience overwrites**, exactly
+    /// like `di_max_angle` beside it — `DeclaredCombatRules::meteor_lock_time`
+    /// is the authority and the damage road folds it in before use. `0.0` is no
+    /// meteor rule, which is what an exploration game wants.
+    pub meteor_lock_time: f32,
+    /// **What a CROUCHING victim multiplies an incoming launch by** — crouch
+    /// cancel. Folded in from `DeclaredCombatRules::crouch_cancel_scale` by the
+    /// damage road, exactly like `meteor_lock_time` beside it. `1.0` is no
+    /// crouch cancel, which is what an exploration game wants.
+    pub crouch_cancel_scale: f32,
     /// Post-hit invulnerability after enemy/boss knockback.
     pub knockback_invulnerability_time: f32,
     /// Post-respawn invulnerability after lava/spike-style hazard recovery.
@@ -99,6 +113,8 @@ impl Default for Platformer2dFeelTuningMonolith {
             enemy_knockback_y: 260.0,
             boss_knockback_x: 460.0,
             boss_knockback_y: 330.0,
+            meteor_lock_time: 0.0,
+            crouch_cancel_scale: 1.0,
             hitstun_control_scale: 0.18,
             enemy_hitstun_time: 0.24,
             boss_hitstun_time: 0.36,

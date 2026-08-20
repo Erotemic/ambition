@@ -34,6 +34,17 @@ pub enum HitKnockbackMagnitude {
     LaunchSpeed(f32),
 }
 
+impl HitKnockbackMagnitude {
+    /// **The same launch, harder.** Multiplies whichever way this magnitude is
+    /// expressed, so a caller scaling a hit does not have to know which.
+    pub fn scaled(self, scale: f32) -> Self {
+        match self {
+            Self::FeelScale(v) => Self::FeelScale(v * scale),
+            Self::LaunchSpeed(v) => Self::LaunchSpeed(v * scale),
+        }
+    }
+}
+
 /// Knockback impulse carried by a hit. Producers fill this on hits that
 /// should push the victim around (enemy melee, enemy projectile, boss swing);
 /// leave `None` for impulse-free hits (player slash, pogo).
@@ -130,6 +141,38 @@ pub struct HitResponseTuning {
 /// `launch` unchanged, so DI is inert until a game authors a budget.
 /// Frame-agnostic because `launch` and the world-frame input rotate together
 /// under any gravity, so the victim-local trajectory conjugates (the C4 law).
+/// **SMASH DIRECTIONAL INFLUENCE** — how far a frozen body shifts itself this
+/// tick of hitlag, in world px.
+///
+/// ⭐ **the defensive half of the mechanic [`di_adjust`] is the offensive half
+/// of.** DI bends the launch you are about to take; SDI moves you out of the
+/// NEXT hit's way while the current one is still frozen. It is what makes a
+/// combo answerable rather than a sentence, and it is the reason hitlag is a
+/// window rather than merely a pause.
+///
+/// `input_local` is the victim's `ActorControl.locomotion` in the same body-local
+/// frame [`di_adjust`] takes (`x` = side, `y` = gravity-down, magnitude a
+/// `[0,1]` throttle), placed into the world by `gravity_dir` — so a wall-walker
+/// influences along the axes it actually stands on.
+///
+/// PARITY: `step <= 0.0` or a null input returns `ZERO`, so SDI is inert until a
+/// body authors a budget. Every body in Ambition does not.
+///
+/// ⚠ **the throttle is CLAMPED, not normalised.** A half-deflected stick buys
+/// half the shift, which is the whole point of an analogue input here; a
+/// normalised direction would make a nudge worth a slam.
+pub fn smash_di_shift(input_local: Vec2, gravity_dir: Vec2, step: f32) -> Vec2 {
+    if step <= 0.0 {
+        return Vec2::ZERO;
+    }
+    let world = AccelerationFrame::new(gravity_dir).to_world(input_local);
+    let magnitude = world.length();
+    if magnitude < 1e-6 {
+        return Vec2::ZERO;
+    }
+    (world / magnitude) * (step * magnitude.min(1.0))
+}
+
 pub fn di_adjust(launch: Vec2, di_input_local: Vec2, gravity_dir: Vec2, max_angle: f32) -> Vec2 {
     if max_angle <= 0.0 {
         return launch;

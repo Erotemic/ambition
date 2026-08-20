@@ -83,6 +83,34 @@ pub const CAPTURE_PUMMEL: &str = "smash.capture_pummel";
 /// The effect key a throw's authored RELEASE frame emits, once.
 pub const CAPTURE_THROW: &str = "smash.capture_throw";
 
+/// **THE THREE CUES A CAPTURE SHOWS**, authored per fighter.
+///
+/// ⛔ **they are not constants here, and three guards are the reason.** Carl,
+/// Emmy and Oiler each assert that every effect in their kit is drawn off their
+/// OWN sheet — so a shared `classic_burst` from `generic_explosions` is a real
+/// violation of a property somebody chose, not a test being fussy. The helper
+/// owns WHEN a cue fires; the fighter owns WHICH effect it is. Same split as the
+/// repertoire: centralise the vocabulary, never the design.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CaptureCues {
+    /// Fires on the grab's first LIVE frame, so a whiff reads as an attempt at
+    /// the moment it could have caught somebody.
+    pub reach: &'static str,
+    /// Fires on the pummel's own `at_s`.
+    pub impact: &'static str,
+    /// Fires on the throw's RELEASE frame.
+    pub release: &'static str,
+}
+
+impl CaptureCues {
+    /// The shipped generic rows, for a fighter whose art is generic anyway.
+    pub const GENERIC: Self = Self {
+        reach: "smoke_burst",
+        impact: "classic_burst",
+        release: "shockwave",
+    };
+}
+
 /// Authored parameters of a grab attempt.
 ///
 /// ⛔ **the reach is a RECT SPELLED OUT, not a [`VolumeShape`], and that is the
@@ -264,6 +292,49 @@ pub fn author_standing_grab(mut spec: MoveSpec, params: CaptureAttemptParams) ->
     spec
 }
 
+/// **The cue a capture beat carries**, owned here for the reason the effect keys
+/// are: a fighter authors VALUES, and the strings stay in one module.
+///
+/// ⚠ **`sfx: None` is not silence.** `dispatch_move_events` asks for a paired
+/// `FxRequest` and presentation resolves the sound the effect's NAME addresses,
+/// which is why the moveset guards stopped requiring a hand-paired `Sfx` event
+/// (D149). Naming the effect is naming the cue.
+fn burst(mut spec: MoveSpec, at_s: f32, effect: &str, scale: f32) -> MoveSpec {
+    spec.events.push(ambition_entity_catalog::MoveEvent {
+        at_s,
+        kind: ambition_entity_catalog::MoveEventKind::Vfx {
+            effect: effect.to_string(),
+            at: (0.0, 0.0),
+            scale,
+            sfx: None,
+        },
+    });
+    spec
+}
+
+/// The cue for a beat that already carries a gameplay `Effect`: it rides the
+/// SAME instant, so retuning the beat cannot leave its flash behind.
+fn cue_at_effect(spec: MoveSpec, effect: &str, scale: f32) -> MoveSpec {
+    let at = spec
+        .events
+        .iter()
+        .find(|e| matches!(e.kind, ambition_entity_catalog::MoveEventKind::Effect(_)))
+        .map(|e| e.at_s)
+        .unwrap_or(0.0);
+    burst(spec, at, effect, scale)
+}
+
+/// The grab's cue, on the first LIVE frame rather than at zero.
+fn cue_at_reach(spec: MoveSpec, effect: &str) -> MoveSpec {
+    let at = spec
+        .windows
+        .iter()
+        .find(|w| w.tag == ambition_entity_catalog::WindowTag::Active)
+        .map(|w| w.start_s)
+        .unwrap_or(0.0);
+    burst(spec, at, effect, 0.45)
+}
+
 /// Attach a pummel impact to `spec` at `at_s` of its own timeline.
 pub fn author_pummel(mut spec: MoveSpec, at_s: f32, params: CapturePummelParams) -> MoveSpec {
     spec.events.push(ambition_entity_catalog::MoveEvent {
@@ -327,27 +398,48 @@ pub struct SmashHoldState {
     /// is a third party's. Without an age, a fighter who grabs and then does
     /// nothing holds a body for the rest of the match.
     pub held_for: f32,
-    /// **What the captive's OWN input has contributed toward getting out**, as a
-    /// fraction of one escape.
+    /// **What the captive's OWN input has bought toward getting out**, in the
+    /// same seconds [`Self::held_for`] counts.
     ///
     /// ⭐ **the shape matters more than the number.** A captive is not a body
     /// whose input ceased to exist — it is a body whose input reaches a
     /// restricted channel, and this is that channel's accumulator.
-    pub escape_progress: f32,
+    ///
+    /// ⚠ **seconds rather than a fraction of one escape, since 2026-08-20**, so
+    /// that mashing and waiting are the same currency: the hold a fighter earns
+    /// now depends on the captive's damage, and a fraction of a variable target
+    /// is a number nothing can compare against anything.
+    pub mash_credit: f32,
+    /// **How long THIS hold lasts**, decided when it began.
+    ///
+    /// ⛔ **stored rather than recomputed, and that is the genre's rule rather
+    /// than a caching trick.** Ultimate reads the captive's percent AT THE GRAB;
+    /// a hold that re-read it every tick would grow every time its captor
+    /// pummelled, which turns a pummel from a decision into a free extension of
+    /// the advantage you already have.
+    pub escape_seconds: f32,
 }
 
-/// **How long a hold lasts before it lets go on its own.**
-///
-/// ⚠ moved here from the generic actor monolith on 2026-08-19: a timeout is a
-/// platform-fighter rule, not a property of one body constraining another.
-pub const CAPTURE_HOLD_LIMIT_SECONDS: f32 = 4.0;
+impl SmashHoldState {
+    /// **A fresh hold that lasts `escape_seconds`.**
+    ///
+    /// ⛔ **the only way to start one, and `Default` is not it.** A default row
+    /// has `escape_seconds == 0.0`, which [`Self::escaped`] correctly reads as a
+    /// hold already over — so a fixture that reached for `default()` would watch
+    /// its capture end on tick one and call that a timeout.
+    pub fn lasting(escape_seconds: f32) -> Self {
+        Self {
+            escape_seconds,
+            ..Default::default()
+        }
+    }
 
-/// **What one mash press buys the captive**, as a fraction of one escape.
-///
-/// ⚠ chosen so a captive mashing at a human rate gets out in less than
-/// [`CAPTURE_HOLD_LIMIT_SECONDS`] — the only property v1 claims. Moved here with
-/// its sibling, and for the same reason.
-pub const CAPTURE_ESCAPE_PER_PRESS: f32 = 0.05;
+    /// **Is this hold over?** The ONE place the two clocks are compared, so no
+    /// caller can end a hold by half the rule.
+    pub fn escaped(&self) -> bool {
+        self.held_for + self.mash_credit >= self.escape_seconds
+    }
+}
 
 /// **A fighter's capture kit.**
 ///
@@ -373,6 +465,10 @@ pub struct SmashCaptureRepertoire {
     pub back_throw: Option<MoveSpec>,
     pub up_throw: Option<MoveSpec>,
     pub down_throw: Option<MoveSpec>,
+    /// **What this fighter's capture SHOWS.** [`CaptureCues::GENERIC`] for a
+    /// fighter whose art is generic; its own rows for one whose kit guards that
+    /// every effect comes off its own sheet.
+    pub cues: CaptureCues,
 }
 
 /// The verb a capture move answers to. **The one place these strings exist.**
@@ -395,6 +491,38 @@ pub mod verbs {
     };
 }
 
+/// **The VOCABULARY's sprite row for a capture beat, asked for FIRST.**
+///
+/// ⭐ here rather than inside each `author_*` helper, for exactly the reason the
+/// cues are: [`SmashCaptureRepertoire::bound`] is the one place that already
+/// knows which VERB a beat answers to, so a fighter cannot author a pummel and
+/// forget to ask for the pummel row. The rows are the ones the fighter rigs
+/// draw — `grab`, `pummel`, `throw_forward`/`_back`/`_up`/`_down` — and every
+/// character asking for `attack` instead is why a throw and a jab looked the
+/// same.
+///
+/// ⚠ the character's own clip is KEPT, one step down the chain: a sheet with a
+/// bespoke row still draws it, and a sheet with only `attack` still lands there.
+fn row_first(mut spec: MoveSpec, rows: &[&str]) -> MoveSpec {
+    let mut chain: Vec<String> = rows.iter().map(|r| (*r).to_string()).collect();
+    chain.push(spec.clip.clip);
+    chain.append(&mut spec.clip.fallbacks);
+    let mut seen = Vec::new();
+    chain.retain(|row| {
+        let fresh = !seen.contains(row);
+        if fresh {
+            seen.push(row.clone());
+        }
+        fresh
+    });
+    let mut chain = chain.into_iter();
+    spec.clip = ambition_entity_catalog::ClipBinding {
+        clip: chain.next().unwrap_or_default(),
+        fallbacks: chain.collect(),
+    };
+    spec
+}
+
 impl SmashCaptureRepertoire {
     /// The `(verb, spec)` rows this kit contributes to a moveset contract.
     ///
@@ -413,19 +541,40 @@ impl SmashCaptureRepertoire {
             back_throw,
             up_throw,
             down_throw,
+            cues,
         } = self;
+        // ⭐ **the cues land HERE, in the one place that already walks every
+        // beat**, rather than inside each `author_*` helper. A fighter cannot
+        // author a throw and forget its release flash, and there is no second
+        // site to keep in agreement.
         let mut out = vec![
-            (verbs::GRAB, grab),
-            (verbs::PUMMEL, pummel),
-            (verbs::THROW_FORWARD, forward_throw),
+            (
+                verbs::GRAB,
+                cue_at_reach(row_first(grab, &["grab"]), cues.reach),
+            ),
+            (
+                verbs::PUMMEL,
+                cue_at_effect(row_first(pummel, &["pummel"]), cues.impact, 0.55),
+            ),
+            (
+                verbs::THROW_FORWARD,
+                cue_at_effect(
+                    row_first(forward_throw, &["throw_forward", "throw"]),
+                    cues.release,
+                    1.15,
+                ),
+            ),
         ];
-        for (verb, spec) in [
-            (verbs::THROW_BACK, back_throw),
-            (verbs::THROW_UP, up_throw),
-            (verbs::THROW_DOWN, down_throw),
+        for (verb, rows, spec) in [
+            (verbs::THROW_BACK, &["throw_back", "throw"], back_throw),
+            (verbs::THROW_UP, &["throw_up", "throw"], up_throw),
+            (verbs::THROW_DOWN, &["throw_down", "throw"], down_throw),
         ] {
             if let Some(spec) = spec {
-                out.push((verb, spec));
+                out.push((
+                    verb,
+                    cue_at_effect(row_first(spec, rows), cues.release, 1.15),
+                ));
             }
         }
         out
@@ -539,6 +688,7 @@ mod tests {
     #[test]
     fn an_unauthored_throw_is_absent_rather_than_substituted() {
         let kit = SmashCaptureRepertoire {
+            cues: CaptureCues::GENERIC,
             grab: author_standing_grab(
                 spec("g", vec![window(WindowTag::Active, 0.0, 0.1)]),
                 attempt(),
@@ -564,5 +714,157 @@ mod tests {
             vec![verbs::GRAB, verbs::PUMMEL, verbs::THROW_FORWARD],
             "an absent throw invented a verb, or an authored one lost its"
         );
+    }
+
+    /// **THE VERB NAMES THE ROW; THE FIGHTER'S OWN CLIP SURVIVES BEHIND IT.**
+    ///
+    /// ⛔ every shipped fighter authored `attack` for its pummel and its throws,
+    /// so a throw and a jab drew the same picture — while the sheets have carried
+    /// `pummel` and `throw_forward` the whole time. ⚠ both halves: asking for the
+    /// row is worthless if it REPLACES what a character chose, since a sheet
+    /// without the row would then fall past its own art to `idle`.
+    #[test]
+    fn a_capture_beat_asks_for_its_verbs_row_before_the_authored_one() {
+        let kit = SmashCaptureRepertoire {
+            cues: CaptureCues::GENERIC,
+            grab: author_standing_grab(
+                spec("g", vec![window(WindowTag::Active, 0.0, 0.1)]),
+                attempt(),
+            ),
+            pummel: author_pummel(spec("p", vec![]), 0.05, CapturePummelParams { damage: 2 }),
+            forward_throw: author_throw(
+                spec("fthrow", vec![]),
+                0.12,
+                CaptureThrowParams {
+                    damage: 9,
+                    knockback: 60.0,
+                    knockback_growth: 0.8,
+                    launch_dir: (1.0, -0.4),
+                },
+            ),
+            back_throw: None,
+            up_throw: None,
+            down_throw: None,
+        };
+        // `spec()` authors clip == id, which stands in for the fighter's choice.
+        let chains: Vec<(String, Vec<String>)> = kit
+            .bound()
+            .into_iter()
+            .map(|(_, m)| (m.clip.clip, m.clip.fallbacks))
+            .collect();
+        assert_eq!(
+            chains
+                .iter()
+                .map(|(head, _)| head.as_str())
+                .collect::<Vec<_>>(),
+            vec!["grab", "pummel", "throw_forward"],
+            "a capture beat asked the sheet for a row its verb does not name"
+        );
+        assert!(
+            chains[2]
+                .1
+                .starts_with(&["throw".to_string(), "fthrow".to_string()]),
+            "the generic throw row or the fighter's own clip fell out of the chain: {:?}",
+            chains[2].1
+        );
+    }
+}
+
+#[cfg(test)]
+mod capture_cue_tests {
+    use super::*;
+    use ambition_entity_catalog::MoveEventKind;
+
+    fn effects(spec: &MoveSpec) -> Vec<(f32, String)> {
+        spec.events
+            .iter()
+            .filter_map(|e| match &e.kind {
+                MoveEventKind::Vfx { effect, .. } => Some((e.at_s, effect.clone())),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn kit(cues: CaptureCues) -> SmashCaptureRepertoire {
+        SmashCaptureRepertoire {
+            cues,
+            grab: author_standing_grab(
+                grab_shell("g", "attack", 0.07, 0.05, 0.2),
+                CaptureAttemptParams {
+                    offset: (12.0, 1.0),
+                    half_extents: (18.0, 15.0),
+                    hold_offset: (13.0, 3.0),
+                },
+            ),
+            pummel: author_pummel(
+                capture_beat("p", "attack", 0.18),
+                0.08,
+                CapturePummelParams { damage: 3 },
+            ),
+            forward_throw: author_throw(
+                capture_beat("t", "attack", 0.26),
+                0.14,
+                CaptureThrowParams {
+                    damage: 8,
+                    knockback: 120.0,
+                    knockback_growth: 2.0,
+                    launch_dir: (0.85, -0.55),
+                },
+            ),
+            back_throw: None,
+            up_throw: None,
+            down_throw: None,
+        }
+    }
+
+    /// **EVERY BEAT OF A CAPTURE SHOWS SOMETHING, AND SHOWS THE FIGHTER'S OWN.**
+    ///
+    /// ⛔ the gap this closes: the grab chain simulated correctly and was
+    /// completely invisible — a hold read as two fighters standing unusually
+    /// close together. ⚠ and the cue is AUTHORED, because three kits guard that
+    /// every effect in them is drawn off their own sheet; a shared row is a real
+    /// violation of that, which is how the first version of this was caught.
+    #[test]
+    fn every_capture_beat_carries_the_fighters_own_cue() {
+        let bound = kit(CaptureCues {
+            reach: "mine_reach",
+            impact: "mine_impact",
+            release: "mine_release",
+        })
+        .bound();
+
+        let by_verb = |v: &str| -> Vec<(f32, String)> {
+            effects(&bound.iter().find(|(verb, _)| *verb == v).unwrap().1)
+        };
+
+        // ⭐ the grab's cue sits on the REACH — the first LIVE frame, not zero —
+        // so a whiff reads as an attempt at the moment it could have caught
+        // somebody, which is the punish window a player has to learn.
+        assert_eq!(by_verb(verbs::GRAB), vec![(0.07, "mine_reach".to_string())]);
+        // The pummel and the throw ride the SAME instant as their own gameplay
+        // effect, so retuning a beat cannot leave its flash behind.
+        assert_eq!(
+            by_verb(verbs::PUMMEL),
+            vec![(0.08, "mine_impact".to_string())]
+        );
+        assert_eq!(
+            by_verb(verbs::THROW_FORWARD),
+            vec![(0.14, "mine_release".to_string())]
+        );
+    }
+
+    /// **AND A GENERIC KIT GETS THE SHIPPED ROWS**, so the eleven fighters with
+    /// no bespoke sheet are not left silent to keep the three honest.
+    #[test]
+    fn a_generic_kit_still_shows_its_capture() {
+        let bound = kit(CaptureCues::GENERIC).bound();
+        for (verb, spec) in &bound {
+            assert_eq!(
+                effects(spec).len(),
+                1,
+                "`{verb}` carries {} cues, not one",
+                effects(spec).len()
+            );
+        }
     }
 }

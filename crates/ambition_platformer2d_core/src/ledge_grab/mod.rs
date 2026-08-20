@@ -54,6 +54,33 @@ pub const LEDGE_MIN_CLIMB_DELAY: f32 = 0.06;
 /// pipeline single-source.
 pub const LEDGE_GRAB_INVULN_TIME: f32 = 0.50;
 
+/// **How long a body must spend OFF a ledge to earn the full window.**
+///
+/// ⭐ **this is what stops ledge camping, and the mechanism is airtime rather
+/// than a regrab counter.** Ultimate buys ledge intangibility with the time you
+/// spent in the air before you caught the edge — a fighter that drops and
+/// immediately re-catches earns almost none, and one that was actually knocked
+/// off and recovered earns all of it. A counter would punish the recovery as
+/// hard as the stall; the clock only punishes the stall.
+///
+/// ⚠ **the CURVE is rough and the numbers are placeholders.** What is confirmed
+/// about the genre is the shape — airtime buys the window — not the constants.
+pub const LEDGE_INVULN_FULL_AIRTIME: f32 = 1.20;
+
+/// The window a body earns however fast it re-caught the edge. Not zero: a grab
+/// that granted nothing at all would make the ledge itself a punish, and the
+/// re-grab cooldown ([`LEDGE_REGRAB_COOLDOWN`]) is what actually forbids the
+/// instant stall.
+pub const LEDGE_INVULN_MIN_TIME: f32 = 0.10;
+
+/// **What this grab's intangibility is worth**, given how long the body has been
+/// off a ledge. Linear between [`LEDGE_INVULN_MIN_TIME`] and
+/// [`LEDGE_GRAB_INVULN_TIME`].
+pub fn ledge_grab_invuln_earned(time_off_ledge: f32) -> f32 {
+    let t = (time_off_ledge / LEDGE_INVULN_FULL_AIRTIME).clamp(0.0, 1.0);
+    LEDGE_INVULN_MIN_TIME + (LEDGE_GRAB_INVULN_TIME - LEDGE_INVULN_MIN_TIME) * t
+}
+
 /// Cooldown blocking a fresh ledge grab right after the player
 /// voluntarily released a ledge (drop / ledge-jump / ledge-release).
 /// At typical gravity (~1500 px/s²) a player accelerating from rest

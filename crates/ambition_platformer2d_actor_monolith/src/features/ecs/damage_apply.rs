@@ -110,6 +110,21 @@ pub struct BodyHitFeel {
     pub armor_hitstop_time: f32,
 }
 
+/// **A raised guard, and everything a block costs the body behind it.**
+///
+/// ⛔ one argument rather than three, because the three costs are one decision.
+/// A caller that could pass the state without the velocity would be a caller
+/// that could take the block and forget the shove.
+pub struct GuardUnderFire<'a> {
+    pub state: &'a mut ae::BodyShieldState,
+    pub tuning: ae::ShieldTuning,
+    /// The defender's own velocity. A block costs SPACE as well as integrity
+    /// and tempo, and this is where that lands.
+    pub vel: &'a mut ae::Vec2,
+    /// The body's size, so a SPENT guard can stop covering all of it.
+    pub body_size: ae::Vec2,
+}
+
 /// What [`resolve_body_hit`] decided about one hit on one body.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum BodyHitResolution {
@@ -232,10 +247,11 @@ pub fn resolve_body_hit(
     mut health: Option<&mut BodyHealth>,
     armor: Option<&mut WornEquipment>,
     wallet_shield: Option<WalletArmor<'_>>,
-    // ⭐ the GUARD ITSELF, not just whether it is up: a block spends integrity
-    // and may break the shield, and that cost belongs inside the decision that
-    // grants the block rather than in a follow-up the next caller can forget.
-    shield: Option<(&mut ae::BodyShieldState, ae::ShieldTuning)>,
+    // ⭐ the GUARD ITSELF, not just whether it is up. A block spends integrity,
+    // charges shieldstun and shoves the defender, and every one of those costs
+    // belongs inside the decision that grants the block rather than in a
+    // follow-up the next caller can forget.
+    shield: Option<GuardUnderFire<'_>>,
     facing: f32,
     body_pos: ae::Vec2,
     impact_pos: ae::Vec2,
@@ -271,14 +287,41 @@ pub fn resolve_body_hit(
             return BodyHitResolution::Ignored;
         }
     }
-    let shield_active = shield.as_ref().is_some_and(|(state, _)| state.active);
+    // ⭐ **a spent guard covers less of the body**, so "is the guard up" and
+    // "does the guard reach this hit" are two questions and a poke answers the
+    // second one no. A body whose shield is not a resource covers everything,
+    // which is every body outside a match.
+    let shield_active = shield.as_ref().is_some_and(|g| {
+        g.state.active
+            && crate::combat::util::guard_covers_hit(
+                g.tuning.coverage_at(g.state.integrity_fraction(g.tuning)),
+                body_pos,
+                g.body_size,
+                impact_pos,
+                gravity_dir,
+            )
+    });
     if !unstoppable && shield_blocks_hit(shield_active, facing, body_pos, impact_pos, gravity_dir) {
         if feel.block_hit_flash > 0.0 {
             combat.hit_flash = feel.block_hit_flash;
         }
         combat.damage_invuln_timer = combat.damage_invuln_timer.max(feel.block_invuln_floor);
-        if let Some((state, tuning)) = shield {
-            ae::body_clusters::spend_shield_on_block(state, tuning, raw_damage);
+        if let Some(guard) = shield {
+            ae::body_clusters::spend_shield_on_block(guard.state, guard.tuning, raw_damage);
+            // ⭐ **the third cost, and the one that is about SPACE.** Integrity
+            // is the resource, shieldstun is the tempo, and this is the ground:
+            // hold a guard near a ledge and the hits themselves walk you toward
+            // it. Lateral only — a block pushes you back, never up or into the
+            // floor — so it is taken perpendicular to the body's own gravity and
+            // works under any of it.
+            let push = guard.tuning.pushback_per_damage * raw_damage.max(0) as f32;
+            if push > 0.0 {
+                let away = body_pos - impact_pos;
+                let lateral = away - gravity_dir * away.dot(gravity_dir);
+                if let Some(dir) = lateral.try_normalize() {
+                    *guard.vel += dir * push;
+                }
+            }
         }
         return BodyHitResolution::Blocked;
     }
@@ -467,14 +510,24 @@ pub(crate) fn handle_player_damage_events(
     // difficulty-scaled damage, death flag, hit-flash + i-frame arming.
     // Difficulty is player POLICY: easy halves incoming damage, hard doubles
     // it, plus the fine-grained gameplay multiplier and assist factor.
+    // ⚠ read BEFORE the guard borrows the velocity mutably: both live on
+    // `BodyKinematics`, and `pos`/`facing` are `Copy`.
+    let facing_now = clusters.kinematics.facing;
+    let pos_now = clusters.kinematics.pos;
+    let size_now = clusters.kinematics.size;
     let resolution = resolve_body_hit(
         combat,
         player_health.as_deref_mut(),
         armor,
         wallet_shield,
-        Some((clusters.shield, tuning.shield)),
-        clusters.kinematics.facing,
-        clusters.kinematics.pos,
+        Some(GuardUnderFire {
+            state: clusters.shield,
+            tuning: tuning.shield,
+            vel: &mut clusters.kinematics.vel,
+            body_size: size_now,
+        }),
+        facing_now,
+        pos_now,
         impact_pos,
         gravity_dir,
         damage.damage,
@@ -821,6 +874,25 @@ pub struct BodyReaction {
     pub had_knockback: bool,
 }
 
+/// **How a victim was standing when a hit landed**, and the two facts a
+/// reaction reads off it.
+///
+/// ⛔ **a struct rather than the `(bool, bool)` it would otherwise be**, and the
+/// capture kit's own note is the argument: *"inserting it mid-list silently
+/// shifted two positional arguments into the wrong slots and the compiler
+/// reported it as a type error three parameters away."* Two adjacent booleans in
+/// a twelve-argument list is that failure waiting.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct VictimStance {
+    /// **Standing on something?** The meteor rule reads it: a spike on a
+    /// grounded body is not a spike.
+    pub grounded: bool,
+    /// **Crouching?** CROUCH CANCEL — a crouching body takes less knockback, so
+    /// ducking is a defensive option at low percent rather than only a shorter
+    /// hurtbox. See [`ambition_combat::rules::DeclaredCombatRules::crouch_cancel_scale`].
+    pub crouching: bool,
+}
+
 pub(crate) fn apply_body_hit_reaction(
     vel: &mut ae::Vec2,
     // **The carried-momentum channel.** The launch is momentum the WORLD
@@ -839,11 +911,18 @@ pub(crate) fn apply_body_hit_reaction(
     knockback: Option<&crate::combat::HitKnockback>,
     // The struck body's held control (local frame) for DI (CM2). `ZERO` = none.
     di_input_local: ae::Vec2,
+    // **How the victim was STANDING when the hit landed.** See [`VictimStance`].
+    stance: VictimStance,
     feel: Platformer2dFeelTuningMonolith,
 ) -> BodyReactionOutcome {
     // ONE tuning row for the whole reaction, so the launch and the hitstun
     // cannot disagree about which feel numbers this hit uses (FB6b).
     let response = hit_response_tuning(&feel, boss_hit);
+    // ⭐ **CROUCH CANCEL** — a crouching body takes less of the launch, so
+    // ducking is a defensive READ at low percent rather than only a shorter
+    // hurtbox. ⚠ flat, with no percent threshold, because the threshold is
+    // emergent: 85% of a kill move is still a kill, and the option stops
+    // mattering by itself exactly where the genre stops using it.
     let launch = ae::hit_response::knockback_velocity(
         body_pos,
         body_facing,
@@ -851,7 +930,11 @@ pub(crate) fn apply_body_hit_reaction(
         knockback,
         di_input_local,
         &response,
-    );
+    ) * if stance.crouching {
+        feel.crouch_cancel_scale
+    } else {
+        1.0
+    };
     *vel = launch;
     // ⭐ **and PUBLISH it, because the write above is not authoritative for every
     // body.** `BodyKinematics::vel` is the authority for an axis-swept body and a
@@ -871,7 +954,25 @@ pub(crate) fn apply_body_hit_reaction(
     // thrown with no authority, then regains the attack verb the instant it
     // clears (while still in hitstun + i-frames). Fixed-length — the recoil is a
     // readable beat, not something that scales with how hard the hit was.
-    combat.recoil_lock_timer = feel.knockback_recoil_lock_time;
+    // ⭐⭐ **A METEOR IS THE SAME SILENCE, LONGER.** A launch that points along
+    // the victim's own gravity while it is AIRBORNE is a spike, and what makes a
+    // spike a kill rather than a big hit is that you cannot answer it on the way
+    // down. The window ending IS the genre's "meteor cancel"; there is no second
+    // verb to press.
+    //
+    // ⚠ a FLOOR under the ordinary recoil, never an addition, so a meteor is one
+    // silence of a stated length rather than two stacked. And airborne only: a
+    // body already standing on the floor is driven into a floor it is on, and
+    // charging it a recovery window for that would be a free stun.
+    let meteor = !stance.grounded
+        && feel.meteor_lock_time > 0.0
+        && launch.dot(gravity_dir) > 0.0
+        && launch.length_squared() > 0.0;
+    combat.recoil_lock_timer = if meteor {
+        feel.knockback_recoil_lock_time.max(feel.meteor_lock_time)
+    } else {
+        feel.knockback_recoil_lock_time
+    };
     // ⭐ **the same freeze the ATTACKER takes**, from the same law — a landed hit
     // is one event. `max` because a body struck twice in a frame keeps the
     // longer pause rather than the last one written.
@@ -981,6 +1082,10 @@ pub(crate) fn apply_player_knockback(
         boss_hit,
         knockback,
         di_input_local,
+        VictimStance {
+            grounded: clusters.ground.on_ground,
+            crouching: clusters.body_mode.body_mode == ae::BodyMode::Crouching,
+        },
         feel,
     );
     ae::refresh_movement_resources_clusters(
@@ -1332,6 +1437,10 @@ pub fn apply_player_hit_events(
     // nothing to restore.
     let mut feel = *feel_tuning;
     feel.di_max_angle = combat_rules.di_max_angle;
+    // ⭐ the same fold, for the same reason: a stage's rule is the authority and
+    // the baseline is only what an undeclared world keeps.
+    feel.meteor_lock_time = combat_rules.meteor_lock_time;
+    feel.crouch_cancel_scale = combat_rules.crouch_cancel_scale;
     // The bare authored room, for the death path that must NOT see moving
     // platforms or overlay solids. `solids()` below proves one is loaded.
     let Some(room) = collision.base() else {

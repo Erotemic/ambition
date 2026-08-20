@@ -134,6 +134,7 @@ fn put_axis_maneuver_state(out: &mut Vec<u8>, state: &crate::AxisManeuverState) 
     put_bool(out, state.wall_climbing);
     put_vec2(out, state.pre_wall_vel);
     put_f32(out, state.pre_wall_vel_age);
+    put_f32(out, state.time_off_ledge);
     put_f32(out, state.buffer_jump);
     put_f32(out, state.jump_squat_timer);
     put_f32(out, state.buffer_burst);
@@ -145,6 +146,7 @@ fn put_axis_maneuver_state(out: &mut Vec<u8>, state: &crate::AxisManeuverState) 
     put_vec2(out, state.blink_aim_offset);
     put_f32(out, state.blink_grace_timer);
     put_f32(out, state.dodge_roll_timer);
+    put_bool(out, state.spot_dodging);
     put_f32(out, state.air_dodge_timer);
     put_f32(out, state.air_dodge_endlag_timer);
     put_f32(out, state.tumble_timer);
@@ -172,6 +174,7 @@ fn axis_maneuver_state(r: &mut Reader<'_>) -> Option<crate::AxisManeuverState> {
         wall_climbing: r.bool()?,
         pre_wall_vel: r.vec2()?,
         pre_wall_vel_age: r.f32()?,
+        time_off_ledge: r.f32()?,
         buffer_jump: r.f32()?,
         jump_squat_timer: r.f32()?,
         buffer_burst: r.f32()?,
@@ -183,6 +186,7 @@ fn axis_maneuver_state(r: &mut Reader<'_>) -> Option<crate::AxisManeuverState> {
         blink_aim_offset: r.vec2()?,
         blink_grace_timer: r.f32()?,
         dodge_roll_timer: r.f32()?,
+        spot_dodging: r.bool()?,
         air_dodge_timer: r.f32()?,
         air_dodge_endlag_timer: r.f32()?,
         tumble_timer: r.f32()?,
@@ -361,6 +365,8 @@ fn put_axis_swept_params(out: &mut Vec<u8>, p: &crate::AxisSweptParams) {
     put_f32(out, a.air_dodge_speed);
     put_f32(out, a.air_dodge_endlag);
     put_f32(out, a.tumble_speed);
+    put_f32(out, a.spot_dodge_time);
+    put_f32(out, a.sdi_step);
     put_f32(out, a.parry_window_time);
     put_f32(out, a.shield.max_health);
     put_f32(out, a.shield.drain_per_second);
@@ -368,6 +374,14 @@ fn put_axis_swept_params(out: &mut Vec<u8>, p: &crate::AxisSweptParams) {
     put_f32(out, a.shield.damage_scale);
     put_f32(out, a.shield.break_stun_time);
     put_f32(out, a.shield.stun_per_damage);
+    put_f32(out, a.shield.pushback_per_damage);
+    put_f32(out, a.shield.min_coverage);
+    put_f32(out, a.footstool.rise_speed);
+    put_f32(out, a.footstool.press_speed);
+    put_f32(out, a.footstool.flinch_time);
+    put_f32(out, a.footstool.air_tumble_time);
+    put_f32(out, a.footstool.stomper_invuln);
+    put_f32(out, a.footstool.band);
     put_f32(out, a.ledge_momentum.window);
     put_f32(out, a.ledge_momentum.x_gain);
     put_f32(out, a.ledge_momentum.y_gain);
@@ -443,6 +457,8 @@ fn axis_swept_params(r: &mut Reader<'_>) -> Option<crate::AxisSweptParams> {
             air_dodge_speed: r.f32()?,
             air_dodge_endlag: r.f32()?,
             tumble_speed: r.f32()?,
+            spot_dodge_time: r.f32()?,
+            sdi_step: r.f32()?,
             parry_window_time: r.f32()?,
             shield: crate::ShieldTuning {
                 max_health: r.f32()?,
@@ -451,6 +467,16 @@ fn axis_swept_params(r: &mut Reader<'_>) -> Option<crate::AxisSweptParams> {
                 damage_scale: r.f32()?,
                 break_stun_time: r.f32()?,
                 stun_per_damage: r.f32()?,
+                pushback_per_damage: r.f32()?,
+                min_coverage: r.f32()?,
+            },
+            footstool: crate::FootstoolTuning {
+                rise_speed: r.f32()?,
+                press_speed: r.f32()?,
+                flinch_time: r.f32()?,
+                air_tumble_time: r.f32()?,
+                stomper_invuln: r.f32()?,
+                band: r.f32()?,
             },
             ledge_momentum: LedgeMomentumTuning {
                 window: r.f32()?,

@@ -33,6 +33,11 @@ pub struct BodyMotionFacts {
     pub dashing: bool,
     /// Dodge-roll i-frames are active.
     pub dodge_rolling: bool,
+    /// **The grounded evade is a SPOT DODGE, not a roll.** A refinement OF
+    /// [`Self::dodge_rolling`] rather than a sibling: both are true together,
+    /// because the i-frames are the same and only the pose differs. Everything
+    /// asking *"is this body evading?"* keeps reading [`Self::evading`].
+    pub spot_dodging: bool,
     /// **Air-dodge i-frames are active** — a separate fact from
     /// [`Self::dodge_rolling`] on purpose, so animation and debugging can tell
     /// the aerial evade from the grounded one. Everything that only asks *"is
@@ -116,6 +121,7 @@ impl BodyMotionFacts {
             adhesive_crawling: false,
             dashing: state.dash_timer > 0.0,
             dodge_rolling: state.dodge_roll_timer > 0.0,
+            spot_dodging: state.dodge_roll_timer > 0.0 && state.spot_dodging,
             air_dodging: state.air_dodge_timer > 0.0,
             air_dodge_endlag: state.air_dodge_endlag_timer > 0.0,
             tumbling: state.tumble_until_landing,

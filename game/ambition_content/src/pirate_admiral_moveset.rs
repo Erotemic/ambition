@@ -54,7 +54,8 @@
 
 use ambition_characters::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
-    CaptureAttemptParams, CapturePummelParams, CaptureThrowParams, SmashCaptureRepertoire,
+    CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
+    SmashCaptureRepertoire,
 };
 use ambition_characters::smash_repertoire::{DownSpecial, NeutralSpecial, SmashRepertoire};
 use ambition_platformer2d::entity_catalog::{ImpulseMode, MovesetContract};
@@ -511,8 +512,13 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
     );
 
     SmashRepertoire {
-
         taunt: ambition_characters::moveset_authoring::taunt("pirate_admiral_taunt", 0.9),
+        dash_attack: ambition_characters::moveset_authoring::dash_attack(
+            "pirate_admiral_dash_attack",
+            ambition_characters::moveset_authoring::DashAttackShape::GENRE,
+            9,
+            97.5,
+        ),
         jab,
         forward_tilt: f_tilt,
         up_tilt,
@@ -532,6 +538,7 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
         // provider** — this crate, not the smash demo. That is the falsifier:
         // the capture vocabulary is not quietly tied to one game-owned file.
         capture: SmashCaptureRepertoire {
+            cues: CaptureCues::GENERIC,
             grab,
             pummel,
             forward_throw,

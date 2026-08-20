@@ -60,6 +60,22 @@ pub fn step_body(
     // is not a `dt` parameter: a parameter is something a caller can compute
     // wrongly, and one of them did for months.
     if combat.is_in_hitlag() {
+        // ⭐ **SDI: the ONE thing a body may still do while frozen.** Hitlag is
+        // a WINDOW rather than merely a pause, and this is what makes it one —
+        // the victim shifts itself out of the next hit's way while the current
+        // one is still stopped. Its offensive twin, DI, already rides the launch
+        // this same freeze precedes.
+        //
+        // ⚠ written straight to `pos` because `dt` is about to be zero and
+        // nothing will integrate it. A shift into geometry is small and bounded
+        // (px per tick), so the kernel's own contact correction resolves it out
+        // the near face on the next moving tick — which is also the honest
+        // answer to "can I SDI through a wall": no.
+        clusters.kinematics.pos += ae::hit_response::smash_di_shift(
+            ctx.input.axes.vec(),
+            ctx.frame.down(),
+            axis_tuning.sdi_step,
+        );
         ctx.dt = 0.0;
     }
     ae::step_motion(model, clusters, ctx)

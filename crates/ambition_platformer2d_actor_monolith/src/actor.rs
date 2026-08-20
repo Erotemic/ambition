@@ -49,6 +49,7 @@ pub use ambition_platformer2d_core::{
     BodyAbilities, BodyActionBuffer, BodyBaseSize, BodyBlinkState, BodyComboTrace, BodyDashState,
     BodyDodgeState, BodyEnvironmentContact, BodyFlightState, BodyGroundState, BodyJumpState,
     BodyLedgeState, BodyLifetime, BodyMana, BodyModeState, BodyOffense, BodyShieldState,
+    BodyStaleMoves,
     BodyWallState,
 };
 
@@ -86,6 +87,8 @@ pub struct AncillaryMovementBundle {
     pub ledge: BodyLedgeState,
     pub dodge: BodyDodgeState,
     pub shield: BodyShieldState,
+    /// The last few moves this body LANDED, so a repeated one is worth less.
+    pub stale_moves: ambition_platformer2d_core::BodyStaleMoves,
     pub body_mode: BodyModeState,
     pub env_contact: BodyEnvironmentContact,
     pub mana: BodyMana,
@@ -145,6 +148,8 @@ impl AncillaryMovementBundle {
             wall,
             jump,
             dash,
+            // A fresh body has landed nothing, so it has worn nothing out.
+            stale_moves: Default::default(),
             flight,
             blink,
             ledge,

@@ -318,6 +318,13 @@ pub fn apply_hitbox_damage(
     // The swing owner's team, looked up the same way its grudge is. Read-only,
     // so it may overlap the victim query.
     attacker_team: Query<&crate::targeting::MatchTeam>,
+    // The swing owner's own accumulated damage, for RAGE. Looked up exactly like
+    // its grudge and its team, and read-only for the same reason.
+    attacker_health: Query<&ambition_characters::actor::BodyHealth>,
+    // The swing owner's stale queue and the move it is executing, so a repeated
+    // answer is worth less. Read-only, looked up by owner, like the three above.
+    attacker_stale: Query<&ae::BodyStaleMoves>,
+    attacker_playback: Query<&crate::moveset::MovePlayback>,
     // The attacker's own move state, read for ONE thing: the per-strike dedup
     // accumulator that keeps a multi-tick Active window from re-smashing the same
     // breakable every frame. `MovePlayback` is authoritative move-timeline state
@@ -346,6 +353,9 @@ pub fn apply_hitbox_damage(
         .as_deref()
         .map(|t| t.knockback_growth)
         .unwrap_or_default();
+    // RAGE is read here for the same reason growth is read per victim below:
+    // the resource is borrowed once and each rule takes what it needs.
+    let rules = tuning.as_deref().copied().unwrap_or_default();
     let friendly_fire = tuning.map(|t| t.friendly_fire()).unwrap_or_default();
     for (hitbox_entity, hitbox, mut hits) in &mut hitboxes {
         // Resolve the owner's collision-box center for FollowOwner tracking.
@@ -431,6 +441,34 @@ pub fn apply_hitbox_damage(
                     victim_weight,
                     ruleset_growth,
                 );
+                // ⭐ **RAGE, and it is the mirror of the percent mechanic.** The
+                // victim's damage already scaled that launch; without this the
+                // fighter behind is punished twice — easier to launch and no
+                // harder to launch with. `1.0` in a game that declares no rage.
+                // ⭐ **RAGE and STALING are one multiplier, applied once.** They
+                // pull opposite ways on purpose — a hurt fighter hits harder, a
+                // repeated move hits softer — and a game that declares neither
+                // gets exactly `1.0` from both.
+                let rage = rules.rage_scale(
+                    attacker_health
+                        .get(hitbox.owner)
+                        .map(|h| h.damage_taken())
+                        .unwrap_or(0),
+                );
+                let stale = rules.stale_scale(
+                    match (
+                        attacker_playback.get(hitbox.owner),
+                        attacker_stale.get(hitbox.owner),
+                    ) {
+                        (Ok(playback), Ok(queue)) => {
+                            queue.occurrences(ae::stale_move_hash(&playback.spec.id))
+                        }
+                        // A body with no live move or no queue has thrown nothing
+                        // to wear out.
+                        _ => 0,
+                    },
+                );
+                let magnitude = magnitude.scaled(rage * stale);
                 let knockback = Some(HitKnockback {
                     dir,
                     magnitude,
@@ -441,7 +479,10 @@ pub fn apply_hitbox_damage(
                 hit_events.write(HitEvent {
                     strike_sfx: hitbox.strike_sfx,
                     volume: world_volume.clone(),
-                    damage: hitbox.damage.max(1),
+                    // ⚠ the DAMAGE stales with the launch. A move worn out that
+                    // still filled the percent meter at full rate would be half a
+                    // mechanic — and `max(1)` keeps a fully stale hit a hit.
+                    damage: ((hitbox.damage as f32 * stale).round() as i32).max(1),
                     source: source_kind.clone(),
                     attacker: Some(hitbox.owner),
                     // The victim, named. ⛔ this used to fork on
@@ -557,6 +598,33 @@ pub fn apply_hitbox_damage(
 /// Advance every hitbox's lifetime by `world_time.sim_dt()` and
 /// despawn the ones that hit zero. Sim-clock so bullet-time freezes
 /// in-flight hitboxes alongside the rest of combat (ADR 0010).
+/// **Remember what just LANDED, so the next throw of it is worth less.**
+///
+/// ⛔ **a separate system reading `LandedBodyHit`, not a write at the hit site**,
+/// and the reason is a borrow rather than taste: the resolver holds the victim
+/// query, and the attacker's queue lives on a body in that same set. Recording
+/// there would need a `ParamSet` around the whole resolution to write one `u32`.
+/// The landed-hit message already exists and already names the attacker.
+///
+/// ⚠ **what is recorded is what LANDED.** A whiffed move is not stale — staling
+/// exists to stop one good answer being the only answer, and a move that missed
+/// did not answer anything.
+pub fn record_landed_moves(
+    mut landed: bevy::prelude::MessageReader<LandedBodyHit>,
+    playbacks: Query<&crate::moveset::MovePlayback>,
+    mut queues: Query<&mut ae::BodyStaleMoves>,
+) {
+    for hit in landed.read() {
+        let Ok(playback) = playbacks.get(hit.attacker) else {
+            continue;
+        };
+        let Ok(mut queue) = queues.get_mut(hit.attacker) else {
+            continue;
+        };
+        queue.record(ae::stale_move_hash(&playback.spec.id));
+    }
+}
+
 pub fn tick_and_despawn_hitboxes(
     mut commands: Commands,
     world_time: Res<WorldTime>,

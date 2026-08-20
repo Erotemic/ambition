@@ -657,6 +657,12 @@ pub struct ShieldTuning {
     /// Seconds of shieldstun the defender owes per point of damage it blocks.
     /// `0.0` makes blocking free, which is what it was.
     pub stun_per_damage: f32,
+    /// **How much of the body a SPENT guard still covers**, as a fraction of
+    /// its half-height, at zero integrity. `1.0` (the default) means the guard
+    /// never shrinks and a body behind it is never poked; Smash's shield sinks
+    /// until it exposes the head and the feet, and that is what makes chip
+    /// pressure end in a hit rather than in a stalemate.
+    pub min_coverage: f32,
     /// Lateral push (px/s) the defender takes per point of damage it blocks.
     /// The half of shield pressure that costs SPACE rather than tempo: hold a
     /// guard near a ledge and the hits themselves move you toward it.
@@ -679,6 +685,7 @@ impl ShieldTuning {
         break_stun_time: 0.0,
         stun_per_damage: 0.0,
         pushback_per_damage: 0.0,
+        min_coverage: 1.0,
     };
 
     /// Platform-fighter defaults: a guard that survives about six seconds held,
@@ -691,11 +698,23 @@ impl ShieldTuning {
         break_stun_time: 2.0,
         stun_per_damage: 0.012,
         pushback_per_damage: 6.0,
+        min_coverage: 0.45,
     };
 
     /// Whether this body's shield is a spendable resource at all.
     pub fn is_resource(self) -> bool {
         self.max_health > 0.0
+    }
+
+    /// **How much of the body the guard covers at `integrity`** (1.0 whole, 0.0
+    /// about to break), as a fraction of its half-height. Full coverage for a
+    /// guard that is not a resource, so an exploration body is never poked.
+    pub fn coverage_at(self, integrity: f32) -> f32 {
+        if !self.is_resource() {
+            return 1.0;
+        }
+        let t = integrity.clamp(0.0, 1.0);
+        self.min_coverage + (1.0 - self.min_coverage) * t
     }
 }
 

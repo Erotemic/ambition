@@ -199,6 +199,37 @@ pub fn body_is_corpse(health: Option<&ambition_characters::actor::BodyHealth>) -
     health.is_some_and(|h| !h.alive())
 }
 
+/// **Does a SPENT guard still reach this hit?** — the poke rule.
+///
+/// A shield sinks as it is spent, and a body behind a small one is exposed at
+/// the head and the feet. `coverage` is the fraction of the body's half-height
+/// the guard still covers ([`ambition_platformer2d_core::ShieldTuning::coverage_at`]);
+/// `1.0` covers everything and can never poke.
+///
+/// ⛔ measured along the body's own gravity axis, not screen Y, so a wall-walker
+/// is poked at the ends of the axis it actually stands on.
+///
+/// ⚠ **separate from [`shield_blocks_hit`] rather than folded into it.** That
+/// function answers *which SIDE can this guard face*, which is a different
+/// question from *how much of me does it still cover* — one is about facing and
+/// the other about the resource. A single predicate would make a poke look like
+/// a facing failure in every trace that reads it.
+pub fn guard_covers_hit(
+    coverage: f32,
+    body_pos: ae::Vec2,
+    body_size: ae::Vec2,
+    hit_pos: ae::Vec2,
+    gravity_dir: ae::Vec2,
+) -> bool {
+    if coverage >= 1.0 {
+        return true;
+    }
+    let frame = ae::AccelerationFrame::new(gravity_dir);
+    let half_height = frame.to_world_half(body_size * 0.5).dot(gravity_dir).abs();
+    let along = (hit_pos - body_pos).dot(gravity_dir).abs();
+    along <= half_height * coverage.max(0.0)
+}
+
 /// Whether a held shield blocks a hit coming from `hit_pos`: you can only guard
 /// the local side you face (a hit from behind still lands). A facing of exactly
 /// 0 (neutral) guards either side. Pure so the directional rule is unit-tested
@@ -708,5 +739,64 @@ mod vulnerability_gate_tests {
                  is reading something narrower than `any()`"
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod poke_tests {
+    use super::*;
+
+    const SIZE: ae::Vec2 = ae::Vec2::new(24.0, 40.0);
+    const CARDINALS: [ae::Vec2; 4] = [
+        ae::Vec2::new(0.0, 1.0),
+        ae::Vec2::new(0.0, -1.0),
+        ae::Vec2::new(1.0, 0.0),
+        ae::Vec2::new(-1.0, 0.0),
+    ];
+
+    /// **A FULL GUARD COVERS EVERYTHING, A SPENT ONE EXPOSES THE ENDS.**
+    ///
+    /// ⛔ the property that makes chip pressure end in a hit rather than in a
+    /// stalemate: hold a shield long enough and the head and the feet come out
+    /// from behind it. `coverage >= 1.0` can never poke, which is what keeps
+    /// every exploration body — none of which authors a shield resource —
+    /// exactly as protected as it was.
+    #[test]
+    fn a_spent_guard_stops_reaching_the_head_and_the_feet() {
+        for dir in CARDINALS {
+            let frame = ae::AccelerationFrame::new(dir);
+            let half = frame.to_world_half(SIZE * 0.5).dot(dir).abs();
+            let body = ae::Vec2::ZERO;
+            // A hit near the far end of the body's own gravity axis.
+            let at_the_end = dir * (half * 0.9);
+
+            assert!(
+                guard_covers_hit(1.0, body, SIZE, at_the_end, dir),
+                "a WHOLE guard failed to cover its own body under gravity {dir:?}"
+            );
+            assert!(
+                !guard_covers_hit(0.45, body, SIZE, at_the_end, dir),
+                "a guard at 45% still covered the end of the body under gravity {dir:?}"
+            );
+            // ...while the middle stays covered at the same coverage.
+            assert!(
+                guard_covers_hit(0.45, body, SIZE, dir * (half * 0.2), dir),
+                "a guard at 45% failed to cover the body's own middle"
+            );
+        }
+    }
+
+    /// **COVERAGE FALLS WITH INTEGRITY, AND A NON-RESOURCE NEVER SHRINKS.**
+    #[test]
+    fn coverage_tracks_integrity_and_an_unlimited_guard_is_whole() {
+        let fighter = ae::ShieldTuning::PLATFORM_FIGHTER;
+        assert_eq!(fighter.coverage_at(1.0), 1.0);
+        assert_eq!(fighter.coverage_at(0.0), fighter.min_coverage);
+        assert!(fighter.coverage_at(0.5) < 1.0);
+        assert!(fighter.coverage_at(0.5) > fighter.min_coverage);
+
+        // ⛔ the floor: a body with no shield resource is never poked, whatever
+        // its integrity reads.
+        assert_eq!(ae::ShieldTuning::OFF.coverage_at(0.0), 1.0);
     }
 }

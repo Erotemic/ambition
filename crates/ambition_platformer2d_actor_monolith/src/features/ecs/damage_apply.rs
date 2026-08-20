@@ -121,6 +121,8 @@ pub struct GuardUnderFire<'a> {
     /// The defender's own velocity. A block costs SPACE as well as integrity
     /// and tempo, and this is where that lands.
     pub vel: &'a mut ae::Vec2,
+    /// The body's size, so a SPENT guard can stop covering all of it.
+    pub body_size: ae::Vec2,
 }
 
 /// What [`resolve_body_hit`] decided about one hit on one body.
@@ -285,7 +287,20 @@ pub fn resolve_body_hit(
             return BodyHitResolution::Ignored;
         }
     }
-    let shield_active = shield.as_ref().is_some_and(|g| g.state.active);
+    // ⭐ **a spent guard covers less of the body**, so "is the guard up" and
+    // "does the guard reach this hit" are two questions and a poke answers the
+    // second one no. A body whose shield is not a resource covers everything,
+    // which is every body outside a match.
+    let shield_active = shield.as_ref().is_some_and(|g| {
+        g.state.active
+            && crate::combat::util::guard_covers_hit(
+                g.tuning.coverage_at(g.state.integrity_fraction(g.tuning)),
+                body_pos,
+                g.body_size,
+                impact_pos,
+                gravity_dir,
+            )
+    });
     if !unstoppable && shield_blocks_hit(shield_active, facing, body_pos, impact_pos, gravity_dir) {
         if feel.block_hit_flash > 0.0 {
             combat.hit_flash = feel.block_hit_flash;
@@ -499,6 +514,7 @@ pub(crate) fn handle_player_damage_events(
     // `BodyKinematics`, and `pos`/`facing` are `Copy`.
     let facing_now = clusters.kinematics.facing;
     let pos_now = clusters.kinematics.pos;
+    let size_now = clusters.kinematics.size;
     let resolution = resolve_body_hit(
         combat,
         player_health.as_deref_mut(),
@@ -508,6 +524,7 @@ pub(crate) fn handle_player_damage_events(
             state: clusters.shield,
             tuning: tuning.shield,
             vel: &mut clusters.kinematics.vel,
+            body_size: size_now,
         }),
         facing_now,
         pos_now,

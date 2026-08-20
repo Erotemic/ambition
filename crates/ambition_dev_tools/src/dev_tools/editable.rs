@@ -190,6 +190,7 @@ pub struct EditableMovementTuning {
     pub shield_break_stun_time: f32,
     pub shield_stun_per_damage: f32,
     pub shield_pushback_per_damage: f32,
+    pub shield_min_coverage: f32,
     /// Footstool: the hop, the shove, the stun, and the head band. 0.0 rise = off.
     pub footstool_rise_speed: f32,
     pub footstool_press_speed: f32,
@@ -284,6 +285,7 @@ impl EditableMovementTuning {
                 break_stun_time: self.shield_break_stun_time,
                 stun_per_damage: self.shield_stun_per_damage,
                 pushback_per_damage: self.shield_pushback_per_damage,
+                min_coverage: self.shield_min_coverage,
             },
             footstool: ae::FootstoolTuning {
                 rise_speed: self.footstool_rise_speed,
@@ -363,6 +365,7 @@ impl From<ae::MovementTuning> for EditableMovementTuning {
             shield_break_stun_time: value.shield.break_stun_time,
             shield_stun_per_damage: value.shield.stun_per_damage,
             shield_pushback_per_damage: value.shield.pushback_per_damage,
+            shield_min_coverage: value.shield.min_coverage,
             footstool_rise_speed: value.footstool.rise_speed,
             footstool_press_speed: value.footstool.press_speed,
             footstool_victim_stun: value.footstool.victim_stun,

@@ -268,6 +268,7 @@ pub(crate) fn apply_actor_hit(
         // ⚠ `Copy` reads taken before the guard borrows the velocity.
         let victim_facing = em.kin.facing;
         let victim_pos = em.kin.pos;
+        let victim_size = em.kin.size;
         let resolution = crate::features::ecs::damage_apply::resolve_body_hit(
             combat,
             Some(&mut *em.health),
@@ -279,6 +280,7 @@ pub(crate) fn apply_actor_hit(
                 state: &mut *em.shield,
                 tuning: shield_tuning,
                 vel: &mut em.kin.vel,
+                body_size: victim_size,
             }),
             victim_facing,
             victim_pos,

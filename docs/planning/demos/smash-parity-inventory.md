@@ -23,7 +23,7 @@ you add a `▢`, and before you work one.
 | Shield break → dizzy hard-lock, ring shatters | ✔ | `break_shield`, `MovementOp::ShieldBreak` |
 | Shieldstun (a blocked hit costs the blocker tempo) | ✔ | `ShieldTuning::stun_per_damage` |
 | Shield pushback (a blocked hit costs the blocker space) | ✔ | `ShieldTuning::pushback_per_damage`, applied inside the block via `GuardUnderFire` |
-| Shield shrink → poke (a small shield exposes limbs) | ▢ | — |
+| Shield shrink → poke (a spent guard exposes the head and feet) | ✔ | `ShieldTuning::min_coverage`, `combat::util::guard_covers_hit` |
 | Shield-drop lag | ▢ | — |
 | Parry (perfect-shield window) | ✔ | `BodyShieldState::parrying` |
 | Ground dodge roll, air dodge (once per airtime) | ✔ | `BodyDodgeState`, `AxisManeuverState::dodge_roll_timer` |
@@ -155,14 +155,12 @@ and leaves the values rough; tuning is not this lane's licence.
 3. **The missing sprite rows** — a held pose, a pummel, a throw, and a dizzy for
    a broken guard. All four currently draw `Hit`, which stops them reading as
    calm but does not make them read as themselves.
-4. **Shield-shrink poke** — a spent guard should stop covering the whole body.
-   The ring already shrinks; the hurtbox does not.
-5. **Meteor lock and cancel** — the spike already lands; what is missing is
+4. **Meteor lock and cancel** — the spike already lands; what is missing is
    the window in which the spiked body cannot recover, and the cancel that
    ends it.
-6. **Stale moves and rage** — two multipliers on the shared knockback road.
-7. **Grab depth** — escape difficulty scaling with damage, dash/pivot grabs,
+5. **Stale moves and rage** — two multipliers on the shared knockback road.
+6. **Grab depth** — escape difficulty scaling with damage, dash/pivot grabs,
    grab release as its own beat.
-8. **Ledge trump and ledge-intangibility decay.**
-9. **Match rules** — timer, sudden death, friendly-fire toggle, respawn platform.
-10. **SDI, spot dodge, crouch cancel, jostle, wall tech** — the remaining verbs.
+7. **Ledge trump and ledge-intangibility decay.**
+8. **Match rules** — timer, sudden death, friendly-fire toggle, respawn platform.
+9. **SDI, spot dodge, crouch cancel, jostle, wall tech** — the remaining verbs.

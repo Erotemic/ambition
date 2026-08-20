@@ -371,6 +371,30 @@ still carrying half the roster.
 and the snake box both come down to sprite and collision numbers never having
 been converted to a common unit.
 
+- ▢ **D171 — THREE MORE DOCS CARRY OPEN ITEMS NO LEDGER ROW CAN REACH.**
+  (promoted 2026-08-20)
+
+The same sweep that produced D170 found seventeen planning docs reachable from
+no ledger row, intake or map. **Fourteen of them are reference with no open
+work** and are correctly left alone — a doc is only stranded if it holds WORK.
+These three hold some:
+
+| doc | open | what |
+| --- | --- | --- |
+| [`engine/character-actions.md`](engine/character-actions.md) | 4 | cast-action authoring where a body still relies on defaults · presentation metadata on authored moves · two DECISIONS deferred until a real repertoire forces them |
+| [`engine/unified-movement-kernel.md`](engine/unified-movement-kernel.md) | 2 | block ↔ chain crawl transfer · portal transit inside authored gravity zones |
+| [`demos/super-mary-o.md`](demos/super-mary-o.md) | 2 | crossing 1-2 while GROWN · one superseded row that should be retired |
+
+⛔ **THESE ▢ ARE UNVERIFIED AND THAT IS THE POINT OF SAYING SO.** They were
+counted, not checked, and a row's prose goes stale faster than the code — a ▢ on
+work that already landed has cost this project four sessions. Grep for the thing
+each says is missing BEFORE working it, and if HEAD contradicts the doc, update
+the doc.
+
+⚠ two of `character-actions.md`'s four are explicitly *"decide only when a real
+repertoire exceeds prompt capacity"* — they are waiting on a customer, not on
+effort, and should stay ▢ until one exists.
+
 - ▢ **D170 — IMMUTABLE CONTENT / TRANSACTIONAL CONSTRUCTION HAS SIX OPEN ITEMS
   AND NO LEDGER ROW.** (promoted 2026-08-20)
 

@@ -818,6 +818,14 @@ fn runtime_verb_vocabulary() -> Vec<String> {
             }
         }
     }
+    // ⭐ **THE RUNNING STANCE, and it is exactly ONE verb.** A dash attack is a
+    // GAIT and not a direction, so it does not come out of
+    // `directional_verb_chain` — and it is registered for `ATTACK_VERB` alone
+    // because the selector asks for it for `ATTACK_VERB` alone. Registering the
+    // other three bases would tell a fighter that `special_dash` is a verb the
+    // runtime resolves, which is the failure this list exists to prevent, only
+    // pointing the other way.
+    vocabulary.push(ambition_entity_catalog::dash_stance_verb(ATTACK_VERB));
     // ⭐ **THE CAPTURE FAMILY, and it is FLAT rather than directional.**
     //
     // The comment above says this is the one place a fifth base has to teach —

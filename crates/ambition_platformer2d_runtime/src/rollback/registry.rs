@@ -319,6 +319,21 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// it also moved `ambition_cutscene` and `ambition_demo_twintrack`, which is the
 /// instrument CHANGING and NOT a wire change in either: neither file was edited.
 ///
+/// ⚠ **v54 (2026-08-20) is the GAIT: `AxisManeuverState::running` plus
+/// `AxisLocomotion::run_commit_frac`** — one bool in the maneuver run and one
+/// float in the params run, so both halves of the motion codec move.
+/// ⛔ **it exists because the dash attack was keyed to the wrong state.** The
+/// selector asked `BodyMotionFacts::dashing`, which is the TRAVERSAL dash's
+/// timer, and `SMASH_FIGHTER_KIT` switches `AbilitySet::dash` off on purpose —
+/// so the move was unreachable in the only game that authors it, and every test
+/// passed by telling the selector it was dashing.
+/// ⚠ **`running` is derived every tick and is still serialized**, on the same
+/// terms as `gliding` and `fast_falling` beside it: a restore that lands
+/// mid-run must not present a standing body for the tick before the next
+/// integration rewrites the fact.
+/// ⚠ **v53 IS DELIBERATELY SKIPPED** — it was handed to the lane working
+/// `ControlAuthority` on main so two branches could not both take one number.
+/// A hole in a monotonic log costs nothing; a collision costs a wire format.
 /// ⚠ **v52 (2026-08-20) is `MovementTuning::parry_timing`**, one DISCRIMINANT in
 /// the motion codec, put and read as a hand-written `put_u8`.
 /// ⭐⭐ **the first knob shipped under Jon's smash-LIKE ruling** (2026-08-20):
@@ -534,7 +549,7 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// `message.spawn_projectile` keeps its stable key while its concrete message
 /// becomes `ProjectileSpawnRequest`, so abandoned-future spawn requests remain
 /// cleared on load through the same wire identity.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 52;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 54;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

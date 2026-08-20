@@ -309,6 +309,20 @@ pub(super) fn integrate_velocity_clusters(
         state.pre_wall_vel = pre_wall_snapshot;
         state.pre_wall_vel_age = 0.0;
     }
+
+    // **THE GAIT.** Written HERE, at the end of the one step every axis-swept
+    // body takes, so the fact reaches actors, players and bosses alike — the
+    // three places that republish `BodyMotionFacts` are a carry list, and a
+    // locomotion fact maintained at one of them would be a running attack the
+    // CPU could not perform.
+    //
+    // ⚠ post-sweep on purpose: a body pinned against a wall has been stopped,
+    // and its Attack press is a standing one.
+    let travel = clusters.kinematics.vel.dot(frame.side());
+    let steer = input.local_axis().x;
+    state.running = clusters.ground.on_ground
+        && steer * travel > 0.0
+        && travel.abs() >= tuning.locomotion.run_commit_frac * tuning.locomotion.max_run_speed;
 }
 
 /// Ladder integration: drive vel.y from `axis_y * climb_speed`,

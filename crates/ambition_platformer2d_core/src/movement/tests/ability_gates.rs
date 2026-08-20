@@ -154,3 +154,59 @@ fn wall_climb_requires_wall_cling() {
         .iter()
         .any(|w| w.contains("wall_climb")));
 }
+
+/// **A BODY THAT CANNOT DASH STILL RUNS**, and the dash attack's whole
+/// reachability rests on that being two different facts.
+///
+/// ⛔⛔ **the move selector used to ask `BodyMotionFacts::dashing`** — the
+/// TRAVERSAL dash's timer — and `SMASH_FIGHTER_KIT` switches `AbilitySet::dash`
+/// off deliberately, so the running attack was unreachable in the only game
+/// that authors one. Every test of the selector passed, because each told the
+/// selector the body was dashing; none could ask whether a fighter ever is.
+///
+/// ⭐ **the second assertion is the poison, not decoration.** A `running` that
+/// was merely an alias for `dashing` would satisfy "it runs" on a dash-capable
+/// body and fail here; a `running` wired to any ability bit would fail here too.
+/// The body below has NO dash ability and reaches the gait anyway.
+#[test]
+fn the_run_gait_does_not_depend_on_the_dash_ability() {
+    let world = test_world();
+    let mut abilities = AbilitySet::sandbox_all();
+    abilities.dash = false;
+
+    let mut scratch = scratch_with(abilities, world.spawn);
+    scratch.ground.on_ground = true;
+    let hold_right = InputState {
+        axes: crate::reference_frame::LocalAxes::new(1.0, 0.0),
+        ..InputState::default()
+    };
+    // Long enough for `run_accel` to carry an ordinary body past the gait line.
+    for _ in 0..40 {
+        step_scratch(&world, &mut scratch, hold_right);
+    }
+    let facts = crate::movement::BodyMotionFacts::from_model(&scratch.model);
+    assert!(
+        facts.running,
+        "a body holding a direction on the floor for 40 ticks never reached the \
+         run gait (travelling {} px/s)",
+        scratch.kinematics.vel.x,
+    );
+    assert!(
+        !facts.dashing,
+        "the body has no dash ability, so a `dashing` fact here means `running` \
+         is reading the traversal dash after all",
+    );
+
+    // ⚠ and the gait has to be able to be FALSE, or the assertion above is a
+    // fact that is simply always on. A body released from the stick brakes back
+    // under the line.
+    for _ in 0..40 {
+        step_scratch(&world, &mut scratch, InputState::default());
+    }
+    assert!(
+        !crate::movement::BodyMotionFacts::from_model(&scratch.model).running,
+        "a body that let go of the stick is still reported as running \
+         (travelling {} px/s)",
+        scratch.kinematics.vel.x,
+    );
+}

@@ -59,7 +59,7 @@ you add a `▢`, and before you work one.
 | Tumble → knockdown → tech → getup (roll / attack / stand) | ✔ | `core/movement/knockdown.rs` |
 | Wall tech | ✔ | `knockdown::tick_knockdown` reads `BodyWallState`; `WALL_TECH_SPEED` pushes off the normal |
 | Ceiling tech | ▢ | a head contact is not yet a surface the tech press can land on |
-| Crouch cancel | ▢ | — |
+| Crouch cancel | ✔ | one row only, under **Damage and knockback** — it is a property of the LAUNCH, not of the guard |
 
 ## Grabs
 
@@ -69,7 +69,6 @@ you add a `▢`, and before you work one.
 | Grab beats shield | ✔ | same |
 | Pummel | ✔ | `CapturePummelRequested` |
 | Four throws authored per fighter | ✔ | `characters/smash_capture.rs` |
-| Dash attack as its own move | ✔ | `MovesetContract::move_for_attack` asks `attack_dash` before the direction; authored by all fourteen fighters |
 | Mash escape | ✔ | `capture.rs`; `DeclaredCombatRules::grab_mash_seconds`, 14.4f per press |
 | Timed hold limit | ✔ | `grab_hold_max_seconds`; the baseline's flat 4.0s is `FLAT_GRAB_HOLD_SECONDS` |
 | Escape difficulty scales with victim damage | ✔ | `grab_hold_base_seconds` + `grab_hold_per_damage`, Ultimate's 90 + 1.7p, read ONCE at the grab |
@@ -102,7 +101,6 @@ you add a `▢`, and before you work one.
 | Percent damage, weight, scaled knockback | ✔ | `core/hit_response.rs` |
 | Hitlag, hitstun | ✔ | same |
 | DI | ✔ | `hit_response::di_adjust` |
-| SDI | ▢ | — |
 | Spike (a downward hit drives the victim, no attacker rebound) | ✔ | `rules::DownwardHitStyle::Spike`, declared by the smash stage |
 | Meteor lock (a spiked body cannot recover for a window; the window ending IS the cancel) | ✔ | `DeclaredCombatRules::meteor_lock_time`, declared 0.30 by the smash stage and 0.0 by versus |
 | Crouch cancel (a crouching victim takes less launch) | ✔ | `DeclaredCombatRules::crouch_cancel_scale`, declared 0.85 by smash |
@@ -110,6 +108,7 @@ you add a `▢`, and before you work one.
 | Rage (damage taken raises knockback dealt) | ✔ | `DeclaredCombatRules::rage_per_damage` + `rage_max_scale`, declared 0.004/1.4 by smash |
 | Stale-move queue (repeat use weakens) | ✔ | `BodyStaleMoves` (a nine-slot ring of move-id hashes) + `DeclaredCombatRules::stale_step`/`stale_floor` |
 | Charge attacks, landing lag, autocancel | ✔ | `combat/moveset` |
+| Dash attack (Attack out of a RUN) | ✔ | `move_for_attack` asks `attack_dash` off `BodyMotionFacts::running`, ahead of the direction; authored by all fifteen fighters |
 
 ## Match rules
 
@@ -216,7 +215,19 @@ kernel** — the kernel never reads `hitstun_timer`, which is why a first pass
 concluded there was no penalty at all · double-jump cancel · b-reverse and
 wavebounce · fast-fall out of a bounce.
 
-**Attack surface.** ~~Dash attack as its own verb~~ — landed 2026-08-20 · pivot smash · jab combos with
+**Attack surface.** ~~Dash attack as its own verb~~ — landed 2026-08-20, and it
+took THREE tries to become reachable ⛔⛔ **a GAIT is not the traversal dash**:
+the selector first asked `BodyMotionFacts::dashing`, which is
+`AbilitySet::dash`'s timer, and `SMASH_FIGHTER_KIT` switches that ability OFF on
+purpose — so the move was unreachable in the only game that authors one, and
+every unit test passed because each TOLD the selector the body was dashing.
+`BodyMotionFacts::running` is the fact it wanted ⛔⛔ **and then a RUN had to
+pre-empt the SMASH GESTURE**, because the two inputs are the same one: a
+direction FLICK inside the window makes a press a smash, and flicking a
+direction is how a player enters a run, so the canonical input (tap forward,
+press Attack) produced `smash_forward`. All four games answer Attack-out-of-a-run
+with the running attack and none lets a forward smash come straight out of one
+⇒ no knob, ship the standard · pivot smash · jab combos with
 a rapid-jab finisher · charge storage · a two-frame ledge-vulnerability window ·
 z-drop and item throws · edge-cancel.
 
@@ -260,3 +271,23 @@ and leaves the values rough; tuning is not this lane's licence.
 6. ~~**SDI**~~, ~~**crouch cancel**~~, ~~**wall tech**~~ and ~~**spot dodge**~~
    (landed 2026-08-20); still open: ceiling tech, and jostle — which is ASKED
    rather than skipped (`awaiting-maintainer-decision.md` §25).
+7. **What the 2026-08-20 review left open.** ~~Dash attack keyed to the wrong
+   state~~ and ~~the footstool claim's lifetime~~ landed the same day; three
+   items did not:
+   - **Stale-move accounting counts CONTACTS, not USES.** `record_landed_moves`
+     reads one `LandedBodyHit` per body hit, so one swing that catches two
+     fighters stales the move twice. `MovePlayback::landed_hit`'s false→true
+     transition already means *this use connected* — fold the recording into it
+     and the separate `Settle` system disappears.
+   - **`BodyStaleMoves` lives in the movement core and is registered under the
+     ENGINE rollback domain**, so every body in every composition rewinds a
+     nine-slot combat history. Only `ambition_combat` reads it, and combat owns
+     its own registration seam. `#[require]` on `ActorMoveset` would attach it
+     to exactly the bodies that can land a move.
+   - **The shared evade control is still called `Dash`.** `action_scheme.rs`
+     derives `ControlSlot::Dash` from `abilities.dash || abilities.dodge`, so a
+     Smash fighter — `dash: false`, `dodge: true` — puts a **Dash** button on
+     the touch overlay for a body that has no traversal dash. The kernel is
+     already correct (it calls the shared channel a BURST internally and
+     resolves `GroundDodge | AirDodge | Dash`); it is the upper half that still
+     spells the old word. A Smash body must present **Dodge**.

@@ -378,6 +378,15 @@ pub mod character {
     pub use ambition_characters::brain::ActionSet;
     pub use ambition_entity_catalog::placements::CharacterBrain;
 
+    /// **WHICH character a placement is**, and it is authoring vocabulary rather
+    /// than a mirror of our crate list. D73 split the old roster row into body,
+    /// controller and placement authorities, so a spawn now states an identity
+    /// (`CharacterId`) beside how it decides (`CharacterBrain` above) — a third
+    /// party authoring an enemy needs both, and reaching through
+    /// `ambition_platformer2d::entity_catalog` for the first one made a consumer
+    /// name our internal topology to say something the SDK already promises.
+    pub use ambition_entity_catalog::CharacterId;
+
     /// **A character's FACE.** The portrait road, mirroring the sheet road above:
     /// a registered definition may name a portrait TARGET, and everything that
     /// authors nothing keeps the catalog's derived answer. Jon's 2026-07-29

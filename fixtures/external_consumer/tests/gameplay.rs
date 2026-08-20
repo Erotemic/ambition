@@ -320,10 +320,16 @@ fn a_consumer_authors_an_enemy_through_the_character_definition_seam() {
         CharacterBrainTemplate, ContactDamage, MoveStyleSpec, PreparedCharacterRegistry,
     };
 
-    let app = outlander::build_outlander_app();
-    let prepared = app
-        .world()
-        .resource::<PreparedCharacterRegistry>();
+    let mut app = outlander::build_outlander_app();
+    // ⚠ **`build()` does not publish the registry, and this test asserted that it
+    // did.** `stage_authored_character` only STAGES; the cast is folded and
+    // inserted by `CharacterPreparationPlugin`, whose triggers are `App::finish`
+    // and a `PreStartup` backstop — both of which a `PlatformerApp` reaches on
+    // its first update, not at build time. Reading the resource off the freshly
+    // built app panicked with "resource does not exist" for every consumer who
+    // tried it, which is exactly the shape a third party hits first.
+    app.update();
+    let prepared = app.world().resource::<PreparedCharacterRegistry>();
     let sentry = prepared
         .get(outlander::OUTLANDER_SENTRY_CHARACTER_ID)
         .expect("the external provider registered its sentry character");

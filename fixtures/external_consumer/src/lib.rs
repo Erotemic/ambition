@@ -95,7 +95,6 @@ const OUTLANDER_CATALOG_RON: &str = r#"(
             composition: None,
             default_brain: "stand_still",
             default_action_set: "drifter",
-            playable_kit: Authored,
             tags: ["player", "external_consumer"],
         ),
     },
@@ -195,7 +194,7 @@ fn sentry_spawn_requests(spawn: Vec2) -> Vec<ambition_platformer2d::actor::Spawn
             ),
             // The body identity is REQUIRED post-D73. The controller key above is
             // placement vocabulary; it is not a second source of body facts.
-            character: ambition_platformer2d::entity_catalog::CharacterId::new(
+            character: ambition_platformer2d::character::CharacterId::new(
                 OUTLANDER_SENTRY_CHARACTER_ID,
             ),
         },
@@ -244,12 +243,15 @@ pub fn install_outlander_content(app: &mut App) {
     // through to the row — whose `default_action_set: "drifter"` is a kit this
     // character did not ask for — and hand a third party's wanderer a weapon.
     //
-    // ⚠ **this said `playable_kit: HostCode` rebuilds the HOST protagonist's
-    // kit, and that variant is DELETED** (2026-08-11: the robot authors its own
-    // kit now, so no row may say another crate owns its playable repertoire).
-    // The enum has one variant and the row says `Authored`. The fall-through it
-    // guards is smaller and still real — the row's own `drifter` set — and the
-    // assertion is unchanged.
+    // ⚠ **the row above no longer carries `playable_kit` AT ALL.** It said
+    // `HostCode` until 2026-08-11 (the robot authors its own kit now, so no row
+    // may say another crate owns its playable repertoire), then `Authored` until
+    // `PlayableKitSource` — a selector with one thing to select — was deleted on
+    // 2026-08-13. This RON kept the field for six days and NOTHING SAID SO: a
+    // catalog fragment is parsed at runtime, so `cargo check` on this fixture
+    // stayed green while every test that boots it panicked on an unknown field.
+    // The fall-through this block guards is unchanged and still real — the row's
+    // own `drifter` set — and it never depended on the deleted field.
     {
         use ambition_platformer2d::character::{
             ActionSet, BrainProfile, CharacterBrainTemplate, CharacterDefinition,

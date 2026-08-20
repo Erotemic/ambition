@@ -833,6 +833,22 @@ fn runtime_verb_vocabulary() -> Vec<String> {
     // reports an unresolved verb and PUBLISHES ANYWAY, so an unregistered
     // capture verb is a move authored onto a button the runtime says does not
     // exist — visible only in the binding report until somebody presses it.
+    //
+    // ⛔⛔ **AND THE TAUNT IS THE FOURTH CARRY LIST THIS VERB HAD TO JOIN, and it
+    // was missed (2026-08-20).** `TAUNT_VERB` reached the device table, the human
+    // brain's press list, `ENGINE_ACTIONS` and its rollback codec, and every one
+    // of the fourteen fighters authors a taunt — while THIS list did not know the
+    // word. The paragraph above predicted the symptom exactly: the moveset was
+    // published anyway and `every_registered_character_resolves_the_art_it_declares`
+    // reported **19 characters** naming *"unknown input verb `taunt`"*.
+    // ⭐ that is the guard doing its job, and it is the reason a verb's cost is
+    // never one edit: a word content and runtime must agree on is spelled in as
+    // many places as there are parties, and only a test standing over each one
+    // makes the list visible.
+    //
+    // ⚠ FLAT for the capture family's reason, not by exemption: a taunt has no
+    // direction. Running it through `directional_verb_chain` would invent
+    // `taunt_up_air` and let a fighter light up a button it never authored.
     vocabulary.extend(
         [
             ambition_entity_catalog::GRAB_VERB,
@@ -841,6 +857,7 @@ fn runtime_verb_vocabulary() -> Vec<String> {
             ambition_entity_catalog::CAPTURE_THROW_BACK_VERB,
             ambition_entity_catalog::CAPTURE_THROW_UP_VERB,
             ambition_entity_catalog::CAPTURE_THROW_DOWN_VERB,
+            ambition_entity_catalog::TAUNT_VERB,
         ]
         .into_iter()
         .map(str::to_owned),

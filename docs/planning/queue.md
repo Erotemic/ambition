@@ -492,6 +492,50 @@ until that room unloads, after which its authored record recreates it at home.
 *"Leave this actor permanently where I released it"* would need body `Placed`
 whereabouts plus reconstruction relocation support.
 
+- ▢ **D169 — EVERY GAME BUILT ON THIS ENGINE CARRIES A PLATFORM-FIGHTER NOUN.**
+
+Design in
+[`engine/world-geometry-and-spatial-semantics.md`](engine/world-geometry-and-spatial-semantics.md),
+which was **WARRANTED with a MET trigger since 2026-08-15 and reachable from
+NOTHING IN THE REPOSITORY** — promoted 2026-08-20 by re-running the stranding
+measurement across every `.md`, `.rs`, `.py`, `.sh`, `.toml` and `.ron` in the
+tree (34,790 files): **1 of 267 planning docs was referenced by nothing, and this
+was it.** ⭐ that is the same structural invisibility `tracks.md`'s stranded-plans
+section exists to end, recurring five days after it was measured clean. ⇒ **re-run
+that census, do not trust the list.**
+
+⭐ **MEASURED 2026-08-20, and it is worse than the plan says.** The plan cites
+three fields in `platformer2d_core::World`:
+
+```text
+:888  blast_margin: f32           + a serde default and DEFAULT_BLAST_MARGIN
+:900  side_blast_margin: Option<f32>
+:906  ceiling_blast_margin: Option<f32>
+      three builders, an LDtk lowering pass, a render overlay
+```
+
+The repository names them **206 times across 14 crates and games** — including
+`ambition_demo_mary_o` and `ambition_demo_twintrack`, neither of which is a
+platform fighter. Mary-O's `World` has a `blast_margin`.
+
+⇒ **the generic fact underneath is a boundary region with a CONSEQUENCE.** Smash
+calls it a blast zone and loses a stock; Mary-O calls it a pit and respawns;
+Ambition calls it out of bounds. Engine owns the geometry, the game owns the
+meaning — the plan's own principle 1. ⭐ **the slice is shaped like a DELETION**,
+which is the strongest form a first customer can take, and deletion is this
+project's standing proof.
+
+⛔ **the error the plan itself records, because it is the cheap kind to repeat:**
+its own 2026-08-15 triage tested trigger #1 of five, found it negative, and
+generalised to all five. *"The measurement was sound; the sentence after it was
+not. A negative on one trigger is not a negative on the plan."*
+
+⚠ **`BlockKind` is the plan's other half and is NOT this slice.** That enum mixes
+contact law, traversal permission, world consequence and contact affordance on one
+axis, and the diagnosis was re-measured as correct — but its trigger has not
+fired. Take the blast zone first; it has a customer, and it removes rather than
+adds.
+
 - ▢ **D168 — CONTROL AUTHORITY AND AI POLICY ARE TWO FACTS IN ONE COMPONENT.**
 
 Design and measurement in
@@ -7898,8 +7942,13 @@ fight — every stock in both matches was lost to the void at ≤6% damage.**
 
 ⛔⛔ **AND THE DOCUMENTED NINE TAPS SEAT THE WRONG PAIR.** `747x121` is grid cell
 3 and `425x121` is cell 0 — **Sanic and Player Robot v3, the two fighters on the
-generic `smash_fighter_kit()` floor**. George Booul is cell 1 (`touch:532x121`)
-and the Pirate Admiral cell 4 (`touch:855x121`) in the host's 5x3 grid. So the
+generic `smash_fighter_kit()` floor**. George Booul is cell 1 and the Pirate
+Admiral cell 4 — `touch:479x121` and `touch:801x121` since 2026-08-20, when one
+appended fighter took the grid from 15 cells to 16 and re-flowed it to six
+columns. ⚠ **quote the CELL, not the pixels**: the coordinates live in
+`capture_scene`'s header and in
+`the_capture_tools_documented_taps_seat_two_cpus_on_two_fighters`, which is the
+pair that has to move together. So the
 command this row points at to ask *"do the two kits behave differently"* seats
 the two bodies that have no authored kit at all. ⇒ **fix the two literals in
 `capture_scene`'s header and in

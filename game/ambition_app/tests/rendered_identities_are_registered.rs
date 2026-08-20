@@ -68,10 +68,19 @@ fn target_dir() -> PathBuf {
 /// a row — so it needs no row of its own, and it is in this count rather than in
 /// `WAIVED` only because the scan cannot read an id it never spells.
 ///
+/// ⭐ **8 → 9 on 2026-08-20, hand-check first, as the ratchet demands.** The
+/// ninth is `fighting_polygon_sword`, an SVG-rigged humanoid that is both a
+/// playable fighter and the reference rig other humanoids start from. **It HAS a
+/// catalog row** (`character_catalog.ron`, tier `MainHall`), and
+/// `registered_character_art_resolves` now passes for it — which is the actual
+/// question this ratchet exists to force somebody to ask. It is in this count
+/// rather than in `WAIVED` for the same reason as the eighth: the scan cannot
+/// read an id the target never spells as a literal.
+///
 /// ⛔ the number and the submodule pointer move TOGETHER. Raising it while the
 /// POC is untracked turns CI red (a fresh checkout has seven); landing the POC
 /// without raising it turns CI red the other way.
-const COMPUTED_ID_TARGETS: usize = 8;
+const COMPUTED_ID_TARGETS: usize = 9;
 
 /// Every `character_id` VALUE spelled out in one target's source, in file order.
 ///

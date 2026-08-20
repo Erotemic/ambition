@@ -415,6 +415,17 @@ them:** `game/ambition.md` describes the flagship game, and
 the ledger, `tracks.md`, `status.md`, `README.md`, `roadmap.md` or `AGENTS.md` is
 more likely a routing gap than a sign the content is dead.
 
+⛔⛔ **AND THE CENSUS MUST BE RE-RUN, NOT TRUSTED — 2026-08-20.** Every entry
+above is struck through, and a fourteenth doc was stranded the whole time:
+`engine/world-geometry-and-spatial-semantics.md` (673 lines), **WARRANTED with a
+MET trigger since 2026-08-15**, reachable from nothing. Re-measuring across the
+whole repository rather than across `docs/` alone — every `.md`, `.rs`, `.py`,
+`.sh`, `.toml`, `.ron`, 34,790 files — found exactly **1 of 267 planning docs
+referenced by nothing**, and that was it. Promoted to **D169**.
+⇒ a struck-through list is a receipt for one measurement, not a standing
+guarantee. ⭐ the census is a dozen lines of Python and finding one live plan
+pays for it.
+
 ⛔ **do not bulk-archive this list.** Two already declare themselves as
 *residual work re-verified against HEAD*, which is live work with no route to it.
 

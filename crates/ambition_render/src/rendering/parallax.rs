@@ -153,7 +153,9 @@ const RUNTIME_PARALLAX_LAYERS: &[RuntimeParallaxLayerSpec] = &[
 /// collapsed session's backdrop off layer 0, where the portal capture cameras
 /// would draw it from the wrong eye.
 fn parallax_resting_layers() -> RenderLayers {
-    RenderLayers::layer(ambition_platformer2d_shared_tangle::camera_layers::PARALLAX_BACKGROUND_LAYER)
+    RenderLayers::layer(
+        ambition_platformer2d_shared_tangle::camera_layers::PARALLAX_BACKGROUND_LAYER,
+    )
 }
 
 pub fn spawn_parallax_layers(
@@ -240,7 +242,9 @@ pub fn refresh_parallax_layers_on_quality_change(
         >,
     >,
     room_set: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_world::rooms::RoomSet>,
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+            ambition_platformer2d_world::rooms::RoomSet,
+        >,
     >,
     assets: Option<Res<GameAssets>>,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
@@ -307,7 +311,9 @@ pub fn ensure_active_room_parallax_theme(
     asset_server: Option<Res<AssetServer>>,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
     room_set: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_world::rooms::RoomSet>,
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+            ambition_platformer2d_world::rooms::RoomSet,
+        >,
     >,
     mut attempted: Local<Vec<ParallaxTheme>>,
 ) {
@@ -534,10 +540,7 @@ pub fn sync_parallax_layers(
     // simulation, not an observer of it, and it gets its own parallax copies
     // through `sync_portal_capture_parallax_layers`.
     cameras: Query<
-        (
-            &Transform,
-            Option<&ambition_sim_view::PresentsView>,
-        ),
+        (&Transform, Option<&ambition_sim_view::PresentsView>),
         (
             With<ambition_platformer2d_shared_tangle::camera_layers::MainCamera>,
             Without<ParallaxLayerVisual>,
@@ -705,13 +708,26 @@ fn sync_parallax_transform_to_camera(
     layer: &ParallaxLayerVisual,
     camera_xy: Vec2,
 ) {
+    // ⛔⛔ **THE `+ 0.5` IS THE WHOLE FIX, and without it half of every room had a
+    // static sky.** `camera_xy` is the camera's BEVY transform, which is centred:
+    // `camera.rs` builds it as `center_world.x - world.size.x * 0.5`, so it runs
+    // −size/2 ..= +size/2 while `world_size` is the FULL span. Dividing one by
+    // the other therefore gave −0.5 ..= +0.5, and the clamp turned the entire
+    // negative half into a flat 0 — so across the whole LEFT half of every room
+    // the backdrop sat pinned at maximum travel and did not move, and only the
+    // right half parallaxed, over half the intended range.
+    //
+    // ⚠ **a unit error the clamp HID.** Nothing ever read out of range or
+    // crashed; the wrong half simply stopped animating, which reads as "this
+    // background is far away" rather than as a defect. Found 2026-08-20 while
+    // making this pass per-view.
     let tx = if layer.world_size.x > 1.0 {
-        (camera_xy.x / layer.world_size.x).clamp(0.0, 1.0)
+        (camera_xy.x / layer.world_size.x + 0.5).clamp(0.0, 1.0)
     } else {
         0.5
     };
     let ty = if layer.world_size.y > 1.0 {
-        (camera_xy.y / layer.world_size.y).clamp(0.0, 1.0)
+        (camera_xy.y / layer.world_size.y + 0.5).clamp(0.0, 1.0)
     } else {
         0.5
     };
@@ -782,7 +798,11 @@ mod theme_load_tests {
             ),
         );
         room.metadata.visual_profile.parallax_theme = Some(theme_key.to_string());
-        ambition_platformer2d_world::rooms::RoomSet::from_parts("second_biome", vec![room], Vec::new())
+        ambition_platformer2d_world::rooms::RoomSet::from_parts(
+            "second_biome",
+            vec![room],
+            Vec::new(),
+        )
     }
 
     /// **The theme the ACTIVE room asks for is loaded by whoever presents it.**
@@ -931,6 +951,83 @@ mod theme_load_tests {
 
 /// **TWO VIEWS, TWO BACKDROPS — each from its own camera and its own viewport.**
 #[cfg(test)]
+mod parallax_travel_tests {
+    use super::*;
+
+    fn layer(world_w: f32) -> ParallaxLayerVisual {
+        ParallaxLayerVisual {
+            factor: Vec2::splat(1.0),
+            z: 0.0,
+            panel_scale: 1.0,
+            travel: Vec2::new(100.0, 0.0),
+            world_size: Vec2::new(world_w, 480.0),
+        }
+    }
+
+    fn offset_at(camera_x: f32, world_w: f32) -> f32 {
+        let mut t = Transform::default();
+        sync_parallax_transform_to_camera(&mut t, &layer(world_w), Vec2::new(camera_x, 0.0));
+        // The panel is placed AT the camera plus a parallax offset, so the
+        // offset alone is what this pass decides.
+        t.translation.x - camera_x
+    }
+
+    /// ⛔ **The backdrop must travel across the WHOLE room, not the right half.**
+    ///
+    /// `camera_xy` is the camera's centred Bevy transform (`camera.rs` builds it
+    /// as `center_world.x - size.x * 0.5`), so it runs −size/2 ..= +size/2 while
+    /// `world_size` is the full span. Before the `+ 0.5`, dividing one by the
+    /// other gave −0.5 ..= +0.5 and the clamp flattened the entire negative half
+    /// to zero — the left half of every room had a backdrop that did not move.
+    ///
+    /// ⚠ the assertion is on the SPAN and the MIDPOINT together. Either alone
+    /// passes for a broken mapping: a half-range still has two distinct ends, and
+    /// a centred midpoint says nothing about how far it reaches.
+    #[test]
+    fn the_backdrop_travels_the_full_width_of_the_room() {
+        let w = 2000.0;
+        let left = offset_at(-w / 2.0, w);
+        let mid = offset_at(0.0, w);
+        let right = offset_at(w / 2.0, w);
+
+        assert!(
+            (left - 100.0).abs() < 1e-3,
+            "at the LEFT edge the backdrop should sit at one extreme of its \
+             travel, got {left}"
+        );
+        assert!(
+            (right + 100.0).abs() < 1e-3,
+            "at the RIGHT edge it should sit at the other, got {right}"
+        );
+        assert!(
+            mid.abs() < 1e-3,
+            "at the room's centre the backdrop should be centred, got {mid}"
+        );
+    }
+
+    /// The poison, stated as its own claim: a camera in the room's left half must
+    /// MOVE the backdrop. Under the old mapping every position from the left edge
+    /// to the centre produced an identical offset, which is what made the defect
+    /// invisible — nothing was out of range, one half simply stopped animating.
+    #[test]
+    fn a_camera_in_the_left_half_still_moves_the_backdrop() {
+        let w = 2000.0;
+        let quarter = offset_at(-w / 4.0, w);
+        let edge = offset_at(-w / 2.0, w);
+
+        assert!(
+            (quarter - edge).abs() > 1.0,
+            "a quarter into the room reads the same as the far edge ({quarter} vs \
+             {edge}) — the left half is pinned again"
+        );
+        assert!(
+            quarter < edge,
+            "travel should decrease monotonically from the left edge inward"
+        );
+    }
+}
+
+#[cfg(test)]
 mod two_views_one_backdrop_tests {
     use super::*;
     use ambition_platformer2d_shared_tangle::camera_layers::MainCamera;
@@ -942,15 +1039,25 @@ mod two_views_one_backdrop_tests {
     /// arithmetic anyone can check by hand rather than a number copied from a run.
     const WORLD_SIZE: Vec2 = Vec2::new(2000.0, 480.0);
 
-    /// Bevy-space camera x. `tx = 500/2000 = 0.25`, so `centered.x = -0.5` and the
-    /// panel is pushed RIGHT by half its travel budget — a fraction strictly
+    /// Bevy-space camera x, and Bevy space is CENTRED: `camera.rs` builds the
+    /// transform as `center_world.x - size.x * 0.5`, so a 2000-wide room runs
+    /// −1000 ..= +1000. `tx = −500/2000 + 0.5 = 0.25`, so `centered.x = −0.5` and
+    /// the panel is pushed RIGHT by half its travel budget — a fraction strictly
     /// inside the clamp at both ends, so no expectation below is secretly an
     /// assertion about the clamp.
-    const CAMERA_X: f32 = 500.0;
+    ///
+    /// ⛔ **these were +500 and +1500 and both were wrong**, because the formula
+    /// they were derived from was wrong: it divided a centred coordinate by a
+    /// full span and never added the half. +1500 is not "the far end of the
+    /// room", it is 500px PAST the right edge, and it only looked reasonable
+    /// while `tx` was being computed in 0..size. Fixing the mapping is what
+    /// exposed it — the constants and the code agreed with each other and with
+    /// nothing else.
+    const CAMERA_X: f32 = -500.0;
 
-    /// The far camera: `tx = 1500/2000 = 0.75`, `centered.x = +0.5`, so its panel
-    /// is pulled LEFT by half its budget — the mirror image of `CAMERA_X`.
-    const FAR_CAMERA_X: f32 = 1500.0;
+    /// The far camera: `tx = 500/2000 + 0.5 = 0.75`, `centered.x = +0.5`, so its
+    /// panel is pulled LEFT by half its budget — the mirror image of `CAMERA_X`.
+    const FAR_CAMERA_X: f32 = 500.0;
 
     fn viewport(w: f32, h: f32) -> CameraViewport {
         CameraViewport {
@@ -1019,7 +1126,7 @@ mod two_views_one_backdrop_tests {
     /// - view A: 800x400 → panel `2*800 = 1600`, `travel.x = (1600-800)/2 = 400`
     /// - view B: 400x400 → panel `2*400 = 800`,  `travel.x = (800-400)/2 = 200`
     ///
-    /// At `CAMERA_X` the offset is `+travel.x/2`, so A draws at `500+200 = 700`
+    /// At `CAMERA_X` the offset is `+travel.x/2`, so A draws at `-500+200 = -300`
     /// and B at `500+100 = 600`.
     #[test]
     fn each_view_sizes_its_panel_from_its_own_viewport() {
@@ -1063,12 +1170,12 @@ mod two_views_one_backdrop_tests {
 
         assert_eq!(
             panel_x(&world, wide_panel),
-            700.0,
+            -300.0,
             "the wide view's backdrop is offset by ITS travel budget"
         );
         assert_eq!(
             panel_x(&world, narrow_panel),
-            600.0,
+            -400.0,
             "and the narrow view's by its own"
         );
     }
@@ -1108,13 +1215,13 @@ mod two_views_one_backdrop_tests {
 
             assert_eq!(
                 panel_x(&world, panels[0]),
-                700.0,
+                -300.0,
                 "the panel of the view the NEAR camera presents must be placed \
                  against that camera"
             );
             assert_eq!(
                 panel_x(&world, panels[1]),
-                1300.0,
+                300.0,
                 "and the FAR camera's view's panel against the far camera — one \
                  shared panel synced to `the` main camera cannot hold both numbers"
             );
@@ -1192,7 +1299,7 @@ mod two_views_one_backdrop_tests {
         );
         assert_eq!(
             panel_x(&world, drawn),
-            700.0,
+            -300.0,
             "and it must have been placed against its own camera"
         );
     }
@@ -1214,7 +1321,10 @@ mod two_views_one_backdrop_tests {
             .expect("the mirror reads only components the fixture spawns");
 
         assert_eq!(
-            world.entity(root).get::<PresentedForView>().map(|key| key.0),
+            world
+                .entity(root)
+                .get::<PresentedForView>()
+                .map(|key| key.0),
             Some(lower),
             "one view claims the room's own panel rather than being handed a copy"
         );

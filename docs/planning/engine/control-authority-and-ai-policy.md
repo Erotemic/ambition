@@ -1,0 +1,115 @@
+# Control authority and AI policy are two facts in one component
+
+**Owner: the engine.** Written 2026-08-20 from Jon's architectural review of
+`4af278e77`, which named this as the next broad direction after the custody and
+construction work. ⛔ **the review also REFUSED the obvious version of it**, and
+that refusal is the first thing to read.
+
+## What was refused, and why it matters more than what is proposed
+
+> `Brain::Capability(BrainId)` + registered executable dispatch — that removes
+> closed enum edges by adding a service locator.
+
+An erased id plus a registry looks like decoupling and is the opposite: it
+converts a compile error into a runtime lookup, and every question you could ask
+the compiler ("does every policy handle this?", "is this policy reachable?")
+becomes a question you can only ask a running process. ⛔ **no `Any`, no
+`TypeId`, no `BrainId`, no executable registry, no service locator.** The same
+prohibition that shaped `capability_lanes::CapabilityLanes`, for the same reason.
+
+## The measurement
+
+Taken 2026-08-20 against HEAD, so a later session can tell what moved.
+
+```text
+Brain                       2 variants   Player(PlayerSlot) | StateMachine(StateMachineCfg)
+StateMachineCfg            12 variants   StandStill Patrol Wanderer MeleeBrute Skirmisher
+                                         Sniper ChargeCrash BossPattern Smash Fighter
+                                         Aerial PlayerDemo
+Brain::Player             194 sites      across 14 crates/games
+Brain::StateMachine       107 sites
+exhaustive matches on Brain 13
+StateMachineCfg::Fighter   20 external references
+StateMachineCfg::Smash     13 external references
+brain/fighter + brain/smash  8,950 non-test lines, INSIDE `ambition_characters`
+```
+
+⚠ **the 8,950 is the number to look at.** `ambition_characters` is a floor crate:
+every composition links it, including the exploration game and the two fixture
+consumers. Two platform-fighter policies live there because policy shares a
+component — and therefore a crate — with control authority.
+
+## The two facts
+
+* **CONTROL AUTHORITY** — *who drives this body*. `Brain::Player(slot)` says the
+  body reads participant `slot`'s control stream. This is participant-scoped and
+  entirely generic: it names no policy, no genre and no content.
+* **AI POLICY** — *how this body decides for itself*. `StateMachineCfg` is a
+  closed set of typed policies, each carrying its own tuning AND its per-actor
+  runtime state.
+
+They are one enum, so they are mutually exclusive by construction. That is
+convenient and it is why three separate costs exist:
+
+1. ⛔⛔ **possession must SWAP the whole component and remember the old one.**
+   `PossessionState::restore_brain: Option<Brain>` is rollback-registered state,
+   so a rewound possession round-trips an entire AI policy's runtime state
+   through a resource whose subject is *who is driving*. Possession should
+   transfer control authority; it currently transfers a policy as well because
+   it has no way to move one without the other.
+2. ⛔ **"human participant" is an AI-backend variant.** A body under a
+   participant's control is spelled as a case of the same enum whose other cases
+   are wanderers and bosses. Every exhaustive match over `Brain` therefore has an
+   arm for a thing that is not a policy at all.
+3. ⛔ **policy cannot migrate to its domain.** A Smash fighter policy belongs with
+   Smash; `Patrol` and `Wanderer` belong to the generic actor floor. They cannot
+   move independently while both are variants of one enum in one crate.
+
+## The shape
+
+Two typed components instead of one enum, and NEITHER of them is erased:
+
+```text
+ControlAuthority   the participant slot this body reads      generic, engine-owned
+AiPolicy           a typed, domain-owned policy component    domain-owned
+```
+
+* a player-driven body carries `ControlAuthority` and no `AiPolicy`;
+* an autonomous body carries `AiPolicy` and no `ControlAuthority`;
+* **possession INSERTS `ControlAuthority` and leaves `AiPolicy` where it is.**
+  Release removes it. Nothing is stashed, so `restore_brain` retires and
+  `PossessionState` stops carrying policy state through rollback.
+* a domain publishes its own policy component. `Smash`/`Fighter` become the smash
+  domain's; `Patrol`/`Wanderer`/`StandStill` stay on the actor floor. Each moves
+  when it has somewhere to go, independently.
+
+⭐ **this is the same federation shape as the checkpoint horizon and the
+construction lanes**: composition names a domain's offer, never the concrete
+types inside it, and the offer is a typed plugin rather than a table.
+
+## Acceptance
+
+- ▢ `PossessionState::restore_brain` is DELETED, not merely unused — it is a
+  field of a rollback-registered resource, so its removal is a schema change and
+  belongs to a bump;
+- ▢ no exhaustive match anywhere has an arm for "a human is driving" beside arms
+  for wanderers;
+- ▢ `brain/smash` and `brain/fighter` leave `ambition_characters`, and the
+  measured line count of that crate falls by roughly the 8,950 above — ⛔ a carve
+  that only re-exports them has moved nothing, and the debt ledger must not be
+  laundered: the destination joins in the SAME commit;
+- ▢ a movement-only game's linked-crate count does not rise, and preferably falls.
+
+## ⛔ How to sequence it, because the review said so twice
+
+> Evidence-driven carve; do not redesign the brain stack at once.
+
+The first slice is the SEAM, not the migration: introduce `ControlAuthority`,
+make possession use it, retire `restore_brain`. Nothing moves crates. Only then
+is there evidence about what a domain-owned policy component costs, and the
+Smash/Fighter move is priced by measurement rather than by intent — the way
+gravity priced the construction federation and produced
+`capability_lanes::CapabilityLanes` instead of a third hand-written lane.
+
+⚠ **`Brain::Player` is named 194 times in 14 crates.** That is the real size of
+the first slice and it is why it is its own slice.

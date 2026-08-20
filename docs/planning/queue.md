@@ -417,7 +417,16 @@ its test assigns `PossessionState::default()` into the running world and steps
 once, which is a real and narrower property and is not a fresh process — no save,
 no serialisation, no second app, no adopter. Both comments now say which is which.
 
-▢ **BODY-CUSTODY PROPAGATION HAS OUTGROWN THE POSSESSION ABILITY.**
+✔ **BODY-CUSTODY PROPAGATION HAS LEFT THE POSSESSION ABILITY** — `cb1aa427d`,
+moved unchanged to `body_custody::project_body_custody`; possession supplies one
+ROOT and the closure below it is shared, so a carry, a vehicle or scripted
+transport joins beside it instead of editing an ability. The move cost no reader
+an edit, which is what `BodyCustodySettled` was for. The stale *"PROMOTE the
+possessed body out of room scope"* paragraph — which also named a function that
+no longer exists — is rewritten to the current model. ⛔ still concrete and typed:
+no registry, no erased callback, no generic attachment graph. Original statement:
+
+▢ **(the case, kept because it is the reusable half.)**
 `project_driven_body_custody` calls itself *"the one owner of `InCustodyOf` for
 BODIES"* while living in `abilities/traversal/possession.rs`, and it now closes
 custody transitively over mounts (`RidingOn`), limbs (`Limb`) and arbitrarily deep
@@ -433,7 +442,22 @@ the stale paragraph beginning *"PROMOTE the possessed body out of room scope"*,
 which sits immediately before the text explaining that it specifically does NOT
 change lifetime any more.
 
-▢ **ROOM CONSTRUCTION-LANE ORCHESTRATION, BEFORE A THIRD FAMILY.** Gravity was
+✔ **ROOM CONSTRUCTION-LANE ORCHESTRATION IS ONE COMPOSED VALUE** — the capability
+lanes travel as `capability_lanes::CapabilityLanes`, a plain struct with named
+fields whose every operation destructures `Self` exhaustively. `spawn/mod.rs`
+named the two lanes **48 times before and 4 times now** (a module declaration and
+a `cfg(test)` accessor apiece), 1209 → 1048 lines. The poison — a third field —
+produces **seven compile errors**: `E0063` at construction plus `E0027` at each of
+`claim_planned_ids`, `write_deterministic_dump`, `debug_assert_binding`, `commit`,
+`verify`, `respawn`. ⛔ no `Any`, no `TypeId`, no registry, no service locator:
+what removes the repetition is that each operation is a GENERIC function over
+`ConstructionDomain` applied once per field. ⚠ `Services = ()` is a BOUND on that
+set, not a coincidence — the actor lane reads frozen catalogs at execution time
+and is composed BESIDE the capability lanes rather than inside them, so a future
+capability that needs services fails the bound instead of quietly joining.
+Original statement:
+
+▢ **(the case, kept because the MEASUREMENT is the reusable half.)** Gravity was
 the right second customer and the extraction validated the federation design; the
 measurement is what it cost `RoomFeatureConstructionPlan` — roughly ELEVEN
 enrollments (plan field, receipt field, preparation, predicted roster, plan
@@ -450,7 +474,8 @@ speculative. ⚠ and gravity is a successful construction-VOCABULARY extraction,
 a fully extracted domain: its construction lives in `shared_tangle` while its
 scheduling/runtime ownership is still in the actor monolith.
 
-▢ **SMASH: THE MEASUREMENT STANDS, THE ASSERTION TEXT DOES NOT.** "One mind
+▢ **SMASH: THE MEASUREMENT STANDS, THE ASSERTION TEXT DOES NOT.** ⚠ TAKEN by the
+smash lane 2026-08-20 (`smash-parity`), assertion text only. "One mind
 played twice" is FALSIFIED — the CPUs have different RNG streams, draw different
 samples, fight, overlap attack range, create live hitboxes, land hits and take
 mirrored outcomes; at difficulty 5 the execution-noise effect is 0–1 frames,
@@ -466,6 +491,39 @@ correct not to invent one: a body released away from its authored room lives the
 until that room unloads, after which its authored record recreates it at home.
 *"Leave this actor permanently where I released it"* would need body `Placed`
 whereabouts plus reconstruction relocation support.
+
+- ▢ **D168 — CONTROL AUTHORITY AND AI POLICY ARE TWO FACTS IN ONE COMPONENT.**
+
+Design and measurement in
+[`engine/control-authority-and-ai-policy.md`](engine/control-authority-and-ai-policy.md).
+Jon's 2026-08-19 review named this as a broad direction to resume once the custody
+and construction legs of D167 closed; all four of those are closed.
+
+⛔⛔ **THE REVIEW REFUSED THE OBVIOUS VERSION FIRST, and that is the load-bearing
+half**: `Brain::Capability(BrainId)` plus registered executable dispatch *"removes
+closed enum edges by adding a service locator"*. No `Any`, no `TypeId`, no
+`BrainId`, no registry. Same prohibition as `CapabilityLanes`, same reason — an
+erased id trades a compile error for a runtime lookup.
+
+⭐ **MEASURED 2026-08-20**: `Brain` is 2 variants and `StateMachineCfg` is 12;
+`Brain::Player` is named **194 times across 14 crates/games**, `Brain::StateMachine`
+107; 13 exhaustive matches; and **8,950 non-test lines of platform-fighter policy
+(`brain/fighter`, `brain/smash`) sit inside `ambition_characters`**, a floor crate
+every composition links — because policy shares a component, and therefore a
+crate, with control authority.
+
+⇒ two typed components, neither erased: `ControlAuthority` (generic, the
+participant slot a body reads) and a domain-owned `AiPolicy`. Possession then
+INSERTS control authority and leaves policy alone, which retires
+`PossessionState::restore_brain` — today a rollback-registered field that
+round-trips an entire AI policy's runtime state through a resource whose subject
+is *who is driving*.
+
+⛔ **the first slice is the SEAM, not the migration** (the review said so twice:
+*"evidence-driven carve; do not redesign the brain stack at once"*). Introduce the
+component, move possession onto it, delete `restore_brain`; nothing changes crates.
+Only then is the Smash/Fighter move priced by measurement — the way gravity priced
+the construction federation.
 
 - ▢ **D117 — Finish the controlled-character actor kernel. UNBLOCKED 2026-08-17:
   the decision it rested on is ANSWERED.**

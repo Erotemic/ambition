@@ -523,7 +523,17 @@ its product investment, not the engine ownership rules.
 - LDtk is Ambition's preferred spatial authoring surface and should improve when
   real Ambition content outgrows it;
 - the actor monolith is drained by coherent ownership, not line-count quotas;
-- public APIs should expose game concepts rather than historical crate topology.
+- public APIs should expose game concepts rather than historical crate topology;
+- **a relationship may not cross the durable horizon without its authority** —
+  the save may only claim what the load can reconstruct, and a generic component
+  gaining a second population enrols that population in every generic sweep,
+  persistence included;
+- **a set of lanes is a composed value, not a repeated one** — when a second
+  customer of a federation arrives, the enrollment cost it MEASURES is the
+  evidence for a composition owner; make it a plain struct whose every operation
+  destructures exhaustively, so the carry list is one the compiler keeps, and
+  keep the dynamic machinery out (`Any`, `TypeId`, registries, service locators
+  trade a compile error for a runtime lookup).
 
 ## Explicitly deferred, not abandoned
 

@@ -319,6 +319,18 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// it also moved `ambition_cutscene` and `ambition_demo_twintrack`, which is the
 /// instrument CHANGING and NOT a wire change in either: neither file was edited.
 ///
+/// ⚠ **v41 (2026-08-20) is ONE BIT: `ActorControlFrame::taunt_pressed`.** The
+/// taunt verb travels the road a grab travels, and its codec edge exists for the
+/// same reason the grab edge does — a resimulated tick that lost the press did
+/// not taunt, and the two histories diverge. `ActorControl`'s bool run widens by
+/// one, so the bytes a peer encodes change and this bumps.
+/// ⛔ **it was missed by the lane that added it and caught by
+/// `scripts/rollback_codec_shape.py`, not by any Rust test.** The app-level
+/// `rollback_schema_baseline` stayed GREEN through it: that baseline records
+/// stable KEYS and this change altered a PAYLOAD behind an unchanged key, which
+/// is exactly the split the three baselines exist for. ⇒ a wire change is not
+/// established by the app suite; run the repo tooling tests before believing a
+/// codec is unmoved.
 /// ⚠ **v40 (2026-08-19) puts the player's ENTITLEMENTS inside the checkpoint
 /// horizon.** `resource.owned_items_baseline` joins the three baselines a commit
 /// already writes, with an entity-free stored-quantity checksum. ⭐ it is the
@@ -358,7 +370,7 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// `message.spawn_projectile` keeps its stable key while its concrete message
 /// becomes `ProjectileSpawnRequest`, so abandoned-future spawn requests remain
 /// cleared on load through the same wire identity.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 40;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 41;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

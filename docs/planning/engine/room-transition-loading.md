@@ -18,14 +18,12 @@
   `ConfirmedFrameBoundary present=true`. So the shipped game takes the
   transaction-free route on every room change.
 
-  ⛔⛔ **BUT THIS ROW USED TO SAY "no rollback-host shortcut may … bypass the
-  canonical construction plan", AND THAT DESCRIBES A BYPASS THAT DOES NOT
-  EXIST.** Read `commit_transition` in `lifecycle_commit.rs`: it calls
-  `RoomConstructionPlan::prepare`, preflights the subject, and then
-  `plan.apply_to_world(world, carry_body)`. The confirmed path uses the SAME
-  canonical construction the fixed-tick path does, and it even reuses
-  `validated_spawn`. A transient `prepare` failure returns `Retry`, so it also
-  already defers until the target is preparable.
+  ⛔⛔ **Read `commit_transition` in `lifecycle_commit.rs` before assuming a
+  construction bypass: there is none.** It calls `RoomConstructionPlan::prepare`,
+  preflights the subject, and then `plan.apply_to_world(world, carry_body)`. The
+  confirmed path uses the SAME canonical construction the fixed-tick path does,
+  and it even reuses `validated_spawn`. A transient `prepare` failure returns
+  `Retry`, so it also already defers until the target is preparable.
 
   ⇒ **the gap is the READINESS TRANSACTION, not the construction.** What the
   confirmed route genuinely never runs is `RoomTransitionLoadState` and its four
@@ -103,9 +101,8 @@
   the transaction its only consumer; let the eager host's confirmation be
   immediate and the rollback host's be the confirmed frame.
 
-  ⛔⛔ **AND THIS ROW USED TO SAY `RoomTransitionRequested` "THEN HAS NO PRODUCER
-  AND IS DELETED". THAT IS FALSE AT HEAD, and it was false when it was written.**
-  Loading-zone detection is one of FOUR production writers. Censused 2026-08-14
+  ⛔⛔ **`RoomTransitionRequested` is not down to one producer — check before
+  deleting it.** Loading-zone detection is one of FOUR production writers. Censused 2026-08-14
   (`grep -rn "RoomTransitionRequested" crates/ game/`, then every `.write(` site
   read):
 
@@ -355,8 +352,7 @@
   opposite. ⛔ do that IN the convergence commit, where it has a reason; on its
   own it is a behaviour change with no symptom behind it.
 
-  ⛔⛔ **BUT "KEY IT ON THE TARGET ROOM" IS THE OPPOSITE ERROR, and this row said
-  it.** Two doors can lead to the SAME room at DIFFERENT arrivals — a room-only
+  ⛔⛔ **"Key it on the target room" is the OPPOSITE error.** Two doors can lead to the SAME room at DIFFERENT arrivals — a room-only
   key collapses them into one transaction and the second crossing silently
   arrives at the first one's coordinates. The zone id is a proxy for the
   destination; the answer is not to keep the proxy or to drop to a weaker one,

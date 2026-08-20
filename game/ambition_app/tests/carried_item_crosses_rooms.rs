@@ -1232,7 +1232,7 @@ fn a_checkpoint_taken_while_possessing_does_not_manufacture_an_item() {
 /// ⛔⛔ **`InCustodyOf` has two owners in different domains and they were
 /// UNORDERED.** The item domain reprojects the marker onto objects at the tail of
 /// `ItemPickupSet::CoreHeldItems`; a separate derive owns the whole non-item body
-/// population (`project_driven_body_custody`, in `PlayerSimulationSet::Possession`).
+/// population (`body_custody::project_body_custody`, in `PlayerSimulationSet::Possession`).
 /// Both chains are internally ordered and internally correct, and both are
 /// children of `PlayerSimulation` — with no edge between them. The relative order
 /// was whatever the topological sort produced, and the body derive writes through
@@ -1665,7 +1665,7 @@ fn a_limbed_mount_crosses_the_door_with_all_of_its_parts() {
 ///
 /// ⭐ **this is the property that makes the duplication fix cover every
 /// population at once, and it is worth pinning separately from the crossing.**
-/// `project_driven_body_custody` marks the closure `InCustodyOf`;
+/// `body_custody::project_body_custody` marks the closure `InCustodyOf`;
 /// `project_custody_onto_authored_occurrences` then records every marked
 /// room-scoped occurrence as `InCustody`; and a room rebuild consults that
 /// outlook and declines to author what somebody is holding. So the chain

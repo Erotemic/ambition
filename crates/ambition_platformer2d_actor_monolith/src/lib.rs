@@ -76,6 +76,7 @@ pub mod actor;
 /// it is neither `control` nor `features`. Moved off `player/` in R6d.
 pub mod affordances;
 pub mod assets;
+pub mod body_custody;
 pub mod body_mode;
 // ✔ `boss_encounter` LEFT 2026-08-17 (D33) and is now the
 // `ambition_boss_encounter` crate — the boss data model had been relocated into
@@ -117,8 +118,8 @@ pub mod session;
 pub mod shrine;
 mod snapshot_impls;
 pub mod time;
-pub mod world_facts;
 pub mod world;
+pub mod world_facts;
 
 // Public re-exports double as the external API for bins, tests, and docs.
 pub mod features;

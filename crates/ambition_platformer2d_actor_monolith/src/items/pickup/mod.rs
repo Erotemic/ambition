@@ -83,7 +83,7 @@ impl Plugin for ItemPickupSimulationPlugin {
         // whether an object's holder is a `RoomResident`, and that filter is
         // `Without<InCustodyOf>` — so on the tick a possession starts or ends,
         // the answer depends on a marker a DIFFERENT domain writes
-        // (`project_driven_body_custody`, which owns the whole non-item body
+        // (`body_custody::project_body_custody`, which owns the whole non-item body
         // population). Both chains were internally ordered, internally correct,
         // and siblings under `PlayerSimulation` with nothing between them.
         //

@@ -33,7 +33,7 @@ fn trigger_app() -> App {
         (
             possession_trigger_system,
             release_possession_if_target_lost,
-            super::project_driven_body_custody,
+            crate::body_custody::project_body_custody,
         )
             .chain(),
     );

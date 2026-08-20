@@ -1910,6 +1910,14 @@ fn a_team_victory_names_the_team_and_not_its_last_survivor() {
 /// own streams     grows              (two fighters)
 /// ```
 ///
+/// ⛔⛔ **AND THE DIAGNOSIS ABOVE IS SUPERSEDED (review, 2026-08-19): the shared
+/// stream is FIXED, so a red verdict here no longer means "one mind twice".** The
+/// seats draw different samples and genuinely fight; what remains is that a
+/// symmetric stage gives two different minds nothing to disagree about, which at
+/// difficulty 5 is 0–1 frames of execution noise. That is a fairness question for
+/// the maintainer (queue D167), not a defect in the brain — and it is why the
+/// failure message below says so instead of naming a cause that is gone.
+///
 /// ⚠ **the spawns really are mirrored** — measured at 224 and 416 about a midline
 /// of 320 — so the two fighters begin in circumstances that are symmetric rather
 /// than merely similar. That is what makes this a fair test of the fighters: the
@@ -2002,9 +2010,13 @@ fn two_cpus_wearing_one_character_stop_being_a_perfect_reflection() {
     );
     assert!(
         worst_mirror_error > 1.0,
-        "two CPU {character} fighters at one level stayed an EXACT mirror image of \
-         each other for {ticks_observed} ticks (worst mirror error \
-         {worst_mirror_error}px) — they are one mind played twice, which is exactly \
-         the symmetry that was reported"
+        "two CPU {character} fighters at one level stayed within \
+         {worst_mirror_error}px of a perfect reflection for {ticks_observed} ticks. \
+         ⛔ this is NOT one mind played twice — the two seats draw from different \
+         streams, and the sibling guards listed above prove it. What it says is \
+         that a symmetric stage plus symmetric information leaves two different \
+         streams almost nothing to diverge ON at this difficulty. Whether that is \
+         acceptable is a product decision (queue D167); do NOT answer it by \
+         unmirroring the spawns or by adding noise"
     );
 }

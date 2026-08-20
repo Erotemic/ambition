@@ -357,7 +357,13 @@ pub mod character {
     /// content before a session exists.
     pub use ambition_platformer2d_provider::PlatformerAuthoredCatalogRegistry;
 
-    pub use ambition_characters::actor::WornCharacter;
+    pub use ambition_characters::actor::{CharacterLocomotion, ContactDamage, WornCharacter};
+    /// Controller policy and locomotion vocabulary used by Rust-authored characters.
+    ///
+    /// These are CHARACTER-AUTHORING values, not runtime implementation types: a
+    /// third-party game must be able to state how its own autonomous character
+    /// moves and decides without importing the engine's internal crates.
+    pub use ambition_characters::brain::{BrainProfile, CharacterBrainTemplate, MoveStyleSpec};
     /// Declaring a character in Rust, for the cases ADR 0032 keeps in Rust:
     /// tests, procedural generation, unrepresentable schemas, and a cast whose
     /// behavior is supplied by host code as a deliberate authoring choice.

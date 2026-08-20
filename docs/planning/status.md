@@ -191,10 +191,12 @@ substrate had overtaken the two fronts printed above it:
    asks the same question — *how would you make this again?* — and gets the same
    answer.
 
-   ⭐⭐ **AND A LOAD IS A CHECKPOINT RESUME.** `restore_durable_horizon` adopts
-   the ledger and the three baselines from the file and writes one
+   ⭐⭐ **AND A LOAD IS A CHECKPOINT RESUME.** Durable adoption is now
+   domain-owned: the occurrence adapter adopts occurrence/custody state and the
+   item restore adopts minted/quantity baselines after applying the saved bag. A
+   final completion system then raises `SaveRestored` and writes one
    `ResetToCheckpoint`; everything after that is the road a death already takes.
-   ⇒ the durable slice is **two systems and no reconstruction logic**, and there
+   ⇒ the durable slice adds coordination, **not reconstruction logic**, and there
    is still exactly ONE authority on what a room owes the world.
 
    ⭐ **the defect only the fixture could find, and its fix is the reusable

@@ -3,15 +3,17 @@
 //!
 //! ```text
 //! 1  current world truth     AuthoredOccurrences + ItemCustody          ✔
-//! 2  checkpoint truth        OccurrenceBaseline + CustodyBaseline +     ✔
-//!                            MintedItemBaseline, restored on a death
+//! 2  checkpoint truth        occurrence/custody/minted descriptions +    ✔
+//!                            OwnedItemsBaseline, restored on a death
 //! 3  durable save truth      ← THIS MODULE
 //! ```
 //!
 //! # ⭐⭐ THE ON-DISK FORM IS THE CHECKPOINT'S OWN DESCRIPTION, SERIALIZED
 //!
-//! Not a fourth description of the same facts. The three values a checkpoint
-//! copies are exactly the three lists this writes, field for field:
+//! Not a fourth description of the same facts. The occurrence half of a
+//! checkpoint is exactly the three occurrence lists this writes, field for field;
+//! the sibling item leg persists `OwnedItemsBaseline`'s quantity state through
+//! `save.items` rather than pretending a quantity is an occurrence:
 //!
 //! ```text
 //! AuthoredOccurrences   → save.occurrences   SimId + InCustody | Placed{room,at} | Consumed
@@ -34,7 +36,8 @@
 //!
 //! # ⭐⭐ A LOAD IS A CHECKPOINT RESUME
 //!
-//! [`restore_durable_horizon`] installs the three values and writes one
+//! The lifecycle adopter and item-domain restore install their own values. A
+//! final completion system then raises [`SaveRestored`] and writes exactly one
 //! [`ResetToCheckpoint`]. Everything after that is the road a DEATH already
 //! takes, unchanged:
 //!
@@ -86,8 +89,9 @@
 //!   ledger tracks only occurrences it already `remembers` — things somebody
 //!   CARRIED — and `record_placed_ground_items` refuses to become the universal
 //!   instance registry that tracking everything would require;
-//! * `OwnedItems` is a QUANTITY table persisted by the sibling leg in
-//!   `items::persist`, and the two do not coordinate (D132's surviving half);
+//! * ✔ `OwnedItems` remains a QUANTITY table, but its checkpoint baseline is
+//!   now adopted by the same item-domain restore that applies the saved bag,
+//!   before the global restore latch rises;
 //! * `OccurrenceWhereabouts::Consumed` round-trips through the file and has no
 //!   live producer, so nothing yet WRITES a terminal row.
 
@@ -96,20 +100,12 @@ use std::collections::BTreeMap;
 use bevy::prelude::*;
 
 use ambition_persistence::save::AmbitionGameSave;
-use ambition_persistence::save_data::{
-    PersistedCustody, PersistedMintedItem, PersistedOccurrence, PersistedWhereabouts,
-};
-use ambition_platformer2d_shared_tangle::construction::SpawnOrigin;
+use ambition_persistence::save_data::{PersistedCustody, PersistedOccurrence, PersistedWhereabouts};
 use ambition_platformer2d_shared_tangle::lifecycle::{
     live_custody_rows, AuthoredOccurrences, CustodyBaseline, InCustodyOf, OccurrenceBaseline,
     OccurrenceWhereabouts, ResetToCheckpoint, RoomScopedEntity,
 };
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
-
-use crate::items::pickup::minted_horizon::{
-    live_minted_descriptions, MintedItemBaseline, MintedItemDescription,
-};
-use crate::items::pickup::{GroundItem, ItemCustody};
 
 /// **Has the loaded save been applied to this world yet?**
 ///
@@ -129,91 +125,23 @@ use crate::items::pickup::{GroundItem, ItemCustody};
 #[derive(Resource, Default, Clone)]
 pub struct SaveRestored(pub bool);
 
-/// **Every baseline a durable load must adopt, named once.**
+/// Adopt the lifecycle/occurrence domain from a loaded file.
 ///
-/// ⛔⛔ **THIS TYPE EXISTS BECAUSE A BASELINE WAS ADDED AND THIS SITE DID NOT
-/// NOTICE (2026-08-19).** A checkpoint baseline owes the horizon five separate
-/// enrollments, in three crates:
-///
-/// ```text
-/// 1  init_resource                 CheckpointHorizonPlugin   (runtime)
-/// 2  a capture system              in `CheckpointCapture`    (runtime)
-/// 3  a restore system              in `CheckpointRestore`    (runtime)
-/// 4  DURABLE-LOAD ADOPTION         here                      (this crate)
-/// 5  rollback declaration+checksum rollback_registration.rs  (this crate)
-/// ```
-///
-/// `OwnedItemsBaseline` got 1, 2, 3 and 5 and missed 4, and nothing failed:
-/// a missing adoption is silent until the FIRST DEATH AFTER A LOAD, which then
-/// restores an empty bag over everything the save remembered.
-///
-/// ⭐ **gathering them into one `SystemParam` moves obligation 4 from memory to
-/// the compiler**: the destructure in [`restore_durable_horizon`] is exhaustive,
-/// so a fifth field here is a build error at the exact site that must handle it.
-///
-/// ⚠ **it does NOT guard obligations 1–3 and 5**, and pretending otherwise would
-/// be worse than saying so. Those live in other crates and are enrolled
-/// separately; the honest statement is that this closes the one leg whose
-/// omission is invisible. The eventual shape — a domain-owned participant that
-/// carries all five together — is recorded in
-/// `docs/planning/engine/instance-lifetime-provenance-and-persistence.md`.
-///
-/// ⚠ every field is `Option` for the same reason the old parameters were: a
-/// composition that installs no reset horizon is legal, and this system must
-/// degrade to doing nothing rather than failing param validation.
-#[derive(bevy::ecs::system::SystemParam)]
-pub struct DurableBaselines<'w> {
-    pub occurrence: Option<ResMut<'w, OccurrenceBaseline>>,
-    pub custody: Option<ResMut<'w, CustodyBaseline>>,
-    pub minted: Option<ResMut<'w, MintedItemBaseline>>,
-    pub owned_items: Option<ResMut<'w, crate::items::pickup::minted_horizon::OwnedItemsBaseline>>,
-}
-
-/// **Apply the file's memory of where everything is, then ask for a checkpoint
-/// resume.**
-///
-/// ⚠ **it waits for a primary body, and shares that gate with
-/// [`restore_inventory_from_save`](crate::items::persist::restore_inventory_from_save)
-/// on purpose.** The resume it requests names a SUBJECT, so a reset written into
-/// a bodiless world is read by `resume_at_checkpoint_on_reset`, found subjectless,
-/// and dropped — the ledger would be installed and no room would ever be rebuilt
-/// from it. The two restores run in one chain behind one latch, so they land
-/// together or not at all.
-///
-/// ⚠ **and it is IDEMPOTENT anyway**, which is what keeps that shared gate from
-/// being load-bearing: adopting a value it already holds writes nothing, and a
-/// second `ResetToCheckpoint` reconciles against the same baseline and reaches
-/// the same world.
-pub fn restore_durable_horizon(
+/// This is deliberately one domain adapter rather than one parameter per
+/// checkpoint baseline in a global census. Item-domain baselines are adopted by
+/// `items::persist::restore_inventory_from_save`, beside the item state the file
+/// actually restores.
+pub fn adopt_occurrence_checkpoint_from_save(
     restored: Res<SaveRestored>,
     save: Res<AmbitionGameSave>,
-    // The readiness gate, read as a COUNT rather than taken: this system needs a
-    // body to exist, not to touch one.
     bodies: Query<(), crate::actor::PrimaryPlayerOnly>,
     occurrences: Option<ResMut<AuthoredOccurrences>>,
-    // ⛔⛔ **ONE PARAMETER, AND THAT IS THE FIX.** These were four separate
-    // `Option<ResMut<…>>` and the fourth was MISSING for a few hours on
-    // 2026-08-19 — `OwnedItemsBaseline` joined the checkpoint horizon that
-    // morning and nothing made this site notice, so a fresh process started with
-    // the DEFAULT baseline (an empty bag) and the first death after a load
-    // restored that over everything the file remembered. See
-    // [`DurableBaselines`] for why they travel together now.
-    baselines: DurableBaselines,
-    owned_items: Option<Res<crate::items::OwnedItems>>,
-    mut resets: MessageWriter<ResetToCheckpoint>,
+    occurrence_baseline: Option<ResMut<OccurrenceBaseline>>,
+    custody_baseline: Option<ResMut<CustodyBaseline>>,
 ) {
     if restored.0 || bodies.is_empty() {
         return;
     }
-    // ⭐ **EXHAUSTIVE, on purpose.** A fifth baseline cannot be added to
-    // [`DurableBaselines`] without this line failing to compile, which is what
-    // turns "remember to adopt it here" into something the compiler says.
-    let DurableBaselines {
-        occurrence: occurrence_baseline,
-        custody: custody_baseline,
-        minted: minted_baseline,
-        owned_items: owned_items_baseline,
-    } = baselines;
     let Some(mut occurrences) = occurrences else {
         return;
     };
@@ -224,9 +152,6 @@ pub fn restore_durable_horizon(
         .iter()
         .map(|row| {
             (
-                // ⛔ the id is REBUILT, never re-derived: `SimId::from_snapshot`
-                // is the one road from a raw string, and the string in the file
-                // is the same one the checksum and every snapshot row key on.
                 SimId::from_snapshot(row.id.clone()),
                 match &row.whereabouts {
                     PersistedWhereabouts::InCustody => OccurrenceWhereabouts::InCustody,
@@ -249,57 +174,64 @@ pub fn restore_durable_horizon(
             )
         })
         .collect();
-    let minted: BTreeMap<SimId, MintedItemDescription> = data
-        .minted_items
-        .iter()
-        .map(|row| {
-            (
-                SimId::from_snapshot(row.occurrence.clone()),
-                MintedItemDescription {
-                    origin: SpawnOrigin::Dynamic {
-                        parent: SimId::from_snapshot(row.parent.clone()),
-                        sequence: row.sequence,
-                    },
-                    held_item: row.held_item.clone(),
-                },
-            )
-        })
-        .collect();
 
     occurrences.adopt_rows(ledger_rows);
-    // ⭐ the loaded state is this process's baseline — see the module header.
     if let Some(mut baseline) = occurrence_baseline {
         baseline.adopt(occurrences.clone());
     }
     if let Some(mut baseline) = custody_baseline {
         baseline.adopt(held);
     }
-    if let Some(mut baseline) = minted_baseline {
-        baseline.adopt(minted);
+}
+
+/// Mark durable adoption complete and request the ordinary checkpoint resume.
+///
+/// This is the only global completion point. Domain adopters run before it and
+/// touch only their own state; this system states that every adopter in the
+/// chain has had its turn. Keeping the request here prevents an item or lifecycle
+/// domain from becoming the coordinator for its siblings.
+pub fn complete_durable_restore(
+    mut restored: ResMut<SaveRestored>,
+    save: Res<AmbitionGameSave>,
+    ready_body: Query<&ambition_characters::actor::BodyWallet, crate::actor::PrimaryPlayerOnly>,
+    mut resets: MessageWriter<ResetToCheckpoint>,
+) {
+    if restored.0 || ready_body.single().is_err() {
+        return;
     }
-    // ⚠ **the ENTITLEMENTS come from the live table, not from the row list
-    // above.** `items::persist` has already restored `OwnedItems` from the file
-    // by the time this runs — it is the sibling leg, and the two do not
-    // coordinate (D132's surviving half) — so what this process must adopt as
-    // its baseline is what the bag actually holds now.
-    if let (Some(mut baseline), Some(owned)) = (owned_items_baseline, owned_items) {
-        baseline.adopt(owned.clone());
-    }
-    // ⭐⭐ AND THE SHIPPED RESUME DOES THE REST. Nothing here spawns, despawns,
-    // equips or rebuilds a room: the restore road a death takes reads the three
-    // values just installed and reaches the same world from them.
-    //
-    // ⛔ **only when the file actually remembered something, and that condition
-    // is not an optimisation.** A resume rebuilds the active room and puts the
-    // body at the checkpoint; a save with nothing to say about any occurrence
-    // describes a world already in its authored state, so asking for one would
-    // make every session — every demo, every harness, every fresh boot — take a
-    // room rebuild and a teleport on its first frame for no fact at all.
-    // `restore_checkpoint_on_session_start` is the road that already opens a
-    // session at its checkpoint.
+    restored.0 = true;
+    let data = save.data();
     if !data.occurrences.is_empty() || !data.custody.is_empty() || !data.minted_items.is_empty() {
         resets.write(ResetToCheckpoint);
     }
+}
+
+/// Install the complete durable-save application/mirroring chain owned by the
+/// actor integration layer.
+///
+/// The generic runtime calls this one domain offer. It no longer enumerates
+/// concrete durable systems or checkpoint baselines.
+pub fn install_durable_save_horizon(app: &mut App) {
+    app.init_resource::<SaveRestored>().add_systems(
+        Update,
+        (
+            // Lifecycle state first: the room/custody baseline must be present
+            // before the load asks the ordinary checkpoint-resume road to act.
+            adopt_occurrence_checkpoint_from_save,
+            // Item state second. This applies the saved bag and adopts BOTH
+            // item checkpoint baselines from the post-load values.
+            crate::items::persist::restore_inventory_from_save,
+            // The host-level completion point comes last: only now is the file
+            // fully applied, and only now may a checkpoint resume be requested.
+            complete_durable_restore,
+            // Mirrors run only after the latch is true, so none can overwrite a
+            // file before all domain adopters have consumed it.
+            crate::items::persist::persist_inventory_to_save,
+            persist_occurrence_horizon_to_save,
+            crate::items::pickup::minted_horizon::persist_minted_item_horizon_to_save,
+        )
+            .chain(),
+    );
 }
 
 /// **Mirror what the world currently remembers into the save**, for the autosave
@@ -317,12 +249,11 @@ pub fn restore_durable_horizon(
 /// and a save that wrote the shrine's memory instead would move it back while
 /// they watched.
 #[allow(clippy::too_many_arguments)]
-pub fn persist_durable_horizon_to_save(
+pub fn persist_occurrence_horizon_to_save(
     restored: Res<SaveRestored>,
     occurrences: Option<Res<AuthoredOccurrences>>,
     carried: Query<(&SimId, &InCustodyOf), With<RoomScopedEntity>>,
     custodians: Query<&SimId>,
-    minted: Query<(&SimId, &SpawnOrigin, &GroundItem, &ItemCustody), With<RoomScopedEntity>>,
     mut save: ResMut<AmbitionGameSave>,
 ) {
     if !restored.0 {
@@ -357,34 +288,13 @@ pub fn persist_durable_horizon_to_save(
             PersistedCustody::new(occurrence.as_str(), custodian.as_str())
         })
         .collect();
-    let minted_items: Vec<PersistedMintedItem> = live_minted_descriptions(&minted)
-        .into_iter()
-        .filter_map(|(occurrence, description)| {
-            // ⛔ the population is `SpawnOrigin::Dynamic` by construction — see
-            // `live_minted_descriptions` — so this destructure cannot fail. It is
-            // written as a match rather than an unwrap because the disk row's
-            // shape IS "dynamic", and a describer that ever handed over an
-            // authored origin must be dropped rather than flattened into one.
-            let SpawnOrigin::Dynamic { parent, sequence } = &description.origin else {
-                return None;
-            };
-            Some(PersistedMintedItem {
-                occurrence: occurrence.as_str().to_string(),
-                parent: parent.as_str().to_string(),
-                sequence: *sequence,
-                held_item: description.held_item.clone(),
-            })
-        })
-        .collect();
-
     let data = save.data();
-    if data.occurrences == rows && data.custody == custody && data.minted_items == minted_items {
+    if data.occurrences == rows && data.custody == custody {
         return;
     }
     let data = save.data_mut();
     data.occurrences = rows;
     data.custody = custody;
-    data.minted_items = minted_items;
 }
 
 #[cfg(test)]

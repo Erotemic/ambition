@@ -12,9 +12,18 @@ fn app_with(save: AmbitionGameSave, owned: OwnedItems, wallet: i32) -> (App, Ent
     app.insert_resource(save);
     app.insert_resource(owned);
     app.init_resource::<crate::session::durable_horizon::SaveRestored>();
+    app.init_resource::<crate::items::pickup::minted_horizon::MintedItemBaseline>();
+    app.init_resource::<crate::items::pickup::minted_horizon::OwnedItemsBaseline>();
     app.add_systems(
         Update,
-        (restore_inventory_from_save, persist_inventory_to_save).chain(),
+        (
+            restore_inventory_from_save,
+            |mut restored: ResMut<crate::session::durable_horizon::SaveRestored>| {
+                restored.0 = true;
+            },
+            persist_inventory_to_save,
+        )
+            .chain(),
     );
     let player = app
         .world_mut()
@@ -77,6 +86,32 @@ fn a_fresh_save_keeps_the_starter_and_then_persists_it() {
             .iter()
             .any(|i| i.id == Item::Fireball.dialog_id()),
         "the starter items were written to the save"
+    );
+}
+
+#[test]
+fn a_fresh_process_adopts_the_post_load_bag_as_its_checkpoint_baseline() {
+    let mut save = AmbitionGameSave::default();
+    save.data_mut().inventory_saved = true;
+    save.data_mut().items = vec![ambition_persistence::save_data::PersistedItem::new(
+        Item::HealthCell.dialog_id(),
+        4,
+    )];
+
+    // Deliberately start from a DIFFERENT live bag. The old central durable
+    // adopter ran before this restore and therefore captured this starter bag;
+    // the first death after a genuine fresh-process load then reverted the file.
+    let (mut app, _player) = app_with(save, OwnedItems::starter(), 0);
+    app.update();
+
+    let baseline = app
+        .world()
+        .resource::<crate::items::pickup::minted_horizon::OwnedItemsBaseline>();
+    assert_eq!(baseline.remembered().count(Item::HealthCell), 4);
+    assert_eq!(
+        baseline.remembered().count(Item::Fireball),
+        0,
+        "the checkpoint baseline must be the bag AFTER load, not the starter bag that existed before it",
     );
 }
 

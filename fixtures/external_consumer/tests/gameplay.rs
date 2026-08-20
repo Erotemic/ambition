@@ -7,8 +7,8 @@
 
 /// Boot → activate → verify population → charge the beacon → walk the ridge
 /// gate. One test, the whole authored surface: the room (construction), the
-/// character (catalog), the sentry (roster + stager, lowered as a construction
-/// plan row), the consumer's own authoritative component (§authority), and the
+/// character (catalog), the sentry (character definition + stager, lowered as a
+/// construction plan row), the consumer's own authoritative component (§authority), and the
 /// transition (`transit_body`) — all through the public `ambition_platformer2d` umbrella with
 /// zero engine edits.
 #[test]
@@ -277,20 +277,6 @@ fn authoring_mistakes_name_the_thing_the_author_must_fix() {
          difference between a typo and a rule the author has to look up: {message}"
     );
 
-    // The ROSTER seam, the fixture's other public authoring surface. A roster is
-    // a second file naming ids the catalog owns, which is precisely where a
-    // rename goes wrong.
-    {
-        use ambition_platformer2d::actor::CharacterRosterFragment;
-        let broken = CharacterRosterFragment::from_ron("outlander", "( roster: { \"missing\": ")
-            .expect_err("truncated roster RON must be refused");
-        let message = broken.to_string();
-        assert!(
-            message.contains("outlander"),
-            "the roster diagnostic does not name the provider: {message}"
-        );
-    }
-
     // **WHICH FILE.** The clause this test is named after asks for file, id and
     // field. The id and the field were always there (the validator says
     // `character 'x' has empty spritesheet path`); the FILE could not be, because
@@ -311,14 +297,6 @@ fn authoring_mistakes_name_the_thing_the_author_must_fix() {
             "the diagnostic does not name the FILE the author has to open, which \
              is the clause this test exists for: {mistyped}"
         );
-
-        use ambition_platformer2d::actor::CharacterRosterFragment as Roster;
-        let broken = Roster::from_ron_at(source, "outlander", "( roster: {")
-            .expect_err("truncated roster RON must be refused");
-        assert!(
-            broken.to_string().contains(source),
-            "the roster diagnostic does not name the file either: {broken}"
-        );
     }
 
     // An empty provider id — the mistake a host makes rather than an author.
@@ -328,6 +306,49 @@ fn authoring_mistakes_name_the_thing_the_author_must_fix() {
         anonymous.to_string().to_lowercase().contains("provider"),
         "the diagnostic does not mention the provider id at all: {anonymous}"
     );
+}
+
+/// **A third party can author an autonomous creature without the deleted roster.**
+///
+/// D73 split the old row into body, controller, and placement authorities. This
+/// fixture is the public-SDK witness: all of the sentry facts it used to carry in
+/// `CharacterRosterFragment` are now reachable through `ambition_platformer2d`
+/// alone, and preparation produces a complete body.
+#[test]
+fn a_consumer_authors_an_enemy_through_the_character_definition_seam() {
+    use ambition_platformer2d::character::{
+        CharacterBrainTemplate, ContactDamage, MoveStyleSpec, PreparedCharacterRegistry,
+    };
+
+    let app = outlander::build_outlander_app();
+    let prepared = app
+        .world()
+        .resource::<PreparedCharacterRegistry>();
+    let sentry = prepared
+        .get(outlander::OUTLANDER_SENTRY_CHARACTER_ID)
+        .expect("the external provider registered its sentry character");
+    let body = sentry
+        .body_blueprint()
+        .expect("the external sentry is a complete character-first body");
+
+    assert_eq!(body.max_health, 2);
+    assert_eq!(body.locomotion.run_speed, 38.0);
+    assert_eq!(body.locomotion.move_style, MoveStyleSpec::Walk);
+    assert_eq!(
+        body.contact_damage,
+        Some(ContactDamage {
+            strength: 0.5,
+            amount: 1,
+        })
+    );
+    let profile = body
+        .autonomous_profile
+        .expect("the sentry authors its controller policy");
+    assert_eq!(profile.template, CharacterBrainTemplate::Wanderer);
+    assert_eq!(profile.patrol_effort, 1.0);
+    assert_eq!(profile.chase_effort, 1.0);
+    assert_eq!(profile.aggro_radius, 0.0);
+    assert_eq!(profile.attack_range, 0.0);
 }
 
 /// **A third party can say what its own character LOOKS LIKE.** (queue U1)

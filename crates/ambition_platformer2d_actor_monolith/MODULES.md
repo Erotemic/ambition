@@ -18,6 +18,7 @@
 | [`causal`](src/causal.rs) | This crate's causal facts. |
 | [`character_runtime`](src/character_runtime/mod.rs) | **The engine owns turning a declared character into loaded art.** |
 | [`character_sprites`](src/character_sprites/mod.rs) | Spritesheet metadata, atlas/animation logic, and loading for every animated character (player robot, goblins, sandbag, boss, NPCs). |
+| [`checkpoint_horizon`](src/checkpoint_horizon.rs) | Actor-side contribution to the reset/checkpoint horizon. |
 | [`config`](src/config.rs) | The render-only `rgba` color helper. |
 | [`construction`](src/construction/mod.rs) | **The actor construction domain: three origins, one planner.** |
 | [`control`](src/control/mod.rs) | **The local control seam** — device frame → slot → the body carrying that slot's player brain. |
@@ -43,7 +44,7 @@
 | [`world`](src/world/mod.rs) | World / level authoring runtime: room graph + spawning, the code-first room builder, the Avian2D physics adapter, and LDtk-authored moving platforms. |
 | [`world_facts`](src/world_facts.rs) | **What the world-fact domain lets authored content ask — and tell — about flags.** |
 
-_36 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_37 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

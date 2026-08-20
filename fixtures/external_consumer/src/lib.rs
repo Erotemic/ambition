@@ -1,8 +1,9 @@
 //! **Outlander** — the Phase-6 external-architecture proof.
 //!
 //! A complete (tiny) game authored from OUTSIDE the engine workspace, through
-//! the `ambition_platformer2d` umbrella alone: one room, one character, one enemy, one
-//! construction recipe, one transition. The point is not the game — it is the
+//! the `ambition_platformer2d` umbrella alone: one room, one playable character, one
+//! autonomous sentry character, one construction recipe, one transition. The point
+//! is not the game — it is the
 //! evidence: every `ambition_platformer2d::` path this file imports is the de-facto SDK
 //! surface, and every place it has to lean on an engine-internal assumption is
 //! recorded in the campaign doc's Phase 6 account as an API leak.
@@ -11,8 +12,8 @@
 //! - §room     — `RoomSpec` in code (`ambition_platformer2d::world::rooms` + `engine_core`).
 //! - §character— `CharacterCatalogFragment::from_ron` (the same catalog seam
 //!               every in-repo provider uses).
-//! - §enemy    — a `CharacterRosterFragment` archetype plus a
-//!               `RoomContentStagingRegistry` stager. Because of Phase 4, the
+//! - §enemy    — a `CharacterDefinition` plus a `RoomContentStagingRegistry`
+//!               stager. Because of Phase 4, the
 //!               staged enemy is lowered as a CONSTRUCTION PLAN ROW through
 //!               the `ambition.staged-actor` recipe — the "one construction
 //!               recipe" this fixture consumes without defining (an external
@@ -55,6 +56,7 @@ pub const OUTLANDER_LAUNCHER_ROUTE: &str = "outlander_launcher";
 pub const OUTLANDER_CHARACTER_ID: &str = "outlander_wanderer";
 pub const OUTLANDER_ROOM_ID: &str = "outlander_ridge";
 pub const OUTLANDER_ENEMY_BRAIN_KEY: &str = "outlander_sentry";
+pub const OUTLANDER_SENTRY_CHARACTER_ID: &str = "outlander_sentry";
 pub const OUTLANDER_SENTRY_ID: &str = "outlander_sentry_0";
 
 // ── §character ──────────────────────────────────────────────────────────────
@@ -133,22 +135,14 @@ pub const OUTLANDER_SHEET_RON: &str = r#"[
 ),
 ]"#;
 
-// ── §enemy (archetype half) ─────────────────────────────────────────────────
-const OUTLANDER_ROSTER_RON: &str = r#"{
-    "outlander_sentry": (
-        max_health: 2,
-        run_speed: 38.0,
-        patrol_effort: 1.0,
-        chase_effort: 1.0,
-        aggro_radius: 0.0,
-        attack_range: 0.0,
-        contact_strength: 0.5,
-        damage_amount: 1,
-        brain_template: Wanderer,
-        move_style: Walk,
-        respawn: OnRoomReenter,
-    ),
-}"#;
+// ── §enemy (character half) ─────────────────────────────────────────────────
+//
+// D73 deleted the old enemy roster because one row mixed three authorities:
+// what a body IS, how an autonomous driver DECIDES, and what this placement
+// should do when the body dies. Outlander now demonstrates the public replacement
+// from outside the workspace: body facts live on a CharacterDefinition, controller
+// policy lives in BrainProfile, and the staged placement keeps its own respawn
+// policy (EnemySpawnSpec's default is OnRoomReenter).
 
 // ── §room ───────────────────────────────────────────────────────────────────
 /// Two floors joined by the §transition gate: a lower ridge with the sentry,
@@ -199,21 +193,17 @@ fn sentry_spawn_requests(spawn: Vec2) -> Vec<ambition_platformer2d::actor::Spawn
             brain: ambition_platformer2d::character::CharacterBrain::Custom(
                 OUTLANDER_ENEMY_BRAIN_KEY.to_string(),
             ),
-            // ⚠ **`None` is the right answer here and it is a statement, not a
-            // gap.** A programmatic spawn may name the CHARACTER it wants
-            // (campaign P1.12), which is what stops a fixture silently getting a
-            // generic body when its creature migrates. The sentry has not
-            // migrated: this crate authors it as a roster ROW in
-            // `OUTLANDER_ROSTER_RON`, that row exists, and the brain key
-            // resolves it. An id here would name a character nobody registered.
-            character: None,
+            // The body identity is REQUIRED post-D73. The controller key above is
+            // placement vocabulary; it is not a second source of body facts.
+            character: ambition_platformer2d::entity_catalog::CharacterId::new(
+                OUTLANDER_SENTRY_CHARACTER_ID,
+            ),
         },
     }]
 }
 
 pub fn install_outlander_content(app: &mut App) {
-    use ambition_platformer2d::actor::{CharacterRosterFragment, RoomContentStagingRegistry};
-    use ambition_platformer2d::character::CharacterRosterAppExt;
+    use ambition_platformer2d::actor::RoomContentStagingRegistry;
     use ambition_platformer2d::character::{CharacterCatalogAppExt, CharacterCatalogFragment};
 
     // `from_ron_at` for the CATALOG, and it is located for a reason: these
@@ -221,14 +211,6 @@ pub fn install_outlander_content(app: &mut App) {
     // the message a stranger reads should say WHERE. The seam took an anonymous
     // `&str` until 2026-07-28, so no diagnostic could name a file however hard
     // it tried.
-    //
-    // ⛔ **the ROSTER's located variant was DELETED as dead on 2026-08-12 and
-    // has been RESTORED, because this file is what the census could not see.**
-    // The technique was `#[deprecated]` + `cargo check --workspace`, and this
-    // crate is `exclude`d from the workspace — so the only in-repo consumer that
-    // links the engine from OUTSIDE, which is the entire population a public-API
-    // census is about, was invisible. Its own test three hundred lines away
-    // asserts the located roster diagnostic (ledger D110).
     app.register_character_catalog_fragment(
         CharacterCatalogFragment::from_ron_at(
             "fixtures/external_consumer/src/lib.rs:OUTLANDER_CATALOG_RON",
@@ -269,21 +251,53 @@ pub fn install_outlander_content(app: &mut App) {
     // guards is smaller and still real — the row's own `drifter` set — and the
     // assertion is unchanged.
     {
-        use ambition_platformer2d::character::{CharacterDefinition, CharacterDefinitionAppExt};
+        use ambition_platformer2d::character::{
+            ActionSet, BrainProfile, CharacterBrainTemplate, CharacterDefinition,
+            CharacterDefinitionAppExt, CharacterLocomotion, ContactDamage, MoveStyleSpec,
+        };
+
         app.register_character(
             CharacterDefinition::new(OUTLANDER_CHARACTER_ID, "Outlander", OUTLANDER_EXPERIENCE)
                 .with_sheet("outlander")
-                .with_action_set(ambition_platformer2d::character::ActionSet::default()),
+                .with_action_set(ActionSet::default()),
         );
-    }
-    app.register_character_roster_fragment(
-        CharacterRosterFragment::from_ron_at(
-            "fixtures/external_consumer/src/lib.rs:OUTLANDER_ROSTER_RON",
+
+        // **The old roster row, expressed through the post-D73 authorities.**
+        //
+        // Body:      max_health, run_speed, move_style, contact damage.
+        // Controller: Wanderer + effort/radius policy.
+        // Placement: OnRoomReenter is EnemySpawnSpec's named default.
+        //
+        // This is deliberately a SECOND character rather than pretending the
+        // sentry's brain key is a body identity. A third-party author can now
+        // state the same creature entirely through the supported umbrella API.
+        let mut sentry = CharacterDefinition::new(
+            OUTLANDER_SENTRY_CHARACTER_ID,
+            "Outlander Sentry",
             OUTLANDER_EXPERIENCE,
-            OUTLANDER_ROSTER_RON,
         )
-        .expect("Outlander roster fragment should be valid"),
-    );
+        .with_sheet("outlander")
+        .with_action_set(ActionSet::default())
+        .with_locomotion(CharacterLocomotion {
+            run_speed: 38.0,
+            move_style: MoveStyleSpec::Walk,
+            ..Default::default()
+        })
+        .with_contact_damage(ContactDamage {
+            strength: 0.5,
+            amount: 1,
+        })
+        .with_autonomous_profile(BrainProfile {
+            template: CharacterBrainTemplate::Wanderer,
+            aggro_radius: 0.0,
+            attack_range: 0.0,
+            patrol_effort: 1.0,
+            chase_effort: 1.0,
+            ..Default::default()
+        });
+        sentry.vitals.max_health = Some(2);
+        app.register_character(sentry);
+    }
     app.init_resource::<RoomContentStagingRegistry>();
     app.world_mut()
         .resource_mut::<RoomContentStagingRegistry>()

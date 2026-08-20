@@ -1269,7 +1269,7 @@ fn a_checkpoint_taken_while_possessing_does_not_manufacture_an_item() {
 /// it had to be measured because the failure would be silent and permanent. A
 /// driven body's occurrence goes into `AuthoredOccurrences` as `InCustody` —
 /// that is the fix, it is what stops the home room authoring a second copy — and
-/// `persist_durable_horizon_to_save` mirrors the ledger to disk. So a save taken
+/// `persist_occurrence_horizon_to_save` mirrors the ledger to disk. So a save taken
 /// mid-possession carries a row saying an enemy is in somebody's hands. A FRESH
 /// PROCESS then adopts that row while nobody is possessing anything, and if the
 /// row survived, the room build would suppress an enemy that nobody is holding

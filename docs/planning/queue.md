@@ -2736,7 +2736,7 @@ ground item out of a body.
 
 ⭐ **AND THE SAVE/LOAD CONSEQUENCE WAS FOLLOWED AND MEASURED, because it would
 have been silent and permanent.** A driven body's occurrence enters the ledger as
-`InCustody` — that IS the fix — and `persist_durable_horizon_to_save` mirrors the
+`InCustody` — that IS the fix — and `persist_occurrence_horizon_to_save` mirrors the
 ledger to disk, so a save taken mid-possession carries a row saying an enemy is
 in somebody's hands. A fresh process adopts that row while nobody possesses
 anything; if it survived, the room build would suppress an enemy nobody is
@@ -2791,18 +2791,15 @@ would make every re-entry log a warn and teleport the actor home anyway — the 
 land together or not at all. And whether an abandoned enemy should stay put is a
 product call, not a defect.
 
-⚠ **AND THE PERSISTENCE HALF OF THIS ROW HAS ITS OWN CARRY LIST — 2026-08-19.**
-A checkpoint baseline owes the reset horizon FIVE separate enrollments across
-three crates: `init_resource`, a capture system, a restore system, DURABLE-LOAD
-ADOPTION, and a rollback declaration with its checksum. `OwnedItemsBaseline` got
-four and missed adoption, and nothing failed — a missing adoption is silent until
-the FIRST DEATH AFTER A LOAD, which restores the default empty bag over
-everything the file remembered. ⭐ adoption is the leg whose omission is
-invisible, so the four baselines now travel as one `DurableBaselines`
-`SystemParam` that `restore_durable_horizon` destructures EXHAUSTIVELY: a fifth
-field is a build error at the site that must handle it (poison-verified, `E0027`).
-⚠ that closes one leg, not the class; the domain-owned participant the class
-wants — and the boxed-callback registry to avoid — are written down in
+✔ **THE PERSISTENCE CARRY LIST IS CLOSED — 2026-08-19.** A checkpoint
+baseline used to require five hand-synchronised enrollments across three crates;
+`OwnedItemsBaseline` missed durable adoption and demonstrated the failure. The
+runtime now composes typed lifecycle + actor checkpoint plugins, each domain owns
+its concrete baseline systems and rollback facet, and `DurableBaselines` is
+deleted. Durable item adoption happens in the same restore that applies the saved
+bag, and a final completion step raises the global restore latch only after every
+domain adopter runs. That also fixed the hidden pre-load-bag ordering bug with a
+fresh-process poison. No erased callback registry was introduced; see
 `engine/instance-lifetime-provenance-and-persistence.md`.
 
 ⭐⭐ **THE CONSTRUCTION FEDERATION HAS A SECOND LANE, AND IT WAS CHEAP —

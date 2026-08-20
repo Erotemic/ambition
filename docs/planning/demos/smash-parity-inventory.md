@@ -190,9 +190,19 @@ mechanic wants them: bury, trip, item handling (`item_pickup` through
 
 ⇒ **the pattern this branch hit five times is systemic**: `grabbed`, `pummel`,
 `dizzy`, `spot_dodge` and `dash_attack` were all drawn and never requested. The
-fix each time was one row in `body_state_clip` or one verb in `bound()`, never a
+fix was usually one row in `body_state_clip` or one verb in `bound()`, never a
 frame of art. ⛔ **so "the sprite is missing" should be the LAST hypothesis**,
 after "nothing asks for it".
+
+⚠ **but `dash_attack` cost FOUR edits, not one, and that is the shape to expect
+when the missing thing is a whole mechanic rather than a row.** The verb had to
+be bound in `bound()`, registered in the runtime's verb vocabulary, given a
+reachable STATE to select it (`BodyMotionFacts::running` — the first attempt read
+the traversal dash's timer, which the fighter kit switches off), and then given
+priority over the smash gesture, because the flick that enters a run is the same
+input that makes a press a smash. ⭐ each of the four was invisible to the tests
+that covered the previous one; only pressing the key in the host found the last
+two.
 
 ## The rest of Ultimate's list
 

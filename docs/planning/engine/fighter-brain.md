@@ -75,42 +75,15 @@ seating two CPUs at different rungs). What was missing was that nobody had run
 it. Median time-to-elimination, higher rung : lower rung, over the four
 registered pairs:
 
-```text
-seeds  3 vs 1              5 vs 3              6 vs 5              9 vs 6
-    3  19.8 : 19.3 higher  23.2 : 23.2 LOWER  16.2 : 20.8 LOWER  23.7 : 28.2 LOWER
-   15  19.9 : 16.8 higher  21.2 : 17.5 higher 19.3 : 20.8 LOWER  22.8 : 20.1 higher
-```
+Two earlier passes here were wrong and are not reproduced: a 3-seed default
+flipped the win direction on three of four pairs versus a 15-seed run of the
+same deterministic build (`DEFAULT_SEEDS` is now 15), and the first pass with an
+added engagement column misread `BodyHealth::damage_percent` — a ratio, where
+`1.88` means the HUD prints `188%` — as an already-scaled percent, so `0.84%`
+was actually **84%** and the "these fighters never hit each other" reading was
+wrong by 100×.
 
-⛔⛔ **the verdict FLIPPED on sample count alone.** Three of four pairs favoured
-the lower rung at three seeds; three of four favour the higher rung at fifteen,
-same build, same seeds-are-deterministic brain. So the 3-seed default was
-producing confident nonsense, and it was the file's own default while its header
-warned *"the median over seeds, never one run"*. `DEFAULT_SEEDS` is now 15.
-
-⛔⛔ **AND THEN THE ENGAGEMENT COLUMN LANDED AND VOIDED ALL OF IT.** The rig
-reported outlast times with no way to tell a duel from two solo walks off the
-edge — its own header demanded *"pair every 'it won' with 'and it engaged'"* and
-nothing did. Adding peak damage percent per seat:
-
-```text
-3 vs 1   0.03% : 0.09%      5 vs 3   0.30% : 0.03%
-6 vs 5   0.11% : 0.84%      9 vs 6   0.33% : 0.34%
-```
-
-A Smash KO lands north of 80%. **These fighters never hit each other.** Every
-"outlast" number above is measuring which body walked off the stage later, so
-the direction of the 15-seed lean says nothing about skill — that reading is
-withdrawn.
-
-⛔⛔ **AND THAT PARAGRAPH IS ITSELF WITHDRAWN (2026-08-19): THE COLUMN WAS OFF BY
-100×.** `BodyHealth::damage_percent` returns a RATIO — its own doc says *"`1.88`
-is a legal answer and is how a HUD prints `188%`"* — and the rig printed it under
-a literal `%`. `0.84%` was **84%**. The sentence *"a Smash KO lands north of
-80%"* was written one line above the number that already said 84, and the
-comparison was made anyway.
-
-⭐ **the corrected table, same build, same fifteen seeds** — and the fighters
-were never the problem:
+⭐ **the corrected table, same build, same fifteen seeds:**
 
 ```text
 3 vs 1    48.0% :  45.0%      5 vs 3   111.0% :  98.0%

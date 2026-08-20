@@ -110,6 +110,19 @@ pub struct BodyHitFeel {
     pub armor_hitstop_time: f32,
 }
 
+/// **A raised guard, and everything a block costs the body behind it.**
+///
+/// ⛔ one argument rather than three, because the three costs are one decision.
+/// A caller that could pass the state without the velocity would be a caller
+/// that could take the block and forget the shove.
+pub struct GuardUnderFire<'a> {
+    pub state: &'a mut ae::BodyShieldState,
+    pub tuning: ae::ShieldTuning,
+    /// The defender's own velocity. A block costs SPACE as well as integrity
+    /// and tempo, and this is where that lands.
+    pub vel: &'a mut ae::Vec2,
+}
+
 /// What [`resolve_body_hit`] decided about one hit on one body.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum BodyHitResolution {
@@ -232,10 +245,11 @@ pub fn resolve_body_hit(
     mut health: Option<&mut BodyHealth>,
     armor: Option<&mut WornEquipment>,
     wallet_shield: Option<WalletArmor<'_>>,
-    // ⭐ the GUARD ITSELF, not just whether it is up: a block spends integrity
-    // and may break the shield, and that cost belongs inside the decision that
-    // grants the block rather than in a follow-up the next caller can forget.
-    shield: Option<(&mut ae::BodyShieldState, ae::ShieldTuning)>,
+    // ⭐ the GUARD ITSELF, not just whether it is up. A block spends integrity,
+    // charges shieldstun and shoves the defender, and every one of those costs
+    // belongs inside the decision that grants the block rather than in a
+    // follow-up the next caller can forget.
+    shield: Option<GuardUnderFire<'_>>,
     facing: f32,
     body_pos: ae::Vec2,
     impact_pos: ae::Vec2,
@@ -271,14 +285,28 @@ pub fn resolve_body_hit(
             return BodyHitResolution::Ignored;
         }
     }
-    let shield_active = shield.as_ref().is_some_and(|(state, _)| state.active);
+    let shield_active = shield.as_ref().is_some_and(|g| g.state.active);
     if !unstoppable && shield_blocks_hit(shield_active, facing, body_pos, impact_pos, gravity_dir) {
         if feel.block_hit_flash > 0.0 {
             combat.hit_flash = feel.block_hit_flash;
         }
         combat.damage_invuln_timer = combat.damage_invuln_timer.max(feel.block_invuln_floor);
-        if let Some((state, tuning)) = shield {
-            ae::body_clusters::spend_shield_on_block(state, tuning, raw_damage);
+        if let Some(guard) = shield {
+            ae::body_clusters::spend_shield_on_block(guard.state, guard.tuning, raw_damage);
+            // ⭐ **the third cost, and the one that is about SPACE.** Integrity
+            // is the resource, shieldstun is the tempo, and this is the ground:
+            // hold a guard near a ledge and the hits themselves walk you toward
+            // it. Lateral only — a block pushes you back, never up or into the
+            // floor — so it is taken perpendicular to the body's own gravity and
+            // works under any of it.
+            let push = guard.tuning.pushback_per_damage * raw_damage.max(0) as f32;
+            if push > 0.0 {
+                let away = body_pos - impact_pos;
+                let lateral = away - gravity_dir * away.dot(gravity_dir);
+                if let Some(dir) = lateral.try_normalize() {
+                    *guard.vel += dir * push;
+                }
+            }
         }
         return BodyHitResolution::Blocked;
     }
@@ -467,14 +495,22 @@ pub(crate) fn handle_player_damage_events(
     // difficulty-scaled damage, death flag, hit-flash + i-frame arming.
     // Difficulty is player POLICY: easy halves incoming damage, hard doubles
     // it, plus the fine-grained gameplay multiplier and assist factor.
+    // ⚠ read BEFORE the guard borrows the velocity mutably: both live on
+    // `BodyKinematics`, and `pos`/`facing` are `Copy`.
+    let facing_now = clusters.kinematics.facing;
+    let pos_now = clusters.kinematics.pos;
     let resolution = resolve_body_hit(
         combat,
         player_health.as_deref_mut(),
         armor,
         wallet_shield,
-        Some((clusters.shield, tuning.shield)),
-        clusters.kinematics.facing,
-        clusters.kinematics.pos,
+        Some(GuardUnderFire {
+            state: clusters.shield,
+            tuning: tuning.shield,
+            vel: &mut clusters.kinematics.vel,
+        }),
+        facing_now,
+        pos_now,
         impact_pos,
         gravity_dir,
         damage.damage,

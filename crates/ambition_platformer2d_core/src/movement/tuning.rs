@@ -657,6 +657,10 @@ pub struct ShieldTuning {
     /// Seconds of shieldstun the defender owes per point of damage it blocks.
     /// `0.0` makes blocking free, which is what it was.
     pub stun_per_damage: f32,
+    /// Lateral push (px/s) the defender takes per point of damage it blocks.
+    /// The half of shield pressure that costs SPACE rather than tempo: hold a
+    /// guard near a ledge and the hits themselves move you toward it.
+    pub pushback_per_damage: f32,
 }
 
 impl Default for ShieldTuning {
@@ -674,6 +678,7 @@ impl ShieldTuning {
         damage_scale: 0.0,
         break_stun_time: 0.0,
         stun_per_damage: 0.0,
+        pushback_per_damage: 0.0,
     };
 
     /// Platform-fighter defaults: a guard that survives about six seconds held,
@@ -685,6 +690,7 @@ impl ShieldTuning {
         damage_scale: 1.0,
         break_stun_time: 2.0,
         stun_per_damage: 0.012,
+        pushback_per_damage: 6.0,
     };
 
     /// Whether this body's shield is a spendable resource at all.

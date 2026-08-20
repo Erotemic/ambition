@@ -13,6 +13,12 @@ use bevy::prelude::{default, App, Messages, Update};
 /// now rather than a "is it up" bool, because a block SPENDS integrity and the
 /// cost belongs inside the decision that grants the block; `ShieldTuning::OFF`
 /// makes that spend a no-op, so these tests measure the block and nothing else.
+/// A velocity nobody reads, for the tests that only ask whether a block
+/// happens. `&mut ae::Vec2::ZERO` would borrow a fresh temporary of a `const`.
+fn sink() -> ae::Vec2 {
+    ae::Vec2::ZERO
+}
+
 fn raised_guard() -> ae::BodyShieldState {
     ae::BodyShieldState {
         active: true,
@@ -159,7 +165,11 @@ fn resolver_shield_blocks_a_faced_hit_and_arms_the_guard_i_frame() {
         Some(&mut health),
         None,
         None,
-        Some((&mut raised_guard(), ae::ShieldTuning::OFF)),
+        Some(GuardUnderFire {
+            state: &mut raised_guard(),
+            tuning: ae::ShieldTuning::OFF,
+            vel: &mut sink(),
+        }),
         1.0,
         pos,
         pos + ae::Vec2::new(50.0, 0.0),
@@ -184,7 +194,11 @@ fn resolver_shield_blocks_a_faced_hit_and_arms_the_guard_i_frame() {
         Some(&mut health),
         None,
         None,
-        Some((&mut raised_guard(), ae::ShieldTuning::OFF)),
+        Some(GuardUnderFire {
+            state: &mut raised_guard(),
+            tuning: ae::ShieldTuning::OFF,
+            vel: &mut sink(),
+        }),
         1.0,
         pos,
         pos + ae::Vec2::new(-50.0, 0.0),
@@ -1339,12 +1353,19 @@ fn an_unstoppable_hit_passes_every_defence_a_body_has() {
         let mut stopped_combat = combat.clone();
         let mut stopped_health = test_health(5);
         let mut guard = shield_active.then(raised_guard);
+        // The shove has its own test; these three only ask whether the block
+        // happens, so the velocity is a sink.
+        let mut scratch_vel = ae::Vec2::ZERO;
         let stopped = resolve_body_hit(
             &mut stopped_combat,
             Some(&mut stopped_health),
             None,
             None,
-            guard.as_mut().map(|g| (g, ae::ShieldTuning::OFF)),
+            guard.as_mut().map(|g| GuardUnderFire {
+                state: g,
+                tuning: ae::ShieldTuning::OFF,
+                vel: &mut scratch_vel,
+            }),
             1.0,
             pos,
             impact,
@@ -1369,12 +1390,19 @@ fn an_unstoppable_hit_passes_every_defence_a_body_has() {
         let mut blasted_combat = combat.clone();
         let mut blasted_health = test_health(5);
         let mut guard = shield_active.then(raised_guard);
+        // The shove has its own test; these three only ask whether the block
+        // happens, so the velocity is a sink.
+        let mut scratch_vel = ae::Vec2::ZERO;
         let blasted = resolve_body_hit(
             &mut blasted_combat,
             Some(&mut blasted_health),
             None,
             None,
-            guard.as_mut().map(|g| (g, ae::ShieldTuning::OFF)),
+            guard.as_mut().map(|g| GuardUnderFire {
+                state: g,
+                tuning: ae::ShieldTuning::OFF,
+                vel: &mut scratch_vel,
+            }),
             1.0,
             pos,
             impact,
@@ -1622,12 +1650,19 @@ fn a_raised_shield_blocks_the_hit_and_a_lowered_one_does_not() {
         let mut combat = BodyCombat::default();
         let mut health = BodyHealth::new(Health::new(START_HP));
         let mut guard = shield_active.then(raised_guard);
+        // The shove has its own test; these three only ask whether the block
+        // happens, so the velocity is a sink.
+        let mut scratch_vel = ae::Vec2::ZERO;
         let resolution = resolve_body_hit(
             &mut combat,
             Some(&mut health),
             None,
             None,
-            guard.as_mut().map(|g| (g, ae::ShieldTuning::OFF)),
+            guard.as_mut().map(|g| GuardUnderFire {
+                state: g,
+                tuning: ae::ShieldTuning::OFF,
+                vel: &mut scratch_vel,
+            }),
             1.0,
             body,
             impact,
@@ -1674,4 +1709,87 @@ fn a_raised_shield_blocks_the_hit_and_a_lowered_one_does_not() {
          facing decides nothing"
     );
     assert!(hp < START_HP);
+}
+
+/// **A BLOCK COSTS THE BLOCKER GROUND, AWAY FROM THE HIT AND ALONG IT ONLY.**
+///
+/// ⛔ the third cost of shield pressure, after integrity and shieldstun. Without
+/// it a guard near a ledge is a safe place to stand forever; with it the hits
+/// themselves walk you toward the edge, which is what makes chip pressure a
+/// thing a player has to answer.
+#[test]
+fn a_blocked_hit_shoves_the_blocker_laterally_away_from_it() {
+    let mut combat = BodyCombat::default();
+    let mut health = test_health(20);
+    let body = ae::Vec2::new(100.0, 200.0);
+    let down = ae::Vec2::new(0.0, 1.0);
+    let mut guard = raised_guard();
+    let mut vel = ae::Vec2::ZERO;
+    let tuning = ae::ShieldTuning::PLATFORM_FIGHTER;
+
+    let res = resolve_body_hit(
+        &mut combat,
+        Some(&mut health),
+        None,
+        None,
+        Some(GuardUnderFire {
+            state: &mut guard,
+            tuning,
+            vel: &mut vel,
+        }),
+        1.0,
+        body,
+        // Struck from the FRONT-RIGHT, so the shove goes left.
+        body + ae::Vec2::new(50.0, 0.0),
+        down,
+        10,
+        1.0,
+        false,
+        TEST_FEEL,
+        false,
+    );
+
+    assert_eq!(res, BodyHitResolution::Blocked);
+    assert!(
+        vel.x < 0.0,
+        "a blocked hit from the right pushed the blocker {vel:?}, not away from it"
+    );
+    assert_eq!(
+        vel.y, 0.0,
+        "a block shoved the blocker along GRAVITY — it is a push, not a launch"
+    );
+    assert_eq!(vel.x, -(tuning.pushback_per_damage * 10.0));
+}
+
+/// **AND A GUARD THAT IS NOT A RESOURCE STILL BLOCKS FOR FREE.**
+#[test]
+fn an_unlimited_guard_is_not_pushed() {
+    let mut combat = BodyCombat::default();
+    let mut health = test_health(20);
+    let body = ae::Vec2::new(100.0, 200.0);
+    let mut guard = raised_guard();
+    let mut vel = ae::Vec2::ZERO;
+
+    resolve_body_hit(
+        &mut combat,
+        Some(&mut health),
+        None,
+        None,
+        Some(GuardUnderFire {
+            state: &mut guard,
+            tuning: ae::ShieldTuning::OFF,
+            vel: &mut vel,
+        }),
+        1.0,
+        body,
+        body + ae::Vec2::new(50.0, 0.0),
+        ae::Vec2::new(0.0, 1.0),
+        10,
+        1.0,
+        false,
+        TEST_FEEL,
+        false,
+    );
+
+    assert_eq!(vel, ae::Vec2::ZERO);
 }

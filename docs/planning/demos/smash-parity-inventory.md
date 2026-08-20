@@ -22,7 +22,7 @@ you add a `▢`, and before you work one.
 | Shield health, decay while held, regen | ✔ | `core::ShieldTuning`, `tick_shield_resource` |
 | Shield break → dizzy hard-lock, ring shatters | ✔ | `break_shield`, `MovementOp::ShieldBreak` |
 | Shieldstun (a blocked hit costs the blocker tempo) | ✔ | `ShieldTuning::stun_per_damage` |
-| Shield pushback (a blocked hit costs the blocker space) | ▢ | needs a velocity authority the damage resolver does not hold |
+| Shield pushback (a blocked hit costs the blocker space) | ✔ | `ShieldTuning::pushback_per_damage`, applied inside the block via `GuardUnderFire` |
 | Shield shrink → poke (a small shield exposes limbs) | ▢ | — |
 | Shield-drop lag | ▢ | — |
 | Parry (perfect-shield window) | ✔ | `BodyShieldState::parrying` |
@@ -155,8 +155,8 @@ and leaves the values rough; tuning is not this lane's licence.
 3. **The missing sprite rows** — a held pose, a pummel, a throw, and a dizzy for
    a broken guard. All four currently draw `Hit`, which stops them reading as
    calm but does not make them read as themselves.
-4. **Shield pushback and shield-shrink poke** — the two halves of shield
-   pressure that shieldstun does not cover.
+4. **Shield-shrink poke** — a spent guard should stop covering the whole body.
+   The ring already shrinks; the hurtbox does not.
 5. **Meteor lock and cancel** — the spike already lands; what is missing is
    the window in which the spiked body cannot recover, and the cancel that
    ends it.

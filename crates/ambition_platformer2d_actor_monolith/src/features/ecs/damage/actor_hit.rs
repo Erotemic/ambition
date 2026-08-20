@@ -265,6 +265,9 @@ pub(crate) fn apply_actor_hit(
         // apply at all: the blast zone is not a hit anything can defend against.
         let left_the_world = matches!(event.source, HitSource::LeftTheWorld);
         let shield_tuning = motion_model.shield_tuning();
+        // ⚠ `Copy` reads taken before the guard borrows the velocity.
+        let victim_facing = em.kin.facing;
+        let victim_pos = em.kin.pos;
         let resolution = crate::features::ecs::damage_apply::resolve_body_hit(
             combat,
             Some(&mut *em.health),
@@ -272,9 +275,13 @@ pub(crate) fn apply_actor_hit(
             // supports it generically, but nothing threads a `WornEquipment` here.
             None,
             wallet_shield,
-            Some((&mut *em.shield, shield_tuning)),
-            em.kin.facing,
-            em.kin.pos,
+            Some(crate::features::ecs::damage_apply::GuardUnderFire {
+                state: &mut *em.shield,
+                tuning: shield_tuning,
+                vel: &mut em.kin.vel,
+            }),
+            victim_facing,
+            victim_pos,
             event.volume.center(),
             gravity_dir,
             event.damage,

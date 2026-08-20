@@ -59,7 +59,6 @@ you add a `▢`, and before you work one.
 | Tumble → knockdown → tech → getup (roll / attack / stand) | ✔ | `core/movement/knockdown.rs` |
 | Wall tech | ✔ | `knockdown::tick_knockdown` reads `BodyWallState`; `WALL_TECH_SPEED` pushes off the normal |
 | Ceiling tech | ▢ | a head contact is not yet a surface the tech press can land on |
-| Crouch cancel | ✔ | one row only, under **Damage and knockback** — it is a property of the LAUNCH, not of the guard |
 
 ## Grabs
 
@@ -251,7 +250,9 @@ z-drop and item throws · edge-cancel.
 **Defense.** ~~Perfect shield as a RELEASE-timed parry~~ — SHIPPED as a KNOB
 2026-08-20 (§27): `ParryTiming::OnRaise` is Smash 4's and `OnRelease` is
 Ultimate's, and the stage declares which · shield tilt to cover a limb · shield-drop into an aerial ·
-directional-influence variants (SDI, ASDI, hitfall).
+ASDI and hitfall (⚠ NOT SDI — that shipped 2026-08-20 and is in the
+**Damage and knockback** table; listing it here as a remainder was the same
+double-entry as the crouch-cancel row).
 
 **Match surface.** Time, stamina and coin rulesets · sudden death · handicap ·
 Final Smash and the meter alternative · items and item spawn rate · stage

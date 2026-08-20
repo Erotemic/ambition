@@ -63,6 +63,7 @@ you add a `▢`, and before you work one.
 | Ledge jump getup | ✔ | `MovementOp::LedgeJump` |
 | Ledge trump (stealing an occupied ledge) | ~ | `features/ecs/ledge_trump.rs`; the trumped body is DROPPED, where Ultimate pops it outward into a brief helpless state |
 | Ledge intangibility scales with airtime (a regrab earns near nothing) | ✔ | `ledge_grab_invuln_earned` off `AxisManeuverState::time_off_ledge` |
+| Spot dodge (down + evade, in place) | ✔ | `MovementOp::SpotDodge`, `MovementTuning::spot_dodge_time`; the `spot_dodge` row already shipped |
 | Platform drop-through | ✔ | `core::collision_semantics` |
 
 ## Damage and knockback
@@ -168,6 +169,6 @@ and leaves the values rough; tuning is not this lane's licence.
 5. **Match rules** — ~~timer~~ (landed 2026-08-20, derived from the activation
    tick); still open are sudden death, a menu for the friendly-fire toggle the
    rules already carry, and the respawn platform.
-6. ~~**SDI**~~, ~~**crouch cancel**~~ and ~~**wall tech**~~ (landed 2026-08-20);
-   still open: spot dodge, ceiling tech, and jostle — which is ASKED rather than
-   skipped (`awaiting-maintainer-decision.md` §24).
+6. ~~**SDI**~~, ~~**crouch cancel**~~, ~~**wall tech**~~ and ~~**spot dodge**~~
+   (landed 2026-08-20); still open: ceiling tech, and jostle — which is ASKED
+   rather than skipped (`awaiting-maintainer-decision.md` §24).

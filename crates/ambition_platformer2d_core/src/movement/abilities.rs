@@ -216,6 +216,26 @@ pub(super) fn apply_dodge(
     };
     let local_stick = input.local_axis();
     if evade == BurstManeuver::GroundDodge {
+        // ⭐ **SPOT DODGE — down on the stick evades IN PLACE.** The grounded
+        // evade had exactly one shape, so the option a fighter takes when there
+        // is nowhere to roll TO — cornered, on a platform, waiting out a
+        // committed swing — did not exist. ⚠ a body that authors no window keeps
+        // the roll it always had: the press is not taken away from anybody.
+        if local_stick.y > crate::movement::tuning::SPOT_DODGE_STICK
+            && tuning.abilities.spot_dodge_time > 0.0
+        {
+            // ⚠ the DESCENT is kept and everything else zeroed: a body standing
+            // on a floor has none, and one that spot-dodged off a ledge edge
+            // must not hang in the air for the window.
+            kinematics.vel = frame.down() * kinematics.vel.dot(frame.down()).max(0.0);
+            state.dodge_roll_timer = tuning.abilities.spot_dodge_time;
+            state.spot_dodging = true;
+            state.phased_jump.clear();
+            dodge.cooldown = tuning.abilities.dodge_roll_cooldown;
+            state.buffer_burst = 0.0;
+            events.op_clusters(combo_trace, MovementOp::SpotDodge);
+            return;
+        }
         let dir = if local_stick.x.abs() > 0.1 {
             local_stick.x.signum()
         } else {
@@ -225,6 +245,7 @@ pub(super) fn apply_dodge(
         kinematics.vel =
             frame.side() * (dir * tuning.abilities.dodge_roll_speed) + frame.down() * descend;
         state.dodge_roll_timer = tuning.abilities.dodge_roll_time;
+        state.spot_dodging = false;
         state.phased_jump.clear();
         dodge.cooldown = tuning.abilities.dodge_roll_cooldown;
         state.buffer_burst = 0.0;

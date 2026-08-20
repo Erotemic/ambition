@@ -183,6 +183,9 @@ pub struct EditableMovementTuning {
     /// See [`ae::MovementTuning::sdi_step`] — 0.0 means this body cannot
     /// influence its way out of a combo, which is every body but a fighter.
     pub sdi_step: f32,
+    /// See [`ae::MovementTuning::spot_dodge_time`] — 0.0 means the grounded
+    /// evade is always the roll.
+    pub spot_dodge_time: f32,
     pub parry_window_time: f32,
     /// Shield integrity, its drain/regen rates, its cost per blocked point, and
     /// the dizzy a break costs. `shield_max_health = 0.0` = unlimited guard.
@@ -282,6 +285,7 @@ impl EditableMovementTuning {
             air_dodge_endlag: self.air_dodge_endlag,
             tumble_speed: self.tumble_speed,
             sdi_step: self.sdi_step,
+            spot_dodge_time: self.spot_dodge_time,
             parry_window_time: self.parry_window_time,
             shield: ae::ShieldTuning {
                 max_health: self.shield_max_health,
@@ -366,6 +370,7 @@ impl From<ae::MovementTuning> for EditableMovementTuning {
             air_dodge_endlag: value.air_dodge_endlag,
             tumble_speed: value.tumble_speed,
             sdi_step: value.sdi_step,
+            spot_dodge_time: value.spot_dodge_time,
             parry_window_time: value.parry_window_time,
             shield_max_health: value.shield.max_health,
             shield_drain_per_second: value.shield.drain_per_second,

@@ -783,6 +783,10 @@ pub struct MatchBody {
     /// landing that follows is a knockdown unless it is teched. `0.0` is no
     /// floor game — right for a wandering enemy, wrong for a fighter.
     pub tumble_speed: f32,
+    /// **The grounded evade IN PLACE's invulnerable window** (s) — the spot
+    /// dodge. `0.0` means a grounded evade is always the roll, which is what an
+    /// exploration body wants: the press is already spoken for.
+    pub spot_dodge_time: f32,
     /// **How far a frozen body may shift itself per tick of hitlag** (px) —
     /// SMASH DIRECTIONAL INFLUENCE. `0.0` is no SDI, which is right for a body
     /// that is not in a combo game and wrong for a fighter. See
@@ -816,6 +820,7 @@ impl MatchBody {
             air_dodge_speed: self.air_dodge_speed,
             air_dodge_endlag: self.air_dodge_endlag,
             tumble_speed: self.tumble_speed,
+            spot_dodge_time: self.spot_dodge_time,
             sdi_step: self.sdi_step,
             shield: self.shield,
             footstool: self.footstool,
@@ -848,6 +853,7 @@ mod tests {
             air_dodge_speed: 440.0,
             air_dodge_endlag: 0.16,
             tumble_speed: 500.0,
+            spot_dodge_time: 0.16,
             sdi_step: 3.0,
             shield: crate::ShieldTuning::PLATFORM_FIGHTER,
             footstool: crate::FootstoolTuning::PLATFORM_FIGHTER,

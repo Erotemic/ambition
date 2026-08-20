@@ -241,6 +241,13 @@ pub fn body_state_clip(
     if facts.air_dodging {
         return Some(&["air_dodge", "roll", "fall", "idle"]);
     }
+    // ⚠ ABOVE no floor-game state and below all of them: a spot dodge is an
+    // ordinary grounded action, and the only thing it has to outrank is the ROLL
+    // it shares a timer with. `CharacterAnim` answers both as `DodgeRoll`, so
+    // without this row a body that stood its ground is drawn rolling.
+    if facts.spot_dodging {
+        return Some(&["spot_dodge", "crouch", "roll", "idle"]);
+    }
     None
 }
 
@@ -748,6 +755,17 @@ mod state_clip_tests {
             }),
             Some("getup".to_string())
         );
+        // ⛔ `spot_dodging` is a REFINEMENT of `dodge_rolling`, so both are true
+        // together and the pair is the assertion: the spot dodge must win, or a
+        // body that stood its ground is drawn rolling.
+        assert_eq!(
+            head(&BodyMotionFacts {
+                dodge_rolling: true,
+                spot_dodging: true,
+                ..Default::default()
+            }),
+            Some("spot_dodge".to_string())
+        );
 
         // ⛔ the two facts the movement kernel does NOT publish, and the pair of
         // them is the assertion: both drew `hit` before this seam existed, so a
@@ -814,6 +832,11 @@ mod state_clip_tests {
             },
             BodyMotionFacts {
                 air_dodging: true,
+                ..Default::default()
+            },
+            BodyMotionFacts {
+                dodge_rolling: true,
+                spot_dodging: true,
                 ..Default::default()
             },
         ] {

@@ -106,6 +106,15 @@ pub const DODGE_ROLL_TIME: f32 = 0.22;
 pub const DODGE_ROLL_SPEED: f32 = 530.0;
 /// Cooldown after a dodge roll before the next one may start.
 pub const DODGE_ROLL_COOLDOWN: f32 = 0.42;
+/// **Spot dodge** — the grounded evade IN PLACE, held down instead of a
+/// direction. Shorter than the roll's window because it covers no distance: the
+/// roll's commitment is where it takes you, and the spot dodge's is only the
+/// time, so a spot dodge that lasted as long would be strictly better.
+pub const SPOT_DODGE_TIME: f32 = 0.16;
+/// How far down the stick must be held for a grounded evade to read as a spot
+/// dodge rather than a roll. Above the roll's own `0.1` sideways threshold so a
+/// diagonal reads as the roll it looks like.
+pub const SPOT_DODGE_STICK: f32 = 0.5;
 /// **Air dodge** — the aerial evade's invulnerable window (seconds).
 ///
 /// Shorter than the ground roll's: the roll ends on its feet and pays a
@@ -392,6 +401,11 @@ pub struct MovementTuning {
     /// down, which is every body until one authors a fighter's floor game.
     #[serde(default)]
     pub tumble_speed: f32,
+    /// **SPOT DODGE** — the grounded evade IN PLACE's invulnerable window, in
+    /// seconds. `0.0` (the default) means a grounded evade is always the roll,
+    /// which is what every body had before a fighter wanted the other option.
+    #[serde(default)]
+    pub spot_dodge_time: f32,
     /// **SMASH DIRECTIONAL INFLUENCE** — how far this body may shift itself per
     /// tick of HITLAG, in px. `0.0` (the default) = no SDI, which is every body
     /// until one authors a fighter.
@@ -643,6 +657,9 @@ pub struct TraversalAbilityTuning {
     /// See [`TraversalAbilityTuning::tumble_speed`].
     #[serde(default)]
     pub tumble_speed: f32,
+    /// See [`MovementTuning::spot_dodge_time`].
+    #[serde(default)]
+    pub spot_dodge_time: f32,
     /// See [`TraversalAbilityTuning::sdi_step`].
     #[serde(default)]
     pub sdi_step: f32,
@@ -915,6 +932,7 @@ impl MovementTuning {
                 air_dodge_speed: self.air_dodge_speed,
                 air_dodge_endlag: self.air_dodge_endlag,
                 tumble_speed: self.tumble_speed,
+                spot_dodge_time: self.spot_dodge_time,
                 sdi_step: self.sdi_step,
                 parry_window_time: self.parry_window_time,
                 shield: self.shield,
@@ -1009,6 +1027,9 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     // ⛔ zero for the same reason the air dodge is: a wandering enemy that got
     // knocked down and had to stand up would be a different game.
     tumble_speed: 0.0,
+    // ⛔ zero for the same reason: an exploration body's grounded evade is the
+    // roll, and a second one it never asked for would take that press away.
+    spot_dodge_time: 0.0,
     // ⛔ zero for the same reason: a body that cannot be launched has nothing to
     // influence its way out of.
     sdi_step: 0.0,

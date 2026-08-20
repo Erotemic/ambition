@@ -319,6 +319,20 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// it also moved `ambition_cutscene` and `ambition_demo_twintrack`, which is the
 /// instrument CHANGING and NOT a wire change in either: neither file was edited.
 ///
+/// ⚠ **v51 (2026-08-20) is the SPOT DODGE**, and it moves THREE things:
+///
+/// ```text
+/// MovementOp::SpotDodge = 35                       a new wire CODE
+/// MovementTuning::spot_dodge_time                  one float, motion codec
+/// AxisManeuverState::spot_dodging                  one bool, motion codec
+/// ```
+///
+/// ⭐ **one timer, two verbs.** The window rides `dodge_roll_timer` because the
+/// i-frames are the same term the damage rule reads either way; splitting the
+/// TIMER would have made `evading()` a two-place question for no gain. What
+/// differs is only what it is DRAWN as, and `spot_dodging` is that fact.
+/// ⚠ and the row it asks for — `spot_dodge` — was already in the shipped sheets.
+/// Fourth time this branch has found art nothing was asking for.
 /// ⚠ **v50 (2026-08-20) is `MovementTuning::sdi_step`**, one float in the
 /// motion codec, put and read. SMASH DIRECTIONAL INFLUENCE: how far a body may
 /// shift ITSELF per tick of hitlag.
@@ -503,7 +517,7 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// `message.spawn_projectile` keeps its stable key while its concrete message
 /// becomes `ProjectileSpawnRequest`, so abandoned-future spawn requests remain
 /// cleared on load through the same wire identity.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 50;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 51;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

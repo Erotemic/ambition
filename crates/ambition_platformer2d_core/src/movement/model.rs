@@ -134,6 +134,14 @@ pub struct AxisManeuverState {
     pub blink_aim_offset: Vec2,
     pub blink_grace_timer: f32,
     pub dodge_roll_timer: f32,
+    /// **The window on [`Self::dodge_roll_timer`] is a SPOT DODGE, not a roll.**
+    ///
+    /// ⭐ one timer, two verbs, and the flag is what tells them apart — the
+    /// i-frames are the same term the damage rule reads either way, so splitting
+    /// the TIMER would have made `evading()` a two-place question for no gain.
+    /// What differs is only what it is DRAWN as, and that is a presentation
+    /// fact.
+    pub spot_dodging: bool,
     /// **The AIR dodge's own clock** — seconds of the committed aerial evade.
     ///
     /// ⛔ **not `dodge_roll_timer`, and the separation is the design.** Both
@@ -206,6 +214,7 @@ impl Default for AxisManeuverState {
             blink_aim_offset: Vec2::new(BLINK_DISTANCE, 0.0),
             blink_grace_timer: 0.0,
             dodge_roll_timer: 0.0,
+            spot_dodging: false,
             air_dodge_timer: 0.0,
             air_dodge_endlag_timer: 0.0,
             tumble_timer: 0.0,

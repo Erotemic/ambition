@@ -463,6 +463,10 @@ use crate::movement::knockdown;
 fn floor_game_tuning() -> crate::test_support::TestTuning {
     let mut tuning = crate::test_support::TEST_TUNING;
     tuning.tumble_speed = 420.0;
+    // ⚠ a fighter's floor: the engine default is `0.0`, which means the grounded
+    // evade is always the roll. A fixture that left it there would measure the
+    // absence rather than the option.
+    tuning.spot_dodge_time = crate::movement::tuning::SPOT_DODGE_TIME;
     tuning
 }
 
@@ -680,6 +684,56 @@ fn a_tech_on_the_landing_skips_the_knockdown_entirely() {
     assert!(
         facts.evading(),
         "a tech is invulnerable through the one term the damage rule reads"
+    );
+}
+
+/// **DOWN ON THE STICK EVADES IN PLACE.**
+///
+/// ⛔ the pair is the assertion: the same press with a SIDEWAYS stick must still
+/// roll, or this is not a second option — it is the first one renamed. And the
+/// spot dodge must not travel, which is the whole reason a cornered fighter
+/// wants it.
+#[test]
+fn down_on_the_stick_spot_dodges_instead_of_rolling() {
+    let evade = |stick: crate::LocalAxes| {
+        let world = test_world();
+        let mut scratch = scratch_at(world.spawn);
+        scratch.ground.on_ground = true;
+        scratch.dodge.cooldown = 0.0;
+        let events = step_fighter(
+            &world,
+            &mut scratch,
+            InputState {
+                axes: stick,
+                movement: crate::ActionEdges::EMPTY.with(
+                    crate::MovementAction::Dash,
+                    crate::Edge {
+                        pressed: true,
+                        held: false,
+                        released: false,
+                    },
+                ),
+                ..Default::default()
+            },
+        );
+        (events.operations.clone(), scratch.kinematics.vel.x)
+    };
+
+    let (ops, travel) = evade(crate::LocalAxes::new(0.0, 1.0));
+    assert!(
+        ops.contains(&MovementOp::SpotDodge),
+        "a held-down evade rolled: {ops:?}"
+    );
+    assert_eq!(travel, 0.0, "a spot dodge travelled {travel}px sideways");
+
+    let (ops, travel) = evade(crate::LocalAxes::new(1.0, 0.0));
+    assert!(
+        ops.contains(&MovementOp::DodgeRoll),
+        "a sideways evade spot-dodged, so the roll is gone: {ops:?}"
+    );
+    assert!(
+        travel > 0.0,
+        "the roll went nowhere, so this compared nothing"
     );
 }
 

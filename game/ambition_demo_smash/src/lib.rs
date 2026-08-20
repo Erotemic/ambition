@@ -375,6 +375,14 @@ pub const SMASH_FIGHTER_BODY: ambition_platformer2d::engine_core::MatchBody =
         air_dodge_time: ambition_platformer2d::engine_core::AIR_DODGE_TIME,
         air_dodge_speed: ambition_platformer2d::engine_core::AIR_DODGE_SPEED,
         air_dodge_endlag: ambition_platformer2d::engine_core::AIR_DODGE_ENDLAG,
+        // ⭐ **SPOT DODGE, 0.16s.** The grounded evade had one shape, so the
+        // option a cornered fighter takes — nowhere to roll TO, waiting out a
+        // committed swing — did not exist. Shorter than the roll's window
+        // because it covers no distance; a spot dodge that lasted as long would
+        // be strictly better than the roll and the roll would stop being a
+        // choice. The engine default is `0.0`: an exploration body keeps the
+        // roll that press already means.
+        spot_dodge_time: ambition_platformer2d::engine_core::SPOT_DODGE_TIME,
         tumble_speed: 500.0,
         // ⭐ **SDI, 3px a hitlag tick.** DI already lets a launched fighter bend
         // where it is thrown; this is the other half — shifting out of the NEXT

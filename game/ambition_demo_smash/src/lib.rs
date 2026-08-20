@@ -1330,6 +1330,56 @@ const RETURN_TO_SELECT_AFTER: f32 = 4.5;
 /// ⚠ **armed once.** `StocksMatchDecided` is written from the sim, so a rollback
 /// can re-deliver it; re-arming on the second copy would restart the countdown
 /// and hold the players on a finished match.
+/// **A match on this stage always plays by smash's rules, however it was
+/// entered.**
+///
+/// ⛔⛔ **MEASURED 2026-08-20: it did not.** `smash_declared_combat_rules()` was
+/// called from exactly one place — `start_the_battle_when_asked`, the system
+/// that leaves the LOBBY — so a match reached any other way ran the undeclared
+/// baseline. Probed inside a live `the_stage_kills` run, every tick for 2398
+/// ticks:
+///
+/// ```text
+/// jostle_accel        = 0      declared 600.0 by smash
+/// crouch_cancel_scale = 1.0    declared 0.85 by smash   ← the BASELINE
+/// DeclaredCombatRules present = false
+/// ```
+///
+/// ⇒ meteor lock, rage, staling, crouch cancel, grab depth, SDI, the parry
+/// timing and jostle were ALL inert there. **Four entry points skip the lobby**:
+/// the five `the_stage_kills` tests, and the `match_diagram`, `capture_probe`
+/// and `ladder_rig` bins — the last of which EVALUATES FIGHTER AI, so its
+/// numbers were measured in a different game.
+///
+/// ⭐ **a safety net, not a second authority.** The lobby is still the declarer:
+/// it computes the ruleset from the cast it just assembled and refreshes it on
+/// every battle start. This only notices that the stage is live with somebody
+/// else's rules — or none — and puts smash's on. Re-entering by the ordinary
+/// road is untouched, because by the time this runs the lobby's declaration is
+/// already ours.
+///
+/// ⚠ **keyed by OWNER, like every other giveback here.** A world where versus
+/// declared last and smash's stage is somehow live is a bug worth correcting;
+/// one where our own declaration is already present is the normal case and must
+/// not be rewritten every frame.
+fn the_stage_always_plays_by_smash_rules(
+    mut commands: bevy::prelude::Commands,
+    router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
+    declared: Option<bevy::prelude::Res<ambition_platformer2d::combat::rules::DeclaredCombatRules>>,
+) {
+    let on_stage = router
+        .active
+        .as_ref()
+        .is_some_and(|active| active.route_id.as_str() == SMASH_GAMEPLAY_ROUTE);
+    if !on_stage {
+        return;
+    }
+    if declared.is_some_and(|rules| rules.declared_by == SMASH_EXPERIENCE) {
+        return;
+    }
+    commands.insert_resource(smash_declared_combat_rules());
+}
+
 fn return_to_the_select_screen_when_the_match_ends(
     mut decided: bevy::prelude::MessageReader<ambition_platformer2d::actor::StocksMatchDecided>,
     router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
@@ -1675,6 +1725,9 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                     select_screen::place_the_screen,
                     select_screen::update_the_select_screen,
                     start_the_battle_when_asked,
+                    // ⛔ the safety net for every entry that skips the lobby —
+                    // the dev bins and the stage tests. See its doc.
+                    the_stage_always_plays_by_smash_rules,
                     // ⚠ **AFTER the driver that sets the flag, and in the same
                     // chain**, so a press and the route change it asks for are
                     // one frame apart at most. The screen would otherwise keep

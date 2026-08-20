@@ -143,23 +143,31 @@ place**: couch play is NOT switched off, and a clipped label is not a defect.
 | **Sanic is very small in his own game** (Jon, 2026-08-15) | ⭐⭐ **third body in the sprite/box cluster, and the one that makes it a CLUSTER rather than three bugs** — see the measurement below |
 | ~~drop `pocket` and `versus` from the main game-selection shell~~ | ✔ **DONE, confirmed by Jon 2026-08-17.** Both call `.unlisted()` (`demo_pocket/src/lib.rs:190`, `app/versus.rs:905`) and `launch_entries()` filters them, so they stay composed, routed and testable while no launcher row advertises them. ⭐ the distinction the flag states: an *unavailable* experience still appears greyed with its reason, because the player is meant to see it exists; UNLISTED is the other case — composed and routed but never for the player to choose |
 
-### ✔ Found in passing 2026-08-19 — THE TWO DEMO APP CRATES HAVE TESTS NO JOB RUNS
+### ✔ Found in passing 2026-08-19 — THE TWO DEMO APP CRATES ARE OUTSIDE THE PER-TURN GATE AND CI
 
 ⭐ this started as "some tests fail on sidework that seem unrelated" and the
 unrelated part is the finding: **the fast gate cannot see these binaries at
 all.** `cargo test --workspace --lib` runs no `tests/*.rs`, and `cargo check -p
-ambition_app --all-targets` compiles without running. What covers integration
-binaries is the full backbone (`./run_tests.sh`) or a named CI job — and
-`.github/workflows/test.yml` names `ambition_workspace_policy`,
-`ambition_content --all-features`, `ambition_app --test repro_walls` and
-`ambition_platformer2d_actor_monolith --lib`. **`ambition_demo_smash_app` and
-`ambition_demo_twintrack_app` are named by nothing.**
+ambition_app --all-targets` compiles without running. `.github/workflows/test.yml`
+names `ambition_workspace_policy`, `ambition_content --all-features`,
+`ambition_app --test repro_walls` and `ambition_platformer2d_actor_monolith
+--lib` — and neither demo app crate.
+
+⛔⛔ **CORRECTED 2026-08-20, because the first wording was too broad and pointed
+at the wrong remedy.** This row said `no job runs this crate`, and that is false:
+`./run_tests.sh` — the repository default — plans `cargo test --workspace
+--no-fail-fast`, both crates are workspace members (root `Cargo.toml`), and
+`ambition_demo_smash_app` declares `[[test]] name = "smash_it"`. The backbone
+runs them. ⇒ **the accurate statement is that the PER-TURN gate and CI do not,
+and the default workspace backbone does** — which makes this a testing-CADENCE
+decision, not a disconnected test target to reconnect. A row that misnames the
+gap sends the next session to fix wiring that is already correct.
 
 ```text
 ambition_content        content_it     green    (CI runs it)
 ambition_workspace_policy  policy      1 red    (CI runs it — so CI was red too)
-ambition_demo_twintrack_app twintrack_it 1 red   ⛔ no job runs this crate
-ambition_demo_smash_app  smash_it      5 red    ⛔ no job runs this crate
+ambition_demo_twintrack_app twintrack_it 1 red   ⛔ backbone only — not the per-turn gate, not CI
+ambition_demo_smash_app  smash_it      5 red    ⛔ backbone only — not the per-turn gate, not CI
 ```
 
 ⭐ **both red ones were fixed 2026-08-19 or ruled, and neither was a physics
@@ -362,6 +370,102 @@ still carrying half the roster.
 ⚠ **the sprite/box pair is the cluster worth taking together**: the player hurtbox
 and the snake box both come down to sprite and collision numbers never having
 been converted to a common unit.
+
+- ▢ **D167 — THE LIVE-STATE ↔ PERSISTENCE ↔ ROOM-CONSTRUCTION BOUNDARY. Two
+  legs closed 2026-08-20; two open.**
+
+Jon's architectural review of `4af278e77`, 2026-08-19. Its headline is that the
+custody work found a boundary worth making crisp, and that this pays off across
+items, possession, vehicles/mounts, save/load and future body-carry mechanics.
+⛔ he also asked for **no new large architectural campaign** until the two closed
+legs below were settled, and for **no GGRS-sized carve and no Smash AI tuning**
+in the same turn.
+
+✔ **THE CUSTODY SCHEDULING BOUNDARY IS STRUCTURAL.** `InCustodyOf` has two
+owners in different domains — the item road reprojects it onto objects, and
+`project_driven_body_custody` owns the whole non-item body population — and the
+item road READS what the body derive writes (object residency asks whether a
+holder is a `RoomResident`, a filter whose whole content is
+`Without<InCustodyOf>`). The two chains were internally ordered, internally
+correct, and unordered siblings under `PlayerSimulation`. Fixed by
+`lifecycle::BodyCustodySettled`, a label the derive carries and
+`ItemPickupSet::CoreHeldItems` orders against — the CAPABILITY, not the feature,
+so the edge survives body custody leaving the possession ability. Guarded by
+`the_occurrence_ledger_learns_of_a_driven_body_on_the_tick_it_is_driven`.
+⚠ **MEASURED FIRST, and it was not broken**: with no edge at all the derive
+already ran first, because unconstrained siblings fall out of the topological
+sort in plugin-add order. A latent defect two `.add(...)` lines away from live.
+⛔ **the poison is the REVERSED edge, not the missing one** — deleting it leaves
+everything green, which is the whole problem; `.before(..)` reddens three tests.
+
+✔ **A RELATIONSHIP MAY NOT CROSS THE DURABLE HORIZON WITHOUT ITS AUTHORITY.**
+Possession-derived body custody was reaching the save file: the mirror queries
+the generic component, so a possessed body answered it, and the file said *"this
+enemy is in somebody's hands"* while `PossessionState` — the authority that makes
+it true — is rollback state and is not saved. It never failed, and it was one
+line deep: the live projection republishes the custody leg every tick, so the row
+was retracted before any room build acted on it. `persist_occurrence_horizon_to_save`
+now writes an `InCustody` claim only for occurrences whose custody the durable
+road can RESTORE (the item road, spelled `With<ItemCustody>`), so a body's
+occurrence is simply absent and its room authors it on load — which is what a
+world with nobody possessing anything should contain. Guarded by
+`a_save_taken_mid_possession_does_not_delete_the_enemy_in_a_fresh_process`, whose
+poison (stopping the live retraction from reaching empty) reports **zero** bodies
+behind the identity: the enemy deleted from the world, permanently.
+⛔ **the guard that was CLAIMED and not written.** `37ba867` said it proved this;
+its test assigns `PossessionState::default()` into the running world and steps
+once, which is a real and narrower property and is not a fresh process — no save,
+no serialisation, no second app, no adopter. Both comments now say which is which.
+
+▢ **BODY-CUSTODY PROPAGATION HAS OUTGROWN THE POSSESSION ABILITY.**
+`project_driven_body_custody` calls itself *"the one owner of `InCustodyOf` for
+BODIES"* while living in `abilities/traversal/possession.rs`, and it now closes
+custody transitively over mounts (`RidingOn`), limbs (`Limb`) and arbitrarily deep
+attachment chains. Possession is one ROOT REASON a body stops being resident, not
+the law governing every attachment: a carry, a vehicle, scripted transport or
+room-capable capture would each have to modify the possession ability to
+participate, which is feature-centric ownership creeping back. ⇒ move the
+mechanism to a neutral actor lifecycle/body-custody module. ⛔ **no registry and
+no generic graph framework** — keep it concrete and typed, understanding the few
+attachment relations that actually exist. `BodyCustodySettled` already points at
+the system rather than at possession, so the move costs no reader. ⚠ also clean
+the stale paragraph beginning *"PROMOTE the possessed body out of room scope"*,
+which sits immediately before the text explaining that it specifically does NOT
+change lifetime any more.
+
+▢ **ROOM CONSTRUCTION-LANE ORCHESTRATION, BEFORE A THIRD FAMILY.** Gravity was
+the right second customer and the extraction validated the federation design; the
+measurement is what it cost `RoomFeatureConstructionPlan` — roughly ELEVEN
+enrollments (plan field, receipt field, preparation, predicted roster, plan
+construction, deterministic dump, binding agreement, verification, single-root
+reconstruction, commit, committed roster union), and the portal lane repeats most
+of the same shape. ⇒ introduce one explicit typed composition owner —
+conceptually `RoomConstructionLanes` — owning planned ids, the deterministic dump,
+binding agreement, commit, verify, respawn-by-`SimId` and receipt aggregation.
+⛔ **a normal concrete Rust type: no `Any`, no executable registry, no `TypeId`,
+no service locator.** The goal is for the plan to know it HAS lanes rather than
+reimplementing every operation per family. ⛔ **do not extract a third or fourth
+construction family first** — that is what makes this evidence-driven rather than
+speculative. ⚠ and gravity is a successful construction-VOCABULARY extraction, not
+a fully extracted domain: its construction lives in `shared_tangle` while its
+scheduling/runtime ownership is still in the actor monolith.
+
+▢ **SMASH: THE MEASUREMENT STANDS, THE ASSERTION TEXT DOES NOT.** "One mind
+played twice" is FALSIFIED — the CPUs have different RNG streams, draw different
+samples, fight, overlap attack range, create live hitboxes, land hits and take
+mirrored outcomes; at difficulty 5 the execution-noise effect is 0–1 frames,
+nowhere near enough to break a symmetric initial condition between two agents
+running the same deterministic policy on symmetric observations. ⛔ **do NOT alter
+symmetric spawn placement or add stronger randomness to satisfy the old
+behavioural tests** — that is a gameplay/fairness decision and it is Jon's. ⇒ the
+only work here is the ASSERTION TEXT: a guard may stay red pending a product
+decision, but its failure message must not diagnose a mechanism already disproved.
+
+⚠ **the foreign-room release policy remains a product decision** and it was
+correct not to invent one: a body released away from its authored room lives there
+until that room unloads, after which its authored record recreates it at home.
+*"Leave this actor permanently where I released it"* would need body `Placed`
+whereabouts plus reconstruction relocation support.
 
 - ▢ **D117 — Finish the controlled-character actor kernel. UNBLOCKED 2026-08-17:
   the decision it rested on is ANSWERED.**

@@ -57,8 +57,8 @@ pub use horizon::{
     ResetToCheckpoint,
 };
 pub use markers::{
-    FeatureSimEntity, InCustodyOf, LoadingZoneVisual, ModeScopedEntity, PlayerVisual, RoomResident,
-    RoomScopedEntity, RoomVisual,
+    BodyCustodySettled, FeatureSimEntity, InCustodyOf, LoadingZoneVisual, ModeScopedEntity,
+    PlayerVisual, RoomResident, RoomScopedEntity, RoomVisual,
 };
 pub use round::{
     despawn_departed_round_entities, ActiveRoundScope, RoundScopeId, RoundScopePlugin,

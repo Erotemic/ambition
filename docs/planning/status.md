@@ -199,6 +199,20 @@ substrate had overtaken the two fronts printed above it:
    ⇒ the durable slice adds coordination, **not reconstruction logic**, and there
    is still exactly ONE authority on what a room owes the world.
 
+   ⛔⛔ **AND A RELATIONSHIP MAY NOT CROSS THAT HORIZON WITHOUT ITS AUTHORITY**
+   (2026-08-20). `InCustodyOf` has two owners; the item road's is durable
+   (`ItemCustody` is saved and re-applied), a possessed BODY's is not
+   (`PossessionState` is rollback state). The mirror queries the generic
+   component, so possession enrolled itself in persistence with nobody writing a
+   line of persistence code — and the file said *"this enemy is in somebody's
+   hands"* with no hand on the other side of the boot. It never failed, and it was
+   one line deep: the live projection retracts the row on the first tick of a
+   load. ⇒ the mirror now writes an `InCustody` claim only for occurrences whose
+   custody the durable road can RESTORE, and a driven body's occurrence is simply
+   absent — so its room authors it, which is what a world with nobody possessing
+   anything should contain. ⭐ **widening a generic population enrols it in every
+   generic sweep, persistence included**, and that is the reusable half.
+
    ⭐ **the defect only the fixture could find, and its fix is the reusable
    part**: a session builds its start room BEFORE any file is read, so the instant
    the loaded ledger arrives the world holds an occurrence the file says is

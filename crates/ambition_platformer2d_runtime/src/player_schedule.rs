@@ -348,7 +348,12 @@ impl Plugin for PlayerSchedulePlugin {
                 // sibling is: a room transition suspends gameplay between the
                 // crossing and the commit, and that window is exactly when the
                 // room sweep reads residency.
-                ambition_platformer2d_actor_monolith::abilities::traversal::possession::project_driven_body_custody,
+                ambition_platformer2d_actor_monolith::abilities::traversal::possession::project_driven_body_custody
+                    // ⭐ **the LABEL the item domain orders against**, and it is
+                    // on the system rather than on `Possession` because what the
+                    // item chain depends on is body custody being SETTLED, not
+                    // possession having happened. See `BodyCustodySettled`.
+                    .in_set(ambition_platformer2d_shared_tangle::lifecycle::BodyCustodySettled),
             )
                 .chain()
                 .in_set(PlayerSimulationSet::Possession),

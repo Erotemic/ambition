@@ -78,6 +78,26 @@ impl Plugin for ItemPickupSimulationPlugin {
                 .chain()
                 .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::PlayerSimulation),
         );
+        // ⛔⛔ **THE ONE CROSS-DOMAIN EDGE THIS CHAIN HAS, and it was missing.**
+        // `project_custody_onto_residency` at the tail of `CoreHeldItems` asks
+        // whether an object's holder is a `RoomResident`, and that filter is
+        // `Without<InCustodyOf>` — so on the tick a possession starts or ends,
+        // the answer depends on a marker a DIFFERENT domain writes
+        // (`project_driven_body_custody`, which owns the whole non-item body
+        // population). Both chains were internally ordered, internally correct,
+        // and siblings under `PlayerSimulation` with nothing between them.
+        //
+        // ⚠ **it was not BROKEN, and saying so matters**: measured 2026-08-20,
+        // the topological sort already put the body derive first, because
+        // unconstrained siblings fall out in plugin-add order. What was missing
+        // is the RULE — reordering two `.add(...)` lines in the runtime's plugin
+        // group would have flipped it, and the symptom is three tests about
+        // possession going red for an edit that touched neither domain.
+        app.configure_sets(
+            sim,
+            ItemPickupSet::CoreHeldItems
+                .after(ambition_platformer2d_shared_tangle::lifecycle::BodyCustodySettled),
+        );
 
         app.add_systems(
             sim,

@@ -61,6 +61,49 @@ pub struct InCustodyOf(pub Entity);
 /// destroys the world its residents live in, hands included.
 pub type RoomResident = (With<RoomScopedEntity>, Without<InCustodyOf>);
 
+/// **BODY CUSTODY HAS SETTLED FOR THIS TICK** — the boundary every reader of
+/// [`InCustodyOf`] on a BODY must run after.
+///
+/// ⭐⭐ **[`InCustodyOf`] has TWO owners and only one of them is items.** The
+/// item domain reprojects the marker onto objects from `ItemCustody`; a separate
+/// derive owns the whole non-item body population — a possessed actor, its
+/// mount, that mount's limbs. Neither knows about the other, which is correct,
+/// and it leaves the ordering between them expressible nowhere but here.
+///
+/// ⛔⛔ **AND THE ITEM CHAIN READS WHAT THE BODY DERIVE WRITES.** Object
+/// residency asks whether a holder is a [`RoomResident`] — a filter whose whole
+/// content is `Without<InCustodyOf>` — so a possessed body that is carrying
+/// something is *exactly* the case where the two populations meet. Run the item
+/// chain first and it reads the marker as it stood BEFORE this tick's possession
+/// or release: the object in a departing hand is still "held by a resident" and
+/// is retired at the door, and the occurrence ledger publishes a custody row for
+/// a body nobody is driving any more. Same-tick possess-and-cross is the mirror
+/// case. Nothing about that is visible in either domain's code, because each one
+/// is internally ordered and correct.
+///
+/// ⚠ **MEASURED 2026-08-20, and the honest version is that the order was already
+/// RIGHT — by accident.** With no edge at all, the body derive still ran first:
+/// unconstrained siblings come out of the topological sort in the order their
+/// plugins were added, and `PlayerSchedulePlugin` happens to sit after
+/// `ItemPickupSimulationPlugin` in a way that produced the correct interleave.
+/// So this is a LATENT defect that reordering two lines of host composition would
+/// have made live, with three tests going red for a reason nobody would connect
+/// to the edit. Reversing the edge reproduces all three, which is what says the
+/// rule is load-bearing rather than decorative.
+///
+/// ⭐ **it is a LABEL on the derive, not a phase**, so the edge survives the
+/// derive moving house. Body custody lives in the possession ability today and
+/// does not belong there — possession is one ROOT REASON a body stops being
+/// resident, not the law governing every attachment — and a reader that had
+/// ordered itself against *possession* would have to be found and re-pointed on
+/// the day that moves. A reader ordered against this set does not.
+///
+/// ⚠ **empty in a composition that installs no body-custody derive**, where an
+/// `.after` edge against it is correctly a no-op: nothing suspends a body's
+/// residency, so nothing can read the marker late.
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub struct BodyCustodySettled;
+
 /// Marker for a RENDERED room-scoped entity — a visual the presentation layer
 /// draws/syncs for the current room. Presentation systems query `With<RoomVisual>`
 /// to filter to the active room's rendered entities; the required

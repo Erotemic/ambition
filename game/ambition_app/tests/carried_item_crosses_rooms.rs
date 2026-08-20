@@ -36,7 +36,7 @@ use ambition_platformer2d::engine_core::{AabbExt, ControlFrame};
 use ambition_platformer2d::platformer::sim_id::SimId;
 use bevy::prelude::{Entity, With};
 
-use crate::common::{base, fixed_60hz_room_sim};
+use crate::common::{base, fixed_60hz_room_sim, possess_the_authored_enemy};
 
 /// `blink_run` authors exactly one `GroundItem` (`blink_run_pickup`) and exactly
 /// one `Door` loading zone (to `portal_bridge`, which authors three doors back
@@ -1184,48 +1184,12 @@ fn an_authored_actor_carried_out_of_its_room_and_back_does_not_meet_a_copy() {
 /// ground item for a body.
 #[test]
 fn a_checkpoint_taken_while_possessing_does_not_manufacture_an_item() {
-    use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
-    use ambition_platformer2d::actors::actor::BodyKinematics;
-    use ambition_platformer2d::characters::brain::Brain;
     use ambition_platformer2d::platformer::lifecycle::{
         CheckpointCommitted, CustodyBaseline, ResetToCheckpoint,
     };
 
     let mut sim = fixed_60hz_room_sim("vertical_shaft");
-    for _ in 0..20 {
-        sim.step(base());
-    }
-    let (actor, id) = {
-        let world = sim.world_mut();
-        let mut q = world.query::<(Entity, &SimId, &Brain, &BodyKinematics)>();
-        q.iter(world)
-            .find(|(_, id, _, _)| id.as_str().starts_with("placement:EnemySpawn"))
-            .map(|(e, id, _, _)| (e, id.clone()))
-            .expect("'vertical_shaft' authors an enemy with a placement identity")
-    };
-    for i in 0..900 {
-        if let Some(here) = sim
-            .world()
-            .get::<BodyKinematics>(actor)
-            .map(|k| (k.pos.x, k.pos.y))
-        {
-            sim.teleport_player(here);
-        }
-        sim.step(AgentAction {
-            move_y: 1.0,
-            interact: i == 0,
-            interact_held: true,
-            ..base()
-        });
-        if sim.world_mut().resource::<PossessionState>().possessed == Some(actor) {
-            break;
-        }
-    }
-    assert_eq!(
-        sim.world_mut().resource::<PossessionState>().possessed,
-        Some(actor),
-        "setup: nothing below is about a driven body unless one is being driven"
-    );
+    let (actor, id) = possess_the_authored_enemy(&mut sim);
 
     sim.world_mut().write_message(CheckpointCommitted);
     sim.step(base());
@@ -1263,17 +1227,90 @@ fn a_checkpoint_taken_while_possessing_does_not_manufacture_an_item() {
     );
 }
 
+/// **THE LEDGER SEES THIS TICK'S CUSTODY, NOT LAST TICK'S.**
+///
+/// ⛔⛔ **`InCustodyOf` has two owners in different domains and they were
+/// UNORDERED.** The item domain reprojects the marker onto objects at the tail of
+/// `ItemPickupSet::CoreHeldItems`; a separate derive owns the whole non-item body
+/// population (`project_driven_body_custody`, in `PlayerSimulationSet::Possession`).
+/// Both chains are internally ordered and internally correct, and both are
+/// children of `PlayerSimulation` — with no edge between them. The relative order
+/// was whatever the topological sort produced, and the body derive writes through
+/// `Commands`, so there was no sync point for its insert to land through either.
+///
+/// ⇒ if the item road ran first, everything downstream of `CoreHeldItems` would
+/// read the body custody of the PREVIOUS tick.
+/// `project_custody_onto_authored_occurrences` is the last link in that chain, so
+/// the occurrence ledger would learn a body was being driven one tick after it
+/// was — and the tick it was blind for is exactly the tick a possession starts or
+/// ends. A release and a crossing on the same tick would publish a custody row for
+/// a body nobody is driving; a possession and a crossing on the same tick would
+/// fail to publish one for a body that is.
+///
+/// ⚠⚠ **AND IT WAS NOT ACTUALLY BROKEN — measured, 2026-08-20, before writing the
+/// fix.** With no edge at all the body derive still ran first: unconstrained
+/// siblings come out of the topological sort in plugin-add order, and the
+/// runtime's group happens to produce the correct interleave. So this guards a
+/// LATENT defect, which is the honest claim: two `.add(...)` lines swapped in host
+/// composition would have made it live, and nothing in either domain would have
+/// said why.
+///
+/// ⭐ **the poison is the REVERSED edge, not the missing one.** Deleting the edge
+/// leaves every test green (that is the whole problem). Turning it into
+/// `.before(BodyCustodySettled)` reddens THIS test plus
+/// `a_custody_row_with_nobody_holding_it_is_retracted_before_a_room_can_act_on_it`
+/// and `the_whole_attachment_closure_is_recorded_as_being_in_custody` — three
+/// tests, one edge, which is what says the rule carries weight.
+///
+/// ⭐ **the edge names a CAPABILITY, not a feature**:
+/// `CoreHeldItems.after(BodyCustodySettled)`. Body custody does not belong in the
+/// possession ability — possession is one root reason a body stops being
+/// resident, not the law governing every attachment — so the reader is ordered
+/// against the set the derive carries, and the edge survives the derive moving.
+///
+/// ⚠ **ZERO extra steps, and that is deliberate.** The two tests either side of
+/// this one step twice before they read the ledger, so a one-tick lag would hide
+/// from both.
+#[test]
+fn the_occurrence_ledger_learns_of_a_driven_body_on_the_tick_it_is_driven() {
+    use ambition_platformer2d::platformer::lifecycle::AuthoredOccurrences;
+
+    let mut sim = fixed_60hz_room_sim("vertical_shaft");
+    // `possess_the_authored_enemy` returns on the step the mechanic committed;
+    // nothing is stepped after it.
+    let (_actor, id) = possess_the_authored_enemy(&mut sim);
+
+    let rows: Vec<String> = sim
+        .world()
+        .resource::<AuthoredOccurrences>()
+        .rows()
+        .map(|(occurrence, whereabouts)| format!("{} = {whereabouts:?}", occurrence.as_str()))
+        .collect();
+    assert!(
+        rows.iter()
+            .any(|row| row.starts_with(id.as_str()) && row.ends_with("InCustody")),
+        "the occurrence ledger does not yet know the body is being driven, on the \
+         very tick the possession committed. Anything that reads the ledger inside \
+         this tick — a room build, a save — sees a body nobody is holding. Ledger \
+         was {rows:?}"
+    );
+}
+
 /// **A save taken WHILE POSSESSING cannot suppress the enemy on load.**
 ///
-/// ⛔⛔ **this is the save/load consequence of making possession a custody**, and
-/// it had to be measured because the failure would be silent and permanent. A
-/// driven body's occurrence goes into `AuthoredOccurrences` as `InCustody` —
-/// that is the fix, it is what stops the home room authoring a second copy — and
-/// `persist_occurrence_horizon_to_save` mirrors the ledger to disk. So a save taken
-/// mid-possession carries a row saying an enemy is in somebody's hands. A FRESH
-/// PROCESS then adopts that row while nobody is possessing anything, and if the
-/// row survived, the room build would suppress an enemy that nobody is holding
-/// and it would be gone from the world.
+/// ⛔⛔ **the LIVE half of the save/load consequence of making possession a
+/// custody.** A driven body's occurrence goes into `AuthoredOccurrences` as
+/// `InCustody` — that is the fix, it is what stops the home room authoring a
+/// second copy. If that row could outlive the possession, a room build would
+/// suppress an enemy nobody is holding and it would be gone from the world.
+///
+/// ⚠ **THE DURABLE HALF IS A DIFFERENT TEST, and this one used to claim it.**
+/// Assigning `PossessionState::default()` into the running world is not a fresh
+/// process; the file, the mirror and the adopters are all uninvolved. Since
+/// 2026-08-20 the mirror does not write that row at all — a relationship may not
+/// cross the durable horizon without its authority — and
+/// `a_save_remembers_where_you_left_things::a_save_taken_mid_possession_does_not_delete_the_enemy_in_a_fresh_process`
+/// is what proves it, through the real save and the real boot.
 ///
 /// ⭐ **it does not survive, and the reason is `republish_custody`'s own
 /// contract**: *"RETRACT BY RESETTING, NEVER BY REMOVING … the whole leg is
@@ -1289,45 +1326,10 @@ fn a_checkpoint_taken_while_possessing_does_not_manufacture_an_item() {
 #[test]
 fn a_custody_row_with_nobody_holding_it_is_retracted_before_a_room_can_act_on_it() {
     use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
-    use ambition_platformer2d::actors::actor::BodyKinematics;
-    use ambition_platformer2d::characters::brain::Brain;
     use ambition_platformer2d::platformer::lifecycle::AuthoredOccurrences;
 
     let mut sim = fixed_60hz_room_sim("vertical_shaft");
-    for _ in 0..30 {
-        sim.step(base());
-    }
-    let (actor, id) = {
-        let world = sim.world_mut();
-        let mut q = world.query::<(Entity, &SimId, &Brain, &BodyKinematics)>();
-        q.iter(world)
-            .find(|(_, id, _, _)| id.as_str().starts_with("placement:EnemySpawn"))
-            .map(|(e, id, _, _)| (e, id.clone()))
-            .expect("'vertical_shaft' authors an enemy with a placement identity")
-    };
-    for i in 0..900 {
-        if let Some(here) = sim
-            .world()
-            .get::<BodyKinematics>(actor)
-            .map(|k| (k.pos.x, k.pos.y))
-        {
-            sim.teleport_player(here);
-        }
-        sim.step(AgentAction {
-            move_y: 1.0,
-            interact: i == 0,
-            interact_held: true,
-            ..base()
-        });
-        if sim.world_mut().resource::<PossessionState>().possessed == Some(actor) {
-            break;
-        }
-    }
-    assert_eq!(
-        sim.world_mut().resource::<PossessionState>().possessed,
-        Some(actor),
-        "setup: nothing below is about a driven body unless one is being driven"
-    );
+    let (_actor, id) = possess_the_authored_enemy(&mut sim);
     sim.step(base());
     sim.step(base());
 
@@ -1348,7 +1350,14 @@ fn a_custody_row_with_nobody_holding_it_is_retracted_before_a_room_can_act_on_it
          home room is free to author a second copy of it; ledger was {written:?}"
     );
 
-    // A FRESH PROCESS: the file's row is adopted while nobody possesses anything.
+    // ⚠ **NOT a fresh process, and this comment said it was.** Nothing here is
+    // serialised, no second app is built and no durable adopter runs — what is
+    // exercised is the LIVE projection, in one world, when possession stops being
+    // true. That is a real property and it is this test's whole subject; the
+    // save/load version of the question is
+    // `a_save_remembers_where_you_left_things::a_save_taken_mid_possession_does_not_delete_the_enemy_in_a_fresh_process`,
+    // which uses the file and a real boot. ⛔ a test that names a road it does not
+    // drive is worse than one that names none: the next reader stops looking.
     *sim.world_mut().resource_mut::<PossessionState>() = PossessionState::default();
     sim.step(base());
 
@@ -1942,13 +1951,17 @@ fn no_two_rooms_in_the_merged_world_author_the_same_id() {
 /// 820 units away in `vertical_shaft`). Letting go puts it on the body it let
 /// go of, wherever that body is. That reposition is the whole assertion below.
 ///
-/// ⚠ **the reposition is MEASURED here, not traced to the system that performs
-/// it.** `release_possession` writes no position — it is documented as touching
-/// no scope, because possession is brain transfer — so something downstream of
-/// the release does this, and the two candidates behave differently: a fetch
-/// follows the body, an out-of-bounds rescue goes to the room's spawn. The
-/// displaced release below is what tells them apart, and it says FETCH. Do not
-/// turn that into a claim about a named system without following it.
+/// ⭐ **`release_possession` performs the reposition ITSELF**, and it is worth
+/// naming because this comment said the opposite for a while. Its last act is a
+/// `transit_body(.., actor_aabb.center, TransitVelocity::Zero)` on the home
+/// avatar — *"the vacate-exit is a scripted teleport arriving at rest"*, the
+/// discrete-transit authority of ADR 0024. So the avatar arrives ON the body it
+/// let go of, wherever that body is, and no downstream fetch or out-of-bounds
+/// rescue is involved.
+///
+/// ⛔ **the misreading is instructive: the system's own doc says "RELEASE TOUCHES
+/// NO SCOPE", and scope is not position.** A fixture that went looking for a
+/// "something downstream" would have found nothing, because there is nothing.
 ///
 /// ⛔ **the stale position is asserted too, and that is the point.** "The avatar
 /// is near the released body" is satisfied by an avatar that was never

@@ -100,7 +100,9 @@ use std::collections::BTreeMap;
 use bevy::prelude::*;
 
 use ambition_persistence::save::AmbitionGameSave;
-use ambition_persistence::save_data::{PersistedCustody, PersistedOccurrence, PersistedWhereabouts};
+use ambition_persistence::save_data::{
+    PersistedCustody, PersistedOccurrence, PersistedWhereabouts,
+};
 use ambition_platformer2d_shared_tangle::lifecycle::{
     live_custody_rows, AuthoredOccurrences, CustodyBaseline, InCustodyOf, OccurrenceBaseline,
     OccurrenceWhereabouts, ResetToCheckpoint, RoomScopedEntity,
@@ -248,12 +250,45 @@ pub fn install_durable_save_horizon(app: &mut App) {
 /// another room and put down after the last shrine is where the player left it,
 /// and a save that wrote the shrine's memory instead would move it back while
 /// they watched.
+///
+/// # ⛔⛔ A RELATIONSHIP MAY ONLY CROSS THIS HORIZON WITH ITS AUTHORITY
+///
+/// `InCustodyOf` is generic vocabulary with two owners. The item domain derives
+/// it from `ItemCustody`, which the save carries and `restore_inventory_from_save`
+/// puts back — so a weapon in your hands is in your hands after a load, and the
+/// room that authored it correctly declines to author a second one.
+///
+/// A possessed BODY answers the same query and nothing about it is durable.
+/// `PossessionState` is rollback state, not save state: a fresh process starts
+/// with nobody driving anything. Mirroring that row would put on disk *"this
+/// enemy is in somebody's hands"* with no hand — a half-persisted relationship
+/// whose only reader is a room build deciding whether to author the enemy at all.
+///
+/// ⚠ **and it very nearly bit.** The live projection republishes the custody leg
+/// from live state every tick, so the row is retracted on the first tick of a
+/// load and the room build never sees it. That worked; it is one ordering deep,
+/// and `a_save_taken_mid_possession_does_not_delete_the_enemy_in_a_fresh_process`
+/// reproduces the permanent deletion — ZERO bodies behind the identity — from a
+/// single-line change to that retraction. Depending on a retraction to undo a
+/// row that should not have been written is not a design.
+///
+/// ⇒ **only occurrences whose custody the durable road can RESTORE are written.**
+/// That is the item road, and `ItemCustody` is exactly the component that says
+/// so. A body's occurrence is simply absent from the file, and absent is the
+/// right answer: on load its room authors it, which is what a world with nobody
+/// possessing anything should contain. ⛔ this is deliberately NOT a filter on
+/// "is it a body" — the question is which domain can rebuild the relation, and a
+/// second population that becomes durably restorable joins by carrying its own
+/// durable custody, not by being added to a list here.
 #[allow(clippy::too_many_arguments)]
 pub fn persist_occurrence_horizon_to_save(
     restored: Res<SaveRestored>,
     occurrences: Option<Res<AuthoredOccurrences>>,
     carried: Query<(&SimId, &InCustodyOf), With<RoomScopedEntity>>,
     custodians: Query<&SimId>,
+    // The occurrences whose custody survives a process boundary, because the item
+    // domain saves `ItemCustody` and applies it again on load.
+    durably_held: Query<&SimId, With<crate::items::pickup::ItemCustody>>,
     mut save: ResMut<AmbitionGameSave>,
 ) {
     if !restored.0 {
@@ -262,8 +297,18 @@ pub fn persist_occurrence_horizon_to_save(
     let Some(occurrences) = occurrences else {
         return;
     };
+    let restorable: std::collections::BTreeSet<&str> =
+        durably_held.iter().map(SimId::as_str).collect();
     let rows: Vec<PersistedOccurrence> = occurrences
         .rows()
+        // An `InCustody` row is a claim that something is holding this, and the
+        // file may only make that claim about a hand it can reconstruct. Every
+        // other whereabouts — `Placed`, `Consumed` — is a fact about the world
+        // itself and crosses unconditionally.
+        .filter(|(sim_id, whereabouts)| {
+            !matches!(whereabouts, OccurrenceWhereabouts::InCustody)
+                || restorable.contains(sim_id.as_str())
+        })
         .map(|(sim_id, whereabouts)| {
             PersistedOccurrence::new(
                 sim_id.as_str(),
@@ -284,6 +329,7 @@ pub fn persist_occurrence_horizon_to_save(
         .collect();
     let custody: Vec<PersistedCustody> = live_custody_rows(&carried, &custodians)
         .into_iter()
+        .filter(|(occurrence, _)| restorable.contains(occurrence.as_str()))
         .map(|(occurrence, custodian)| {
             PersistedCustody::new(occurrence.as_str(), custodian.as_str())
         })

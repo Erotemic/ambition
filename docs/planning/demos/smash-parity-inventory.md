@@ -129,12 +129,21 @@ foxtrot · dash-dance · pivot and turnaround · run-cancel by crouch or shield.
 double-jump cancel · b-reverse and wavebounce · aerial drift out of hitstun ·
 fast-fall out of a bounce.
 
-**Attack surface.** Dash attack as its own verb · pivot smash · jab combos with
+**Attack surface.** Dash attack as its own verb — ⚠ HALF SHIPPED and the halves
+are on DIFFERENT ROADS, measured 2026-08-20. The ENGINE road has it:
+`attack_intent` returns `AttackIntent::DashForward` for a dashing forward swing
+and `attack_spec_for_intent` gives it real frames (20ms startup, 46px reach). The
+MOVESET road — which is the one a smash fighter takes — resolves by `AttackDir`,
+whose variants are Neutral/Forward/Up/Down/Back with NO dash, so a dashing
+fighter's press comes out as its forward tilt or its jab depending on the stick.
+⇒ the gap is the SELECTOR plus a `SmashRepertoire` slot plus fourteen authored
+moves; it is not that the engine lacks the verb · pivot smash · jab combos with
 a rapid-jab finisher · charge storage · a two-frame ledge-vulnerability window ·
 z-drop and item throws · edge-cancel.
 
-**Defense.** Perfect shield as a RELEASE-timed parry (Ultimate moved it off the
-press) · shield tilt to cover a limb · shield-drop into an aerial ·
+**Defense.** Perfect shield as a RELEASE-timed parry — ⛔ ASKED, not skipped:
+`awaiting-maintainer-decision.md` §25, because ours is Smash 4's press-timed
+parry and BOTH are shipped genre standards · shield tilt to cover a limb · shield-drop into an aerial ·
 directional-influence variants (SDI, ASDI, hitfall).
 
 **Match surface.** Time, stamina and coin rulesets · sudden death · handicap ·

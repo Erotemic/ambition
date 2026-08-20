@@ -41,7 +41,7 @@ investigation that led to the question. Same rule as
 [`README.md`](README.md#queue-contract); on 2026-08-17 this file was **739 lines
 for 9 open questions**, and the four answered ones held a third of it.
 
-## Open decisions — 15 (§1, §6, §7, §9, §10, §11, §12 and §13 are ANSWERED; §8 is DEFERRED)
+## Open decisions — 16 (§1, §6, §7, §9, §10, §11, §12 and §13 are ANSWERED; §8 is DEFERRED)
 
 ### 1. ✔ ANSWERED 2026-08-17 — a bolt hits what a sword hits (former D23)
 
@@ -1138,6 +1138,38 @@ rather than as a bug.
 ⇒ **the question**: is the third option acceptable, or does the rule extend to
 body-vs-body entirely and jostle should not be built? ⛔ not answered by refactor
 — I have left the row `▢` rather than guessing at a rule Jon stated twice.
+
+### 25. ▢ NEW 2026-08-20 — our perfect shield is timed on the PRESS; Ultimate moved it to the RELEASE
+
+**What we have.** `resolve_shield` arms `BodyShieldState::parry_window_timer` on
+the guard's RISING EDGE, and `parrying()` is `active && parry_window_timer > 0.0`
+— so a parry is *"you raised the shield within the window before the hit"*, and
+a parried hit does not register at all (`combat::util::body_vulnerable`).
+
+**What Ultimate does.** It moved the perfect shield OFF the press: you RELEASE
+the shield within a few frames of the hit connecting, the defender takes nothing,
+and the attacker eats a large extra lag. The press-timed version is Smash 4's.
+
+⛔ **this is not a missing mechanic, and that is exactly why it is a decision.**
+Both are shipped platform-fighter standards. We do not lack a parry; we have the
+OTHER correct one. "Go and find what the genre does and ship that" does not
+resolve it, because the genre has done both and picked deliberately.
+
+**What each buys.** The press version rewards a read BEFORE the hit — commit
+early, be right. The release version makes the shield a two-decision object: you
+raise it under pressure and then time the drop, so a defender under a
+multi-hit string is making a choice every beat rather than one at the start.
+Ultimate's stated reason was the second.
+
+⚠ **the code cost is not the interesting part but it is not nothing**:
+`parrying()` currently requires `active`, and a release-timed window is live on
+frames when the shield is DOWN — so the term that separates a parry from a held
+shield would have to move, and `vulnerability_gate_tests` asserts that term by
+name.
+
+⇒ **the question**: keep the press-timed parry, or move it to the release? ⛔ left
+as-is pending an answer rather than changed under the "genre research" licence —
+changing a working feel behaviour is not the same as adding a missing one.
 
 ## ✔ CLOSED 2026-08-15 — every submodule remote is reachable and current
 

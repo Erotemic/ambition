@@ -60,8 +60,8 @@ you add a `▢`, and before you work one.
 | Ledge grab with intangibility window | ✔ | `core/ledge_grab/` |
 | Ledge getup: climb / roll / attack | ✔ | `LedgeGetupKind` |
 | Ledge jump getup | ✔ | `MovementOp::LedgeJump` |
-| Ledge trump (stealing an occupied ledge) | ▢ | — |
-| Ledge intangibility decay with repeated grabs | ▢ | — |
+| Ledge trump (stealing an occupied ledge) | ~ | `features/ecs/ledge_trump.rs`; the trumped body is DROPPED, where Ultimate pops it outward into a brief helpless state |
+| Ledge intangibility scales with airtime (a regrab earns near nothing) | ✔ | `ledge_grab_invuln_earned` off `AxisManeuverState::time_off_ledge` |
 | Platform drop-through | ✔ | `core::collision_semantics` |
 
 ## Damage and knockback
@@ -157,6 +157,9 @@ and leaves the values rough; tuning is not this lane's licence.
    2026-08-20: `DeclaredCombatRules::grab_hold_*`, Ultimate's 90 + 1.7p read
    ONCE at the grab); still open are dash/pivot grabs and grab release as its
    own beat.
-4. **Ledge trump and ledge-intangibility decay.**
+4. ~~**Ledge trump and ledge-intangibility decay**~~ — both landed 2026-08-20,
+   and the second row's word was wrong: the genre buys the window with AIRTIME,
+   not a regrab counter. Still open on the ledge: the trumped body is dropped
+   where Ultimate pops it outward into a brief helpless state.
 5. **Match rules** — timer, sudden death, friendly-fire toggle, respawn platform.
 6. **SDI, spot dodge, crouch cancel, jostle, wall tech** — the remaining verbs.

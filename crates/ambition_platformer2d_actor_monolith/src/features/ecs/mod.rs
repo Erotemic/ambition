@@ -61,11 +61,12 @@ mod damage_predicates;
 pub mod dormancy;
 pub mod effect_bus;
 mod encounter_rewards;
-pub mod footstool;
 #[cfg(test)]
 mod fighter_harness;
+pub mod footstool;
 pub mod hit_camera_shake;
 mod interact;
+pub mod ledge_trump;
 mod mount;
 pub mod perception;
 pub mod pickups;

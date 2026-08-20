@@ -727,6 +727,18 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::PlayerInput,
             ),
         );
+        // ⭐ **THE LEDGE TRUMP RESOLVES AFTER THE KERNEL, so it sees the grabs
+        // this tick made.** Two bodies can catch one edge on the same frame, and
+        // arbitrating before `PlayerSimulation` would judge LAST tick's
+        // occupancy and leave both hanging for a frame — which is the frame an
+        // edge-guard reads. ⚠ `CombatSet::Settle` is not a claim that a trump is
+        // combat; it is the established post-kernel bookkeeping slot, beside the
+        // capture release and the stale-move recorder.
+        app.add_systems(
+            sim,
+            ambition_platformer2d::actors::features::ecs::ledge_trump::resolve_ledge_trumps
+                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle),
+        );
         // **Staling is recorded in `Settle`, after the hits it remembers.**
         // ⛔ it must run AFTER `Resolve`, not inside it: the resolver holds the
         // victim query and the attacker's queue lives on a body in that same

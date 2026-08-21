@@ -23,8 +23,6 @@
 | [`encounters`](src/encounters.rs) | Content encounter customers on the GENERIC lifecycle (E13). |
 | [`falling_sand`](src/falling_sand.rs) | Falling-sand room PRESENTATION + `bevy_falling_sand` bridge for water/oil — CONTENT (a self-gating room plugin: feature-gated, visible-binary only, active only while its authored room is; R3.3 room-mechanics-by-kind). |
 | [`falling_sand_sim`](src/falling_sand_sim.rs) | Falling-sand room SIMULATION — the deterministic, headless-safe half. |
-| [`fighting_polygon_brawler_moveset`](src/fighting_polygon_brawler_moveset.rs) | Fighting Polygon — brawler archetype repertoire. |
-| [`fighting_polygon_sword_moveset`](src/fighting_polygon_sword_moveset.rs) | Fighting Polygon — sword archetype repertoire. |
 | [`goblin_moveset`](src/goblin_moveset.rs) | **The goblin's repertoire** — the third character in the game to state its own moves, and the first ENEMY to. |
 | [`input_techniques`](src/input_techniques.rs) | Ambition-owned motion-input technique registrations. |
 | [`intro`](src/intro/mod.rs) | Intro sequence story content. |
@@ -38,10 +36,12 @@
 | [`player_robot_lineage`](src/player_robot_lineage.rs) | **The player robot's incarnations, emitted from one source.** |
 | [`player_robot_moveset`](src/player_robot_moveset.rs) | **The player robot's canonical move repertoire** — the moves that ARE the protagonist, wherever it is seated. |
 | [`plugin`](src/plugin.rs) | [`AmbitionContentPlugin`] — named Ambition game-content registration. |
+| [`pointed_polygon_moveset`](src/pointed_polygon_moveset.rs) | Pointed Polygon — sword archetype repertoire. |
 | [`portal`](src/portal/mod.rs) | Ambition-specific portal adapters. |
 | [`presentation`](src/presentation/mod.rs) | Content-owned presentation plugins — named Ambition looks layered onto the reusable renderer's PUBLIC seams. |
 | [`projectiles`](src/projectiles.rs) | Ambition-owned projectile visual registrations. |
 | [`provider`](src/provider.rs) | Reusable Ambition gameplay provider. |
+| [`pugnacious_polygon_moveset`](src/pugnacious_polygon_moveset.rs) | Pugnacious Polygon — brawler archetype repertoire. |
 | [`quest`](src/quest.rs) | Ambition's authored quests + their completion payouts. |
 | [`quests`](src/quests/mod.rs) | Named Ambition quest content registration. |
 | [`worlds`](src/worlds.rs) | Ambition's LDtk WORLD payload + its `WorldManifest` — CONTENT, evicted from the engine core (R3.2, the #1 violation: the engine shipped the game's worlds). |

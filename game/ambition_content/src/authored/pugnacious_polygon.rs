@@ -1,4 +1,4 @@
-//! Fighting Polygon — brawler archetype.
+//! Pugnacious Polygon — brawler archetype.
 //!
 //! The unarmed companion to the sword reference rig. It intentionally shares the
 //! same broad safe-pose vocabulary while using larger fists and close-range body
@@ -13,7 +13,7 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
             move_style: ambition_characters::brain::MoveStyleSpec::Walk,
             ..Default::default()
         })
-        .with_moveset(crate::fighting_polygon_brawler_moveset::fighting_polygon_brawler_moveset());
+        .with_moveset(crate::pugnacious_polygon_moveset::pugnacious_polygon_moveset());
     definition.vitals.max_health = Some(6);
     definition
 }

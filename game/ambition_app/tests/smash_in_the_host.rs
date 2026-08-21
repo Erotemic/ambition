@@ -2997,7 +2997,7 @@ fn the_capture_tools_documented_taps_seat_two_cpus_on_two_fighters() {
     // own fighter against Ambition's, the pair the question is about.
     //
     // ⚠ **THE NUMBERS MOVED 2026-08-20 AND THE FIGHTERS DID NOT.** They were
-    // `532x121` and `855x121` until `fighting_polygon_sword` joined the roster:
+    // `532x121` and `855x121` until `pointed_polygon` joined the roster:
     // the grid took the count from 15 cells to 16, re-flowed to six columns, and
     // BOTH documented taps landed on nothing — the test read two `Random` picks,
     // which is what a token going home looks like. ⇒ this pair is a function of

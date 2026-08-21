@@ -430,8 +430,8 @@ tackon_targets=(
     # `test_every_catalog_character_names_a_sheet_regen_publishes` is what said
     # so, and it is the second time this session that a check caught art existing
     # only by accident of local history.
-    fighting_polygon_sword
-    fighting_polygon_brawler
+    pointed_polygon
+    pugnacious_polygon
     sandbag
     burning_flying_shark
     pipi_tau

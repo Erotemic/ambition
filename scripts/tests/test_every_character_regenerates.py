@@ -95,7 +95,7 @@ MAIN_CONFIGS = (
 # so a character authored as a top-level `.rig.json` is published without the
 # script ever spelling its name — the same shape as `draw-all` rendering every
 # `configs/*.yaml`, which this file already handles two lines below. Missing it
-# reported `fighting_polygon_sword` as an orphan while the glob published it.
+# reported `pointed_polygon` as an orphan while the glob published it.
 #
 # ⛔ **TOP-LEVEL ONLY, mirroring the script's glob exactly.** A rig that moved
 # into `rigged/<name>/` is NOT matched by `*.rig.json` and must be named in the

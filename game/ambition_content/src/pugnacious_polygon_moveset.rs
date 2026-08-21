@@ -1,4 +1,4 @@
-//! Fighting Polygon — brawler archetype repertoire.
+//! Pugnacious Polygon — brawler archetype repertoire.
 //!
 //! A complete fundamentals brawler table. It mirrors the sword reference's typed
 //! vocabulary but expresses every slot with close-range body mechanics: punches,
@@ -13,7 +13,7 @@ use ambition_characters::smash_capture::{
 use ambition_characters::smash_repertoire::{DownSpecial, NeutralSpecial, SmashRepertoire};
 use ambition_platformer2d::entity_catalog::{ImpulseMode, MovesetContract};
 
-pub fn fighting_polygon_brawler_moveset() -> MovesetContract {
+pub fn pugnacious_polygon_moveset() -> MovesetContract {
     let jab = strike(
         "polygon_brawler_jab", "jab", 0.04, 0.05, 0.10,
         (22.0, -2.0), (18.0, 15.0), 4, 52.0, 1.10, Some((1.0, -0.18)), None,
@@ -160,11 +160,11 @@ pub fn fighting_polygon_brawler_moveset() -> MovesetContract {
         // own a `DashAttackShape` because their own laws refused the generic
         // one; a reference rig has no such law to refuse it.
         taunt: ambition_characters::moveset_authoring::taunt(
-            "fighting_polygon_brawler_taunt",
+            "pugnacious_polygon_taunt",
             0.9,
         ),
         dash_attack: ambition_characters::moveset_authoring::dash_attack(
-            "fighting_polygon_brawler_dash_attack",
+            "pugnacious_polygon_dash_attack",
             ambition_characters::moveset_authoring::DashAttackShape::GENRE,
             8,
             90.0,
@@ -204,7 +204,7 @@ mod tests {
 
     #[test]
     fn the_reference_brawler_answers_the_complete_typed_repertoire() {
-        let moves = fighting_polygon_brawler_moveset();
+        let moves = pugnacious_polygon_moveset();
         for id in [
             "polygon_brawler_jab", "polygon_brawler_tilt_forward", "polygon_brawler_tilt_up",
             "polygon_brawler_tilt_down", "polygon_brawler_smash_forward", "polygon_brawler_smash_up",
@@ -214,7 +214,7 @@ mod tests {
             "polygon_brawler_ground_slam", "polygon_brawler_body_drop", "polygon_brawler_grab",
             "polygon_brawler_pummel", "polygon_brawler_throw_forward", "polygon_brawler_throw_back",
             "polygon_brawler_throw_up", "polygon_brawler_throw_down",
-            "fighting_polygon_brawler_taunt", "fighting_polygon_brawler_dash_attack",
+            "pugnacious_polygon_taunt", "pugnacious_polygon_dash_attack",
         ] {
             assert!(moves.moves.iter().any(|m| m.id == id), "missing {id}");
         }

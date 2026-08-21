@@ -2664,10 +2664,10 @@
         ),
         hall_dialogue_id: Some("hall_player_robot_v2"),
         ),
-        "fighting_polygon_sword": (
-            display_name: "Fighting Polygon",
-            spritesheet: "sprites/fighting_polygon_sword_spritesheet.png",
-            manifest: "sprites/fighting_polygon_sword_spritesheet.ron",
+        "pointed_polygon": (
+            display_name: "Pointed Polygon",
+            spritesheet: "sprites/pointed_polygon_spritesheet.png",
+            manifest: "sprites/pointed_polygon_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
             composition: None,
@@ -2700,10 +2700,10 @@
             ),
             hall_dialogue_id: None,
         ),
-        "fighting_polygon_brawler": (
-            display_name: "Fighting Polygon Brawler",
-            spritesheet: "sprites/fighting_polygon_brawler_spritesheet.png",
-            manifest: "sprites/fighting_polygon_brawler_spritesheet.ron",
+        "pugnacious_polygon": (
+            display_name: "Pugnacious Polygon",
+            spritesheet: "sprites/pugnacious_polygon_spritesheet.png",
+            manifest: "sprites/pugnacious_polygon_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
             composition: None,

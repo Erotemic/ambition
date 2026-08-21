@@ -1,4 +1,4 @@
-//! Fighting Polygon — sword archetype repertoire.
+//! Pointed Polygon — sword archetype repertoire.
 //!
 //! This is intentionally a FUNDAMENTALS table. The character exists partly as a
 //! safe animation reference for future humanoids, so every common Smash verb has
@@ -16,7 +16,7 @@ use ambition_characters::smash_repertoire::{DownSpecial, NeutralSpecial, SmashRe
 use ambition_platformer2d::entity_catalog::{ImpulseMode, MovesetContract};
 
 /// Complete sword-fundamentals repertoire: every typed Smash slot plus all four throws.
-pub fn fighting_polygon_sword_moveset() -> MovesetContract {
+pub fn pointed_polygon_moveset() -> MovesetContract {
     // Grounded normals.
     let jab = strike(
         "polygon_jab", "jab", 0.05, 0.05, 0.12,
@@ -194,7 +194,7 @@ pub fn fighting_polygon_sword_moveset() -> MovesetContract {
         // this file, cut before that, dropped it again. See `select.rs` for the
         // same shape: a stale copy is a revert with no diff to review.
         taunt: ambition_characters::moveset_authoring::taunt(
-            "fighting_polygon_sword_taunt",
+            "pointed_polygon_taunt",
             0.9,
         ),
         // ⚠ the genre shape, deliberately: this character is the REFERENCE rig,
@@ -202,7 +202,7 @@ pub fn fighting_polygon_sword_moveset() -> MovesetContract {
         // a reason to differ. A bespoke reach here would be a number nobody
         // chose being copied into every fighter that starts from these poses.
         dash_attack: ambition_characters::moveset_authoring::dash_attack(
-            "fighting_polygon_sword_dash_attack",
+            "pointed_polygon_dash_attack",
             ambition_characters::moveset_authoring::DashAttackShape::GENRE,
             8,
             90.0,
@@ -245,11 +245,11 @@ mod tests {
 
     #[test]
     fn the_reference_sword_fighter_answers_the_complete_typed_repertoire() {
-        let moves = fighting_polygon_sword_moveset();
+        let moves = pointed_polygon_moveset();
         for id in [
             "polygon_jab",
-            "fighting_polygon_sword_dash_attack",
-            "fighting_polygon_sword_taunt",
+            "pointed_polygon_dash_attack",
+            "pointed_polygon_taunt",
             "polygon_tilt_forward",
             "polygon_tilt_up",
             "polygon_tilt_down",

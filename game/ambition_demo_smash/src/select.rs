@@ -140,8 +140,8 @@ pub const SMASH_ROSTER: &[&str] = &[
     "special_patent_clerk",
     // The deliberately simple SVG-rigged humanoid reference fighter. Unlike the
     // stand-ins below, this is a real character owned by Ambition content.
-    "fighting_polygon_sword",
-    "fighting_polygon_brawler",
+    "pointed_polygon",
+    "pugnacious_polygon",
     // ⚠ **THE STAND-INS, and they are LAST for a reason.** See [`STAND_INS`].
     crate::SMASH_CHARACTER_ID,
     crate::SMASH_OPPONENT_ID,

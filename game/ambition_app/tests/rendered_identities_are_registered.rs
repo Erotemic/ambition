@@ -69,7 +69,7 @@ fn target_dir() -> PathBuf {
 /// `WAIVED` only because the scan cannot read an id it never spells.
 ///
 /// ⭐ **8 → 9 on 2026-08-20, hand-check first, as the ratchet demands.** The
-/// ninth is `fighting_polygon_sword`, an SVG-rigged humanoid that is both a
+/// ninth is `pointed_polygon`, an SVG-rigged humanoid that is both a
 /// playable fighter and the reference rig other humanoids start from. **It HAS a
 /// catalog row** (`character_catalog.ron`, tier `MainHall`), and
 /// `registered_character_art_resolves` now passes for it — which is the actual
@@ -81,7 +81,7 @@ fn target_dir() -> PathBuf {
 /// POC is untracked turns CI red (a fresh checkout has seven); landing the POC
 /// without raising it turns CI red the other way.
 /// ⭐ **9 → 10 on 2026-08-20, hand-check first, as the ratchet demands.** The
-/// tenth is `fighting_polygon_brawler`, the unarmed half of the reference pair.
+/// tenth is `pugnacious_polygon`, the unarmed half of the reference pair.
 /// **It HAS a catalog row** (`character_catalog.ron`, tier `MainHall`,
 /// `default_brain: "melee_brute_striker"`), added in the same session as its
 /// renderer target, and the superproject gitlink was bumped to `4dd065a` so the

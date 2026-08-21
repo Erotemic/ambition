@@ -1,4 +1,4 @@
-//! Fighting Polygon — sword archetype.
+//! Pointed Polygon — sword archetype.
 //!
 //! This is intentionally an uncomplicated humanoid body. Its main authoring value
 //! is that the sprite rig supplies safe reference poses that later humanoids can
@@ -13,7 +13,7 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
             move_style: ambition_characters::brain::MoveStyleSpec::Walk,
             ..Default::default()
         })
-        .with_moveset(crate::fighting_polygon_sword_moveset::fighting_polygon_sword_moveset());
+        .with_moveset(crate::pointed_polygon_moveset::pointed_polygon_moveset());
     definition.vitals.max_health = Some(5);
     definition
 }

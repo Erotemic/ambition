@@ -372,6 +372,32 @@ found exactly **1 of 267 planning docs referenced by nothing**. Promoted to
 standing guarantee — the census is a dozen lines of Python and finding one
 live plan pays for it.
 
+⭐ **RE-RUN 2026-08-21, and it paid again: 6 of 267 referenced by nothing, and
+one of them was a live ADR.**
+
+```text
+docs/adr/0021-authoring-backend-agnostic-world-ir.md   ⇒ ROUTED
+  "Accepted; IMPLEMENTED" — it minted `ambition_platformer2d_world` and
+  `ambition_platformer2d_ldtk` and the boundary tests that ratchet their
+  dependency direction. Neighbours 0019/0020/0022/0023 each had 1-3
+  referrers; this had ZERO. Now cited from the LDtk crate's own header,
+  which is where a reader asking "why are these two crates" arrives.
+
+docs/brainstorms/{game_modes_and_data_sharing,sprite-enemy-ideas,the_fia_arc}.md
+docs/learning/how-to-learn-enough-bevy-…md
+docs/patches/llm-doc-cleanup-2026-05-17.md              ⇒ LEFT ALONE
+  reference by NATURE, and all five are mtime 2026-07-07/08-01. The rule
+  prefers PROMOTE when the mtime is recent because recent means Jon just
+  put it there; none of these is recent, and a brainstorm nothing cites is
+  not the same defect as a DECISION nothing cites.
+```
+
+⇒ **the census's value is the distinction, not the count.** A stranded PLAN or
+DECISION is invisible work; a stranded brainstorm is just a brainstorm. Re-run
+it by scoping to `docs/**` minus `archive/` — scoping to `docs/planning/**`
+alone reports 0 of 99 and misses the ADR entirely, which is exactly how this one
+survived the 2026-08-20 pass.
+
 ⛔ **do not bulk-archive the routed docs above.** `triage/ambition-test-support.md`
 and `triage/ambition-registry-core.md` are residual work re-verified against
 HEAD, i.e. live work with no route to it, not spent history.

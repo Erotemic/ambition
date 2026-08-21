@@ -5,6 +5,17 @@
 //! currently understands and materializes Ambition runtime rooms directly
 //! from LDtk-authored data.
 //!
+//! ⭐ **WHY THIS IS A SEPARATE CRATE FROM `ambition_platformer2d_world`:
+//! ADR 0021, authoring-backend-agnostic world IR.** World IR is pure authored
+//! input; LDtk is ONE backend that converts into it, and a generated/RON/test
+//! backend is a peer rather than a special case. That decision minted both
+//! crates and the boundary tests that ratchet the dependency direction.
+//!
+//! ⚠ the citation is here because the ADR was reachable from NOTHING until
+//! 2026-08-21 — a census of 267 docs found it the only implemented decision
+//! with zero referrers, while its neighbours (0019, 0020, 0022, 0023) each had
+//! one to three. A decision nobody can find is one somebody re-litigates.
+//!
 //! ## Submodule layout (post-2026-05-09 split)
 //!
 //! Submodules are private (`mod`); user-facing types are re-exported

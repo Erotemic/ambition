@@ -3128,6 +3128,45 @@ this measurement produces — nothing in the monolith would notice them leaving:
   of its own — ⛔ check that destination's stated contract first, which is the
   rule D136 yields.
 
+⭐⭐ **THE FIFTH GATE, RUN ACROSS EVERY MODULE — 2026-08-21.** Which modules hold
+rollback-registered types (asked of the monolith's `rollback_registration.rs`,
+because a module can be rollback state without containing one line that says so):
+
+```text
+⛔ SCHEMA CHANGE (15)  features 49 · items 12 · character_runtime 6 · encounter 6
+                       session 6 · time 6 · avatar 5 · affordances 4 · abilities 2
+                       control 2 · gravity 2 · world 2 · body_mode 1 · projectile 1
+                       shrine 1
+✔ file-move price (13) ability_cooldown, assets, audio, character_roster,
+                       character_sprites, construction, dev, enemy_projectile,
+                       host, music, platformer_runtime, quest, schedule
+```
+
+⇒ **more than half the monolith cannot be carved without rewriting the wire
+format**, which is the single most useful number this row has produced: it says
+why the campaign is slow, and it prices every future candidate before anybody
+starts one.
+
+**THREE CANDIDATES TAKEN TO A VERDICT, and every one was decided by the
+DESTINATION rather than by the coupling table:**
+
+```text
+dev/trace          ⛔ REFUSED  `ambition_dev_tools`: "the gameplay trace
+                              recorder … STAYS SIM-SIDE"
+character_sprites  ⛔ REFUSED  `ambition_character_sprites`: "the load-bearing
+                              property is the DIRECTION: the actor crate does
+                              not depend on this one". 11 PRODUCTION uses in
+                              assets/actor_clusters/character_runtime would each
+                              invert it. (Its 12 "outbound" refs were an
+                              illusion — doc comments and a test-only fixture.)
+affordances        ◐ LEGAL    contract met, concept whole, direction fine —
+                              but 4 rollback-registered types make it a SCHEMA
+                              CHANGE, not a file move
+```
+
+⇒ **D136's thesis is now four-for-four**, and three of those four caught THIS
+session mid-reach. A stated contract is the cheapest refusal in the project.
+
 ⚠ **coupling is NECESSARY, NOT SUFFICIENT — and the `dev/trace` entry above is
 this row's own proof, earned the embarrassing way.** The table said 0 inbound and
 a destination already existed; both were true, and the module still belongs

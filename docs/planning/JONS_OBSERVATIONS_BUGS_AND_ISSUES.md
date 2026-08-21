@@ -130,7 +130,12 @@
 
 
 * When you challenge PCA in the C4 symmetry room we should change the music to a smash track.
-  * ▢ Authoring, not machinery: encounters and rooms already author a `music_track` and `content_validation` checks the id against the registry, so this is setting one value on the symmetry-room encounter. ⚠ the only real cost is whether a smash track id exists in AMBITION's registry — `music_registry.ron` is generated, so a new one needs a regen.
+  * ▢ **RE-PRICED 2026-08-21: it is NOT "one value on the encounter", and the earlier note had the shape wrong.** Traced end to end:
+    * ⭐ the moment is `assets/dialogue/sandbox/symmetry.yarn:56` — the *"Challenge it."* choice fires `<<challenge>>`.
+    * ⭐ **the track exists**, so no regen is needed: `super_smash_siblings_theme`, `_grand_symphony` and `_character_select` are all in `music_registry.ron` already.
+    * ⛔ **the room's own music must STAY.** `symmetry_room` authors `music_track: for_emmy_forever_ago` in `sandbox.ldtk`, which is right for the puzzle — the CHALLENGE is what should swap, not the room.
+    * ⛔⛔ **and it must not go in `cmd_challenge`.** That command is the GENERIC dialogue-gated fight trigger whose own doc says *"Any content … arms a boss/duel by authoring this one command on a choice; no Rust per-NPC branch"* — putting a track there would play a smash theme for every challenge in the game.
+    * ⇒ **the slice is a new authored command**, `<<music …>>`, sibling to the `play_sfx` already in `yarn_vocabulary.rs`, plus one authored line on that choice. ⚠ **the cost that was missed:** the music director is AUTHORITY-GOVERNED (`MusicAuthority::Governed { authorized }`), so a requested track that the active context does not authorize is refused — the symmetry room's context has to authorize the smash track as well as the command existing.
 
 
 * I want to implement a camera mode for gravity where the camera just follows the player's reference frame. We should be careful so we use player-reference frame inputs in this mode. It doesn't need special gravity affordances. 

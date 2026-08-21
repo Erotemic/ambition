@@ -221,13 +221,12 @@
           "values": [
             "Door",
             "EdgeExit",
-            "Walk",
-            "walk"
+            "Walk"
           ],
-          "on_invalid": "silent_default",
+          "on_invalid": "refused",
           "default": "Door",
           "sample": "EdgeExit",
-          "note": "anything the converter does not recognise silently becomes a Door, so `edgeexit` is a door and nothing says so"
+          "note": "REFUSED since 2026-08-21, and the note it replaces said why: `anything the converter does not recognise silently becomes a Door, so edgeexit is a door and nothing says so`. LDtk types this field as free-text String with default Door, so an author spells it from memory -- which is also why the shipped worlds read 127 Door / 24 EdgeExit / 0 Walk. One parse now owns the mapping (LoadingZoneActivation::from_authored); it trims and lowercases, so case and stray whitespace are forgiven and a genuine typo is an error in both the converter and the validator. The old match accepted `walk` but not `edgeexit` -- one variant forgiving, its sibling not."
         }
       ]
     },

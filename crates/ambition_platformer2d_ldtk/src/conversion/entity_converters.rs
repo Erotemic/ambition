@@ -85,17 +85,20 @@ pub(super) fn convert_lock_wall(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission,
 
 pub(super) fn convert_loading_zone(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
     let (entity, name, min, size) = ctx.parts();
+    // ⛔ **an unrecognised spelling is REFUSED, not defaulted.** This was
+    // `_ => Door`, so a typo produced an interact door where the author meant a
+    // walk-through and nothing said so. See `LoadingZoneActivation::from_authored`.
+    let authored = field_string(entity, "activation").unwrap_or_else(|| "Door".to_string());
+    let activation = LoadingZoneActivation::from_authored(&authored).ok_or_else(|| {
+        format!(
+            "LoadingZone '{name}' has activation '{authored}', which is not one of {:?}",
+            LoadingZoneActivation::AUTHORED_SPELLINGS
+        )
+    })?;
     Ok(RoomEmission::zone(LoadingZone {
         id: field_string(entity, "id").unwrap_or_else(|| entity.iid.clone()),
         name,
-        activation: match field_string(entity, "activation")
-            .unwrap_or_else(|| "Door".to_string())
-            .as_str()
-        {
-            "EdgeExit" => LoadingZoneActivation::EdgeExit,
-            "Walk" | "walk" => LoadingZoneActivation::Walk,
-            _ => LoadingZoneActivation::Door,
-        },
+        activation,
         aabb: object_aabb(min, size),
     }))
 }

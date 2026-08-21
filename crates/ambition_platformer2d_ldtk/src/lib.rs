@@ -288,8 +288,27 @@ impl LdtkProject {
                                 entity.iid
                             ));
                         }
-                        if field_string(entity, "activation").unwrap_or_else(|| "Door".to_string())
-                            == "EdgeExit"
+                        // ⛔ **ONE parse, not a second copy of the token set.**
+                        // This read `== "EdgeExit"` while the converter matched
+                        // its own list — two spellings of one vocabulary, free
+                        // to disagree. An unrecognised value is reported below
+                        // rather than silently becoming a Door.
+                        let authored = field_string(entity, "activation")
+                            .unwrap_or_else(|| "Door".to_string());
+                        let activation =
+                            ambition_platformer2d_world::rooms::LoadingZoneActivation::from_authored(
+                                &authored,
+                            );
+                        if activation.is_none() {
+                            report.errors.push(format!(
+                                "LoadingZone {} in level '{}' has activation '{authored}', which is not one of {:?}",
+                                entity.iid,
+                                level.identifier,
+                                ambition_platformer2d_world::rooms::LoadingZoneActivation::AUTHORED_SPELLINGS
+                            ));
+                        }
+                        if activation
+                            == Some(ambition_platformer2d_world::rooms::LoadingZoneActivation::EdgeExit)
                         {
                             if !entity_touches_level_edge(entity, level) {
                                 report.errors.push(format!(

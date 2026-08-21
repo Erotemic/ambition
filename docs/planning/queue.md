@@ -3147,6 +3147,21 @@ format**, which is the single most useful number this row has produced: it says
 why the campaign is slow, and it prices every future candidate before anybody
 starts one.
 
+⚠ **the table above is a SNAPSHOT; the METHOD is the durable part** — the same
+lesson the stranded-doc census records about itself. Re-run it for the module you
+are about to move, because a registration added tomorrow will not announce
+itself:
+
+```sh
+grep -c "crate::<module>::" \
+  crates/ambition_platformer2d_actor_monolith/src/rollback_registration.rs
+```
+
+⛔ ask the OWNING crate's `rollback_registration.rs`, never the module being
+moved. `affordances` contains zero lines mentioning rollback and has four
+registered types — which is exactly how this gate got missed once already
+tonight.
+
 **THREE CANDIDATES TAKEN TO A VERDICT, and every one was decided by the
 DESTINATION rather than by the coupling table:**
 

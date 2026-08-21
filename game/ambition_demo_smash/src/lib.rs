@@ -757,7 +757,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // `BodyJumpState::footstool_claimed` ahead of the jump chain.
         app.add_systems(
             sim,
-            ambition_platformer2d::actors::features::ecs::footstool::claim_footstools.in_set(
+            ambition_platformer2d::combat::footstool::claim_footstools.in_set(
                 ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::PlayerInput,
             ),
         );

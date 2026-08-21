@@ -1,3 +1,16 @@
+//! **FOOTSTOOL — jumping off another fighter's head.**
+//!
+//! ⭐ **carved out of `ambition_platformer2d_actor_monolith` on 2026-08-21
+//! (D33).** A footstool is a platform-fighter mechanic between two bodies; it
+//! belongs with the rest of combat, not in the crate that happens to own actor
+//! wiring. The module and its tests together named exactly ONE path outside the
+//! crate — `MotionModel`, which is `ambition_platformer2d_core`'s and was only
+//! ever reached through the monolith's re-export.
+//!
+//! ⚠ **nothing in the monolith registered it.** The smash demo does, through the
+//! facade — so this module was sitting in a crate that neither owned its concept
+//! nor used it.
+
 //! **The footstool: jumping off another body's head.**
 //!
 //! The other body-vs-body interaction beside [`super::capture`], and it is built
@@ -82,13 +95,13 @@ pub struct FootstoolBody {
     pub id: &'static SimId,
     pub kin: &'static ae::BodyKinematics,
     pub ground: &'static ae::BodyGroundState,
-    pub model: &'static crate::features::MotionModel,
+    pub model: &'static ae::MotionModel,
     pub health: &'static ambition_characters::actor::BodyHealth,
-    pub team: Option<&'static ambition_combat::targeting::MatchTeam>,
+    pub team: Option<&'static crate::targeting::MatchTeam>,
     pub control: Option<&'static ambition_characters::brain::ActorControl>,
     /// The swing clock, read ONLY to ask whether this body is mid-move — see
     /// the phantom footstool in the module doc.
-    pub melee: Option<&'static ambition_combat::components::BodyMelee>,
+    pub melee: Option<&'static crate::components::BodyMelee>,
     pub frame: Option<&'static ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
 }
 
@@ -114,8 +127,8 @@ fn frames_agree(a: ae::Vec2, b: ae::Vec2) -> bool {
 /// question instead would make a mechanic that deals no damage depend on a
 /// policy about dealing it.
 fn team_permits(
-    stomper: Option<&ambition_combat::targeting::MatchTeam>,
-    victim: Option<&ambition_combat::targeting::MatchTeam>,
+    stomper: Option<&crate::targeting::MatchTeam>,
+    victim: Option<&crate::targeting::MatchTeam>,
     friendly_fire: bool,
 ) -> bool {
     match (stomper, victim) {
@@ -141,10 +154,10 @@ pub fn claim_footstools(
             &mut ae::BodyKinematics,
             &mut ae::BodyJumpState,
             &mut ambition_characters::actor::BodyCombat,
-            &mut crate::features::MotionModel,
+            &mut ae::MotionModel,
         )>,
     )>,
-    tuning: Option<Res<ambition_combat::rules::ResolvedCombatTuning>>,
+    tuning: Option<Res<crate::rules::ResolvedCombatTuning>>,
 ) {
     let friendly_fire = tuning.is_some_and(|t| t.friendly_fire().enabled);
     type Pair = (
@@ -169,7 +182,7 @@ pub fn claim_footstools(
                 continue;
             }
             if stomper.ground.on_ground
-                || ambition_combat::util::body_is_corpse(Some(stomper.health))
+                || crate::util::body_is_corpse(Some(stomper.health))
             {
                 continue;
             }
@@ -187,7 +200,7 @@ pub fn claim_footstools(
 
             for victim in decide.iter() {
                 if victim.entity == stomper.entity
-                    || ambition_combat::util::body_is_corpse(Some(victim.health))
+                    || crate::util::body_is_corpse(Some(victim.health))
                 {
                     continue;
                 }

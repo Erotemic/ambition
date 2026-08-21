@@ -62,7 +62,6 @@ pub mod effect_bus;
 mod encounter_rewards;
 #[cfg(test)]
 mod fighter_harness;
-pub mod footstool;
 pub mod hit_camera_shake;
 mod interact;
 pub mod ledge_trump;

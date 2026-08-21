@@ -60,8 +60,8 @@ fn fighter_on_team(
             },
             ae::BodyGroundState::default(),
             ae::BodyJumpState::default(),
-            ambition_combat::targeting::MatchTeam::new(team),
-            crate::features::MotionModel::axis_swept(tuning.axis_swept_params()),
+            crate::targeting::MatchTeam::new(team),
+            ae::MotionModel::axis_swept(tuning.axis_swept_params()),
             BodyHealth::new(Health::new(100)),
             ActorControl(control),
             BodyCombat::default(),
@@ -82,7 +82,7 @@ fn fall_of(app: &App, entity: Entity) -> f32 {
 fn tumble_of(app: &App, entity: Entity) -> f32 {
     match app
         .world()
-        .get::<crate::features::MotionModel>(entity)
+        .get::<ae::MotionModel>(entity)
         .expect("the body kept its motion model")
     {
         ae::MotionModel::AxisSwept(axis) => axis.state.tumble_timer,
@@ -278,7 +278,7 @@ fn an_airborne_victim_that_cannot_tumble_takes_the_flinch() {
     tuning.tumble_speed = 0.0;
     app.world_mut()
         .entity_mut(victim)
-        .insert(crate::features::MotionModel::axis_swept(
+        .insert(ae::MotionModel::axis_swept(
             tuning.axis_swept_params(),
         ));
 
@@ -435,7 +435,7 @@ fn a_victim_in_the_middle_of_a_move_takes_no_reaction() {
         true,
         rules,
     );
-    let mut melee = ambition_combat::components::BodyMelee::default();
+    let mut melee = crate::components::BodyMelee::default();
     melee.begin(swing(), ae::Vec2::new(1.0, 0.0), 0.0);
     app.world_mut().entity_mut(victim).insert(melee);
 
@@ -455,9 +455,9 @@ fn a_victim_in_the_middle_of_a_move_takes_no_reaction() {
 }
 
 /// A swing in flight, which is all the phantom-footstool rule reads.
-fn swing() -> ambition_combat::AttackSpec {
-    ambition_combat::AttackSpec {
-        intent: ambition_combat::AttackIntent::Neutral,
+fn swing() -> crate::AttackSpec {
+    crate::AttackSpec {
+        intent: crate::AttackIntent::Neutral,
         startup_seconds: 0.1,
         active_seconds: 0.1,
         recovery_seconds: 0.1,
@@ -503,7 +503,7 @@ fn a_teammate_cannot_be_stood_on_while_team_attack_is_off() {
 fn team_attack_lets_a_teammate_be_stood_on() {
     let mut app = app();
     app.world_mut()
-        .insert_resource(ambition_combat::rules::ResolvedCombatTuning {
+        .insert_resource(crate::rules::ResolvedCombatTuning {
             friendly_fire: true,
             ..Default::default()
         });

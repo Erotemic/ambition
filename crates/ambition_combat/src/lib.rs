@@ -18,6 +18,7 @@ pub mod death_rules;
 pub mod events;
 pub mod falling_chest;
 pub mod feel;
+pub mod footstool;
 pub mod hazard_runtime;
 pub mod hazards;
 pub mod held_items;

@@ -167,18 +167,47 @@ impl FlagSequence {
 /// (that is the point of `constrain_body_pose`), so nothing downstream was ever
 /// going to lift her back out — and nothing should: this project does not shove
 /// bodies out of geometry, it puts them in the right place to begin with.
+/// **What the sequence is doing to the body this tick** — where it puts her, how
+/// fast she is going, and whether she is on the pole.
+///
+/// ⭐⭐ **THE VELOCITY AND THE MODE ARE THE WHOLE POINT** (Jon, 2026-08-21: *"her
+/// sprite seems to just translate instead of using the climb animation to slide
+/// down the pole and then the walk animation to move after … we should not hack
+/// these in … so we get these animations for free"*).
+///
+/// `constrain_body_pose` already takes an imposed velocity — its own doc names
+/// *"a scripted end-of-level slide"* — and this sequence passed `Vec2::ZERO`. So
+/// her motion facts said "standing still" while her position jumped, and the
+/// animation picker, which reads exactly those facts, correctly chose Idle. The
+/// clip was never the thing to fix.
+///
+/// ⛔ **no clip is named anywhere in this file, and none should be.** The picker
+/// turns `BodyMode::Climbing` into the climb clip and ground speed into the walk
+/// clip. Saying what the body IS doing is what makes the animation follow; naming
+/// a clip here would be the hack Jon refused in advance.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct FlagDrive {
+    /// Where her centre is this tick.
+    pub pos: ae::Vec2,
+    /// How fast she is moving, imposed on the body so every reader of motion —
+    /// the animation picker above all — is told the truth.
+    pub vel: ae::Vec2,
+    /// She is on the pole. Drives `BodyMode::Climbing`, which the picker reads.
+    pub on_pole: bool,
+}
+
 pub fn step_flag_sequence(
     seq: &mut FlagSequence,
     pole: &FlagPole,
     body: ae::Vec2,
     body_half_height: f32,
     dt: f32,
-) -> Option<ae::Vec2> {
+) -> Option<FlagDrive> {
     // Once the sequence is driving, the body it is driving is the one IT last put
     // down, not whatever the physics step left behind.
     let body = seq.driven.unwrap_or(body);
     let out = step_phase(seq, pole, body, body_half_height, dt);
-    seq.driven = out;
+    seq.driven = out.map(|drive| drive.pos);
     out
 }
 
@@ -188,7 +217,7 @@ fn step_phase(
     body: ae::Vec2,
     body_half_height: f32,
     dt: f32,
-) -> Option<ae::Vec2> {
+) -> Option<FlagDrive> {
     // Where her CENTRE rests when her feet are on the pole's base.
     let stand_y = pole.base_y - body_half_height;
     match seq.phase {
@@ -201,8 +230,13 @@ fn step_phase(
             seq.phase = FlagPhase::Sliding {
                 score: flag_score(pole.grab_height(body.y)),
             };
-            // Snap onto the pole so the slide is straight.
-            Some(ae::Vec2::new(pole.x, body.y.max(pole.top_y)))
+            // Snap onto the pole so the slide is straight. She is on it from
+            // this tick, and already sliding.
+            Some(FlagDrive {
+                pos: ae::Vec2::new(pole.x, body.y.max(pole.top_y)),
+                vel: ae::Vec2::new(0.0, SLIDE_SPEED),
+                on_pole: true,
+            })
         }
         FlagPhase::Sliding { score } => {
             let y = body.y + SLIDE_SPEED * dt;
@@ -213,24 +247,50 @@ fn step_phase(
                     score,
                     remaining: WALK_OFF_PX,
                 };
-                return Some(ae::Vec2::new(pole.x, stand_y));
+                // Her feet are down: off the pole, and walking from here.
+                return Some(FlagDrive {
+                    pos: ae::Vec2::new(pole.x, stand_y),
+                    vel: ae::Vec2::new(WALK_OFF_SPEED, 0.0),
+                    on_pole: false,
+                });
             }
-            Some(ae::Vec2::new(pole.x, y))
+            Some(FlagDrive {
+                pos: ae::Vec2::new(pole.x, y),
+                vel: ae::Vec2::new(0.0, SLIDE_SPEED),
+                on_pole: true,
+            })
         }
         FlagPhase::WalkingOff { score, remaining } => {
             let step = WALK_OFF_SPEED * dt;
             if step >= remaining {
                 seq.phase = FlagPhase::Tallied { score };
-                return Some(ae::Vec2::new(body.x + remaining, body.y));
+                // ⚠ **she is still WALKING on this tick** — it is the stride that
+                // covers the last `remaining` px. Reporting zero here was the same
+                // untruth in miniature: the frame she arrives on would animate as
+                // a stand while she was still crossing ground. She stops in
+                // `Tallied`, on the tick she is actually still.
+                return Some(FlagDrive {
+                    pos: ae::Vec2::new(body.x + remaining, body.y),
+                    vel: ae::Vec2::new(WALK_OFF_SPEED, 0.0),
+                    on_pole: false,
+                });
             }
             seq.phase = FlagPhase::WalkingOff {
                 score,
                 remaining: remaining - step,
             };
-            Some(ae::Vec2::new(body.x + step, body.y))
+            Some(FlagDrive {
+                pos: ae::Vec2::new(body.x + step, body.y),
+                vel: ae::Vec2::new(WALK_OFF_SPEED, 0.0),
+                on_pole: false,
+            })
         }
         // Done. The body stays where it is; a results screen is M4's.
-        FlagPhase::Tallied { .. } => Some(body),
+        FlagPhase::Tallied { .. } => Some(FlagDrive {
+            pos: body,
+            vel: ae::Vec2::ZERO,
+            on_pole: false,
+        }),
     }
 }
 
@@ -257,7 +317,7 @@ mod tests {
         let mut body = start;
         for _ in 0..2000 {
             if let Some(next) = step_flag_sequence(seq, pole, body, HALF_H, DT) {
-                body = next;
+                body = next.pos;
             }
             if let FlagPhase::Tallied { score } = seq.phase {
                 return score;
@@ -267,6 +327,83 @@ mod tests {
             "the sequence never finished from {start:?}: {:?}",
             seq.phase
         );
+    }
+
+    /// **THE SEQUENCE SAYS WHAT SHE IS DOING, SO THE ANIMATION FOLLOWS.**
+    ///
+    /// Jon, 2026-08-21: *"her sprite seems to just translate instead of using the
+    /// climb animation to slide down the pole and then the walk animation to move
+    /// after … we should not hack these in … so we get these animations for
+    /// free."*
+    ///
+    /// ⛔ **the clip was never the thing to fix.** The sequence imposed
+    /// `Vec2::ZERO` as her velocity, so every reader of her motion was told she
+    /// stood still while her position jumped — and the animation picker, which
+    /// reads exactly those facts, correctly chose Idle. This asserts the facts
+    /// the picker consumes: `BodyMode::Climbing` on the pole (the picker's own
+    /// `a_climbing_body_picks_the_ladder_clip` turns that into `LadderClimb`) and
+    /// real ground speed on the walk-off.
+    ///
+    /// ⚠ it deliberately does NOT assert a clip. Naming one here would re-implement
+    /// the picker in the fixture and then agree with itself.
+    #[test]
+    fn the_slide_climbs_and_the_walk_off_walks() {
+        let p = pole();
+        let mut seq = FlagSequence::default();
+        // Grab high up.
+        let mut body = ae::Vec2::new(p.x, p.top_y + 10.0);
+
+        let grab = step_flag_sequence(&mut seq, &p, body, HALF_H, DT).expect("the grab drives her");
+        assert!(grab.on_pole, "the grab must put her ON the pole");
+        assert!(
+            grab.vel.y > 0.0,
+            "she must be moving DOWN the pole, not standing on it: {:?}",
+            grab.vel
+        );
+        body = grab.pos;
+
+        // Slide to the base, checking every tick of it.
+        let mut slide_ticks = 0usize;
+        while matches!(seq.phase, FlagPhase::Sliding { .. }) {
+            let d = step_flag_sequence(&mut seq, &p, body, HALF_H, DT).expect("still sliding");
+            assert!(d.on_pole || !matches!(seq.phase, FlagPhase::Sliding { .. }));
+            body = d.pos;
+            slide_ticks += 1;
+            assert!(slide_ticks < 10_000, "the slide never ended");
+        }
+        assert!(
+            slide_ticks > 1,
+            "the slide was one tick, so it proved nothing"
+        );
+
+        // Walking off: on the ground, moving along it, no longer on the pole.
+        let mut walk_ticks = 0usize;
+        while matches!(seq.phase, FlagPhase::WalkingOff { .. }) {
+            let d = step_flag_sequence(&mut seq, &p, body, HALF_H, DT).expect("still walking");
+            assert!(!d.on_pole, "the walk-off is not on the pole");
+            assert!(
+                d.vel.x > 0.0 && d.vel.y == 0.0,
+                "the walk-off must read as walking along the ground: {:?}",
+                d.vel
+            );
+            body = d.pos;
+            walk_ticks += 1;
+            assert!(walk_ticks < 10_000, "the walk-off never ended");
+        }
+        assert!(
+            walk_ticks > 1,
+            "the walk-off was one tick, so it proved nothing"
+        );
+
+        // And she stops when it is over, rather than drifting into the tally.
+        let done =
+            step_flag_sequence(&mut seq, &p, body, HALF_H, DT).expect("tallied still drives");
+        assert_eq!(
+            done.vel,
+            ae::Vec2::ZERO,
+            "she keeps moving after the sequence"
+        );
+        assert!(!done.on_pole);
     }
 
     /// The pole is not touched by walking near it, and not by passing under its base.
@@ -346,7 +483,7 @@ mod tests {
                 seen.push(label);
             }
             if let Some(next) = step_flag_sequence(&mut seq, &p, body, HALF_H, DT) {
-                body = next;
+                body = next.pos;
             }
             if matches!(seq.phase, FlagPhase::Tallied { .. }) {
                 break;
@@ -365,11 +502,15 @@ mod tests {
         let mut body = ae::Vec2::new(1004.0, 200.0);
 
         // Grab snaps onto the pole's x.
-        body = step_flag_sequence(&mut seq, &p, body, HALF_H, DT).unwrap();
+        body = step_flag_sequence(&mut seq, &p, body, HALF_H, DT)
+            .unwrap()
+            .pos;
         assert_eq!(body.x, p.x);
 
         while matches!(seq.phase, FlagPhase::Sliding { .. }) {
-            body = step_flag_sequence(&mut seq, &p, body, HALF_H, DT).unwrap();
+            body = step_flag_sequence(&mut seq, &p, body, HALF_H, DT)
+                .unwrap()
+                .pos;
             assert_eq!(body.x, p.x, "the slide never drifts sideways");
         }
         // Her FEET stop at the base — the base is a ground line, and a body
@@ -384,7 +525,9 @@ mod tests {
 
         let walk_start = body.x;
         while matches!(seq.phase, FlagPhase::WalkingOff { .. }) {
-            body = step_flag_sequence(&mut seq, &p, body, HALF_H, DT).unwrap();
+            body = step_flag_sequence(&mut seq, &p, body, HALF_H, DT)
+                .unwrap()
+                .pos;
             assert_eq!(
                 body.y + HALF_H,
                 p.base_y,
@@ -417,7 +560,7 @@ mod tests {
         for _ in 0..2000 {
             if let Some(next) = step_flag_sequence(&mut kicked, &p, body, HALF_H, DT) {
                 // Physics runs after us and shoves the body a tile down and right.
-                body = next + ae::Vec2::new(16.0, 16.0);
+                body = next.pos + ae::Vec2::new(16.0, 16.0);
             }
             if let FlagPhase::Tallied { score: s } = kicked.phase {
                 score = Some(s);
@@ -443,7 +586,7 @@ mod tests {
         };
         for _ in 0..600 {
             assert_eq!(
-                step_flag_sequence(&mut seq, &p, body, HALF_H, DT),
+                step_flag_sequence(&mut seq, &p, body, HALF_H, DT).map(|d| d.pos),
                 Some(body)
             );
         }
@@ -457,7 +600,9 @@ mod tests {
     fn a_grab_from_above_the_top_starts_at_the_top() {
         let p = pole();
         let mut seq = FlagSequence::default();
-        let at = step_flag_sequence(&mut seq, &p, ae::Vec2::new(1000.0, 20.0), HALF_H, DT).unwrap();
+        let at = step_flag_sequence(&mut seq, &p, ae::Vec2::new(1000.0, 20.0), HALF_H, DT)
+            .unwrap()
+            .pos;
         assert_eq!(at.y, p.top_y);
         assert_eq!(seq.score(), Some(5000));
     }
@@ -478,6 +623,9 @@ pub fn run_flag_sequence(
     mut sequences: Query<&mut FlagSequence>,
     mut bodies: Query<&mut ae::BodyKinematics>,
     mut holds: Query<&mut ambition_platformer2d::characters::brain::ControlHolds>,
+    // Her body mode, so the pole can say she is CLIMBING and let the animation
+    // picker choose the clip.
+    mut modes: Query<&mut ae::BodyModeState>,
 ) {
     let (Some(pole), Some(entity)) = (pole, subject.and_then(|s| s.0)) else {
         return;
@@ -514,13 +662,38 @@ pub fn run_flag_sequence(
     // small and tall Mary-O stand on the same ground line, and the tall one is
     // not left with her knees in it.
     let half_height = kin.size.y * 0.5;
-    let Some(next) = step_flag_sequence(&mut sequence, &pole, kin.pos, half_height, time.scaled_dt)
+    let Some(drive) =
+        step_flag_sequence(&mut sequence, &pole, kin.pos, half_height, time.scaled_dt)
     else {
         return;
     };
     // The scripted end-of-level slide is an external kinematic constraint
     // (ADR 0024 authority): the sequence owns the pose while it plays.
-    ae::movement::constrain_body_pose(&mut kin, next, ae::Vec2::ZERO);
+    //
+    // ⭐ **AND THE VELOCITY IT IMPOSES IS THE TRUE ONE.** This passed
+    // `Vec2::ZERO`, so every reader of her motion was told she was standing
+    // still while her position jumped — which is why she appeared to translate
+    // rather than slide and walk. `constrain_body_pose` has taken an imposed
+    // velocity all along; the sequence simply was not telling it anything.
+    ae::movement::constrain_body_pose(&mut kin, drive.pos, drive.vel);
+    // Walking off is to the RIGHT, so she should be looking that way.
+    if drive.vel.x.abs() > f32::EPSILON {
+        kin.facing = drive.vel.x.signum();
+    }
+    // ⭐ **being on the pole is a BODY MODE, not a clip.** The animation picker
+    // turns `Climbing` into the climb clip on its own — the same road a ladder
+    // takes — so the slide animates because the body says what it is doing, and
+    // this file names no clip at all.
+    if let Ok(mut mode) = modes.get_mut(entity) {
+        let wanted = if drive.on_pole {
+            ae::BodyMode::Climbing
+        } else {
+            ae::BodyMode::Standing
+        };
+        if mode.body_mode != wanted {
+            mode.body_mode = wanted;
+        }
+    }
 }
 
 /// This sequence's claim on the encounter layer's priority music tier.

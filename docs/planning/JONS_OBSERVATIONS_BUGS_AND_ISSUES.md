@@ -262,7 +262,20 @@ animation to move after. We should not hack these in, these should be done via
 scripted control of the character in an elegant way so we get these animations
 for free."*
 
-  ▢ **THE POLE SEQUENCE MUST DRIVE HER, NOT MOVE HER.** Today `run_flag_sequence`
+  ✔ **FIXED 2026-08-21 — she was told she was standing still.** The sequence
+  imposed `Vec2::ZERO` as her velocity through `constrain_body_pose`, whose own
+  doc names *"a scripted end-of-level slide"* and has taken an imposed velocity
+  all along. So every reader of her motion heard "not moving" while her position
+  jumped, and the animation picker — which reads exactly those facts — correctly
+  chose Idle. ⇒ `step_flag_sequence` returns a `FlagDrive { pos, vel, on_pole }`
+  now: the true velocity is imposed, and `on_pole` sets `BodyMode::Climbing`,
+  which the picker already turns into the climb clip. **No clip is named anywhere
+  in the flag code**, which is the part Jon asked for. Guarded by
+  `the_slide_climbs_and_the_walk_off_walks`, which fails against the old zeroed
+  facts. ⚠ still to see on hardware — this pins the facts the picker consumes,
+  not the pixels.
+
+  ▢ ~~THE POLE SEQUENCE MUST DRIVE HER, NOT MOVE HER.~~ Today `run_flag_sequence`
   writes `FlagSequence::driven` onto the body through `constrain_body_pose` every
   tick the phase is not `Idle` — a POSITION write, which is exactly the
   "translate" Jon is seeing, and it is why no animation plays. ⇒ the sequence

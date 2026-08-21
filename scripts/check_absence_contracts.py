@@ -1773,6 +1773,20 @@ def main() -> int:
         # Deliberately the count of BASELINE modules still named, not of every
         # module named: a new module is invariant 1's problem and this number
         # must not be able to rise when one appears. It only ever falls.
+        #
+        # ⚠ **BOTH ALLOWLISTS READ `0 of 0` TODAY, AND THAT IS A FINISHED
+        # RATCHET, NOT A DEAD CHECK** — audited 2026-08-21 by POISON, because
+        # `0 of 0` is exactly what an instrument that measures nothing also
+        # prints. Adding a private-module `use` to
+        # `fixtures/external_consumer/src/lib.rs` turns
+        # `outlander-names-only-the-public-sdk` RED, so invariant 1 still fires;
+        # what fell to zero is the campaign's backlog, not the guard.
+        #
+        # ⛔ do not "clean up" these two contracts for reading empty. The same
+        # audit found a rule one crate over that genuinely could not fire — the
+        # LDtk `EdgeExit ... overlaps solid X` reachability check scanned an
+        # entity kind that no level carrying an EdgeExit places (15 levels vs 4,
+        # intersection EMPTY), and five unreachable exits shipped behind it.
         still_open = sum(
             len(set(allowlist_usage(contract, root)) & set(contract["baseline"]))
             for contract in MODULE_ALLOWLISTS

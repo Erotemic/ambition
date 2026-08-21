@@ -323,6 +323,34 @@ this slice. `BodyContact::FIRM` is 0.85 — two fighters walking into each other
 stall where they meet and a determined one still squeezes past — chosen because
 the genre does that, not because anything measured it.
 
+- ▢ **D173 — A WORKTREE AGENT'S GOAL GUARD JUDGES THE WRONG TREE.**
+  (promoted 2026-08-20, from the smash-parity lane's handoff before it was retired)
+
+`repo_root()` resolves through `__file__` and is right: a worktree's own copy of
+the script resolves to the worktree. **The HOOK COMMAND is what misses.**
+`.claude/settings.json` walks up from `${CLAUDE_PROJECT_DIR:-$PWD}`, and a
+session that started in the main checkout and then entered a worktree still
+carries `CLAUDE_PROJECT_DIR` pointing at MAIN — so the hook execs main's copy,
+which reads main's `.goal/` and judges main's working tree.
+
+Measured by the lane that hit it: *"main had 132 dirty files and 2 compile errors
+while this branch was clean at 445/0."* ⚠ **the tell is `.goal/` being ABSENT in
+the worktree** — it is gitignored, so a worktree never has one.
+
+⛔ **the obvious fix has a second victim.** Preferring `$PWD` reintroduces the
+2026-08-05 failure `repo_root`'s own doc records: one `cd` into a NESTED git
+repository made the guard resolve a root with no `.goal/active.json`, take its
+*"not armed: ordinary sessions are untouched"* path, and silently release a
+72-hour run. Both traps are real and they pull opposite ways.
+
+⭐ **the discriminator is `git worktree list`**: a worktree of this repository is
+registered in it and a nested repository is not. So prefer `$PWD` when it belongs
+to the same repository as `$CLAUDE_PROJECT_DIR`, and fall back otherwise —
+`git rev-parse --git-common-dir` answers that in one call.
+
+⚠ **this is AGENT TOOLING, not engine policy** — the sequestered category
+`AGENTS.md` allows. Keep it out of the engine gates.
+
 - ▢ **D171 — THREE MORE DOCS CARRY OPEN ITEMS NO LEDGER ROW CAN REACH.**
   (promoted 2026-08-20)
 

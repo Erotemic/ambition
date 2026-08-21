@@ -3083,6 +3083,37 @@ by size.
 346  anim_helpers.rs
 ```
 
+⛔ **`spawn_static.rs` IS NOT A CARVE CANDIDATE — it is a LOWERING SEAM, and the
+scan flagged it for doing its job (2026-08-21).** 9 of its 14 public fns name
+pickup/chest/portal/shrine because it turns authored `*Spec` values into live
+components. A spawner naming many domains is correctly placed; this is the
+false-positive case the caveat above predicts, confirmed by measurement rather
+than by argument.
+
+⭐⭐ **but measuring it found a FORK worth a row of its own.** The authored
+vocabulary MIRRORS the runtime vocabulary variant for variant, and
+`spawn_static` is the hand-written mapping between them:
+
+```text
+BreakableStateSpec      Intact/Cracking/Broken/Respawning  ⟷ ambition_interaction::BreakableState
+BreakableCollisionSpec  None/OneWayUp/Solid                ⟷ ambition_interaction::BreakableCollision
+BreakableTriggerSpec    OnHit/OnStand/Either               ⟷ ambition_interaction::BreakableTrigger
+ChestStateSpec          Closed/Opening/Opened              ⟷ ambition_interaction::ChestState
+InteractionKindSpec     Breakable/Chest/Door/Npc/Pickup/…  ⟷ ambition_interaction::InteractionKind
+PickupKindSpec          Ability/Currency/Health/StoryFlag  ⟷ ambition_entity_catalog::PickupKind
+PortalChannelColorSpec  Cyan/Green/Magenta/…/Indexed       ⟷ ambition_portal2d::PortalChannelColor
+```
+
+**Seven enum pairs, ~30 variants, kept in step BY HAND** — every spec lives in
+`ambition_entity_catalog` and every runtime twin in the crate that owns the
+behaviour. ⚠ *"mirrors X"* is a fork declaration, and a variant added to one
+side and not the other is a silent lowering gap, not a compile error.
+
+⇒ worth its own slice, and it is a DELETION one: either the spec enums go and
+the catalog names the runtime types directly, or the mapping becomes a derive
+that cannot drift. ⛔ do not price it from `spawn_static`'s line count — the
+duplication is in the two vocabularies, not in the mapper.
+
 ✔ **BOSS ANIMATION CARVED 2026-08-21 (`9ea8ea2fa`) — the first slice the split
 scan found rather than a human.** `anim_helpers.rs` had 7 public fns of which 4
 were boss-only; those four plus two private helpers are

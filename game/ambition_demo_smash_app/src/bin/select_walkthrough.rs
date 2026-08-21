@@ -19,7 +19,7 @@
 //! photograph cannot.
 
 use ambition_demo_smash::select::{SmashRoster, SmashSelect, MAX_SMASH_SEATS};
-use ambition_demo_smash::select_screen::cursor::SelectCursor;
+use ambition_demo_smash::select_screen::cursor::SelectCursors;
 use ambition_demo_smash::select_screen::layout::SelectLayout;
 use ambition_demo_smash::select_screen::{card_name_text, role_button_text, StartRequested};
 use ambition_demo_smash_app::build_demo_app;
@@ -75,7 +75,8 @@ fn main() {
 /// Put the cursor on a rectangle and press confirm, from seat 0.
 fn click(app: &mut App, rect: ambition_demo_smash::select_screen::cursor::HitRect, what: &str) {
     app.world_mut()
-        .resource_mut::<SelectCursor>()
+        .resource_mut::<SelectCursors>()
+        .seat_mut(0)
         .move_to(rect.center());
     let mut frames = app.world_mut().resource_mut::<SeatMenuFrames>();
     frames.clear();
@@ -102,7 +103,7 @@ fn show(app: &mut App, what: &str) {
         .world()
         .get_resource::<ambition_platformer2d::character::CharacterCatalog>()
         .cloned();
-    let carrying = app.world().resource::<SelectCursor>().carrying;
+    let carrying = app.world().resource::<SelectCursors>().seat(0).carrying;
     let asked = app.world().resource::<StartRequested>().0;
     println!("\n── {what} ──");
     println!("   ┌────────────────────────────────────────────────┐");

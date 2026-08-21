@@ -1626,6 +1626,7 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
         app.init_resource::<select_screen::cursor::SelectCursors>();
         app.init_resource::<select_screen::SelectPage>();
         app.init_resource::<select_screen::SelectStyle>();
+        app.init_resource::<select_screen::TokenRest>();
         app.init_resource::<select_screen::StartRequested>();
         app.init_resource::<select_screen::LeaveRequested>();
         // **THE ROSTER IS A COMPOSITION FACT, so it is resolved once, late.**
@@ -1821,6 +1822,7 @@ fn present_the_select_screen(
     mut viewing: (
         bevy::prelude::ResMut<select_screen::cursor::SelectCursors>,
         bevy::prelude::ResMut<select_screen::SelectPage>,
+        bevy::prelude::ResMut<select_screen::TokenRest>,
     ),
     mut start: bevy::prelude::ResMut<select_screen::StartRequested>,
     fighters: bevy::prelude::Res<select::SmashRoster>,
@@ -1939,6 +1941,7 @@ fn present_the_select_screen(
             // page two would open on a grid whose first cell is not the
             // roster's first, which reads as a different roster.
             *viewing.1 = select_screen::SelectPage::default();
+            *viewing.2 = select_screen::TokenRest::default();
             *start = select_screen::StartRequested::default();
             // THIS demo's roster. Another stage in the same host publishes its
             // own into the same global resource, and clearing "the roster" is
@@ -2466,6 +2469,7 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
                 .resetting::<select_screen::LeaveRequested>()
                 .resetting::<select_screen::cursor::SelectCursors>()
                 .resetting::<select_screen::SelectPage>()
+                .resetting::<select_screen::TokenRest>()
                 .releasing_with("SessionSeatingSource", |world, owner| {
                     if let Some(mut seating) = world.get_resource_mut::<
                         ambition_platformer2d::input::SessionSeatingSource,
@@ -3600,6 +3604,7 @@ mod pause_arbitration_tests {
         app.init_resource::<select_screen::cursor::SelectCursors>();
         app.init_resource::<select_screen::SelectPage>();
         app.init_resource::<select_screen::SelectStyle>();
+        app.init_resource::<select_screen::TokenRest>();
         // ⚠ **the CLOCK, because the cursor roams now.** `drive_the_cursor`
         // integrates a held stick against `Time`, so a hand-built app without
         // one fails validation on a resource rather than on anything this test

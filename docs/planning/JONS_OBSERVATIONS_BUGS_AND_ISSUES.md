@@ -269,7 +269,16 @@ huge regressions, not sure how we didn't have a test to catch these."*
   the screen into it"), and the fix is CONTENT: clear the three cells, or accept
   that these exits are hopped. Tracked as D174.
 
-  ▢ **The interact half does not reproduce anywhere I can build it**, and the
+  ✔ **RESOLVED ON JON'S MACHINE, 2026-08-21** — *"moving through trigger and
+  contact loading zones works again."* No fix was ever committed for it, which
+  matches every measurement below: the defect was never in the tree. ⇒ treat the
+  eliminations as the durable output, and note what actually guards it now —
+  `walking_into_a_loading_zone.rs`, `mary_o_lap_in_the_host.rs` and
+  `fly_to_the_hall_of_characters.rs` drive real doors through the shipped
+  launcher, which is the test Jon asked for and did not exist when this was
+  filed.
+
+  ▢ **The interact half did not reproduce anywhere I could build it**, and the
   eliminations are worth more than the guess they replace. Ruled out by
   measurement, not inspection:
 

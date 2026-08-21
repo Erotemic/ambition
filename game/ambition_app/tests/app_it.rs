@@ -94,6 +94,7 @@ mod rendered_identities_are_registered;
 mod replay_fixture_regression;
 mod repro_walls;
 mod resolved_combat_tuning;
+mod quality_change_keeps_each_character;
 mod rollback_contact;
 mod rollback_coverage;
 mod rollback_exit_oracle;

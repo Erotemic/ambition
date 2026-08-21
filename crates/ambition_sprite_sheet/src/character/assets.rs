@@ -286,4 +286,22 @@ impl CharacterSpriteAssets {
     pub fn ready_token_count(&self) -> usize {
         self.sheets.len()
     }
+
+    /// **Every RESIDENT token and the realization it resolves to.**
+    ///
+    /// ⛔ **added because its absence made a whole class of test unwritable**
+    /// (2026-08-21). `ready_token_count` gives a number, and
+    /// `declared_character_ids` is this set's COMPLEMENT — it filters to tokens
+    /// with NO resident sheet, exactly as `is_declared` says. So a test asking
+    /// *"after a quality change, does each resident token still resolve to the
+    /// same character's file?"* had no way to enumerate its own subject, and
+    /// reaching for `declared_character_ids` instead yields a tautology: every
+    /// id in it is guaranteed to have no sheet.
+    ///
+    /// ⚠ read-only and order-free. `sheets` is a `HashMap`, so a caller that
+    /// needs determinism must collect and sort — this deliberately does not
+    /// impose an order it would then have to promise.
+    pub fn resident_sheets(&self) -> impl Iterator<Item = (&str, &CharacterSpriteAsset)> {
+        self.sheets.iter().map(|(token, asset)| (token.as_str(), asset))
+    }
 }

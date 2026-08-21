@@ -2971,7 +2971,28 @@ is a KNOB, never a pick; a knob's default is the behaviour that already existed,
 so shipping one moves nothing. First worked example is
 `MovementTuning::parry_timing`.
 
-⚠ **roadmap item 7 is the 2026-08-20 review's residue** — stale-move accounting
+✔✔ **roadmap item 7 is CLOSED — all three residues verified landed against HEAD
+2026-08-21, by grepping the claim rather than the commit titles:**
+
+```text
+counts CONTACTS not USES  ✔ `moveset/mod.rs:1679` guards on `pb.landed_hit`, and
+                            says why: "LandedBodyHit is emitted once per BODY
+                            CONTACT … a move that connects with three opponents
+                            has been used once"
+in the movement core,     ✔ it is in `ambition_combat/src/stale.rs`, registered
+under the ENGINE domain     by that crate's OWN `rollback_registration.rs`, and
+                            `#[require]`d by `ActorMoveset` so only bodies that
+                            can land a move carry the history
+evade presents as "Dash"  ✔ `("Dash", "Burst")` is in `settings.rs`'s
+                            RENAMED_ACTIONS, so even a stored remap migrates
+```
+
+⛔ **the original text is kept below as HISTORY** — it is what the review found,
+and deleting it would erase why three separate fixes happened. ⚠ this is the
+FOURTH stale row found on 2026-08-21 by grepping a claim before working it; the
+rule at the top of the goal earns its place daily.
+
+⚠ **the ORIGINAL residue text, for the record** — stale-move accounting
 counting CONTACTS instead of USES, `BodyStaleMoves` sitting in the movement core
 under the ENGINE rollback domain, and the shared evade control still presenting
 as **Dash** on a body whose `AbilitySet::dash` is off. The third is control-surface

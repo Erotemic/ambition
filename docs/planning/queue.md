@@ -323,33 +323,27 @@ this slice. `BodyContact::FIRM` is 0.85 — two fighters walking into each other
 stall where they meet and a determined one still squeezes past — chosen because
 the genre does that, not because anything measured it.
 
-- ▢ **D173 — A WORKTREE AGENT'S GOAL GUARD JUDGES THE WRONG TREE.**
-  (promoted 2026-08-20, from the smash-parity lane's handoff before it was retired)
+✔ **D173 — a worktree agent's goal guard judged the MAIN checkout.** `repo_root()`
+was always right (it resolves through `__file__`); the HOOK COMMAND took
+`${CLAUDE_PROJECT_DIR:-$PWD}` unconditionally, and a session that started in main
+and then entered a worktree still carries that pointing at main. Fixed by
+`scripts/goal_guard_hook.sh`: `$PWD` wins when it is the SAME REPOSITORY as the
+declared root (a worktree shares `--git-common-dir`; a nested repository does
+not), and the declared root wins otherwise — so the 2026-08-05 failure where one
+`cd` into a nested repo silently released a 72-hour run stays closed too.
+Guarded by `scripts/tests/test_goal_guard_hook.py`, whose fixtures are a real
+`git worktree` and a real nested repository, and each of whose two tests was
+falsified by poisoning the resolver to the other extreme.
 
-`repo_root()` resolves through `__file__` and is right: a worktree's own copy of
-the script resolves to the worktree. **The HOOK COMMAND is what misses.**
-`.claude/settings.json` walks up from `${CLAUDE_PROJECT_DIR:-$PWD}`, and a
-session that started in the main checkout and then entered a worktree still
-carries `CLAUDE_PROJECT_DIR` pointing at MAIN — so the hook execs main's copy,
-which reads main's `.goal/` and judges main's working tree.
+⚠ **the fixed behaviour is that an unarmed worktree reports NO GOAL**, which is
+the model `goal_guard.py` already documents: a worktree reads its own `.goal/`,
+which is gitignored and therefore absent until somebody arms one. Use `--share`
+when two lanes are working ONE run.
 
-Measured by the lane that hit it: *"main had 132 dirty files and 2 compile errors
-while this branch was clean at 445/0."* ⚠ **the tell is `.goal/` being ABSENT in
-the worktree** — it is gitignored, so a worktree never has one.
-
-⛔ **the obvious fix has a second victim.** Preferring `$PWD` reintroduces the
-2026-08-05 failure `repo_root`'s own doc records: one `cd` into a NESTED git
-repository made the guard resolve a root with no `.goal/active.json`, take its
-*"not armed: ordinary sessions are untouched"* path, and silently release a
-72-hour run. Both traps are real and they pull opposite ways.
-
-⭐ **the discriminator is `git worktree list`**: a worktree of this repository is
-registered in it and a nested repository is not. So prefer `$PWD` when it belongs
-to the same repository as `$CLAUDE_PROJECT_DIR`, and fall back otherwise —
-`git rev-parse --git-common-dir` answers that in one call.
-
-⚠ **this is AGENT TOOLING, not engine policy** — the sequestered category
-`AGENTS.md` allows. Keep it out of the engine gates.
+⚠ **`.claude/settings.json` keeps the old command as a FALLBACK** — a checkout
+without the resolver still runs the guard. Breaking that hook takes the whole
+standing-goal mechanism down, and it can only be exercised by ending a turn,
+which is why the logic moved into a script a test can run.
 
 - ▢ **D171 — THREE MORE DOCS CARRY OPEN ITEMS NO LEDGER ROW CAN REACH.**
   (promoted 2026-08-20)

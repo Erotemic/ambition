@@ -15,7 +15,7 @@ use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_platformer2d_core as ae;
 use ambition_sprite_sheet::character::catalog_join;
 use ambition_sprite_sheet::character::sheets;
-use ambition_sprite_sheet::{baked_sheet_rons, SheetRecord, SheetRegistry};
+use ambition_sprite_sheet::{SheetRecord, SheetRegistry, baked_sheet_rons};
 use std::sync::OnceLock;
 
 /// The player's sprite manifest file root. Both `robot` (enemy) and
@@ -39,6 +39,27 @@ fn file_root_registry() -> &'static SheetRegistry {
     REG.get_or_init(|| {
         SheetRegistry::from_baked_table_by_file_root(baked_sheet_rons::BAKED_SHEET_RONS)
     })
+}
+
+/// **File roots the index REFUSED for naming several records**, exposed so a
+/// caller that owns a character catalog can decide whether any of them matter.
+///
+/// ⭐ same division of labour as `SheetRegistry::shadowed_targets`: this side can
+/// see that a root is ambiguous, but only a catalog knows whether a character
+/// resolves its art by that root — and a character whose `manifest_target` were
+/// refused here would silently lose its authored blade and fall back to the
+/// shared hardcoded volume.
+pub fn refused_file_roots() -> &'static [ambition_sprite_sheet::AmbiguousFileRoot] {
+    file_root_registry().ambiguous_file_roots()
+}
+
+/// Whether the file-root index resolves `root` to a sheet.
+///
+/// ⭐ exists so a caller can prove its own comparison is not vacuous: a check
+/// that a character's `manifest_target` is not a REFUSED root means nothing
+/// unless those two names live in the same namespace to begin with.
+pub fn resolves_by_file_root(root: &str) -> bool {
+    file_root_registry().get(root).is_some()
 }
 
 /// Convert a sheet's per-animation attack hitbox (the coarse `bbox`) into

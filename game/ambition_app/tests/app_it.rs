@@ -20,6 +20,7 @@ mod sky_census;
 mod smash_cpus_damage_each_other;
 mod a_game_governs_only_its_own_rooms;
 mod a_ron_game_installs_no_ldtk_world;
+mod no_character_resolves_art_by_an_ambiguous_root;
 mod a_save_remembers_where_you_left_things;
 mod actor_phase_split;
 mod app_local_catalog_composition;

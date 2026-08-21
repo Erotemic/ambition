@@ -652,10 +652,17 @@ fn a_multi_record_file_root_is_refused_rather_than_silently_truncated() {
     );
 }
 
-/// The refusal reaches the real baked table, and lands only where measurement
-/// said it would: prop atlases, never a character sheet.
+/// The refusal reaches the real baked table without taking the one key this
+/// index exists to answer.
+///
+/// ⛔ **it deliberately does NOT assert that no CHARACTER was refused**, though
+/// an earlier draft's name claimed to: this crate has no catalog, so it cannot
+/// tell a packed prop atlas from a character's sheet — the same gap
+/// `shadowed_targets` documents. That assertion lives in `ambition_app`, which
+/// owns the catalog. A test whose name promises a check its body does not make
+/// is worse than no test.
 #[test]
-fn the_real_baked_table_refuses_only_sheets_with_no_body() {
+fn the_real_baked_table_still_resolves_the_players_variant() {
     let reg = SheetRegistry::from_baked_table_by_file_root(baked_sheet_rons::BAKED_SHEET_RONS);
     // The player's variant is the reason this index exists at all.
     assert!(

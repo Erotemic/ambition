@@ -37,12 +37,14 @@ mod attack_hitbox;
 mod posed_body;
 
 pub use anim::{
-    body_state_clip, pick_actor_anim, pick_player_anim, ActorAnimState, FighterClipFacts,
-    GuardBreakBeat,
+    ActorAnimState, FighterClipFacts, GuardBreakBeat, body_state_clip, pick_actor_anim,
+    pick_player_anim,
 };
-pub use attack_hitbox::authored_attack_volume_resolver;
+pub use attack_hitbox::{
+    authored_attack_volume_resolver, refused_file_roots, resolves_by_file_root,
+};
 pub use posed_body::{
-    authored_body_pixel_size, posed_body_geometry, sync_sprite_posed_bodies, PosedBodyGeometry,
+    PosedBodyGeometry, authored_body_pixel_size, posed_body_geometry, sync_sprite_posed_bodies,
 };
 
 use bevy::prelude::{App, IntoScheduleConfigs, Plugin};

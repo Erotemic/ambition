@@ -197,6 +197,12 @@ huge regressions, not sure how we didn't have a test to catch these."*
   | doors themselves | ✖ she WALKS across `central_hub_complex` into a door holding interact and the room changes |
   | the TOUCH OVERLAY, installed unconditionally by `add_presentation_plugins` whenever `mobile_touch` is compiled — which `desktop_dev` does, with no runtime gate on desktop | ✖ the door opens with `TouchControlsPlugin` in the app; it was the last STRUCTURAL difference between the compositions that work and the binary that does not |
 
+  ⏸ **PARKED FOR AN INTERACTIVE SESSION — Jon, 2026-08-21:** *"if you can't
+  find it right now, move on to bigger architecture tasks. we can debug in an
+  interactive session."* ⛔ do NOT spend another autonomous session on the
+  interact half; every composition reachable from this tree has been tried and
+  the eliminations below are the record. Pick it up WITH Jon at a keyboard.
+
   ⇒ what is left is on Jon's machine and not in the tree: persisted state
   (`~/.local/share/ambition/`), the `desktop_dev` feature set, real devices, or
   playing to the pole rather than warping. **The 30-second probe that splits

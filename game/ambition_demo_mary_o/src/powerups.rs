@@ -21,15 +21,15 @@ use ambition_platformer2d::characters::equipment::{
 use crate::ldtk_vocabulary::{MaryOBlockContents, MaryOPickup};
 use ambition_platformer2d::actors::actor::PrimaryPlayer;
 use ambition_platformer2d::actors::avatar::PlayerBodyFrameOutput;
-use ambition_platformer2d::actors::items::{spawn_moving_world_item, ItemMotionPlan, WorldItem};
+use ambition_platformer2d::actors::items::{ItemMotionPlan, WorldItem, spawn_moving_world_item};
 use ambition_platformer2d::actors::rooms::RoomLoaded;
 use ambition_platformer2d::characters::actor::WornCharacter;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::collision_semantics::{ContactKind, ContactSource};
 use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
 
-use crate::provider::MARY_O_CHARACTER_ID;
 use crate::T;
+use crate::provider::MARY_O_CHARACTER_ID;
 
 /// The worn-character id of the GROWN form: a distinct SHEET
 /// (`mary_o_v2_tall`), not a scaled copy of the small sheet. Wearing it is how
@@ -1321,7 +1321,7 @@ fn transition_anim(from_tier: u8, to_tier: u8) -> CharacterAnim {
 /// form that never drew the clip answers with the length of whatever it falls
 /// back to — the beat then lasts as long as what the player actually sees.
 fn clip_seconds(character_id: &str, anim: CharacterAnim) -> f32 {
-    use ambition_platformer2d::sprite_sheet::character::{try_load_spec_for_target, SheetTuning};
+    use ambition_platformer2d::sprite_sheet::character::{SheetTuning, try_load_spec_for_target};
     try_load_spec_for_target(sheet_target(character_id), &SheetTuning::default())
         .map(|spec| spec.clip_seconds(anim))
         .filter(|secs| *secs > 0.0)
@@ -1470,9 +1470,7 @@ pub fn dress_power_blocks(
             // ⚠ a brick that holds NOTHING never reaches `spent` at all: it
             // shatters through `bricks::break_bricks`. So this arm is precisely
             // "a brick that was hiding something and has now given it up".
-            Some(MaryOBlockLook::Brick) if is_spent => {
-                Some(BlockArt(EntitySprite::SpentBlockTile))
-            }
+            Some(MaryOBlockLook::Brick) if is_spent => Some(BlockArt(EntitySprite::SpentBlockTile)),
             Some(MaryOBlockLook::Brick) => None,
             _ => None,
         };
@@ -1510,7 +1508,7 @@ pub fn rearm_power_blocks_for_a_fresh_attempt(
 mod tests {
     use super::*;
     use ambition_platformer2d::characters::equipment::{
-        apply_equipment_grants, resolved_ranged, WornEquipment,
+        WornEquipment, apply_equipment_grants, resolved_ranged,
     };
 
     /// The star wand absorbs one hit and is then spent — the A3 armor half of
@@ -1566,7 +1564,7 @@ mod tests {
     #[test]
     fn the_cinder_beacon_grants_a_scaled_bouncing_spark() {
         use ambition_platformer2d::characters::brain::action_set::ActionSet;
-        use ambition_platformer2d::combat::moveset::{build_actor_moveset, RANGED_VERB};
+        use ambition_platformer2d::combat::moveset::{RANGED_VERB, build_actor_moveset};
 
         let worn = WornEquipment::new(vec![cinder_beacon()]);
 
@@ -1683,7 +1681,7 @@ mod tests {
         // to build `quasar_block_id(i)` from a constant array and check the
         // lookup tables disagreed about it — a question about two Rust functions.
         // This is a question about the level.
-        use crate::ldtk_vocabulary::{block_look_of, MaryOBlockLook};
+        use crate::ldtk_vocabulary::{MaryOBlockLook, block_look_of};
         let room = crate::level_1_1();
         let of_kind = |want: MaryOBlockLook| {
             room.world
@@ -1811,6 +1809,50 @@ mod tests {
             (fire.x - small.x).abs() < 1e-3,
             "the beacon must not widen her by the width of its flames \
              (small {small:?}, fire {fire:?})"
+        );
+    }
+
+    /// **HER GROWN CROUCH FITS WHERE HER SMALL FORM FITS.**
+    ///
+    /// Jon, 2026-08-21: *"Her tall crouch should be the same height (in terms of
+    /// collision as her small form, but currently its a bit too tall, so she
+    /// can't clear places she used to be able to)."*
+    ///
+    /// The SMB1 rule, and the reason it is a rule: a one-tile gap is authored
+    /// for small Mary-O, and crouching is how the grown form is allowed through
+    /// it. Miss by any amount and a route that worked before the mushroom stops
+    /// working after it.
+    ///
+    /// ⛔ **this asserts the CONDITION, not the ratio.** `BodyMode::shape`'s own
+    /// test asks only `crouch.y < standing.y`, which is true of 0.55 (17.6, the
+    /// bug) and of 0.5 (16.0, correct) alike. Naming the gap she must fit is
+    /// what makes the check able to fail — and it stays honest if her authored
+    /// form heights are ever redrawn.
+    #[test]
+    fn her_grown_crouch_fits_where_her_small_form_fits() {
+        use ae::BodyMode;
+
+        let small = form_body_size(SMALL_SHEET_TARGET);
+        let tall = form_body_size(TALL_SHEET_TARGET);
+        let crouched = BodyMode::Crouching.shape(tall).size;
+
+        // The premise: growing must actually make her taller, or a crouch that
+        // "fits" proves nothing.
+        assert!(
+            tall.y > small.y + 1.0,
+            "the grown form ({tall:?}) is not taller than the small one \
+             ({small:?}), so this test is not about growing"
+        );
+        assert!(
+            crouched.y <= small.y + 1e-3,
+            "her grown crouch is {:.2} tall against a {:.2} small form, so she \
+             misses every gap authored for the small form by {:.2} units. \
+             Crouching is how a grown platformer body is allowed through a \
+             one-tile gap; it has to reach the same height, not merely a \
+             smaller one.",
+            crouched.y,
+            small.y,
+            crouched.y - small.y,
         );
     }
 
@@ -2187,7 +2229,7 @@ mod tests {
     #[test]
     fn a_brick_that_hides_a_lantern_pops_a_lantern_and_is_not_breakable() {
         use crate::ldtk_vocabulary::{
-            block_of, reactive_block, MaryOBlock, MaryOBlockContents, MaryOBlockLook, MaryOPickup,
+            MaryOBlock, MaryOBlockContents, MaryOBlockLook, MaryOPickup, block_of, reactive_block,
         };
         use ambition_platformer2d::platformer::lifecycle::ActiveSessionScope;
 
@@ -2285,7 +2327,7 @@ mod tests {
     #[test]
     fn a_coin_block_credits_the_wallet_and_spawns_nothing() {
         use crate::ldtk_vocabulary::{
-            reactive_block, MaryOBlock, MaryOBlockContents, MaryOBlockLook, MaryOPickup,
+            MaryOBlock, MaryOBlockContents, MaryOBlockLook, MaryOPickup, reactive_block,
         };
         use ambition_platformer2d::platformer::lifecycle::ActiveSessionScope;
 
@@ -2848,7 +2890,10 @@ mod block_dressing_tests {
         {
             let mut spent = app.world_mut().resource_mut::<SpentPowerBlocks>();
             for iid in ["q_used", "h_used", "b_used"] {
-                spent.spend(ae::GeoId::placement(ae::PlacementId::new(iid.to_string()), 0));
+                spent.spend(ae::GeoId::placement(
+                    ae::PlacementId::new(iid.to_string()),
+                    0,
+                ));
             }
         }
         app.update();

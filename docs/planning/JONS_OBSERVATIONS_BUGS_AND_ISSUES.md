@@ -271,7 +271,14 @@ for free."*
   chooses the clips for free. ⛔ Jon named the approach, so do not pin a clip by
   hand as a shortcut — that is the hack he is refusing in advance.
 
-  ▢ **Side contact with Solid Snake damages the SNAKE, not her.** A stomp is
+  ▢ **Side contact with Solid Snake damages the SNAKE, not her.**
+  ⭐ **and a PRE-EXISTING red test is pointing at the same seam from the other
+  side**: `power_loop::her_spark_damages_a_snake_through_the_shared_hit_pipeline`
+  fails with *"was 1, now 1"* — her spark does NOT damage a snake that should
+  take it. Bisected against both of this session's movement changes (the crouch
+  ratio and the out-of-play freeze) and it fails without either, so it predates
+  them. ⇒ one seam decides who a snake's contact damages and it is wrong in both
+  directions; fix them together rather than separately. A stomp is
   decided by approach direction; something is attributing an ordinary side
   collision to her as the attacker. Arbitrate by identity/approach rather than by
   whoever is queried first.
@@ -284,7 +291,16 @@ to be able to), and also when you die, the camera will still keep panning. Her
 death should stop her velocity to play her death animation, so the camera should
 stop too as a side effect."*
 
-  ▢ **Tall crouch collision height must EQUAL small-form height.** It is the SMB1
+  ✔ **FIXED 2026-08-21 — crouch is HALF height, not 0.55.** Measured by
+  restoring the old ratio: her crouched grown body stood **35.20** against a
+  **32.00** small form, missing every gap authored for the small form by 3.20
+  units. Half gives 32.00 exactly. ⚠ the engine's own `shape` test asks only
+  `crouch.y < standing.y`, so it was blind to the ratio and stayed green
+  throughout; the guard with teeth is
+  `her_grown_crouch_fits_where_her_small_form_fits`, which names the gap she must
+  fit and fails on the old value.
+
+  ▢ ~~Tall crouch collision height must EQUAL small-form height.~~ It is the SMB1
   rule and it is what makes a crouch-slide under a one-tile gap work at either
   size. The symptom Jon names — places she used to clear and no longer can — is
   the observable, so the guard belongs on the crouched envelope, not on a

@@ -32,6 +32,31 @@ fn frame() -> ae::MotionFrame {
         .expect("a non-zero gravity is a valid frame")
 }
 
+/// Step `body` once with the attempt ALREADY ENDED, and answer how far it moved.
+fn travel_out_of_play(body: &mut ae::BodyClusterScratch, combat: &BodyCombat) -> f32 {
+    let world = open_world();
+    let before = body.kinematics.pos;
+    {
+        let (model, mut clusters) = body.parts();
+        step_body(
+            model,
+            &mut clusters,
+            combat,
+            ae::MovementTuning::default(),
+            true,
+            ae::MotionStepContext {
+                world: &world,
+                input: ae::InputState::default(),
+                frame: frame(),
+                facing_intent: 0.0,
+                dt: DT,
+                contact: ae::BodyContactField::NONE,
+            },
+        );
+    }
+    (body.kinematics.pos - before).length()
+}
+
 /// Step `body` once and answer how far it actually travelled.
 fn travel(body: &mut ae::BodyClusterScratch, combat: &BodyCombat) -> f32 {
     stepped(
@@ -60,6 +85,7 @@ fn stepped(
             &mut clusters,
             combat,
             tuning,
+            false,
             ae::MotionStepContext {
                 world: &world,
                 input,
@@ -163,5 +189,46 @@ fn and_the_same_body_travels_once_the_freeze_clears() {
         moved > 1.0,
         "an unfrozen body should have travelled; it moved {moved}px, so the \
          freeze test above may be passing because nothing moves at all"
+    );
+}
+
+/// **A DEAD BODY STOPS WHERE IT DIED — velocity cleared, not merely unread.**
+///
+/// Jon, 2026-08-21: *"when you die, the camera will still keep panning. Her
+/// death should stop her velocity to play her death animation, so the camera
+/// should stop too as a side effect."*
+///
+/// ⛔ `OutOfPlay` only ever gated a `BodyReset`, so gravity and carried momentum
+/// went on integrating and she slid through her own death animation — while the
+/// component's doc claimed *"nothing moves her now"*. This pins the claim.
+#[test]
+fn a_body_whose_attempt_ended_does_not_travel() {
+    let mut body = body_travelling();
+    let combat = BodyCombat::default();
+    assert_eq!(
+        travel_out_of_play(&mut body, &combat),
+        0.0,
+        "a body that is out of play moved"
+    );
+    assert_eq!(
+        body.kinematics.vel,
+        ae::Vec2::ZERO,
+        "the velocity survived the death, so it would be spent the instant the \
+         body came back"
+    );
+}
+
+/// The non-vacuity control the header demands: the SAME body, the SAME step,
+/// still in play, must travel. Without this the test above passes for a body
+/// that could never move at all.
+#[test]
+fn the_same_body_still_in_play_travels() {
+    let mut body = body_travelling();
+    let combat = BodyCombat::default();
+    let moved = travel(&mut body, &combat);
+    assert!(
+        moved > 1.0,
+        "the control case did not move ({moved}), so the out-of-play assertion \
+         above proves nothing"
     );
 }

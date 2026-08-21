@@ -181,8 +181,25 @@ impl BodyMode {
             },
             BodyMode::Crouching => BodyShape {
                 mode: self,
-                // Crouch is half-height; width unchanged.
-                size: Vec2::new(base_size.x, base_size.y * 0.55),
+                // **Crouch is HALF height, width unchanged** — the platformer
+                // standard, and it is a standard because it is what makes a
+                // crouch-slide under a one-tile gap work: a two-tile body
+                // crouches to exactly one tile.
+                //
+                // ⛔ **this was `0.55` and that 0.05 was a live bug** (Jon,
+                // 2026-08-21: *"Her tall crouch should be the same height … as
+                // her small form, but currently its a bit too tall, so she can't
+                // clear places she used to be able to"*). MEASURED by restoring
+                // the old value: her crouched grown body stood 35.20 against a
+                // 32.00 small form and missed every gap authored for the small
+                // one by 3.20 units. Half gives 32.00 — equal, not merely
+                // smaller.
+                //
+                // ⚠ the test next door asserts only `crouch.y < standing.y`, so
+                // it was blind to the ratio and stayed green throughout. The
+                // guard that has teeth names the CONDITION — see Mary-O's
+                // `her_grown_crouch_fits_where_her_small_form_fits`.
+                size: Vec2::new(base_size.x, base_size.y * 0.5),
             },
             BodyMode::Crawling => BodyShape {
                 mode: self,

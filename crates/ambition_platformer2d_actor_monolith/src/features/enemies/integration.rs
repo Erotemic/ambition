@@ -390,6 +390,11 @@ impl<'a> ActorMut<'a> {
             &mut clusters,
             combat,
             resolved_tuning,
+            // ⭐ **never, and this is a fact rather than an exemption**:
+            // `open_death_interlude` queries `With<PlayerEntity>`, so `OutOfPlay`
+            // is only ever granted to a participant's body. An enemy dies by
+            // despawning or by its own encounter rules, not by this window.
+            false,
             ae::MotionStepContext {
                 world,
                 input,

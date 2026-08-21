@@ -153,6 +153,7 @@ pub fn integrate_home_body(
         clusters,
         combat,
         axis_tuning,
+        out_of_play,
         ae::MotionStepContext {
             world,
             input,

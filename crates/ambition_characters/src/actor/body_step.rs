@@ -51,6 +51,10 @@ pub fn step_body(
     clusters: &mut ae::BodyClustersMut<'_>,
     combat: &BodyCombat,
     axis_tuning: ae::MovementTuning,
+    // **Has this body's attempt already ended?** (`OutOfPlay`, ADR 0033.) A bool
+    // for the same reason the caller takes one: the rule is applied HERE so a
+    // second road cannot invent a slightly different "does a dead body move".
+    out_of_play: bool,
     mut ctx: ae::MotionStepContext<'_>,
 ) -> ae::MotionStepResult {
     if let ae::movement::MotionModel::AxisSwept(axis) = model {
@@ -59,6 +63,27 @@ pub fn step_body(
     // ⭐ ONE named rule, asked of the BODY. See this module's header for why it
     // is not a `dt` parameter: a parameter is something a caller can compute
     // wrongly, and one of them did for months.
+    // ⭐ **A DEAD BODY STOPS WHERE IT DIED.** Jon, 2026-08-21: *"when you die,
+    // the camera will still keep panning. Her death should stop her velocity to
+    // play her death animation, so the camera should stop too as a side
+    // effect."* — and the causal order in that sentence is the design: the
+    // camera follows the body, so stopping the body is the whole fix and pinning
+    // the camera would be the same bug wearing a hat.
+    //
+    // ⛔ **`OutOfPlay`'s own doc already CLAIMED this** — *"it makes 'she dies
+    // where she died' free … nothing moves her now, so there is nothing to
+    // pin"* — while the flag only ever gated a `BodyReset`. Gravity and carried
+    // momentum went on integrating, so she slid or fell through her own death
+    // animation. The doc was right about the intent and nothing implemented it.
+    //
+    // Velocity is cleared rather than merely frozen because the window ends in a
+    // respawn or a level reset; a retained velocity would be spent the instant
+    // the body came back. Idempotent, so it is safe under rollback re-simulation.
+    if out_of_play {
+        clusters.kinematics.vel = ae::Vec2::ZERO;
+        ctx.dt = 0.0;
+        return ae::step_motion(model, clusters, ctx);
+    }
     if combat.is_in_hitlag() {
         // ⭐ **SDI: the ONE thing a body may still do while frozen.** Hitlag is
         // a WINDOW rather than merely a pause, and this is what makes it one —

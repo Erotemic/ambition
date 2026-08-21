@@ -344,6 +344,34 @@ pub struct BodyWallState {
 /// ([`crate::movement::AxisManeuverState::buffer_jump`]). This component owns
 /// `air_jumps_available` — a PRESERVED body resource, not maneuver state —
 /// plus the transient ladder-jump boost / ladder drop-through timers, which
+/// **AN ACTOR'S SURFACE-CLING GEOMETRY** — the surface-walker's normal, and how
+/// much gravity it feels.
+///
+/// ⭐ **it lives HERE because its siblings already do.** Its own doc has said
+/// since the cluster migration that ground contact and the air-jump budget moved
+/// to [`BodyGroundState::on_ground`] and [`BodyJumpState::air_jumps_available`] —
+/// "the SAME components the player carries, so there is one ground/jump
+/// authority for every body". This was the one piece of that sentence still
+/// living in the actor monolith, which made every crate that needs a body's
+/// surface reach up into a game-behaviour crate for it (`ambition_sim_view`
+/// already did).
+///
+/// ⚠ **the rollback identity does not move with it.** The wire name is the
+/// stable id `actor.surface_state`, registered by whoever owns the component's
+/// registration; no baseline records a crate path, so relocating the definition
+/// is not a schema change.
+#[derive(bevy_ecs::component::Component, Clone, Copy, Debug, PartialEq)]
+pub struct ActorSurfaceState {
+    /// Outward-pointing unit normal of the surface the actor is currently
+    /// clinging to. Used by surface-walking archetypes (`PuppySlug`) to crawl
+    /// floors, walls, and ceilings; every other archetype pins this at `(0, -1)`
+    /// (floor) and ignores it. Engine y grows downward, so floor → (0, -1),
+    /// right wall → (-1, 0), ceiling → (0, 1), left wall → (1, 0).
+    pub surface_normal: crate::Vec2,
+    /// 0.0 = ignores gravity (flying); 1.0 = full gravity.
+    pub gravity_scale: f32,
+}
+
 /// are body-mode (climbing) mechanics state owned outside the movement policy.
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct BodyJumpState {

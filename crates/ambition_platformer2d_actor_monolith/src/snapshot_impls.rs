@@ -151,10 +151,11 @@ impl SnapshotState for crate::features::stocks_match::StocksMatchSettled {
     }
 }
 
-snapshot_pod!(crate::features::ActorSurfaceState {
-    surface_normal: vec2,
-    gravity_scale: f32,
-});
+// ✔ `ActorSurfaceState`'s pod impl LEFT with its type 2026-08-21 (D33) and now
+// lives in `ambition_platformer2d_core::snapshot_impls` beside the body clusters
+// its own doc always pointed at. The orphan rule forced it the moment the type
+// moved down: `SnapshotState` is core's and the type is core's, so this crate
+// may implement neither. Same shape as `BossEncounter` immediately below.
 
 // ✔ `BossEncounter`'s cursor impl LEFT with its type 2026-08-17 (D33) and now
 // lives in `ambition_boss_encounter::clusters`. The orphan rule is what forced

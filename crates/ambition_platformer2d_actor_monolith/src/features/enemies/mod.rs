@@ -37,27 +37,15 @@ pub struct ActorSpawnState {
     pub size: ae::Vec2,
 }
 
-/// An actor's surface-cling state for the glued surface-walker crawl.
-///
-/// Ground contact (`on_ground`) and air-jump budget now live on the shared
-/// movement clusters — [`crate::actor::BodyGroundState::on_ground`] and
-/// [`crate::actor::BodyJumpState::air_jumps_available`] — the SAME components the
-/// player carries, so there is one ground/jump authority for every body (the
-/// grounded/aerial pipeline writes them directly; the surface-walker crawl writes
-/// `ground.on_ground` too). This component keeps only the surface-walker's cling
-/// geometry, which the shared clusters don't model.
-#[derive(bevy::prelude::Component, Clone, Copy, Debug, PartialEq)]
-pub struct ActorSurfaceState {
-    /// Outward-pointing unit normal of the surface the actor is
-    /// currently clinging to. Used by surface-walking archetypes
-    /// (`PuppySlug`) to crawl floors, walls, and ceilings; every other
-    /// archetype pins this at `(0, -1)` (floor) and ignores it. Engine
-    /// y grows downward, so floor → (0, -1), right wall → (-1, 0),
-    /// ceiling → (0, 1), left wall → (1, 0).
-    pub surface_normal: ae::Vec2,
-    /// 0.0 = ignores gravity (flying); 1.0 = full gravity.
-    pub gravity_scale: f32,
-}
+// `ActorSurfaceState` moved DOWN to the floor crate beside the body clusters
+// its own doc already pointed at (`BodyGroundState`, `BodyJumpState`);
+// re-exported so `crate::features::ActorSurfaceState` paths keep working, the
+// same shape as `RespawnPolicy` immediately below.
+//
+// ⭐ this is what unblocks moving the capture SYSTEMS to `ambition_combat`,
+// which owns the capture vocabulary: it was the one type in
+// `features/ecs/capture.rs` that a lower crate could not see.
+pub use ambition_platformer2d_core::ActorSurfaceState;
 
 // `RespawnPolicy` moved to the combat kit (generic death/respawn
 // vocabulary); re-exported so `crate::features::RespawnPolicy`

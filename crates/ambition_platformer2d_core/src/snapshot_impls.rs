@@ -128,6 +128,11 @@ snapshot_pod!(crate::body_clusters::BodyWallState {
     wall_normal_x: f32,
 });
 
+snapshot_pod!(crate::body_clusters::ActorSurfaceState {
+    surface_normal: vec2,
+    gravity_scale: f32,
+});
+
 snapshot_pod!(crate::body_clusters::BodyJumpState {
     air_jumps_available: u8,
     footstool_claimed: bool,

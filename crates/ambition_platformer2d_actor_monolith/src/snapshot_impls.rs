@@ -16,7 +16,9 @@ use ambition_platformer2d_core::snapshot::{
     put_bool, put_f32, put_i32, put_str, put_u32, put_u64, put_u8, put_vec2, Reader,
     SnapshotCursor, SnapshotState,
 };
-use ambition_platformer2d_core::{snapshot_pod, snapshot_unit_enum};
+// ⚠ `snapshot_pod` is no longer imported: the last user in this crate was
+// `ActorSurfaceState`, whose impl left with its type on 2026-08-21 (D33).
+use ambition_platformer2d_core::snapshot_unit_enum;
 
 impl SnapshotState for crate::features::ActorStatus {
     fn encode(&self, out: &mut Vec<u8>) {

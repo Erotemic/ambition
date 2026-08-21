@@ -17,6 +17,7 @@ pub mod components;
 pub mod death_rules;
 pub mod events;
 pub mod falling_chest;
+pub mod feel;
 pub mod hazard_runtime;
 pub mod hazards;
 pub mod held_items;

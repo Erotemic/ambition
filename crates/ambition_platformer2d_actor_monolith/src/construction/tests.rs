@@ -3182,10 +3182,13 @@ fn placement_registry() -> crate::world::placements::PlacementLoweringRegistry {
 }
 
 fn placement_room() -> crate::rooms::RoomSpec {
+    // ⚠ `PickupKind` comes from the crate ROOT, not from `placements` — it is
+    // public there and re-exported privately here, which `d3bd6e95a` exposed
+    // when it deleted `PickupKindSpec`.
     use ambition_entity_catalog::placements::{
-        HazardRespawn, InteractableSpec, InteractionKindSpec, PickupKind, PickupSpec,
-        PlacementSchema,
+        HazardRespawn, InteractableSpec, InteractionKindSpec, PickupSpec, PlacementSchema,
     };
+    use ambition_entity_catalog::PickupKind;
     let mut room = empty_room("gallery");
     room.placements
         .push(crate::world::placements::PlacementRecord::new(

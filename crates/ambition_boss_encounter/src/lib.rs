@@ -62,6 +62,7 @@
 //! [`ContentEncounterVictorySet`], [`ContentQuestRewardSet`]) so a named game
 //! can interleave without the engine chain ever naming a content system.
 
+pub mod anim;
 pub mod attack_geometry;
 pub mod behavior;
 mod catalog;

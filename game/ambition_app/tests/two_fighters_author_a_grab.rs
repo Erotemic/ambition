@@ -29,7 +29,7 @@ fn move_for<'a>(contract: &'a MovesetContract, verb: &str) -> &'a MoveSpec {
         .unwrap_or_else(|| panic!("no `{verb}` in this fighter's contract"))
 }
 
-/// **BOTH FIGHTERS OFFER ALL THREE CAPTURE VERBS.**
+/// **BOTH FIGHTERS OFFER EVERY CAPTURE VERB** — grab, pummel, and all four throws.
 #[test]
 fn two_providers_each_author_a_grab_a_pummel_and_a_throw() {
     for (who, contract) in [("george", george()), ("admiral", admiral())] {
@@ -40,16 +40,23 @@ fn two_providers_each_author_a_grab_a_pummel_and_a_throw() {
                  a button with nothing behind it"
             );
         }
-        // The three throws nobody authored must NOT be there: an absent throw is
-        // absent, not silently substituted.
+        // ⚠ **INVERTED 2026-08-20.** This asserted the other three throws were
+        // ABSENT, which was true of both fighters when it was written and is
+        // true of neither now: the admiral took the roster's back/up/down pass
+        // and George authored his three as a modus tollens, a tautology and a
+        // reductio. ⛔ the claim it was making — an absent throw is absent, not
+        // silently substituted — is NOT dropped, and was never this test's to
+        // keep: `smash_capture`'s own tests build a forward-only kit and assert
+        // `bound()` yields three verbs and not six.
         for verb in [
             "capture_throw_back",
             "capture_throw_up",
             "capture_throw_down",
         ] {
             assert!(
-                !contract.verbs.contains_key(verb),
-                "{who} answers `{verb}` and nobody authored it"
+                contract.verbs.contains_key(verb),
+                "{who} does not answer `{verb}`, so a grab press in that \
+                 direction is a dead input"
             );
         }
     }

@@ -610,9 +610,11 @@ pub fn george_booul_moveset() -> MovesetContract {
         side_special: side_b,
         up_special: up_b,
         // ⭐ **the first fighter to author one**, and as of D166 the first to
-        // author it as CONTENT. Back throw, up throw and down throw stay unauthored
-        // in his facet: this fighter has a forward throw and says so, and a press
-        // for one he does not have finds nothing rather than a pummel.
+        // author it as CONTENT. ⚠ **all four throws since 2026-08-20** — he was
+        // the last fighter on the roster holding one. His other three are a
+        // modus tollens, a tautology and a reductio, and they are authored as
+        // three different operations rather than as his f-throw rescaled; the
+        // reasoning is in the facet, beside each number.
         capture,
         down_special: DownSpecial::ByPosture {
             grounded: ground_down_b,
@@ -709,8 +711,8 @@ mod tests {
     fn no_move_lives_between_the_pokes_and_the_commitments() {
         let george = george_booul_moveset();
 
-        // ⛔ **WHO IS EXEMPT, BY NAME.** Three moves have no tell, and none of
-        // them reaches for anybody: a pummel and a throw, whose target was
+        // ⛔ **WHO IS EXEMPT, BY NAME.** Six moves have no tell, and none of
+        // them reaches for anybody: a pummel and FOUR throws, whose target was
         // already selected, and the TAUNT, whose whole content is that it buys
         // nothing. Pinning the list means a STRIKE that lost its Active window
         // fails here instead of quietly leaving the law it is supposed to obey.
@@ -726,7 +728,14 @@ mod tests {
         telless.sort_unstable();
         assert_eq!(
             telless,
-            vec!["george_booul_taunt", "george_fthrow", "george_pummel"],
+            vec![
+                "george_booul_taunt",
+                "george_bthrow",
+                "george_dthrow",
+                "george_fthrow",
+                "george_pummel",
+                "george_uthrow",
+            ],
             "the set of moves with no Active window changed"
         );
 

@@ -36,6 +36,20 @@ only character/action authoring that still remains.
   way to author a player-facing move label at all — `"tilt_up"` can only ever
   read "Tilt Up".
 
+  ⚠ **PRICED 2026-08-20, and the price is the reason nobody has done it.**
+  `MoveSpec` is built by **100 exhaustive struct literals** and exactly ONE of
+  them uses `..Default::default()`, so a new required field is a 100-site
+  mechanical edit whose entire content is `display_name: None`. That is a
+  carry list with no judgement in it — the opposite of the exhaustive
+  destructures worth keeping, which exist to force an author to think.
+
+  ⇒ **do not add the field first.** The cheap enabling move is a `Default` impl
+  or a constructor helper that the 100 sites can adopt incrementally; then the
+  field costs one line. ⭐ serde is already fine either way (`MoveSpec` derives
+  `Serialize`/`Deserialize`, so `#[serde(default)]` covers the saved shape), and
+  `MoveSpec` is NOT in any rollback registration, so this does not touch the
+  schema baseline.
+
 - ▢ **Decide layout behavior only when a real repertoire exceeds prompt capacity.**
   Do not pre-generalize the control surface for hypothetical >8-slot schemes.
 

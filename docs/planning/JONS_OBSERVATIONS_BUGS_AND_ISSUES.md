@@ -218,36 +218,32 @@ but only where `declared.contains_key(token)`. `publish_under` inserts into
 did not build, so retiring it would delete a face with no way to draw it
 again."* Same for the id-keyed row a character gets when published without ever
 being declared.
-  * ⊙ **TRIED to build the reproduction headlessly, 2026-08-21 — and the attempt
-itself measured three things worth more than the test would have been.**
-    1. **The seam is unreachable from a shell-host composition**: `GameAssets` is
-       ABSENT there (character realizations are presentation state). It needs
-       `build_visible_app(VisibleRenderMode::NoWindow, true)` — the builder
+  * ⊙ **TRIED to build the reproduction headlessly, 2026-08-21. It did not ship,
+and TWO of the three things it seemed to find were my own errors — recorded
+because both are traps the next attempt will hit.**
+    1. ✔ **TRUE and useful**: the seam is unreachable from a shell-host
+       composition — `GameAssets` is ABSENT there, because character
+       realizations are presentation state. It needs
+       `build_visible_app(VisibleRenderMode::NoWindow, true)`, the builder
        `boot_budget` uses. That is why this seam has no coverage: structure, not
        neglect.
-    2. In that boot, settled 900 frames: **141 characters declared, 21 tokens
-       ready — and ZERO of the 141 declared ids resolves to a sheet**
-       (`sheet(id)` is `None` for every one). Not a timing artefact; identical at
-       180 and 900 frames.
-    3. ⛔ **that contradicts the code's own comment.** `publish` inserts under
-       `character_id` precisely so that *"a character published without ever
-       being declared … still resolves by its own id"* — yet no declared id
-       resolves.
-       ⚠ **and the obvious explanation is WRONG — checked before recording it.**
-       "`publish` has no production caller" looked true: every
-       `characters.publish(` in the tree is test code, including a file called
-       `quality_convergence_tests.rs`. It is not true. Production reaches it
-       inside `materialize_declared_character_sprite` as
-       **`sprites.publish(&cid, asset)`** — a different receiver name, which is
-       exactly what a `characters.publish(` grep cannot see. ⛔ so "nothing on
-       screen ever converges" is NOT established, and anybody re-deriving it from
-       that grep will reach the same false conclusion.
-       ⇒ what remains is narrower and still real: **the ids `declared_character_ids()`
-       returns do not match the `cid` production publishes under**, or the
-       materialization never ran for those 141 in that boot. That is the question
-       to ask next.
-  ⇒ that is the thread to pull next, and it is cheap: ask why `sheet(<declared
-  id>)` is `None` in a settled visible boot.
+    2. ⛔ **FALSE — "141 declared, ZERO resolve to a sheet" is a TAUTOLOGY, not an
+       anomaly.** `declared_character_ids()` filters to tokens that have NO
+       resident sheet (`!self.sheets.contains_key(token)`), exactly as
+       `is_declared`'s own doc says: *"declared and has no resident
+       realization."* I iterated the set defined as having no sheet and asserted
+       each had one. There is nothing wrong here.
+    3. ⛔ **FALSE — "`publish` has no production caller".** Every
+       `characters.publish(` in the tree is test code, including a file named
+       `quality_convergence_tests.rs`, which made it look airtight. Production
+       reaches it inside `materialize_declared_character_sprite` as
+       **`sprites.publish(&cid, asset)`** — a different RECEIVER NAME, invisible
+       to that grep.
+  ⇒ **what the attempt actually leaves behind**: the visible-app boot is the way
+  in, and there is **no public accessor that enumerates RESIDENT sheets**
+  (`ready_token_count()` gives a count and nothing else) — which is the real
+  reason the test could not be written, and the smallest thing to add when
+  somebody builds it.
 
   ⇒ **so a host-published realization is FROZEN at whatever tier it was
 published at, by design** — the intro's NPCs are named in the sibling comment as

@@ -3093,6 +3093,41 @@ Use [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decompositi
 Choose carves from current dependency and authority measurements, not an old LOC
 target.
 
+⭐⭐ **THE DEPENDENCY MEASUREMENT THIS ROW ASKS FOR — RUN 2026-08-21.** The row
+says *"choose carves from current dependency and authority measurements, not an
+old LOC target"*, so: every top-level module of the monolith, by `crate::<module>`
+references made OUT of it and made TO it from its siblings.
+
+```text
+module            lines   →out   in←   coupling/1k
+dev                2000     10     0      5.0     ⭐ destination ALREADY EXISTS
+affordances        1733      9     0      5.2     ⭐ nothing in the crate reads it
+time               1330      2     9      8.3
+body_mode           878      8     1     10.3
+character_sprites  1811     12    12     13.3
+…
+enemy_projectile   1217    104     5     89.6     ⛔ worst — do not start here
+construction       5897    232    42     46.5
+```
+
+⇒ **two candidates have ZERO inbound references**, which is the strongest signal
+this measurement produces — nothing in the monolith would notice them leaving:
+
+* **`dev/trace`** (2,000 lines). `ambition_dev_tools` already exists and its own
+  header says it *"owns the content-free half of the old `dev/` module"* — so
+  this is the other half, and the destination is built, named and stating its
+  purpose. The cheapest coherent carve on the board.
+* **`affordances`** (1,733 lines) — *"what would each input do right now?"*, a
+  table the HUD reads and, in its own words, *"gameplay code (today: nothing)"*.
+  One consumer, zero siblings. ⚠ its natural home is the family that already owns
+  the HUD read-model (`ambition_sim_view`'s `ControlPrompt`) rather than a crate
+  of its own — ⛔ check that destination's stated contract first, which is the
+  rule D136 yields.
+
+⚠ **coupling is NECESSARY, NOT SUFFICIENT.** A module nothing reads is easy to
+move; that does not make the concept whole when it lands. Judge the result by
+Jon's test, not by this table.
+
 ⭐ **THE ENDPOINT IS NOW STATED IN THE CRATE ITSELF — 2026-08-21.** A
 decomposition with no stated endpoint runs forever, and the monolith's header
 listed the domains it holds, which is an INVENTORY and cannot refuse anything:

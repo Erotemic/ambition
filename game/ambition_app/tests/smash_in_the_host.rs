@@ -26,7 +26,7 @@ use bevy::MinimalPlugins;
 
 use ambition_app::app::shell_host;
 use ambition_demo_smash::select::{SlotOccupant, SmashSelect};
-use ambition_demo_smash::select_screen::cursor::SelectCursor;
+use ambition_demo_smash::select_screen::cursor::SelectCursors;
 use ambition_demo_smash::select_screen::layout::SelectLayout;
 use ambition_platformer2d::game_shell::{ShellCommand, ShellLauncherCommand, ShellRouter};
 use leafwing_input_manager::prelude::Buttonlike;
@@ -129,9 +129,14 @@ fn confirm(app: &mut App) {
 /// alone is `the_screen_decides::the_arrows_alone_can_work_the_whole_screen`,
 /// where a bare demo app makes it cheap to assert.
 fn click(app: &mut App, rect: ambition_demo_smash::select_screen::cursor::HitRect) {
-    app.world_mut()
-        .resource_mut::<SelectCursor>()
-        .move_to(rect.center());
+    // Same reason as `pad_click` below: four cursors, and `confirm` presses the
+    // keyboard, whose seat is a composition fact rather than this helper's.
+    {
+        let mut cursors = app.world_mut().resource_mut::<SelectCursors>();
+        for seat in 0..4 {
+            cursors.seat_mut(seat).move_to(rect.center());
+        }
+    }
     confirm(app);
 }
 
@@ -682,10 +687,20 @@ fn a_keyboard_player_and_a_pad_player_drive_different_fighters() {
     // pressing a button is not a claim on a chair, and a screen where it was
     // could seat two people on one device by pressing in the wrong order.
     let layout = screen(&app);
+    // ⚠ **EVERY seat's hand, not seat 0's.** Each seat drives its own cursor
+    // since 2026-08-21, and which seat a given pad speaks for is a fact about
+    // the device order rather than something this helper should assert. Putting
+    // them all on the rect makes the press land there whoever it belongs to,
+    // which is what this helper was always saying.
     let pad_click = |app: &mut App, rect: ambition_demo_smash::select_screen::cursor::HitRect| {
-        app.world_mut()
-            .resource_mut::<SelectCursor>()
-            .move_to(rect.center());
+        {
+            let mut cursors = app
+                .world_mut()
+                .resource_mut::<SelectCursors>();
+            for seat in 0..4 {
+                cursors.seat_mut(seat).move_to(rect.center());
+            }
+        }
         pad_set(app, pad, GamepadButton::South, 1.0);
         app.update();
         pad_set(app, pad, GamepadButton::South, 0.0);
@@ -2955,7 +2970,7 @@ fn the_smash_lobby_hands_a_touch_screen_a_live_prompt() {
 /// reason was one sentence in its own doc block that was false about this
 /// file** (queue D130). It claimed `--press Down,Enter,Enter` was "exactly"
 /// what these drivers do. It is not: [`click`] is
-/// `SelectCursor::move_to(rect.center())` and THEN `tap(Enter)`, and the
+/// `SelectCursors::seat_mut(0).move_to(rect.center())` and THEN `tap(Enter)`, and the
 /// POSITION is the load-bearing half. A key is an edge with no position, so the
 /// tool's `Enter` fired wherever the cursor already sat, all four slots stayed
 /// `NOT PLAYING`, and every `--route smash_gameplay` capture for days
@@ -2985,8 +3000,13 @@ fn the_capture_tools_documented_taps_seat_two_cpus_on_two_fighters() {
     // The `--press touch:...` list in `capture_scene`'s header, in order.
     const ROLE_BUTTON_0: Vec2 = Vec2::new(167.0, 523.0);
     const ROLE_BUTTON_1: Vec2 = Vec2::new(482.0, 523.0);
-    const TOKEN_HOME_0: Vec2 = Vec2::new(586.0, 446.0);
-    const TOKEN_HOME_1: Vec2 = Vec2::new(622.0, 446.0);
+    // ⚠ **AND AGAIN 2026-08-21**, for a third reason: the home tokens are now
+    // spaced by the TOUCH pitch (44px) rather than by their drawn width (26px),
+    // so a thumb-sized target does not overlap its neighbour. The tokens did not
+    // move because the roster changed this time — they moved because what a
+    // token IS changed. Re-derived from `SelectLayout::token_home` centres.
+    const TOKEN_HOME_0: Vec2 = Vec2::new(559.0, 446.0);
+    const TOKEN_HOME_1: Vec2 = Vec2::new(613.0, 446.0);
     // ⛔⛔ **THESE TWO WERE `747x121` AND `425x121` UNTIL 2026-08-16 AND THEY
     // SEATED THE WRONG PAIR** (queue D128). Those are grid cells 3 and 0 —
     // Sanic, who has no authored repertoire at all, and Player Robot v3 — so

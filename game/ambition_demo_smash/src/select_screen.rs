@@ -49,7 +49,7 @@ use bevy::input::touch::Touches;
 use bevy::prelude::*;
 
 use crate::select::{SlotOccupant, SlotPick, SmashRoster, SmashSelect, MAX_SMASH_SEATS};
-use cursor::{CursorTarget, HitRect, SelectCursor};
+use cursor::{CursorTarget, HitRect, SelectCursors};
 use layout::SelectLayout;
 
 /// The screen's UI root. One marker, so teardown is `despawn` on a query
@@ -103,9 +103,11 @@ pub enum Anchored {
 #[derive(Component, Clone, Copy)]
 pub struct SlotToken(pub usize);
 
-/// The cursor's own node.
+/// One seat's cursor node, by seat.
+///
+/// ⚠ **four of them since 2026-08-21.** It was one; see [`cursor::SelectCursors`].
 #[derive(Component)]
-pub struct CursorNode;
+pub struct CursorNode(pub usize);
 
 /// The frame around one portrait, tinted by who is on it.
 #[derive(Component, Clone, Copy)]
@@ -424,6 +426,26 @@ pub fn exit_leads_somewhere(
 /// cross a phone and a monitor. `1.15` puts a corner-to-corner sweep just under
 /// a second on a 16:9 screen, which is about where Smash's own cursor sits.
 const CURSOR_SPEED_PER_SECOND: f32 = 1.15;
+
+/// **Which idiom this screen offers**, because the two Smashes differ.
+///
+/// ⭐ **Melee drags a token onto a face; Ultimate roams a cursor and confirms
+/// on one.** Jon's 2026-08-05 spec describes Melee's, and that is the default
+/// here — it is also the one that maps cleanly onto a finger, since a tap has
+/// no hover to preview with. Where the GAMES differ, ship the knob.
+///
+/// ⚠ **demo-local on purpose.** A global setting owes ~7 touchpoints including
+/// the curated-options list, and this has one consumer on one screen. It moves
+/// to `settings::gameplay` the day it needs to appear in the options menu, and
+/// not before.
+#[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum SelectStyle {
+    /// Grab your token, carry it to a fighter, let go. Melee.
+    #[default]
+    DragToken,
+    /// Put the cursor on a fighter and press. Ultimate.
+    TapToPick,
+}
 
 /// **Which page of the grid is showing.**
 ///
@@ -838,23 +860,31 @@ pub fn spawn_select_screen(
                     Name::new(format!("slot {} token", slot + 1)),
                 ));
             }
-            root.spawn((
-                CursorNode,
-                Node {
-                    position_type: PositionType::Absolute,
-                    left: Val::Px(-999.0),
-                    top: Val::Px(-999.0),
-                    width: Val::Px(layout::CURSOR_PX),
-                    height: Val::Px(layout::CURSOR_PX),
-                    border: UiRect::all(Val::Px(3.0)),
-                    border_radius: BorderRadius::MAX,
-                    ..default()
-                },
-                BackgroundColor(Color::srgba(1.0, 0.96, 0.62, 0.35)),
-                BorderColor::all(Color::srgb(1.0, 0.93, 0.35)),
-                GlobalZIndex(640),
-                Name::new("select cursor"),
-            ));
+            // **ONE HAND PER SEAT, IN THE SEAT'S OWN COLOUR.** Four identical
+            // cursors would be four people asking each other which one is
+            // theirs; the tokens already carry `SLOT_COLORS`, so the hand that
+            // grabs one wears the same paint.
+            for seat in 0..MAX_SMASH_SEATS {
+                let tint = SLOT_COLORS[seat];
+                root.spawn((
+                    CursorNode(seat),
+                    Node {
+                        position_type: PositionType::Absolute,
+                        left: Val::Px(-999.0),
+                        top: Val::Px(-999.0),
+                        width: Val::Px(layout::CURSOR_PX),
+                        height: Val::Px(layout::CURSOR_PX),
+                        border: UiRect::all(Val::Px(3.0)),
+                        border_radius: BorderRadius::MAX,
+                        ..default()
+                    },
+                    BackgroundColor(tint.with_alpha(0.35)),
+                    BorderColor::all(tint),
+                    GlobalZIndex(640),
+                    Visibility::Hidden,
+                    Name::new(format!("seat {} cursor", seat + 1)),
+                ));
+            }
         });
 }
 
@@ -867,15 +897,19 @@ pub fn despawn_select_screen(
     }
 }
 
-/// **Move the cursor, and act on what it is over.**
+/// **Move every seat's cursor, and act on what each one is over.**
 ///
-/// The mouse writes a position; the arrows, d-pad and stick snap between
-/// targets. Both write the same field — see [`cursor`] for why there is one
-/// position and no separate focus.
+/// ⚠ **FOUR cursors since 2026-08-21.** It was one, shared like a mouse; Smash
+/// gives each player their own hand and they all move at once. What stayed
+/// shared is the screen's own verbs — see the union at the bottom.
+///
+/// A mouse or a finger writes a position; a held stick roams; the arrows and
+/// d-pad snap between targets. All of them write the same field — see [`cursor`]
+/// for why there is one position per seat and no separate focus.
 #[allow(clippy::too_many_arguments)]
 pub fn drive_the_cursor(
     mut select: ResMut<SmashSelect>,
-    mut pointer: ResMut<SelectCursor>,
+    mut cursors: ResMut<SelectCursors>,
     mut start: ResMut<StartRequested>,
     mut leave: ResMut<LeaveRequested>,
     fighters: Res<SmashRoster>,
@@ -892,8 +926,17 @@ pub fn drive_the_cursor(
     // ⚠ paired for the same reason `update_the_select_screen`'s are: this
     // system is at Bevy's parameter ceiling and a free cursor needs a clock.
     paging: (ResMut<SelectPage>, Res<Time>),
+    style: Res<SelectStyle>,
     mut last_mouse: Local<Option<Vec2>>,
-    mut driving_finger: Local<Option<u64>>,
+    // **WHICH SEAT EACH FINGER IS DRIVING**, for as long as it stays down.
+    //
+    // ⚠ **it was ONE finger and one cursor.** With four cursors a second finger
+    // is allowed to be a second player — but only by landing on that player's
+    // token, and only while that seat has no finger already. Everything the old
+    // single-driver rule protected is still protected by that: a stray thumb
+    // during somebody's drag lands on no free token, claims nothing and is
+    // ignored.
+    mut fingers: Local<std::collections::HashMap<u64, usize>>,
 ) {
     let (mut page, time) = paging;
     let layout = current_layout(&windows, &fighters, &page);
@@ -927,13 +970,88 @@ pub fn drive_the_cursor(
             .map(|(kind, _)| *kind)
     };
 
-    // The cursor starts on the first portrait rather than at the origin. A
-    // pointer parked in a corner makes the first press cross the whole screen,
-    // and there is no way to tell that from "the cursor is broken".
-    if !pointer.placed {
-        if let Some(rect) = layout.portrait(0) {
-            pointer.move_to(rect.center());
+    // **WHAT ONE SEAT ASKED FOR THIS FRAME**, folded from every device that
+    // speaks for it. Gathered for all four before any of them is acted on, so a
+    // seat cannot see a screen another seat has already changed.
+    #[derive(Default, Clone, Copy)]
+    struct SeatDrive {
+        moved_to: Option<Vec2>,
+        nav: Vec2,
+        direction: Vec2,
+        pressed: bool,
+        released: bool,
+        back: bool,
+        back_out: bool,
+        page_back: bool,
+        page_forward: bool,
+    }
+    let mut drives = [SeatDrive::default(); MAX_SMASH_SEATS];
+
+    // ⚠ **the mouse, the keyboard and the global frame all speak for SEAT 0.**
+    // A machine has one mouse and one keyboard; they are the first seat's
+    // devices, and the global frame is where a keyboard on a route that
+    // declared no seats reports. Pads speak for their own seats below.
+    const DESKTOP_SEAT: usize = 0;
+
+    // ── the pads ─────────────────────────────────────────────────────────
+    if let Some(seat_frames) = seat_frames.as_deref() {
+        for seat in 0..MAX_SMASH_SEATS {
+            let frame = seat_frames.for_seat(seat as u8);
+            let drive = &mut drives[seat];
+            if frame.left {
+                drive.direction.x -= 1.0;
+            }
+            if frame.right {
+                drive.direction.x += 1.0;
+            }
+            if frame.up {
+                drive.direction.y -= 1.0;
+            }
+            if frame.down {
+                drive.direction.y += 1.0;
+            }
+            drive.nav = frame.nav;
+            drive.pressed |= frame.select;
+            drive.back |= frame.back;
+            drive.page_back |= frame.page_left;
+            drive.page_forward |= frame.page_right;
+            // ⛔⛔ **ESCAPE IS BOTH `Start` AND `MenuBack`** — one key, two
+            // semantic actions, and `presets.rs` binds it to both on purpose
+            // (`rebind.rs` documents it and tests it). The shell's pause menu
+            // opens on `start` and this screen's chain runs in the SAME set with
+            // no order between them, so a bare `back` here would have Escape
+            // open the pause menu AND quit the lobby out from under it,
+            // deterministically wrong either way the set happened to schedule.
+            //
+            // ⚠ **per FRAME, not over the union.** The pair is a property of one
+            // seat's press — the seat holding a pad sends East with `start`
+            // clear and still leaves, on the same tick somebody else opens the
+            // menu.
+            drive.back_out |= frame.back && !frame.start;
         }
+    }
+    if let Some(global) = global_frame.as_deref() {
+        let drive = &mut drives[DESKTOP_SEAT];
+        if global.left {
+            drive.direction.x -= 1.0;
+        }
+        if global.right {
+            drive.direction.x += 1.0;
+        }
+        if global.up {
+            drive.direction.y -= 1.0;
+        }
+        if global.down {
+            drive.direction.y += 1.0;
+        }
+        if global.nav.length_squared() > drive.nav.length_squared() {
+            drive.nav = global.nav;
+        }
+        drive.pressed |= global.select;
+        drive.back |= global.back;
+        drive.page_back |= global.page_left;
+        drive.page_forward |= global.page_right;
+        drive.back_out |= global.back && !global.start;
     }
 
     // ── the mouse ────────────────────────────────────────────────────────
@@ -944,16 +1062,20 @@ pub fn drive_the_cursor(
     // not just the fact of it.
     if let Some(position) = windows.iter().next().and_then(Window::cursor_position) {
         if last_mouse.is_none_or(|previous| previous.distance_squared(position) > 0.01) {
-            pointer.move_to(position);
+            drives[DESKTOP_SEAT].moved_to = Some(position);
         }
         *last_mouse = Some(position);
     }
+    if let Some(mouse) = mouse.as_deref() {
+        drives[DESKTOP_SEAT].pressed |= mouse.just_pressed(MouseButton::Left);
+        drives[DESKTOP_SEAT].released |= mouse.just_released(MouseButton::Left);
+    }
 
-    // ── the finger ───────────────────────────────────────────────────────
+    // ── the fingers ──────────────────────────────────────────────────────
     // A touch reports a POSITION, so it is the mouse's arm and not the pad's:
     // `Touches` already speaks logical window pixels with a top-left origin,
     // which is the space `HitRect` is measured in, so there is nothing to
-    // convert. This is the fifth driver of one `move_to`, not a touch path.
+    // convert.
     //
     // ⭐ **no move-gate, unlike the mouse.** A stationary mouse reports the same
     // position forever and would fight the arrows for the cursor; a touch
@@ -961,189 +1083,87 @@ pub fn drive_the_cursor(
     // stale report to suppress — and gating on travel would skip the frame a
     // tap ARRIVES on (a fresh touch's delta is zero), arbitrating the press at
     // wherever the cursor used to be.
-    //
-    // ⚠ **ONE finger drives it, and it keeps driving until it lifts.** Four
-    // people share one cursor here, exactly as they share one mouse, and a
-    // second button does not relocate a mouse — so a second finger neither
-    // moves the cursor nor clicks. Re-choosing the driver every frame is not
-    // enough to promise that: `Touches::iter` walks a `HashMap`, so "the first
-    // one" is arbitrary, and Android RECYCLES pointer ids, so a finger that
-    // lands after another lifts can be handed an id BELOW one still down —
-    // "lowest id wins" would hand the cursor over mid-drag and drop somebody's
-    // token on the wrong fighter. Lowest id only breaks the tie when there is
-    // no driver yet, where it is a deterministic answer instead of a lucky one.
-    let finger = touches.as_deref().and_then(|touches| {
-        let driving = driving_finger
-            .and_then(|id| {
-                // A lift is still this finger's frame: the release edge that
-                // ends a drag has to land where the finger actually left.
-                touches
-                    .get_pressed(id)
-                    .or_else(|| touches.iter_just_released().find(|touch| touch.id() == id))
-            })
-            .or_else(|| touches.iter().min_by_key(|touch| touch.id()))
-            .or_else(|| touches.iter_just_released().min_by_key(|touch| touch.id()))
-            .copied();
-        *driving_finger = driving
-            .map(|touch| touch.id())
-            .filter(|id| touches.get_pressed(*id).is_some());
-        driving
-    });
-    if let Some(finger) = finger {
-        pointer.move_to(finger.position());
-    }
-
-    // ── the arrows, d-pad and stick ──────────────────────────────────────
-    // The union over every seat: four people share one cursor, so any of them
-    // may move it. `MenuControlFrame`'s directions are just-pressed EDGES, and
-    // the global frame is included because a keyboard on a route that declared
-    // no seats still reports there.
-    let mut direction = Vec2::ZERO;
-    let mut nav = Vec2::ZERO;
-    let mut page_back = false;
-    let mut page_forward = false;
-    let mut clicked = false;
-    let mut back = false;
-    let mut back_out = false;
-    let mut frames: Vec<ambition_platformer2d::input::MenuControlFrame> = Vec::new();
-    if let Some(seat_frames) = seat_frames.as_deref() {
-        for seat in 0..MAX_SMASH_SEATS as u8 {
-            frames.push(seat_frames.for_seat(seat));
-        }
-    }
-    if let Some(global) = global_frame.as_deref() {
-        frames.push(*global);
-    }
-    for frame in frames {
-        if frame.left {
-            direction.x -= 1.0;
-        }
-        if frame.right {
-            direction.x += 1.0;
-        }
-        if frame.up {
-            direction.y -= 1.0;
-        }
-        if frame.down {
-            direction.y += 1.0;
-        }
-        // ⚠ **the LARGEST deflection wins rather than the sum.** Four seats
-        // share one cursor here (they get their own in a later pass), and
-        // adding two half-pushed sticks would make two people pushing gently
-        // in the same direction faster than either of them alone.
-        if frame.nav.length_squared() > nav.length_squared() {
-            nav = frame.nav;
-        }
-        clicked |= frame.select;
-        back |= frame.back;
-        // **THE BUMPERS TURN THE PAGE**, which is what `page_left`/`page_right`
-        // are FOR — `MenuControlFrame` carries them as a direct "turn the page"
-        // intent, independent of cursor navigation, and the 3D inventory cube
-        // is their other consumer. A paged grid that could only be turned by
-        // walking the cursor onto a button would be a d-pad screen with a
-        // mouse's affordance.
-        page_back |= frame.page_left;
-        page_forward |= frame.page_right;
-        // ⛔⛔ **ESCAPE IS BOTH `Start` AND `MenuBack`** — one key, two semantic
-        // actions, and `presets.rs` binds it to both on purpose (`rebind.rs`
-        // documents it and tests it). The shell's pause menu opens on `start`
-        // and this screen's chain runs in the SAME set with no order between
-        // them, so a bare `back` here would have Escape open the pause menu AND
-        // quit the lobby out from under it, deterministically wrong either way
-        // the set happened to schedule.
-        //
-        // ⚠ **per FRAME, not over the union.** The pair is a property of one
-        // seat's press — the seat holding a pad sends East with `start` clear
-        // and still leaves, on the same tick somebody else opens the menu.
-        //
-        // ⭐ **the answer is in the frame, not in the shell.** Asking
-        // `ShellPauseMenu` whether it is open would need a feature edge this
-        // demo is not allowed to have (`basic_shell_presentation` is not in
-        // `all_capabilities`), and the frame already carries the fact.
-        back_out |= frame.back && !frame.start;
-    }
-    // **A HELD STICK ROAMS; A TAP STILL SNAPS.**
-    //
-    // ⭐ **both, and in this order.** Smash's cursor is a hand you steer, and
-    // that is what `nav` buys — but the snap is not a compromise this replaces:
-    // it is what keeps every stop on something clickable and the whole screen
-    // reachable in a bounded number of presses, which a d-pad and a keyboard
-    // still need. A stick held gives continuous motion; a tap that produces an
-    // edge with no deflection behind it (a d-pad, an arrow key, a stick flicked
-    // and released inside one frame) falls through to the snap it always had.
-    //
-    // ⚠ **the speed is a fraction of the VIEWPORT, not a pixel constant.** A
-    // cursor that crosses a monitor in a second crawls across a phone at the
-    // same px/s, and the screen it is crossing is the thing that changed.
-    if nav != Vec2::ZERO {
-        let dt = time.delta_secs();
-        let travel = nav * layout.viewport.x * CURSOR_SPEED_PER_SECOND * dt;
-        let roamed = pointer.position + travel;
-        pointer.move_to(Vec2::new(
-            roamed.x.clamp(0.0, layout.viewport.x),
-            roamed.y.clamp(0.0, layout.viewport.y),
-        ));
-    } else if direction != Vec2::ZERO {
-        if let Some(entity) = cursor::snap(pointer.position, direction, &rects) {
-            if let Some(target) = rects.iter().find(|target| target.entity == entity) {
-                pointer.move_to(target.rect.center());
+    if let Some(touches) = touches.as_deref() {
+        // A finger that has lifted stops driving — but only AFTER this frame,
+        // because the release edge that ends a drag has to land where the
+        // finger actually left.
+        for touch in touches.iter_just_pressed() {
+            if fingers.contains_key(&touch.id()) {
+                continue;
+            }
+            // **WHOSE TOKEN DID IT LAND ON?** That seat, if nobody is already
+            // driving it. This is what makes a second finger a second player
+            // rather than an interruption.
+            let taken: Vec<usize> = fingers.values().copied().collect();
+            let on_token = (0..MAX_SMASH_SEATS).find(|slot| {
+                !taken.contains(slot)
+                    && token_rect(&layout, &select, *slot)
+                        .map(SelectLayout::touchable)
+                        .is_some_and(|rect| rect.contains(touch.position()))
+            });
+            // ⛔ **A SEAT MID-CARRY CLAIMS THE NEXT FINGER, and without this
+            // the two-tap idiom is broken on a phone.** Tap your token, tap a
+            // fighter: those are two DIFFERENT fingers, because the first one
+            // lifted. The second lands on a portrait, matches no free token,
+            // and would fall through to seat 0 — so seat 1's tap-to-place put
+            // seat 0's token down instead, and seat 1's own token went home,
+            // which reads on screen as "it chose Random".
+            //
+            // ⚠ lowest seat wins if two are somehow carrying with no finger
+            // between them. A deterministic answer beats a lucky one, and the
+            // case needs two people to put two tokens down and then have one of
+            // them tap.
+            let carrying = (0..MAX_SMASH_SEATS).find(|seat| {
+                !taken.contains(seat) && cursors.seat(*seat).carrying.is_some()
+            });
+            // ⚠ **otherwise it drives seat 0, and only if seat 0 is free.** One
+            // person on a phone taps portraits and buttons without ever
+            // touching a token, and that has to work; a stray thumb during
+            // somebody else's drag has to not.
+            let seat = on_token.or(carrying).or(if taken.contains(&DESKTOP_SEAT) {
+                None
+            } else {
+                Some(DESKTOP_SEAT)
+            });
+            if let Some(seat) = seat {
+                fingers.insert(touch.id(), seat);
             }
         }
+        // ⛔ **Android RECYCLES pointer ids**, so a finger that lands after
+        // another lifts can be handed an id that was in this map a moment ago.
+        // Claiming happens once, above, on the just-pressed edge only — a seat
+        // is never reassigned to a finger already down.
+        let mut lifted: Vec<u64> = Vec::new();
+        for (id, seat) in fingers.iter() {
+            if let Some(touch) = touches.get_pressed(*id) {
+                drives[*seat].moved_to = Some(touch.position());
+                if touches.just_pressed(*id) {
+                    drives[*seat].pressed = true;
+                }
+            } else if let Some(touch) = touches.iter_just_released().find(|t| t.id() == *id) {
+                drives[*seat].moved_to = Some(touch.position());
+                drives[*seat].released = true;
+                lifted.push(*id);
+            } else {
+                lifted.push(*id);
+            }
+        }
+        for id in lifted {
+            fingers.remove(&id);
+        }
     }
 
-    // ── the page ─────────────────────────────────────────────────────────
+    // ── the page, which is the ONE part of the grid every seat shares ────
     // ⚠ **clamped against the LAYOUT's count, not against a remembered one.**
     // How many pages exist is a fact about the viewport and the roster, and the
     // layout is the one thing that derives it; a page number that outran a
     // resize would show an empty grid until somebody pressed something.
     let last_page = layout.pages.saturating_sub(1);
-    if page_back {
+    if drives.iter().any(|drive| drive.page_back) {
         page.0 = page.0.saturating_sub(1);
     }
-    if page_forward {
+    if drives.iter().any(|drive| drive.page_forward) {
         page.0 = (page.0 + 1).min(last_page);
-    }
-
-    // ── clicks ───────────────────────────────────────────────────────────
-    let mut pressed = clicked;
-    let mut released = false;
-    if let Some(mouse) = mouse.as_deref() {
-        pressed |= mouse.just_pressed(MouseButton::Left);
-        released |= mouse.just_released(MouseButton::Left);
-    }
-    // Touching the glass IS the button — and only the driving finger's edges
-    // count, so a second finger landing during a drag cannot arbitrate a press
-    // at the first one's position.
-    if let (Some(touches), Some(finger)) = (touches.as_deref(), finger) {
-        pressed |= touches.just_pressed(finger.id());
-        released |= touches.just_released(finger.id());
-    }
-
-    // Back puts a carried token down where it came from, which is the only undo
-    // this screen needs: the pick it would have replaced is untouched.
-    if back && pointer.carrying.is_some() {
-        pointer.drop_it();
-        return;
-    }
-
-    // **AND WITH AN EMPTY HAND, BACK LEAVES.**
-    //
-    // ⭐ **graded, and the order above is the grading.** This is the same rung
-    // every fighting game's select screen has: the first Back puts your token
-    // down, the second backs you out. Reversing them would make one press on a
-    // held token cost the whole lobby.
-    //
-    // ⚠ **ANY seat may press it**, which is this screen's own rule and not a new
-    // one. Four people share ONE cursor here — the directions, the clicks and
-    // the token-drop above are all a union over every seat's frame, because the
-    // screen is a single shared surface rather than four private ones. A quit
-    // that only seat 0 could reach would be the one decision on this screen with
-    // a different arbitration, and on a couch the person who wants out is as
-    // often on pad 2. Nothing is lost by being wrong: arriving here resets the
-    // lobby anyway, so re-entering costs the picks that a `Random` default
-    // re-seeds in one frame.
-    if exit && back_out && !leave.0 {
-        leave.0 = true;
     }
 
     let sources = devices
@@ -1156,80 +1176,200 @@ pub fn drive_the_cursor(
         })
         .unwrap_or(1);
 
-    if pressed {
-        let over = cursor::hovered(pointer.position, &rects).and_then(kind_of);
-        // A PLACED token is checked first: it sits on top of the portrait it
-        // chose, and a press there means "pick this up", not "choose this
-        // again". Its resting home is in the target list; where it currently
-        // sits is the decision's answer, not the layout's.
-        // ⚠ **the TOUCH rect, not the drawn one.** A token is drawn as small as
-        // 20px on a phone so it does not cover the face it sits on; asking the
-        // drawn circle whether a thumb hit it would make the token the one
-        // thing on this screen you cannot pick up. `touchable` grows it to the
-        // floor about its own centre and leaves a desktop-sized one alone.
-        let on_token = (0..MAX_SMASH_SEATS).find(|slot| {
-            token_rect(&layout, &select, *slot)
-                .map(SelectLayout::touchable)
-                .is_some_and(|rect| rect.contains(pointer.position))
-        });
-        match (pointer.carrying, on_token, over) {
-            // Picking up. ⚠ **before the page arrows below**, so a token that
-            // overlaps one on a narrow pool is still the thing you grabbed.
-            (None, Some(slot), _) => pointer.grab(slot),
-            // **TURNING THE PAGE IS LEGAL WITH A TOKEN IN HAND**, and it has to
-            // be: the fighter you are carrying it to may be on another page,
-            // and having to put the token down to go looking would make a paged
-            // grid worse than an unpaged one. ⚠ therefore ABOVE the
-            // "anything else with something in hand puts it back" arm, which
-            // would otherwise swallow the press.
-            (_, _, Some(SelectTarget::PagePrev)) => {
-                page.0 = page.0.saturating_sub(1);
+    // **WHO HAD A TOKEN IN HAND WHEN THE FRAME BEGAN.**
+    //
+    // ⛔ **read BEFORE the loop, because the loop empties it.** The graded rung
+    // at the bottom — first Back puts your token down, second Back leaves —
+    // reads "was this seat holding something"; asking after the loop asks a
+    // hand that the same press just emptied, and one Back both dropped the
+    // token and quit the lobby.
+    let was_carrying: [bool; MAX_SMASH_SEATS] =
+        std::array::from_fn(|seat| cursors.seat(seat).carrying.is_some());
+
+    // ── each seat, in seat order ─────────────────────────────────────────
+    for seat in 0..MAX_SMASH_SEATS {
+        let drive = drives[seat];
+        let pointer = cursors.seat_mut(seat);
+
+        // The cursor starts on the first portrait rather than at the origin. A
+        // pointer parked in a corner makes the first press cross the whole
+        // screen, and there is no way to tell that from "the cursor is broken".
+        //
+        // ⚠ **spread per seat**, so four cursors do not begin as one cursor:
+        // four hands stacked on cell zero look like a bug in the drawing.
+        if !pointer.placed {
+            if let Some(rect) = layout.portrait(seat.min(layout.characters.saturating_sub(1))) {
+                pointer.move_to(rect.center());
             }
-            (_, _, Some(SelectTarget::PageNext)) => {
-                page.0 = (page.0 + 1).min(last_page);
+        }
+
+        if let Some(position) = drive.moved_to {
+            pointer.move_to(position);
+        }
+
+        // **A HELD STICK ROAMS; A TAP STILL SNAPS.**
+        //
+        // ⭐ **both, and in this order.** Smash's cursor is a hand you steer,
+        // and that is what `nav` buys — but the snap is not a compromise this
+        // replaces: it is what keeps every stop on something clickable and the
+        // whole screen reachable in a bounded number of presses, which a d-pad
+        // and a keyboard still need. A stick held gives continuous motion; a
+        // tap that produces an edge with no deflection behind it falls through
+        // to the snap it always had.
+        //
+        // ⚠ **the speed is a fraction of the VIEWPORT, not a pixel constant.** A
+        // cursor that crosses a monitor in a second crawls across a phone at the
+        // same px/s, and the screen it is crossing is the thing that changed.
+        if drive.nav != Vec2::ZERO {
+            let travel = drive.nav * layout.viewport.x * CURSOR_SPEED_PER_SECOND * time.delta_secs();
+            let roamed = pointer.position + travel;
+            pointer.move_to(Vec2::new(
+                roamed.x.clamp(0.0, layout.viewport.x),
+                roamed.y.clamp(0.0, layout.viewport.y),
+            ));
+        } else if drive.direction != Vec2::ZERO {
+            if let Some(entity) = cursor::snap(pointer.position, drive.direction, &rects) {
+                if let Some(target) = rects.iter().find(|target| target.entity == entity) {
+                    pointer.move_to(target.rect.center());
+                }
             }
-            // Placing.
-            // ⚠ a CELL, not a fighter index. `SmashRoster::cell` is the one
-            // place that knows the grid's last square is RANDOM; a click that
-            // lands past the end of the grid chooses nothing rather than
-            // clamping onto whoever is last.
-            (Some(slot), _, Some(SelectTarget::Portrait(cell))) => {
+        }
+
+        // Back puts a carried token down where it came from, which is the only
+        // undo this screen needs: the pick it would have replaced is untouched.
+        if drive.back && pointer.carrying.is_some() {
+            pointer.drop_it();
+            continue;
+        }
+
+        let position = pointer.position;
+        let carrying = pointer.carrying;
+        let release_should_drop = pointer.release_should_drop();
+
+        if drive.pressed {
+            let over = cursor::hovered(position, &rects).and_then(kind_of);
+            // A PLACED token is checked first: it sits on top of the portrait it
+            // chose, and a press there means "pick this up", not "choose this
+            // again". Its resting home is in the target list; where it currently
+            // sits is the decision's answer, not the layout's.
+            //
+            // ⚠ **the TOUCH rect, not the drawn one.** A token is drawn as small
+            // as 20px on a phone so it does not cover the face it sits on;
+            // asking the drawn circle whether a thumb hit it would make the
+            // token the one thing on this screen you cannot pick up.
+            //
+            // **WHOSE TOKEN MAY THIS SEAT PICK UP?** Its own, and any token
+            // NOBODY IS DRIVING.
+            //
+            // ⛔ a seat may never take a token off another PERSON — four cursors
+            // over one pool would otherwise let seat 3 walk away with seat 1's
+            // piece, which is a different game from the one Jon asked for.
+            //
+            // ⭐ **but a CPU's token is nobody's**, and somebody has to be able
+            // to place it. One person on a keyboard setting up two CPU
+            // opponents is this lobby's most ordinary use, and it is not Melee's
+            // problem to solve because Melee has no CPU tokens in the pool. The
+            // host's own `an_up_tilt_*` tests seat Alice exactly this way, and
+            // they are what caught the rule being too strict.
+            let may_grab = |slot: usize| {
+                slot == seat || matches!(select.slot(slot).occupant, SlotOccupant::Cpu)
+            };
+            let on_token = (0..MAX_SMASH_SEATS).find(|slot| {
+                may_grab(*slot)
+                    && token_rect(&layout, &select, *slot)
+                        .map(SelectLayout::touchable)
+                        .is_some_and(|rect| rect.contains(position))
+            });
+            match (carrying, on_token, over) {
+                // **TAP TO PICK** — the Ultimate idiom, when it is switched on:
+                // no token to grab, the press on a face IS the choice. The token
+                // still travels to the portrait afterwards, so the screen reads
+                // the same and `SmashSelect` sees the same decision.
+                (None, _, Some(SelectTarget::Portrait(cell)))
+                    if *style == SelectStyle::TapToPick =>
+                {
+                    if let Some(pick) = fighters.cell(cell) {
+                        select.set_pick(seat, pick);
+                    }
+                }
+                // Picking up. ⚠ **before the page arrows below**, so a token that
+                // overlaps one on a narrow pool is still the thing you grabbed.
+                (None, Some(slot), _) => cursors.seat_mut(seat).grab(slot),
+                // **TURNING THE PAGE IS LEGAL WITH A TOKEN IN HAND**, and it has
+                // to be: the fighter you are carrying it to may be on another
+                // page, and having to put the token down to go looking would
+                // make a paged grid worse than an unpaged one. ⚠ therefore ABOVE
+                // the "anything else with something in hand puts it back" arm,
+                // which would otherwise swallow the press.
+                (_, _, Some(SelectTarget::PagePrev)) => {
+                    page.0 = page.0.saturating_sub(1);
+                }
+                (_, _, Some(SelectTarget::PageNext)) => {
+                    page.0 = (page.0 + 1).min(last_page);
+                }
+                // Placing.
+                // ⚠ a CELL, not a fighter index. `SmashRoster::cell` is the one
+                // place that knows the grid's last square is RANDOM; a click that
+                // lands past the end of the grid chooses nothing rather than
+                // clamping onto whoever is last.
+                (Some(slot), _, Some(SelectTarget::Portrait(cell))) => {
+                    if let Some(pick) = fighters.cell(cell) {
+                        select.set_pick(slot, pick);
+                    }
+                    cursors.seat_mut(seat).drop_it();
+                }
+                // Anywhere else with something in hand: put it back. Dropping a
+                // token on empty space returns it rather than clearing the slot —
+                // losing a fighter to a misclick is the one thing a select screen
+                // must not do to somebody holding a controller.
+                (Some(_), _, _) => {
+                    cursors.seat_mut(seat).drop_it();
+                }
+                (None, None, Some(SelectTarget::RoleButton(slot))) => {
+                    select.cycle_occupant(slot, sources);
+                }
+                (None, None, Some(SelectTarget::Start)) => {
+                    if select.ready() {
+                        start.0 = true;
+                    }
+                }
+                // ⚠ **no readiness term.** START is refused on an undecided
+                // lobby; BACK is exactly what an undecided lobby is for.
+                (None, None, Some(SelectTarget::Back)) => {
+                    leave.0 = true;
+                }
+                (None, None, _) => {}
+            }
+        } else if drive.released && release_should_drop {
+            // A DRAG: press on the token, move, let go over a portrait.
+            let over = cursor::hovered(position, &rects).and_then(kind_of);
+            if let (Some(slot), Some(SelectTarget::Portrait(cell))) = (carrying, over) {
                 if let Some(pick) = fighters.cell(cell) {
                     select.set_pick(slot, pick);
                 }
-                pointer.drop_it();
             }
-            // Anywhere else with something in hand: put it back. Dropping a
-            // token on empty space returns it rather than clearing the slot —
-            // losing a fighter to a misclick is the one thing a select screen
-            // must not do to somebody holding a controller.
-            (Some(_), _, _) => {
-                pointer.drop_it();
-            }
-            (None, None, Some(SelectTarget::RoleButton(slot))) => {
-                select.cycle_occupant(slot, sources);
-            }
-            (None, None, Some(SelectTarget::Start)) => {
-                if select.ready() {
-                    start.0 = true;
-                }
-            }
-            // ⚠ **no readiness term.** START is refused on an undecided lobby;
-            // BACK is exactly what an undecided lobby is for.
-            (None, None, Some(SelectTarget::Back)) => {
-                leave.0 = true;
-            }
-            (None, None, _) => {}
+            cursors.seat_mut(seat).drop_it();
         }
-    } else if released && pointer.release_should_drop() {
-        // A mouse DRAG: press on the token, move, let go over a portrait.
-        let over = cursor::hovered(pointer.position, &rects).and_then(kind_of);
-        if let (Some(slot), Some(SelectTarget::Portrait(cell))) = (pointer.carrying, over) {
-            if let Some(pick) = fighters.cell(cell) {
-                select.set_pick(slot, pick);
-            }
-        }
-        pointer.drop_it();
+    }
+
+    // **AND WITH AN EMPTY HAND, BACK LEAVES.**
+    //
+    // ⭐ **graded, and the order is the grading.** This is the same rung every
+    // fighting game's select screen has: the first Back puts your token down,
+    // the second backs you out. Each seat's own token-drop happened in the loop
+    // above; this is what is left.
+    //
+    // ⚠ **ANY seat may press it**, which is this screen's own rule and not a new
+    // one — and it is the reason the per-seat pass above did not swallow it.
+    // Four people share ONE screen even now that they have four cursors, and on
+    // a couch the person who wants out is as often on pad 2. Nothing is lost by
+    // being wrong: arriving here resets the lobby anyway.
+    let anyone_backing_out = drives
+        .iter()
+        .enumerate()
+        .any(|(seat, drive)| drive.back_out && !was_carrying[seat]);
+    if exit && anyone_backing_out && !leave.0 {
+        leave.0 = true;
     }
 }
 
@@ -1311,7 +1451,7 @@ pub fn place_the_screen(
 #[allow(clippy::too_many_arguments)]
 pub fn update_the_select_screen(
     select: Res<SmashSelect>,
-    pointer: Res<SelectCursor>,
+    cursors: Res<SelectCursors>,
     // ⚠ **PAIRED, because this system sits at Bevy's 16-param ceiling** and the
     // note on `lobby_facts` below says a further resource is a compile error
     // rather than a style choice. These two belong together anyway: the roster
@@ -1370,7 +1510,21 @@ pub fn update_the_select_screen(
         (Without<SlotToken>, Without<CardPortrait>),
     >,
     mut tokens: Query<(&SlotToken, &mut Node, &mut Visibility), Without<CardPortrait>>,
-    mut cursor_node: Query<&mut Node, (With<CursorNode>, Without<SlotToken>)>,
+    // ⚠ **every OTHER `&mut Visibility` in this signature, excluded by name.**
+    // Bevy proves two queries disjoint from their FILTERS, not from the fact
+    // that no entity happens to carry both markers — so the moment the cursor
+    // node started writing `Visibility` (four seats, and an empty seat's hand is
+    // hidden) it conflicted with the card portraits and the monograms, and the
+    // whole screen panicked at `B0001`. ⛔ the demo's own tests cannot see this:
+    // they run `drive_the_cursor` alone.
+    mut cursor_node: Query<
+        (&CursorNode, &mut Node, &mut Visibility),
+        (
+            Without<SlotToken>,
+            Without<CardPortrait>,
+            Without<PortraitMonogram>,
+        ),
+    >,
 ) {
     let (refusal, devices, assignment) = lobby_facts;
     let (fighters, page) = grid;
@@ -1519,10 +1673,15 @@ pub fn update_the_select_screen(
             continue;
         };
         set_visibility(&mut visibility, Visibility::Inherited);
-        let rect = if pointer.carrying == Some(token.0) {
-            HitRect::from_center_size(pointer.position, Vec2::splat(layout.token_px()))
-        } else {
-            resting
+        // ⚠ **whichever seat is carrying it**, not "the" cursor. A token in a
+        // hand follows that hand; asking only seat 0 would leave every other
+        // player's token sitting at home while they dragged it.
+        let rect = match cursors.carrier_of(token.0) {
+            Some(seat) => HitRect::from_center_size(
+                cursors.seat(seat).position,
+                Vec2::splat(layout.token_px()),
+            ),
+            None => resting,
         };
         set_rect(&mut node, rect);
     }
@@ -1533,12 +1692,24 @@ pub fn update_the_select_screen(
     // when something covers the screen is a cursor that has vanished. This
     // always runs, and it is also what puts the pointer somewhere real on the
     // very first frame.
-    let home = layout.portrait(0).map(HitRect::center);
-    for mut node in &mut cursor_node {
+    for (marker, mut node, mut visibility) in &mut cursor_node {
+        let seat = marker.0;
+        // **A SEAT NOBODY IS IN HAS NO HAND ON THE SCREEN.** Four cursors
+        // hovering over a one-player lobby is three cursors nobody can move,
+        // which reads as a frozen screen rather than as an empty seat.
+        if !select.slot(seat).occupant.participates() {
+            set_visibility(&mut visibility, Visibility::Hidden);
+            continue;
+        }
+        set_visibility(&mut visibility, Visibility::Inherited);
+        let pointer = cursors.seat(seat);
         let at = if pointer.placed {
             pointer.position
         } else {
-            home.unwrap_or(layout.viewport * 0.5)
+            layout
+                .portrait(seat.min(layout.characters.saturating_sub(1)))
+                .map(HitRect::center)
+                .unwrap_or(layout.viewport * 0.5)
         };
         set_rect(
             &mut node,
@@ -1594,10 +1765,11 @@ mod touch_tests {
         let mut app = App::new();
         app.init_resource::<SmashSelect>();
         app.init_resource::<SmashRoster>();
-        app.init_resource::<SelectCursor>();
+        app.init_resource::<SelectCursors>();
         app.init_resource::<StartRequested>();
         app.init_resource::<LeaveRequested>();
         app.init_resource::<SelectPage>();
+        app.init_resource::<SelectStyle>();
         // See the note in `lib.rs`'s fixture: the cursor integrates a clock.
         app.init_resource::<Time>();
         app.init_resource::<Touches>();
@@ -1605,6 +1777,177 @@ mod touch_tests {
         app.add_systems(PreUpdate, bevy::input::touch::touch_screen_input_system);
         app.add_systems(Update, drive_the_cursor);
         app
+    }
+
+    /// **TWO FINGERS ARE TWO PLAYERS**, which is the whole point of per-seat
+    /// cursors and the thing one shared pointer could never do.
+    ///
+    /// ⚠ **the second finger has to land on the SECOND SEAT'S TOKEN.** That is
+    /// what claims a seat; a finger landing anywhere else while seat 0 is busy
+    /// still claims nothing, which is what keeps a stray thumb from hijacking
+    /// somebody's drag (the test below).
+    #[test]
+    fn two_fingers_drag_two_seats_tokens_at_once() {
+        let mut app = screen();
+        {
+            let mut select = app.world_mut().resource_mut::<SmashSelect>();
+            select.set_occupant(0, SlotOccupant::Controller { device: 0 });
+            select.set_occupant(1, SlotOccupant::Controller { device: 1 });
+        }
+
+        let layout = headless_layout();
+        let select = app.world().resource::<SmashSelect>().clone();
+        let token_zero = token_rect(&layout, &select, 0).expect("seat 0 is in the lobby");
+        let token_one = token_rect(&layout, &select, 1).expect("seat 1 is in the lobby");
+
+        finger(&mut app, 10, TouchPhase::Started, token_zero.center());
+        finger(&mut app, 11, TouchPhase::Started, token_one.center());
+        app.update();
+
+        let cursors = *app.world().resource::<SelectCursors>();
+        assert_eq!(
+            (cursors.seat(0).carrying, cursors.seat(1).carrying),
+            (Some(0), Some(1)),
+            "two fingers on two tokens did not put one in each seat's hand"
+        );
+
+        // Each lands on a DIFFERENT fighter, so neither could have been the
+        // other's press arriving twice.
+        let first = layout.portrait(0).expect("a grid");
+        let second = layout.portrait(1).expect("a grid with two cells");
+        finger(&mut app, 10, TouchPhase::Moved, first.center());
+        finger(&mut app, 11, TouchPhase::Moved, second.center());
+        app.update();
+        finger(&mut app, 10, TouchPhase::Ended, first.center());
+        finger(&mut app, 11, TouchPhase::Ended, second.center());
+        app.update();
+
+        let select = app.world().resource::<SmashSelect>();
+        assert_eq!(
+            (select.slot(0).pick, select.slot(1).pick),
+            (Some(SlotPick::Fighter(0)), Some(SlotPick::Fighter(1))),
+            "two simultaneous drags did not land on two different fighters"
+        );
+    }
+
+    /// **TWO TAPS BY A SEAT THAT IS NOT SEAT ZERO.**
+    ///
+    /// ⛔ **the bug this pins is the one the host caught, not the demo.** Tap
+    /// your token, tap a fighter — two DIFFERENT fingers, because the first one
+    /// lifted. The second lands on a portrait, matches no free token, and
+    /// before 2026-08-21 fell through to seat 0: seat 1's tap put seat 0's
+    /// token down and seat 1's own went home, which reads on screen as
+    /// "it chose Random". A seat mid-carry now claims the next finger.
+    #[test]
+    fn a_second_seat_can_tap_its_token_then_tap_a_fighter() {
+        let mut app = screen();
+        {
+            let mut select = app.world_mut().resource_mut::<SmashSelect>();
+            select.set_occupant(0, SlotOccupant::Controller { device: 0 });
+            select.set_occupant(1, SlotOccupant::Controller { device: 1 });
+        }
+        let layout = headless_layout();
+        let select = app.world().resource::<SmashSelect>().clone();
+        let token_one = token_rect(&layout, &select, 1).expect("seat 1 is in the lobby");
+        let portrait = layout.portrait(1).expect("a grid with two cells");
+
+        // Tap one: pick the token up. The finger LIFTS.
+        finger(&mut app, 40, TouchPhase::Started, token_one.center());
+        app.update();
+        finger(&mut app, 40, TouchPhase::Ended, token_one.center());
+        app.update();
+        assert_eq!(
+            app.world().resource::<SelectCursors>().seat(1).carrying,
+            Some(1),
+            "the first tap did not leave seat 1 holding its token"
+        );
+
+        // Tap two: a NEW finger, on a face.
+        finger(&mut app, 41, TouchPhase::Started, portrait.center());
+        app.update();
+        finger(&mut app, 41, TouchPhase::Ended, portrait.center());
+        app.update();
+
+        let select = app.world().resource::<SmashSelect>();
+        assert_eq!(
+            select.slot(1).pick,
+            Some(SlotPick::Fighter(1)),
+            "seat 1's second tap did not choose the fighter it landed on"
+        );
+        // ⚠ **`Random`, not `None`** — joining a slot seats it on the random
+        // square, so an untouched seat 0 already has a pick. What this asserts
+        // is that seat 1's tap did not CHANGE it.
+        assert_eq!(
+            select.slot(0).pick,
+            Some(SlotPick::Random),
+            "seat 1's tap moved seat 0's pick, so the finger drove the wrong seat"
+        );
+    }
+
+    /// **A SEAT MAY NOT PICK UP SOMEBODY ELSE'S TOKEN.**
+    ///
+    /// ⛔ four cursors over one pool is exactly where this goes wrong: seat 1's
+    /// hand passing over seat 0's piece must not be able to take it. The press
+    /// is arbitrated against the pressing seat's OWN token and nothing else.
+    #[test]
+    fn a_seat_cannot_grab_another_seats_token() {
+        let mut app = screen();
+        {
+            let mut select = app.world_mut().resource_mut::<SmashSelect>();
+            select.set_occupant(0, SlotOccupant::Controller { device: 0 });
+            select.set_occupant(1, SlotOccupant::Controller { device: 1 });
+        }
+        let layout = headless_layout();
+        let select = app.world().resource::<SmashSelect>().clone();
+        let token_zero = token_rect(&layout, &select, 0).expect("seat 0 is in the lobby");
+
+        // Seat 1's finger claims seat 1 by landing on its own token, then walks
+        // over to seat 0's and presses again.
+        let token_one = token_rect(&layout, &select, 1).expect("seat 1 is in the lobby");
+        finger(&mut app, 20, TouchPhase::Started, token_one.center());
+        app.update();
+        finger(&mut app, 20, TouchPhase::Ended, token_one.center());
+        app.update();
+        finger(&mut app, 21, TouchPhase::Started, token_zero.center());
+        app.update();
+
+        let cursors = *app.world().resource::<SelectCursors>();
+        assert_ne!(
+            cursors.seat(1).carrying,
+            Some(0),
+            "seat 1 walked off with seat 0's token"
+        );
+    }
+
+    /// **TAP TO PICK IS THE OTHER SMASH**, and it reaches the same decision.
+    ///
+    /// Ultimate has no token to drag: the cursor goes to a fighter and you
+    /// press. ⚠ the assertion is on `SmashSelect`, not on the token, because
+    /// the two idioms are only allowed to differ in how you ASK — what the
+    /// screen decided has to be one thing.
+    #[test]
+    fn tap_to_pick_chooses_a_fighter_without_grabbing_anything() {
+        let mut app = screen();
+        *app.world_mut().resource_mut::<SelectStyle>() = SelectStyle::TapToPick;
+        app.world_mut()
+            .resource_mut::<SmashSelect>()
+            .set_occupant(0, SlotOccupant::Controller { device: 0 });
+
+        let layout = headless_layout();
+        let portrait = layout.portrait(1).expect("a grid with two cells");
+        finger(&mut app, 30, TouchPhase::Started, portrait.center());
+        app.update();
+
+        assert_eq!(
+            app.world().resource::<SmashSelect>().slot(0).pick,
+            Some(SlotPick::Fighter(1)),
+            "a tap on a face did not choose that fighter"
+        );
+        assert_eq!(
+            app.world().resource::<SelectCursors>().seat(0).carrying,
+            None,
+            "tap-to-pick picked a token up, which is the idiom it replaces"
+        );
     }
 
     /// **A HELD STICK ROAMS; IT DOES NOT SNAP.**
@@ -1621,7 +1964,7 @@ mod touch_tests {
         app.init_resource::<ambition_platformer2d::input::MenuControlFrame>();
         app.update();
 
-        let start = app.world().resource::<SelectCursor>().position;
+        let start = app.world().resource::<SelectCursors>().seat(0).position;
         // A tenth of a second of full-right deflection.
         app.world_mut()
             .resource_mut::<ambition_platformer2d::input::MenuControlFrame>()
@@ -1630,7 +1973,7 @@ mod touch_tests {
         app.world_mut().resource_mut::<Time>().advance_by(step);
         app.update();
 
-        let moved = app.world().resource::<SelectCursor>().position;
+        let moved = app.world().resource::<SelectCursors>().seat(0).position;
         assert!(
             moved.x > start.x,
             "a held stick left the cursor at {moved:?}, where it started"
@@ -1664,13 +2007,13 @@ mod touch_tests {
             .nav = Vec2::X;
 
         let step = std::time::Duration::from_millis(50);
-        let start = app.world().resource::<SelectCursor>().position.x;
+        let start = app.world().resource::<SelectCursors>().seat(0).position.x;
         app.world_mut().resource_mut::<Time>().advance_by(step);
         app.update();
-        let after_one = app.world().resource::<SelectCursor>().position.x;
+        let after_one = app.world().resource::<SelectCursors>().seat(0).position.x;
         app.world_mut().resource_mut::<Time>().advance_by(step);
         app.update();
-        let after_two = app.world().resource::<SelectCursor>().position.x;
+        let after_two = app.world().resource::<SelectCursors>().seat(0).position.x;
 
         let first = after_one - start;
         let second = after_two - after_one;
@@ -1727,7 +2070,7 @@ mod touch_tests {
         // spent before the finger arrives and cannot be mistaken for its work.
         app.update();
         assert_ne!(
-            app.world().resource::<SelectCursor>().position,
+            app.world().resource::<SelectCursors>().seat(0).position,
             token.center(),
             "the cursor already sat on the token, so this test cannot see a \
              finger move it"
@@ -1736,12 +2079,12 @@ mod touch_tests {
         finger(&mut app, 7, TouchPhase::Started, token.center());
         app.update();
         assert_eq!(
-            app.world().resource::<SelectCursor>().position,
+            app.world().resource::<SelectCursors>().seat(0).position,
             token.center(),
             "a finger on slot 0's token did not move the cursor to it"
         );
         assert_eq!(
-            app.world().resource::<SelectCursor>().carrying,
+            app.world().resource::<SelectCursors>().seat(0).carrying,
             Some(0),
             "the touch press never reached the screen's click arbitration"
         );
@@ -1751,7 +2094,7 @@ mod touch_tests {
         finger(&mut app, 7, TouchPhase::Ended, token.center());
         app.update();
         assert_eq!(
-            app.world().resource::<SelectCursor>().carrying,
+            app.world().resource::<SelectCursors>().seat(0).carrying,
             Some(0),
             "lifting the finger put the token straight back down"
         );
@@ -1759,7 +2102,7 @@ mod touch_tests {
         finger(&mut app, 8, TouchPhase::Started, portrait.center());
         app.update();
         assert_eq!(
-            app.world().resource::<SelectCursor>().position,
+            app.world().resource::<SelectCursors>().seat(0).position,
             portrait.center(),
             "the second tap did not move the cursor onto the portrait"
         );
@@ -1793,7 +2136,7 @@ mod touch_tests {
         finger(&mut app, 3, TouchPhase::Moved, portrait.center());
         app.update();
         assert_eq!(
-            app.world().resource::<SelectCursor>().carrying,
+            app.world().resource::<SelectCursors>().seat(0).carrying,
             Some(0),
             "the token came out of the cursor's hand part-way through the drag"
         );
@@ -1806,18 +2149,25 @@ mod touch_tests {
             "the finger let go over a portrait and the token did not land on it"
         );
         assert_eq!(
-            app.world().resource::<SelectCursor>().carrying,
+            app.world().resource::<SelectCursors>().seat(0).carrying,
             None,
             "the drag ended with the token still in hand"
         );
     }
 
-    /// **A SECOND FINGER IS NOT A SECOND CURSOR.**
+    /// **A SECOND FINGER ON NOBODY'S TOKEN IS NOT A SECOND CURSOR.**
+    ///
+    /// ⚠ **narrowed 2026-08-21, and the narrowing is the feature.** A second
+    /// finger IS allowed to be a second player now — by landing on that
+    /// player's token, which is what claims a seat (see
+    /// `two_fingers_drag_two_seats_tokens_at_once`). What is still refused is
+    /// the case here: a finger that claims nothing, because it landed on a
+    /// portrait rather than on a free token while seat 0 was busy.
     ///
     /// One person drags a token; somebody else's finger — or the same person's
-    /// palm — lands on a portrait. The cursor must stay where the driving finger
-    /// is and the stray press must not arbitrate, or the drag ends by dropping
-    /// the token wherever the intruder touched.
+    /// palm — lands on a portrait. That seat's cursor must stay where the
+    /// driving finger is and the stray press must not arbitrate, or the drag
+    /// ends by dropping the token wherever the intruder touched.
     ///
     /// ⚠ the intruder is given the LOWER id on purpose. Android recycles pointer
     /// ids, so a finger that lands after another lifts really can be handed an id
@@ -1837,7 +2187,7 @@ mod touch_tests {
         finger(&mut app, 5, TouchPhase::Started, token.center());
         app.update();
         assert_eq!(
-            app.world().resource::<SelectCursor>().carrying,
+            app.world().resource::<SelectCursors>().seat(0).carrying,
             Some(0),
             "the driving finger never picked the token up"
         );
@@ -1845,12 +2195,12 @@ mod touch_tests {
         finger(&mut app, 2, TouchPhase::Started, portrait.center());
         app.update();
         assert_eq!(
-            app.world().resource::<SelectCursor>().position,
+            app.world().resource::<SelectCursors>().seat(0).position,
             token.center(),
             "a second finger stole the cursor from the one that was dragging"
         );
         assert_eq!(
-            app.world().resource::<SelectCursor>().carrying,
+            app.world().resource::<SelectCursors>().seat(0).carrying,
             Some(0),
             "the second finger's press arbitrated, so the drag let go of the token"
         );

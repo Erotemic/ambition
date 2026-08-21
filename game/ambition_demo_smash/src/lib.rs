@@ -1623,8 +1623,9 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
         // pointing is not part of what the screen DECIDED, and a decision value
         // that carried a screen position would change every time somebody moved
         // the mouse.
-        app.init_resource::<select_screen::cursor::SelectCursor>();
+        app.init_resource::<select_screen::cursor::SelectCursors>();
         app.init_resource::<select_screen::SelectPage>();
+        app.init_resource::<select_screen::SelectStyle>();
         app.init_resource::<select_screen::StartRequested>();
         app.init_resource::<select_screen::LeaveRequested>();
         // **THE ROSTER IS A COMPOSITION FACT, so it is resolved once, late.**
@@ -1818,7 +1819,7 @@ fn present_the_select_screen(
     // both answer "where is this screen being LOOKED at", neither is part of
     // what it decided.
     mut viewing: (
-        bevy::prelude::ResMut<select_screen::cursor::SelectCursor>,
+        bevy::prelude::ResMut<select_screen::cursor::SelectCursors>,
         bevy::prelude::ResMut<select_screen::SelectPage>,
     ),
     mut start: bevy::prelude::ResMut<select_screen::StartRequested>,
@@ -1933,7 +1934,7 @@ fn present_the_select_screen(
             // left true re-publishes the roster on the frame the screen opens,
             // which is the same "you could look at it and never leave" bug the
             // paragraph above is about, in a second resource.
-            *viewing.0 = select_screen::cursor::SelectCursor::default();
+            *viewing.0 = select_screen::cursor::SelectCursors::default();
             // ⚠ **and the PAGE**, for the same reason: a lobby re-entered on
             // page two would open on a grid whose first cell is not the
             // roster's first, which reads as a different roster.
@@ -2463,7 +2464,7 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
                 // The same rule one latch over: a "leave" that outlived the
                 // lobby would ask the NEXT experience's first frame to quit.
                 .resetting::<select_screen::LeaveRequested>()
-                .resetting::<select_screen::cursor::SelectCursor>()
+                .resetting::<select_screen::cursor::SelectCursors>()
                 .resetting::<select_screen::SelectPage>()
                 .releasing_with("SessionSeatingSource", |world, owner| {
                     if let Some(mut seating) = world.get_resource_mut::<
@@ -3596,8 +3597,9 @@ mod pause_arbitration_tests {
         app.init_resource::<SeatMenuFrames>();
         app.init_resource::<select::SmashSelect>();
         app.init_resource::<ambition_platformer2d::game_shell::ShellRouter>();
-        app.init_resource::<select_screen::cursor::SelectCursor>();
+        app.init_resource::<select_screen::cursor::SelectCursors>();
         app.init_resource::<select_screen::SelectPage>();
+        app.init_resource::<select_screen::SelectStyle>();
         // ⚠ **the CLOCK, because the cursor roams now.** `drive_the_cursor`
         // integrates a held stick against `Time`, so a hand-built app without
         // one fails validation on a resource rather than on anything this test
@@ -3686,7 +3688,8 @@ mod pause_arbitration_tests {
         )
         .role_button(0);
         app.world_mut()
-            .resource_mut::<select_screen::cursor::SelectCursor>()
+            .resource_mut::<select_screen::cursor::SelectCursors>()
+            .seat_mut(0)
             .move_to(button.center());
 
         // Seat 0 presses confirm on that button, which cycles the slot.
@@ -3800,7 +3803,8 @@ mod pause_arbitration_tests {
     fn back_puts_a_carried_token_down_before_it_ever_leaves() {
         let mut app = app_with(false);
         app.world_mut()
-            .resource_mut::<select_screen::cursor::SelectCursor>()
+            .resource_mut::<select_screen::cursor::SelectCursors>()
+            .seat_mut(0)
             .grab(0);
         seat_presses(
             &mut app,
@@ -3813,7 +3817,8 @@ mod pause_arbitration_tests {
         app.update();
         assert!(
             app.world()
-                .resource::<select_screen::cursor::SelectCursor>()
+                .resource::<select_screen::cursor::SelectCursors>()
+                .seat(0)
                 .carrying
                 .is_none(),
             "BACK did not put the carried token down"

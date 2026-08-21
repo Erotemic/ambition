@@ -1070,6 +1070,9 @@ fn a_grounded_body_walking_into_another_one_is_stopped_by_the_real_sweep() {
         let mut input = InputState::default();
         input.axes = LocalAxes::new(1.0, 0.0);
         for _ in 0..60 {
+            // The mover's own velocity as the snapshot would have recorded it,
+            // read before the step that is about to change it.
+            let own_velocity = scratch.kinematics.vel;
             let mut clusters = scratch.as_mut();
             step_motion(
                 &mut model,
@@ -1080,7 +1083,11 @@ fn a_grounded_body_walking_into_another_one_is_stopped_by_the_real_sweep() {
                     frame,
                     facing_intent: 1.0,
                     dt: DT,
-                    contact: crate::movement::body_contact::BodyContactField::new(blockers, 1.0),
+                    contact: crate::movement::body_contact::BodyContactField::moving(
+                        blockers,
+                        1.0,
+                        own_velocity,
+                    ),
                 },
             );
         }
@@ -1114,5 +1121,210 @@ fn a_grounded_body_walking_into_another_one_is_stopped_by_the_real_sweep() {
         blocked > 0.0,
         "the constrained body went backwards ({blocked:.1}px) — this pass may \
          only ever REDUCE motion, never separate bodies",
+    );
+}
+
+/// **TWO BODIES, STEPPED THE WAY THE SCHEDULE STEPS THEM.** One snapshot of both
+/// poses and both velocities taken before either resolves its controller — what
+/// `snapshot_body_contact` does immediately before the integration phase — and
+/// then each body driven through the real kernel against it.
+///
+/// ⛔⛔ **the fixture may not manufacture the velocities, and that is the whole
+/// point of it.** Every number the constraint divides by here is one the
+/// controller produced from input this tick. A unit test that hands
+/// `constrain_motion` two already-approaching velocities is testing the
+/// arithmetic after being given information the schedule does not actually
+/// supply — which is how the from-rest case below survived a green suite.
+///
+/// ⚠ **it lands the pair before it drives them.** Body contact is a grounded
+/// capability by construction, so a fixture that starts walking on tick zero
+/// measures two bodies drifting through each other in mid-air and blames the
+/// constraint for it.
+///
+/// Returns `(worst overlap, final overlap, final gap)` in pixels.
+fn walk_a_pair(
+    gap: f32,
+    ticks: usize,
+    swap_order: bool,
+    input_x: impl Fn(usize) -> (f32, f32),
+) -> (f32, f32, f32) {
+    const SETTLE: usize = 30;
+    let world = floor_world();
+    let down = Vec2::new(0.0, 1.0);
+    let frame = MotionFrame::from_direction(down, 900.0);
+    let size = crate::movement::default_player_body_size();
+    let left_x = 400.0;
+    let mut bodies = [
+        BodyClusterScratch::new_with_abilities(Vec2::new(left_x, 380.0), AbilitySet::default()),
+        BodyClusterScratch::new_with_abilities(
+            Vec2::new(left_x + size.x + gap, 380.0),
+            AbilitySet::default(),
+        ),
+    ];
+    let mut models = [
+        MotionModel::axis_swept(AxisSweptParams::default()),
+        MotionModel::axis_swept(AxisSweptParams::default()),
+    ];
+    let mut worst: f32 = 0.0;
+    for tick in 0..SETTLE + ticks {
+        let axes: [f32; 2] = if tick < SETTLE {
+            [0.0, 0.0]
+        } else {
+            let (a, b) = input_x(tick - SETTLE);
+            [a, b]
+        };
+        // THE SNAPSHOT — one sample, before anybody moves.
+        let snapshot: Vec<crate::movement::BodyContactBlocker> = bodies
+            .iter()
+            .map(|body| {
+                crate::movement::BodyContactBlocker::new(
+                    body.kinematics.aabb_oriented(down),
+                    body.kinematics.vel,
+                )
+            })
+            .collect();
+        // ⚠ the order these two resolve in must not change the answer, so the
+        // caller can reverse it.
+        let order: [usize; 2] = if swap_order { [1, 0] } else { [0, 1] };
+        for which in order {
+            let other = 1 - which;
+            let mut input = InputState::default();
+            input.axes = LocalAxes::new(axes[which], 0.0);
+            let blockers = [snapshot[other]];
+            let mut clusters = bodies[which].as_mut();
+            step_motion(
+                &mut models[which],
+                &mut clusters,
+                MotionStepContext {
+                    world: &world,
+                    input,
+                    frame,
+                    facing_intent: axes[which],
+                    dt: DT,
+                    // ⭐ `resistance == 1.0` is the value that promises a SOLID,
+                    // so it is the value that has to hold exactly.
+                    contact: crate::movement::BodyContactField::moving(
+                        &blockers,
+                        1.0,
+                        snapshot[which].velocity,
+                    ),
+                },
+            );
+        }
+        if tick >= SETTLE {
+            worst = worst.max(overlap_of(&bodies, down));
+        }
+    }
+    let settled = overlap_of(&bodies, down);
+    let gap_left = (-separation_of(&bodies, down)).max(0.0);
+    (worst, settled, gap_left)
+}
+
+fn separation_of(bodies: &[BodyClusterScratch; 2], down: Vec2) -> f32 {
+    bodies[0].kinematics.aabb_oriented(down).max.x - bodies[1].kinematics.aabb_oriented(down).min.x
+}
+
+fn overlap_of(bodies: &[BodyClusterScratch; 2], down: Vec2) -> f32 {
+    separation_of(bodies, down).max(0.0)
+}
+
+/// **TWO BODIES STARTING FROM REST MAY NOT BOTH SPEND ONE GAP.**
+///
+/// ⛔⛔ **the case the velocity split did not close, and it did not heal.**
+/// Measured 2026-08-21: at every starting gap under about three pixels the pair
+/// consumed the whole of it and then STAYED interpenetrated for the rest of the
+/// run — worst overlap and settled overlap were the same number. The proportional
+/// split divides by snapshot velocities, and a snapshot taken before either
+/// controller has run reads zero for both bodies, so each was told the gap was
+/// entirely its own. `resistance == 1.0` promises a solid; a solid pair sitting
+/// a pixel inside each other permanently is that promise broken.
+#[test]
+fn two_bodies_that_begin_walking_at_each_other_on_one_tick_never_overlap() {
+    let both_start = |_tick: usize| -> (f32, f32) { (1.0, -1.0) };
+    for gap in [0.25_f32, 0.5, 1.0, 2.0, 4.0, 8.0] {
+        for swap in [false, true] {
+            let (worst, settled, gap_left) = walk_a_pair(gap, 200, swap, both_start);
+            assert_eq!(
+                worst, 0.0,
+                "two bodies at rest {gap}px apart both spent the gap and \
+                 overlapped by {worst:.3}px (settling at {settled:.3}px) — at \
+                 resistance 1.0 they are solids and may not be inside each \
+                 other at all",
+            );
+            // ⭐ **and they must actually MEET.** Halving the gap unconditionally
+            // would also score zero overlap while quietly stopping the pair
+            // short of each other, which is the failure this catches.
+            assert!(
+                gap_left < 0.5,
+                "the pair stopped {gap_left:.3}px apart from a {gap}px start: \
+                 the shares no longer sum to the gap, so contact now happens \
+                 somewhere short of contact",
+            );
+        }
+    }
+}
+
+/// **AND THE SNAPSHOT IS WRONG ABOUT THIS TICK EVERY TIME EITHER BODY CHANGES
+/// ITS MIND**, not only when both start from rest — so one body is held against
+/// the other while the second starts, stops and reverses at every phase relative
+/// to the moment they touch.
+///
+/// ⚠ **a swept pattern rather than three hand-timed scenarios.** Timing a stop
+/// to land exactly on the tick of contact by hand is a fixture that passes
+/// because the collision missed it; varying the period walks the change across
+/// every offset, contact included.
+#[test]
+fn a_pair_whose_motion_changes_this_tick_still_never_overlaps() {
+    for period in 2..12usize {
+        // The second body alternates between coming and standing still.
+        let stutter = move |tick: usize| -> (f32, f32) {
+            let coming = (tick / period) % 2 == 0;
+            (1.0, if coming { -1.0 } else { 0.0 })
+        };
+        // The second body alternates between coming and fleeing — a reversal
+        // every `period` ticks, so its entry velocity points the wrong way for
+        // the step it is about to take.
+        let reversing = move |tick: usize| -> (f32, f32) {
+            let coming = (tick / period) % 2 == 0;
+            (1.0, if coming { -1.0 } else { 1.0 })
+        };
+        for (label, drive) in [
+            (
+                "stops and restarts",
+                &stutter as &dyn Fn(usize) -> (f32, f32),
+            ),
+            ("reverses", &reversing),
+        ] {
+            for swap in [false, true] {
+                let (worst, settled, _) = walk_a_pair(6.0, 240, swap, drive);
+                assert_eq!(
+                    worst,
+                    0.0,
+                    "the second body {label} every {period} ticks (resolved {}): \
+                     the pair overlapped by {worst:.3}px and settled at \
+                     {settled:.3}px",
+                    if swap { "second first" } else { "first first" },
+                );
+            }
+        }
+    }
+}
+
+/// **AND A BODY WALKING AT SOMEBODY MERELY STANDING THERE STILL GETS THE WHOLE
+/// GAP.** The falsifier for the no-evidence share: dividing the gap evenly
+/// whenever the snapshot is silent would score zero overlap everywhere and still
+/// be wrong, because a lone mover would lose half of every approach to a
+/// neighbour that is not contesting it. It costs exactly one tick — the one on
+/// which the mover is itself still at rest — and nothing after that.
+#[test]
+fn a_lone_mover_is_not_charged_for_a_neighbour_that_never_moves() {
+    let one_walks = |_tick: usize| -> (f32, f32) { (1.0, 0.0) };
+    let (worst, _, gap_left) = walk_a_pair(60.0, 200, false, one_walks);
+    assert_eq!(worst, 0.0, "the mover walked into the stationary body");
+    assert!(
+        gap_left < 0.05,
+        "a body walking at a neighbour that never moved stopped {gap_left:.3}px \
+         short of it: the no-evidence share is being charged to a mover whose \
+         neighbour is not contesting the gap at all",
     );
 }

@@ -43,11 +43,12 @@ pub struct BodyContactBlocker {
     /// it is coming the other way, and the only thing that lets a mover tell
     /// "the gap is mine to spend" from "we are both spending it".
     ///
-    /// ⚠ **its ENTRY velocity, not the step it will actually take.** A common
-    /// snapshot is taken before any body has resolved its controller, so this is
-    /// last tick's answer. It is exact for a body already walking — the case the
-    /// split exists for — and one control step stale for a body starting from
-    /// rest. See [`constrain_motion`] for what that costs.
+    /// ⚠ **its ENTRY velocity, and it is not a proposed step.** The snapshot is
+    /// taken before any body has resolved its controller, so this is last
+    /// tick's answer: exact for a body already walking, and silent about a body
+    /// that is about to start. What makes that safe is that BOTH halves of a
+    /// pair read the same silence, so [`constrain_motion`] can answer it
+    /// symmetrically rather than guess.
     pub velocity: crate::Vec2,
 }
 
@@ -108,16 +109,18 @@ impl<'a> BodyContactField<'a> {
         own_velocity: crate::Vec2::ZERO,
     };
 
-    /// A field for a body whose own motion is not being shared — every share it
-    /// computes is the whole gap, which is what a lone mover should get.
-    pub fn new(blockers: &'a [BodyContactBlocker], resistance: f32) -> Self {
-        Self {
-            blockers,
-            resistance,
-            own_velocity: crate::Vec2::ZERO,
-        }
-    }
-
+    /// **THE FIELD A BODY IS RESOLVED AGAINST**: who is in its way, how hard
+    /// they resist, and the velocity the snapshot recorded for the body itself.
+    ///
+    /// ⛔⛔ **there is no constructor that omits the last one, and there used to
+    /// be.** `new` built a field whose own velocity was zero on the documented
+    /// promise that "every share it computes is the whole gap" — true only while
+    /// the no-evidence case was *also* the whole gap. It has no production
+    /// caller and never had one (`delta_along` is `vel * dt`, so a body
+    /// proposing motion always has the velocity that produced it); what it had
+    /// were four unit tests describing a stationary body asking for thirty units
+    /// of motion, and between them they kept the branch that decides what
+    /// happens when NEITHER body is moving completely unexercised.
     pub fn moving(
         blockers: &'a [BodyContactBlocker],
         resistance: f32,
@@ -246,13 +249,15 @@ fn deepens(mover: Aabb, blocker: Aabb, horizontal: bool, moving_positive: bool) 
 /// produce two shares that do not add up to the gap — the same order-dependence
 /// the snapshot exists to remove, wearing arithmetic instead of query order.
 ///
-/// ⚠ **the residual, stated rather than hidden:** the snapshot is taken before
-/// any controller has run, so a body starting from REST reads as stationary for
-/// one tick. Two bodies that both begin walking at each other on the same tick,
-/// from a gap narrower than one tick of their acceleration, can still overlap by
-/// that much — bounded by one acceleration step, gone on the next tick, and
-/// closable only by splitting integration into propose and commit phases, which
-/// is a schedule change and not this function's business.
+/// ⛔⛔ **AND SILENCE IS NOT PERMISSION.** The snapshot is taken before any
+/// controller has run, so two bodies that both begin walking on the same tick
+/// read zero for each other AND for themselves. Granting the whole gap on no
+/// evidence let each spend all of it: measured 2026-08-21, a pair starting from
+/// rest anywhere under about three pixels apart ended permanently interpenetrated
+/// — at `resistance == 1.0`, whose whole promise is that it does not. An equal
+/// share is the only division that cannot over-spend when nobody has evidence,
+/// and it costs one tick to a body that starts from rest already within a step
+/// of a neighbour.
 pub fn constrain_motion(
     mover: Aabb,
     delta_along: f32,
@@ -308,16 +313,23 @@ pub fn constrain_motion(
         // closing too, and the two shares must sum to the gap rather than each
         // being the whole of it.
         //
-        // ⚠ **no evidence means the whole gap.** A snapshot in which neither
-        // body was moving carries nothing to divide by, and refusing to move on
-        // no evidence would stop a body walking at a neighbour that is merely
-        // standing there.
+        // ⚠ **NO EVIDENCE MEANS AN EQUAL SHARE, and it may not mean the whole
+        // gap.** A snapshot in which neither body was moving carries nothing to
+        // divide by — and both bodies read that same nothing, so granting each
+        // the whole gap let a pair starting from REST spend it twice. Halves are
+        // the only division that cannot over-spend when the evidence is absent.
+        //
+        // ⭐ **this costs one tick and only to a body that starts from rest
+        // already within one step of a neighbour.** Further away, the whole step
+        // fits in the gap and nothing here is consulted; and from the second
+        // tick the mover's own velocity is evidence, so a body walking at
+        // somebody merely standing there gets the whole gap exactly as before.
         let theirs = blocker.approach(horizontal, moving_positive) * dt;
         let closing = mine + theirs;
         let free = if closing > 0.0 {
             gap * (mine / closing)
         } else {
-            gap
+            gap * 0.5
         };
         if asked <= free {
             continue;

@@ -345,7 +345,7 @@ without the resolver still runs the guard. Breaking that hook takes the whole
 standing-goal mechanism down, and it can only be exercised by ending a turn,
 which is why the logic moved into a script a test can run.
 
-- ▢ **D179 — TWO CONTACT DEFECTS THE GAP SPLIT DID NOT CLOSE.** (found
+- ▢ **D179 — ONE CONTACT DEFECT LEFT; THE GAP-SPLIT RESIDUAL IS CLOSED.** (found
   2026-08-21, by GPT review of `f8ad04f9a`)
 
 `constrain_motion` now divides a gap between bodies that are both closing on it
@@ -388,14 +388,55 @@ tumble is long and fast), or a grounded scripted shove that moves a body the
 floor game owns. ⚠ the fixture lesson generalises — a hand-set timer bypassed
 the getup rule and measured a state the game cannot be in.
 
-**(b) THE RESIDUAL THE SPLIT COULD NOT REACH, and it is written into the
-function's own doc.** The snapshot is taken before any controller runs, so a
-body starting from REST reads as stationary for one tick; two bodies that both
-begin walking at each other from a gap narrower than one acceleration step can
-still overlap by that much. Closing it means splitting integration into PROPOSE
-and COMMIT phases so every contact participant's real proposed delta is jointly
-available — a schedule change, and the reason it was not attempted inside the
-constraint function.
+**(b) ✔ CLOSED 2026-08-21 — and it was WORSE than the doc admitted, which is
+why it did not need the schedule change.** The residual was written down as
+"bounded by one acceleration step, gone on the next tick". Measured on a
+two-body fixture stepped in the schedule's own order: at `resistance == 1.0`,
+every starting gap under about three pixels was consumed ENTIRELY and the pair
+stayed interpenetrated for the remaining 200 ticks. Worst overlap and settled
+overlap were the same number at every gap. It did not heal, because nothing
+separates bodies (Jon's rule) and a pair pressed together has no gap left to
+divide.
+
+⇒ **the fix is that SILENCE IS NOT PERMISSION.** The old rule read "no evidence
+means the whole gap"; both bodies read the same nothing, so each was told the
+gap was entirely its own. An equal share is the only division that cannot
+over-spend when nobody has evidence. `closing == 0.0 ⇒ free = gap * 0.5`.
+
+⚠ **and that is a halving, so read the prohibition below carefully before
+believing this closed it.** The forbidden halving is UNCONDITIONAL — the one
+that charges a lone mover for a neighbour standing still. This one fires only
+when NEITHER body has velocity, which means the mover is itself at rest and
+within one step of somebody; from the second tick its own velocity is evidence
+and it gets the whole gap exactly as before. Cost: half of one acceleration
+step, once. Both falsifiers still pass, and there is a new one at the kernel
+level asserting the pair ends within 0.5px of contact rather than short of it.
+
+⛔ **the schedule change is NOT needed and should not be attempted for this.**
+Propose/commit would let each body read the other's real proposed delta, which
+is strictly more information — but the invariant it would buy (shares sum to the
+gap) is already exact, in both branches, from numbers both halves can see. ⚠ and
+`BodyContactBlocker::velocity` must not drift into meaning "proposed step": what
+makes the symmetry work is that it is an ENTRY velocity both bodies read
+identically.
+
+Landed as: the one-line rule in `constrain_motion`; three kernel-level
+regressions that run the real controller in the snapshot's ordering
+(`two_bodies_that_begin_walking_at_each_other_on_one_tick_never_overlap`,
+`a_pair_whose_motion_changes_this_tick_still_never_overlaps` over swept stutter
+and reversal periods and both resolution orders, and
+`a_lone_mover_is_not_charged_for_a_neighbour_that_never_moves`); and the
+deletion of `BodyContactField::new`.
+
+⛔⛔ **THE DELETED CONSTRUCTOR IS THE LESSON.** `BodyContactField::new` built a
+field whose own velocity was zero, documented as "every share it computes is the
+whole gap". It had no production caller and could not have one — `delta_along`
+IS `vel * dt`, so a body proposing motion always carries the velocity that
+produced it. What it had were four unit tests describing a stationary body
+asking for thirty units of motion, and between them they kept the no-evidence
+branch unexercised while the file looked thoroughly tested. A fixture that
+constructs a state production cannot be in does not merely fail to catch the
+bug; it OCCUPIES the place where the test that would have caught it belongs.
 
 ⛔ **not by halving, not by pushout, not by sorting entities.** `body_contact/
 tests.rs` carries the falsifiers for all three: a lone mover must still spend

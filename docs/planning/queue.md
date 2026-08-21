@@ -374,48 +374,58 @@ tests.rs` carries the falsifiers for all three: a lone mover must still spend
 the whole gap, and a blocker travelling away must not be charged for space it is
 vacating.
 
-- ▢ **D178 — A PARTICIPANT'S PANE FOLLOWS A BODY, NOT THE PARTICIPANT.** (found
-  2026-08-21, by GPT review of `f8ad04f9a`)
+- ✔ **D178 — a participant's pane followed a BODY, not the participant.**
+  TwinTrack's second pane wrote `ViewSubject(laboratory_twin)`, so it framed
+  Emmy rather than whoever was driving seat one. Fixed by `0ebcef4e4`:
+  `ViewParticipant(PlayerSlot)` resolves through the body carrying
+  `DrivingParticipant(slot)` — the sentence pane ZERO already made by naming
+  nothing, said for any slot. Guarded by
+  `the_second_pane_follows_its_participant_to_a_new_body`, which moves the seat
+  to another body and fails against the old wiring while the other 23 pass.
+  ⛔ `ViewSubject(Entity)` stays and still wins where both are present:
+  spectators, cutscenes and portals deliberately follow one body, and control
+  authority must never be collapsed into presentation subject.
 
-`frame_each_participant` (twintrack `participants.rs`) writes
-`ViewSubject(laboratory_twin_entity)` for pane one. That follows Emmy, not
-whoever is driving participant one — so if that participant later possesses or
-transfers to another body, the pane stays on Emmy while its person walks away.
+- ▢ **D177 — A MAIN CAMERA IS REWRITTEN EVERY FRAME ONCE THERE ARE TWO VIEWS.**
+  (measured 2026-08-21)
 
-⇒ a participant-following presentation relation, conceptually
-`ViewParticipant(PlayerSlot)`, resolved through the body currently carrying
-`DrivingParticipant(slot)`. Pane zero already gets this right by naming NO
-subject — a view with no `ViewSubject` frames the session's controlled body —
-so the asymmetry is that only seat zero has a way to say it.
+⭐ **the shape of the row changed under measurement, which is the point of
+measuring.** It opened as *"the viewport double-writer is fixed and unguarded"*.
+The guard now exists — `twintrack_split_has_two_viewports` boots the windowed
+host, routes to the plaza and proves two distinct non-overlapping physical
+rectangles, which nothing tested before. ⛔ **but it does NOT guard
+single-writership, and its own doc says so**: restoring the deleted
+`camera.viewport = None` writes leaves it GREEN, because the applier compares
+before writing and re-asserts the rectangle next frame. A test that measures who
+wins a race measures the schedule.
 
-⛔ **`ViewSubject(Entity)` stays.** Deliberately following one entity is a real
-policy: spectators, cutscenes, portals. ⛔ and do not collapse control authority
-into presentation subject — they are two questions and the possession seam is
-exactly where they come apart.
+⇒ **what the probe found instead is live, and it is not TwinTrack's viewport
+write.** With a churn counter over `Ref<Camera>` in `Last`:
 
-- ▢ **D177 — THE VIEWPORT DOUBLE-WRITER IS FIXED AND UNGUARDED.** (found
-  2026-08-21)
+```text
+one view,  no twintrack route      Main Camera changed on  1 of 20 frames
+two views, plaza active            Main Camera            30 of 30
+                                   pane camera            30 of 30
+```
 
-`3b804b947` removed TwinTrack's `camera.viewport = None` writes, which raced
-every frame against `apply_gameplay_camera_viewport` — the documented owner of
-that field for every `MainCamera` presenting a `LocalView`, which TwinTrack's
-own pane cameras are.
+Both cameras hold exactly ONE distinct `(is_active, viewport)` value across all
+30 frames, so somebody writes an IDENTICAL value unconditionally — the needless
+render-world sync `apply_gameplay_camera_viewport`'s own comment says it
+compares before writing to avoid.
 
-⇒ what is missing is the fixture. Pinning it needs one app composing the
-WINDOWED presentation host and the TwinTrack route together, then asserting two
-distinct non-overlapping physical viewports after the real Update schedule runs.
-Neither existing home can do it: `twintrack_it` is headless (no `PrimaryWindow`,
-so the applier early-returns and there is nothing to read), and the demo's
-`visible` tests sit behind a feature CI does not invoke.
+⚠ **suspects already eliminated, so nobody re-walks them:** Bevy's own camera
+system (the 1-of-20 baseline runs the same applier — with one full-bleed view
+`desired` is `None`, matches the stored `None`, and nothing is written);
+`sync_view_cameras`, whose `is_active` writes were unconditional and are now
+compared (`0ebcef4e4` follow-up) with no effect on the count; and
+`viewport_matches`, which compares position, size and depth and looks correct by
+reading. The remaining `&mut Camera` holders in this composition are the applier
+itself and TwinTrack's `sync_view_cameras` — so either one of those two writes
+through a path the reading did not reveal, or a third writer reaches `Camera`
+via `commands.insert`, which a `&mut Camera` grep does not see.
 
-⛔ **not a source-text assertion.** "grep the demo for `.viewport =`" is the
-banned shape — it guards the spelling, not the behaviour, and it goes green the
-day somebody writes the same clobber through a helper.
-
-⚠ the generic owner IS guarded, by
-`each_camera_renders_into_the_rectangle_of_the_view_it_names`. What has no test
-is a COMPOSITION adding a second writer, and that is the class of defect this
-row is about.
+⇒ next step is attribution, not another guess: enable Bevy's change-detection
+caller tracking, or bisect by disabling one system at a time in the fixture.
 
 - ▢ **D176 — THE SPRITE-SHEET SUITE IS RED ON ANY TREE WITHOUT GENERATED PACKS.**
   (found 2026-08-21)

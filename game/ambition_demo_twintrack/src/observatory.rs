@@ -709,16 +709,26 @@ fn sync_view_cameras(
     };
     let optical_active = experiment.view_mode == TwinTrackViewMode::Optical;
     if let Ok(mut camera) = observatory.single_mut() {
-        camera.is_active = optical_active;
+        // ⚠ **compared before writing, and this is not a micro-optimisation.**
+        // `Camera` is a render-world-synced component: touching it marks it
+        // changed, and a camera that "changes" on every frame of a static scene
+        // is a sync every frame forever. A test in `ambition_app` measures this
+        // directly and caught the unconditional write.
+        if camera.is_active != optical_active {
+            camera.is_active = optical_active;
+        }
     }
+    let laboratory_active = matches!(
+        experiment.view_mode,
+        TwinTrackViewMode::Laboratory | TwinTrackViewMode::Spacetime
+    );
     for mut camera in &mut laboratory {
         // The split-observer panes cover the whole window with their own
         // per-observer frames, so the laboratory map stands down for them the
         // same way it does for the optical view.
-        camera.is_active = matches!(
-            experiment.view_mode,
-            TwinTrackViewMode::Laboratory | TwinTrackViewMode::Spacetime
-        );
+        if camera.is_active != laboratory_active {
+            camera.is_active = laboratory_active;
+        }
     }
 }
 

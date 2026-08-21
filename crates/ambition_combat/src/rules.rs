@@ -355,14 +355,19 @@ impl ResolvedCombatTuning {
 }
 
 impl Default for ResolvedCombatTuning {
-    /// The engine baseline: no directional influence, no friendly fire. Matches
-    /// `Platformer2dFeelTuningMonolith::default().di_max_angle` and
-    /// `FriendlyFire::default().enabled`, and exists so a composition that never
-    /// installs the projection still resolves rather than reading `None` as
-    /// "zero rules".
+    /// The engine baseline: no directional influence, no friendly fire. Exists so
+    /// a composition that never installs the projection still resolves rather
+    /// than reading `None` as "zero rules".
+    ///
+    /// ⭐ **it now READS the feel default instead of restating it.** This said
+    /// *"Matches `Platformer2dFeelTuningMonolith::default().di_max_angle`"* and
+    /// then wrote `0.0` by hand — an agreement maintained by a COMMENT, which is
+    /// the kind that goes quietly wrong the day somebody retunes the feel. The
+    /// type moved into this crate on 2026-08-21 (D33), so the agreement can be
+    /// the compiler's.
     fn default() -> Self {
         Self {
-            di_max_angle: 0.0,
+            di_max_angle: crate::feel::Platformer2dFeelTuningMonolith::default().di_max_angle,
             knockback_growth: 0.0,
             downward_hit: DownwardHitStyle::Pogo,
             meteor_lock_time: 0.0,

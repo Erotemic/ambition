@@ -1338,10 +1338,16 @@ layout is a game's answer; a player who wants Special on a pad in AMBITION still
 cannot get one without editing settings by hand (P5).
 
 **Standing items this row touches but does not close:**
-* ▢ **the press vocabulary grows past sixteen** — Jon, on the kit census:
-  *"16 is the current target, but we will need to do more (trips, grabs, falls,
-  techs, etc…)"*. `SMASH_KIT` in `smash_roster_movesets.rs` is the list, and the
-  ratchet reads its length, so adding a press raises the bar by itself.
+* ◐ **the press vocabulary grows past sixteen — GRABS LANDED 2026-08-20, at 22.**
+  Jon, on the kit census: *"16 is the current target, but we will need to do more
+  (trips, grabs, falls, techs, etc…)"*. `SMASH_KIT` in `smash_roster_movesets.rs`
+  is the press list, `SMASH_CAPTURE_KIT` is now the capture half (grab, pummel,
+  four throws), and the ratchet reads `KIT_TOTAL`, so either half raises the bar
+  by itself. ⭐ **grabs became assertable only because the content did**: until
+  `f3611b93d` fourteen movesets authored `forward_throw` alone and left
+  back/up/down `None`, so the list could not have been asserted on anybody.
+  ⇒ still open from Jon's list: **trips, falls, techs** — each blocked the same
+  way, on the whole roster authoring it before the ratchet can name it.
 * ✔ **D143** — CLOSED 2026-08-18. The stage's `unarmed_melee` reaches a kit-less
   seat: the publisher was reading its own deferred `insert_resource` write, so
   the floor was `None` on the frame that decides the match. Unreachable from the

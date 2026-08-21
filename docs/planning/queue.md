@@ -3140,13 +3140,26 @@ zero cost — before a line moved, in the same session that wrote *"read the
 DESTINATION's stated contract before moving anything into it"* into three other
 crates. The rule is worth what that sentence claims.
 
-⚠ **`affordances` is NOT cleared either — the check is named, not done.**
+✔ **`affordances` IS cleared — check DONE, 2026-08-21, not asserted.**
 `ambition_sim_view`'s contract is specific: plain-data snapshots, pure functions
 of sim state, **no `Entity`/`Handle` borrows in the ROWS**, no caching across
-ticks. `affordances` has no cross-tick caching and its `Entity` uses look like
-query params rather than published rows — but "look like" is not the standard
-this row holds itself to. Read the published table type before proposing the
-move.
+ticks. Read against the published type:
+
+```text
+PlayerAffordances   jump / attack / shield / dash / interact / special
+                    — six enums, no Entity, no Handle, no Vec of borrows
+Entity appears      only in `compute_player_affordances`'s QUERY params,
+                    which every extraction system has
+cross-tick cache    none (no `Local<…>` anywhere in the module)
+```
+
+⇒ **it satisfies the destination's stated contract**, which is what
+`dev/trace` failed. ⚠ still to answer before moving, and it is the harder
+half: whether the concept ends up WHOLE there. `affordances` answers *"what
+would each input do right now?"* — an observation — while
+`interactable_proximity` reaches into chest/interaction features to compute it.
+Check that the reaching half is a sim-state READ and not a second home for
+interaction rules.
 
 ⭐ **THE ENDPOINT IS NOW STATED IN THE CRATE ITSELF — 2026-08-21.** A
 decomposition with no stated endpoint runs forever, and the monolith's header

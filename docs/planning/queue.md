@@ -442,6 +442,50 @@ exact shape that made four checks pass while never running (2026-08-21).
 - ▢ **D175 — NINE PARTICIPANT-INPUT ITEMS REACHABLE FROM NO LEDGER ROW.**
   (promoted 2026-08-21)
 
+⭐⭐ **MEASURED 2026-08-21, so the next session starts from a number rather than
+from prose.** The privileged-primary bus costs SEAT ONE TWO PIECES OF SMASH
+VOCABULARY, and both are provable by reading one line:
+
+```text
+crates/ambition_input/src/control.rs:119
+    fast_fall_pressed: false,
+```
+
+`read_gameplay_control_frame_with_settings` is the ONLY producer of a frame for
+seats 1+ (`populate_secondary_slot_controls`), and it hardcodes that flag. Seat
+zero gets it from `input_timer_system`, which derives a double-tap from
+`Res<ControlFrame>` and writes it back. ⇒ **in a couch match, player two cannot
+fast-fall.** The same system writes only `slot_gestures.primary_mut()`, so
+`double_tap_up_pending` — the door/interact gesture — is seat zero's too.
+
+⚠ **and `SlotInteractionState` is ALREADY slot-keyed with `MAX_SLOTS` entries,
+and the CONSUMER already reads per slot** (`body_mode/mechanics/mod.rs:156`
+takes `get_mut(slot).double_tap_down_pending`). This is the "participant that
+never joined" shape: the table, the accessor and the reader are all per-slot,
+and the producer fills row zero.
+
+⛔⛔ **THE OBVIOUS FIX IS A DESYNC, and this is the trap to name before anyone
+tries it.** Do NOT simply move the derivation after the slot publish so it can
+loop over `SlotControls`. `fast_fall_pressed` is part of the ENCODED rollback
+input (`ambition_characters/src/snapshot_impls.rs:633` packs it into the
+`ControlFrame` flag byte), and the derivation runs on the FEEL clock against
+`Res<Time>` frame_dt. Deriving it before publication makes it INPUT — every peer
+receives the same flag. Deriving it after publication makes each peer compute it
+from its own wall clock, which is exactly the class of "deterministically wrong"
+this repo already catalogues.
+
+⇒ the shaping stage has to move to the INPUT side for every participant at once,
+which is the whole of this row: one place where each participant's raw sample is
+available and one loop that shapes them all, before any of them is committed.
+⛔ **not by calling the same shaper from the secondary road as well** — a second
+call site for one semantic stage is the exact thing this row exists to remove,
+and it is how the primary road came to have four shapers the couch has none of.
+
+The other three asymmetries, for completeness: portal axis warping
+(`portal/transit_adapter.rs`), `reset_pressed` clearing
+(`app/sim_systems.rs`), and scripted control (`scripted_input.rs`) are all
+`ResMut<ControlFrame>` and therefore seat zero's alone.
+
 ⭐ **PROMOTED, NOT WRITTEN** — the same shape as the seven Engine 1.0 plans
 stranded on 2026-08-14, found by the same measurement: of the 65 docs
 `tracks.md` points at, 35 are named in no queue row, and all but a handful hold

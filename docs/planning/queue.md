@@ -3020,15 +3020,48 @@ THEM WAS TAKEN WITH THE WRONG INSTRUMENT.** The block below is the original
 proposal; it is kept because the correction only makes sense against it.
 
 
-⭐⭐ **RESOLVED 2026-08-17 — the monolith is UNDER its frozen baseline for the
-first time, and `largest_unit_lines` has left the findings list entirely.**
+⛔⛔ **NO LONGER RESOLVED — RE-MEASURED 2026-08-21 AND IT IS BACK OVER, BY MORE
+THAN THE CARVES EVER REMOVED.** `largest_unit_lines` is a finding again:
+**120,990, +9,561 over the frozen 111,429, against a +2,228 budget.**
 
 ```text
 111,429   the frozen baseline (2026-08-09)
 121,822   2026-08-17 morning        +10,393 over, ~5× budget
 114,139   boss_encounter CARVED     725de8c26   −7,683
 110,932   four modules RELOCATED    355874fe1   −3,207   ⭐ UNDER baseline
+120,990   2026-08-21                +9,561 over  ⛔ the win lasted four days
 ```
+
+⭐⭐ **AND THE CARVES ARE NOT WHAT FAILED — INFLOW IS.** Measured unit by unit
+against the baseline tree (`git cat-file --batch` over both, lines not bytes):
+
+```text
+LEFT the crate   −11,773   boss_encounter −6,780 · conversation −2,547
+                           persistence −1,331 · menu −812 · equipment −303
+CAME IN          +21,334   features +9,899 · items +2,745 · world +1,814
+                           session +1,350 · loose-at-src +1,160 · avatar +1,070
+                           character_runtime +815 · construction +677 · …
+                 ─────────
+net              +9,561
+```
+
+⇒ **every carve did exactly what it promised and the crate still grew by half
+again as much as they removed.** So "pick the next carve" is the wrong question:
+at this inflow rate a carve buys about four days. ⛔ do not open another carve
+row without saying what stops the refill — that is the actual finding, and it is
+new.
+
+⚠ **two measurement facts the LOC number hides**, both worth stating before
+anybody prices a slice:
+* **39% of the crate is TESTS** — 47,288 of 120,990. A carve moves the tests
+  with the code, so LOC deltas are not a proxy for how much *behaviour* moved.
+* **`features/` is 40% of the crate** (48,477) and `features/ecs` alone is
+  38,949 — a third of the whole monolith. It is not an ownership unit; it is a
+  grab bag, and **32 loose files sit directly in `features/ecs` totalling
+  17,049 lines** with no subdirectory to name what owns them (`spawn_actors` 2,607,
+  `capture` 1,922, `actor_clusters` 1,622, `damage_apply` 1,588 …). D33's own
+  rule — carve by *coherent ownership*, not by LOC — has no ownership to read
+  there until those are grouped.
 
 ⭐ **the second slice created NO new crate** and cost no hop
 (`critical_path_crates` 13 → 13 → 13, where the `conversation` carve had cost

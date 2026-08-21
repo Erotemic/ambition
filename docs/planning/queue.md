@@ -3154,12 +3154,31 @@ cross-tick cache    none (no `Local<…>` anywhere in the module)
 ```
 
 ⇒ **it satisfies the destination's stated contract**, which is what
-`dev/trace` failed. ⚠ still to answer before moving, and it is the harder
-half: whether the concept ends up WHOLE there. `affordances` answers *"what
-would each input do right now?"* — an observation — while
-`interactable_proximity` reaches into chest/interaction features to compute it.
-Check that the reaching half is a sim-state READ and not a second home for
-interaction rules.
+`dev/trace` failed.
+
+✔✔ **AND ALL FOUR GATES NOW PASS — this carve is READY, not merely cheap.**
+
+```text
+1 coupling        1,733 lines, ZERO inbound `crate::affordances` references
+2 destination     `PlayerAffordances` is six enums; no Entity/Handle in the
+  contract        rows, no cross-tick cache — `ambition_sim_view`'s rule met
+3 concept whole   `interactable_proximity` is a pure query whose only write is
+                  its own output resource, and it deliberately REUSES the
+                  buffered-interact systems' `strict_intersects` rather than
+                  restating it — "so the HUD label switches at exactly the
+                  moment the interaction would fire". The rule stays with its
+                  owner; this only observes it
+4 dep direction   ⭐ the one the coupling table cannot see, and it resolves the
+                  RIGHT way: `ambition_sim_view` lists the monolith under
+                  [dependencies] while the monolith lists sim_view only under
+                  [dev-dependencies]. sim_view is ABOVE, so it may already name
+                  `features::ChestFeature`. No new edge, no inversion
+```
+
+⚠ **NOT EXECUTED, and that is a judgement rather than a blocker.** It is a
+~1,733-line cross-crate move in the crate another session is actively carving;
+the analysis is the hard part and it is done, the mechanics are ordinary. ⇒ do
+it when somebody is watching the gate, not at the tail of an unattended run.
 
 ⭐ **THE ENDPOINT IS NOW STATED IN THE CRATE ITSELF — 2026-08-21.** A
 decomposition with no stated endpoint runs forever, and the monolith's header

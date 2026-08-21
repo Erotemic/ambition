@@ -521,13 +521,11 @@ pub fn populate_seat_control_frames(
         &ActionState<Platformer2dInputActionMonolith>,
         &mut SeatBurstTriggerState,
     )>,
-    mut slots: ResMut<ambition_characters::brain::SlotControls>,
-    // **SEAT ZERO'S destination**, and the only thing that still makes it
-    // special. See the branch at the bottom of the loop.
-    mut frame: ResMut<ControlFrame>,
-    // Present only under a fixed-tick host. Absent, a frame IS a tick and there
-    // is nothing to bridge.
-    // Absent, a frame IS a tick and there is nothing to bridge.
+    // **EVERY SEAT'S DESTINATION, and there is only one now.** A raw frame goes
+    // here to be shaped; the commit stage folds it into that seat's latch after
+    // every shaping stage has run. Seat zero used to land in the global
+    // `ControlFrame` instead, which is how the shapers became its alone.
+    mut raw: ResMut<ambition_characters::brain::SeatRawFrames>,
     mut latches: Option<ResMut<ambition_characters::brain::SlotControlLatches>>,
     // ⛔⛔ **THE UNFOCUS GUARD, and its absence was a real defect rather than a
     // simplification.** `pause_input_when_unfocused` clears the device-agnostic
@@ -568,25 +566,27 @@ pub fn populate_seat_control_frames(
             // Neutral, and RESET the edge, so the post-pause re-press starts from
             // a clean Released state.
             burst.0 = ambition_persistence::settings::TriggerEdgeState::default();
-            if primary {
-                // ⚠ **seat zero is handed `read_menu_control_frame`, which sets
-                // exactly one field: `start_pressed`.** Nothing in gameplay reads
-                // it — `brain/player.rs` destructures it away and says why:
-                // *"pause and reset belong to the session, and a body that could
-                // read them could act on somebody else's menu."* Its only readers
-                // are the trace codec and the harness's action encoder, so this
-                // is what the RECORDED stream contains and changing it would
-                // change the wire for no gameplay reason.
-                *frame = read_menu_control_frame(actions);
-            } else {
-                slots.set(slot, ControlFrame::default());
-                // The latch is CLEARED rather than drained: a seat that has
-                // stopped being driven must not hand a held direction to the tick
-                // after the pause, and an edge accumulated before it must not
-                // survive it.
-                if let Some(latches) = latches.as_deref_mut() {
-                    latches.reset(slot);
-                }
+            // ⚠ **seat zero is handed `read_menu_control_frame`, which sets
+            // exactly one field: `start_pressed`.** Nothing in gameplay reads it
+            // — `brain/player.rs` destructures it away and says why: *"pause and
+            // reset belong to the session, and a body that could read them could
+            // act on somebody else's menu."* Its only readers are the trace codec
+            // and the harness's action encoder, so this is what the RECORDED
+            // stream contains and changing it would change the wire for no
+            // gameplay reason. Every other seat is handed neutral.
+            raw.set(
+                slot,
+                if primary {
+                    read_menu_control_frame(actions)
+                } else {
+                    ControlFrame::default()
+                },
+            );
+            // The latch is CLEARED rather than drained: a seat that has stopped
+            // being driven must not hand a held direction to the tick after the
+            // pause, and an edge accumulated before it must not survive it.
+            if let Some(latches) = latches.as_deref_mut() {
+                latches.reset(slot);
             }
             continue;
         }
@@ -601,36 +601,80 @@ pub fn populate_seat_control_frames(
         let (next_frame, next) =
             read_gameplay_control_frame_with_settings(actions, filters, burst.0);
         burst.0 = next;
-        // ⛔⛔ **THE ONE ASYMMETRY LEFT, and it is the DELIVERY rather than the
-        // decision.** Seat zero's frame goes to the global `ControlFrame` because
-        // the portal, gesture, touch and scripted shapers all take
-        // `ResMut<ControlFrame>` and no other seat has them; a separate system
-        // folds that resource into seat zero's latch after they have all run.
-        // Collapsing this is D175's remaining work — moving those shapers onto a
-        // per-seat table — and until then it is one visible branch instead of a
-        // parallel system.
-        if primary {
-            *frame = next_frame;
-            continue;
-        }
-        match latches.as_deref_mut() {
-            // Fixed tick: fold this device sample in and let the tick drain it.
-            // Writing `SlotControls` here as well would be the sample racing its
-            // own latch — the tick would see whichever ran last.
-            Some(latches) => latches.accumulate(slot, next_frame),
-            // Frame-stepped: a frame IS a tick, so publish straight through.
-            None => slots.set(slot, next_frame),
-        }
+        // ⭐ **THE ASYMMETRY IS GONE: every seat's raw frame lands in one table**,
+        // and the shaping stages run over it before anything is committed. Seat
+        // zero used to be written straight to the global `ControlFrame` here,
+        // which is what made that resource a shaping bus only it had.
+        raw.set(slot, next_frame);
     }
 }
 
-/// TICK clock: publish each secondary seat's latched frame. (queue Y2)
+/// **COMMIT EVERY SEAT'S SHAPED FRAME, once the shaping stages have all run.**
 ///
-/// The twin of `publish_latched_control_frame`, and it runs in the same place
-/// for the same reason: at the head of the sim's input phase, before any reader.
-/// Slot 0 is skipped — it is the primary seat, it already drains
-/// `ControlFrameLatch`, and latching it twice would hold one press across two
-/// ticks.
+/// ⛔⛔ **the last thing in `InputSet::Route`, and that placement is the
+/// contract.** Everything that turns a device sample into a control frame — the
+/// gesture derivation, a portal warp, a scripted substitution, the reset clear —
+/// runs before this. Anything that ran after it would be shaping the frame the
+/// latch has already taken, which under GGRS means each peer deriving a flag
+/// from its own wall clock.
+///
+/// ⚠ **it replaces `accumulate_control_frame_latch`**, which folded exactly one
+/// seat's shaped frame in — because exactly one seat had anywhere for shaping to
+/// happen.
+#[cfg(feature = "input")]
+pub fn commit_seat_raw_frames(
+    raw: Res<ambition_characters::brain::SeatRawFrames>,
+    latches: Option<ResMut<ambition_characters::brain::SlotControlLatches>>,
+) {
+    // ⚠ `Option`, because the host registers this unconditionally and a
+    // frame-stepped composition installs no latch. There it is
+    // `publish_seat_controls_without_a_latch` in the sim that commits.
+    let Some(mut latches) = latches else {
+        return;
+    };
+    for (slot, frame) in raw.seats() {
+        latches.accumulate(slot, frame);
+    }
+}
+
+/// **THE SAME COMMIT, for a composition with no latch at all.**
+///
+/// ⛔⛔ **there are TWO clocks here and one system cannot serve both.** A latch
+/// host folds device samples on the FEEL clock ([`commit_seat_raw_frames`],
+/// registered in `Update`) and drains them on the TICK clock, so a tap that
+/// opens and closes between two ticks still reaches the sim. A frame-stepped
+/// composition has no gap to bridge — a frame IS a tick — so it publishes
+/// straight through, in the SIM schedule, where every composition has a place to
+/// put it whether or not it installed the device host.
+///
+/// ⚠ **the `latches.is_some()` guard is the whole of the split, and dropping it
+/// double-commits.** A latch host runs both systems; without the guard this one
+/// would accumulate every seat a second time, and a rollback host would consume
+/// live device input on a tick GGRS is supposed to own. That guard is why the
+/// predecessor pair (`accumulate_control_frame_latch` in the host,
+/// `populate_slot_controls` in the sim) could be two systems that never noticed
+/// each other: one copied a resource the other had already drained.
+#[cfg(feature = "input")]
+pub fn publish_seat_controls_without_a_latch(
+    latches: Option<Res<ambition_characters::brain::SlotControlLatches>>,
+    raw: Res<ambition_characters::brain::SeatRawFrames>,
+    mut slots: ResMut<ambition_characters::brain::SlotControls>,
+) {
+    if latches.is_some() {
+        return;
+    }
+    for (slot, frame) in raw.seats() {
+        slots.set(slot, frame);
+    }
+}
+
+/// TICK clock: publish EVERY seat's latched frame. (queue Y2)
+///
+/// ⭐ **it used to skip slot zero, and it used to have a twin.**
+/// `publish_latched_control_frame` drained seat zero into the global
+/// `ControlFrame` because the shapers read that resource; with the shaping stage
+/// moved to `SeatRawFrames` there is nothing left for seat zero to drain
+/// differently, so the twin is deleted and the loop starts at zero.
 ///
 /// ⚠ **Not during a REPLAY pass.** Under a rollback host the sim schedule is the
 /// GGRS schedule, and a resimulated tick re-runs it. Draining a latch there
@@ -658,47 +702,31 @@ pub fn publish_latched_slot_controls(
     if replay.is_some_and(|replay| replay.replaying_history) {
         return;
     }
-    // ⚠ **from ONE, not from zero.** Seat zero is a row in this same table now,
-    // but its drain does not land in `SlotControls` — it lands in `ControlFrame`,
-    // where the shaping stages that only seat zero has still read it. See
-    // `publish_latched_control_frame` below; collapsing that difference is the
-    // rest of D175, not this.
-    for slot in 1..ambition_characters::brain::SlotControls::MAX_SLOTS {
+    for slot in 0..ambition_characters::brain::SlotControls::MAX_SLOTS {
         let slot = ambition_characters::brain::PlayerSlot(slot as u8);
         slots.set(slot, latches.take(slot));
     }
 }
 
-/// **FEEL clock: fold this frame's device sample into SEAT ZERO's latch.** Runs
-/// in `Update` after every `ControlFrame` writer (`InputSet::Route`).
+/// **MIRROR SEAT ZERO'S CONFIRMED FRAME INTO THE GLOBAL `ControlFrame`.**
 ///
-/// ⛔ **this used to live in `ambition_platformer2d_core` beside a standalone
-/// `ControlFrameLatch` RESOURCE.** It is here now because the latch it folds
-/// into is row zero of [`SlotControlLatches`], and that table lives one layer up
-/// where `PlayerSlot` exists. Nothing about what it does changed.
-#[cfg(feature = "input")]
-pub fn accumulate_control_frame_latch(
-    frame: Res<ControlFrame>,
-    mut latches: ResMut<ambition_characters::brain::SlotControlLatches>,
-) {
-    latches.accumulate(ambition_characters::brain::PlayerSlot::PRIMARY, *frame);
-}
-
-/// **TICK clock: publish seat zero's latched frame as THIS tick's
-/// `ControlFrame`.** Runs at the head of the sim's input phase, before any
-/// reader or edge-deriving writer.
+/// ⛔⛔ **`ControlFrame` IS NOT AN INPUT BUS ANY MORE, and this is the line that
+/// says so.** It used to be the place seat zero's raw frame was written, shaped
+/// by four systems, and read back — which is exactly why no other seat had
+/// semantics. Shaping happens in `SeatRawFrames` now; what is left of this
+/// resource is a READ-ONLY MIRROR of what seat zero actually received, for the
+/// consumers that legitimately want it: the forensic trace codec, the harness's
+/// action encoder, and the diagnostics that ask whether a driver wrote to the
+/// wrong seam.
 ///
-/// ⚠ the twin of [`publish_latched_slot_controls`], and the ONE thing that is
-/// still not symmetric with it: seat zero's frame goes to the global
-/// `ControlFrame` because the portal, gesture, touch and scripted shapers all
-/// read that resource and no other seat has them. That asymmetry is D175's
-/// remaining work, and it is one visible line here rather than a parallel type.
+/// ⚠ **a writer of this resource is now a bug**, and `report_input_written_to_the_wrong_seam`
+/// is what notices. Drive input with `drive_slot_frame`.
 #[cfg(feature = "input")]
-pub fn publish_latched_control_frame(
-    mut latches: ResMut<ambition_characters::brain::SlotControlLatches>,
+pub fn mirror_primary_slot_to_control_frame(
+    slots: Res<ambition_characters::brain::SlotControls>,
     mut frame: ResMut<ControlFrame>,
 ) {
-    *frame = latches.take(ambition_characters::brain::PlayerSlot::PRIMARY);
+    *frame = slots.get(ambition_characters::brain::PlayerSlot::PRIMARY);
 }
 
 /// Bridge keyboard/gamepad/menu-wheel input into the device-agnostic menu frame.
@@ -1444,6 +1472,10 @@ mod focus_gate_tests {
         let mut app = App::new();
         app.init_resource::<SeatInputContexts>();
         app.init_resource::<SlotControls>();
+        // ⚠ **and the table it is committed FROM.** These are one model:
+        // `BrainPlugin` installs both, and a hand-built fixture that takes
+        // only the destination is describing a composition that cannot exist.
+        app.init_resource::<ambition_characters::brain::SeatRawFrames>();
         // Seat zero's destination: every real composition has it, and the merged
         // producer writes row zero there. See its delivery branch.
         app.init_resource::<ambition_input::ControlFrame>();
@@ -1463,6 +1495,12 @@ mod focus_gate_tests {
             (
                 resolve_active_input_context,
                 super::populate_seat_control_frames,
+                // ⚠ **the COMMIT, because the producer no longer publishes.**
+                // It fills every seat's raw row and one stage commits them;
+                // a fixture that ran only the producer and then read
+                // `SlotControls` would be asserting against a table nothing
+                // had written this frame.
+                super::publish_seat_controls_without_a_latch,
             )
                 .chain(),
         );
@@ -1524,6 +1562,10 @@ mod focus_gate_tests {
             let mut app = App::new();
             app.init_resource::<SeatInputContexts>();
             app.init_resource::<SlotControls>();
+            // ⚠ **and the table it is committed FROM.** These are one model:
+            // `BrainPlugin` installs both, and a hand-built fixture that takes
+            // only the destination is describing a composition that cannot exist.
+            app.init_resource::<ambition_characters::brain::SeatRawFrames>();
             app.init_resource::<ambition_input::ControlFrame>();
             // Seat zero's destination: every real composition has it, and the merged
             // producer writes row zero there. See its delivery branch.
@@ -1560,6 +1602,13 @@ mod focus_gate_tests {
                 (
                     resolve_active_input_context,
                     super::populate_seat_control_frames,
+                    super::publish_seat_controls_without_a_latch,
+                    // ⚠ **the COMMIT, because the producer no longer publishes.**
+                    // It fills every seat's raw row and one stage commits them;
+                    // a fixture that ran only the producer and then read
+                    // `SlotControls` would be asserting against a table nothing
+                    // had written this frame.
+                    super::publish_seat_controls_without_a_latch,
                 )
                     .chain(),
             );
@@ -1625,6 +1674,10 @@ mod focus_gate_tests {
         let mut app = App::new();
         app.init_resource::<SeatInputContexts>();
         app.init_resource::<SlotControls>();
+        // ⚠ **and the table it is committed FROM.** These are one model:
+        // `BrainPlugin` installs both, and a hand-built fixture that takes
+        // only the destination is describing a composition that cannot exist.
+        app.init_resource::<ambition_characters::brain::SeatRawFrames>();
         // Seat zero's destination: every real composition has it, and the merged
         // producer writes row zero there. See its delivery branch.
         app.init_resource::<ambition_input::ControlFrame>();
@@ -1641,6 +1694,12 @@ mod focus_gate_tests {
                 declare_in_session_input_contexts,
                 resolve_active_input_context,
                 super::populate_seat_control_frames,
+                // ⚠ **the COMMIT, because the producer no longer publishes.**
+                // It fills every seat's raw row and one stage commits them;
+                // a fixture that ran only the producer and then read
+                // `SlotControls` would be asserting against a table nothing
+                // had written this frame.
+                super::publish_seat_controls_without_a_latch,
             )
                 .chain(),
         );
@@ -1746,6 +1805,10 @@ mod focus_gate_tests {
         let mut app = App::new();
         app.init_resource::<SeatInputContexts>();
         app.init_resource::<SlotControls>();
+        // ⚠ **and the table it is committed FROM.** These are one model:
+        // `BrainPlugin` installs both, and a hand-built fixture that takes
+        // only the destination is describing a composition that cannot exist.
+        app.init_resource::<ambition_characters::brain::SeatRawFrames>();
         // Seat zero's destination: every real composition has it, and the merged
         // producer writes row zero there. See its delivery branch.
         app.init_resource::<ambition_input::ControlFrame>();
@@ -1765,6 +1828,12 @@ mod focus_gate_tests {
             (
                 resolve_active_input_context,
                 super::populate_seat_control_frames,
+                // ⚠ **the COMMIT, because the producer no longer publishes.**
+                // It fills every seat's raw row and one stage commits them;
+                // a fixture that ran only the producer and then read
+                // `SlotControls` would be asserting against a table nothing
+                // had written this frame.
+                super::publish_seat_controls_without_a_latch,
             )
                 .chain(),
         );

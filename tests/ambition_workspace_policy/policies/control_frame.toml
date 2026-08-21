@@ -75,55 +75,19 @@ path = "game/ambition_content"
 scope = "game"
 
 # ── the justified global-ControlFrame holders ─────────────────────────────────
-# bridge ∈ { device-to-frame, latch, frame-to-slot, intent-bridge, slot0-gesture }
-
-[[allow]]
-file = "crates/ambition_platformer2d_core/src/control_frame.rs"
-func = "accumulate_control_frame_latch"
-bridge = "latch"
-why = "FEEL clock: folds this render frame's device sample into the tick latch. Runs in Update after every writer."
-
-[[allow]]
-file = "crates/ambition_platformer2d_core/src/control_frame.rs"
-func = "publish_latched_control_frame"
-bridge = "latch"
-why = "TICK clock: publishes the latched frame as THIS tick's ControlFrame, at the head of the sim input phase, before any reader."
-
-[[allow]]
-file = "crates/ambition_platformer2d_actor_monolith/src/schedule/input_systems.rs"
-func = "populate_control_frame_from_actions"
-bridge = "device-to-frame"
-why = "THE device→frame bridge: leafwing ActionState → ControlFrame. If any system may hold this resource, it is this one."
+# bridge ∈ { device-to-frame, latch, slot-to-frame, intent-bridge, slot0-gesture }
 
 [[allow]]
 file = "crates/ambition_platformer2d_rollback_ggrs/src/session.rs"
 func = "publish_ggrs_input"
 bridge = "device-to-frame"
-why = "GGRS/network input ingress: publishes the synchronized local-player frame at the head of GgrsSchedule so the existing frame-to-slot bridge fans it into SlotControls before simulation reads any actor input."
+why = "GGRS/network input ingress: publishes each handle's synchronized confirmed input at the head of GgrsSchedule, so every seat's frame is this tick's agreed one before the simulation reads any actor input. Handle zero also lands in ControlFrame, which is that seat's output mirror."
 
 [[allow]]
 file = "crates/ambition_platformer2d_rollback_ggrs/src/session.rs"
 func = "report_input_written_to_the_wrong_seam"
 bridge = "device-to-frame"
 why = "READS it as EVIDENCE, routes nothing. This rule exists because a sim holder is silently slot-0-only and so breaks possession and co-op; this system does not route input to anybody — it compares ControlFrame against PendingLocalInput to detect a consumer writing the seam a GGRS host does not read, which is silently discarded today. It is the diagnostic FOR this rule's failure mode one layer down, and it cannot do its job without holding the resource it is reporting on."
-
-[[allow]]
-file = "crates/ambition_platformer2d_actor_monolith/src/control/input_systems.rs"
-func = "input_timer_system"
-bridge = "device-to-frame"
-why = "Derives edge/timer facts (dash double-tap window, buffered jump) from the raw device frame and writes them back into it. Still the input layer: it refines the frame before any body reads a slot."
-
-[[allow]]
-file = "crates/ambition_platformer2d_actor_monolith/src/control/input_systems.rs"
-func = "interaction_input_system"
-bridge = "frame-to-slot"
-why = "frame→slot bridge: recognizes the interact/double-tap-up gestures and writes SlotInteractionState, which is what bodies actually read."
-
-[[allow]]
-file = "crates/ambition_platformer2d_actor_monolith/src/control/slots.rs"
-func = "populate_slot_controls"
-bridge = "frame-to-slot"
-why = "THE frame→slot bridge: copies the one device frame into SlotControls[0]. N1 replaces this body with a per-slot fan-in; every downstream reader already speaks slots, which is why that change stays local."
 
 [[allow]]
 file = "crates/ambition_platformer2d_actor_monolith/src/abilities/traversal/possession.rs"
@@ -142,3 +106,9 @@ file = "game/ambition_content/src/portal/transit_adapter.rs"
 func = "apply_movement_intent_to_control"
 bridge = "intent-bridge"
 why = "intent→frame: writes the portal-warped axes back, so the brain and the movement pipeline see the adjusted stick exactly as they did when portal core mutated ControlFrame directly. Still the input phase."
+
+[[allow]]
+file = "crates/ambition_platformer2d_actor_monolith/src/schedule/input_systems.rs"
+func = "mirror_primary_slot_to_control_frame"
+bridge = "slot-to-frame"
+why = "THE ONLY WRITER LEFT, and it writes the resource as an OUTPUT. D175 turned ControlFrame from an input bus into a read-only mirror of SlotControls[PRIMARY]: every seat's raw frame is now shaped in SeatRawFrames and committed by commit_seat_raw_frames, so the six entries this replaces (two latch systems, the seat-zero device producer, the gesture derivation, the interact buffer, and the frame-to-slot copy) hold nothing any more. What still legitimately wants the resource is the forensic trace codec, the harness action encoder, and report_input_written_to_the_wrong_seam — all readers of what seat zero received. A NEW writer of this resource is a bug."

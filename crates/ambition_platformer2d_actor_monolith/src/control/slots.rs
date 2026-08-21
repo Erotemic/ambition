@@ -1,34 +1,26 @@
-//! The local-device → primary-slot bridge.
+//! The publication boundary for local controller input.
 //!
-//! [`populate_slot_controls`] publishes the finalized global `ControlFrame` into
-//! the canonical [`SlotControls`] resource as slot 0. That is the end of the
-//! local-device adapter: bodies never receive a copied input component. A
-//! controlled body names its slot with `DrivingParticipant(slot)`, and the control tick
-//! reads that slot directly. Higher local/network seats publish their own slots
-//! through their respective adapters.
-//!
-//! This module is allowlisted as an input-layer bridge by the workspace
-//! `ControlFrame` policy. Nothing downstream should hold the global frame.
+//! ⛔⛔ **`populate_slot_controls` USED TO LIVE HERE and it was the seat-zero
+//! adapter.** It copied the finalized global `ControlFrame` into
+//! `SlotControls[PRIMARY]`, which is the end of a pipeline only seat zero had:
+//! every other seat went from its device straight into its own slot with no
+//! shaping stage in between, so a gesture, a portal warp or a scripted
+//! substitution could only ever apply to the primary (D175). `SeatRawFrames` is
+//! that stage for everybody, and `commit_seat_raw_frames` is the one publication
+//! for every seat — so this module keeps the BOUNDARY and has no function left.
 
-use bevy::prelude::*;
+use bevy::prelude::SystemSet;
 
-use ambition_characters::brain::{PlayerSlot, SlotControls};
-use ambition_input::ControlFrame;
-
-/// The publication boundary for the local primary controller.
+/// The publication boundary for local controller input.
 ///
-/// Any system that rewrites the global [`ControlFrame`] for this tick (gesture
-/// derivation, portal input shaping, touch folding) must run **before** this set.
-/// Systems that need the canonical slot value may order **after** it. Keeping the
-/// boundary as a semantic set avoids coupling other crates to the leaf function
-/// that performs the copy.
+/// Any system that shapes a seat's frame for this tick — gesture derivation,
+/// portal input shaping, a scripted substitution — must run **before** this set.
+/// Systems that need the canonical slot value may order **after** it.
+///
+/// ⚠ **it is a semantic set rather than a named function on purpose**, so other
+/// crates order against the boundary instead of against whichever leaf currently
+/// performs the publish. That indirection is what let the leaf change from
+/// `populate_slot_controls` to `commit_seat_raw_frames` without a single
+/// consumer moving.
 #[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct PrimarySlotInputCommit;
-
-/// Publish the local device's finalized [`ControlFrame`] into the slot-based
-/// controller model as [`PlayerSlot::PRIMARY`]. This is the ONE place local
-/// primary input enters [`SlotControls`]. Every controlled body then reads its
-/// own slot through `DrivingParticipant(slot)`; no entity-local input mirror exists.
-pub fn populate_slot_controls(frame: Res<ControlFrame>, mut slots: ResMut<SlotControls>) {
-    slots.set(PlayerSlot::PRIMARY, *frame);
-}

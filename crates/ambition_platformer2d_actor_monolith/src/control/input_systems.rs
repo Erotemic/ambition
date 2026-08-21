@@ -9,8 +9,6 @@
 use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
-use ambition_input::ControlFrame;
-
 /// **The set [`input_timer_system`] runs in — this tick's input timers advance.**
 ///
 /// A reset that must be seen by the timers (the app's player-reset input) lands
@@ -30,21 +28,39 @@ pub struct InputTimersAdvanced;
 ///   `recoil`): the home/player body isn't in the actor tick, so it ticks its OWN
 ///   reaction timers here. This is the home body's own state, NOT authority over the
 ///   controlled subject — a possessed actor ticks its own timers in the actor path.
-/// - **Slot gestures** (double-tap down/up): published from `Res<ControlFrame>` into
-///   `SlotInteractionState` for the primary controller slot. Body mode / interaction
-///   consume THAT (keyed by the controlled body's slot), never a per-body component.
+/// - **Slot gestures** (double-tap down/up): derived from each seat's row of
+///   `SlotControls` into `SlotInteractionState`, for EVERY slot. Body mode /
+///   interaction consume that (keyed by the acting body's slot), never a
+///   per-body component.
 ///
 /// The host registers this with `run_if(gameplay_allowed)` so it only runs in
-/// `GameMode::Playing`. Writes `fast_fall_pressed` back to `Res<ControlFrame>`.
+/// `GameMode::Playing`. Writes `fast_fall_pressed` back into each seat's row of
+/// `SlotControls`.
+///
+/// ⛔ **it is NOT in `InputSet::Route` any more, and that is by the set's own
+/// definition**: Route is every system that writes the global `ControlFrame`,
+/// and nothing in this file holds that resource now. It runs after the
+/// publication boundary instead, on the table the bodies actually read.
 pub fn input_timer_system(
     time: Res<Time>,
     feel_tuning: Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>,
-    controlled: Option<Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>>,
+    // **WHO IS DRIVING WHAT**, so each seat's gesture resolves against the
+    // gravity of the body that seat is actually steering.
+    drivers: Query<(Entity, &crate::control::DrivingParticipant)>,
     frames: Query<&crate::physics::ResolvedMotionFrame>,
     primary_q: Query<Entity, crate::actor::PrimaryPlayerOnly>,
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     mut sim_state: ResMut<crate::RoomTransitionCooldown>,
-    mut control_frame: ResMut<ControlFrame>,
+    // ⭐ **the SLOT TABLE, not the global frame.** The derivation refines the
+    // frame each body is about to read, and every body reads its own slot.
+    mut slots: ResMut<ambition_characters::brain::SlotControls>,
+    // ⛔⛔ **READ from here, and WRITE to both, because the global `ControlFrame`
+    // used to be both.** The derived flag reached the body this tick (the
+    // frame→slot copy read that resource after this system ran) AND the encoded
+    // rollback input (the latch folded the same resource). Writing only the slot
+    // loses the second; writing only the raw row loses the first on a latch
+    // host, where the drain has already happened by the time this runs.
+    mut raw: ResMut<ambition_characters::brain::SeatRawFrames>,
     mut slot_gestures: ResMut<crate::control::SlotInteractionState>,
     // Home/player bodies tick their OWN reaction timers here (they aren't in the
     // actor tick). Iterates every player body so a co-op / clone body ticks its own.
@@ -91,38 +107,67 @@ pub fn input_timer_system(
     for mut combat in &mut home_feel_q {
         combat.decay_reaction_timers(frame_dt);
     }
-    let interaction = slot_gestures.primary_mut();
-    // Fast-fall = double-tap local-down for the controlled body. Raw cardinal
-    // edges are resolved through the same input mapping policy as locomotion,
-    // so ScreenDirected sideways gravity can map raw-right/raw-left into local
-    // down/up without bespoke cases here.
-    let gravity_dir = crate::control::controlled_frame_down(
-        controlled.as_deref(),
-        primary_q.single().ok(),
-        &frames,
-    );
     let movement_mode = user_settings
         .as_deref()
         .map_or(ae::InputFrameMode::DEFAULT_MOVEMENT, |s| {
             s.gameplay.resolved_movement_frame_mode()
         });
-    let resolved = ae::AccelerationFrame::new(gravity_dir).resolve_control(
-        movement_mode,
-        ae::ScreenAxes::new(control_frame.axis_x, control_frame.axis_y),
-    );
-    let raw_edges = control_frame.raw_direction_edges();
-    let descend_pressed = resolved.local_down_pressed(raw_edges);
-    let ascend_pressed = resolved.local_up_pressed(raw_edges);
-    let double_tap_down =
-        interaction.register_down_tap(descend_pressed, frame_dt, feel.down_double_tap_window);
-    control_frame.fast_fall_pressed = double_tap_down;
-    if double_tap_down {
-        interaction.double_tap_down_pending = true;
-    }
-    let door_double_tap_up =
-        interaction.register_up_tap(ascend_pressed, frame_dt, feel.up_double_tap_window);
-    if door_double_tap_up {
-        interaction.double_tap_up_pending = true;
+    // ⛔⛔ **EVERY SEAT, AND IT USED TO BE `slot_gestures.primary_mut()`.** The
+    // table, the accessor and the consumer were all per-slot already — body mode
+    // reads `get_mut(slot).double_tap_down_pending` keyed by the acting body's
+    // seat — and the PRODUCER filled row zero. So `fast_fall_pressed` was
+    // hardcoded `false` for every other seat and **player two could not
+    // fast-fall** (D175). The participant that never joined: nothing was
+    // missing but the loop.
+    for index in 0..ambition_characters::brain::SlotControls::MAX_SLOTS {
+        let slot = ambition_characters::brain::PlayerSlot(index as u8);
+        let Some(interaction) = slot_gestures.get_mut(slot) else {
+            continue;
+        };
+        // ⚠ **the RAW row, which is what this system always read.** It held
+        // `Res<ControlFrame>` — the device sample as it stood BEFORE the
+        // frame→slot copy — so reading the published slot instead would shift
+        // every gesture a tick late on a latchless host.
+        let mut frame = raw.get(slot);
+        // Fast-fall = double-tap local-down for the body driving THIS seat. Raw
+        // cardinal edges are resolved through the same input mapping policy as
+        // locomotion, so ScreenDirected sideways gravity can map raw-right /
+        // raw-left into local down/up without bespoke cases here.
+        //
+        // ⚠ **whose down, asked per seat.** A double-tap means *down* relative
+        // to the body the person is steering; resolving every seat against the
+        // primary's gravity would hand player two player one's idea of down the
+        // moment either of them stands on a wall.
+        let gravity_dir = crate::control::seat_frame_down(
+            &drivers,
+            slot,
+            &frames,
+            (slot == ambition_characters::brain::PlayerSlot::PRIMARY)
+                .then(|| primary_q.single().ok())
+                .flatten(),
+        );
+        let resolved = ae::AccelerationFrame::new(gravity_dir).resolve_control(
+            movement_mode,
+            ae::ScreenAxes::new(frame.axis_x, frame.axis_y),
+        );
+        let raw_edges = frame.raw_direction_edges();
+        let descend_pressed = resolved.local_down_pressed(raw_edges);
+        let ascend_pressed = resolved.local_up_pressed(raw_edges);
+        let double_tap_down =
+            interaction.register_down_tap(descend_pressed, frame_dt, feel.down_double_tap_window);
+        frame.fast_fall_pressed = double_tap_down;
+        slots.set(slot, frame);
+        raw.shape(slot, |raw_frame| {
+            raw_frame.fast_fall_pressed = double_tap_down;
+        });
+        if double_tap_down {
+            interaction.double_tap_down_pending = true;
+        }
+        let door_double_tap_up =
+            interaction.register_up_tap(ascend_pressed, frame_dt, feel.up_double_tap_window);
+        if door_double_tap_up {
+            interaction.double_tap_up_pending = true;
+        }
     }
 }
 
@@ -156,13 +201,15 @@ pub struct InteractionInputBuffered;
 pub fn interaction_input_system(
     time: Res<Time>,
     feel_tuning: Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>,
-    control_frame: Res<ControlFrame>,
+    // The pre-publish device sample, which is what this read as
+    // `Res<ControlFrame>` before that resource became an output mirror.
+    raw: Res<ambition_characters::brain::SeatRawFrames>,
+    drivers: Query<(Entity, &crate::control::DrivingParticipant)>,
     frames: Query<&crate::physics::ResolvedMotionFrame>,
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
-    controlled: Option<Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>>,
     mut slot_gestures: ResMut<crate::control::SlotInteractionState>,
-    // Hit-stun gate reads the CONTROLLED body's reaction state — the body actually
-    // being driven, home avatar or possessed actor.
+    // Hit-stun gate reads the DRIVEN body's reaction state — the body actually
+    // being driven by this seat, home avatar or possessed actor.
     combat_q: Query<&ambition_characters::actor::BodyCombat>,
     primary_q: Query<
         Entity,
@@ -174,45 +221,56 @@ pub fn interaction_input_system(
 ) {
     let frame_dt = time.delta_secs();
     let feel = *feel_tuning;
-    let subject = controlled
-        .and_then(|subject| subject.0)
-        .or_else(|| primary_q.single().ok());
-    let hitstun = subject
-        .and_then(|subject| combat_q.get(subject).ok())
-        .map_or(0.0, |combat| combat.hitstun_timer);
-    let interaction = slot_gestures.primary_mut();
-    let door_double_tap_up = std::mem::take(&mut interaction.double_tap_up_pending);
-    // Down + Interact is the possession gesture (`abilities::traversal::possession`),
-    // so a held-Down interact is CLAIMED by possession and must NOT also trigger a
-    // normal interaction (open a door / start an NPC dialog) — otherwise the press
-    // that begins a possession hold also opens whatever's adjacent. Suppress the
-    // interact EDGE while Down is held, using the SAME gravity-resolved "down" the
-    // possession trigger uses so they agree under any gravity. The double-tap-UP
-    // door request is an Up gesture, so it is never suppressed.
-    // `subject` already resolved controlled-or-primary above.
-    let gravity_dir = crate::control::controlled_frame_down(None, subject, &frames);
     let movement_mode = user_settings
         .as_deref()
         .map_or(ae::InputFrameMode::DEFAULT_MOVEMENT, |s| {
             s.gameplay.resolved_movement_frame_mode()
         });
-    let down_held = crate::abilities::traversal::possession::holding_descend(
-        control_frame.axis_x,
-        control_frame.axis_y,
-        gravity_dir,
-        movement_mode,
-    );
-    // Reads `Res<ControlFrame>` directly (local input publication is exactly
-    // where raw device state is allowed): this system runs mid-input-chain and
-    // publishes the device's interact into the slot buffer. The hit-stun gate uses
-    // the CONTROLLED body's `hitstun`, resolved above.
-    let raw_interact_pressed = if hitstun > 0.0 {
-        false
-    } else {
-        (control_frame.interact_pressed && !down_held) || door_double_tap_up
-    };
-    let _live =
-        interaction.buffered_interact(raw_interact_pressed, frame_dt, feel.interaction_buffer_time);
+    // ⛔⛔ **EVERY SEAT, and this was `slot_gestures.primary_mut()` too.** The
+    // interact buffer is what doors and dialogue read, keyed by the acting body's
+    // slot — so a second player standing at a door pressed a button that was
+    // buffered for nobody (D175).
+    for index in 0..ambition_characters::brain::SlotControls::MAX_SLOTS {
+        let slot = ambition_characters::brain::PlayerSlot(index as u8);
+        let body = crate::control::body_driving_seat(&drivers, slot).or_else(|| {
+            (slot == ambition_characters::brain::PlayerSlot::PRIMARY)
+                .then(|| primary_q.single().ok())
+                .flatten()
+        });
+        let hitstun = body
+            .and_then(|body| combat_q.get(body).ok())
+            .map_or(0.0, |combat| combat.hitstun_timer);
+        let frame = raw.get(slot);
+        let Some(interaction) = slot_gestures.get_mut(slot) else {
+            continue;
+        };
+        let door_double_tap_up = std::mem::take(&mut interaction.double_tap_up_pending);
+        // Down + Interact is the possession gesture
+        // (`abilities::traversal::possession`), so a held-Down interact is
+        // CLAIMED by possession and must NOT also trigger a normal interaction
+        // (open a door / start an NPC dialog) — otherwise the press that begins
+        // a possession hold also opens whatever's adjacent. Suppress the interact
+        // EDGE while Down is held, using the SAME gravity-resolved "down" the
+        // possession trigger uses so they agree under any gravity. The
+        // double-tap-UP door request is an Up gesture, so it is never suppressed.
+        let gravity_dir = crate::control::seat_frame_down(&drivers, slot, &frames, body);
+        let down_held = crate::abilities::traversal::possession::holding_descend(
+            frame.axis_x,
+            frame.axis_y,
+            gravity_dir,
+            movement_mode,
+        );
+        let raw_interact_pressed = if hitstun > 0.0 {
+            false
+        } else {
+            (frame.interact_pressed && !down_held) || door_double_tap_up
+        };
+        let _live = interaction.buffered_interact(
+            raw_interact_pressed,
+            frame_dt,
+            feel.interaction_buffer_time,
+        );
+    }
 }
 
 /// Decay presentation-only animation and flash timers.
@@ -253,12 +311,126 @@ pub fn cleanup_timers_system(
 }
 
 #[cfg(test)]
+mod per_seat_gesture_tests {
+    use super::*;
+    use crate::control::{DrivingParticipant, SlotInteractionState};
+    use ambition_characters::brain::{PlayerSlot, SeatRawFrames, SlotControls};
+    use ambition_combat::feel::Platformer2dFeelTuningMonolith;
+    use ambition_platformer2d_core::ControlFrame;
+
+    /// **PLAYER TWO CAN FAST-FALL.**
+    ///
+    /// ⛔⛔ **they could not, and one line proved it:**
+    /// `read_gameplay_control_frame_with_settings` hardcoded
+    /// `fast_fall_pressed: false`, and the only system that ever set it read
+    /// `slot_gestures.primary_mut()`. The table was per-slot, the accessor was
+    /// per-slot, and body mode consumed it per-slot — the PRODUCER filled row
+    /// zero. Nothing was missing but the loop.
+    ///
+    /// ⚠ **both seats, and the assertion on seat ZERO is not decoration.** A
+    /// per-seat rewrite that quietly moved the derivation off the primary would
+    /// fix player two by breaking player one, and a test that only looked at the
+    /// new seat would call that a success.
+    #[test]
+    fn every_seat_derives_its_own_fast_fall_double_tap() {
+        let mut app = App::new();
+        app.insert_resource(Time::<()>::default());
+        app.insert_resource(Platformer2dFeelTuningMonolith::default());
+        app.init_resource::<crate::RoomTransitionCooldown>();
+        app.init_resource::<SlotInteractionState>();
+        app.init_resource::<SlotControls>();
+        app.init_resource::<SeatRawFrames>();
+        for slot in [0u8, 1] {
+            app.world_mut().spawn(DrivingParticipant(PlayerSlot(slot)));
+        }
+        app.add_systems(Update, input_timer_system);
+
+        // A tap arms the window; the second tap inside it IS the double-tap. Both
+        // seats press on the same two frames, which is the couch case.
+        let tap = ControlFrame {
+            down_pressed: true,
+            axis_y: 1.0,
+            ..Default::default()
+        };
+        let mut fired = [false; 2];
+        for _ in 0..2 {
+            {
+                let mut raw = app.world_mut().resource_mut::<SeatRawFrames>();
+                for slot in [0u8, 1] {
+                    raw.set(PlayerSlot(slot), tap);
+                }
+            }
+            app.update();
+            let slots = app.world().resource::<SlotControls>();
+            for slot in [0u8, 1] {
+                fired[slot as usize] |= slots.get(PlayerSlot(slot)).fast_fall_pressed;
+            }
+        }
+
+        assert!(
+            fired[0],
+            "seat zero double-tapped down and never fast-fell, so the fixture is \
+             not exercising the derivation at all and the seat-one claim below \
+             proves nothing",
+        );
+        assert!(
+            fired[1],
+            "seat ONE double-tapped down on the same two frames as seat zero and \
+             never fast-fell: the gesture derivation is still the primary's alone, \
+             and a couch match has one player who can fast-fall and one who cannot",
+        );
+    }
+
+    /// **AND ONE SEAT'S TAPS ARE NOT THE OTHER'S.** The falsifier for a loop that
+    /// derives per seat but shares the window state: two people alternating taps
+    /// would each hand the other a double-tap they never pressed.
+    #[test]
+    fn one_seats_taps_do_not_arm_another_seats_double_tap() {
+        let mut app = App::new();
+        app.insert_resource(Time::<()>::default());
+        app.insert_resource(Platformer2dFeelTuningMonolith::default());
+        app.init_resource::<crate::RoomTransitionCooldown>();
+        app.init_resource::<SlotInteractionState>();
+        app.init_resource::<SlotControls>();
+        app.init_resource::<SeatRawFrames>();
+        for slot in [0u8, 1] {
+            app.world_mut().spawn(DrivingParticipant(PlayerSlot(slot)));
+        }
+        app.add_systems(Update, input_timer_system);
+
+        let tap = ControlFrame {
+            down_pressed: true,
+            axis_y: 1.0,
+            ..Default::default()
+        };
+        // Seat zero taps, then seat one taps. Neither has tapped twice.
+        for slot in [0u8, 1] {
+            {
+                let mut raw = app.world_mut().resource_mut::<SeatRawFrames>();
+                raw.set(PlayerSlot(0), ControlFrame::default());
+                raw.set(PlayerSlot(1), ControlFrame::default());
+                raw.set(PlayerSlot(slot), tap);
+            }
+            app.update();
+            let slots = app.world().resource::<SlotControls>();
+            assert!(
+                !slots.get(PlayerSlot(0)).fast_fall_pressed
+                    && !slots.get(PlayerSlot(1)).fast_fall_pressed,
+                "a single tap from seat {slot} produced a fast-fall somewhere: the \
+                 double-tap window is shared between seats",
+            );
+        }
+    }
+}
+
+#[cfg(test)]
 mod interaction_suppression_tests {
     use super::*;
     use crate::actor::{PlayerEntity, PrimaryPlayer};
     use crate::control::SlotInteractionState;
-    use ambition_combat::feel::Platformer2dFeelTuningMonolith;
     use ambition_characters::actor::BodyCombat;
+    use ambition_combat::feel::Platformer2dFeelTuningMonolith;
+    use ambition_platformer2d_core::ControlFrame;
 
     /// Build a minimal app with `interaction_input_system` and one primary
     /// player, set the control frame, run a frame, and report whether the
@@ -268,11 +440,18 @@ mod interaction_suppression_tests {
         app.insert_resource(Time::<()>::default());
         app.insert_resource(Platformer2dFeelTuningMonolith::default());
         app.init_resource::<SlotInteractionState>();
-        app.insert_resource(ControlFrame {
-            interact_pressed: interact,
-            axis_y,
-            ..Default::default()
-        });
+        // The seat's RAW row — the pre-publish device sample this system reads,
+        // which used to be the global `ControlFrame` (D175).
+        let mut raw = ambition_characters::brain::SeatRawFrames::default();
+        raw.set(
+            ambition_characters::brain::PlayerSlot::PRIMARY,
+            ControlFrame {
+                interact_pressed: interact,
+                axis_y,
+                ..Default::default()
+            },
+        );
+        app.insert_resource(raw);
         app.world_mut()
             .spawn((PlayerEntity, PrimaryPlayer, BodyCombat::default()));
         app.add_systems(Update, interaction_input_system);

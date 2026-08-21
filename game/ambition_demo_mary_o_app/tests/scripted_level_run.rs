@@ -191,12 +191,34 @@ fn settle(app: &mut App) {
 /// again the ordering broke — a defect, not a composition to step around.
 #[track_caller]
 fn assert_scripted_input_reaches_the_sim(app: &mut App) {
-    app.world_mut()
-        .resource_mut::<ambition_platformer2d::scripted_input::ScriptedControls>()
-        .0 = hold_right();
-    app.update();
-    assert!(
-        app.world().resource::<ControlFrame>().axis_x > 0.5,
+    // ⛔⛔ **THIS USED TO ASSERT THE WRITER, NOT THE READER** — see the twin of
+    // this function in `course_playthrough`. It read `ControlFrame` one update
+    // after the scripted stage wrote that same resource, so it could not fail
+    // for the reason it names. The resource is seat zero's output mirror now,
+    // and arrival takes a TICK rather than a frame on a fixed-tick host.
+    // ⚠ a SHORT cap, and a neutral step on the way out — arrival is one tick.
+    // ⚠ **AIM, not a direction, and that is the point of the probe.** The press
+    // has to be detectable on the far side without MOVING her: these fixtures
+    // walk an authored route measured in pixels, and a liveness check that holds
+    // right until the press arrives shifts every beat after it.
+    let probe = ControlFrame {
+        aim_x: 1.0,
+        ..ControlFrame::default()
+    };
+    for _ in 0..20 {
+        app.world_mut()
+            .resource_mut::<ambition_platformer2d::scripted_input::ScriptedControls>()
+            .0 = probe;
+        app.update();
+        if app.world().resource::<ControlFrame>().aim_x > 0.5 {
+            app.world_mut()
+                .resource_mut::<ambition_platformer2d::scripted_input::ScriptedControls>()
+                .0 = ControlFrame::default();
+            app.update();
+            return;
+        }
+    }
+    panic!(
         "a scripted press did not survive into the simulation, so every assertion \
          after this point would pass on a body nobody was driving"
     );

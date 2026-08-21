@@ -165,6 +165,22 @@ impl Plugin for PlayerSchedulePlugin {
         app.add_systems(
             sim,
             (
+                // ⚠ **STILL IN `InputSet::Route`, though neither writes the
+                // global `ControlFrame` any more.** By the set's own definition
+                // they no longer belong in it; what keeps them here is the
+                // ORDERING it carries — Route is pinned before
+                // `PrimarySlotInputCommit`, and the portal warp is pinned after
+                // `InteractionInputBuffered` and before that same commit. Moving
+                // either of these past the commit makes that unsolvable, because
+                // a warp may not rewrite the axes until the interact press has
+                // been buffered against the UNWARPED ones.
+                //
+                // ⇒ finishing D175 means moving BOTH into the device window
+                // beside the producer, which is a `SlotGestures` split (window
+                // timers are device-clock state like the latch; the pending flags
+                // and the interact buffer are sim state a rollback must restore).
+                // Named here so the next reader finds the constraint rather than
+                // the cycle.
                 ambition_platformer2d_actor_monolith::control::input_timer_system
                     .in_set(ambition_platformer2d_actor_monolith::control::InputTimersAdvanced)
                     .run_if(gameplay_allowed)
@@ -179,14 +195,26 @@ impl Plugin for PlayerSchedulePlugin {
                 // 1. Resolve the CONTROLLED SUBJECT — the body carrying
                 //    `DrivingParticipant(PRIMARY)` this frame (home avatar, or a
                 //    possessed actor).
-                // 2. Publish the local device frame into the canonical slot-based
-                //    controller model (`SlotControls[PRIMARY]`). This is the end
-                //    of the local-device adapter; bodies read their slot through
-                //    `DrivingParticipant(slot)` and no input component is copied.
+                // 2. ⭐ **the publish used to be here and it was seat zero's
+                //    alone** — `populate_slot_controls`, copying the global
+                //    `ControlFrame` into `SlotControls[PRIMARY]`. Every seat is
+                //    committed together now, by `commit_seat_raw_frames` in the
+                //    host's `PrimarySlotInputCommit`; bodies still read their
+                //    slot through `DrivingParticipant(slot)` and no input
+                //    component is copied.
                 (
                     ambition_platformer2d_actor_monolith::abilities::traversal::possession::resolve_controlled_subject,
-                    ambition_platformer2d_actor_monolith::control::populate_slot_controls
+                    // ⭐ **THE PUBLISH, for a composition with no latch** — where
+                    // `populate_slot_controls` used to stand, and registered here
+                    // for the same reason it was: every composition has a sim
+                    // schedule, and not every one installs the device host.
+                    ambition_platformer2d_actor_monolith::schedule::publish_seat_controls_without_a_latch
                         .in_set(ambition_platformer2d_actor_monolith::control::PrimarySlotInputCommit),
+                    // ⭐ **and the MIRROR, once, for every host.** `ControlFrame`
+                    // is seat zero's output now; the forensic trace codec and the
+                    // harness's action encoder read it, and they must be able to
+                    // whatever clock the composition runs on.
+                    ambition_platformer2d_actor_monolith::schedule::mirror_primary_slot_to_control_frame,
                     // N0.2: capture the input the SIM consumes, which is not the
                     // input the device produced — gestures, portal warp, and the
                     // fixed-tick latch all rewrite the frame on the way here.

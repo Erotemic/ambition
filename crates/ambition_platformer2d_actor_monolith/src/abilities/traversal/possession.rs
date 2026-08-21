@@ -104,29 +104,14 @@ pub fn resolve_controlled_subject(
     // HARD INVARIANT: exactly one entity holds the PRIMARY seat during normal
     // play (zero only during a load/transition frame). Two is a bug the whole
     // architecture rests on NOT happening — a home avatar whose seat was never
-    // retracted, or a double-assigned slot. Surface it loudly instead of silently
-    // picking one and diverging.
-    let mut chosen = None;
-    let mut count = 0u32;
-    for (entity, driver) in &drivers {
-        if driver.0 == PlayerSlot::PRIMARY {
-            count += 1;
-            if chosen.is_none() {
-                chosen = Some(entity);
-            }
-        }
-    }
-    debug_assert!(
-        count <= 1,
-        "control invariant violated: {count} entities hold DrivingParticipant(PRIMARY) \
-         (expected exactly one); possession/vacate left a stale seat"
-    );
-    if count > 1 {
-        bevy::log::error!(
-            "control invariant: {count} entities hold DrivingParticipant(PRIMARY); \
-             using the first as the controlled subject"
-        );
-    }
+    // retracted, or a double-assigned slot.
+    //
+    // ⭐ **the counting and the shouting live in `body_driving_seat` now**, which
+    // is the same question for every seat rather than this one's private
+    // spelling of it. Three callers had written it out and disagreed about the
+    // error case: this one counted and logged, a camera resolve took the first
+    // silently while its own comment called a second holder an error.
+    let chosen = crate::control::body_driving_seat(&drivers, PlayerSlot::PRIMARY);
     // Write only on an actual change of subject: an unconditional store marks
     // the resource changed every frame, which defeats change detection for
     // every downstream consumer (the control-prompt rebuild gates on it).

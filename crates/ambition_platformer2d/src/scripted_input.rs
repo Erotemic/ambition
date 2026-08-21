@@ -19,28 +19,29 @@
 //! against a guess:**
 //!
 //! ```text
-//! after   InputSet::Route                  where the participant pipeline
-//!                                          declares its `ControlFrame` writers
-//! before  accumulate_control_frame_latch   what a fixed-tick host actually
-//!                                          consumes — a write that misses the
-//!                                          latch never reaches gameplay however
-//!                                          late in `Update` it lands
+//! after   InputSet::Route              where the participant pipeline declares
+//!                                      its raw-frame writers
+//! before  PrimarySlotInputCommit      the publication boundary every host
+//!                                      has — a write that misses it never
+//!                                      reaches gameplay however late in
+//!                                      `Update` it lands
 //! ```
 //!
 //! ⚠ ordering against a set or system nobody composed is a no-op, so a headless
 //! frame-stepped composition (which has no latch) is unaffected by both edges.
 //!
-//! ⚠ **the local participant, singular.** This drives
-//! [`PlayerSlot::PRIMARY`](ambition_characters::brain::PlayerSlot::PRIMARY) by
-//! writing the device `ControlFrame`, which is the seat every one of these
-//! fixtures scripts. A second seat is written into
-//! [`SlotControls`](ambition_characters::brain::SlotControls) directly and does
-//! not go through this road; saying so here is better than a helper whose name
-//! promises a generality it does not have.
+//! ⚠ **the local participant, singular — and it now says WHICH seat rather than
+//! implying one.** This writes
+//! [`PlayerSlot::PRIMARY`](ambition_characters::brain::PlayerSlot::PRIMARY)'s row
+//! of [`SeatRawFrames`](ambition_characters::brain::SeatRawFrames), the seat every
+//! one of these fixtures scripts. It used to write the global `ControlFrame`,
+//! where "the primary seat" was not stated anywhere — it was what that resource
+//! happened to mean. Scripting a second seat is one line from here the day a
+//! fixture wants it; until then the limit is visible instead of structural.
 
 use bevy::prelude::*;
 
-use ambition_characters::brain::{PlayerSlot, SlotControls};
+use ambition_characters::brain::{PlayerSlot, SeatRawFrames, SlotControls};
 use ambition_platformer2d_core::ControlFrame;
 
 /// **What the fixture wants the local participant to be holding.**
@@ -113,7 +114,24 @@ pub fn drive_the_local_participant(app: &mut App) {
         Update,
         write_scripted_controls
             .after(ambition_input::InputSet::Route)
-            .before(ambition_platformer2d_runtime::host_input::accumulate_control_frame_latch),
+            // ⛔⛔ **the BOUNDARY SET, never a named system.** This said
+            // `.before(commit_seat_raw_frames)`, and that system exists only on a
+            // host with a frame→tick latch — so on a frame-stepped composition
+            // the edge was vacuous and the scripted write raced the publish,
+            // landing a frame late or not at all. Ordering against a system
+            // nobody composed is a silent no-op; ordering against
+            // `PrimarySlotInputCommit` is the same guarantee on every host,
+            // which is why the boundary is a set.
+            .before(ambition_platformer2d_runtime::host_input::PrimarySlotInputCommit)
+            // ⚠ **and the latch fold by name, because it is in ANOTHER
+            // schedule.** On a fixed-tick or rollback host the commit set lives
+            // in the sim schedule while the fold runs in `Update`, and a
+            // cross-schedule set edge orders nothing. Both edges are stated; each
+            // is vacuous exactly where the other applies.
+            .before(ambition_platformer2d_runtime::host_input::commit_seat_raw_frames)
+            .before(
+                ambition_platformer2d_runtime::host_input::publish_seat_controls_without_a_latch,
+            ),
     );
     // ⚠ **`Last`, and it reads the SLOT TABLE.** The observation has to come
     // from the far side of the pipeline or it would only be restating the write
@@ -139,10 +157,10 @@ pub fn observed(app: &App) -> ScriptedControlsObserved {
 
 fn write_scripted_controls(
     script: Res<ScriptedControls>,
-    mut frame: ResMut<ControlFrame>,
+    mut raw: ResMut<SeatRawFrames>,
     mut observed: ResMut<ScriptedControlsObserved>,
 ) {
-    *frame = script.0;
+    raw.set(PlayerSlot::PRIMARY, script.0);
     if script.0 != ControlFrame::default() {
         observed.requested = observed.requested.saturating_add(1);
     }

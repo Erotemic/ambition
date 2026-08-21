@@ -545,9 +545,31 @@ fn boot() -> App {
 /// again the ordering broke — a defect, not a composition to step around.
 #[track_caller]
 fn assert_scripted_input_reaches_the_sim(app: &mut App) {
-    step(app, move_x(1.0, true));
-    assert!(
-        app.world().resource::<ControlFrame>().axis_x > 0.5,
+    // ⛔⛔ **THE THIRD COPY of this check, and all three asserted the WRITER.**
+    // One step, then read `ControlFrame` — the resource the scripted stage writes
+    // directly — so none of them could fail for the reason they all name.
+    // `ControlFrame` is seat zero's OUTPUT mirror since D175 and the check
+    // finally measures arrival, which takes a TICK rather than a frame on a
+    // fixed-tick host.
+    // ⚠ **a SHORT cap, and a neutral step on the way out.** Arrival is one
+    // tick; holding right for hundreds of frames to prove it walks her into the
+    // next room before the run has started.
+    // ⚠ **AIM, not a direction, and that is the point of the probe.** The press
+    // has to be detectable on the far side without MOVING her: these fixtures
+    // walk an authored route measured in pixels, and a liveness check that holds
+    // right until the press arrives shifts every beat after it.
+    let probe = ControlFrame {
+        aim_x: 1.0,
+        ..ControlFrame::default()
+    };
+    for _ in 0..20 {
+        step(app, probe);
+        if app.world().resource::<ControlFrame>().aim_x > 0.5 {
+            step(app, ControlFrame::default());
+            return;
+        }
+    }
+    panic!(
         "a scripted press did not survive into the simulation, so every assertion \
          after this point would pass on a body nobody was driving"
     );

@@ -49,13 +49,24 @@ pub fn drive_slot_frame(
         latches.accumulate(slot, frame);
         return;
     }
-    if slot.0 == 0 {
-        if let Some(mut control) = world.get_resource_mut::<ControlFrame>() {
-            *control = frame;
-        }
-    } else if let Some(mut slots) =
-        world.get_resource_mut::<ambition_characters::brain::SlotControls>()
-    {
+    // ⭐ **ONE arm for every seat, and the `slot == 0` branch that stood here is
+    // the last of D175's third link.** It wrote the global `ControlFrame`,
+    // because that resource WAS seat zero's input. It is that seat's output
+    // mirror now, so writing it would deliver a press to nobody — the silent
+    // no-op this whole seam exists to prevent.
+    //
+    // ⚠ **BOTH surfaces, and that is the helper's whole contract.** A driver
+    // says *this seat is holding this frame* and must not have to know how the
+    // composition was assembled. The RAW row is what a shaping stage reads — a
+    // scripted reset has to reach the reset stage, a scripted stick the portal
+    // warp — and a composition that installs the shaping stages will overwrite
+    // the slot below with the shaped result anyway. A composition that installs
+    // NONE of them (the smallest headless fixture) has no commit either, so
+    // without the second write its press would sit in a table nothing drains.
+    if let Some(mut raw) = world.get_resource_mut::<ambition_characters::brain::SeatRawFrames>() {
+        raw.set(slot, frame);
+    }
+    if let Some(mut slots) = world.get_resource_mut::<ambition_characters::brain::SlotControls>() {
         slots.set(slot, frame);
     }
 }

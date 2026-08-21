@@ -24,34 +24,50 @@
 
 use bevy::prelude::*;
 
+use ambition_characters::brain::{PlayerSlot, SeatRawFrames};
 use ambition_platformer2d_actor_monolith::items::pickup::GroundItem;
-use ambition_input::ControlFrame;
 use ambition_portal2d::{PlayerMovementIntent, PortalTransitable};
 
-/// Copy this frame's `ControlFrame` movement axes into the portal-core
+/// Copy the transiting seat's held movement axes into the portal-core
 /// [`PlayerMovementIntent`]. Runs before [`ambition_portal2d::warp_portal_input`] and
 /// again before [`ambition_portal2d::portal_transit`] so portal core always
-/// reads the live held direction without naming `ControlFrame`.
+/// reads the live held direction without naming a control frame at all.
+///
+/// ⚠ **THE PRIMARY SEAT, and it now SAYS so** (D175). It read the global
+/// `ControlFrame`, where "the primary seat" was not stated anywhere — it was
+/// what that resource happened to mean, which is how a second seat walking a
+/// portal got unwarped input and nothing in the code said why.
+/// [`PlayerMovementIntent`] is itself one resource for one body, so making the
+/// portal per-seat is a larger change than naming the seat; what this does is
+/// stop the limit from being invisible.
 pub fn sync_movement_intent_from_control(
-    control: Option<Res<ControlFrame>>,
+    raw: Option<Res<SeatRawFrames>>,
     mut intent: ResMut<PlayerMovementIntent>,
 ) {
-    if let Some(control) = control {
-        intent.dir = Vec2::new(control.axis_x, control.axis_y);
+    if let Some(raw) = raw {
+        let frame = raw.get(PlayerSlot::PRIMARY);
+        intent.dir = Vec2::new(frame.axis_x, frame.axis_y);
     }
 }
 
-/// Copy the (possibly warped) portal-core [`PlayerMovementIntent`] back into the
-/// `ControlFrame` movement axes. Runs immediately after
-/// [`ambition_portal2d::warp_portal_input`], so the brain / movement see the adjusted
-/// axes exactly as they did when portal core mutated `ControlFrame` directly.
+/// Copy the (possibly warped) portal-core [`PlayerMovementIntent`] back into
+/// that seat's movement axes. Runs immediately after
+/// [`ambition_portal2d::warp_portal_input`], so the brain / movement see the
+/// adjusted stick exactly as they did when portal core mutated the global frame
+/// directly.
+///
+/// ⛔ **it shapes the seat's RAW frame, before the commit.** A warp applied
+/// after publication would be rewriting a frame the latch has already taken —
+/// and under a rollback host, one each peer would recompute for itself.
 pub fn apply_movement_intent_to_control(
     intent: Res<PlayerMovementIntent>,
-    control: Option<ResMut<ControlFrame>>,
+    raw: Option<ResMut<SeatRawFrames>>,
 ) {
-    if let Some(mut control) = control {
-        control.axis_x = intent.dir.x;
-        control.axis_y = intent.dir.y;
+    if let Some(mut raw) = raw {
+        raw.shape(PlayerSlot::PRIMARY, |frame| {
+            frame.axis_x = intent.dir.x;
+            frame.axis_y = intent.dir.y;
+        });
     }
 }
 

@@ -646,8 +646,56 @@ spelling of the table the other seats share:
 ```text
 feel-clock latch     ✔ MERGED 889107010 — SlotControlLatches, seat zero is row zero
 pending input        ✔ MERGED 477fc8693 — PendingSeatInputs, handle zero included
-confirmed publish    ▢ → ControlFrame        │  → SlotControls[n]
+raw shaping stage    ✔ MERGED 2026-08-21 — SeatRawFrames, one row per seat
+confirmed publish    ✔ MERGED 2026-08-21 — SlotControls for everybody
 ```
+
+⭐⭐ **THE THIRD LINK LANDED, and the measured bug with it: PLAYER TWO CAN
+FAST-FALL.** `SeatRawFrames` is the shaping stage every seat now has — the thing
+seat zero had as the global `ControlFrame` and nobody else had at all. The
+producer writes one row per seat with no branch; the shapers address a seat by
+name; one commit publishes them; and `ControlFrame` is demoted to seat zero's
+OUTPUT MIRROR. Guarded by `every_seat_derives_its_own_fast_fall_double_tap`
+(falsified by narrowing the loop to slot zero, which is the old code) and
+`one_seats_taps_do_not_arm_another_seats_double_tap`.
+
+⇒ **the deletion ledger, which is where the size of the fork shows.** Six
+`ControlFrame` allowlist entries in the workspace policy stopped holding the
+resource at all: two latch systems, the seat-zero device producer, the gesture
+derivation, the interact buffer, and the frame→slot copy. The policy's `Bridge`
+vocabulary lost `FrameToSlot` and gained `SlotToFrame` — ⭐ **the direction
+reversed**, so the old category would now be a cycle. `populate_slot_controls`,
+`accumulate_control_frame_latch` and `publish_latched_control_frame` are gone;
+`publish_ggrs_input` lost its `handle == 0` branch; `drive_slot_frame` lost its
+last seat-zero arm.
+
+⛔⛔ **AND THE ROW'S OWN PLAN WAS WRONG ABOUT WHERE THE DERIVATION RUNS.** It
+said the gesture derivation is on the FEEL clock and must not move after
+publication. Measured: `input_timer_system` is registered into the SIM schedule,
+which under a rollback host IS `GgrsSchedule` — it runs inside rollback, and
+`SlotInteractionState` is `rollback_resource_canonical`. The clock argument was
+sound and the placement claim was not, which is why the fix is a loop in place
+rather than a move.
+
+⚠ **what the derivation's placement actually costs, stated because it is the
+next reader's trap.** `input_timer_system` and `interaction_input_system` are
+still tagged `InputSet::Route` although neither writes `ControlFrame` any more.
+By the set's definition they do not belong in it; what keeps them there is the
+ORDERING it carries. The portal warp is pinned after `InteractionInputBuffered`
+and before `PrimarySlotInputCommit` — because a warp may not rewrite the axes
+until the interact press has been buffered against the UNWARPED ones — so moving
+either system past the commit makes the graph unsolvable. Bevy says so directly:
+*"system set `InteractionInputBuffered` and system `interaction_input_system`
+have both `in_set` and `before`-`after` relationships"*.
+
+⇒ ▢ **the remaining step is a `SlotGestures` SPLIT, not another table.** The
+double-tap WINDOW timers are device-clock state, like the latch, and belong in
+the `Update` device window beside the producer; the PENDING flags and the
+interact buffer are sim state a rollback must restore. Splitting them lets both
+systems move into the shaping window, which is where the ordering wants them.
+⛔ do not attempt it by moving the systems alone: `SlotInteractionState` is
+canonical rollback state, and writing it from `Update` takes it out of the sweep
+that restores it.
 
 ⭐ **two of the three are gone, and the twins went with them.**
 `drive_control_frame` and `drive_seat_frame` — a declared pair, *"the twin of

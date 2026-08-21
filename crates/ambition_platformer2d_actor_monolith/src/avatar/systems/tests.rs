@@ -7,9 +7,9 @@
 // tests drive the player tick THROUGH it so they exercise the same slot-owned
 // authority as production rather than stamping body-local input state.
 use super::*;
-use crate::control::populate_slot_controls;
+use crate::schedule::publish_seat_controls_without_a_latch;
 use ambition_characters::brain::ActorControl;
-use ambition_input::ControlFrame;
+use ambition_characters::brain::{PlayerSlot, SeatRawFrames};
 
 #[test]
 fn mana_regenerates_over_time_but_clamps_to_max() {
@@ -166,8 +166,12 @@ fn player_projectile_release_emits_ranged_bolt_action_message_end_to_end() {
     };
     use bevy::transform::components::Transform;
     let mut app = App::new();
-    app.init_resource::<ControlFrame>();
+    app.init_resource::<SeatRawFrames>();
     app.init_resource::<SlotControls>();
+    // ⚠ **and the table it is committed FROM.** These are one model:
+    // `BrainPlugin` installs both, and a hand-built fixture that takes
+    // only the destination is describing a composition that cannot exist.
+    app.init_resource::<SeatRawFrames>();
     app.add_message::<ActorActionMessage>();
     let mut player = crate::avatar::primary_player_scratch(
         ae::Vec2::new(40.0, 60.0),
@@ -189,18 +193,20 @@ fn player_projectile_release_emits_ranged_bolt_action_message_end_to_end() {
     app.add_systems(
         Update,
         (
-            populate_slot_controls,
+            publish_seat_controls_without_a_latch,
             tick_controlled_brains,
             emit_brain_action_messages,
         )
             .chain(),
     );
     {
-        let mut cf = app.world_mut().resource_mut::<ControlFrame>();
-        cf.projectile_released = true;
-        // aim diagonally up-right; brain reads aim when present
-        cf.aim_x = 0.8;
-        cf.aim_y = -0.6;
+        let mut raw = app.world_mut().resource_mut::<SeatRawFrames>();
+        raw.shape(PlayerSlot::PRIMARY, |cf| {
+            cf.projectile_released = true;
+            // aim diagonally up-right; brain reads aim when present
+            cf.aim_x = 0.8;
+            cf.aim_y = -0.6;
+        });
     }
     app.update();
     let mut messages = app
@@ -245,8 +251,12 @@ fn player_attack_press_emits_swipe_action_message_end_to_end() {
     };
     use bevy::transform::components::Transform;
     let mut app = App::new();
-    app.init_resource::<ControlFrame>();
+    app.init_resource::<SeatRawFrames>();
     app.init_resource::<SlotControls>();
+    // ⚠ **and the table it is committed FROM.** These are one model:
+    // `BrainPlugin` installs both, and a hand-built fixture that takes
+    // only the destination is describing a composition that cannot exist.
+    app.init_resource::<SeatRawFrames>();
     app.add_message::<ActorActionMessage>();
     let mut player = crate::avatar::primary_player_scratch(
         ae::Vec2::new(40.0, 60.0),
@@ -271,7 +281,7 @@ fn player_attack_press_emits_swipe_action_message_end_to_end() {
     app.add_systems(
         Update,
         (
-            populate_slot_controls,
+            publish_seat_controls_without_a_latch,
             tick_controlled_brains,
             emit_brain_action_messages,
         )
@@ -279,9 +289,11 @@ fn player_attack_press_emits_swipe_action_message_end_to_end() {
     );
 
     {
-        let mut cf = app.world_mut().resource_mut::<ControlFrame>();
-        cf.attack_pressed = true;
-        cf.axis_x = 1.0;
+        let mut raw = app.world_mut().resource_mut::<SeatRawFrames>();
+        raw.shape(PlayerSlot::PRIMARY, |cf| {
+            cf.attack_pressed = true;
+            cf.axis_x = 1.0;
+        });
     }
     app.update();
     let mut messages = app
@@ -310,8 +322,12 @@ fn player_attack_press_emits_swipe_action_message_end_to_end() {
 #[test]
 fn player_brain_seam_translates_control_frame_to_actor_control() {
     let mut app = App::new();
-    app.init_resource::<ControlFrame>();
+    app.init_resource::<SeatRawFrames>();
     app.init_resource::<SlotControls>();
+    // ⚠ **and the table it is committed FROM.** These are one model:
+    // `BrainPlugin` installs both, and a hand-built fixture that takes
+    // only the destination is describing a composition that cannot exist.
+    app.init_resource::<SeatRawFrames>();
     let mut player = crate::avatar::primary_player_scratch(
         ae::Vec2::new(100.0, 100.0),
         ae::AbilitySet::sandbox_all(),
@@ -335,7 +351,7 @@ fn player_brain_seam_translates_control_frame_to_actor_control() {
     app.add_systems(
         Update,
         (
-            populate_slot_controls,
+            publish_seat_controls_without_a_latch,
             tick_controlled_brains,
         )
             .chain(),
@@ -343,11 +359,13 @@ fn player_brain_seam_translates_control_frame_to_actor_control() {
 
     // Stamp the control frame with a known input.
     {
-        let mut cf = app.world_mut().resource_mut::<ControlFrame>();
-        cf.axis_x = 1.0;
-        cf.jump_pressed = true;
-        cf.attack_pressed = true;
-        cf.shield_held = true;
+        let mut raw = app.world_mut().resource_mut::<SeatRawFrames>();
+        raw.shape(PlayerSlot::PRIMARY, |cf| {
+            cf.axis_x = 1.0;
+            cf.jump_pressed = true;
+            cf.attack_pressed = true;
+            cf.shield_held = true;
+        });
     }
     app.update();
 
@@ -393,11 +411,19 @@ fn a_possessed_actor_is_driven_by_the_controlled_brain_producer() {
     const POSSESSED_TOP_SPEED: f32 = 137.0;
 
     let mut app = App::new();
-    app.init_resource::<ControlFrame>();
+    app.init_resource::<SeatRawFrames>();
     app.init_resource::<SlotControls>();
+    // ⚠ **and the table it is committed FROM.** These are one model:
+    // `BrainPlugin` installs both, and a hand-built fixture that takes
+    // only the destination is describing a composition that cannot exist.
+    app.init_resource::<SeatRawFrames>();
     app.add_systems(
         Update,
-        (populate_slot_controls, tick_controlled_brains).chain(),
+        (
+            publish_seat_controls_without_a_latch,
+            tick_controlled_brains,
+        )
+            .chain(),
     );
 
     let pos = ae::Vec2::new(64.0, 32.0);
@@ -429,9 +455,11 @@ fn a_possessed_actor_is_driven_by_the_controlled_brain_producer() {
         .insert(crate::features::MotionModel::axis_swept(params));
 
     {
-        let mut cf = app.world_mut().resource_mut::<ControlFrame>();
-        cf.axis_x = 1.0;
-        cf.jump_pressed = true;
+        let mut raw = app.world_mut().resource_mut::<SeatRawFrames>();
+        raw.shape(PlayerSlot::PRIMARY, |cf| {
+            cf.axis_x = 1.0;
+            cf.jump_pressed = true;
+        });
     }
     app.update();
 
@@ -475,12 +503,16 @@ fn a_scripted_sequence_silences_a_possessed_body() {
     use ambition_characters::brain::{DrivingParticipant, PlayerSlot, ScriptedControl};
 
     let mut app = App::new();
-    app.init_resource::<ControlFrame>();
+    app.init_resource::<SeatRawFrames>();
     app.init_resource::<SlotControls>();
+    // ⚠ **and the table it is committed FROM.** These are one model:
+    // `BrainPlugin` installs both, and a hand-built fixture that takes
+    // only the destination is describing a composition that cannot exist.
+    app.init_resource::<SeatRawFrames>();
     app.add_systems(
         Update,
         (
-            populate_slot_controls,
+            publish_seat_controls_without_a_latch,
             tick_controlled_brains,
             blank_scripted_control_frames,
         )
@@ -510,9 +542,11 @@ fn a_scripted_sequence_silences_a_possessed_body() {
         .id();
 
     {
-        let mut cf = app.world_mut().resource_mut::<ControlFrame>();
-        cf.axis_x = 1.0;
-        cf.jump_pressed = true;
+        let mut raw = app.world_mut().resource_mut::<SeatRawFrames>();
+        raw.shape(PlayerSlot::PRIMARY, |cf| {
+            cf.axis_x = 1.0;
+            cf.jump_pressed = true;
+        });
     }
     app.update();
 

@@ -59,6 +59,70 @@ where
     out
 }
 
+/// **THE BODY DRIVING A SEAT**: the entity carrying `DrivingParticipant(slot)`.
+///
+/// ⛔⛔ **there were THREE hand-written copies of this loop and they disagreed
+/// about the error case.** `resolve_controlled_subject` counted holders,
+/// debug-asserted and logged before taking the first; the camera resolve took
+/// the first silently while its own comment called a second holder an error; a
+/// third asked only about slot zero. One body drives one slot — a second holder
+/// is a seat possession or vacate never retracted — and how loudly that is said
+/// must not depend on which caller happened to ask.
+///
+/// ⚠ **it still returns the first rather than refusing.** A hard failure here
+/// would take down a running game over a control bug that a debug build already
+/// shouts about, and every caller's fallback (the engine's default gravity, the
+/// session's default view) is a survivable answer.
+pub fn body_driving_seat(
+    drivers: &Query<(Entity, &crate::control::DrivingParticipant)>,
+    slot: PlayerSlot,
+) -> Option<Entity> {
+    let mut holders = drivers
+        .iter()
+        .filter(|(_, driver)| driver.0 == slot)
+        .map(|(entity, _)| entity);
+    let first = holders.next();
+    let extra = holders.count();
+    if extra > 0 {
+        debug_assert!(
+            false,
+            "control invariant violated: {} entities hold DrivingParticipant({slot:?}) \
+             (expected at most one); possession/vacate left a stale seat",
+            extra + 1,
+        );
+        bevy::log::error!(
+            "control invariant: {} entities hold DrivingParticipant({slot:?}); using the first",
+            extra + 1,
+        );
+    }
+    first
+}
+
+/// **THE FRAME ONE SEAT'S GESTURES ARE INTERPRETED IN** — the resolved "down"
+/// (ADR 0024) of whichever body is driving that seat.
+///
+/// ⭐ **the generalisation of [`controlled_frame_down`], which asks this for
+/// slot zero only.** A double-tap means *down* relative to the body the person
+/// is steering, and on a couch that is a different body per seat — so a seat's
+/// gesture cannot be resolved against the primary's gravity without giving
+/// player two player one's idea of down.
+///
+/// `fallback` is consulted when nobody holds the seat, which is the load-frame
+/// case slot zero has always had.
+pub fn seat_frame_down(
+    drivers: &Query<(Entity, &crate::control::DrivingParticipant)>,
+    slot: PlayerSlot,
+    frames: &Query<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
+    fallback: Option<Entity>,
+) -> ambition_platformer2d_core::Vec2 {
+    body_driving_seat(drivers, slot)
+        .or(fallback)
+        .and_then(|entity| frames.get(entity).ok())
+        .map_or(ambition_platformer2d_core::DEFAULT_GRAVITY_DIR, |frame| {
+            frame.down()
+        })
+}
+
 /// The CONTROLLED body's per-tick resolved "down" (ADR 0024): the frame every
 /// slot-0 gesture (fast-fall double-tap, possession Down+Interact, interact
 /// suppression) is interpreted in. Resolution order: the `ControlledSubject`

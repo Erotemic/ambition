@@ -38,5 +38,8 @@ pub use input_systems::{
     cleanup_timers_system, input_timer_system, interaction_input_system, InputTimersAdvanced,
     InteractionInputBuffered,
 };
-pub use queries::{controlled_frame_down, primary_player_entity, sort_players_by_slot};
-pub use slots::{populate_slot_controls, PrimarySlotInputCommit};
+pub use queries::{
+    body_driving_seat, controlled_frame_down, primary_player_entity, seat_frame_down,
+    sort_players_by_slot,
+};
+pub use slots::PrimarySlotInputCommit;

@@ -18,6 +18,7 @@ use super::systems::{charge_projectile_input, step_projectiles};
 use crate::features::{ActorIdentity, GameplayBanner, HitEvent, SetFlagRequested};
 use crate::trace::GameplayTraceBuffer;
 use ambition_characters::actor::BodyHealth;
+use ambition_characters::brain::{PlayerSlot, SeatRawFrames};
 use ambition_input::ControlFrame;
 use ambition_platformer2d_core::RoomGeometry;
 use ambition_vfx::vfx::DebrisBurstMessage;
@@ -95,7 +96,7 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
     // `step_projectiles` collides against the portal-carved world; no carves in
     // these tests, so the overlay is empty (collision == raw world).
     app.init_resource::<crate::features::FeatureEcsWorldOverlay>();
-    app.insert_resource(ControlFrame::default());
+    app.insert_resource(SeatRawFrames::default());
     app.insert_resource(ambition_persistence::settings::UserSettings::default());
     app.insert_resource(GameplayTraceBuffer::default());
     app.insert_resource(GameplayBanner::default());
@@ -128,9 +129,9 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
     app.add_systems(
         Update,
         (
-            // Publish the device ControlFrame into SlotControls[PRIMARY], then
-            // let the player brain translate that canonical slot (production order).
-            crate::control::populate_slot_controls,
+            // Commit every seat's shaped raw frame into SlotControls, then let
+            // the player brain translate that canonical slot (production order).
+            crate::schedule::publish_seat_controls_without_a_latch,
             crate::avatar::tick_controlled_brains,
             ambition_characters::brain::emit_player_projectile_tick_messages,
             // Mirror production order: the unified stepper advances existing
@@ -284,30 +285,42 @@ fn advance_time(app: &mut App, dt_seconds: f32) {
 /// Helper: press the projectile button (no motion) and immediately
 /// release it on the same press-release pair. Equivalent to a
 /// "tap" in the new charge model — fires a tier-0 fireball.
+/// **SHAPE THE PRIMARY SEAT'S RAW FRAME**, which is what a fixture that used to
+/// reach for the global `ControlFrame` wants.
+///
+/// ⛔ **writing `ControlFrame` moves nothing now** (D175). It stopped being the
+/// input bus when every seat gained a raw row of its own; it is a mirror of what
+/// seat zero received, published at the end. A fixture still writing it would
+/// press buttons that reach no simulation and assert its way to a green run —
+/// which is the exact failure mode `scripted_input`'s module doc was written
+/// about.
+fn shape_primary(app: &mut App, edit: impl FnOnce(&mut ControlFrame)) {
+    app.world_mut()
+        .resource_mut::<SeatRawFrames>()
+        .shape(PlayerSlot::PRIMARY, edit);
+}
+
 fn tap_projectile(app: &mut App) {
     // Press frame: just_pressed=true, held=true (Bevy's button
     // semantics — pressed state lasts as long as held), released=false.
     // The system enters the press branch and starts charging.
-    {
-        let mut frame = app.world_mut().resource_mut::<ControlFrame>();
+    shape_primary(app, |frame| {
         frame.projectile_pressed = true;
         frame.projectile_held = true;
         frame.projectile_released = false;
-    }
+    });
     advance_time(app, 0.016);
     app.update();
     // Release frame: just_pressed=false, held=false, released=true.
-    {
-        let mut frame = app.world_mut().resource_mut::<ControlFrame>();
+    shape_primary(app, |frame| {
         frame.projectile_pressed = false;
         frame.projectile_held = false;
         frame.projectile_released = true;
-    }
+    });
     advance_time(app, 0.016);
     app.update();
     // Reset the edge for the next test step.
-    {
-        let mut frame = app.world_mut().resource_mut::<ControlFrame>();
+    shape_primary(app, |frame| {
         frame.projectile_released = false;
-    }
+    });
 }

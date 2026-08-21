@@ -119,6 +119,76 @@ impl SlotControls {
     }
 }
 
+/// **EVERY SEAT'S RAW FRAME, BEFORE ANY SHAPING STAGE HAS RUN.**
+///
+/// ⭐ **the stage that had to exist for a seat other than zero to have
+/// semantics.** A device sample is not yet a control frame: a double-tap has to
+/// become `fast_fall_pressed`, a portal has to warp the axes, a scripted driver
+/// has to substitute its own. Seat zero had a place for all of that to happen —
+/// the global `ControlFrame`, written by four systems between the device read
+/// and the latch — and every other seat went from `ActionState` straight into
+/// its latch with no stage in between. So the shapers were seat zero's by
+/// construction, and **player two could not fast-fall** (D175).
+///
+/// ⇒ this is that place, for everybody. The producer fills a row per seat, the
+/// shapers run over the table, and one commit folds every row into its latch.
+///
+/// ⛔⛔ **PRE-LATCH IS NOT A DETAIL, IT IS THE WHOLE PLACEMENT.**
+/// `fast_fall_pressed` is packed into the encoded rollback input, and the
+/// derivation runs on the FEEL clock against frame `dt`. Shaped BEFORE the latch
+/// it is input — every peer receives the same flag. Shaped after publication,
+/// each peer computes it from its own wall clock, which is a desync rather than
+/// a red test. Anything that reads a wall clock and writes a frame belongs here
+/// and nowhere later.
+///
+/// ⚠ **not the same table as [`SlotControls`], and merging them would undo
+/// this.** `SlotControls` is what the simulation READS — confirmed, post-latch,
+/// and under GGRS written from the session's own inputs on a resimulated tick.
+/// This is what the local device PROPOSED, this frame, before anybody agreed to
+/// it.
+#[derive(bevy::ecs::resource::Resource, Clone, Copy, Debug, Default)]
+pub struct SeatRawFrames {
+    slots: [ambition_platformer2d_core::ControlFrame; SlotControls::MAX_SLOTS],
+}
+
+impl SeatRawFrames {
+    /// This seat's raw frame as it currently stands (neutral for a seat nobody
+    /// is driving).
+    pub fn get(&self, slot: PlayerSlot) -> ambition_platformer2d_core::ControlFrame {
+        self.slots.get(slot.0 as usize).copied().unwrap_or_default()
+    }
+
+    /// Replace this seat's raw frame. Out-of-range slots are ignored.
+    pub fn set(&mut self, slot: PlayerSlot, frame: ambition_platformer2d_core::ControlFrame) {
+        if let Some(entry) = self.slots.get_mut(slot.0 as usize) {
+            *entry = frame;
+        }
+    }
+
+    /// Shape this seat's frame in place — the form every shaping stage wants,
+    /// since each one adjusts a field rather than replacing the frame.
+    pub fn shape(
+        &mut self,
+        slot: PlayerSlot,
+        edit: impl FnOnce(&mut ambition_platformer2d_core::ControlFrame),
+    ) {
+        if let Some(entry) = self.slots.get_mut(slot.0 as usize) {
+            edit(entry);
+        }
+    }
+
+    /// Every seat's row, in slot order — what a shaping stage that genuinely
+    /// applies to all of them iterates.
+    pub fn seats(
+        &self,
+    ) -> impl Iterator<Item = (PlayerSlot, ambition_platformer2d_core::ControlFrame)> + '_ {
+        self.slots
+            .iter()
+            .enumerate()
+            .map(|(index, frame)| (PlayerSlot(index as u8), *frame))
+    }
+}
+
 /// **THE FRAME→TICK INPUT LATCH, ONE PER SEAT — INCLUDING SEAT ZERO.**
 ///
 /// A tap that opens and closes between two ticks must still reach the sim, so a
@@ -641,6 +711,12 @@ impl bevy::app::Plugin for BrainPlugin {
         // The slot-based controller input model. One entry per participant
         // slot; the body carrying `DrivingParticipant(slot)` reads its frame.
         app.init_resource::<SlotControls>();
+        // ⭐ **and the table it is committed FROM.** Beside its destination
+        // rather than in the host, because a composition that has slots has
+        // somewhere for their raw frames to be shaped — the two are one model,
+        // and installing them apart is how seat zero ended up with a shaping bus
+        // nobody else had.
+        app.init_resource::<SeatRawFrames>();
     }
 }
 

@@ -470,6 +470,29 @@ pub mod sim {
     /// at runtime; a spawn site authoring one is stating a seat, not competing
     /// with that reconcile.
     pub use ambition_characters::brain::DrivingParticipant;
+
+    /// **EVERY SEAT'S RAW FRAME, before any shaping stage has run** — the table
+    /// a stage that refines input writes into.
+    ///
+    /// ⛔ **the global `ControlFrame` is NOT that table any more.** It was, and
+    /// because it was one resource it could only ever be one seat's: a gesture,
+    /// a portal warp or a scripted substitution applied to the primary and to
+    /// nobody else, which is why player two could not fast-fall (D175). A stage
+    /// that shapes input names the seat it shapes now.
+    pub use ambition_characters::brain::SeatRawFrames;
+
+    /// **WHAT EACH SEAT ACTUALLY RECEIVED** — the committed frame every body
+    /// reads through its `DrivingParticipant(slot)`.
+    ///
+    /// ⚠ the read side of [`SeatRawFrames`]: that table is what the local device
+    /// proposed and this is what the simulation agreed to, which under a
+    /// rollback host are different frames on a resimulated tick.
+    pub use ambition_characters::brain::SlotControls;
+
+    /// **THE FRAME→TICK LATCH, one row per seat.** A tap that opens and closes
+    /// between two ticks folds in here and drains on the tick, so a fixed-tick
+    /// or rollback host never swallows it.
+    pub use ambition_characters::brain::SlotControlLatches;
     #[cfg(feature = "rollback")]
     pub use ambition_platformer2d_rollback_ggrs::drive_slot_frame;
     #[cfg(not(feature = "rollback"))]

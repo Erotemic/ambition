@@ -79,15 +79,14 @@ impl Plugin for HostInputBindingsPlugin {
     fn build(&self, app: &mut App) {
         use ambition_input::{MenuControlFrame, MenuInputState, Platformer2dInputActionMonolith};
         use ambition_platformer2d_runtime::host_input::{
-            accumulate_control_frame_latch, apply_menu_frame_to_cutscene_request,
+            apply_menu_frame_to_cutscene_request, commit_seat_raw_frames,
             declare_gameplay_input_context, declare_in_session_input_contexts,
             dialog_pointer_input, freeze_local_seating_for_the_decided_match,
             populate_menu_control_frame_from_actions, populate_seat_control_frames,
-            populate_seat_menu_frames, publish_latched_control_frame,
-            publish_latched_slot_controls, seat_input_participants_for_roster,
-            spawn_primary_input_participant, sync_primary_recipe_from_settings,
-            toggle_player_trail_emission_from_actions, MenuFrameConsume, MenuFrameCutsceneSkip,
-            MenuFramePopulate, MenuNavConsume,
+            populate_seat_menu_frames, publish_latched_slot_controls,
+            seat_input_participants_for_roster, spawn_primary_input_participant,
+            sync_primary_recipe_from_settings, toggle_player_trail_emission_from_actions,
+            MenuFrameConsume, MenuFrameCutsceneSkip, MenuFramePopulate, MenuNavConsume,
         };
         use leafwing_input_manager::prelude::InputManagerPlugin;
 
@@ -202,11 +201,25 @@ impl Plugin for HostInputBindingsPlugin {
             // calls here and two systems below, because seat zero had its own
             // spelling of the latch — see `SlotControlLatches`.
             app.init_resource::<ambition_platformer2d_runtime::host_input::SlotControlLatches>();
-            app.add_systems(
-                Update,
-                accumulate_control_frame_latch.after(ambition_input::InputSet::Route),
-            );
         }
+        // ⛔⛔ **AFTER every shaping stage, and that is the contract.**
+        // `InputSet::Route` holds the whole window between the device read and
+        // this commit: the gesture derivation, a portal warp, a scripted
+        // substitution, the reset clear. A stage running after it would be
+        // shaping a frame that has already been committed — which under a
+        // rollback host means each peer deriving a flag from its own wall clock.
+        //
+        // ⚠ **EVERY host, not only the latching ones.** The latch decides the
+        // DESTINATION — fold and let the tick drain, or publish straight through
+        // — and the system asks for it as an `Option`. Gating the commit itself
+        // on having a latch is how a frame-stepped composition would end up
+        // filling a raw table nothing ever reads.
+        app.add_systems(
+            Update,
+            commit_seat_raw_frames
+                .after(ambition_input::InputSet::Route)
+                .in_set(ambition_platformer2d_runtime::host_input::PrimarySlotInputCommit),
+        );
         // THE PUBLISHING HALF IS FIXED-TICK ONLY, and that asymmetry is the
         // point: under rollback the SESSION publishes input, from the frame
         // GGRS confirmed, so a host system writing `ControlFrame` and
@@ -216,14 +229,15 @@ impl Plugin for HostInputBindingsPlugin {
         // `ReadInputs` edge instead, which is where a rollback host asks.
         if app.sim_is_fixed_tick() {
             let sim = app.sim_schedule();
-            // ⚠ **still two systems, and only because their DESTINATIONS
-            // differ**: seat zero's latched frame lands in the global
-            // `ControlFrame` (which the shapers only it has still read), every
-            // other seat's in `SlotControls`. They read one table now, and
-            // collapsing the destination is D175's remaining work.
+            // ⭐ **ONE drain for every seat.** This was two systems because
+            // their destinations differed — seat zero's latched frame went to the
+            // global `ControlFrame`, which the shapers only it had still read.
+            // `SlotControls` is every seat's destination now, and the
+            // `ControlFrame` mirror is registered once in `player_schedule`,
+            // where a composition without this host still gets it.
             app.add_systems(
                 sim,
-                (publish_latched_control_frame, publish_latched_slot_controls)
+                publish_latched_slot_controls
                     .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput)
                     .before(ambition_input::InputSet::Route),
             );

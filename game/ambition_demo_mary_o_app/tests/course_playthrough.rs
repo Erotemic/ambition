@@ -381,10 +381,36 @@ fn settle_until_playable(app: &mut App) {
 /// again the ordering broke — a defect, not a composition to step around.
 #[track_caller]
 fn assert_scripted_input_reaches_the_sim(app: &mut App) {
-    step(app, move_x(1.0));
-    let arrived = app.world().resource::<ControlFrame>().axis_x > 0.5;
-    assert!(
-        arrived,
+    // ⛔⛔ **THIS USED TO ASSERT THE WRITER, NOT THE READER.** It stepped once
+    // and read `ControlFrame` — the resource the scripted stage writes directly
+    // — so it passed whether or not the simulation ever received the press,
+    // which is precisely the failure its own message describes. `ControlFrame`
+    // is seat zero's OUTPUT mirror since D175, so the same line finally measures
+    // what it claims.
+    //
+    // ⚠ **and arrival takes a TICK, not a frame.** On a fixed-tick host the sim
+    // schedule runs ahead of `Update` inside one `Main` pass, so a stick written
+    // in `Update` is committed on the following tick. That was always true; it
+    // was invisible while the check was reading the writer's own resource.
+    // ⚠ **a SHORT cap, and a neutral step on the way out.** Arrival is one
+    // tick; holding right until it happens must not walk her anywhere the run
+    // below then measures.
+    // ⚠ **AIM, not a direction, and that is the point of the probe.** The press
+    // has to be detectable on the far side without MOVING her: these fixtures
+    // walk an authored route measured in pixels, and a liveness check that holds
+    // right until the press arrives shifts every beat after it.
+    let probe = ControlFrame {
+        aim_x: 1.0,
+        ..ControlFrame::default()
+    };
+    for _ in 0..20 {
+        step(app, probe);
+        if app.world().resource::<ControlFrame>().aim_x > 0.5 {
+            step(app, ControlFrame::default());
+            return;
+        }
+    }
+    panic!(
         "a scripted press did not survive into the simulation, so the whole \
          playthrough would report a course nobody walked"
     );

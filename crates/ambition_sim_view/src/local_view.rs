@@ -215,34 +215,17 @@ pub struct ViewParticipant(pub ambition_characters::brain::PlayerSlot);
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct ResolvedViewSubject(pub Option<Entity>);
 
-/// **THE BODY DRIVING A SEAT**: the entity holding `DrivingParticipant(slot)`,
-/// resolved the same way `ControlledSubject` resolves the primary's.
-///
-/// ⛔ **one body drives one slot, and a second holder is a seat that was never
-/// retracted.** That is a control bug; picking one of them is not a repair, so
-/// this says so in a debug build rather than letting a camera quietly frame
-/// whichever body the query happened to yield first.
-fn body_driving_seat(
-    drivers: &bevy::prelude::Query<(Entity, &ambition_characters::brain::DrivingParticipant)>,
-    slot: ambition_characters::brain::PlayerSlot,
-) -> Option<Entity> {
-    let mut holders = drivers.iter().filter(|(_, driver)| driver.0 == slot);
-    let first = holders.next().map(|(entity, _)| entity);
-    debug_assert!(
-        holders.next().is_none(),
-        "more than one body carries DrivingParticipant({slot:?}) — a seat was \
-         never retracted, and presentation is not the layer that decides which \
-         of them a pane watches",
-    );
-    first
-}
-
 /// **RESOLVE EVERY VIEW'S SUBJECT, before anything frames one.**
 ///
 /// ⭐ **an explicitly NAMED body wins over a seat.** Both are legitimate and they
 /// answer different questions — *watch this thing* and *watch whoever drives
 /// this seat* — so a view carrying both is stating a deliberate override of its
 /// own default, which is what [`ViewSubject`] is for.
+///
+/// ⛔ **who drives a seat is asked through `control::body_driving_seat`**, not
+/// answered here. Presentation is not the layer that decides what a second
+/// holder of one slot means, and a private copy of that loop is how this system
+/// came to take the first one silently while calling it an error in a comment.
 pub fn resolve_view_subjects(
     mut views: bevy::prelude::Query<
         (
@@ -257,7 +240,12 @@ pub fn resolve_view_subjects(
     use bevy::prelude::DetectChangesMut as _;
     for (mut resolved, subject, participant) in &mut views {
         let next = subject.map(|subject| subject.0).or_else(|| {
-            participant.and_then(|participant| body_driving_seat(&drivers, participant.0))
+            participant.and_then(|participant| {
+                ambition_platformer2d_actor_monolith::control::body_driving_seat(
+                    &drivers,
+                    participant.0,
+                )
+            })
         });
         // ⚠ **`set_if_neq`, because a write every frame is a CHANGE every
         // frame.** A view whose subject has not moved must not look to a reader

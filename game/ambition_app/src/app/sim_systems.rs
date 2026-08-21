@@ -28,13 +28,13 @@
 use ambition_platformer2d::engine_core as ae;
 use bevy::prelude::*;
 
-use ambition_platformer2d::combat::feel::Platformer2dFeelTuningMonolith;
 use ambition_platformer2d::actors::time::time_control::ClockResetRequest;
 use ambition_platformer2d::actors::RoomTransitionCooldown;
+use ambition_platformer2d::combat::feel::Platformer2dFeelTuningMonolith;
 use ambition_platformer2d::combat::{ResetRoomFeaturesEvent, RoomResetReason};
 use ambition_platformer2d::engine_core::RoomGeometry;
-use ambition_platformer2d::input::ControlFrame;
 use ambition_platformer2d::sfx::SfxWriter;
+use ambition_platformer2d::sim::{PlayerSlot, SeatRawFrames};
 use ambition_platformer2d::vfx::VfxMessage;
 
 /// Detect a player-pressed reset (the Reset button / `controls.reset_pressed`)
@@ -45,7 +45,7 @@ use ambition_platformer2d::vfx::VfxMessage;
 /// still finish in their player-control/simulation call sites because those paths
 /// have already mutated the player and must complete cleanup immediately.
 ///
-/// This system clears `ControlFrame::reset_pressed` after handling it
+/// This system clears the primary seat's `reset_pressed` after handling it
 /// so the engine path inside `update_player_control_with_clusters`
 /// does not re-trigger a reset on the same frame. Writes sfx/vfx directly to
 /// `MessageWriter`s via local Vec buffers (the engine helper
@@ -54,7 +54,12 @@ use ambition_platformer2d::vfx::VfxMessage;
 /// Gated by `gameplay_allowed`: paused / dialogue modes don't process
 /// reset input.
 pub fn apply_player_reset_input_system(
-    mut control_frame: ResMut<ControlFrame>,
+    // ⚠ **the PRIMARY seat's raw frame, and it now says which seat** (D175).
+    // This read the global `ControlFrame`, where "the primary seat" was never
+    // stated — it was what that resource happened to mean. Reset belongs to the
+    // SESSION rather than to a seat, so the seat named here is the one whose
+    // button the shell listens to, not a limit on who may reset.
+    mut raw: ResMut<SeatRawFrames>,
     world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
     active_tuning: Res<ae::ActiveMovementTuning>,
     feel_tuning: Res<Platformer2dFeelTuningMonolith>,
@@ -81,7 +86,7 @@ pub fn apply_player_reset_input_system(
     // sanctioned PrimaryPlayer concern).
     mut slot_gestures: ResMut<ambition_platformer2d::actors::control::SlotInteractionState>,
 ) {
-    if !control_frame.reset_pressed {
+    if !raw.get(PlayerSlot::PRIMARY).reset_pressed {
         return;
     }
     let Ok((
@@ -100,7 +105,11 @@ pub fn apply_player_reset_input_system(
     // Clear the press immediately so the inline engine update in
     // `player_control_phase` doesn't trigger a redundant `player.reset_to`
     // followed by another sandbox-side reset later this frame.
-    control_frame.reset_pressed = false;
+    // ⛔ cleared BEFORE the commit, so the engine path inside
+    // `update_player_control_with_clusters` cannot re-trigger on the same frame.
+    raw.shape(PlayerSlot::PRIMARY, |frame| {
+        frame.reset_pressed = false;
+    });
 
     let mut clusters = cluster_item.as_clusters_mut();
     ambition_platformer2d::runtime::reset_sandbox(

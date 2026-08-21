@@ -655,17 +655,24 @@ pub fn drive_slot_frame(
         pending.set(slot.0 as usize, frame);
         return;
     }
-    // ⛔ **the last arm is the one asymmetry left**, and it is D175's remaining
-    // work rather than an oversight: under a fixed-tick host seat zero's input
-    // IS the global `ControlFrame`, because the portal, gesture, touch and
-    // scripted shapers all read that resource and no other seat has them.
-    if slot.0 == 0 {
-        if let Some(mut control) = world.get_resource_mut::<ControlFrame>() {
-            *control = frame;
-        }
-    } else if let Some(mut slots) =
-        world.get_resource_mut::<ambition_characters::brain::SlotControls>()
-    {
+    // ⭐ **ONE arm for every seat, and the `slot == 0` branch that stood here is
+    // the last of D175's third link.** It wrote the global `ControlFrame`,
+    // because that resource WAS seat zero's input. It is that seat's output
+    // mirror now, so writing it would deliver a press to nobody — the silent
+    // no-op this whole seam exists to prevent.
+    //
+    // ⚠ **BOTH surfaces, and that is the helper's whole contract.** A driver
+    // says *this seat is holding this frame* and must not have to know how the
+    // composition was assembled. The RAW row is what a shaping stage reads — a
+    // scripted reset has to reach the reset stage, a scripted stick the portal
+    // warp — and a composition that installs the shaping stages will overwrite
+    // the slot below with the shaped result anyway. A composition that installs
+    // NONE of them (the smallest headless fixture) has no commit either, so
+    // without the second write its press would sit in a table nothing drains.
+    if let Some(mut raw) = world.get_resource_mut::<ambition_characters::brain::SeatRawFrames>() {
+        raw.set(slot, frame);
+    }
+    if let Some(mut slots) = world.get_resource_mut::<ambition_characters::brain::SlotControls>() {
         slots.set(slot, frame);
     }
 }
@@ -854,32 +861,39 @@ fn publish_local_inputs(
 
 /// Publish the session's confirmed inputs into what the simulation reads.
 ///
-/// Handle 0 becomes [`ControlFrame`], the primary seat's. Handles 1.. become
-/// `SlotControls[handle]`, which is where `tick_controlled_brains` already looks for
-/// a secondary seat — so a rewind replays every seat's input, not just the
-/// first (queue Y1).
+/// Every handle becomes `SlotControls[handle]`, which is where
+/// `tick_controlled_brains` looks for the body driving that seat — so a rewind
+/// replays every seat's input, not just the first (queue Y1).
 ///
 /// ⚠ this is what puts seats 1.. INSIDE rollback. Before it they were written
 /// on the feel clock by the host's own input path and GGRS never saw them: a
 /// resimulated frame replayed seat zero faithfully and gave every other seat
 /// whatever the device happened to be doing at replay time.
+///
+/// ⭐ **the `handle == 0` branch is gone (D175).** It wrote seat zero into the
+/// global [`ControlFrame`] and `continue`d, because that resource was the input
+/// bus every shaping stage read — which is why only seat zero had shaping stages.
+/// Every seat lands in one table now, and `ControlFrame` is written after the
+/// loop as what it has become: a MIRROR of what seat zero received, for the
+/// trace codec, the harness's action encoder, and the wrong-seam diagnostic.
 fn publish_ggrs_input(
     inputs: Res<PlayerInputs<AmbitionGgrsConfig>>,
     mut control: ResMut<ControlFrame>,
     mut slots: Option<ResMut<ambition_characters::brain::SlotControls>>,
 ) {
     for (handle, (input, _)) in inputs.iter().enumerate() {
-        if handle == 0 {
-            *control = *input;
-            continue;
-        }
         if let Some(slots) = slots.as_deref_mut() {
             slots.set(ambition_characters::brain::PlayerSlot(handle as u8), *input);
         }
     }
-    if inputs.is_empty() {
-        *control = ControlFrame::default();
-    }
+    // ⚠ **from the table, not from `inputs[0]`** — so the mirror cannot disagree
+    // with the seat, including in the empty-session case where nobody published
+    // anything and neutral is the honest answer.
+    *control = slots
+        .as_deref()
+        .map(|slots| slots.get(ambition_characters::brain::PlayerSlot::PRIMARY))
+        .filter(|_| !inputs.is_empty())
+        .unwrap_or_default();
 }
 
 /// Publish the FACT "this frame number has been simulated before".
@@ -1062,12 +1076,41 @@ mod tests {
             ..Default::default()
         };
 
-        // A driver with no device under a fixed-tick host: `ControlFrame` IS the
-        // input the sim reads.
+        // A driver with no device and no latch: the press lands in the tables
+        // the sim reads.
+        //
+        // ⛔⛔ **THIS ARM USED TO ASSERT `ControlFrame`, and that contract is
+        // gone.** It said *"`ControlFrame` IS the input the sim reads"* under a
+        // fixed-tick host — true while that resource was the input bus, which is
+        // exactly what made every shaping stage seat zero's (D175). It is seat
+        // zero's OUTPUT mirror now, on every host, so a driver writing it would
+        // be doing the silent no-op the arm below already forbids for GGRS.
         let mut fixed = World::new();
         fixed.insert_resource(ControlFrame::default());
+        fixed.insert_resource(ambition_characters::brain::SeatRawFrames::default());
+        fixed.insert_resource(ambition_characters::brain::SlotControls::default());
         drive_control_frame(&mut fixed, pressed);
-        assert_eq!(fixed.resource::<ControlFrame>().axis_x, 1.0);
+        assert_eq!(
+            fixed
+                .resource::<ambition_characters::brain::SeatRawFrames>()
+                .get(ambition_characters::brain::PlayerSlot::PRIMARY)
+                .axis_x,
+            1.0,
+            "the raw row is where a shaping stage would see the press"
+        );
+        assert_eq!(
+            fixed
+                .resource::<ambition_characters::brain::SlotControls>()
+                .get(ambition_characters::brain::PlayerSlot::PRIMARY)
+                .axis_x,
+            1.0,
+            "and the slot is where a composition with no shaping stages reads it"
+        );
+        assert_eq!(
+            fixed.resource::<ControlFrame>().axis_x,
+            0.0,
+            "a driver must not write the output mirror on ANY host"
+        );
 
         // The same driver under GGRS. `ControlFrame` is an OUTPUT there —
         // `publish_ggrs_input` overwrites it from the session's confirmed inputs

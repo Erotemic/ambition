@@ -5,7 +5,12 @@
 
 use super::*;
 use ambition_platformer2d::input::ControlFrame;
+// ⛔ **presses go through the SEAM, not at the resource.** `ControlFrame` is
+// seat zero's OUTPUT mirror since D175; assigning it delivers a press to nobody
+// and a fixture doing so asserts its way to a green run against a simulation
+// that never received an input.
 use ambition_platformer2d::sfx::SfxMessage;
+use ambition_platformer2d::sim::drive_control_frame;
 use bevy::ecs::message::Messages;
 
 /// ⭐ **K2b edit 2: the ONE composition, shell and all.**
@@ -70,10 +75,13 @@ fn sim_emits_sfx_reset_when_control_frame_requests_reset() {
     let mut app = initialized_sandbox_sim_app();
 
     // Inject a "press reset" frame on the sim/presentation input seam.
-    *app.world_mut().resource_mut::<ControlFrame>() = ControlFrame {
-        reset_pressed: true,
-        ..ControlFrame::default()
-    };
+    drive_control_frame(
+        app.world_mut(),
+        ControlFrame {
+            reset_pressed: true,
+            ..ControlFrame::default()
+        },
+    );
 
     app.update();
 
@@ -152,10 +160,13 @@ fn sim_accumulates_messages_across_repeated_attacks() {
     let mut app = initialized_sandbox_sim_app();
     for i in 0..20 {
         let attack = i % 2 == 0;
-        *app.world_mut().resource_mut::<ControlFrame>() = ControlFrame {
-            attack_pressed: attack,
-            ..ControlFrame::default()
-        };
+        drive_control_frame(
+            app.world_mut(),
+            ControlFrame {
+                attack_pressed: attack,
+                ..ControlFrame::default()
+            },
+        );
         app.update();
     }
     let counter = app.world().resource::<BrainActionCounter>();
@@ -213,10 +224,13 @@ fn sim_emits_action_messages_when_player_attacks() {
     use ambition_platformer2d::characters::brain::{ActorActionMessage, BrainActionCounter};
     let mut app = initialized_sandbox_sim_app();
     // Stamp an attack press into the control frame.
-    *app.world_mut().resource_mut::<ControlFrame>() = ControlFrame {
-        attack_pressed: true,
-        ..ControlFrame::default()
-    };
+    drive_control_frame(
+        app.world_mut(),
+        ControlFrame {
+            attack_pressed: true,
+            ..ControlFrame::default()
+        },
+    );
     app.update();
     let counter = app.world().resource::<BrainActionCounter>();
     let messages = app.world().resource::<Messages<ActorActionMessage>>();

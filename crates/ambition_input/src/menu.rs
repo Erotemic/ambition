@@ -126,6 +126,29 @@ pub struct MenuControlFrame {
     /// Positive values mean “navigate/scroll up”, negative values mean
     /// “navigate/scroll down”. Mouse wheels and touch drags both add here.
     pub scroll_y: f32,
+    /// **HELD navigation, in SCREEN space: `+x` right, `+y` DOWN.**
+    ///
+    /// ⭐ **the one non-edge direction on this frame, and it exists because a
+    /// FREE cursor cannot be built from edges.** Every other direction here is
+    /// a just-pressed edge with repeat, which is exactly right for walking a
+    /// list and unusable for a pointer: integrating an edge gives a cursor that
+    /// jumps one step per tap and cannot be steered. A character select screen
+    /// that wants Smash's roaming hand needs the stick's actual deflection, so
+    /// this carries it.
+    ///
+    /// ⚠ **screen space, not stick space** — `+y` is DOWN, matching the
+    /// rectangles a UI hit-tests against and deliberately NOT matching
+    /// [`Self::scroll_y`] one field up, whose positive is up. Two conventions
+    /// on one struct is a real cost; the alternative was every consumer
+    /// flipping a sign at the point of use, which is where sign errors live.
+    ///
+    /// ⚠ **magnitude is meaningful.** A keyboard or d-pad reports a unit vector
+    /// while a stick reports its deflection, so a consumer gets analog speed
+    /// for free and must not re-normalise.
+    ///
+    /// `Vec2::ZERO` when nothing is held, which is the resting state and not a
+    /// missing reading.
+    pub nav: Vec2,
 }
 
 impl MenuControlFrame {

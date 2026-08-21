@@ -50,7 +50,7 @@ use bevy::prelude::*;
 
 use crate::select::{SlotOccupant, SlotPick, SmashRoster, SmashSelect, MAX_SMASH_SEATS};
 use cursor::{CursorTarget, HitRect, SelectCursor};
-use layout::{SelectLayout, CURSOR_PX, TOKEN_PX};
+use layout::SelectLayout;
 
 /// The screen's UI root. One marker, so teardown is `despawn` on a query
 /// filtered by THIS owner rather than a sweep of every node — a shared marker's
@@ -75,6 +75,11 @@ pub enum SelectTarget {
     Start,
     /// Leave the lobby — see [`LeaveRequested`].
     Back,
+    /// Turn the grid back a page. Only present when the roster needs more than
+    /// one — see [`SelectLayout::pages`].
+    PagePrev,
+    /// Turn the grid on a page.
+    PageNext,
 }
 
 /// **Which rectangle in the layout a node wears.**
@@ -413,8 +418,38 @@ pub fn exit_leads_somewhere(
 }
 
 /// The layout this frame, from the window if there is one.
-pub fn current_layout(windows: &Query<&Window>, fighters: &SmashRoster) -> SelectLayout {
-    SelectLayout::for_viewport(viewport(windows), fighters.cell_count())
+/// **How much of the screen's WIDTH a fully deflected stick crosses per second.**
+///
+/// ⚠ a fraction rather than a pixel rate, so the cursor takes the same TIME to
+/// cross a phone and a monitor. `1.15` puts a corner-to-corner sweep just under
+/// a second on a 16:9 screen, which is about where Smash's own cursor sits.
+const CURSOR_SPEED_PER_SECOND: f32 = 1.15;
+
+/// **Which page of the grid is showing.**
+///
+/// ⭐ a resource rather than a field on [`SelectLayout`], because the layout is
+/// a pure function of the viewport and must stay one — the page is a DECISION
+/// somebody made, and the layout is where things are. Persisting it here also
+/// means a window resize that re-pages the grid does not lose which page the
+/// player was on.
+///
+/// ⚠ **clamped by the layout, not here.** `SelectLayout::paged` takes whatever
+/// this holds and pins it into range, so a resize from a phone to a monitor
+/// (three pages down to one) shows page 0 rather than an empty grid, and this
+/// resource never has to know the roster size.
+#[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct SelectPage(pub usize);
+
+pub fn current_layout(
+    windows: &Query<&Window>,
+    fighters: &SmashRoster,
+    page: &SelectPage,
+) -> SelectLayout {
+    SelectLayout::paged(
+        viewport(windows).unwrap_or(layout::HEADLESS_VIEWPORT),
+        fighters.cell_count(),
+        page.0,
+    )
 }
 
 /// Build the screen.
@@ -790,8 +825,8 @@ pub fn spawn_select_screen(
                         position_type: PositionType::Absolute,
                         left: Val::Px(-999.0),
                         top: Val::Px(-999.0),
-                        width: Val::Px(TOKEN_PX),
-                        height: Val::Px(TOKEN_PX),
+                        width: Val::Px(layout::TOKEN_PX),
+                        height: Val::Px(layout::TOKEN_PX),
                         border: UiRect::all(Val::Px(3.0)),
                         border_radius: BorderRadius::MAX,
                         ..default()
@@ -809,8 +844,8 @@ pub fn spawn_select_screen(
                     position_type: PositionType::Absolute,
                     left: Val::Px(-999.0),
                     top: Val::Px(-999.0),
-                    width: Val::Px(CURSOR_PX),
-                    height: Val::Px(CURSOR_PX),
+                    width: Val::Px(layout::CURSOR_PX),
+                    height: Val::Px(layout::CURSOR_PX),
                     border: UiRect::all(Val::Px(3.0)),
                     border_radius: BorderRadius::MAX,
                     ..default()
@@ -854,10 +889,14 @@ pub fn drive_the_cursor(
     // whose HOME is this very screen has no "out", and a cursor that snapped to
     // an exit nobody drew would be a stop on empty air.
     host: Option<Res<ambition_platformer2d::game_shell::ShellHostConfiguration>>,
+    // ⚠ paired for the same reason `update_the_select_screen`'s are: this
+    // system is at Bevy's parameter ceiling and a free cursor needs a clock.
+    paging: (ResMut<SelectPage>, Res<Time>),
     mut last_mouse: Local<Option<Vec2>>,
     mut driving_finger: Local<Option<u64>>,
 ) {
-    let layout = current_layout(&windows, &fighters);
+    let (mut page, time) = paging;
+    let layout = current_layout(&windows, &fighters, &page);
     let exit = exit_leads_somewhere(host.as_deref());
     // ⭐ **the LAYOUT says where things are; the SCREEN says what is
     // REACHABLE.** Same split `token_rect` already makes for an absent slot's
@@ -960,6 +999,9 @@ pub fn drive_the_cursor(
     // the global frame is included because a keyboard on a route that declared
     // no seats still reports there.
     let mut direction = Vec2::ZERO;
+    let mut nav = Vec2::ZERO;
+    let mut page_back = false;
+    let mut page_forward = false;
     let mut clicked = false;
     let mut back = false;
     let mut back_out = false;
@@ -985,8 +1027,23 @@ pub fn drive_the_cursor(
         if frame.down {
             direction.y += 1.0;
         }
+        // ⚠ **the LARGEST deflection wins rather than the sum.** Four seats
+        // share one cursor here (they get their own in a later pass), and
+        // adding two half-pushed sticks would make two people pushing gently
+        // in the same direction faster than either of them alone.
+        if frame.nav.length_squared() > nav.length_squared() {
+            nav = frame.nav;
+        }
         clicked |= frame.select;
         back |= frame.back;
+        // **THE BUMPERS TURN THE PAGE**, which is what `page_left`/`page_right`
+        // are FOR — `MenuControlFrame` carries them as a direct "turn the page"
+        // intent, independent of cursor navigation, and the 3D inventory cube
+        // is their other consumer. A paged grid that could only be turned by
+        // walking the cursor onto a button would be a d-pad screen with a
+        // mouse's affordance.
+        page_back |= frame.page_left;
+        page_forward |= frame.page_right;
         // ⛔⛔ **ESCAPE IS BOTH `Start` AND `MenuBack`** — one key, two semantic
         // actions, and `presets.rs` binds it to both on purpose (`rebind.rs`
         // documents it and tests it). The shell's pause menu opens on `start`
@@ -1005,12 +1062,46 @@ pub fn drive_the_cursor(
         // `all_capabilities`), and the frame already carries the fact.
         back_out |= frame.back && !frame.start;
     }
-    if direction != Vec2::ZERO {
+    // **A HELD STICK ROAMS; A TAP STILL SNAPS.**
+    //
+    // ⭐ **both, and in this order.** Smash's cursor is a hand you steer, and
+    // that is what `nav` buys — but the snap is not a compromise this replaces:
+    // it is what keeps every stop on something clickable and the whole screen
+    // reachable in a bounded number of presses, which a d-pad and a keyboard
+    // still need. A stick held gives continuous motion; a tap that produces an
+    // edge with no deflection behind it (a d-pad, an arrow key, a stick flicked
+    // and released inside one frame) falls through to the snap it always had.
+    //
+    // ⚠ **the speed is a fraction of the VIEWPORT, not a pixel constant.** A
+    // cursor that crosses a monitor in a second crawls across a phone at the
+    // same px/s, and the screen it is crossing is the thing that changed.
+    if nav != Vec2::ZERO {
+        let dt = time.delta_secs();
+        let travel = nav * layout.viewport.x * CURSOR_SPEED_PER_SECOND * dt;
+        let roamed = pointer.position + travel;
+        pointer.move_to(Vec2::new(
+            roamed.x.clamp(0.0, layout.viewport.x),
+            roamed.y.clamp(0.0, layout.viewport.y),
+        ));
+    } else if direction != Vec2::ZERO {
         if let Some(entity) = cursor::snap(pointer.position, direction, &rects) {
             if let Some(target) = rects.iter().find(|target| target.entity == entity) {
                 pointer.move_to(target.rect.center());
             }
         }
+    }
+
+    // ── the page ─────────────────────────────────────────────────────────
+    // ⚠ **clamped against the LAYOUT's count, not against a remembered one.**
+    // How many pages exist is a fact about the viewport and the roster, and the
+    // layout is the one thing that derives it; a page number that outran a
+    // resize would show an empty grid until somebody pressed something.
+    let last_page = layout.pages.saturating_sub(1);
+    if page_back {
+        page.0 = page.0.saturating_sub(1);
+    }
+    if page_forward {
+        page.0 = (page.0 + 1).min(last_page);
     }
 
     // ── clicks ───────────────────────────────────────────────────────────
@@ -1071,12 +1162,32 @@ pub fn drive_the_cursor(
         // chose, and a press there means "pick this up", not "choose this
         // again". Its resting home is in the target list; where it currently
         // sits is the decision's answer, not the layout's.
+        // ⚠ **the TOUCH rect, not the drawn one.** A token is drawn as small as
+        // 20px on a phone so it does not cover the face it sits on; asking the
+        // drawn circle whether a thumb hit it would make the token the one
+        // thing on this screen you cannot pick up. `touchable` grows it to the
+        // floor about its own centre and leaves a desktop-sized one alone.
         let on_token = (0..MAX_SMASH_SEATS).find(|slot| {
-            token_rect(&layout, &select, *slot).is_some_and(|rect| rect.contains(pointer.position))
+            token_rect(&layout, &select, *slot)
+                .map(SelectLayout::touchable)
+                .is_some_and(|rect| rect.contains(pointer.position))
         });
         match (pointer.carrying, on_token, over) {
-            // Picking up.
+            // Picking up. ⚠ **before the page arrows below**, so a token that
+            // overlaps one on a narrow pool is still the thing you grabbed.
             (None, Some(slot), _) => pointer.grab(slot),
+            // **TURNING THE PAGE IS LEGAL WITH A TOKEN IN HAND**, and it has to
+            // be: the fighter you are carrying it to may be on another page,
+            // and having to put the token down to go looking would make a paged
+            // grid worse than an unpaged one. ⚠ therefore ABOVE the
+            // "anything else with something in hand puts it back" arm, which
+            // would otherwise swallow the press.
+            (_, _, Some(SelectTarget::PagePrev)) => {
+                page.0 = page.0.saturating_sub(1);
+            }
+            (_, _, Some(SelectTarget::PageNext)) => {
+                page.0 = (page.0 + 1).min(last_page);
+            }
             // Placing.
             // ⚠ a CELL, not a fighter index. `SmashRoster::cell` is the one
             // place that knows the grid's last square is RANDOM; a click that
@@ -1149,7 +1260,7 @@ pub fn token_rect(layout: &SelectLayout, select: &SmashSelect, slot: usize) -> O
         .and_then(SlotPick::fighter)
         .and_then(|index| layout.portrait(index))
     {
-        Some(cell) => Some(token_rect_over(cell, slot)),
+        Some(cell) => Some(token_rect_over(layout, cell, slot)),
         None => Some(layout.token_home(slot)),
     }
 }
@@ -1158,22 +1269,24 @@ pub fn token_rect(layout: &SelectLayout, select: &SmashSelect, slot: usize) -> O
 ///
 /// Offset per slot so two players who chose the same fighter are both visible;
 /// two on one character is legal, and a stack of one would read as a lost token.
-fn token_rect_over(cell: HitRect, slot: usize) -> HitRect {
-    let spread = TOKEN_PX * 0.62;
+fn token_rect_over(layout: &SelectLayout, cell: HitRect, slot: usize) -> HitRect {
+    let token = layout.token_px();
+    let spread = token * 0.62;
     let offset = Vec2::new(
         (slot as f32 - 1.5) * spread,
-        cell.size().y * 0.5 - TOKEN_PX * 0.9,
+        cell.size().y * 0.5 - token * 0.9,
     );
-    HitRect::from_center_size(cell.center() + offset, Vec2::splat(TOKEN_PX))
+    HitRect::from_center_size(cell.center() + offset, Vec2::splat(token))
 }
 
 /// **Put every anchored node where the layout says it goes.**
 pub fn place_the_screen(
     fighters: Res<SmashRoster>,
+    page: Res<SelectPage>,
     windows: Query<&Window>,
     mut nodes: Query<(&Anchored, &mut Node)>,
 ) {
-    let layout = current_layout(&windows, &fighters);
+    let layout = current_layout(&windows, &fighters, &page);
     for (anchor, mut node) in &mut nodes {
         let rect = match *anchor {
             Anchored::Title => Some(layout.title()),
@@ -1199,7 +1312,11 @@ pub fn place_the_screen(
 pub fn update_the_select_screen(
     select: Res<SmashSelect>,
     pointer: Res<SelectCursor>,
-    fighters: Res<SmashRoster>,
+    // ⚠ **PAIRED, because this system sits at Bevy's 16-param ceiling** and the
+    // note on `lobby_facts` below says a further resource is a compile error
+    // rather than a style choice. These two belong together anyway: the roster
+    // is what the grid shows and the page is which part of it.
+    grid: (Res<SmashRoster>, Res<SelectPage>),
     // **THE ENGINE'S REFUSAL, if it has one.** See the prompt below: this is the
     // only surface in the product that can say a decided roster could not be
     // built, and until it read this the answer to that was an empty stage.
@@ -1256,8 +1373,9 @@ pub fn update_the_select_screen(
     mut cursor_node: Query<&mut Node, (With<CursorNode>, Without<SlotToken>)>,
 ) {
     let (refusal, devices, assignment) = lobby_facts;
+    let (fighters, page) = grid;
     let catalog = Some(&*art.catalog);
-    let layout = current_layout(&windows, &fighters);
+    let layout = current_layout(&windows, &fighters, &page);
 
     // A cell wears the colour of whoever chose it, so the grid answers "who
     // took Sanic" without reading four cards.
@@ -1402,7 +1520,7 @@ pub fn update_the_select_screen(
         };
         set_visibility(&mut visibility, Visibility::Inherited);
         let rect = if pointer.carrying == Some(token.0) {
-            HitRect::from_center_size(pointer.position, Vec2::splat(TOKEN_PX))
+            HitRect::from_center_size(pointer.position, Vec2::splat(layout.token_px()))
         } else {
             resting
         };
@@ -1424,7 +1542,7 @@ pub fn update_the_select_screen(
         };
         set_rect(
             &mut node,
-            HitRect::from_center_size(at, Vec2::splat(CURSOR_PX)),
+            HitRect::from_center_size(at, Vec2::splat(layout.cursor_px())),
         );
     }
 }
@@ -1479,11 +1597,89 @@ mod touch_tests {
         app.init_resource::<SelectCursor>();
         app.init_resource::<StartRequested>();
         app.init_resource::<LeaveRequested>();
+        app.init_resource::<SelectPage>();
+        // See the note in `lib.rs`'s fixture: the cursor integrates a clock.
+        app.init_resource::<Time>();
         app.init_resource::<Touches>();
         app.add_message::<TouchInput>();
         app.add_systems(PreUpdate, bevy::input::touch::touch_screen_input_system);
         app.add_systems(Update, drive_the_cursor);
         app
+    }
+
+    /// **A HELD STICK ROAMS; IT DOES NOT SNAP.**
+    ///
+    /// ⭐ the whole point of `MenuControlFrame::nav`, and the thing a d-pad
+    /// cannot express: the cursor lands wherever the stick left it, which will
+    /// almost never be a target's centre. ⚠ asserting only "it moved" would
+    /// pass on the old snapping cursor too — a snap moves it a long way, to a
+    /// centre. So this checks BOTH: it travelled, and it did not arrive
+    /// anywhere in particular.
+    #[test]
+    fn a_held_stick_roams_the_cursor_instead_of_snapping_to_a_target() {
+        let mut app = screen();
+        app.init_resource::<ambition_platformer2d::input::MenuControlFrame>();
+        app.update();
+
+        let start = app.world().resource::<SelectCursor>().position;
+        // A tenth of a second of full-right deflection.
+        app.world_mut()
+            .resource_mut::<ambition_platformer2d::input::MenuControlFrame>()
+            .nav = Vec2::X;
+        let step = std::time::Duration::from_millis(100);
+        app.world_mut().resource_mut::<Time>().advance_by(step);
+        app.update();
+
+        let moved = app.world().resource::<SelectCursor>().position;
+        assert!(
+            moved.x > start.x,
+            "a held stick left the cursor at {moved:?}, where it started"
+        );
+        assert!(
+            (moved.y - start.y).abs() < 0.001,
+            "pushing sideways moved the cursor vertically, to {moved:?}"
+        );
+
+        let layout = headless_layout();
+        let landed_on_a_centre = layout
+            .targets()
+            .into_iter()
+            .any(|(_, rect)| rect.center().distance(moved) < 0.5);
+        assert!(
+            !landed_on_a_centre,
+            "the cursor snapped to a target centre at {moved:?} instead of roaming"
+        );
+    }
+
+    /// **AND IT KEEPS GOING WHILE THE STICK IS HELD**, which is the half an
+    /// edge-driven cursor could never do: a second frame of the same press
+    /// travels as far again, rather than waiting for a repeat timer.
+    #[test]
+    fn a_stick_held_for_two_frames_travels_twice_as_far() {
+        let mut app = screen();
+        app.init_resource::<ambition_platformer2d::input::MenuControlFrame>();
+        app.update();
+        app.world_mut()
+            .resource_mut::<ambition_platformer2d::input::MenuControlFrame>()
+            .nav = Vec2::X;
+
+        let step = std::time::Duration::from_millis(50);
+        let start = app.world().resource::<SelectCursor>().position.x;
+        app.world_mut().resource_mut::<Time>().advance_by(step);
+        app.update();
+        let after_one = app.world().resource::<SelectCursor>().position.x;
+        app.world_mut().resource_mut::<Time>().advance_by(step);
+        app.update();
+        let after_two = app.world().resource::<SelectCursor>().position.x;
+
+        let first = after_one - start;
+        let second = after_two - after_one;
+        assert!(first > 0.0, "the first frame did not move the cursor");
+        assert!(
+            (second - first).abs() < first * 0.05,
+            "two equal frames travelled {first} then {second} — the cursor is \
+             not integrating a held stick"
+        );
     }
 
     fn finger(app: &mut App, id: u64, phase: TouchPhase, at: Vec2) {

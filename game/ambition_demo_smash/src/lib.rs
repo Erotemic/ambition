@@ -1624,6 +1624,7 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
         // that carried a screen position would change every time somebody moved
         // the mouse.
         app.init_resource::<select_screen::cursor::SelectCursor>();
+        app.init_resource::<select_screen::SelectPage>();
         app.init_resource::<select_screen::StartRequested>();
         app.init_resource::<select_screen::LeaveRequested>();
         // **THE ROSTER IS A COMPOSITION FACT, so it is resolved once, late.**
@@ -1811,7 +1812,15 @@ fn present_the_select_screen(
     // separate lifetime: the policy is held across both smash routes, the offer
     // only while the select screen is up.
     mut claimed_seats: bevy::prelude::Local<bool>,
-    mut pointer: bevy::prelude::ResMut<select_screen::cursor::SelectCursor>,
+    // ⚠ **ONE parameter, two resources**, for the same reason `art` below is
+    // one and not four: this system is at Bevy's parameter tuple ceiling and a
+    // separate `page` argument put it over. The pair belongs together anyway —
+    // both answer "where is this screen being LOOKED at", neither is part of
+    // what it decided.
+    mut viewing: (
+        bevy::prelude::ResMut<select_screen::cursor::SelectCursor>,
+        bevy::prelude::ResMut<select_screen::SelectPage>,
+    ),
     mut start: bevy::prelude::ResMut<select_screen::StartRequested>,
     fighters: bevy::prelude::Res<select::SmashRoster>,
     // ⚠ ONE parameter, not four. See `select_screen::ScreenArt` — four separate
@@ -1924,7 +1933,11 @@ fn present_the_select_screen(
             // left true re-publishes the roster on the frame the screen opens,
             // which is the same "you could look at it and never leave" bug the
             // paragraph above is about, in a second resource.
-            *pointer = select_screen::cursor::SelectCursor::default();
+            *viewing.0 = select_screen::cursor::SelectCursor::default();
+            // ⚠ **and the PAGE**, for the same reason: a lobby re-entered on
+            // page two would open on a grid whose first cell is not the
+            // roster's first, which reads as a different roster.
+            *viewing.1 = select_screen::SelectPage::default();
             *start = select_screen::StartRequested::default();
             // THIS demo's roster. Another stage in the same host publishes its
             // own into the same global resource, and clearing "the roster" is
@@ -2451,6 +2464,7 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
                 // lobby would ask the NEXT experience's first frame to quit.
                 .resetting::<select_screen::LeaveRequested>()
                 .resetting::<select_screen::cursor::SelectCursor>()
+                .resetting::<select_screen::SelectPage>()
                 .releasing_with("SessionSeatingSource", |world, owner| {
                     if let Some(mut seating) = world.get_resource_mut::<
                         ambition_platformer2d::input::SessionSeatingSource,
@@ -3583,6 +3597,13 @@ mod pause_arbitration_tests {
         app.init_resource::<select::SmashSelect>();
         app.init_resource::<ambition_platformer2d::game_shell::ShellRouter>();
         app.init_resource::<select_screen::cursor::SelectCursor>();
+        app.init_resource::<select_screen::SelectPage>();
+        // ⚠ **the CLOCK, because the cursor roams now.** `drive_the_cursor`
+        // integrates a held stick against `Time`, so a hand-built app without
+        // one fails validation on a resource rather than on anything this test
+        // is about. A real composition always has `TimePlugin`; a fixture has
+        // exactly what it says.
+        app.init_resource::<Time>();
         app.init_resource::<select_screen::StartRequested>();
         app.init_resource::<select_screen::LeaveRequested>();
         app.add_message::<ambition_platformer2d::game_shell::ShellCommand>();

@@ -21,7 +21,7 @@ use bevy::prelude::*;
 
 use crate::projectile::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
 #[cfg(test)]
-use crate::time::feel::Platformer2dFeelTuningMonolith;
+use ambition_combat::feel::Platformer2dFeelTuningMonolith;
 use ambition_characters::brain::{
     action_set::{ActionRequest, ProjectileFlight},
     ActorActionMessage,

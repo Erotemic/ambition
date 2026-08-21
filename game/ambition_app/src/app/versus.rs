@@ -1128,7 +1128,7 @@ fn declare_versus_experience_scope(app: &mut App) {
 #[cfg(test)]
 mod stage_rule_tests {
     use super::*;
-    use ambition_platformer2d::actors::time::feel::Platformer2dFeelTuningMonolith;
+    use ambition_platformer2d::combat::feel::Platformer2dFeelTuningMonolith;
 
     fn stage_rule_app() -> App {
         let mut app = App::new();

@@ -15,7 +15,7 @@
 // pair, or neither.
 use ambition_platformer2d::actors::assets::loading;
 use ambition_platformer2d::actors::rooms;
-use ambition_platformer2d::actors::time::feel::Platformer2dFeelTuningMonolith;
+use ambition_platformer2d::combat::feel::Platformer2dFeelTuningMonolith;
 #[cfg(feature = "physics_debris")]
 use ambition_platformer2d::actors::world::physics;
 #[cfg(feature = "physics_debris")]

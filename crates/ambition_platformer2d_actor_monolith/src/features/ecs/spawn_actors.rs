@@ -1024,7 +1024,7 @@ pub(crate) fn spawn_boss_with_overrides_into(
         boss_catalog.sheet_for_key(&boss_sheet_key),
     );
     let combat_tuning =
-        crate::time::feel::Platformer2dFeelTuningMonolith::default().feature_combat_tuning();
+        ambition_combat::feel::Platformer2dFeelTuningMonolith::default().feature_combat_tuning();
     let cycle_attack_active = boss
         .config
         .behavior

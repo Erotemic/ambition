@@ -14,7 +14,7 @@ use bevy::prelude::{Commands, Entity, MessageWriter, Query, Res, ResMut, With};
 
 use ambition_platformer2d_actor_monolith::platformer_runtime::lifecycle::RoomResident;
 use ambition_platformer2d_actor_monolith::rooms;
-use ambition_platformer2d_actor_monolith::time::feel::Platformer2dFeelTuningMonolith;
+use ambition_combat::feel::Platformer2dFeelTuningMonolith;
 use ambition_platformer2d_actor_monolith::time::time_control::ClockResetRequest;
 use ambition_platformer2d_actor_monolith::world::physics;
 use ambition_platformer2d_core::{self as ae, AabbExt, RoomGeometry};

@@ -2,7 +2,8 @@
 //! per-entity proper-time scale, and game-feel tuning. Camera ease/shake
 //! vocabulary lives in `ambition_platformer2d_shared_tangle::camera_ease`.
 
-pub mod feel;
+// ✔ `feel` moved to `ambition_combat::feel` 2026-08-21 (D33) and the
+// re-export shim is DELETED: consumers name the owning crate directly.
 pub mod time_control;
 pub mod world_time;
 

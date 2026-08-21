@@ -23,7 +23,7 @@ use crate::combat::BodyMelee;
 use crate::combat::{AttackIntent, AttackView};
 
 use crate::physics;
-use crate::time::feel::Platformer2dFeelTuningMonolith;
+use ambition_combat::feel::Platformer2dFeelTuningMonolith;
 use ambition_sfx::SfxMessage;
 
 /// Build the engine's `InputState` purely from `ActorControl` —
@@ -318,7 +318,7 @@ mod tests {
     /// consumes — including the edge-granular post-hit stagger gates.
     #[test]
     fn ai_body_movement_routes_through_action_edges_and_gates() {
-        use crate::time::feel::Platformer2dFeelTuningMonolith;
+        use ambition_combat::feel::Platformer2dFeelTuningMonolith;
         use ambition_characters::actor::control::ActorControlFrame;
         let dt = 1.0 / 60.0;
 

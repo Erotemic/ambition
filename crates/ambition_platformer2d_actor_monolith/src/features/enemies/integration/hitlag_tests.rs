@@ -94,7 +94,7 @@ fn walk_distance_with_hitstop(hitstop: f32, ticks: u32) -> f32 {
             frame,
             &mut model,
             ae::MotionFrame::from_direction(ae::Vec2::new(0.0, 1.0), ae::GRAVITY),
-            crate::time::feel::Platformer2dFeelTuningMonolith::default(),
+            ambition_combat::feel::Platformer2dFeelTuningMonolith::default(),
             None,
             &combat,
             ae::BodyContactField::NONE,

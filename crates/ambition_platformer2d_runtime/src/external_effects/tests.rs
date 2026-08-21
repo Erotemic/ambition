@@ -323,7 +323,7 @@ mod camera_shake {
     use super::*;
     use ambition_characters::actor::BodyCombat;
     use ambition_platformer2d_actor_monolith::features::ecs::shake_camera_on_landed_hits;
-    use ambition_platformer2d_actor_monolith::time::feel::Platformer2dFeelTuningMonolith;
+    use ambition_combat::feel::Platformer2dFeelTuningMonolith;
     use ambition_platformer2d_shared_tangle::camera_ease::{
         apply_camera_shake_requests, CameraShakeRequest, CameraShakeState, CameraShakeTuning,
     };

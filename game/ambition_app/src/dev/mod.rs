@@ -89,7 +89,7 @@ fn install_debug_input_context(_app: &mut App) {}
 /// `EguiPlugin` first, hence the shared gate.
 #[cfg(feature = "dev_tools")]
 fn install_egui_inspectors(app: &mut App) {
-    use ambition_platformer2d::actors::time::feel::Platformer2dFeelTuningMonolith;
+    use ambition_platformer2d::combat::feel::Platformer2dFeelTuningMonolith;
     use ambition_platformer2d::dev_tools::dev_tools::{
         inspector_visible, world_inspector_visible, DeveloperTools, EditableAbilitySet,
         EditableMovementTuning, EditablePlayerStats,

@@ -252,7 +252,7 @@ pub fn apply_feature_hit_events(
     // Knockback feel for struck actors (§A2 step 6). `Option` so minimal
     // headless test worlds that don't stand up the tuning resource still run
     // (they get the default feel).
-    feel_tuning: Option<Res<crate::time::feel::Platformer2dFeelTuningMonolith>>,
+    feel_tuning: Option<Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>>,
     // AE6: the resolved match rules. `di_max_angle` is a rule of the match
     // being played, not world tuning, so it is folded into the local `feel`
     // below rather than written into the world's resource by a route.

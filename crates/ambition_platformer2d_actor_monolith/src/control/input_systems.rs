@@ -38,7 +38,7 @@ pub struct InputTimersAdvanced;
 /// `GameMode::Playing`. Writes `fast_fall_pressed` back to `Res<ControlFrame>`.
 pub fn input_timer_system(
     time: Res<Time>,
-    feel_tuning: Res<crate::time::feel::Platformer2dFeelTuningMonolith>,
+    feel_tuning: Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>,
     controlled: Option<Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>>,
     frames: Query<&crate::physics::ResolvedMotionFrame>,
     primary_q: Query<Entity, crate::actor::PrimaryPlayerOnly>,
@@ -155,7 +155,7 @@ pub struct InteractionInputBuffered;
 
 pub fn interaction_input_system(
     time: Res<Time>,
-    feel_tuning: Res<crate::time::feel::Platformer2dFeelTuningMonolith>,
+    feel_tuning: Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>,
     control_frame: Res<ControlFrame>,
     frames: Query<&crate::physics::ResolvedMotionFrame>,
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
@@ -257,7 +257,7 @@ mod interaction_suppression_tests {
     use super::*;
     use crate::actor::{PlayerEntity, PrimaryPlayer};
     use crate::control::SlotInteractionState;
-    use crate::time::feel::Platformer2dFeelTuningMonolith;
+    use ambition_combat::feel::Platformer2dFeelTuningMonolith;
     use ambition_characters::actor::BodyCombat;
 
     /// Build a minimal app with `interaction_input_system` and one primary

@@ -23,7 +23,7 @@ use crate::actor::BodyAnimFacts;
 use crate::actor::PrimaryPlayerOnly;
 use crate::avatar::PlayerSafetyState;
 use crate::combat::events::{GameplayBannerRequested, HitEvent as FeatureHitEvent, HitTarget};
-use crate::time::feel::Platformer2dFeelTuningMonolith;
+use ambition_combat::feel::Platformer2dFeelTuningMonolith;
 use crate::time::time_control::{ClockRequester, ClockResetRequest};
 use crate::{
     remember_safe_player_position, ActorDiedMessage, RoomTransitionCooldown, SafePositionContext,
@@ -798,7 +798,7 @@ fn knockback_reaction_scale(knockback: Option<&crate::combat::HitKnockback>) -> 
     ae::hit_response::reaction_scale(
         knockback,
         &hit_response_tuning(
-            &crate::time::feel::Platformer2dFeelTuningMonolith::default(),
+            &ambition_combat::feel::Platformer2dFeelTuningMonolith::default(),
             false,
         ),
     )

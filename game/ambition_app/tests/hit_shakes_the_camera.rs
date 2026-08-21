@@ -107,7 +107,7 @@ fn watch_a_duel_with_no_home_avatar() -> (Bout, f32) {
     // second number agreeing with the first by coincidence.
     let reference = sim
         .world_mut()
-        .get_resource::<ambition_platformer2d::actors::time::feel::Platformer2dFeelTuningMonolith>()
+        .get_resource::<ambition_platformer2d::combat::feel::Platformer2dFeelTuningMonolith>()
         .expect("the composed sim installs the monolith's feel tuning")
         .hitlag_time;
     (bout, reference)

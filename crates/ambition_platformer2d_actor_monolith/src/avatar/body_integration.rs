@@ -22,7 +22,7 @@ use bevy::prelude::*;
 use ambition_platformer2d_core as ae;
 
 use crate::features::ecs::attack::engine_input_from_actor_control;
-use crate::time::feel::Platformer2dFeelTuningMonolith;
+use ambition_combat::feel::Platformer2dFeelTuningMonolith;
 use ambition_characters::actor::BodyCombat;
 
 /// Movement→(reset/presentation) hand-off for a home/player body, written by the

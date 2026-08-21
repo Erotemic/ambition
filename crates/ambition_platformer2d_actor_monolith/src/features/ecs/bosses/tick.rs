@@ -729,7 +729,7 @@ pub fn integrate_boss_bodies(
     world_time: Res<WorldTime>,
     // The composed collision read-API rather than its three ingredients.
     collision: ambition_platformer2d_world::collision::CollisionWorld,
-    feel_tuning: Res<crate::time::feel::Platformer2dFeelTuningMonolith>,
+    feel_tuning: Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>,
     steering: Res<super::super::actors::ActorSteering>,
     mut sfx: ambition_sfx::SfxWriter,
     mut vfx: bevy::prelude::MessageWriter<ambition_vfx::vfx::VfxMessage>,

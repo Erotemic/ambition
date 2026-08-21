@@ -18,7 +18,7 @@
 use bevy::prelude::*;
 
 use crate::avatar::components::{PlayerSlot, PrimaryPlayer};
-use crate::time::feel::Platformer2dFeelTuningMonolith;
+use ambition_combat::feel::Platformer2dFeelTuningMonolith;
 use ambition_characters::actor::BodyCombat;
 use ambition_dev_tools::DeveloperRuntimeState;
 use ambition_time::ClockDomain;

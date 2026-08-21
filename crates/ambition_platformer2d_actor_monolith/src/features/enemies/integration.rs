@@ -190,7 +190,7 @@ impl<'a> ActorMut<'a> {
         // so a CPU's landing lag was set, decayed and rolled back correctly and
         // locked nothing. Passing the body removes the slot a caller could fill
         // wrongly.
-        feel: crate::time::feel::Platformer2dFeelTuningMonolith,
+        feel: ambition_combat::feel::Platformer2dFeelTuningMonolith,
         // **The body's OWN feel, when its character authored one.**
         //
         // ⚠ without this the line below overwrote the axis params from the
@@ -316,7 +316,7 @@ impl<'a> ActorMut<'a> {
         motion_model: &mut crate::features::MotionModel,
         dt: f32,
         motion_frame: ae::MotionFrame,
-        feel: crate::time::feel::Platformer2dFeelTuningMonolith,
+        feel: ambition_combat::feel::Platformer2dFeelTuningMonolith,
         // **The body's OWN feel, when its character authored one.**
         //
         // ⚠ without this the line below overwrote the axis params from the

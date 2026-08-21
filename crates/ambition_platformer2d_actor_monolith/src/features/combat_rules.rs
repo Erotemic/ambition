@@ -24,7 +24,7 @@ use bevy::prelude::{Commands, Res};
 pub fn project_combat_rules(
     mut commands: Commands,
     declared: Option<Res<ambition_combat::rules::DeclaredCombatRules>>,
-    baseline_feel: Option<Res<crate::time::feel::Platformer2dFeelTuningMonolith>>,
+    baseline_feel: Option<Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>>,
     baseline_ff: Option<Res<ambition_combat::targeting::FriendlyFire>>,
 ) {
     // `Option` on both baselines for the same reason every other reader has it:

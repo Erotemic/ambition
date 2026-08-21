@@ -23,7 +23,7 @@
 use bevy::prelude::*;
 
 use ambition_combat::{ResetRoomFeaturesEvent, RoomResetReason};
-use ambition_platformer2d_actor_monolith::time::feel::Platformer2dFeelTuningMonolith;
+use ambition_combat::feel::Platformer2dFeelTuningMonolith;
 use ambition_platformer2d_actor_monolith::time::time_control::{ClockRequester, ClockResetRequest};
 use ambition_platformer2d_actor_monolith::RoomTransitionCooldown;
 use ambition_platformer2d_core as ae;

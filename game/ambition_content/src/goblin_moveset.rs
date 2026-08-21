@@ -421,6 +421,39 @@ pub fn goblin_moveset() -> MovesetContract {
             launch_dir: (1.0, -0.35),
         },
     );
+
+    let back_throw = author_throw(
+        capture_beat("goblin_bthrow", "attack", 0.25),
+        0.13,
+        CaptureThrowParams {
+            damage: 7,
+            knockback: 108.0,
+            knockback_growth: 2.31,
+            launch_dir: (-1.0, -0.25),
+        },
+    );
+
+    let up_throw = author_throw(
+        capture_beat("goblin_uthrow", "attack", 0.24),
+        0.12,
+        CaptureThrowParams {
+            damage: 6,
+            knockback: 104.0,
+            knockback_growth: 2.24,
+            launch_dir: (0.0, -1.0),
+        },
+    );
+
+    let down_throw = author_throw(
+        capture_beat("goblin_dthrow", "attack", 0.26),
+        0.13,
+        CaptureThrowParams {
+            damage: 4,
+            knockback: 74.0,
+            knockback_growth: 1.76,
+            launch_dir: (0.4, -0.92),
+        },
+    );
     SmashRepertoire {
         taunt: ambition_characters::moveset_authoring::taunt("goblin_taunt", 0.9),
         dash_attack: ambition_characters::moveset_authoring::dash_attack(
@@ -456,13 +489,9 @@ pub fn goblin_moveset() -> MovesetContract {
             grab,
             pummel,
             forward_throw,
-            // ⛔ back/up/down stay `None` and that is still the authored answer,
-            // not an omission: an unauthored throw does NOTHING rather than
-            // falling back to a pummel, which tells a player this fighter has
-            // none instead of telling them it has a bad one.
-            back_throw: None,
-            up_throw: None,
-            down_throw: None,
+            back_throw: Some(back_throw),
+            up_throw: Some(up_throw),
+            down_throw: Some(down_throw),
         },
         down_special: DownSpecial::ByPosture {
             grounded: down_b,

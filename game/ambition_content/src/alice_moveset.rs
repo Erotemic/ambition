@@ -421,6 +421,39 @@ pub fn alice_moveset() -> MovesetContract {
         },
     );
 
+    let back_throw = author_throw(
+        capture_beat("alice_bthrow", "attack", 0.26),
+        0.14,
+        CaptureThrowParams {
+            damage: 8,
+            knockback: 127.44,
+            knockback_growth: 2.21,
+            launch_dir: (-1.0, -0.28),
+        },
+    );
+
+    let up_throw = author_throw(
+        capture_beat("alice_uthrow", "attack", 0.25),
+        0.13,
+        CaptureThrowParams {
+            damage: 7,
+            knockback: 122.72,
+            knockback_growth: 2.14,
+            launch_dir: (0.0, -1.0),
+        },
+    );
+
+    let down_throw = author_throw(
+        capture_beat("alice_dthrow", "attack", 0.27),
+        0.14,
+        CaptureThrowParams {
+            damage: 5,
+            knockback: 87.32,
+            knockback_growth: 1.68,
+            launch_dir: (0.36, -0.92),
+        },
+    );
+
     SmashRepertoire {
         taunt: ambition_characters::moveset_authoring::taunt("alice_taunt", 0.9),
         dash_attack: ambition_characters::moveset_authoring::dash_attack(
@@ -456,13 +489,9 @@ pub fn alice_moveset() -> MovesetContract {
             grab,
             pummel,
             forward_throw,
-            // ⛔ back/up/down stay `None` and that is still the authored answer,
-            // not an omission: an unauthored throw does NOTHING rather than
-            // falling back to a pummel, which tells a player this fighter has
-            // none instead of telling them it has a bad one.
-            back_throw: None,
-            up_throw: None,
-            down_throw: None,
+            back_throw: Some(back_throw),
+            up_throw: Some(up_throw),
+            down_throw: Some(down_throw),
         },
         down_special: DownSpecial::ByPosture {
             grounded: down_b,

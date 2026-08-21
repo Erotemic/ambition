@@ -432,6 +432,39 @@ pub fn mary_o_moveset() -> MovesetContract {
         },
     );
 
+    let back_throw = author_throw(
+        capture_beat("mary_o_bthrow", "attack", 0.27),
+        0.14,
+        CaptureThrowParams {
+            damage: 8,
+            knockback: 120.96,
+            knockback_growth: 2.1,
+            launch_dir: (-1.0, -0.37),
+        },
+    );
+
+    let up_throw = author_throw(
+        capture_beat("mary_o_uthrow", "attack", 0.26),
+        0.13,
+        CaptureThrowParams {
+            damage: 7,
+            knockback: 116.48,
+            knockback_growth: 2.04,
+            launch_dir: (0.0, -1.0),
+        },
+    );
+
+    let down_throw = author_throw(
+        capture_beat("mary_o_dthrow", "attack", 0.28),
+        0.14,
+        CaptureThrowParams {
+            damage: 5,
+            knockback: 82.88,
+            knockback_growth: 1.6,
+            launch_dir: (0.32, -0.92),
+        },
+    );
+
     SmashRepertoire {
         taunt: ambition_platformer2d::characters::moveset_authoring::taunt("mary_o_taunt", 0.9),
         dash_attack: ambition_platformer2d::characters::moveset_authoring::dash_attack(
@@ -464,12 +497,9 @@ pub fn mary_o_moveset() -> MovesetContract {
             grab,
             pummel,
             forward_throw,
-            // ⛔ back/up/down stay `None` — the authored answer, not an
-            // omission: an unauthored throw does NOTHING rather than falling
-            // back to a pummel.
-            back_throw: None,
-            up_throw: None,
-            down_throw: None,
+            back_throw: Some(back_throw),
+            up_throw: Some(up_throw),
+            down_throw: Some(down_throw),
         },
         down_special: DownSpecial::ByPosture {
             grounded: down_b,

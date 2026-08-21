@@ -515,6 +515,39 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
         },
     );
 
+    let back_throw = author_throw(
+        capture_beat("cellular_bthrow", "attack", 0.24),
+        0.12,
+        CaptureThrowParams {
+            damage: 7,
+            knockback: 103.68,
+            knockback_growth: 2.73,
+            launch_dir: (-1.0, -0.62),
+        },
+    );
+
+    let up_throw = author_throw(
+        capture_beat("cellular_uthrow", "attack", 0.23),
+        0.11,
+        CaptureThrowParams {
+            damage: 6,
+            knockback: 99.84,
+            knockback_growth: 2.65,
+            launch_dir: (0.0, -1.0),
+        },
+    );
+
+    let down_throw = author_throw(
+        capture_beat("cellular_dthrow", "attack", 0.25),
+        0.12,
+        CaptureThrowParams {
+            damage: 4,
+            knockback: 71.04,
+            knockback_growth: 2.08,
+            launch_dir: (0.14, -0.92),
+        },
+    );
+
     SmashRepertoire {
         taunt: ambition_characters::moveset_authoring::taunt("cellular_automaton_taunt", 0.9),
         dash_attack: ambition_characters::moveset_authoring::dash_attack(
@@ -550,13 +583,9 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
             grab,
             pummel,
             forward_throw,
-            // ⛔ back/up/down stay `None` and that is still the authored answer,
-            // not an omission: an unauthored throw does NOTHING rather than
-            // falling back to a pummel, which tells a player this fighter has
-            // none instead of telling them it has a bad one.
-            back_throw: None,
-            up_throw: None,
-            down_throw: None,
+            back_throw: Some(back_throw),
+            up_throw: Some(up_throw),
+            down_throw: Some(down_throw),
         },
         down_special: DownSpecial::ByPosture {
             grounded: down_b,

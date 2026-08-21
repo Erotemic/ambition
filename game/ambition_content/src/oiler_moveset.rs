@@ -586,6 +586,39 @@ pub fn oiler_moveset() -> MovesetContract {
             launch_dir: (0.75, -0.65),
         },
     );
+
+    let back_throw = author_throw(
+        capture_beat("oiler_bthrow", "attack_side", 0.29),
+        0.15,
+        CaptureThrowParams {
+            damage: 9,
+            knockback: 123.12,
+            knockback_growth: 2.21,
+            launch_dir: (-1.0, -0.4),
+        },
+    );
+
+    let up_throw = author_throw(
+        capture_beat("oiler_uthrow", "attack_side", 0.28),
+        0.14,
+        CaptureThrowParams {
+            damage: 8,
+            knockback: 118.56,
+            knockback_growth: 2.14,
+            launch_dir: (0.0, -1.0),
+        },
+    );
+
+    let down_throw = author_throw(
+        capture_beat("oiler_dthrow", "attack_side", 0.3),
+        0.15,
+        CaptureThrowParams {
+            damage: 6,
+            knockback: 84.36,
+            knockback_growth: 1.68,
+            launch_dir: (0.3, -0.92),
+        },
+    );
     let repertoire = SmashRepertoire {
         taunt: ambition_characters::moveset_authoring::taunt("oiler_taunt", 0.9),
         // ⚠ **0.11 active, not the genre's 0.09** — Oiler's whole design is that
@@ -634,13 +667,9 @@ pub fn oiler_moveset() -> MovesetContract {
             grab,
             pummel,
             forward_throw,
-            // ⛔ back/up/down stay `None` and that is still the authored answer,
-            // not an omission: an unauthored throw does NOTHING rather than
-            // falling back to a pummel, which tells a player this fighter has
-            // none instead of telling them it has a bad one.
-            back_throw: None,
-            up_throw: None,
-            down_throw: None,
+            back_throw: Some(back_throw),
+            up_throw: Some(up_throw),
+            down_throw: Some(down_throw),
         },
         down_special: DownSpecial::OneForm(down_b),
     }

@@ -68,7 +68,7 @@ you add a `▢`, and before you work one.
 | Grab as a relationship, not a hit | ✔ | `combat/capture.rs::CapturedBy` |
 | Grab beats shield | ✔ | same |
 | Pummel | ✔ | `CapturePummelRequested` |
-| Four throws authored per fighter | ✔ | `characters/smash_capture.rs` |
+| Four throws authored per fighter | ✔ | `characters/smash_capture.rs`; every moveset authors all four as of 2026-08-20 — until then 16 of 18 authored only the forward throw and three of a grab's four directions were dead inputs |
 | Mash escape | ✔ | `capture.rs`; `DeclaredCombatRules::grab_mash_seconds`, 14.4f per press |
 | Timed hold limit | ✔ | `grab_hold_max_seconds`; the baseline's flat 4.0s is `FLAT_GRAB_HOLD_SECONDS` |
 | Escape difficulty scales with victim damage | ✔ | `grab_hold_base_seconds` + `grab_hold_per_damage`, Ultimate's 90 + 1.7p, read ONCE at the grab |

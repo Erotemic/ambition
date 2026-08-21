@@ -623,11 +623,36 @@ pub fn fighter_moveset() -> MovesetContract {
                 launch_dir: (0.9, -0.5),
             },
         ),
-        // A press for a throw this table does not author finds nothing, rather
-        // than a pummel wearing a throw's name.
-        back_throw: None,
-        up_throw: None,
-        down_throw: None,
+        back_throw: Some(ambition_platformer2d::characters::smash_capture::author_throw(
+            ambition_platformer2d::characters::smash_capture::capture_beat("throw_back", "attack", 0.3),
+            0.17,
+            ambition_platformer2d::characters::smash_capture::CaptureThrowParams {
+                damage: 10,
+                knockback: 130.0,
+                knockback_growth: 2.21,
+                launch_dir: (-1.0, -0.31),
+            },
+        )),
+        up_throw: Some(ambition_platformer2d::characters::smash_capture::author_throw(
+            ambition_platformer2d::characters::smash_capture::capture_beat("throw_up", "attack", 0.29),
+            0.16,
+            ambition_platformer2d::characters::smash_capture::CaptureThrowParams {
+                damage: 9,
+                knockback: 125.0,
+                knockback_growth: 2.14,
+                launch_dir: (0.0, -1.0),
+            },
+        )),
+        down_throw: Some(ambition_platformer2d::characters::smash_capture::author_throw(
+            ambition_platformer2d::characters::smash_capture::capture_beat("throw_down", "attack", 0.31),
+            0.17,
+            ambition_platformer2d::characters::smash_capture::CaptureThrowParams {
+                damage: 7,
+                knockback: 89.0,
+                knockback_growth: 1.68,
+                launch_dir: (0.36, -0.92),
+            },
+        )),
     };
     let capture_verbs: Vec<(String, String)> = capture
         .bound()

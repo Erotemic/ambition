@@ -427,6 +427,39 @@ pub fn player_robot_moveset() -> MovesetContract {
             launch_dir: (0.85, -0.55),
         },
     );
+
+    let back_throw = author_throw(
+        capture_beat("robot_bthrow", "attack", 0.28),
+        0.15,
+        CaptureThrowParams {
+            damage: 9,
+            knockback: 129.6,
+            knockback_growth: 2.1,
+            launch_dir: (-1.0, -0.34),
+        },
+    );
+
+    let up_throw = author_throw(
+        capture_beat("robot_uthrow", "attack", 0.27),
+        0.14,
+        CaptureThrowParams {
+            damage: 8,
+            knockback: 124.8,
+            knockback_growth: 2.04,
+            launch_dir: (0.0, -1.0),
+        },
+    );
+
+    let down_throw = author_throw(
+        capture_beat("robot_dthrow", "attack", 0.29),
+        0.15,
+        CaptureThrowParams {
+            damage: 6,
+            knockback: 88.8,
+            knockback_growth: 1.6,
+            launch_dir: (0.34, -0.92),
+        },
+    );
     SmashRepertoire {
         taunt: ambition_characters::moveset_authoring::taunt("player_robot_taunt", 0.9),
         dash_attack: ambition_characters::moveset_authoring::dash_attack(
@@ -464,13 +497,9 @@ pub fn player_robot_moveset() -> MovesetContract {
             grab,
             pummel,
             forward_throw,
-            // ⛔ back/up/down stay `None` and that is still the authored answer,
-            // not an omission: an unauthored throw does NOTHING rather than
-            // falling back to a pummel, which tells a player this fighter has
-            // none instead of telling them it has a bad one.
-            back_throw: None,
-            up_throw: None,
-            down_throw: None,
+            back_throw: Some(back_throw),
+            up_throw: Some(up_throw),
+            down_throw: Some(down_throw),
         },
         down_special: DownSpecial::ByPosture {
             grounded: down_b,

@@ -560,6 +560,57 @@ pub fn carl_stargan_moveset() -> MovesetContract {
         1.1,
     );
 
+    let back_throw = vfx_at(
+        author_throw(
+            capture_beat("carl_bthrow", "grab_release", 0.28),
+            0.15,
+            CaptureThrowParams {
+                damage: 9,
+                knockback: 131.0,
+                knockback_growth: 2.1,
+                launch_dir: (-1.0, -0.34),
+            },
+        ),
+        0.15,
+        "planetary_slingshot",
+        (16.0, -2.0),
+        1.1,
+    );
+
+    let up_throw = vfx_at(
+        author_throw(
+            capture_beat("carl_uthrow", "grab_release", 0.27),
+            0.14,
+            CaptureThrowParams {
+                damage: 8,
+                knockback: 127.0,
+                knockback_growth: 2.04,
+                launch_dir: (0.0, -1.0),
+            },
+        ),
+        0.14,
+        "planetary_slingshot",
+        (16.0, -2.0),
+        1.1,
+    );
+
+    let down_throw = vfx_at(
+        author_throw(
+            capture_beat("carl_dthrow", "grab_release", 0.29),
+            0.15,
+            CaptureThrowParams {
+                damage: 6,
+                knockback: 90.0,
+                knockback_growth: 1.6,
+                launch_dir: (0.34, -0.92),
+            },
+        ),
+        0.15,
+        "planetary_slingshot",
+        (16.0, -2.0),
+        1.1,
+    );
+
     SmashRepertoire {
         // ⭐ **his taunt throws a burst like everything else he does**, which is
         // both his character and what `none_of_his_bursts_sit_on_his_navel`
@@ -629,13 +680,9 @@ pub fn carl_stargan_moveset() -> MovesetContract {
             grab,
             pummel,
             forward_throw,
-            // ⛔ back/up/down stay `None` and that is still the authored answer,
-            // not an omission: an unauthored throw does NOTHING rather than
-            // falling back to a pummel, which tells a player this fighter has
-            // none instead of telling them it has a bad one.
-            back_throw: None,
-            up_throw: None,
-            down_throw: None,
+            back_throw: Some(back_throw),
+            up_throw: Some(up_throw),
+            down_throw: Some(down_throw),
         },
         down_special: DownSpecial::ByPosture {
             grounded: down_b,

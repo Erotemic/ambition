@@ -747,6 +747,39 @@ pub fn emmy_noether_moveset() -> MovesetContract {
             launch_dir: (0.6, -0.8),
         },
     );
+
+    let back_throw = author_throw(
+        capture_beat("emmy_bthrow", "grab_release", 0.3),
+        0.16,
+        CaptureThrowParams {
+            damage: 10,
+            knockback: 116.64,
+            knockback_growth: 2.62,
+            launch_dir: (-1.0, -0.5),
+        },
+    );
+
+    let up_throw = author_throw(
+        capture_beat("emmy_uthrow", "grab_release", 0.29),
+        0.15,
+        CaptureThrowParams {
+            damage: 9,
+            knockback: 112.32,
+            knockback_growth: 2.55,
+            launch_dir: (0.0, -1.0),
+        },
+    );
+
+    let down_throw = author_throw(
+        capture_beat("emmy_dthrow", "grab_release", 0.31),
+        0.16,
+        CaptureThrowParams {
+            damage: 7,
+            knockback: 79.92,
+            knockback_growth: 2.0,
+            launch_dir: (0.24, -0.92),
+        },
+    );
     let repertoire = SmashRepertoire {
         taunt: ambition_characters::moveset_authoring::taunt("emmy_noether_taunt", 0.9),
         dash_attack: ambition_characters::moveset_authoring::dash_attack(
@@ -788,13 +821,9 @@ pub fn emmy_noether_moveset() -> MovesetContract {
             grab,
             pummel,
             forward_throw,
-            // ⛔ back/up/down stay `None` and that is still the authored answer,
-            // not an omission: an unauthored throw does NOTHING rather than
-            // falling back to a pummel, which tells a player this fighter has
-            // none instead of telling them it has a bad one.
-            back_throw: None,
-            up_throw: None,
-            down_throw: None,
+            back_throw: Some(back_throw),
+            up_throw: Some(up_throw),
+            down_throw: Some(down_throw),
         },
         down_special: DownSpecial::ByPosture {
             grounded: down_b,

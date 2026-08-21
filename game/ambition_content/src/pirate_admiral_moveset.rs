@@ -511,6 +511,39 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
         },
     );
 
+    let back_throw = author_throw(
+        capture_beat("pirate_bthrow", "attack", 0.28),
+        0.15,
+        CaptureThrowParams {
+            damage: 9,
+            knockback: 112.32,
+            knockback_growth: 2.52,
+            launch_dir: (-1.0, -0.62),
+        },
+    );
+
+    let up_throw = author_throw(
+        capture_beat("pirate_uthrow", "attack", 0.27),
+        0.14,
+        CaptureThrowParams {
+            damage: 8,
+            knockback: 108.16,
+            knockback_growth: 2.45,
+            launch_dir: (0.0, -1.0),
+        },
+    );
+
+    let down_throw = author_throw(
+        capture_beat("pirate_dthrow", "attack", 0.29),
+        0.15,
+        CaptureThrowParams {
+            damage: 6,
+            knockback: 76.96,
+            knockback_growth: 1.92,
+            launch_dir: (0.22, -0.92),
+        },
+    );
+
     SmashRepertoire {
         taunt: ambition_characters::moveset_authoring::taunt("pirate_admiral_taunt", 0.9),
         dash_attack: ambition_characters::moveset_authoring::dash_attack(
@@ -542,9 +575,9 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
             grab,
             pummel,
             forward_throw,
-            back_throw: None,
-            up_throw: None,
-            down_throw: None,
+            back_throw: Some(back_throw),
+            up_throw: Some(up_throw),
+            down_throw: Some(down_throw),
         },
         down_special: DownSpecial::OneForm(down_b),
     }

@@ -448,6 +448,39 @@ pub fn sanic_moveset() -> MovesetContract {
         },
     );
 
+    let back_throw = author_throw(
+        capture_beat("sanic_bthrow", "attack", 0.24),
+        0.12,
+        CaptureThrowParams {
+            damage: 7,
+            knockback: 105.84,
+            knockback_growth: 2.42,
+            launch_dir: (-1.0, -0.25),
+        },
+    );
+
+    let up_throw = author_throw(
+        capture_beat("sanic_uthrow", "attack", 0.23),
+        0.11,
+        CaptureThrowParams {
+            damage: 6,
+            knockback: 101.92,
+            knockback_growth: 2.35,
+            launch_dir: (0.0, -1.0),
+        },
+    );
+
+    let down_throw = author_throw(
+        capture_beat("sanic_dthrow", "attack", 0.25),
+        0.12,
+        CaptureThrowParams {
+            damage: 4,
+            knockback: 72.52,
+            knockback_growth: 1.84,
+            launch_dir: (0.4, -0.92),
+        },
+    );
+
     SmashRepertoire {
         taunt: ambition_platformer2d::characters::moveset_authoring::taunt("sanic_taunt", 0.9),
 
@@ -481,12 +514,9 @@ pub fn sanic_moveset() -> MovesetContract {
             grab,
             pummel,
             forward_throw,
-            // ⛔ back/up/down stay `None` — the authored answer, not an
-            // omission: an unauthored throw does NOTHING rather than falling
-            // back to a pummel.
-            back_throw: None,
-            up_throw: None,
-            down_throw: None,
+            back_throw: Some(back_throw),
+            up_throw: Some(up_throw),
+            down_throw: Some(down_throw),
         },
         down_special: DownSpecial::ByPosture {
             grounded: ground_down_b,

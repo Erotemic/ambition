@@ -21,12 +21,6 @@ enum AmbitionReadInputsSet {
     PublishLocalInputs,
 }
 
-/// External input waiting to be submitted to GGRS for the next frame. This is
-/// intentionally not rollback state: prediction/session logic owns the input
-/// stream, while simulation state is rewound beneath it.
-#[derive(Resource, Clone, Copy, Debug, Default, PartialEq)]
-pub struct PendingLocalInput(pub ControlFrame);
-
 /// **Has the wrong-seam diagnostic fired this run?**
 ///
 /// ⭐ **a finding, not just a log line.** The check below could have warned and
@@ -38,16 +32,23 @@ pub struct PendingLocalInput(pub ControlFrame);
 #[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct InputSeamMisuse(pub bool);
 
-/// The SECONDARY seats' pending input, one per slot. (queue Y1)
+/// **EXTERNAL INPUT WAITING TO BE SUBMITTED TO GGRS, ONE FRAME PER HANDLE.**
 ///
-/// [`PendingLocalInput`] is seat zero's and predates local multiplayer. When the
-/// session carries more than one player, every handle needs its own stream —
-/// publishing seat zero's frame to all of them (which is what
-/// `publish_local_inputs` did, because there was only ever one) would make four
-/// pads move one fighter and checksum-compare a lie.
+/// Intentionally not rollback state: prediction and session logic own the input
+/// stream, while simulation state is rewound beneath it.
 ///
-/// Slot 0 is intentionally absent: it is `PendingLocalInput`, and two homes for
-/// one seat is how the two would come to disagree.
+/// ⭐ **one per handle, because publishing seat zero's frame to all of them —
+/// which is what `publish_local_inputs` did, back when there was only ever one —
+/// makes four pads move one fighter and checksum-compare a lie.**
+///
+/// ⛔⛔ **handle zero used to live in a separate `PendingLocalInput` resource,
+/// and that doc said "slot 0 is intentionally absent … two homes for one seat is
+/// how the two would come to disagree".** Two homes for one CONCEPT is the same
+/// hazard one level up: every reader branched on `handle == 0` to pick which
+/// resource to ask, and `reset_input_authority`'s own comment records the bug
+/// that shape already caused — some latches preserved across a session
+/// replacement and the rest cleared, which a single-player test could never
+/// notice.
 #[derive(Resource, Clone, Copy, Debug, Default, PartialEq)]
 pub struct PendingSeatInputs {
     seats: [ControlFrame; ambition_characters::brain::SlotControls::MAX_SLOTS],
@@ -439,7 +440,6 @@ fn has_session_world_root(world: &World) -> bool {
 /// Each is reset only if the composition installed it: inserting one here would
 /// make this function a second authority on which latches exist.
 fn reset_input_authority(world: &mut World) {
-    world.insert_resource(PendingLocalInput::default());
     world.insert_resource(PendingSeatInputs::default());
     // ⭐ ONE table. This used to reset seat zero's latch and the other seats'
     // separately, which is exactly how "preserved some, cleared the rest" became
@@ -601,7 +601,8 @@ pub fn session_is_active(world: &World) -> bool {
 /// host [`ControlFrame`] is the input the sim reads. Under GGRS it is an
 /// OUTPUT: `publish_ggrs_input` writes it from the session's confirmed inputs
 /// every advance, so a driver writing it would be feeding resimulated input
-/// back in as new input. `PendingLocalInput` is the input side there.
+/// back in as new input. Handle zero of `PendingSeatInputs` is the input side
+/// there.
 ///
 /// A device-backed host writes neither: it accumulates into
 /// [`ControlFrameLatch`], which both hosts drain at their own clock. If a latch
@@ -612,24 +613,11 @@ pub fn session_is_active(world: &World) -> bool {
 /// carry its own copy of this branch, which is the definition of a leak — every
 /// consumer rediscovering an engine rule the engine could have stated once.
 pub fn drive_control_frame(world: &mut World, frame: ControlFrame) {
-    if let Some(mut latches) =
-        world.get_resource_mut::<ambition_characters::brain::SlotControlLatches>()
-    {
-        latches.accumulate(ambition_characters::brain::PlayerSlot::PRIMARY, frame);
-        return;
-    }
-    // ⚠ this does NOT clear `PendingSeatInputs`, and an earlier version did.
-    // `drive_seat_frame` is called BEFORE the step it applies to, so clearing
-    // here wiped every secondary seat's input on the way past — the seam was
-    // built and then emptied by its own sibling, one line later. A driver that
-    // wants a seat neutral drives it neutral; silence is not a request.
-    if let Some(mut pending) = world.get_resource_mut::<PendingLocalInput>() {
-        pending.0 = frame;
-        return;
-    }
-    if let Some(mut control) = world.get_resource_mut::<ControlFrame>() {
-        *control = frame;
-    }
+    drive_one_seat(
+        world,
+        ambition_characters::brain::PlayerSlot::PRIMARY,
+        frame,
+    );
 }
 
 /// **THE seam a driver writes a SECONDARY seat's input through.** (queue Y1)
@@ -639,14 +627,11 @@ pub fn drive_control_frame(world: &mut World, frame: ControlFrame) {
 /// writing the wrong resource is silently ignored and the sim simply never
 /// moves.
 ///
-/// Under a latching host it folds into the seat's latch, so a sub-tick press
-/// survives exactly as the primary seat's does. Without one it writes the
-/// pending seat input directly, which is what a headless or replay driver
-/// wants — it authors per-tick frames itself and has no device to bridge.
-///
-/// Slot 0 is refused rather than silently redirected: it is
+/// ⛔ **Slot 0 is refused rather than silently redirected.** It is
 /// [`drive_control_frame`]'s, and a driver that meant the primary seat should
-/// say so.
+/// say so. ⚠ that refusal is now the ONLY difference between these two — the
+/// bodies are one function below, because the latch table and the pending table
+/// both cover seat zero.
 pub fn drive_seat_frame(
     world: &mut World,
     slot: ambition_characters::brain::PlayerSlot,
@@ -655,17 +640,48 @@ pub fn drive_seat_frame(
     if slot.0 == 0 {
         return;
     }
+    drive_one_seat(world, slot, frame);
+}
+
+/// **ONE seat's input, delivered to whichever surface this composition has.**
+///
+/// ⭐ this was TWO functions with the same four-arm shape, differing only in
+/// which resource each arm named — and the resources they named have since
+/// become one table each (`SlotControlLatches`, `PendingSeatInputs`). What is
+/// left of the fork is the last arm.
+fn drive_one_seat(
+    world: &mut World,
+    slot: ambition_characters::brain::PlayerSlot,
+    frame: ControlFrame,
+) {
+    // A device-backed host: fold into the seat's latch so a sub-tick press
+    // survives to the tick that drains it.
     if let Some(mut latches) =
         world.get_resource_mut::<ambition_characters::brain::SlotControlLatches>()
     {
         latches.accumulate(slot, frame);
         return;
     }
-    if let Some(mut seats) = world.get_resource_mut::<PendingSeatInputs>() {
-        seats.set(slot.0 as usize, frame);
+    // ⚠ this does NOT clear the other handles, and an earlier version did.
+    // `drive_seat_frame` is called BEFORE the step it applies to, so clearing
+    // here wiped every other seat's input on the way past — the seam was built
+    // and then emptied by its own sibling, one line later. A driver that wants a
+    // seat neutral drives it neutral; silence is not a request.
+    if let Some(mut pending) = world.get_resource_mut::<PendingSeatInputs>() {
+        pending.set(slot.0 as usize, frame);
         return;
     }
-    if let Some(mut slots) = world.get_resource_mut::<ambition_characters::brain::SlotControls>() {
+    // ⛔ **the last arm is the one asymmetry left**, and it is D175's remaining
+    // work rather than an oversight: under a fixed-tick host seat zero's input
+    // IS the global `ControlFrame`, because the portal, gesture, touch and
+    // scripted shapers all read that resource and no other seat has them.
+    if slot.0 == 0 {
+        if let Some(mut control) = world.get_resource_mut::<ControlFrame>() {
+            *control = frame;
+        }
+    } else if let Some(mut slots) =
+        world.get_resource_mut::<ambition_characters::brain::SlotControls>()
+    {
         slots.set(slot, frame);
     }
 }
@@ -724,7 +740,7 @@ pub(crate) fn install_session_bridge(app: &mut App) {
 
     app.add_systems(Update, report_input_written_to_the_wrong_seam);
     app.init_resource::<InputSeamMisuse>()
-        .init_resource::<PendingLocalInput>()
+        .init_resource::<PendingSeatInputs>()
         .init_resource::<PendingSeatInputs>()
         .init_resource::<ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>()
         .init_resource::<RollbackExecutionStats>()
@@ -799,8 +815,7 @@ fn capture_latched_local_input(
     // as a separate resource beside this one and drained the two in separate
     // blocks — the same edge, the same reason, twice.
     latches: Option<ResMut<ambition_characters::brain::SlotControlLatches>>,
-    mut pending: ResMut<PendingLocalInput>,
-    mut seats: Option<ResMut<PendingSeatInputs>>,
+    mut pending: ResMut<PendingSeatInputs>,
 ) {
     // ONLY when a device is actually wired to this latch. An untouched latch
     // means "nothing feeds me", not "the device said nothing" — and a
@@ -817,18 +832,16 @@ fn capture_latched_local_input(
     };
     let primary = ambition_characters::brain::PlayerSlot::PRIMARY;
     if latches.is_device_authority(primary) {
-        pending.0 = latches.take(primary);
+        pending.set(0, latches.take(primary));
     }
     // ⚠ **seats 1.. are drained UNCONDITIONALLY, and seat zero is not.** Only
     // seat zero has a second author to lose to — every rollback harness drives
     // `PendingLocalInput` directly, and replacing that with a neutral default is
     // how four oracles went red at once. Nothing drives `PendingSeatInputs`
     // behind this system's back.
-    if let Some(seats) = seats.as_deref_mut() {
-        for handle in 1..ambition_characters::brain::SlotControls::MAX_SLOTS {
-            let slot = ambition_characters::brain::PlayerSlot(handle as u8);
-            seats.set(handle, latches.take(slot));
-        }
+    for handle in 1..ambition_characters::brain::SlotControls::MAX_SLOTS {
+        let slot = ambition_characters::brain::PlayerSlot(handle as u8);
+        pending.set(handle, latches.take(slot));
     }
 }
 
@@ -839,28 +852,20 @@ fn capture_latched_local_input(
 /// would drive one input stream and the sync test would checksum-compare a
 /// simulation nobody was playing.
 ///
-/// Handle 0 is [`PendingLocalInput`] — seat zero's, latched by the device layer
-/// and drained when GGRS asks. Handles 1.. are [`PendingSeatInputs`], which is
-/// absent in a composition with no secondary seats and reads neutral, exactly as
-/// a pad nobody plugged in should.
+/// Every handle is one row of [`PendingSeatInputs`], latched by the device layer
+/// and drained when GGRS asks. A handle nobody feeds reads neutral, exactly as a
+/// pad nobody plugged in should.
 fn publish_local_inputs(
-    pending: Res<PendingLocalInput>,
-    seats: Option<Res<PendingSeatInputs>>,
+    pending: Res<PendingSeatInputs>,
     local_players: Res<LocalPlayers>,
     mut commands: Commands,
 ) {
-    let mut inputs = bevy::platform::collections::HashMap::default();
-    for &handle in &local_players.0 {
-        let frame = if handle == 0 {
-            pending.0
-        } else {
-            seats
-                .as_deref()
-                .map(|seats| seats.get(handle))
-                .unwrap_or_default()
-        };
-        inputs.insert(handle, frame);
-    }
+    // ⭐ no `handle == 0` branch: one table answers for every handle.
+    let inputs = local_players
+        .0
+        .iter()
+        .map(|&handle| (handle, pending.get(handle)))
+        .collect();
     commands.insert_resource(LocalInputs::<AmbitionGgrsConfig>(inputs));
 }
 
@@ -1083,14 +1088,14 @@ mod tests {
 
         // The same driver under GGRS. `ControlFrame` is an OUTPUT there —
         // `publish_ggrs_input` overwrites it from the session's confirmed inputs
-        // every advance — so the input must land in `PendingLocalInput`, and
+        // every advance — so the input must land in `PendingSeatInputs`, and
         // must NOT be written to `ControlFrame`, or a driver would be feeding
         // resimulated input back in as new input.
         let mut rollback = World::new();
         rollback.insert_resource(ControlFrame::default());
-        rollback.insert_resource(PendingLocalInput::default());
+        rollback.insert_resource(PendingSeatInputs::default());
         drive_control_frame(&mut rollback, pressed);
-        assert_eq!(rollback.resource::<PendingLocalInput>().0.axis_x, 1.0);
+        assert_eq!(rollback.resource::<PendingSeatInputs>().get(0).axis_x, 1.0);
         assert_eq!(
             rollback.resource::<ControlFrame>().axis_x,
             0.0,
@@ -1101,7 +1106,7 @@ mod tests {
         // not fight the device layer for the same resource.
         let mut windowed = World::new();
         windowed.insert_resource(ControlFrame::default());
-        windowed.insert_resource(PendingLocalInput::default());
+        windowed.insert_resource(PendingSeatInputs::default());
         windowed.insert_resource(ambition_characters::brain::SlotControlLatches::default());
         drive_control_frame(&mut windowed, pressed);
         assert_eq!(
@@ -1111,7 +1116,7 @@ mod tests {
                 .axis_x,
             1.0
         );
-        assert_eq!(windowed.resource::<PendingLocalInput>().0.axis_x, 0.0);
+        assert_eq!(windowed.resource::<PendingSeatInputs>().get(0).axis_x, 0.0);
     }
 
     /// The "no world to rewind" detector fires exactly when construction has not
@@ -1352,7 +1357,7 @@ mod tests {
         let mut app = App::new();
         app.init_schedule(ReadInputs)
             .init_resource::<ambition_characters::brain::SlotControlLatches>()
-            .init_resource::<PendingLocalInput>()
+            .init_resource::<PendingSeatInputs>()
             .init_resource::<LocalPlayers>();
         install_session_bridge(&mut app);
 
@@ -1375,13 +1380,13 @@ mod tests {
         }
 
         assert_eq!(
-            app.world().resource::<PendingLocalInput>().0,
+            app.world().resource::<PendingSeatInputs>().get(0),
             ControlFrame::default(),
             "render-frame sampling must not consume the tick latch"
         );
 
         app.world_mut().run_schedule(ReadInputs);
-        let first = app.world().resource::<PendingLocalInput>().0;
+        let first = app.world().resource::<PendingSeatInputs>().get(0);
         assert!(
             first.jump_pressed,
             "the short press must reach the next GGRS tick"
@@ -1390,7 +1395,10 @@ mod tests {
 
         app.world_mut().run_schedule(ReadInputs);
         assert!(
-            !app.world().resource::<PendingLocalInput>().0.jump_pressed,
+            !app.world()
+                .resource::<PendingSeatInputs>()
+                .get(0)
+                .jump_pressed,
             "the edge must be consumed exactly once"
         );
     }
@@ -1524,10 +1532,12 @@ mod multi_seat_input_tests {
     #[test]
     fn each_local_handle_submits_its_own_input_stream() {
         let mut app = App::new();
-        app.insert_resource(PendingLocalInput(frame_with_axis(1.0)));
-        let mut seats = PendingSeatInputs::default();
-        seats.set(1, frame_with_axis(-1.0));
-        app.insert_resource(seats);
+        // ⚠ ONE table. This used to be two inserts — `PendingLocalInput` for
+        // handle zero and `PendingSeatInputs` for the rest.
+        let mut pending = PendingSeatInputs::default();
+        pending.set(0, frame_with_axis(1.0));
+        pending.set(1, frame_with_axis(-1.0));
+        app.insert_resource(pending);
         app.insert_resource(LocalPlayers(vec![0, 1]));
         app.add_systems(Update, publish_local_inputs);
         app.update();
@@ -1551,7 +1561,11 @@ mod multi_seat_input_tests {
     #[test]
     fn a_handle_with_no_seat_input_is_neutral_not_a_copy_of_seat_zero() {
         let mut app = App::new();
-        app.insert_resource(PendingLocalInput(frame_with_axis(1.0)));
+        {
+            let mut pending = PendingSeatInputs::default();
+            pending.set(0, frame_with_axis(1.0));
+            app.insert_resource(pending);
+        }
         app.insert_resource(LocalPlayers(vec![0, 1]));
         app.add_systems(Update, publish_local_inputs);
         app.update();
@@ -1724,7 +1738,7 @@ mod ac23_tests {
 ///
 /// ⛔ **there are TWO input seams and which one is authoritative depends on the
 /// HOST.** A fixed-tick host consumes the [`ControlFrame`] resource. A GGRS host
-/// consumes [`PendingLocalInput`], because the frame it simulates is the one the
+/// consumes [`PendingSeatInputs`], because the frame it simulates is the one the
 /// session CONFIRMED — and [`publish_ggrs_input`] overwrites `ControlFrame` from
 /// those confirmed inputs on every simulated frame. So a consumer that writes
 /// `ControlFrame` under a rollback host has it silently clobbered: the walk
@@ -1737,9 +1751,10 @@ mod ac23_tests {
 /// to speak for, because no assertion in this workspace can reach it.
 ///
 /// ⭐ **the predicate is exact, not a guess.** Under GGRS, `ControlFrame` is
-/// derived FROM `PendingLocalInput` by way of the session, so a neutral pending
+/// derived FROM handle zero's `PendingSeatInputs` by way of the session, so a
+/// neutral pending
 /// frame produces a neutral control frame. `ControlFrame` non-neutral while
-/// `PendingLocalInput` is neutral therefore means somebody else wrote it, and
+/// that handle is neutral therefore means somebody else wrote it, and
 /// that write is about to be discarded. A CPU-only session (both neutral), a
 /// driven harness (both live) and an ordinary player (both live) are all
 /// silent.
@@ -1756,7 +1771,7 @@ mod ac23_tests {
 fn report_input_written_to_the_wrong_seam(
     mut reported: ResMut<InputSeamMisuse>,
     control: Option<Res<ControlFrame>>,
-    pending: Option<Res<PendingLocalInput>>,
+    pending: Option<Res<PendingSeatInputs>>,
     // Liveness is the PRESENCE of the session resource, which is how
     // `local_session` asks the same question.
     session: Option<Res<AmbitionGgrsSession>>,
@@ -1773,7 +1788,7 @@ fn report_input_written_to_the_wrong_seam(
         return;
     }
     let neutral = ControlFrame::default();
-    if *control != neutral && pending.0 == neutral {
+    if *control != neutral && pending.get(0) == neutral {
         *consecutive += 1;
     } else {
         *consecutive = 0;
@@ -1784,10 +1799,11 @@ fn report_input_written_to_the_wrong_seam(
         bevy::log::warn!(
             target: "ambition_platformer2d::rollback",
             "input is being written to `ControlFrame`, but this is a ROLLBACK \
-             host and it reads `PendingLocalInput`. `publish_ggrs_input` \
+             host and it reads `PendingSeatInputs`. `publish_ggrs_input` \
              overwrites `ControlFrame` from the session's confirmed inputs every \
              simulated frame, so those writes are discarded and the body will \
-             never move. Write `PendingLocalInput` (or feed `ControlFrameLatch`, \
+             never move. Write handle zero of `PendingSeatInputs` (or feed \
+             `SlotControlLatches`, \
              which the device path uses). Said once per run."
         );
     }
@@ -1805,7 +1821,7 @@ mod wrong_seam_tests {
     fn reported(live_session: bool, drive_control: bool, drive_pending: bool) -> bool {
         let mut app = bevy::prelude::App::new();
         app.init_resource::<ControlFrame>();
-        app.init_resource::<PendingLocalInput>();
+        app.init_resource::<PendingSeatInputs>();
         app.init_resource::<InputSeamMisuse>();
         if live_session {
             app.insert_resource(
@@ -1820,7 +1836,12 @@ mod wrong_seam_tests {
                 app.world_mut().resource_mut::<ControlFrame>().axis_x = 1.0;
             }
             if drive_pending {
-                app.world_mut().resource_mut::<PendingLocalInput>().0.axis_x = 1.0;
+                {
+                    let mut pending = app.world_mut().resource_mut::<PendingSeatInputs>();
+                    let mut frame = pending.get(0);
+                    frame.axis_x = 1.0;
+                    pending.set(0, frame);
+                }
             }
             app.update();
         }
@@ -1828,7 +1849,7 @@ mod wrong_seam_tests {
     }
 
     /// **The broken consumer.** Drives `ControlFrame` under a rollback host,
-    /// which reads `PendingLocalInput` — so `publish_ggrs_input` overwrites
+    /// which reads `PendingSeatInputs` — so `publish_ggrs_input` overwrites
     /// those writes every simulated frame and the body never moves. This is the
     /// case the roadmap records as unreachable by any in-repo test.
     #[test]

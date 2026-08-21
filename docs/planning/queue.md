@@ -364,6 +364,19 @@ frames and the room changes to `scroll_lab`.
 `sandbox.ldtk` back to 2026-08-15 — eight commits, `solid_cells=3` throughout.
 So this is standing content, and pricing it as a code regression would be wrong.
 
+**IT IS FIVE ZONES, NOT ONE.** Census of all 24 authored `EdgeExit`s:
+`central_hub_main`→`scroll_lab` (3 cells), `central_hub_main`→`square_arena`
+(2), `scroll_lab`→hub (2), `square_arena`→hub (3), `tiny_chamber`→hub (3). Every
+one is the zone's bottom row. So the hub's whole ring of contact exits must be
+jumped into.
+
+⭐ **and the validator now says so on every build** (`71332ab75`). The rule
+`EdgeExit ... overlaps solid X; ... so the exit is physically reachable` already
+existed and asked a PROXY question — it scans ENTITIES named `Solid`, and these
+levels paint their floors into the Collision IntGrid, so it could not fire on the
+case it was written for. It asks the real geometry now, and warns (not errors)
+because the five violations are standing content whose fix is this row.
+
 ⇒ **the conflict is with `EdgeExit`'s own contract** — *"the validator requires
 the zone to touch a level edge so the player physically walks off the screen
 into it"*. A lip that must be jumped defeats that sentence. Two honest answers:

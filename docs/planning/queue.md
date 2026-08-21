@@ -3083,6 +3083,31 @@ by size.
 346  anim_helpers.rs
 ```
 
+⭐⭐ **A CHEAP SCAN THAT FINDS SPLIT CANDIDATES: public functions naming a domain
+their FILE does not.** Both splits found by hand this session have the same
+tell — `apply_player_hit_events` in `damage_apply.rs`,
+`route_boss_strikes_to_limbs` in `limbs.rs`. Grepping for it across the monolith
+finds them automatically, and finds more:
+
+```text
+alien/total  module                        foreign domains named
+  18/29      construction/mod.rs           quest 9, mount 3, item 2, boss/enemy/shrine/limb
+   9/14      features/ecs/spawn_static.rs  pickup 3, chest 2, portal 2, item, shrine
+   7/10      features/ecs/damage_apply.rs  player 7          ← the split found by hand
+   7/14      schedule/input_systems.rs     menu 4, player, quest, cutscene
+   5/7       features/ecs/anim_helpers.rs  boss 4, chest      ← "helpers" that are mostly boss
+   4/5       avatar/systems.rs             player 3, quest
+```
+
+⭐ **it independently rediscovered `damage_apply`**, which is the only reason to
+trust it at all.
+
+⚠⚠ **it is a NAME proxy and it produces CANDIDATES, never verdicts.** A
+`spawn_boss_chest` inside a spawn module is perfectly placed and this scan will
+flag it; the scan cannot tell a misplaced domain from a well-named one. ⛔ every
+hit still needs the coupling measured — comments stripped, both path spellings,
+symbols resolved to their defining crate — before anybody moves a line.
+
 ◐ **`actors/limbs.rs` SPLITS, and its own doc is the evidence (2026-08-21).**
 The module says it is generic — *"any mount or actor with articulated parts"* —
 and then reads boss types. **4 of its 13 items touch `BossConfig` /

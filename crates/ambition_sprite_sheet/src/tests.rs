@@ -597,3 +597,76 @@ fn body_extent_rejects_degenerate_box() {
     );
     assert_eq!(m.body_pixel_extent(character::CharacterAnim::Idle), None);
 }
+
+/// **A file root that names several records is refused, not truncated to the
+/// first one.**
+///
+/// ⛔ the bug this pins is not a wrong answer, it is an answer that depends on
+/// the packer's emission order — and the packer re-runs per quality tier, which
+/// is exactly the kind of "the tier changed and my character changed" symptom
+/// this repo has spent days on. Keeping `records[0]` made that a coin flip that
+/// happens to land the same way today.
+#[test]
+fn a_multi_record_file_root_is_refused_rather_than_silently_truncated() {
+    let rec = |t: &str, img: &str| {
+        format!(
+            r#"(target: "{t}", image: "{img}", label_width: 10, frame_width: 10,
+                frame_height: 10, rows: [(animation: "idle", row_index: 0,
+                frame_count: 1, duration_ms: 100, duration_secs: 0.1,
+                rects: [(x: 0, y: 0, w: 10, h: 10)])])"#
+        )
+    };
+    let one = format!("[{}]", rec("solo", "solo.png"));
+    let two = format!(
+        "[{},{}]",
+        rec("first_prop", "props.png"),
+        rec("second_prop", "props.png")
+    );
+    let reg = SheetRegistry::from_baked_table_by_file_root(&[
+        ("solo", one.as_str()),
+        ("props", two.as_str()),
+    ]);
+
+    // The single-record root still resolves — the refusal is narrow.
+    assert!(
+        reg.get("solo").is_some(),
+        "a single-record file root must still be indexed by its file root"
+    );
+
+    // ⭐ THE POISON: before this change `reg.get("props")` returned
+    // `first_prop`, and nothing anywhere said which of the two it was.
+    assert!(
+        reg.get("props").is_none(),
+        "the ambiguous root resolved to a record — this is the truncation bug: \
+         whichever record the packer emitted first silently became `props`"
+    );
+
+    let refused = reg.ambiguous_file_roots();
+    assert_eq!(refused.len(), 1, "expected exactly one refused root");
+    assert_eq!(refused[0].file_root, "props");
+    assert_eq!(
+        refused[0].targets,
+        vec!["first_prop".to_string(), "second_prop".to_string()],
+        "the refusal must carry EVERY target, so a caller with a catalog can \
+         tell a packed prop atlas from a character it needs to resolve"
+    );
+}
+
+/// The refusal reaches the real baked table, and lands only where measurement
+/// said it would: prop atlases, never a character sheet.
+#[test]
+fn the_real_baked_table_refuses_only_sheets_with_no_body() {
+    let reg = SheetRegistry::from_baked_table_by_file_root(baked_sheet_rons::BAKED_SHEET_RONS);
+    // The player's variant is the reason this index exists at all.
+    assert!(
+        reg.get("player_robot_v3").is_some(),
+        "`player_robot_v3` must stay resolvable by file root — the target-keyed \
+         registry cannot tell it from the enemy `robot`"
+    );
+    for refused in reg.ambiguous_file_roots() {
+        assert!(
+            refused.targets.len() > 1,
+            "a root was refused without being ambiguous: {refused}"
+        );
+    }
+}

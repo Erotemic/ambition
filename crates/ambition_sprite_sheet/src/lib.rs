@@ -31,7 +31,7 @@ pub mod binding;
 pub use binding::{AnimRow, AnimRowRef, BoundAnimRow};
 
 mod frames;
-pub use frames::{trimmed_render, AtlasPage, FrameTrim};
+pub use frames::{AtlasPage, FrameTrim, trimmed_render};
 
 pub mod baked_portrait_rons;
 pub mod baked_sheet_rons;
@@ -47,9 +47,9 @@ pub use pack::{PackCatalogError, PackFrame, PackTarget, ResolvedFrame, SpritePac
 pub mod portrait;
 mod snapshot_impls;
 pub use portrait::{
-    available_portrait_targets, baked_portrait_registry, parse_portrait_manifest,
     PortraitClipRecord, PortraitFrameRect, PortraitSheetManifest, PortraitSheetRegistry,
-    PortraitSheetRegistryPlugin,
+    PortraitSheetRegistryPlugin, available_portrait_targets, baked_portrait_registry,
+    parse_portrait_manifest,
 };
 
 /// One sprite-sheet's metadata as serialized by the generator. Field
@@ -545,6 +545,45 @@ pub struct SheetRegistry {
     /// grid** — recorded rather than warned about here. See
     /// [`Self::shadowed_targets`].
     shadowed: Vec<ShadowedTarget>,
+    /// **File roots a file-root-keyed build REFUSED for holding more than one
+    /// record** — see [`Self::ambiguous_file_roots`]. Empty for a target-keyed
+    /// registry, which has no such notion.
+    ambiguous_roots: Vec<AmbiguousFileRoot>,
+}
+
+/// One `*_spritesheet.ron` holding SEVERAL records, seen through a file-root
+/// key that can only name one of them.
+///
+/// ⛔ **the file root stops identifying a sheet the moment the file holds two.**
+/// `creator_lab_props` packs 8 props into one PNG, so `creator_lab_props` names
+/// eight records and no single one of them. The old code took
+/// `records.into_iter().next()` and documented it as *"multi-record files keep
+/// only the first record"* — which is not a rule, it is whichever record the
+/// packer happened to emit first, and a quality change re-runs the packer.
+///
+/// ⚠ **measured 2026-08-21, and this is why it is a refusal and not a warning**:
+/// all four tiers emit those 8 in identical order today, so nothing is
+/// currently wrong — the trap is that nothing MAKES that true, and the symptom
+/// if it stopped being true is a body cropped by another prop's grid.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AmbiguousFileRoot {
+    pub file_root: String,
+    /// Every `record.target` in the file, in the order it was authored.
+    pub targets: Vec<String>,
+}
+
+impl std::fmt::Display for AmbiguousFileRoot {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "file root `{}` holds {} records ({}) — it names all of them and \
+             therefore none, so it is NOT indexed by file root. Look this sheet \
+             up by `record.target` instead.",
+            self.file_root,
+            self.targets.len(),
+            self.targets.join(", "),
+        )
+    }
 }
 
 /// One target claimed twice with different frame geometry: the winner crops the
@@ -598,6 +637,15 @@ impl SheetRegistry {
     /// noise this replaced; one that reports none re-opens the day-long bisect.
     pub fn shadowed_targets(&self) -> &[ShadowedTarget] {
         &self.shadowed
+    }
+
+    /// **Every file root a file-root-keyed build refused as ambiguous.**
+    ///
+    /// Same division of labour as [`Self::shadowed_targets`]: this crate can see
+    /// that a root names several records, but not whether anything resolves art
+    /// by that root — only a caller with a catalog knows that.
+    pub fn ambiguous_file_roots(&self) -> &[AmbiguousFileRoot] {
+        &self.ambiguous_roots
     }
 
     pub fn len(&self) -> usize {
@@ -776,20 +824,56 @@ impl SheetRegistry {
     /// target-keyed registry. File roots are unique (one per
     /// `*_spritesheet.ron`), so this keeps them distinct. Use it when you
     /// need a specific sheet variant (the player's `player_robot_v3`, not the
-    /// enemy `robot`). Multi-record files keep only the first record.
+    /// enemy `robot`).
+    ///
+    /// ⛔⛔ **A MULTI-RECORD FILE IS REFUSED, NOT SILENTLY TRUNCATED.** This used
+    /// to keep `records.into_iter().next()`. That is not a selection rule, it is
+    /// the packer's emission order — and the packer re-runs per quality tier, so
+    /// "the first record" is a value a quality change is allowed to move. The
+    /// refusal is recorded in [`Self::ambiguous_file_roots`].
+    ///
+    /// ⭐ **this is the posture the crate already had, joined late.**
+    /// `AuthoredSheets::insert_ron` refuses a multi-record sheet outright rather
+    /// than leaving its earlier records installed — *"a provider told 'rejected'
+    /// and handed a half-populated registry is worse off than one told
+    /// nothing"*. The file-root index was the one door still taking a guess.
+    ///
+    /// ⭐ **provably behaviour-preserving when it landed** (2026-08-21): of 4,948
+    /// baked sheets exactly one file root holds more than one record
+    /// (`creator_lab_props`, 8 props in one PNG), it is not any character's
+    /// `manifest_target`, and it publishes NO body — so the sole consumer
+    /// (`attack_hitbox`, which needs `body_metrics`) already answered `None` for
+    /// it by a longer route.
     pub fn from_baked_table_by_file_root(table: &[(&str, &str)]) -> Self {
         let mut registry = Self::default();
         for (file_root, text) in table {
             match ron::from_str::<Vec<SheetRecord>>(text) {
+                Ok(records) if records.len() == 1 => {
+                    let record = records.into_iter().next().expect("len checked");
+                    registry.sheets.insert((*file_root).to_owned(), record);
+                }
+                Ok(records) if records.is_empty() => {}
                 Ok(records) => {
-                    if let Some(record) = records.into_iter().next() {
-                        registry.sheets.insert((*file_root).to_owned(), record);
-                    }
+                    registry.ambiguous_roots.push(AmbiguousFileRoot {
+                        file_root: (*file_root).to_owned(),
+                        targets: records.into_iter().map(|r| r.target).collect(),
+                    });
                 }
                 Err(err) => {
                     warn!("SheetRegistry: failed to parse baked {file_root}: {err}");
                 }
             }
+        }
+        // ⚠ DEBUG for the same reason the shadowed summary is: a packed prop
+        // atlas is a legitimate authoring choice, and a boot-time warning that
+        // ends by explaining itself away trains people to skim the channel.
+        if !registry.ambiguous_roots.is_empty() {
+            debug!(
+                "SheetRegistry: {} file root(s) hold several records and are not \
+                 indexed by file root. First: {}",
+                registry.ambiguous_roots.len(),
+                registry.ambiguous_roots[0],
+            );
         }
         registry
     }

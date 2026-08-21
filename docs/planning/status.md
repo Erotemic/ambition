@@ -1,6 +1,6 @@
 # HEAD orientation
 
-**Snapshot:** `2a2116684` (2026-08-21 local project date).
+**Snapshot:** `a50c7ea12` (2026-08-21 local project date).
 
 ⚠ **this SHA goes stale within hours during an active run** — it names the tree
 these paragraphs were measured against, not the tree you have. ⭐ **if it
@@ -14,6 +14,53 @@ replenish it. Focused plans own technical design.
 
 If this page disagrees with current source or a focused open plan, update this
 page rather than appending an archaeological correction.
+
+## 2026-08-21, latest: four competing-authority defects, from a review of `f8ad04f9a`
+
+⭐ **all four were CONFIRMED at source before any code moved**, and the two the
+review got right about severity were the two nobody had a test for.
+
+**Landed.**
+
+```text
+5902930a7  an input SEAT is not a match SLOT. The smash select screen keyed
+           cursors by seat (right — a hand belongs to a person) and then used
+           that index as the ROSTER CARD. With a CPU between two people,
+           first_free_device gives card 2 device 1, so the second person drove
+           the machine's card and their own was unreachable. Also: any human
+           could grab any CPU token and nothing arbitrated, so two cursors
+           carried one piece. SmashSelect::slot_driven_by + SelectCursors::
+           try_grab; SelectCursor::grab is now private so it cannot be bypassed
+79f465e62  two bodies may not both SPEND one gap. Every body_contact test was
+           one mover against blockers standing still, so nothing saw two movers
+           each granted the whole gap: 5 apart, 4 asked each, closed 8. And
+           resistance could not save it — the free-gap part of a step is
+           granted at full speed by construction, so it happened at 1.0. The
+           gap is now DIVIDED in proportion to closing speed
+3b804b947  a demo does not own where its cameras land on the glass. TwinTrack
+           cleared MainCamera.viewport every frame against the generic owner
+a50c7ea12  a claim given back by VALUE EQUALITY is not owned. DeclaredInputSeats
+           and the InputAssignmentPolicy resource became one owned
+           LocalSeatOffer; two Local<bool> flags and two "if it still equals
+           what I wrote" tests are deleted with them
+```
+
+⛔ **the shape worth carrying forward, because it appeared three times in one
+day:** a claim released by comparing the resource to the value you wrote is not
+ownership, and no test whose successor claims DIFFERENT values can see it. Ask
+*is this mine*. `SessionSeatingSource::release` had the right shape the whole
+time, two lines below the broken code.
+
+**Opened by the same review** — D177 (the viewport fix has no fixture; it needs
+a windowed host and the TwinTrack route in ONE app), D178 (a pane follows a
+BODY, not the participant driving it), D179 (contact eligibility is still
+inferred from displacement MAGNITUDE, and the propose/commit residual the gap
+split could not reach).
+
+**Deliberately not done:** D175 remains the largest named architecture item —
+seat 0 rides the global shaped `ControlFrame` bus while seats 1+ publish
+straight to `SlotControls`, so any new semantic shaper is primary-only unless
+someone remembers to write it twice.
 
 ## Also 2026-08-21, later: content, guards, and the carve's PRICE
 

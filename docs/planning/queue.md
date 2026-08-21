@@ -345,6 +345,78 @@ without the resolver still runs the guard. Breaking that hook takes the whole
 standing-goal mechanism down, and it can only be exercised by ending a turn,
 which is why the logic moved into a script a test can run.
 
+- ▢ **D179 — TWO CONTACT DEFECTS THE GAP SPLIT DID NOT CLOSE.** (found
+  2026-08-21, by GPT review of `f8ad04f9a`)
+
+`constrain_motion` now divides a gap between bodies that are both closing on it
+(`79f465e62`). Two things named in the same review are still open, and neither
+is a threshold to tune.
+
+**(a) MOTION PROVENANCE, not magnitude.** `body_contact.rs` treats anything
+faster than one walk-tick as "not walking" and lets it pass. That correctly
+exempts a launch, but it is a PROXY: a knockback that has decayed, a recoil, or
+a scripted displacement eventually falls below walking speed and starts being
+constrained as locomotion. ⇒ the movement/contact seam should carry an explicit
+fact about whether a proposed motion participates in body contact. ⛔ do not
+infer the origin of a displacement from how big it is.
+
+**(b) THE RESIDUAL THE SPLIT COULD NOT REACH, and it is written into the
+function's own doc.** The snapshot is taken before any controller runs, so a
+body starting from REST reads as stationary for one tick; two bodies that both
+begin walking at each other from a gap narrower than one acceleration step can
+still overlap by that much. Closing it means splitting integration into PROPOSE
+and COMMIT phases so every contact participant's real proposed delta is jointly
+available — a schedule change, and the reason it was not attempted inside the
+constraint function.
+
+⛔ **not by halving, not by pushout, not by sorting entities.** `body_contact/
+tests.rs` carries the falsifiers for all three: a lone mover must still spend
+the whole gap, and a blocker travelling away must not be charged for space it is
+vacating.
+
+- ▢ **D178 — A PARTICIPANT'S PANE FOLLOWS A BODY, NOT THE PARTICIPANT.** (found
+  2026-08-21, by GPT review of `f8ad04f9a`)
+
+`frame_each_participant` (twintrack `participants.rs`) writes
+`ViewSubject(laboratory_twin_entity)` for pane one. That follows Emmy, not
+whoever is driving participant one — so if that participant later possesses or
+transfers to another body, the pane stays on Emmy while its person walks away.
+
+⇒ a participant-following presentation relation, conceptually
+`ViewParticipant(PlayerSlot)`, resolved through the body currently carrying
+`DrivingParticipant(slot)`. Pane zero already gets this right by naming NO
+subject — a view with no `ViewSubject` frames the session's controlled body —
+so the asymmetry is that only seat zero has a way to say it.
+
+⛔ **`ViewSubject(Entity)` stays.** Deliberately following one entity is a real
+policy: spectators, cutscenes, portals. ⛔ and do not collapse control authority
+into presentation subject — they are two questions and the possession seam is
+exactly where they come apart.
+
+- ▢ **D177 — THE VIEWPORT DOUBLE-WRITER IS FIXED AND UNGUARDED.** (found
+  2026-08-21)
+
+`3b804b947` removed TwinTrack's `camera.viewport = None` writes, which raced
+every frame against `apply_gameplay_camera_viewport` — the documented owner of
+that field for every `MainCamera` presenting a `LocalView`, which TwinTrack's
+own pane cameras are.
+
+⇒ what is missing is the fixture. Pinning it needs one app composing the
+WINDOWED presentation host and the TwinTrack route together, then asserting two
+distinct non-overlapping physical viewports after the real Update schedule runs.
+Neither existing home can do it: `twintrack_it` is headless (no `PrimaryWindow`,
+so the applier early-returns and there is nothing to read), and the demo's
+`visible` tests sit behind a feature CI does not invoke.
+
+⛔ **not a source-text assertion.** "grep the demo for `.viewport =`" is the
+banned shape — it guards the spelling, not the behaviour, and it goes green the
+day somebody writes the same clobber through a helper.
+
+⚠ the generic owner IS guarded, by
+`each_camera_renders_into_the_rectangle_of_the_view_it_names`. What has no test
+is a COMPOSITION adding a second writer, and that is the class of defect this
+row is about.
+
 - ▢ **D176 — THE SPRITE-SHEET SUITE IS RED ON ANY TREE WITHOUT GENERATED PACKS.**
   (found 2026-08-21)
 

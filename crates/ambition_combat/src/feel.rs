@@ -21,8 +21,16 @@
 //! ```
 //!
 //! A doc block naming your invariant IS a dependency — one the compiler cannot
-//! check and that drifts silently the day a number changes. Three of those can
-//! now name the value instead of copying it.
+//! check and that drifts silently the day a number changes.
+//!
+//! ✔ **FOLLOWED THROUGH the same day, and only ONE of the four could be fixed**
+//! — the claim above said "three", and measuring it said otherwise.
+//! `ResolvedCombatTuning::default()` READS `di_max_angle` from here now
+//! (`6cbf5d2de`) instead of writing `0.0` beside a comment claiming they match.
+//! ⚠ the other three CANNOT: `platformer2d_core`'s glide test and
+//! `shared_tangle::camera_ease` sit BELOW this crate and cannot name the type at
+//! all, so their restatements are the only option available. ⛔ that is
+//! structural, not unfinished work, and not a reason to add a dependency edge.
 //!
 //! ⚠ **the type keeps its name for now, and the name is wrong.** Nothing here is
 //! a monolith any more. Renaming is mechanical and compiler-checked across ~116

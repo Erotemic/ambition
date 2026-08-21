@@ -4,6 +4,36 @@
 //! the shape of an attack is game logic. Keeping hitbox and damage semantics
 //! here lets tests and future headless validators reason about combat without a
 //! renderer.
+//!
+//! # What belongs here, and what this crate REFUSES
+//!
+//! ⭐ **stated because a destination that says nothing accepts everything**
+//! (D136): whoever installs a thing first otherwise decides who pays for it, and
+//! the three crates that DID write their contracts down — `ambition_dialog`
+//! ("content-free"), `ambition_settings_menu` ("renderer-agnostic"),
+//! `ambition_menu` ("load-bearing for the WHOLE workspace") — each turned a
+//! plausible move into an obviously wrong one at zero cost. This crate is an
+//! active carve destination and had no such sentence.
+//!
+//! **It owns the SHAPE of a hit and what a hit MEANS**: hitboxes and authored
+//! volumes, movesets and move playback, capture/pummel/throws, targeting,
+//! on-hit reactions, staleness, stocks, hazards, footstools, death rules, and
+//! the feel numbers those rules read.
+//!
+//! ⛔ **it REFUSES presentation, and that is enforced rather than promised**:
+//! `bevy` is taken with `default-features = false`, so no render, window or
+//! text feature is reachable from here. A thing that must DRAW cannot compile in
+//! this crate. What it does instead is NAME cues — `ambition_sfx` / `ambition_vfx`
+//! supply the vocabulary, and something downstream decides what a named cue
+//! sounds and looks like.
+//!
+//! ⛔ **it REFUSES a body's lifecycle.** Spawning, despawning, room residency
+//! and possession belong to the actor layer; this crate reads bodies and writes
+//! what happened TO them. ⚠ the test for a borderline case is the one D136
+//! yields: *read the DESTINATION's stated contract before moving anything into
+//! it* — and if the answer is genuinely "combat rule, no drawing, no lifecycle",
+//! it belongs. `feel.rs` arrived on 2026-08-21 by exactly that reading: hitlag
+//! and hitstop are RULES a fight obeys, not decoration on top of one.
 
 pub mod authored_volumes;
 pub mod banner;

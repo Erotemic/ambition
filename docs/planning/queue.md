@@ -5574,6 +5574,28 @@ ambition_menu            its manifest says the trimmed bevy features are
                          "load-bearing for the WHOLE workspace"
 ```
 
+⭐ **AND ONE MORE DESTINATION NOW STATES ITS CONTRACT — 2026-08-21.**
+`ambition_combat` is an ACTIVE carve destination (it received `feel.rs` the same
+day) and had six header lines describing what it holds and not one sentence about
+what it refuses. A destination that says nothing accepts everything. Its refusals
+are now written where the next carve reads them, and both are EVIDENCE rather
+than aspiration:
+
+```text
+refuses presentation     enforced, not promised: `bevy` is taken with
+                         `default-features = false`, so nothing that must DRAW
+                         can compile here. It NAMES cues (`ambition_sfx` /
+                         `ambition_vfx` supply the vocabulary) and something
+                         downstream decides how a named cue looks
+refuses body lifecycle   spawn/despawn/residency/possession are the actor
+                         layer's; this crate reads bodies and writes what
+                         happened TO them
+```
+
+⚠ the header also records why `feel.rs` was a CORRECT arrival under that
+contract — hitlag and hitstop are rules a fight obeys, not decoration on one — so
+the next borderline case has a worked example rather than only a rule.
+
 ⇒ **every one of those is a composition boundary written down where the next
 person looks**, and each turned a plausible move into an obviously wrong one at
 zero cost. ⭐ the rule this yields is small and practical: **read the

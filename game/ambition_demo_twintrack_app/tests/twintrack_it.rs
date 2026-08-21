@@ -1228,30 +1228,37 @@ fn with_nobody_in_the_second_seat_the_twin_stands_still_and_stays_watched() {
 /// and TwinTrack is one route in a host that also runs Mary-O and Smash.
 #[test]
 fn the_plaza_declares_two_seats_and_a_couch_policy_only_while_it_is_live() {
-    use ambition_platformer2d::input::{DeclaredInputSeats, InputAssignmentPolicy};
+    use ambition_platformer2d::input::{InputAssignmentPolicy, LocalSeatOffer};
+
+    fn offer(app: &App) -> LocalSeatOffer {
+        app.world()
+            .get_resource::<LocalSeatOffer>()
+            .cloned()
+            .expect("the plaza inits the offer it claims")
+    }
 
     let mut app = ambition_demo_twintrack_app::build_demo_app();
     app.update();
     assert_eq!(
-        app.world().get_resource::<DeclaredInputSeats>().copied(),
-        Some(DeclaredInputSeats(0)),
+        offer(&app).seats(),
+        0,
         "TwinTrack offered seats before its session existed",
     );
     assert_eq!(
-        app.world().get_resource::<InputAssignmentPolicy>().copied(),
-        Some(InputAssignmentPolicy::default()),
+        offer(&app).policy(),
+        InputAssignmentPolicy::default(),
         "TwinTrack partitioned the room's controllers before anybody was playing",
     );
 
     activate(&mut app);
     assert_eq!(
-        app.world().get_resource::<DeclaredInputSeats>().copied(),
-        Some(DeclaredInputSeats(2)),
+        offer(&app).seats(),
+        2,
         "the exhibit is two observers, so the session seats two participants",
     );
     assert_eq!(
-        app.world().get_resource::<InputAssignmentPolicy>().copied(),
-        Some(InputAssignmentPolicy::JoinToClaim),
+        offer(&app).policy(),
+        InputAssignmentPolicy::JoinToClaim,
         "the seats are declared but every device still drives seat zero: a \
          keyboard and one controller are two people at this exhibit",
     );

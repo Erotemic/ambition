@@ -1704,11 +1704,11 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
         // **AND THE SEATS IT OFFERS.** A host seats input participants from the
         // match roster, and this screen is what PRODUCES the roster — so until
         // it declares them, only player one exists and the other panels are
-        // chairs no controller can reach. See `DeclaredInputSeats`.
-        app.init_resource::<ambition_platformer2d::input::DeclaredInputSeats>();
-        // The couch policy this demo drives. Defaults to `UnifiedPrimary`, so
-        // installing it changes nothing until the select screen says otherwise.
-        app.init_resource::<ambition_platformer2d::input::sources::InputAssignmentPolicy>();
+        // chairs no controller can reach. See `LocalSeatOffer`, which carries
+        // the couch POLICY with the count because the two are one statement:
+        // seats without a policy are seats the default hands straight back to
+        // player one.
+        app.init_resource::<ambition_platformer2d::input::LocalSeatOffer>();
         // **ONE CHAIN, IN `InputSet::Consume`.** Two things were ambiguous and
         // both are the same mistake — a reader with no stated order.
         //
@@ -1840,18 +1840,10 @@ fn present_the_select_screen(
     mut select: bevy::prelude::ResMut<select::SmashSelect>,
     roster: Option<bevy::prelude::Res<MatchParticipantRoster>>,
     devices: Option<bevy::prelude::Res<ambition_platformer2d::input::LocalDeviceOrder>>,
-    mut lobby_seats: bevy::prelude::ResMut<ambition_platformer2d::input::DeclaredInputSeats>,
-    mut assignment: bevy::prelude::ResMut<
-        ambition_platformer2d::input::sources::InputAssignmentPolicy,
-    >,
-    // Whether THIS demo is the one holding the couch policy, so leaving its
-    // routes restores the default exactly once and never stamps over a policy
-    // some other experience set.
-    mut claimed_policy: bevy::prelude::Local<bool>,
-    // The same question for the seat OFFER, which is a separate claim with a
-    // separate lifetime: the policy is held across both smash routes, the offer
-    // only while the select screen is up.
-    mut claimed_seats: bevy::prelude::Local<bool>,
+    // ⭐ **ONE claim, and it names its owner.** This was two resources guarded by
+    // two `Local<bool>` flags and two value-equality tests — a hand-kept
+    // ownership model beside a type that now carries one.
+    mut offer: bevy::prelude::ResMut<ambition_platformer2d::input::LocalSeatOffer>,
     // ⚠ **ONE parameter, two resources**, for the same reason `art` below is
     // one and not four: this system is at Bevy's parameter tuple ceiling and a
     // separate `page` argument put it over. The pair belongs together anyway —
@@ -1916,46 +1908,38 @@ fn present_the_select_screen(
     // another game owned the screen, and no other experience could hold its own
     // assignment policy. The comment said "route-scoped"; the code was global.
     //
-    // A claim is released by whoever made it: this restores the default only on
-    // the frame it leaves its own routes, and is silent everywhere else.
+    // ⭐ **the offer names its owner, so "only undo OUR value" stopped being
+    // something this system has to remember.** It was four hand-written guards —
+    // two `Local<bool>` claims and two `if it still equals what I wrote` tests —
+    // and the second half of that pair is a bug wherever it appears: a successor
+    // that claims the SAME values is erased by the previous owner's teardown.
     let couch = ambition_platformer2d::input::sources::InputAssignmentPolicy::JoinToClaim;
-    if on_smash_route {
-        if *assignment != couch {
-            *assignment = couch;
-        }
-        *claimed_policy = true;
-    } else if *claimed_policy {
-        *claimed_policy = false;
-        // Only undo OUR value. If something else has since set a policy, that is
-        // its business and this demo has no opinion about it.
-        if *assignment == couch {
-            *assignment =
-                ambition_platformer2d::input::sources::InputAssignmentPolicy::UnifiedPrimary;
-        }
-    }
-    let policy = *assignment;
     let offered = devices
         .as_deref()
-        .map(|devices| select::seats_offered_under(devices, policy))
+        .map(|devices| select::seats_offered_under(devices, couch))
         .unwrap_or(1) as u8;
-    // ⛔ **THE SAME RULE THE POLICY ABOVE ALREADY LEARNED, and the seats write
-    // escaped it.** This was `DeclaredInputSeats(if on_select { offered } else { 0 })`
-    // written unconditionally — so while ANOTHER experience was offering a
-    // couch, every frame this demo was not on its select screen retracted that
-    // offer. It only stayed invisible while smash was the sole surface that
-    // declared seats. A claim is released by whoever made it.
-    if on_select {
-        let want = ambition_platformer2d::input::DeclaredInputSeats(offered);
-        if *lobby_seats != want {
-            *lobby_seats = want;
+    if on_smash_route {
+        // **SEATS ONLY WHILE THE SCREEN IS UP; THE POLICY ACROSS BOTH ROUTES.**
+        // A match's seats come from its roster, so the lobby's offer is
+        // withdrawn when the lobby is — but the couch assignment the lobby made
+        // must survive into the match it started. Jon's brief: *"Before the
+        // match starts, freeze: participant, session seat, control channel,
+        // input sources."* A source assignment that expires when the lobby
+        // closes is the opposite of frozen, and the pad arrived on BOTH seats
+        // during the match when this was keyed on the route alone.
+        let seats = if on_select { offered } else { 0 };
+        // Compare before writing: a resource that "changes" every frame is a
+        // needless wake-up for everything watching it.
+        if !offer.is_owned_by(SMASH_SELECT_EXPERIENCE)
+            || offer.seats() != seats
+            || offer.policy() != couch
+        {
+            offer.claim(SMASH_SELECT_EXPERIENCE, seats, couch);
         }
-        *claimed_seats = true;
-    } else if *claimed_seats {
-        *claimed_seats = false;
-        // Only undo OUR offer. A count somebody else published is theirs.
-        if lobby_seats.0 != 0 {
-            *lobby_seats = ambition_platformer2d::input::DeclaredInputSeats(0);
-        }
+    } else {
+        // A stranger's offer is left standing, and the TYPE decides that rather
+        // than a remembered flag and a value comparison.
+        offer.release(SMASH_SELECT_EXPERIENCE);
     }
     if on_select {
         // **ARRIVING is where a rematch becomes possible.** The screen's own
@@ -2129,7 +2113,7 @@ fn start_the_battle_when_asked(
     // keyboard or the first pad is the policy's answer — the same one
     // `source_name_under` labels the slot with. Reading it here is what stops
     // the roster and the label disagreeing about who is holding what.
-    assignment: bevy::prelude::Res<ambition_platformer2d::input::sources::InputAssignmentPolicy>,
+    assignment: bevy::prelude::Res<ambition_platformer2d::input::LocalSeatOffer>,
     // **WHO ALREADY HAS A REPERTOIRE**, so a seat whose character authors its own
     // moves is not handed this stage's generic kit (Jon's redirect §17).
     // `Option`, like every other reader of the cast.
@@ -2183,7 +2167,7 @@ fn start_the_battle_when_asked(
     let Some(decided) = select.roster_seeded(
         &fighters,
         seed,
-        *assignment,
+        assignment.policy(),
         // The ids whose CHARACTER states its own move timelines. Computed here
         // because only this side can see the prepared cast.
         &prepared
@@ -2300,7 +2284,7 @@ fn start_the_battle_when_asked(
 /// ⚠ **nothing to unwind by hand, and that is a claim worth stating.** What this
 /// route CLAIMED on arrival is released by the systems that claimed it, because
 /// each is keyed on the route rather than on a shutdown hook:
-/// `present_the_select_screen` drops `DeclaredInputSeats` to zero, restores the
+/// `present_the_select_screen` drops its `LocalSeatOffer` seat count to zero, restores the
 /// assignment policy it set, and despawns the UI the moment the route is no
 /// longer active; `declare_the_select_input_context` retracts `SELECT_CONTEXT`;
 /// `publish_the_select_ui_cue` retracts the cue; and the experience scope

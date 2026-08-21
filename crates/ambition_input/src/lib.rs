@@ -60,7 +60,6 @@ pub use ambition_platformer2d_core::ControlFrame;
 /// Which local source drives which control channel — the map that keeps a
 /// lobby's sparse source numbers out of the rollback host's dense handles.
 pub use channels::{LocalChannelPlan, LocalInputSource};
-pub use seating::SessionSeatingSource;
 pub use control::PlayerBurstTriggerState;
 #[cfg(feature = "input")]
 pub use control::{
@@ -73,6 +72,7 @@ pub use local_seats::{
     assign_local_seat_devices, track_local_device_order, LocalDeviceOrder, LocalSeatTopology,
     SeatDeviceOwnership as LocalSeatDeviceOwnership,
 };
+pub use seating::{LocalSeatOffer, SessionSeatingSource};
 
 /// Schedule contract for the participant input pipeline (one frame, in
 /// order): device adapters complete before routing, and every routed output
@@ -128,8 +128,7 @@ pub use cues::{ActiveUiCues, UiCue};
 #[cfg(feature = "input")]
 pub use layout::{BindingLayout, DeclaredBindingLayout, PadSlot};
 pub use menu::{
-    analog_to_dir, DeclaredInputSeats, MenuControlFrame, MenuDir, MenuInputFrame, MenuInputState,
-    SeatMenuFrames,
+    analog_to_dir, MenuControlFrame, MenuDir, MenuInputFrame, MenuInputState, SeatMenuFrames,
 };
 pub use participant::{
     resolve_active_input_context, ActiveInputContext, ContextClaim, InputContextId,
@@ -143,11 +142,12 @@ pub use settings::{BindingOverride, ControlFilters, OverrideControl, OverrideDev
 /// **HOW LOCAL SOURCES BECOME PARTICIPANTS**, and who owns the keyboard when
 /// that is a question.
 ///
-/// Re-exported beside [`DeclaredInputSeats`] because the two are one statement:
-/// a surface that says *two people may play* and stops there gets two seats and
-/// one of them inert, since the default policy gives every device to the primary
-/// participant. Saying the count without saying the policy is the shape that
-/// shipped a dead second seat (TwinTrack, 2026-08-20).
+/// ⭐ **the count and the policy are ONE statement, and since 2026-08-21 one
+/// value**: a surface that says *two people may play* and stops there gets two
+/// seats and one of them inert, since the default policy gives every device to
+/// the primary participant. Saying the count without saying the policy is the
+/// shape that shipped a dead second seat (TwinTrack, 2026-08-20), so
+/// [`LocalSeatOffer`] carries both under one owner.
 pub use sources::{InputAssignmentPolicy, KeyboardOwner};
 // ⚠ `key_name` joins this list rather than the module being opened: the crate
 // exposes a chosen surface, and a HUD legend needs exactly one function from it.

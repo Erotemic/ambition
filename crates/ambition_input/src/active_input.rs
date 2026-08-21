@@ -231,7 +231,7 @@ pub fn update_seat_active_devices(
     mut cursor_moved: MessageReader<CursorMoved>,
     touches: Option<Res<bevy::input::touch::Touches>>,
     pads: Query<(Entity, &Gamepad, Option<&Name>)>,
-    policy: Option<Res<crate::sources::InputAssignmentPolicy>>,
+    offer: Option<Res<crate::seating::LocalSeatOffer>>,
     keyboard_owner: Option<Res<crate::sources::KeyboardOwner>>,
     participants: Query<(
         &crate::participant::InputParticipant,
@@ -243,7 +243,7 @@ pub fn update_seat_active_devices(
     // The keyboard-and-mouse bundle's seat: its exclusive owner when the
     // session named one, the primary otherwise.
     let keyboard_seat = crate::sources::keyboard_owner_for(
-        policy.map(|policy| *policy).unwrap_or_default(),
+        offer.map(|offer| offer.policy()).unwrap_or_default(),
         keyboard_owner.map(|owner| *owner).unwrap_or_default(),
         seat_count,
     )

@@ -40,8 +40,8 @@ use ambition_platformer2d::runtime::demo_fixture::ActiveRoomMetadata;
 use ambition_platformer2d::sim_view::{LocalView, LocalViewId, ViewPlacement, ViewSubject};
 
 use crate::{
-    LaboratoryTwin, TwinTrackExperiment, LAB_POS, TWINTRACK_EXPERIENCE,
-    TWINTRACK_GAMEPLAY_ROUTE, TWINTRACK_LAB_TWIN_CHARACTER_ID,
+    LaboratoryTwin, TwinTrackExperiment, LAB_POS, TWINTRACK_EXPERIENCE, TWINTRACK_GAMEPLAY_ROUTE,
+    TWINTRACK_LAB_TWIN_CHARACTER_ID,
 };
 
 /// The seat the laboratory twin holds. Slot 0 is the traveler's, authored by the
@@ -62,8 +62,7 @@ const TRAVELER_VIEW: LocalViewId = LocalViewId::FIRST;
 const LAB_TWIN_VIEW: LocalViewId = LocalViewId(1);
 
 pub(crate) fn install(app: &mut App) {
-    app.init_resource::<ambition_platformer2d::input::DeclaredInputSeats>()
-        .init_resource::<ambition_platformer2d::input::InputAssignmentPolicy>()
+    app.init_resource::<ambition_platformer2d::input::LocalSeatOffer>()
         // ⛔ **and the third, for the same reason the other two are here.** A
         // composition without the host input group never inits it, and a
         // `ResMut` of a missing resource does not skip the system — Bevy 0.18
@@ -218,8 +217,7 @@ fn spawn_pane_camera(_commands: &mut Commands, _view: Entity) {}
 /// (`a_single_pad_beside_a_keyboard_player_drives_the_second_seat`).
 fn declare_the_couch(
     router: Res<ambition_platformer2d::game_shell::ShellRouter>,
-    mut seats: ResMut<ambition_platformer2d::input::DeclaredInputSeats>,
-    mut policy: ResMut<ambition_platformer2d::input::InputAssignmentPolicy>,
+    mut offer: ResMut<ambition_platformer2d::input::LocalSeatOffer>,
     // **HOW MANY LOCAL CHANNELS THE SESSION OPENS.** The third half of the
     // couch, and the one whose absence made the other two useless — see the
     // block comment below.
@@ -233,9 +231,21 @@ fn declare_the_couch(
     // its select screen then offered one seat to two people
     // (`smash_in_the_host::two_participants_start_a_match_and_can_still_pause_it`).
     //
-    // A claim is released by whoever made it, exactly once, and only if the
-    // value is still the one that was claimed.
-    mut claimed: Local<bool>,
+    // A claim is released by whoever made it.
+    //
+    // ⛔⛔ **and "only if the value still equals mine" was the WRONG way to ask
+    // it**, which is what this used to do for the seat count and the policy:
+    //
+    // ```text
+    // if seats == 2      { seats = 0 }
+    // if policy == couch { policy = default }
+    // ```
+    //
+    // A successor route that independently claims exactly those same values is
+    // erased by this teardown — and no test written against a successor claiming
+    // DIFFERENT values can see it, which is why the one here claimed four seats.
+    // Both facts now live in an OWNED `LocalSeatOffer`, so the question is *is
+    // this mine* and the value never enters into it.
 ) {
     // ⛔⛔ **THE ROUTE, NOT THE ROOM, and the difference is a whole frame that
     // matters.** This asked `ActiveRoomMetadata`, which exists only once the
@@ -250,14 +260,16 @@ fn declare_the_couch(
         .is_some_and(|active| active.route_id.as_str() == TWINTRACK_GAMEPLAY_ROUTE);
     let couch = ambition_platformer2d::input::InputAssignmentPolicy::JoinToClaim;
     if live {
-        let wanted = ambition_platformer2d::input::DeclaredInputSeats(TWINTRACK_SEATS);
         // Written only on a change: this is read by a system that spawns and
-        // despawns seat entities.
-        if *seats != wanted {
-            *seats = wanted;
-        }
-        if *policy != couch {
-            *policy = couch;
+        // despawns seat entities. ⚠ **but OWNERSHIP counts as a change** — an
+        // offer that already reads the way this one wants it still has to become
+        // TwinTrack's, or the surface that made it will withdraw TwinTrack's
+        // seats when it leaves.
+        if !offer.is_owned_by(TWINTRACK_EXPERIENCE)
+            || offer.seats() != TWINTRACK_SEATS
+            || offer.policy() != couch
+        {
+            offer.claim(TWINTRACK_EXPERIENCE, TWINTRACK_SEATS, couch);
         }
         // ⛔⛔ **AND THE TWO ABOVE ARE STILL NOT ENOUGH — measured a second time,
         // on the same hardware.** Jon, 2026-08-20: *"in twin track I still
@@ -282,27 +294,23 @@ fn declare_the_couch(
             ambition_platformer2d::input::LocalInputSource::Keyboard,
             ambition_platformer2d::input::LocalInputSource::FIRST_PAD,
         ]);
-        if seating.channel_plan() != Some(&plan) {
+        // ⚠ **the same ownership rule as the offer above.** Acquiring a plan
+        // that already reads the way this one wants it must still establish the
+        // owner; concluding "no claim is necessary, the value already matches"
+        // leaves the previous owner holding a claim TwinTrack depends on.
+        if !seating.is_owned_by(TWINTRACK_EXPERIENCE) || seating.channel_plan() != Some(&plan) {
             *seating = ambition_platformer2d::input::SessionSeatingSource::decided(
                 TWINTRACK_EXPERIENCE,
                 plan,
             );
         }
-        *claimed = true;
         return;
     }
-    if !*claimed {
-        return;
-    }
-    *claimed = false;
-    if seats.0 == TWINTRACK_SEATS {
-        *seats = ambition_platformer2d::input::DeclaredInputSeats(0);
-    }
-    if *policy == couch {
-        *policy = ambition_platformer2d::input::InputAssignmentPolicy::default();
-    }
-    // Same rule, and the type enforces it: `release` is a no-op on a claim that
-    // is not this owner's.
+    // ⭐ **no `Local<bool>` guard, and none is needed.** Both releases are
+    // no-ops on a claim that is not this owner's, so running them on every frame
+    // this route is not live says exactly what one run of them says. The flag
+    // existed to make "exactly once" true; ownership makes it irrelevant.
+    offer.release(TWINTRACK_EXPERIENCE);
     seating.release(TWINTRACK_EXPERIENCE);
 }
 
@@ -430,7 +438,7 @@ pub(crate) fn adopt_the_laboratory_twin(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_platformer2d::input::{DeclaredInputSeats, InputAssignmentPolicy};
+    use ambition_platformer2d::input::{InputAssignmentPolicy, LocalSeatOffer};
 
     /// ⚠ **the ROUTER is the fixture now, not a hand-spawned room.** The claim
     /// keys off the route (see `declare_the_couch`), and a fixture that
@@ -441,8 +449,7 @@ mod tests {
             ActiveShellExperience, ShellActivationId, ShellExperienceId, ShellRouteId, ShellRouter,
         };
         let mut app = App::new();
-        app.init_resource::<DeclaredInputSeats>()
-            .init_resource::<InputAssignmentPolicy>()
+        app.init_resource::<LocalSeatOffer>()
             .init_resource::<ambition_platformer2d::input::SessionSeatingSource>()
             .init_resource::<ShellRouter>()
             .add_systems(Update, declare_the_couch);
@@ -473,20 +480,27 @@ mod tests {
             .active = None;
     }
 
-    fn couch(app: &App) -> (DeclaredInputSeats, InputAssignmentPolicy) {
+    fn couch(app: &App) -> (u8, InputAssignmentPolicy, Option<String>) {
+        let offer = app.world().resource::<LocalSeatOffer>();
         (
-            *app.world().resource::<DeclaredInputSeats>(),
-            *app.world().resource::<InputAssignmentPolicy>(),
+            offer.seats(),
+            offer.policy(),
+            offer.owner().map(str::to_owned),
         )
+    }
+
+    /// A claim some other surface is holding, with the values it chose.
+    fn someone_elses(seats: u8, policy: InputAssignmentPolicy) -> LocalSeatOffer {
+        LocalSeatOffer::offered("another surface", seats, policy)
     }
 
     /// **⛔⛔ A DEMO PLUGIN MAY NOT RETRACT A CLAIM IT DID NOT MAKE.**
     ///
-    /// Both of these are process-globals and `ambition_app` links this crate
-    /// beside Mary-O, Smash and the launcher. The first version wrote the
-    /// DEFAULTS on every frame TwinTrack was not live — which retracted Smash's
-    /// couch policy on every frame of every smash match, and its select screen
-    /// then offered one seat to two people
+    /// This is a process-global and `ambition_app` links this crate beside
+    /// Mary-O, Smash and the launcher. The first version wrote the DEFAULTS on
+    /// every frame TwinTrack was not live — which retracted Smash's couch policy
+    /// on every frame of every smash match, and its select screen then offered
+    /// one seat to two people
     /// (`app_it::smash_in_the_host::two_participants_start_a_match_and_can_still_pause_it`).
     ///
     /// ⚠ **and the plaza is ALWAYS live in its own standalone app**, which is
@@ -496,23 +510,27 @@ mod tests {
     #[test]
     fn a_dormant_plaza_leaves_another_surfaces_couch_alone() {
         let mut app = couch_app(false);
-        app.insert_resource(DeclaredInputSeats(4));
-        app.insert_resource(InputAssignmentPolicy::JoinToClaim);
+        app.insert_resource(someone_elses(4, InputAssignmentPolicy::JoinToClaim));
         for _ in 0..3 {
             app.update();
         }
         assert_eq!(
             couch(&app),
-            (DeclaredInputSeats(4), InputAssignmentPolicy::JoinToClaim),
+            (
+                4,
+                InputAssignmentPolicy::JoinToClaim,
+                Some("another surface".to_owned())
+            ),
             "a dormant TwinTrack wrote over a couch somebody else was holding",
         );
     }
 
-    /// **A LIVE PLAZA CLAIMS BOTH, and a count alone would not be enough.**
+    /// **A LIVE PLAZA CLAIMS THE OFFER, and a count alone would not be enough.**
     ///
-    /// `DeclaredInputSeats(2)` gets seat one an `InputParticipant`; it does NOT
-    /// get it a device, because `UnifiedPrimary` means every local source drives
-    /// the primary participant. Jon measured exactly that on hardware.
+    /// Two seats gets seat one an `InputParticipant`; it does NOT get it a
+    /// device, because `UnifiedPrimary` means every local source drives the
+    /// primary participant. Jon measured exactly that on hardware, which is why
+    /// the count and the policy are one value.
     #[test]
     fn a_live_plaza_claims_two_seats_and_the_couch_policy() {
         let mut app = couch_app(true);
@@ -520,8 +538,9 @@ mod tests {
         assert_eq!(
             couch(&app),
             (
-                DeclaredInputSeats(TWINTRACK_SEATS),
-                InputAssignmentPolicy::JoinToClaim
+                TWINTRACK_SEATS,
+                InputAssignmentPolicy::JoinToClaim,
+                Some(TWINTRACK_EXPERIENCE.to_owned())
             ),
         );
     }
@@ -551,7 +570,10 @@ mod tests {
         assert_eq!(source.owner(), Some(TWINTRACK_EXPERIENCE));
         assert_eq!(
             source.channel_plan().map(|plan| plan.sources().to_vec()),
-            Some(vec![LocalInputSource::Keyboard, LocalInputSource::FIRST_PAD]),
+            Some(vec![
+                LocalInputSource::Keyboard,
+                LocalInputSource::FIRST_PAD
+            ]),
             "the plaza did not tell the session that its two channels are the \
              keyboard and the first pad; a rollback session then sizes itself \
              from connected devices and seat one is inert for the whole visit",
@@ -593,7 +615,9 @@ mod tests {
     /// resetting the resource.
     #[test]
     fn leaving_the_plaza_leaves_another_surfaces_seating_alone() {
-        use ambition_platformer2d::input::{LocalChannelPlan, LocalInputSource, SessionSeatingSource};
+        use ambition_platformer2d::input::{
+            LocalChannelPlan, LocalInputSource, SessionSeatingSource,
+        };
         let mut app = couch_app(true);
         app.update();
         leave_the_plaza(&mut app);
@@ -610,11 +634,11 @@ mod tests {
         );
     }
 
-    /// **THE RELEASE UNDOES ITS OWN VALUE AND NOTHING ELSE.**
+    /// **THE RELEASE UNDOES ITS OWN CLAIM AND NOTHING ELSE.**
     ///
     /// ⛔ the falsifier is the value written BETWEEN: somebody else's claim
-    /// arrives while TwinTrack still holds the latch, and the release must find
-    /// a value that is no longer its own and leave it there.
+    /// arrives while TwinTrack is still the one that made the last one, and the
+    /// release must find a claim that is no longer its own and leave it there.
     #[test]
     fn leaving_the_plaza_restores_only_what_it_claimed() {
         let mut app = couch_app(true);
@@ -624,20 +648,85 @@ mod tests {
         app.update();
         assert_eq!(
             couch(&app),
-            (DeclaredInputSeats(0), InputAssignmentPolicy::UnifiedPrimary),
+            (0, InputAssignmentPolicy::UnifiedPrimary, None),
             "leaving the plaza left its couch behind for the next game",
         );
 
-        // Now the same run again, but somebody else takes both over first.
+        // Now the same run again, but somebody else takes it over first.
         let mut app = couch_app(true);
         app.update();
         leave_the_plaza(&mut app);
-        app.insert_resource(DeclaredInputSeats(4));
+        app.insert_resource(someone_elses(4, InputAssignmentPolicy::UnifiedPrimary));
         app.update();
         assert_eq!(
             couch(&app),
-            (DeclaredInputSeats(4), InputAssignmentPolicy::UnifiedPrimary),
+            (
+                4,
+                InputAssignmentPolicy::UnifiedPrimary,
+                Some("another surface".to_owned())
+            ),
             "the release retracted a seat offer that was no longer TwinTrack's",
+        );
+    }
+
+    /// **⛔⛔ A SUCCESSOR THAT WANTS THE SAME NUMBERS IS STILL A DIFFERENT OWNER.**
+    ///
+    /// This is the case the test above could not see, because its successor
+    /// claimed FOUR seats. The teardown used to read:
+    ///
+    /// ```text
+    /// if seats == 2      { seats = 0 }
+    /// if policy == couch { policy = default }
+    /// ```
+    ///
+    /// so a route that independently arrived at TwinTrack's own two-seat couch —
+    /// the most likely successor there is, since two-player couch is one
+    /// configuration and not a rare one — had its claim wiped by an exhibit that
+    /// had already ended. Value equality cannot tell "still mine" from "the same
+    /// answer somebody else reached".
+    #[test]
+    fn a_successor_claiming_the_very_same_couch_keeps_it() {
+        let mut app = couch_app(true);
+        app.update();
+        leave_the_plaza(&mut app);
+        // Identical numbers, different owner.
+        app.insert_resource(someone_elses(
+            TWINTRACK_SEATS,
+            InputAssignmentPolicy::JoinToClaim,
+        ));
+        app.update();
+        assert_eq!(
+            couch(&app),
+            (
+                TWINTRACK_SEATS,
+                InputAssignmentPolicy::JoinToClaim,
+                Some("another surface".to_owned())
+            ),
+            "TwinTrack's teardown erased a successor whose only mistake was \
+             wanting the same two seats and the same couch policy",
+        );
+    }
+
+    /// **AND TAKING OVER AN OFFER THAT ALREADY READS RIGHT STILL MAKES YOU THE
+    /// OWNER.**
+    ///
+    /// ⛔ the other end of the same bug. A live plaza that skipped the write
+    /// because the values already matched would leave the claim in the previous
+    /// surface's name — and that surface's own teardown would then withdraw the
+    /// seats TwinTrack is relying on.
+    #[test]
+    fn a_live_plaza_takes_ownership_of_an_offer_that_already_reads_right() {
+        let mut app = couch_app(true);
+        app.insert_resource(someone_elses(
+            TWINTRACK_SEATS,
+            InputAssignmentPolicy::JoinToClaim,
+        ));
+        app.update();
+        assert_eq!(
+            couch(&app).2,
+            Some(TWINTRACK_EXPERIENCE.to_owned()),
+            "the plaza read its own numbers off somebody else's claim and never \
+             took it over",
         );
     }
 }

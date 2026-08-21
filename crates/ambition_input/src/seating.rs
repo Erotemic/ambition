@@ -9,7 +9,7 @@
 //! that did not reach in was silently seated from connected DEVICES.
 //!
 //! Measured: TwinTrack declared two seats and a couch policy through
-//! [`crate::DeclaredInputSeats`], got its second `InputParticipant`, got the only
+//! [`crate::LocalSeatOffer`], got its second `InputParticipant`, got the only
 //! pad assigned to it — and the laboratory twin never moved, because the GGRS
 //! session had already opened ONE handle from the device count and is never
 //! resized. Every headless test passed; the shipped binary is the rollback host.
@@ -135,6 +135,105 @@ impl SessionSeatingSource {
             return false;
         }
         *self = Self::Devices;
+        true
+    }
+}
+
+/// **WHAT A LIVE SURFACE IS OFFERING ABOUT LOCAL INPUT, AND WHOSE OFFER IT IS.**
+///
+/// ⛔⛔ **this replaces `DeclaredInputSeats` and the `InputAssignmentPolicy`
+/// RESOURCE, and it replaces them because releasing them was written as VALUE
+/// EQUALITY.** TwinTrack claimed two seats and a couch policy, and gave them
+/// back like this:
+///
+/// ```text
+/// if seats == 2      { seats = 0 }
+/// if policy == couch { policy = default }
+/// ```
+///
+/// A successor route that independently claims exactly those same values is
+/// therefore erased by the previous owner's teardown — a lifecycle bug that no
+/// test written against a successor claiming DIFFERENT values can see, and the
+/// existing one claimed four seats. ⚠ the shape was already correct one type
+/// away: [`SessionSeatingSource::release`] asks *is this claim mine* and leaves
+/// a stranger's alone. Two resources that were always claimed together and
+/// released together are now one that carries an owner.
+///
+/// ⚠ **claiming is not conditional on the value differing.** Taking over an
+/// offer that already reads the way you want it still makes you the owner —
+/// otherwise the previous owner's teardown reaches your claim, which is the same
+/// bug from the other end.
+///
+/// ⭐ **why this is NOT folded into [`SessionSeatingSource`]:** they answer at
+/// two different horizons. An offer is what a live SURFACE is showing — a lobby
+/// with its panels up, an experience that is two-player by construction — and it
+/// comes and goes with that surface. Seating source is what a SESSION was built
+/// from, and it freezes. `frozen_topology` is meaningless for an offer, and a
+/// surface that raises and drops an offer four times must not be four sessions.
+#[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
+pub struct LocalSeatOffer {
+    owner: Option<String>,
+    seats: u8,
+    policy: crate::sources::InputAssignmentPolicy,
+}
+
+impl LocalSeatOffer {
+    /// `owner` offers `seats` local seats under `policy`, taking the claim over
+    /// from whoever held it.
+    pub fn offered(
+        owner: impl Into<String>,
+        seats: u8,
+        policy: crate::sources::InputAssignmentPolicy,
+    ) -> Self {
+        Self {
+            owner: Some(owner.into()),
+            seats,
+            policy,
+        }
+    }
+
+    /// **How many local seats are on offer.** `0` — the default — means nothing
+    /// is offering any, which is every single-participant route.
+    ///
+    /// ⚠ **it is a COUNT, and a count can only say "seats 0..n, densely".** A
+    /// session whose people are not on the first n sources — somebody on the
+    /// keyboard below somebody on a pad — needs a [`crate::LocalChannelPlan`],
+    /// which this cannot express and must not be stretched to.
+    pub fn seats(&self) -> u8 {
+        self.seats
+    }
+
+    /// How local sources become participants while this offer stands. An
+    /// unclaimed offer answers with the default, which is today's solo
+    /// behaviour exactly.
+    pub fn policy(&self) -> crate::sources::InputAssignmentPolicy {
+        self.policy
+    }
+
+    pub fn owner(&self) -> Option<&str> {
+        self.owner.as_deref()
+    }
+
+    pub fn is_owned_by(&self, owner: &str) -> bool {
+        self.owner() == Some(owner)
+    }
+
+    /// **Take the offer over**, whatever it currently says and whoever holds it.
+    pub fn claim(&mut self, owner: &str, seats: u8, policy: crate::sources::InputAssignmentPolicy) {
+        *self = Self::offered(owner, seats, policy);
+    }
+
+    /// **Withdraw the offer, if it is this owner's to withdraw.**
+    ///
+    /// Returns whether anything was withdrawn. A stranger's offer is left
+    /// standing: cleanup that reset it unconditionally would be one surface
+    /// retiring another's seats, which is the failure the owner exists to
+    /// prevent.
+    pub fn release(&mut self, owner: &str) -> bool {
+        if !self.is_owned_by(owner) {
+            return false;
+        }
+        *self = Self::default();
         true
     }
 }

@@ -62,7 +62,10 @@ impl InputSourceId {
 /// Default is [`Self::UnifiedPrimary`], which is today's behaviour exactly: this
 /// type must be installable without changing what any existing game does, or the
 /// couch work has to be finished before anything can ship.
-#[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// ⚠ **not a `Resource` — it is carried by [`crate::LocalSeatOffer`].** A
+/// policy with no owner could only be given back by value equality, which is
+/// how one surface's teardown erased a successor's identical claim.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum InputAssignmentPolicy {
     /// Keyboard, gamepads and everything else drive the PRIMARY participant.
     ///

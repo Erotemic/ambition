@@ -359,7 +359,7 @@ fn two_participants_start_a_match_and_can_still_pause_it() {
     // are plugged in. Both facts are needed.
     // ⚠ SPAWN PADS. The select screen declares its seat count FROM the live
     // pads and the host derives participants from that declaration, so an
-    // inserted `DeclaredInputSeats` is clobbered on the next frame — the pads
+    // inserted `LocalSeatOffer` is clobbered on the next frame — the pads
     // are the fact, the same trap the select screen's own tests carry a note
     // about.
     for _ in 0..2 {
@@ -694,9 +694,7 @@ fn a_keyboard_player_and_a_pad_player_drive_different_fighters() {
     // which is what this helper was always saying.
     let pad_click = |app: &mut App, rect: ambition_demo_smash::select_screen::cursor::HitRect| {
         {
-            let mut cursors = app
-                .world_mut()
-                .resource_mut::<SelectCursors>();
+            let mut cursors = app.world_mut().resource_mut::<SelectCursors>();
             for seat in 0..4 {
                 cursors.seat_mut(seat).move_to(rect.center());
             }
@@ -3786,7 +3784,10 @@ fn a_dash_less_fighter_presses_attack_out_of_a_run_and_gets_the_dash_attack() {
     };
 
     // ── PHASE A: standing. The same press must NOT be the running attack. ──
-    assert!(!running(&app), "the fighter is already running before anybody held a direction");
+    assert!(
+        !running(&app),
+        "the fighter is already running before anybody held a direction"
+    );
     Buttonlike::press(&ATTACK_KEY, app.world_mut());
     let standing_press = {
         let mut moved: Option<String> = None;

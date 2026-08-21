@@ -390,7 +390,7 @@ fn frozen_pad_for_seat(
 pub fn assign_local_seat_devices(
     order: Res<LocalDeviceOrder>,
     topology: Option<Res<LocalSeatTopology>>,
-    policy: Option<Res<crate::sources::InputAssignmentPolicy>>,
+    offer: Option<Res<crate::seating::LocalSeatOffer>>,
     keyboard: Option<Res<crate::sources::KeyboardOwner>>,
     mut ownership: ResMut<SeatDeviceOwnership>,
     pads: Query<(Option<&Gamepad>, Option<&Name>)>,
@@ -450,7 +450,7 @@ pub fn assign_local_seat_devices(
     let keyboard_owner = match frozen.as_ref().and_then(|t| t.declared_channels()) {
         Some(plan) => plan.keyboard_channel(),
         None => crate::sources::keyboard_owner_for(
-            policy.map(|policy| *policy).unwrap_or_default(),
+            offer.map(|offer| offer.policy()).unwrap_or_default(),
             keyboard.map(|keyboard| *keyboard).unwrap_or_default(),
             players,
         ),
@@ -667,7 +667,11 @@ mod tests {
     #[test]
     fn a_single_pad_beside_a_keyboard_player_drives_the_second_seat() {
         let mut app = seat_app();
-        app.insert_resource(crate::sources::InputAssignmentPolicy::JoinToClaim);
+        app.insert_resource(crate::seating::LocalSeatOffer::offered(
+            "a couch surface",
+            2,
+            crate::sources::InputAssignmentPolicy::JoinToClaim,
+        ));
         let one = spawn_seat(&mut app, ParticipantId::PRIMARY);
         let two = spawn_seat(&mut app, ParticipantId::SECONDARY);
         let pad = app.world_mut().spawn(Gamepad::default()).id();
@@ -700,7 +704,11 @@ mod tests {
     #[test]
     fn a_frozen_keyboard_and_pad_pair_survives_the_pad_reconnecting() {
         let mut app = seat_app();
-        app.insert_resource(crate::sources::InputAssignmentPolicy::JoinToClaim);
+        app.insert_resource(crate::seating::LocalSeatOffer::offered(
+            "a couch surface",
+            2,
+            crate::sources::InputAssignmentPolicy::JoinToClaim,
+        ));
         let one = spawn_seat(&mut app, ParticipantId::PRIMARY);
         let two = spawn_seat(&mut app, ParticipantId::SECONDARY);
         let pad = app
@@ -776,7 +784,11 @@ mod tests {
     #[test]
     fn a_declared_couch_with_nobody_on_the_keyboard_gives_both_seats_their_pads() {
         let mut app = seat_app();
-        app.insert_resource(crate::sources::InputAssignmentPolicy::JoinToClaim);
+        app.insert_resource(crate::seating::LocalSeatOffer::offered(
+            "a couch surface",
+            2,
+            crate::sources::InputAssignmentPolicy::JoinToClaim,
+        ));
         let one = spawn_seat(&mut app, ParticipantId::PRIMARY);
         let two = spawn_seat(&mut app, ParticipantId::SECONDARY);
         let pad_a = app

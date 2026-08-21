@@ -245,7 +245,7 @@ pub fn sync_primary_recipe_from_settings(
 pub fn seat_input_participants_for_roster(
     mut commands: Commands,
     roster: Option<Res<crate::character_runtime::MatchParticipantRoster>>,
-    lobby: Option<Res<ambition_input::DeclaredInputSeats>>,
+    offer: Option<Res<ambition_input::LocalSeatOffer>>,
     existing: Query<(Entity, &InputParticipant)>,
 ) {
     // ⛔ **CHANNELS, not the SOURCES the roster names.** This collected each
@@ -271,8 +271,8 @@ pub fn seat_input_participants_for_roster(
     // nobody can reach. The declaration is a frontend surface's, held only while
     // that surface is up, and the sweep below retires these exactly like a
     // match's.
-    if let Some(lobby) = lobby {
-        for slot in 0..lobby.0 {
+    if let Some(offer) = offer {
+        for slot in 0..offer.seats() {
             if slot != ambition_input::ParticipantId::PRIMARY.slot() && !wanted.contains(&slot) {
                 wanted.push(slot);
             }
@@ -1305,7 +1305,11 @@ mod focus_gate_tests {
 
         // The select screen opens with three pads plugged in.
         app.world_mut()
-            .insert_resource(ambition_input::DeclaredInputSeats(3));
+            .insert_resource(ambition_input::LocalSeatOffer::offered(
+                "a test lobby",
+                3,
+                Default::default(),
+            ));
         app.update();
         assert_eq!(
             seat_slots(&mut app),
@@ -1316,7 +1320,7 @@ mod focus_gate_tests {
         // …and leaving the screen takes them back. A participant with no surface
         // still holds an `ActionState` that keeps writing its slot.
         app.world_mut()
-            .insert_resource(ambition_input::DeclaredInputSeats(0));
+            .insert_resource(ambition_input::LocalSeatOffer::default());
         app.update();
         assert_eq!(seat_slots(&mut app), vec![0]);
     }

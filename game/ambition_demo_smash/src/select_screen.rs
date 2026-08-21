@@ -1570,7 +1570,7 @@ pub fn update_the_select_screen(
     lobby_facts: (
         Option<Res<ambition_platformer2d::actors::character_runtime::MatchPreparationProblems>>,
         Option<Res<ambition_platformer2d::input::LocalDeviceOrder>>,
-        Option<Res<ambition_platformer2d::input::sources::InputAssignmentPolicy>>,
+        Option<Res<ambition_platformer2d::input::LocalSeatOffer>>,
     ),
     // Required for the same reason `spawn_select_screen`'s is; see there.
     art: ScreenArt,
@@ -1675,9 +1675,15 @@ pub fn update_the_select_screen(
     // `JoinToClaim` on its own routes (`lib.rs`), and the screen only runs on
     // one of them, so reading the resource is the same answer without being a
     // second statement of it.
-    let naming = devices
-        .as_deref()
-        .map(|devices| (devices, assignment.as_deref().copied().unwrap_or_default()));
+    let naming = devices.as_deref().map(|devices| {
+        (
+            devices,
+            assignment
+                .as_deref()
+                .map(|offer| offer.policy())
+                .unwrap_or_default(),
+        )
+    });
     for (label, mut text) in &mut role_labels {
         let next = role_button_text(select.slot(label.0).occupant, naming);
         if text.0 != next {

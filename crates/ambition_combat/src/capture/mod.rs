@@ -26,6 +26,8 @@
 //! A pummel gets a fresh `MovePlayback` while `CapturedBy` is untouched. That
 //! separation IS the architecture; everything else here follows from it.
 
+pub mod systems;
+
 use bevy::prelude::{Component, Entity, Message, Query};
 
 use ambition_platformer2d_core as ae;

@@ -98,7 +98,7 @@ pub fn translate_smash_capture_effects(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_platformer2d::actors::features::ecs::capture::{
+    use ambition_platformer2d::combat::capture::systems::{
         acquire_captures, apply_capture_pummels, apply_capture_throws, constrain_captive_bodies,
         release_interrupted_captures,
     };

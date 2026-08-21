@@ -271,7 +271,7 @@ impl Plugin for PlayerSchedulePlugin {
                 // Its twin sits before the WorldPrep blanking, where an actor
                 // brain's frame is the live one — the same reason the blanking
                 // itself is in two places.
-                ambition_platformer2d_actor_monolith::features::ecs::capture::sample_capture_escape,
+                ambition_combat::capture::systems::sample_capture_escape,
                 ambition_platformer2d_actor_monolith::avatar::blank_scripted_control_frames,
                 // ActionSet gates the generic resolver, but the body shield,
                 // slash/recoil, and charge-projectile paths still read raw control.

@@ -587,7 +587,7 @@ pub(crate) fn perception_body_for(
     // queried for the reason the whole signature is passed: this function reads
     // authorities the caller already holds, and a lookup here would be a second
     // reader of a relationship the combat layer owns.
-    capture: crate::features::ecs::capture::CaptureFacts,
+    capture: ambition_combat::capture::systems::CaptureFacts,
 ) -> PerceptionBody {
     // ⚠ the fallback below reads a PRESENT non-axis model (a crawler has no
     // air-dodge window, so "no window open, no endlag" is the honest answer for

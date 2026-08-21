@@ -724,7 +724,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             sim,
             (
                 crate::capture::translate_smash_capture_effects,
-                ambition_platformer2d::actors::features::ecs::capture::acquire_captures,
+                ambition_platformer2d::combat::capture::systems::acquire_captures,
                 // ⭐ **and posed the SAME tick it is caught.** The pose sync also
                 // runs in `WorldPrep`, which is EARLIER in the tick than this —
                 // so without this second call a body grabbed now would hang where
@@ -732,18 +732,18 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 // standing free inside somebody's grab animation.
                 // The pummel lands BEFORE the pose sync below, so the damage and
                 // the frame the captive is drawn in belong to the same tick.
-                ambition_platformer2d::actors::features::ecs::capture::apply_capture_pummels,
+                ambition_platformer2d::combat::capture::systems::apply_capture_pummels,
                 // The throw releases and launches in one step. AFTER the pummel
                 // so a tick carrying both resolves in authored order, and BEFORE
                 // the pose sync so a thrown body is not snapped back into a hold
                 // it has just left.
-                ambition_platformer2d::actors::features::ecs::capture::apply_capture_throws,
-                ambition_platformer2d::actors::features::ecs::capture::constrain_captive_bodies,
+                ambition_platformer2d::combat::capture::systems::apply_capture_throws,
+                ambition_platformer2d::combat::capture::systems::constrain_captive_bodies,
                 // ⭐ the captive's POSE, published beside the constraint that
                 // holds it. `CharacterAnim` has no held row, so this draws the
                 // hurt one — a body in somebody's hands reading as idle was the
                 // last thing about a grab that did not look like one.
-                ambition_platformer2d::actors::features::ecs::capture::mirror_capture_into_anim_facts,
+                ambition_platformer2d::combat::capture::systems::mirror_capture_into_anim_facts,
             )
                 .chain()
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Materialize),
@@ -779,7 +779,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // and let a grab survive by one frame the hit that should have broken it.
         app.add_systems(
             sim,
-            ambition_platformer2d::actors::features::ecs::capture::release_interrupted_captures
+            ambition_platformer2d::combat::capture::systems::release_interrupted_captures
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle),
         );
         // AFTER the engine's own `CombatSet::Settle` work: the stock is spent

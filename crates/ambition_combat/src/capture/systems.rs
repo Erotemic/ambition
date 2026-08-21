@@ -1,3 +1,35 @@
+//! **THE CAPTURE SYSTEMS — the ECS half of the domain whose vocabulary is this
+//! module's parent.**
+//!
+//! ⭐⭐ **carved out of `ambition_platformer2d_actor_monolith` on 2026-08-21
+//! (D33), and the 1,900 lines are NOT the point.** Jon: *"loc is the proxy. the
+//! real win is conceptual domain separation."* Capture was one concept living in
+//! two crates — `captive_of` / `CapturedBy` / `CaptureAttemptRequested` next
+//! door, and every system that reads or writes them in a game-behaviour crate
+//! that has nothing to do with grabbing. Acquiring a capture, ticking its hold,
+//! constraining the captive's body, restricting the captor, releasing it, and
+//! applying pummels and throws are all the same subject as the relationship.
+//!
+//! ⛔⛔ **THREE THINGS HELD IT HERE, and none of them was real coupling** — the
+//! whole module named exactly five paths outside its own crate, and each was
+//! fixed by putting a type where it belonged rather than by changing anything
+//! about capture:
+//!
+//! ```text
+//! ActorSurfaceState              monolith -> platformer2d_core   6c4592021
+//! Platformer2dFeelTuningMonolith monolith -> ambition_combat     d6db434f4
+//! apply_body_hit_reaction        monolith -> ambition_combat     403a32155
+//!                                (it was `pub(crate)` -- a whole domain
+//!                                 pinned by a visibility modifier)
+//! ActorFaction / CenteredAabb    already in `characters`/`geometry`, merely
+//!                                reached through the monolith's re-export
+//! ```
+//!
+//! ⚠ **the first attempt at this carve FAILED and the failure is instructive**:
+//! it read the `use` statements, concluded "no monolith coupling", and hit two
+//! `crate::` paths spelled inline inside a function body. A carve's coupling is
+//! not what a file imports — it is every path it names.
+
 //! **Acquisition: turning a live grab volume into a capture relationship.**
 //!
 //! The body half of capture. It lives here rather than in the Smash game because
@@ -14,8 +46,8 @@
 use bevy::math::bounding::IntersectsVolume as _;
 use bevy::prelude::*;
 
-use ambition_combat::capture::{captive_of, CaptureAttemptRequested, CapturedBy};
-use ambition_combat::hitbox::StrikeVictim;
+use super::{captive_of, CaptureAttemptRequested, CapturedBy};
+use crate::hitbox::StrikeVictim;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt as _;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
@@ -52,7 +84,7 @@ pub struct CaptureParticipant {
     pub health: &'static ambition_characters::actor::BodyHealth,
     pub combat: &'static ambition_characters::actor::BodyCombat,
     pub flight: &'static ae::BodyFlightState,
-    pub surface: &'static crate::features::ActorSurfaceState,
+    pub surface: &'static ae::ActorSurfaceState,
 }
 
 /// Everything a body needs to be ALLOWED to start a capture: the shared
@@ -61,8 +93,8 @@ pub struct CaptureParticipant {
 #[derive(bevy::ecs::query::QueryData)]
 pub struct CaptorView {
     body: CaptureParticipant,
-    faction: &'static crate::features::ActorFaction,
-    team: Option<&'static ambition_combat::targeting::MatchTeam>,
+    faction: &'static crate::components::ActorFaction,
+    team: Option<&'static crate::targeting::MatchTeam>,
     frame: Option<&'static ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
 }
 
@@ -109,8 +141,8 @@ pub fn acquire_captures(
     identities: Query<&SimId>,
     // **The captive's in-flight move, so capture can END it.** See the note at
     // the insertion below for why this is not optional.
-    mut playbacks: Query<&mut ambition_combat::moveset::MovePlayback>,
-    tuning: Option<Res<ambition_combat::rules::ResolvedCombatTuning>>,
+    mut playbacks: Query<&mut crate::moveset::MovePlayback>,
+    tuning: Option<Res<crate::rules::ResolvedCombatTuning>>,
 ) {
     // ⚠ the WHOLE resolved row, not just the friendly-fire flag: a hold's
     // deadline is a declared rule too, and it is decided at acquisition.
@@ -120,7 +152,7 @@ pub fn acquire_captures(
         let Ok(captor) = captors.get(attempt.captor) else {
             continue;
         };
-        if ambition_combat::util::body_is_corpse(Some(captor.body.health)) {
+        if crate::util::body_is_corpse(Some(captor.body.health)) {
             continue;
         }
         if !captor.body.ground.on_ground {
@@ -137,7 +169,7 @@ pub fn acquire_captures(
             .frame
             .map(|f| f.basis())
             .unwrap_or(ae::AccelerationFrame::new(ae::DEFAULT_GRAVITY_DIR));
-        let placed = ambition_combat::moveset::place_body_local_volume(
+        let placed = crate::moveset::place_body_local_volume(
             &ambition_entity_catalog::VolumeShape::Rect {
                 offset: (attempt.offset.x, attempt.offset.y),
                 half_extents: (attempt.half_extents.x, attempt.half_extents.y),
@@ -175,7 +207,7 @@ pub fn acquire_captures(
             if already_held.contains(&victim.entity) {
                 continue;
             }
-            if !ambition_combat::targeting::damage_lands_between(
+            if !crate::targeting::damage_lands_between(
                 *captor.faction,
                 victim.effective_faction(),
                 captor.team,
@@ -225,7 +257,7 @@ pub fn acquire_captures(
         // that was extracted from its four hand-copies first rather than becoming
         // a fifth here.
         if let Ok(mut playback) = playbacks.get_mut(victim) {
-            ambition_combat::moveset::cancel_move_playback(&mut commands, victim, &mut playback);
+            crate::moveset::cancel_move_playback(&mut commands, victim, &mut playback);
         }
         // **The captive's control projection.** `CapturedBy` stays the authority;
         // this is only what it means for input, and it is CLAIMED rather than
@@ -378,7 +410,7 @@ pub fn sample_capture_escape(
         // which is exactly why it would not have shown up as a bug.
         bevy::prelude::With<CapturedBy>,
     >,
-    tuning: Option<Res<ambition_combat::rules::ResolvedCombatTuning>>,
+    tuning: Option<Res<crate::rules::ResolvedCombatTuning>>,
 ) {
     let rules = tuning.map(|t| *t).unwrap_or_default();
     for (mut held, control) in &mut captives {
@@ -420,7 +452,7 @@ pub fn tick_capture_holds(
         // rules, and is why the query REQUIRES it rather than treating absence
         // as zero and releasing everybody on the first tick.
         &mut ambition_characters::smash_capture::SmashHoldState,
-        Option<&mut crate::features::ActorSurfaceState>,
+        Option<&mut ae::ActorSurfaceState>,
         Option<&mut ambition_characters::brain::ControlHolds>,
     )>,
 ) {
@@ -503,8 +535,8 @@ mod tests {
                     size: ae::Vec2::new(16.0, 24.0),
                     ..Default::default()
                 },
-                crate::features::CenteredAabb::new(pos, ae::Vec2::new(8.0, 12.0)),
-                crate::features::ActorFaction::Enemy,
+                crate::components::CenteredAabb::new(pos, ae::Vec2::new(8.0, 12.0)),
+                crate::components::ActorFaction::Enemy,
                 ambition_platformer2d_core::BodyGroundState {
                     on_ground: true,
                     contact_initialized: true,
@@ -525,8 +557,8 @@ mod tests {
     /// A floor-clinging surface state at `gravity_scale`. There is no `Default`
     /// on purpose — a surface normal has no sensible neutral, so a fixture states
     /// the floor explicitly.
-    fn surface_state(gravity_scale: f32) -> crate::features::ActorSurfaceState {
-        crate::features::ActorSurfaceState {
+    fn surface_state(gravity_scale: f32) -> ae::ActorSurfaceState {
+        ae::ActorSurfaceState {
             surface_normal: ae::Vec2::new(0.0, -1.0),
             gravity_scale,
         }
@@ -537,7 +569,7 @@ mod tests {
     /// that row's `escape_seconds` is `0.0`, which is a hold already over.
     fn fresh_hold() -> ambition_characters::smash_capture::SmashHoldState {
         ambition_characters::smash_capture::SmashHoldState::lasting(
-            ambition_combat::rules::ResolvedCombatTuning::default().grab_hold_seconds(0),
+            crate::rules::ResolvedCombatTuning::default().grab_hold_seconds(0),
         )
     }
 
@@ -616,7 +648,7 @@ mod tests {
     /// the hold still running.
     #[test]
     fn a_hold_is_measured_from_the_damage_the_captive_had_when_it_was_caught() {
-        let rules = ambition_combat::rules::ResolvedCombatTuning {
+        let rules = crate::rules::ResolvedCombatTuning {
             grab_hold_base_seconds: 1.0,
             grab_hold_per_damage: 0.02,
             grab_hold_max_seconds: 10.0,
@@ -631,7 +663,7 @@ mod tests {
             // and a captor may not grab its own side with friendly fire off.
             app.world_mut()
                 .entity_mut(victim)
-                .insert(crate::features::ActorFaction::Player);
+                .insert(crate::components::ActorFaction::Player);
             app.world_mut().entity_mut(victim).insert(
                 ambition_characters::actor::BodyHealth::restored(
                     ambition_characters::actor::Health {
@@ -695,7 +727,7 @@ mod tests {
             .insert(BodyShieldState::default());
         app.world_mut()
             .entity_mut(victim)
-            .insert(crate::features::ActorFaction::Player);
+            .insert(crate::components::ActorFaction::Player);
         app.world_mut().write_message(attempt(captor));
         app.update();
         assert!(
@@ -726,7 +758,7 @@ mod tests {
         let victim = grounded_body(&mut app, "victim", ae::Vec2::new(16.0, 0.0));
         app.world_mut()
             .entity_mut(victim)
-            .insert(crate::features::ActorFaction::Player);
+            .insert(crate::components::ActorFaction::Player);
         app.world_mut()
             .entity_mut(victim)
             .insert(ambition_characters::brain::ActorControl(
@@ -795,7 +827,7 @@ mod tests {
         let victim = grounded_body(&mut app, "victim", ae::Vec2::new(16.0, 0.0));
         app.world_mut()
             .entity_mut(victim)
-            .insert(crate::features::ActorFaction::Player);
+            .insert(crate::components::ActorFaction::Player);
         app.world_mut().write_message(attempt(captor));
         app.update();
 
@@ -826,7 +858,7 @@ mod tests {
         let victim = grounded_body(&mut app, "victim", ae::Vec2::new(16.0, 0.0));
         app.world_mut()
             .entity_mut(victim)
-            .insert(crate::features::ActorFaction::Player);
+            .insert(crate::components::ActorFaction::Player);
         app.world_mut()
             .entity_mut(victim)
             .insert(ambition_platformer2d_core::BodyGroundState {
@@ -870,7 +902,7 @@ mod tests {
         );
         let aabb = app
             .world()
-            .get::<crate::features::CenteredAabb>(victim)
+            .get::<crate::components::CenteredAabb>(victim)
             .unwrap();
         assert_eq!(
             aabb.center, kin.pos,
@@ -994,7 +1026,7 @@ mod tests {
         );
         assert_eq!(
             app.world()
-                .get::<crate::features::ActorSurfaceState>(victim)
+                .get::<ae::ActorSurfaceState>(victim)
                 .unwrap()
                 .gravity_scale,
             0.25,
@@ -1081,7 +1113,7 @@ mod tests {
         );
         assert_eq!(
             app.world()
-                .get::<crate::features::ActorSurfaceState>(victim)
+                .get::<ae::ActorSurfaceState>(victim)
                 .unwrap()
                 .gravity_scale,
             0.75,
@@ -1134,7 +1166,7 @@ mod tests {
                 // builds it — this app installs no `ResolvedCombatTuning`, so
                 // the deadline is the undeclared world's flat hold.
                 ambition_characters::smash_capture::SmashHoldState::lasting(
-                    ambition_combat::rules::ResolvedCombatTuning::default().grab_hold_seconds(0),
+                    crate::rules::ResolvedCombatTuning::default().grab_hold_seconds(0),
                 ),
             ));
 
@@ -1179,7 +1211,7 @@ mod tests {
         // ⚠ this app installs no `ResolvedCombatTuning`, so the ceiling is the
         // undeclared world's — asked of the same value the system asks, rather
         // than of a constant a reader would have to trust still matches it.
-        let ceiling = ambition_combat::rules::ResolvedCombatTuning::default().grab_hold_max_seconds;
+        let ceiling = crate::rules::ResolvedCombatTuning::default().grab_hold_max_seconds;
         assert!(
             waited <= (ceiling * 60.0).ceil() as i32 + 1,
             "the hold outlived its own stated ceiling"
@@ -1269,7 +1301,7 @@ mod tests {
             let victim = grounded_body(&mut app, "victim", ae::Vec2::new(16.0, 0.0));
             app.world_mut()
                 .entity_mut(victim)
-                .insert(crate::features::ActorFaction::Player);
+                .insert(crate::components::ActorFaction::Player);
             // Health, because a pummel and a throw both spend it, and a body
             // without it is one no beat after the first could touch.
             let stripped = if strip_captor { captor } else { victim };
@@ -1299,7 +1331,7 @@ mod tests {
     #[test]
     fn a_pummel_damages_the_captive_and_leaves_the_hold_standing() {
         let mut app = App::new();
-        app.add_message::<ambition_combat::capture::CapturePummelRequested>();
+        app.add_message::<crate::capture::CapturePummelRequested>();
         app.add_systems(
             Update,
             (apply_capture_pummels, release_interrupted_captures).chain(),
@@ -1330,7 +1362,7 @@ mod tests {
 
         for _ in 0..2 {
             app.world_mut()
-                .write_message(ambition_combat::capture::CapturePummelRequested {
+                .write_message(crate::capture::CapturePummelRequested {
                     captor,
                     damage: 3,
                 });
@@ -1371,7 +1403,7 @@ mod tests {
 
     fn throw_app() -> (App, Entity, Entity) {
         let mut app = App::new();
-        app.add_message::<ambition_combat::capture::CaptureThrowRequested>();
+        app.add_message::<crate::capture::CaptureThrowRequested>();
         app.add_systems(Update, apply_capture_throws);
         let captor = grounded_body(&mut app, "captor", ae::Vec2::ZERO);
         let victim = grounded_body(&mut app, "victim", ae::Vec2::new(16.0, 0.0));
@@ -1402,8 +1434,8 @@ mod tests {
         (app, captor, victim)
     }
 
-    fn throw(captor: Entity, growth: f32) -> ambition_combat::capture::CaptureThrowRequested {
-        ambition_combat::capture::CaptureThrowRequested {
+    fn throw(captor: Entity, growth: f32) -> crate::capture::CaptureThrowRequested {
+        crate::capture::CaptureThrowRequested {
             captor,
             damage: 9,
             knockback: 100.0,
@@ -1436,7 +1468,7 @@ mod tests {
         );
         assert_eq!(
             app.world()
-                .get::<crate::features::ActorSurfaceState>(victim)
+                .get::<ae::ActorSurfaceState>(victim)
                 .unwrap()
                 .gravity_scale,
             1.0,
@@ -1506,7 +1538,7 @@ mod tests {
         for body in [first, second] {
             app.world_mut()
                 .entity_mut(body)
-                .insert(crate::features::ActorFaction::Player);
+                .insert(crate::components::ActorFaction::Player);
         }
         // ⚠ a hold is TWO components: the relation, and this ruleset's half.
         app.world_mut().entity_mut(first).insert((
@@ -1560,9 +1592,9 @@ pub fn constrain_captive_bodies(
     mut captives: Query<(
         &CapturedBy,
         &mut ae::BodyKinematics,
-        &mut crate::features::ActorSurfaceState,
+        &mut ae::ActorSurfaceState,
         &mut ambition_platformer2d_core::BodyGroundState,
-        Option<&mut crate::features::CenteredAabb>,
+        Option<&mut crate::components::CenteredAabb>,
     )>,
 ) {
     for (held, mut kin, mut surface, mut ground, aabb) in &mut captives {
@@ -1667,7 +1699,7 @@ pub fn release_capture(
     commands: &mut Commands,
     victim: Entity,
     held: &CapturedBy,
-    surface: Option<&mut crate::features::ActorSurfaceState>,
+    surface: Option<&mut ae::ActorSurfaceState>,
     holds: Option<&mut ambition_characters::brain::ControlHolds>,
 ) {
     commands.entity(victim).try_remove::<CapturedBy>();
@@ -1716,7 +1748,7 @@ pub fn release_interrupted_captures(
     // query, which is precisely the fact wanted and the only one taken.
     bodies: Query<Entity>,
     combat: Query<&ambition_characters::actor::BodyCombat>,
-    mut surfaces: Query<&mut crate::features::ActorSurfaceState>,
+    mut surfaces: Query<&mut ae::ActorSurfaceState>,
     mut holds: Query<&mut ambition_characters::brain::ControlHolds>,
 ) {
     let reacted = |body: Entity| {
@@ -1767,7 +1799,7 @@ pub fn release_interrupted_captures(
 /// advances the unbounded percent meter a platform fighter launches off, and a
 /// second damage road would be a second answer to "how hurt is this body".
 pub fn apply_capture_pummels(
-    mut requests: MessageReader<ambition_combat::capture::CapturePummelRequested>,
+    mut requests: MessageReader<crate::capture::CapturePummelRequested>,
     mut captives: Query<(
         &CapturedBy,
         &mut ambition_characters::smash_capture::SmashHoldState,
@@ -1807,7 +1839,7 @@ pub fn apply_capture_pummels(
 /// ```
 ///
 /// ⭐ **the launch is not "throw velocity".** It is
-/// [`scaled_knockback`](ambition_combat::util::scaled_knockback) folded onto the
+/// [`scaled_knockback`](crate::util::scaled_knockback) folded onto the
 /// same [`HitKnockback`] every authored launcher builds, handed to the same
 /// reaction road. So a throw inherits weight, percent scaling, DI, arbitrary
 /// gravity, carried momentum, hitstun and hitstop — none of which it would get
@@ -1820,7 +1852,7 @@ pub fn apply_capture_pummels(
 /// different code path reaching the same state by accident — and one frame late.
 pub fn apply_capture_throws(
     mut commands: Commands,
-    mut requests: MessageReader<ambition_combat::capture::CaptureThrowRequested>,
+    mut requests: MessageReader<crate::capture::CaptureThrowRequested>,
     captors: Query<&ae::BodyKinematics, Without<CapturedBy>>,
     mut captives: Query<(
         Entity,
@@ -1829,12 +1861,12 @@ pub fn apply_capture_throws(
         &mut ae::BodyFlightState,
         &mut ambition_characters::actor::BodyCombat,
         &mut ambition_characters::actor::BodyHealth,
-        &mut crate::features::ActorSurfaceState,
-        Option<&ambition_combat::components::CombatTuning>,
+        &mut ae::ActorSurfaceState,
+        Option<&crate::components::CombatTuning>,
         Option<&mut ambition_characters::brain::ControlHolds>,
     )>,
     gravity: Query<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
-    feel: Option<Res<crate::time::feel::Platformer2dFeelTuningMonolith>>,
+    feel: Option<Res<crate::feel::Platformer2dFeelTuningMonolith>>,
 ) {
     let feel = feel.map(|f| *f).unwrap_or_default();
     for request in requests.read() {
@@ -1875,7 +1907,7 @@ pub fn apply_capture_throws(
 
         // 3. An ordinary launch on a body that is now ordinary.
         let weight = tuning.map(|t| t.weight).unwrap_or(1.0);
-        let magnitude = ambition_combat::util::scaled_knockback(
+        let magnitude = crate::util::scaled_knockback(
             request.knockback,
             request.knockback_growth,
             health.damage_taken(),
@@ -1896,7 +1928,7 @@ pub fn apply_capture_throws(
             .unwrap_or(ae::DEFAULT_GRAVITY_DIR);
         let pos = kin.pos;
         let facing = kin.facing;
-        crate::features::ecs::damage_apply::apply_body_hit_reaction(
+        crate::hit_reaction::apply_body_hit_reaction(
             &mut kin.vel,
             &mut flight,
             &mut combat,

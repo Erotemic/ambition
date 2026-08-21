@@ -632,7 +632,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // second position, run one line earlier: an actor brain writes
                 // `ActorControl` in this phase, so this is where a CPU captive's
                 // mash is observable, and after the line below it is zeros.
-                crate::features::ecs::capture::sample_capture_escape,
+                ambition_combat::capture::systems::sample_capture_escape,
                 crate::avatar::blank_scripted_control_frames,
                 // **A CAPTOR IS RESTRICTED HERE, for the same reason the line
                 // above blanks a scripted body here and not a phase earlier.**
@@ -644,12 +644,12 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // ⛔ a captor is NOT blanked — it keeps its attack press and
                 // direction, which is how a pummel and a throw are chosen. See
                 // `restrict_captor_control`.
-                crate::features::ecs::capture::restrict_captor_control,
+                ambition_combat::capture::systems::restrict_captor_control,
                 // **The hold's own clock, after this tick's struggle has been
                 // credited.** A capture that reaches its ceiling — or a captive
                 // that mashed its way out — ends here rather than waiting for a
                 // throw its captor may never throw.
-                crate::features::ecs::capture::tick_capture_holds,
+                ambition_combat::capture::systems::tick_capture_holds,
                 // ADR 0020: a mount with a rider defers its locomotion to the
                 // rider's brain (the orbit lives on the rider). Runs after the
                 // brain tick (rider control frame fresh) and before the body
@@ -682,7 +682,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // just advanced it under its own velocity, and the hold is an
                 // external constraint that wins. After `sync_actor_read_model`
                 // so the coarse-box mirror this writes is the last word.
-                crate::features::ecs::capture::constrain_captive_bodies,
+                ambition_combat::capture::systems::constrain_captive_bodies,
                 apply_actor_contact_damage.in_set(crate::schedule::WorldPrepSet::ContactDamage),
             )
                 .chain()

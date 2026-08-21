@@ -599,7 +599,7 @@ pub fn tick_actor_brains(
                         // locomotion facts, and "none of them true" is the
                         // honest reading of that.
                         &motion_facts.copied().unwrap_or_default(),
-                        crate::features::ecs::capture::CaptureFacts::resolve(
+                        ambition_combat::capture::systems::CaptureFacts::resolve(
                             this_actor_entity,
                             &captives,
                         ),
@@ -667,7 +667,7 @@ pub fn tick_actor_brains(
                             self_peer,
                             aggression,
                             motion_model,
-                            crate::features::ecs::capture::CaptureFacts::resolve(
+                            ambition_combat::capture::systems::CaptureFacts::resolve(
                                 this_actor_entity,
                                 &captives,
                             ),
@@ -1817,7 +1817,7 @@ fn build_enemy_brain_snapshot(
     // reason: inserting a term mid-list silently shifted two positional
     // arguments into the wrong slots and the compiler reported it as a type
     // error three parameters away.
-    capture: crate::features::ecs::capture::CaptureFacts,
+    capture: ambition_combat::capture::systems::CaptureFacts,
 ) -> ambition_characters::brain::BrainSnapshot {
     ambition_characters::brain::BrainSnapshot {
         actor_pos: em.kin.pos,

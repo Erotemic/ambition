@@ -413,19 +413,37 @@ Both cameras hold exactly ONE distinct `(is_active, viewport)` value across all
 render-world sync `apply_gameplay_camera_viewport`'s own comment says it
 compares before writing to avoid.
 
-⚠ **suspects already eliminated, so nobody re-walks them:** Bevy's own camera
-system (the 1-of-20 baseline runs the same applier — with one full-bleed view
-`desired` is `None`, matches the stored `None`, and nothing is written);
-`sync_view_cameras`, whose `is_active` writes were unconditional and are now
-compared (`0ebcef4e4` follow-up) with no effect on the count; and
-`viewport_matches`, which compares position, size and depth and looks correct by
-reading. The remaining `&mut Camera` holders in this composition are the applier
-itself and TwinTrack's `sync_view_cameras` — so either one of those two writes
-through a path the reading did not reveal, or a third writer reaches `Camera`
-via `commands.insert`, which a `&mut Camera` grep does not see.
+⭐⭐ **ATTRIBUTED 2026-08-21 — it is `apply_gameplay_camera_viewport` itself,
+and its compare-before-write is not holding.** Four probes, each eliminating one
+suspect:
 
-⇒ next step is attribution, not another guess: enable Bevy's change-detection
-caller tracking, or bisect by disabling one system at a time in the fixture.
+```text
+plaza live, two views                    both cameras change 40 of 40
+back home, one view, no viewport                              0 of 20
+back home, one view, viewport set BY HAND                     0 of 20
+plaza live, sync_view_cameras fully disabled                  40 of 40
+```
+
+⛔ **the third and fourth lines are the ones that matter, and each killed a
+conclusion I had already written down.** A hand-set viewport with no TwinTrack
+anywhere churns NOTHING, so Bevy's own viewport handling is not the writer —
+which had become the leading suspect after the second line, on the unsound
+ground that the one-view baseline "runs the same applier" when in fact it has no
+viewport at all and never takes that branch. And disabling `sync_view_cameras`
+outright leaves the count identical, so the demo is not the writer either,
+despite its query matching exactly the two cameras that churn.
+
+⇒ the applier is the only `&mut Camera` holder left in this composition, and it
+only writes when `viewport_matches` says the stored rectangle differs from the
+desired one. With two views it evidently says that every frame while the
+observed value never changes — so the compare disagrees with something that
+normalises or rewrites the stored viewport between frames. `physical_size`
+clamping against the render target and the `depth` range are the two fields to
+print first; the observed `(position, size)` pair is stable, so the discrepancy
+is in what the comparison does not see.
+
+⚠ **this is the engine's defect, not the demo's**, and it is exactly the cost
+that function's own comment says the comparison exists to avoid.
 
 - ▢ **D176 — THE SPRITE-SHEET SUITE IS RED ON ANY TREE WITHOUT GENERATED PACKS.**
   (found 2026-08-21)

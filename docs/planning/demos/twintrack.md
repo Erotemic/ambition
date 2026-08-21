@@ -36,15 +36,21 @@ instrument reading, and not yet in aberration and Doppler.
 > it always was and only swapped sides, so its left pane is now the traveler's,
 > matching the participant order underneath it.
 >
-> ⚠ **`RelativisticOpticalView2d` is still single-observer.** `publish_optical_view`
-> does `observers.single()`, so a second `RelativisticObserver2d` would blank the
-> optical view entirely rather than produce a second one. The ordering exhibit
-> is computed demo-side from `WorldlineHistoryView2d`-shaped facts and the public
-> SR kernel instead; a genuine per-view aberration/Doppler presentation is
-> blocked on that resource becoming view-indexed. **This is the one remaining
-> gap between the split below and the acceptance target** — the panes are real
-> gameplay views resolved from real per-view framing, but only ONE of them can
-> carry a relativistic optical presentation.
+> ⚠ **this note used to say `RelativisticOpticalView2d` was single-observer, and
+> that was WRONG twice over.** `publish_optical_view` publishes one image per
+> observer and had for a while; `publish_targeting_view` was the one still doing
+> `observers.single()` — which did not merely fail to produce a second aim, it
+> BLANKED the only one there was — and that landed 2026-08-20. Both resources now
+> hold one row per observer, keyed by observer entity, published in the same
+> sorted order so a per-pane consumer can pair them, with a `Deref` to the first
+> row that keeps every one-observer reading byte-identical.
+>
+> ▢ **what is actually left is ADOPTION.** The laboratory twin carries no
+> `RelativisticObserver2d`, so the plaza still has exactly one observer and every
+> consumer reads it through that `Deref`. Giving Emmy one, and pointing the two
+> panes at `for_observer`, is the remaining slice — and until it happens the
+> capability has zero adopters, which is the state this repo treats as unfinished
+> rather than as done.
 >
 > **Adaptive vs permanently split, for THIS demo:** permanently split. §11's
 > adaptive-with-hysteresis ruling is Ambition's product layout policy; a view
@@ -177,10 +183,9 @@ come from the same engine view-index model.
 
 ✔ **Everything above except the last sentence landed on 2026-08-20** — see SR-11.
 What is still owed is *"each view may choose laboratory or observer-local
-presentation independently"*: `RelativisticOpticalView2d` is a single-observer
-resource, so only one pane can carry a relativistic optical presentation. That is
-the whole of the remaining gap, and it is a resource shape rather than a view
-architecture question.
+presentation independently"*, and it is now ADOPTION rather than shape: both
+`RelativisticOpticalView2d` and `RelativisticTargetingView2d` publish one row per
+observer, and the plaza has one observer to publish for.
 
 Acceptance:
 

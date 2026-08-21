@@ -512,9 +512,11 @@ restores the default when it ends, which is what Smash already did route-scoped.
 ▢ **HUD ownership is still not proved.** TwinTrack's HUD is full-screen on the
 front camera; nothing yet targets a slot at a view or a local participant.
 
-▢ **`RelativisticOpticalView2d` is single-observer**, so a per-view relativistic
-optical presentation is still owed. That is a resource shape, not a view
-architecture question.
+✔ **the optical AND targeting views are per-observer** as of 2026-08-20 — the
+last `observers.single()` was in `publish_targeting_view`, where a second
+observer BLANKED the only aim there was. ▢ what is owed is an ADOPTER: a view
+that holds an observer entity and asks `for_observer`, instead of reading the
+first row through `Deref`.
 
 ### M3 — adaptive share/split
 

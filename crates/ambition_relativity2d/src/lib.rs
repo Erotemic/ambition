@@ -38,7 +38,8 @@ pub use signals::{
     SignalArrivalHistory2d, SignalArrivalRecord2d, SpacetimeCoordinateTime2d,
 };
 pub use targeting::{
-    RelativisticTarget2d, RelativisticTargetObservation2d, RelativisticTargetingView2d,
+    ObserverTargetingView2d, RelativisticTarget2d, RelativisticTargetObservation2d,
+    RelativisticTargetingView2d,
 };
 pub use telemetry::{
     WorldlineHistoryView2d, WorldlineSample2d, WorldlineTrackId, WorldlineTracked2d,
@@ -336,38 +337,39 @@ pub fn register_rollback_state(registrar: &mut impl RollbackRegistrar) {
     // rollback state wearing a cache's name. This one has neither — the
     // first statement in its writer is `clocks.clear()`, and the only other
     // writer resets it wholesale when no spacetime is live.
-registrar.declare_rollback_derived_resource::<RelativityClockView2d>(
+    registrar.declare_rollback_derived_resource::<RelativityClockView2d>(
         "ambition_relativity2d",
         "relativity.clock_view_2d",
         "presentation read model rebuilt every tick from RelativityState2d + ProperTimeElapsed",
     );
-registrar.rollback_component_canonical::<ProperTimeElapsed>(
-        "ambition_relativity2d",
-        "relativity.proper_time_elapsed",
-    )
-    .rollback_component_clone_checksum_with_schema_detail::<ActiveSpacetime2d>(
-        "ambition_relativity2d",
-        "relativity.active_spacetime_2d",
-        "provider-authored spacetime model and invariant-speed fingerprint",
-        active_spacetime_checksum,
-    )
-    // ⭐ **a value probe over the LABEL** (2026-08-06). The label is the whole
-    // component and the identity a clock readout is joined by; a presence
-    // probe saw none of it.
-    .rollback_component_clone_probed::<RelativityClockLabel>(
-        "ambition_relativity2d",
-        "relativity.clock_label_2d",
-        |label| crate::telemetry::hash_label(&label.0),
-    )
-    .rollback_component_clone::<RelativisticClock2d>(
-        "ambition_relativity2d",
-        "relativity.clock_marker_2d",
-    )
-    .declare_rollback_derived_component_state::<RelativityState2d>(
-        "ambition_relativity2d",
-        "relativity.state_2d",
-        "recomputed from canonical body kinematics and the session spacetime",
-    );
+    registrar
+        .rollback_component_canonical::<ProperTimeElapsed>(
+            "ambition_relativity2d",
+            "relativity.proper_time_elapsed",
+        )
+        .rollback_component_clone_checksum_with_schema_detail::<ActiveSpacetime2d>(
+            "ambition_relativity2d",
+            "relativity.active_spacetime_2d",
+            "provider-authored spacetime model and invariant-speed fingerprint",
+            active_spacetime_checksum,
+        )
+        // ⭐ **a value probe over the LABEL** (2026-08-06). The label is the whole
+        // component and the identity a clock readout is joined by; a presence
+        // probe saw none of it.
+        .rollback_component_clone_probed::<RelativityClockLabel>(
+            "ambition_relativity2d",
+            "relativity.clock_label_2d",
+            |label| crate::telemetry::hash_label(&label.0),
+        )
+        .rollback_component_clone::<RelativisticClock2d>(
+            "ambition_relativity2d",
+            "relativity.clock_marker_2d",
+        )
+        .declare_rollback_derived_component_state::<RelativityState2d>(
+            "ambition_relativity2d",
+            "relativity.state_2d",
+            "recomputed from canonical body kinematics and the session spacetime",
+        );
 
     signals::register_rollback_state(registrar);
     telemetry::register_rollback_state(registrar);
@@ -380,7 +382,8 @@ pub struct Relativity2dPlugin;
 impl Plugin for Relativity2dPlugin {
     fn build(&self, app: &mut App) {
         {
-            let mut registrar = ambition_platformer2d_runtime::rollback::SchemaRollbackRegistrar::new(app);
+            let mut registrar =
+                ambition_platformer2d_runtime::rollback::SchemaRollbackRegistrar::new(app);
             register_rollback_state(&mut registrar);
         }
         app.init_resource::<RelativityClockView2d>();

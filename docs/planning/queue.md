@@ -345,6 +345,35 @@ without the resolver still runs the guard. Breaking that hook takes the whole
 standing-goal mechanism down, and it can only be exercised by ending a turn,
 which is why the logic moved into a script a test can run.
 
+- ▢ **D174 — THE START ROOM'S CONTACT ZONES CANNOT BE REACHED ON FOOT.**
+  (found 2026-08-20)
+
+Jon: *"I cannot go through any doors anymore. This is both interact doors and
+contact doors."* The interact half does not reproduce anywhere buildable — she
+walks across `central_hub_complex` into a door holding interact and the room
+changes, in the sim harness AND in the shipped host. The contact half does.
+
+**Measured, fresh session per zone:** neither `EdgeExit` in the start room is
+reachable. `to scroll lab` (x 1870-1900) stalls her at x=1841 for all 600
+frames; `to square arena` (x 0-30) is never reached either. Something solid
+stands in front of both, and an `EdgeExit` must touch a level edge by
+definition — so a boundary wall and an edge exit are occupying the same span.
+
+⚠ **NOT established: whether that wall is NEW.** That is the difference between
+a defect and a regression, and it is a level-geometry question — do not price
+this as a code fix before answering it. ⛔ body contact is NOT the cause: the
+`BodyContactSnapshot` is EMPTY at the stall.
+
+⭐ the reproduction is written and parked at
+`docs/planning/triage/contact_zone_reproduction.rs.txt`; paste it back into
+`game/ambition_app/tests/walking_into_a_loading_zone.rs` when the wall is ruled
+on. Eliminations for the interact half are in
+`JONS_OBSERVATIONS_BUGS_AND_ISSUES.md` (2026-08-20).
+
+⚠ authoring note found on the way: **381 `Door` zones and 72 `EdgeExit`s are
+authored across every `.ldtk`, and NOT ONE `Walk`.** `LoadingZoneActivation::Walk`
+is a variant the shipped content never uses.
+
 - ▢ **D171 — THREE MORE DOCS CARRY OPEN ITEMS NO LEDGER ROW CAN REACH.**
   (promoted 2026-08-20)
 

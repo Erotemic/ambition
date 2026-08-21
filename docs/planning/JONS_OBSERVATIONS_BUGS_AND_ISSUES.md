@@ -189,7 +189,26 @@ player_robot_v3   3072x2484 -> 1600x1259   0.52
   ⇒ **v2 and v3 are separate, correctly-reduced sheets at every tier**, so a quality change cannot turn one into the other by geometry. That leaves RESOLUTION — which sheet gets chosen.
   * ✖ **FIFTH CAUSE ELIMINATED the same day — it is not the first-record-wins discard either.** Reading the suspect function, `from_baked_table_by_file_root` keeps only `records.into_iter().next()` and silently drops the rest, so a file root whose baked RON holds several records is decided by ORDER. Measured: exactly ONE baked file in the whole tree holds more than one record (`creator_lab_props_spritesheet.ron`, 8 — props, not characters), and its order is byte-identical across all four tiers (`genesis_vat` first everywhere). ⇒ cannot swap a robot.
   ⚠ **but note the LATENT trap while somebody is in here**: that `.next()` is safe today by coincidence — one multi-record file, and a generation order that happens to be stable. The day a character sheet carries two records, or the packer's order shifts between tiers, a quality change silently picks a different one. ⛔ the honest fix is to refuse a multi-record file root, or key by target, rather than to trust the order.
-  ⇒ so the standing hypothesis narrows again: not geometry, not record order — **which FILE ROOT the variant road asks for.**
+  * ✖ **SIXTH CAUSE ELIMINATED — the variant PATH is deterministic.**
+`scaled_logical_asset_path` is `Some("{folder}_{suffix}/{filename}")` unless the
+name is source-qualified, so `sprites/player_robot_v3_spritesheet.png` can only
+ever become `sprites_0_5x/player_robot_v3_spritesheet.png`. There is no index, no
+order and no lookup in it — a file root cannot become a different character's
+here. And the baked keys are `<root>.0_5x` / `.0_25x` / `.potato`, derived from
+the folder, equally mechanical.
+
+  ⇒ **STATIC ANALYSIS IS EXHAUSTED, and that is itself the finding.** Six causes
+eliminated by measurement: missing art · missing `_actor.ron` sidecar · per-tier
+sheet collision · tier repacking · first-record-wins · variant path construction.
+Every layer that could *choose the wrong sheet* is deterministic and was checked.
+
+  ⇒ **so the defect is in WHEN, not WHICH** — the re-materialization the
+observation already suspected (`3bf154974`, 2026-08-08, which made a quality
+change rebuild on-screen bodies instead of only the next room). A body rebuilt
+while its new sheet handle is still loading, or rebuilt in an order that reads a
+half-swapped registry, produces a correct path resolving to the previous image.
+⛔ that cannot be caught by reading files — it needs a live capture across an
+Apply, which is what `sprite-residency-and-live-quality.md` asks for.
 
 ## 2026-08-20 — doors do not work in Ambition, and Mary-O's 1-1 loops
 

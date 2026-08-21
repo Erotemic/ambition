@@ -621,7 +621,7 @@ axis, and the diagnosis was re-measured as correct — but its trigger has not
 fired. Take the blast zone first; it has a customer, and it removes rather than
 adds.
 
-- ▢ **D168 — CONTROL AUTHORITY AND AI POLICY ARE TWO FACTS IN ONE COMPONENT.**
+- ▢ **D168 — CONTROL AUTHORITY AND AI POLICY: THE SPLIT LANDED; THE CRATE CARVE IS BLOCKED.**
 
 Design and measurement in
 [`engine/control-authority-and-ai-policy.md`](engine/control-authority-and-ai-policy.md).
@@ -634,19 +634,33 @@ closed enum edges by adding a service locator"*. No `Any`, no `TypeId`, no
 `BrainId`, no registry. Same prohibition as `CapabilityLanes`, same reason — an
 erased id trades a compile error for a runtime lookup.
 
-⭐ **MEASURED 2026-08-20**: `Brain` is 2 variants and `StateMachineCfg` is 12;
-`Brain::Player` is named **194 times across 14 crates/games**, `Brain::StateMachine`
-107; 13 exhaustive matches; and **8,950 non-test lines of platform-fighter policy
-(`brain/fighter`, `brain/smash`) sit inside `ambition_characters`**, a floor crate
-every composition links — because policy shares a component, and therefore a
-crate, with control authority.
+⭐ **RE-MEASURED 2026-08-20 (late), AND THE SPLIT ITSELF HAS LANDED.** The
+numbers above were taken before `1a9f3a372` / `bbf02bf47` (v59) and every one of
+them has moved:
 
-⇒ two typed components, neither erased: `ControlAuthority` (generic, the
-participant slot a body reads) and a domain-owned `AiPolicy`. Possession then
-INSERTS control authority and leaves policy alone, which retires
-`PossessionState::restore_brain` — today a rollback-registered field that
-round-trips an entire AI policy's runtime state through a resource whose subject
-is *who is driving*.
+| the row claimed | HEAD |
+| --- | --- |
+| `Brain` is 2 variants | **1** — `StateMachine(StateMachineCfg)`. There is no `Player` variant. |
+| `Brain::Player` named 194 times across 14 crates | **29 mentions, ALL of them comments.** Zero live code. |
+| the split needs `ControlAuthority` + `AiPolicy` | shipped as `DrivingParticipant(PlayerSlot)` (who drives) + `Brain` (policy only) — two typed components, neither erased, exactly the shape the review demanded |
+| it retires `PossessionState::restore_brain` | **retired.** `PossessionState` is `possessed` / `home` / `hold_timer`; no brain round-trips through it |
+
+⇒ **the load-bearing half is DONE**: possession inserts control authority and
+leaves policy alone, and no erased id or registry was introduced.
+
+⛔ **WHAT IS ACTUALLY LEFT is the crate carve, and it is BLOCKED** — 15,928
+lines of `brain/fighter` + `brain/smash` still sit in `ambition_characters`, a
+floor crate every composition links. That was measured and recorded as blocked
+(`cd4f10f1f`); ⚠ **do not price it as a move.**
+
+⚠ **the paragraph below is the ORIGINAL design statement, kept because it is
+still the right shape — but read it as HISTORY: it describes work that landed.**
+Two typed components, neither erased: control authority (the participant slot a
+body reads — shipped as `DrivingParticipant`) and a domain-owned AI policy
+(shipped as `Brain`). Possession INSERTS control authority and leaves policy
+alone, which retired `PossessionState::restore_brain` — then a rollback-
+registered field that round-tripped an entire AI policy's runtime state through
+a resource whose subject is *who is driving*.
 
 ⛔ **the first slice is the SEAM, not the migration** (the review said so twice:
 *"evidence-driven carve; do not redesign the brain stack at once"*). Introduce the

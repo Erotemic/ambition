@@ -154,7 +154,8 @@
   * ⛔ WITHDRAWN — I suggested the pad was not its own source under the default policy. It is: smash claims `JoinToClaim` on its own routes, so that explanation does not apply and this stays a feel report.
 
 * In smash it should be easy for 2 controllers to select their own characters, or turn other characters off or into cpus, any controller should be able to turn a slot into a player if there is a controller connected to it.
-  * ▢ ⛔ I first wrote here that this was built and switched off. **That was wrong — I truncated my own grep with `| head`.** Smash DOES claim `InputAssignmentPolicy::JoinToClaim`, route-scoped, while the select or gameplay route is up (`demo_smash/src/lib.rs:1508`), and releases it on leaving. So keyboard + one pad should already be two players and the enum default never applies here.
+  * ▢ ⛔ I first wrote here that this was built and switched off. **That was wrong — I truncated my own grep with `| head`.** Smash DOES claim `JoinToClaim`, route-scoped, while the select or gameplay route is up, and releases it on leaving. So keyboard + one pad should already be two players and the enum default never applies here. ⚠ the claim moved on 2026-08-21: it is now one owned `LocalSeatOffer` carrying the seat count and the policy together, so grep `offer.claim(SMASH_SELECT_EXPERIENCE` rather than the old resource names.
+  * ✔ **AND ONE HALF OF THIS REPORT WAS A REAL BUG, found 2026-08-21.** *"any controller should be able to turn a slot into a player"* worked; driving the slot afterwards did not. The screen keyed its cursors by INPUT SEAT and then used that same index as the ROSTER CARD — so with a CPU sitting between two people, the second person's presses landed on the machine's card and their own was unreachable. `SmashSelect::slot_driven_by` is the translation; a second human can now select through a sparse roster. Fixed in `5902930a7`.
   * ⊙ Which means the report is about something further in: does the second source get a SLOT and fail to claim a character, or never appear at all? Say which and it narrows to seats vs the select screen.
   * ◐ 2026-08-20: the SEATING half is measured good — `seats_offered_under` gives keyboard + N pads N+1 slots under the couch policy, nothing else in the tree writes `InputAssignmentPolicy`, and `the_screen_decides::two_players_take_controllers_pick_fighters_and_the_battle_starts` seats keyboard-as-device-0 beside pad 1 and starts the match; so if it still fails for you it is the claiming/feel half, not the seats.
 
@@ -275,7 +276,7 @@ for free."*
   facts. ⚠ still to see on hardware — this pins the facts the picker consumes,
   not the pixels.
 
-  ▢ ~~THE POLE SEQUENCE MUST DRIVE HER, NOT MOVE HER.~~ Today `run_flag_sequence`
+  ✔ ~~THE POLE SEQUENCE MUST DRIVE HER, NOT MOVE HER.~~ Today `run_flag_sequence`
   writes `FlagSequence::driven` onto the body through `constrain_body_pose` every
   tick the phase is not `Idle` — a POSITION write, which is exactly the
   "translate" Jon is seeing, and it is why no animation plays. ⇒ the sequence
@@ -296,17 +297,15 @@ for free."*
   plus a control proving short enemies are still stompable from above; the first
   fails against the old rule.
 
-  ▢ ~~Side contact with Solid Snake damages the SNAKE, not her.~~
-  ⭐ **and a PRE-EXISTING red test is pointing at the same seam from the other
-  side**: `power_loop::her_spark_damages_a_snake_through_the_shared_hit_pipeline`
-  fails with *"was 1, now 1"* — her spark does NOT damage a snake that should
-  take it. Bisected against both of this session's movement changes (the crouch
-  ratio and the out-of-play freeze) and it fails without either, so it predates
-  them. ⇒ one seam decides who a snake's contact damages and it is wrong in both
-  directions; fix them together rather than separately. A stomp is
-  decided by approach direction; something is attributing an ordinary side
-  collision to her as the attacker. Arbitrate by identity/approach rather than by
-  whoever is queried first.
+  ✔ ~~Side contact with Solid Snake damages the SNAKE, not her.~~
+  ⭐ **and the other direction went green with it.**
+  `power_loop::her_spark_damages_a_snake_through_the_shared_hit_pipeline` had
+  been failing with *"was 1, now 1"* — her spark did NOT damage a snake that
+  should take it — and it predated both of that session's movement changes. It
+  was an unrealistic FIXTURE, not a second defect in the seam: the firer carried
+  no `ActorFaction`, so `strike_reaches_victim` could not tell whose strike it
+  was. Repaired to model production construction rather than weakened. Mary-O is
+  151 + 11 green.
 
 ## 2026-08-21 — Mary-O: tall crouch is too tall, and death keeps the camera panning
 
@@ -325,16 +324,16 @@ stop too as a side effect."*
   `her_grown_crouch_fits_where_her_small_form_fits`, which names the gap she must
   fit and fails on the old value.
 
-  ▢ ~~Tall crouch collision height must EQUAL small-form height.~~ It is the SMB1
+  ✔ ~~Tall crouch collision height must EQUAL small-form height.~~ It is the SMB1
   rule and it is what makes a crouch-slide under a one-tile gap work at either
   size. The symptom Jon names — places she used to clear and no longer can — is
   the observable, so the guard belongs on the crouched envelope, not on a
   constant.
 
-  ▢ **Death zeroes velocity; the camera stopping is a CONSEQUENCE, not a second
-  fix.** ⛔ do not fix this by pinning the camera on death — Jon states the
-  causal order explicitly, and a camera that stops while the body drifts is the
-  same bug wearing a hat.
+  ✔ **FIXED 2026-08-21 — `step_body` freezes an out-of-play body, and the camera
+  stops because it is following a body that stopped.** ⛔ still do not fix this
+  by pinning the camera on death — Jon states the causal order explicitly, and a
+  camera that stops while the body drifts is the same bug wearing a hat.
 
 ## 2026-08-20 — doors do not work in Ambition, and Mary-O's 1-1 loops
 

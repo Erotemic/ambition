@@ -1,6 +1,6 @@
 # HEAD orientation
 
-**Snapshot:** `6cf791b8c` (2026-08-18 local project date).
+**Snapshot:** `359b15070` (2026-08-20 local project date).
 
 ⚠ **this SHA goes stale within hours during an active run** — it names the tree
 these paragraphs were measured against, not the tree you have. ⭐ **if it
@@ -198,6 +198,17 @@ streaming, a generic residency scheduler and byte shaving do not.
   (`ControlSlot → action → ControlFrame → body`) is now closed at all four
   links, three of them by the compiler and poison-verified.
 
+  ⭐⭐ **AND THE SUITE IS GREEN — `smash_it` 26/7 → 34/0 on 2026-08-20.** All
+  seven long-red guards, both repertoire ones and all five `the_stage_kills`,
+  pass with **body contact** in the movement sweep and nothing in the brain
+  moved. That MEASURES the reading of the CPU limit cycle as a missing physical
+  spacing primitive: two fighters closing on each other now STALL where they
+  meet, which is where attacks land. `ambition_platformer2d_core::movement::body_contact`
+  constrains proposed motion before the world sweep and writes no position, so
+  nothing is teleported apart; `BodyContact { resistance }` is presence-as-opt-in
+  and the smash stage grants it to its cast. ▢ the resistance number (0.85) is an
+  unmeasured feel choice and is Jon's.
+
   ▢ **open: WHEN a CPU presses Grab.** It owns one, chooses one and presses one
   — mostly at ~110px against a 42px reach. Fighter capture POLICY, not a bug in
   the mechanic — the value of a hold depends on the throw it sets up, the
@@ -211,9 +222,28 @@ streaming, a generic residency scheduler and byte shaving do not.
   kit is authored content, read by the content compiler into the same
   `MoveSpec`s the Rust literal produced. The sixteen ordinary move slots
   deliberately did NOT move — they are authored by composing helpers.
-- **TwinTrack:** strongest current pressure test for independent views and
-  observer/reference-frame presentation; split-screen should exercise the same
-  multi-view model Ambition uses.
+- **TwinTrack:** ⭐ **a TWO-PLAYER game with a real split screen as of
+  2026-08-20**, and the pressure test that paid for three engine seams. The
+  laboratory twin is Emmy No-Ether, a constructed character body driven by seat
+  one; the screen is split by construction, one gameplay `LocalView` per
+  participant. What it bought the engine: `ambition_sim_view::ViewPlacement`
+  (where a view sits, as a fraction of the gameplay rect),
+  `ambition_sim_view::ViewSubject` (which body a view frames — the resolve
+  answered that ONCE above the per-view loop), and `spawn_main_camera` declining
+  to spawn a rig it cannot honestly bind. Both relativity read-models publish one
+  row per observer and TwinTrack is their first adopter, so the two panes'
+  numbers disagree because the physics does.
+
+  ⛔ **two rules it cost to learn.** How many views there are belongs to the LIVE
+  SESSION, not to what the binary links — composing a second view at plugin build
+  time split every route in the game, and the symptom was `bevy_egui` panicking
+  about schedules in 95 unrelated tests. And two seats is TWO statements:
+  `DeclaredInputSeats(n)` makes seat entities, `InputAssignmentPolicy::JoinToClaim`
+  gives them devices, and a surface that says only the first gets a dead second
+  seat — measured on Jon's hardware.
+
+  ▢ which pane shows which observer's aberrated sky is a presentation choice
+  nobody has made; the seam is there.
 - **Sanic / Super Mary-O / Hollow Lite:** retained acceptance customers for
   movement, classic platforming/content, and encounters/boss authoring.
 
@@ -227,7 +257,13 @@ its product investment, not the engine ownership rules.
 - controllers provide intent rather than defining a body species;
 - construction/preparation fails before partial mutation;
 - deterministic simulation authority is explicit and snapshotable;
-- views are local presentation over one simulation, not duplicate worlds;
+- views are local presentation over one simulation, not duplicate worlds — and
+  **how many there are is a property of the live session, never of what the
+  binary links**;
+- **a capability is not landed until something ADOPTS it**, and a `Deref`-to-the-
+  first-row fallback is how an unadopted split hides: every old reader compiles,
+  reads identically while there is one row, and silently switches to whatever
+  the publisher sorts first the day there are two;
 - transport, control assignment, world residency and view layout are independent
   axes;
 - LDtk is Ambition's preferred spatial authoring surface and should improve when

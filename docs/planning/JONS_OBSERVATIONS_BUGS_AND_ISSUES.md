@@ -178,6 +178,15 @@ pugnacious_polygon                        0.81
 * When I change the video quality in ambition, my sprite went from the robot v3 character to the robot v2 character. 
   * ▢ Three causes eliminated (missing art, a missing `_actor.ron` sidecar, a per-tier sheet collision — none of the colliding rig targets is a character id). Not eliminated: quality variants resolve through a separate FILE-ROOT index (`from_baked_table_by_file_root`) rather than the shared target road, and `3bf154974` (2026-08-08) made a quality change re-materialize on-screen bodies instead of only the next room — that re-materialization path is the likely site. Owner doc: `sprite-residency-and-live-quality.md`.
   * ⊙ Two things that would settle it: was your report BEFORE or AFTER 2026-08-08, and does it swap back if you change quality again?
+  * ✖ **FOURTH CAUSE ELIMINATED 2026-08-21 — it is not tier REPACKING.** The Emmy finding two entries above gave an obvious candidate: four sheets saturate the 4096 texture cap, so their "reduced" tier is a differently-PACKED sheet rather than a scaled one, and different frame rects would read as a different character. Tested against the robots — all thirteen reduce cleanly:
+
+```text
+player_robot_v2   2815x2312 -> 1472x1215   0.52
+player_robot_v3   3072x2484 -> 1600x1259   0.52
+… 11 more robot sheets, every ratio 0.42-0.57, none capped
+```
+
+  ⇒ **v2 and v3 are separate, correctly-reduced sheets at every tier**, so a quality change cannot turn one into the other by geometry. That leaves RESOLUTION — which sheet gets chosen — and so it strengthens rather than replaces the standing hypothesis: `from_baked_table_by_file_root` resolving quality variants through a separate FILE-ROOT index instead of the shared target road.
 
 ## 2026-08-20 — doors do not work in Ambition, and Mary-O's 1-1 loops
 

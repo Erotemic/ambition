@@ -41,7 +41,25 @@ pub fn player_touch(body: ae::Aabb, player: ae::Aabb, player_vel: ae::Vec2) -> O
     // The band is penetration tolerance, not reach: the player's feet must have
     // reached the head plane. Allowing `head - STOMP_BAND` classified a player
     // hovering up to sixteen pixels above an enemy as a stomp.
-    let on_head = feet >= body.min.y && feet <= body.min.y + STOMP_BAND;
+    //
+    // ⛔⛔ **AND IT IS CLAMPED TO HALF THE BODY, because a fixed band is a
+    // function of the ENEMY'S HEIGHT** (Jon, 2026-08-21: *"if she runs into
+    // solid snake from the side, the snake gets hit instead of her"*). On flat
+    // ground both bodies' feet sit on the same line, so the player's feet are
+    // exactly `enemy_height` below its head. For any enemy `STOMP_BAND` tall or
+    // shorter that lands INSIDE the band, and running into it from the side
+    // classified as a stomp — the snake shelled instead of hurting her.
+    //
+    // ⭐ **MEASURED, not inferred**: the shipped snake's authored collision box is
+    // 21.33 x 9.48, so its whole body is barely half the old band. Her feet on
+    // the same ground sat 9.48 below its head — comfortably inside 16 — and every
+    // side run-in read as a stomp.
+    //
+    // Half the body is the rule every game of this kind actually uses: feet above
+    // the enemy's middle is a stomp, below it is a hit. That is height-independent,
+    // so a shorter enemy authored tomorrow cannot reopen this.
+    let band = STOMP_BAND.min((body.max.y - body.min.y) * 0.5);
+    let on_head = feet >= body.min.y && feet <= body.min.y + band;
     // Falling onto the head, or standing on it (`vel.y == 0`), is a stomp. Rising
     // INTO it from below is not — that is a hit, exactly like Mario.
     if on_head && player_vel.y >= 0.0 {

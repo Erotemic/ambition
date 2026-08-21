@@ -271,7 +271,19 @@ for free."*
   chooses the clips for free. ⛔ Jon named the approach, so do not pin a clip by
   hand as a shortcut — that is the hack he is refusing in advance.
 
-  ▢ **Side contact with Solid Snake damages the SNAKE, not her.**
+  ✔ **FIXED 2026-08-21 — the stomp band was a fixed 16px, and the snake is 9.48
+  tall.** `player_touch` called it a stomp whenever her feet landed within 16px
+  of the enemy's head; two bodies on the same ground have their feet on the same
+  line, so her feet sat exactly `enemy_height` below its head — inside the band
+  for anything 16 or shorter. MEASURED from the shipped art: the snake's authored
+  collision box is 21.33 x 9.48, barely half the band. The band is clamped to half
+  the body now, which is the rule these games actually use (feet above the
+  enemy's middle) and is height-independent, so a shorter enemy authored tomorrow
+  cannot reopen it. Guarded by `running_into_a_short_enemy_on_flat_ground_hits_its_side`
+  plus a control proving short enemies are still stompable from above; the first
+  fails against the old rule.
+
+  ▢ ~~Side contact with Solid Snake damages the SNAKE, not her.~~
   ⭐ **and a PRE-EXISTING red test is pointing at the same seam from the other
   side**: `power_loop::her_spark_damages_a_snake_through_the_shared_hit_pipeline`
   fails with *"was 1, now 1"* — her spark does NOT damage a snake that should

@@ -78,3 +78,59 @@ fn a_gap_above_the_head_is_not_a_stomp() {
         "the stomp tolerance cannot reach through empty space"
     );
 }
+
+/// **RUNNING INTO A SHORT ENEMY ON FLAT GROUND IS A SIDE HIT, NOT A STOMP.**
+///
+/// Jon, 2026-08-21: *"if she runs into solid snake from the side, the snake gets
+/// hit instead of her."*
+///
+/// ⛔ **the old band was a fixed 16px, and that made the answer a function of the
+/// ENEMY'S HEIGHT.** Two bodies standing on the same ground have their feet on
+/// the same line, so the player's feet sit exactly `enemy_height` below the
+/// enemy's head — inside a 16px band for any enemy 16 tall or shorter. She ran
+/// into it, the classifier said `Top`, and the snake shelled instead of hurting
+/// her. Every existing case here used a 32-tall body and stayed green.
+#[test]
+fn running_into_a_short_enemy_on_flat_ground_hits_its_side() {
+    const GROUND: f32 = 300.0;
+    // 16 tall — exactly the old band, which is what made this misfire.
+    let short_enemy = ae::Aabb::new(ae::Vec2::new(400.0, GROUND - 8.0), ae::Vec2::new(14.0, 8.0));
+    // Her feet on the same ground, overlapping it, running (no vertical motion).
+    let her = ae::Aabb::new(
+        ae::Vec2::new(390.0, GROUND - 24.0),
+        ae::Vec2::new(15.0, 24.0),
+    );
+    let running = ae::Vec2::new(180.0, 0.0);
+
+    // The premise: they are actually touching, or the classification is moot.
+    assert!(
+        player_touch(short_enemy, her, running).is_some(),
+        "the fixture does not overlap, so it classifies nothing"
+    );
+    assert_eq!(
+        player_touch(short_enemy, her, running),
+        Some(PlayerTouch::Side),
+        "running into a short enemy from the side was classified as a stomp, so \
+         the enemy takes the hit instead of her"
+    );
+}
+
+/// The non-vacuity control: the SAME short enemy, stomped from above, is still a
+/// stomp. Clamping the band must not make short enemies unstompable.
+#[test]
+fn the_same_short_enemy_can_still_be_stomped_from_above() {
+    const GROUND: f32 = 300.0;
+    let short_enemy = ae::Aabb::new(ae::Vec2::new(400.0, GROUND - 8.0), ae::Vec2::new(14.0, 8.0));
+    // Feet just into its head, coming down.
+    let her = ae::Aabb::new(
+        ae::Vec2::new(400.0, GROUND - 16.0 - 24.0 + 2.0),
+        ae::Vec2::new(15.0, 24.0),
+    );
+    let falling = ae::Vec2::new(0.0, 200.0);
+    assert_eq!(
+        player_touch(short_enemy, her, falling),
+        Some(PlayerTouch::Top),
+        "a short enemy must still be stompable from above, or the clamp traded \
+         one bug for another"
+    );
+}

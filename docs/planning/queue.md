@@ -371,6 +371,32 @@ inert in the shipped host while seat zero worked (`d8994ce92`). ⚠ the doc's ow
 caution stands — converge them *"without changing simulation semantics merely
 for naming symmetry"*.
 
+⛔⛔ **AND THE ITEM UNDERSTATES ITSELF: THE SEAT-0 PATH IS NOT A SPECIAL CASE, IT
+IS A PIPELINE.** Measured 2026-08-21 — the global `ControlFrame` is a SHAPING BUS
+that eight files write before it is published to slot 0, and
+`PrimarySlotInputCommit`'s own doc states the ordering contract: *"gesture
+derivation, portal input shaping, touch folding must run BEFORE this set."*
+
+```text
+writes the global ControlFrame          scripted_input · gesture derivation
+(8 files, non-test)                     portal plugin · portal transit_adapter
+                                        touch folding · app sim_systems
+                                        core control_frame · the GGRS session
+reads it                                28 non-test sites across 8+ files
+seats 1..N                              NO shaping stage at all —
+                                        ActionState → slot, directly
+```
+
+⇒ **so "converge on one channel" is really "every seat needs a shaping bus, or
+every shaper needs to be per-seat"**, and that is the architecture question the
+item does not ask. It is also the concrete consequence: a scripted input, a
+portal transit or a touch fold applies to SEAT ZERO ONLY, so a second seat
+walking a portal gets unshaped input — the same class of defect as the inert
+second seat, waiting on a composition that has both.
+
+⚠ **do not start this unattended.** It crosses `ambition_platformer2d_rollback_ggrs`'s
+input publication, where a mistake is a desync rather than a red test.
+
 ⚠ **the other eight are COUNTED, NOT CHECKED.** Checking D171's table today
 found two of seven already landed, so grep each before working it. Two look
 adjacent to facts already recorded elsewhere: per-seat pause ownership is the

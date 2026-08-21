@@ -1270,7 +1270,12 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "movement tuning, forward-only",
     ),
     (
-        "::time::feel::Platformer2dFeelTuningMonolith",
+        // ⚠ path moved 2026-08-21 (D33): the type left
+        // `actor_monolith::time::feel` for `ambition_combat::feel`, the crate
+        // that owns every rule it modifies. The WAIVER's reason is unchanged
+        // because the decision is unchanged — feel tuning is still a
+        // forward-only knob, not per-frame state. Only its address moved.
+        "::feel::Platformer2dFeelTuningMonolith",
         "feel tuning, forward-only",
     ),
     (

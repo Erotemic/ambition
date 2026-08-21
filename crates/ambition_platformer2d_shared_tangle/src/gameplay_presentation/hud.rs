@@ -249,12 +249,47 @@ pub struct HudReadout {
 /// Variants are presentation PRIMITIVES, not content vocabulary — the same
 /// category as [`SurroundRegion`]. The engine still never learns what "health"
 /// is.
-#[derive(Clone, Copy, Debug, PartialEq)]
+/// ⚠ **`Clone` and not `Copy` since 2026-08-21.** [`HudFigure::Standing`] carries
+/// asset paths, and a `String` is what pays for the engine not knowing what a
+/// character is — see [`HudStanding::portrait`].
+#[derive(Clone, Debug, PartialEq)]
 pub enum HudFigure {
     /// A `0..=1` proportion, drawn as a bar. Clamped on construction, because a
     /// game computing `current / max` with a max of zero should get an empty bar
     /// rather than a NaN that propagates into a layout.
     Gauge(f32),
+    /// **A fighter's standing in a stocks match**: who they are and how many
+    /// lives they have left.
+    ///
+    /// The platform-fighter convention Jon asked for on 2026-08-21 — a portrait
+    /// with the percent under it and the remaining stocks as icons, one panel
+    /// per player across the bottom. What that LOOKS like is entirely the
+    /// renderer's: how big the portrait is, how many icons are drawn before it
+    /// switches to a count, whether the panels are centred. This says only what
+    /// is true.
+    Standing(HudStanding),
+}
+
+/// **What a fighter's standing IS** — see [`HudFigure::Standing`].
+#[derive(Clone, Debug, PartialEq, Default)]
+pub struct HudStanding {
+    /// The portrait image's ASSET PATH, resolved by the GAME.
+    ///
+    /// ⛔ **a path and not a character id, deliberately.** The variants of
+    /// [`HudFigure`] are presentation PRIMITIVES rather than content vocabulary,
+    /// and "which character" is content — an engine that took an id here would
+    /// have to learn what a roster is to draw a HUD. A path is a thing a
+    /// renderer can already load. Games resolve it with
+    /// `CharacterCatalog::portrait_image_path`, which existed for this.
+    ///
+    /// `None` draws no portrait, which is what a fighter with no art gets.
+    pub portrait: Option<String>,
+    /// The image ONE stock is drawn as. The game's asset, for the same reason.
+    pub stock_icon: Option<String>,
+    /// Lives left. `0` is a fighter who is out, not an error.
+    pub remaining: u32,
+    /// Lives this fighter began with, so a renderer can show what was lost.
+    pub started: u32,
 }
 
 impl HudReadout {
@@ -279,11 +314,32 @@ impl HudReadout {
         }
     }
 
+    /// **A STANDING**: a label, the percent text, and the stocks behind it.
+    pub fn standing(
+        label: impl Into<String>,
+        value: impl Into<String>,
+        standing: HudStanding,
+    ) -> Self {
+        Self {
+            label: label.into(),
+            value: value.into(),
+            figure: Some(HudFigure::Standing(standing)),
+        }
+    }
+
     /// This readout's gauge fraction, if it is a gauge.
     pub fn fill(&self) -> Option<f32> {
-        match self.figure {
-            Some(HudFigure::Gauge(fill)) => Some(fill),
-            None => None,
+        match &self.figure {
+            Some(HudFigure::Gauge(fill)) => Some(*fill),
+            Some(HudFigure::Standing(_)) | None => None,
+        }
+    }
+
+    /// This readout's standing, if it is one.
+    pub fn standing_of(&self) -> Option<&HudStanding> {
+        match &self.figure {
+            Some(HudFigure::Standing(standing)) => Some(standing),
+            Some(HudFigure::Gauge(_)) | None => None,
         }
     }
 

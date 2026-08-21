@@ -493,10 +493,24 @@ mod tests {
             "patent_clerk.0_25x",
             "patent_clerk.0_5x",
             "patent_clerk.potato",
+            // ⚠ **THE THIRD, added 2026-08-21, and it was always true.** The
+            // reference sword fighter's SVG declares `data-rig-facing="west"`
+            // and its published sheets have carried `authored_faces_left` the
+            // whole time — under its old name and under this one. The list did
+            // not know because this test only sees sheets that are ON DISK, and
+            // the polygons' art is gitignored: a checkout without it passes
+            // vacuously. ⛔ that is the real lesson here, not the row.
+            //
+            // ⚠ the BRAWLER is deliberately absent: its SVG declares no facing,
+            // so its sheets keep the +x default. Two polygons, one facing.
+            "pointed_polygon",
+            "pointed_polygon.0_25x",
+            "pointed_polygon.0_5x",
+            "pointed_polygon.potato",
         ];
         assert_eq!(
             left_drawn, expected,
-            "exactly the two west-drawn paperdoll sheets (and their quality tiers) declare a \
+            "exactly the three west-drawn paperdoll sheets (and their quality tiers) declare a \
              left-drawn art facing; every other sheet must keep the +x default"
         );
     }

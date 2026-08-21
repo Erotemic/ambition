@@ -230,6 +230,85 @@ pub fn spawn_declared_hud(
                 Name::new(format!("Declared HUD gauge ({})", spec.id.as_str())),
             ),
         );
+        // **THE FIGHTER PANEL**, spawned for every slot and shown only for one
+        // publishing a `Standing`. ⚠ spawned ONCE with a fixed number of stock
+        // icons and hidden per frame rather than spawned per stock: a family
+        // that appears and disappears with a number would churn entities every
+        // time somebody lost a life, and `DeclaredHudRoot`'s retire sweep is
+        // built around one spawn per declaration.
+        commands
+            .spawn_session_scoped(
+                session_scope,
+                (
+                    DeclaredHudRoot,
+                    DeclaredHudPanel(spec.id.clone()),
+                    Node {
+                        position_type: PositionType::Absolute,
+                        left: Val::Px(OVERLAY_ANCHOR.x),
+                        top: Val::Px(OVERLAY_ANCHOR.y),
+                        width: Val::Px(PANEL_W),
+                        flex_direction: FlexDirection::Column,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    Visibility::Hidden,
+                    Name::new(format!("Declared HUD panel ({})", spec.id.as_str())),
+                ),
+            )
+            .with_children(|panel| {
+                panel.spawn((
+                    DeclaredHudPortrait(spec.id.clone()),
+                    ImageNode::default(),
+                    Node {
+                        width: Val::Px(PORTRAIT_PX),
+                        height: Val::Px(PORTRAIT_PX),
+                        ..default()
+                    },
+                    Visibility::Hidden,
+                    Name::new(format!("Declared HUD portrait ({})", spec.id.as_str())),
+                ));
+                // The stock row sits under the percent, which is the slot's own
+                // text node — so this row is spaced down past it.
+                panel
+                    .spawn((
+                        Node {
+                            margin: UiRect::top(Val::Px(spec.font_size * LINE_HEIGHT_FACTOR + 4.0)),
+                            column_gap: Val::Px(STOCK_ICON_GAP),
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        Name::new(format!("Declared HUD stocks ({})", spec.id.as_str())),
+                    ))
+                    .with_children(|row| {
+                        for index in 0..MAX_DRAWN_STOCKS {
+                            row.spawn((
+                                DeclaredHudStock(spec.id.clone(), index),
+                                ImageNode::default(),
+                                Node {
+                                    width: Val::Px(STOCK_ICON_PX),
+                                    height: Val::Px(STOCK_ICON_PX),
+                                    ..default()
+                                },
+                                Visibility::Hidden,
+                                Name::new(format!(
+                                    "Declared HUD stock {index} ({})",
+                                    spec.id.as_str()
+                                )),
+                            ));
+                        }
+                        row.spawn((
+                            DeclaredHudStockCount(spec.id.clone()),
+                            Text::new(String::new()),
+                            TextFont {
+                                font_size: STOCK_ICON_PX,
+                                ..default()
+                            },
+                            TextColor(Color::srgba(r, g, b, a)),
+                            Visibility::Hidden,
+                            Name::new(format!("Declared HUD stock count ({})", spec.id.as_str())),
+                        ));
+                    });
+            });
         commands.spawn_session_scoped(
             session_scope,
             (
@@ -415,10 +494,12 @@ pub fn update_declared_hud_gauges(
         // the point of the enum: a renderer that has not been taught a new
         // figure would otherwise draw nothing and look like a game that simply
         // did not publish one.
-        let figure = readouts.get(&bar.0).and_then(|readout| readout.figure);
-        let fill = match figure {
+        let figure = readouts.get(&bar.0).map(|readout| readout.figure.clone());
+        let fill = match figure.flatten() {
             Some(HudFigure::Gauge(fill)) => fill,
-            None => {
+            // A standing draws a PANEL, not a bar — see `update_declared_hud_panels`.
+            // Collapsing here is what keeps a slot from wearing both.
+            Some(HudFigure::Standing(_)) | None => {
                 if node.height != Val::Px(0.0) {
                     node.height = Val::Px(0.0);
                     node.width = Val::Px(0.0);
@@ -462,6 +543,298 @@ pub fn update_declared_hud(
     }
 }
 
+// ---------------------------------------------------------------------------
+// The fighter panel: a portrait, the percent under it, and the stocks as icons
+// ---------------------------------------------------------------------------
+
+/// **How many stocks are drawn one-icon-each before it becomes a count.**
+///
+/// ⚠ the genre's own break point, not a guess: a platform fighter draws a row
+/// of little heads while there are few enough to read at a glance, and switches
+/// to `xN` once counting them would take longer than reading a number. Five is
+/// where the games Jon named do it.
+pub const MAX_DRAWN_STOCKS: u32 = 5;
+
+/// How wide one fighter panel is, and how big the pieces in it are.
+const PANEL_W: f32 = 132.0;
+const PORTRAIT_PX: f32 = 56.0;
+const STOCK_ICON_PX: f32 = 14.0;
+const STOCK_ICON_GAP: f32 = 3.0;
+
+/// One fighter panel's root, tagged with the slot it belongs to.
+///
+/// A SIBLING root rather than a child of the slot's text node, for the reason
+/// the gauge bar is one: the text node moves between regions as the active
+/// profile changes, and this tracks it every frame.
+#[derive(Component, Debug)]
+pub struct DeclaredHudPanel(pub HudSlotId);
+
+/// The portrait inside one panel.
+#[derive(Component, Debug)]
+pub struct DeclaredHudPortrait(pub HudSlotId);
+
+/// One stock icon inside one panel, by its index in the row.
+#[derive(Component, Debug)]
+pub struct DeclaredHudStock(pub HudSlotId, pub u32);
+
+/// The `xN` beside a single icon, when there are too many to draw.
+#[derive(Component, Debug)]
+pub struct DeclaredHudStockCount(pub HudSlotId);
+
+/// **Which slots are drawing a fighter panel this frame, in laid-out order.**
+///
+/// ⭐ **the count is what "horizontally distributed depending on the number of
+/// players" means**, and it is a fact about the READOUTS rather than the
+/// declaration: the smash stage declares four slots and a 1v1 publishes two, so
+/// asking the declaration would space a two-player match as if four people were
+/// playing and leave two gaps.
+fn panelled_slots(active: &ActiveHudDeclaration, readouts: &HudReadouts) -> Vec<HudSlotId> {
+    active
+        .0
+        .as_ref()
+        .map(|declaration| declaration.laid_out())
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|spec| {
+            readouts
+                .get(&spec.id)
+                .is_some_and(|readout| readout.standing_of().is_some())
+        })
+        .map(|spec| spec.id.clone())
+        .collect()
+}
+
+/// **How a stock count is DRAWN**: how many icons, and the count beside them.
+///
+/// `(icons, count)` — `count` is `Some(n)` only when there are too many to draw
+/// one each, in which case exactly one icon is drawn and the number says the
+/// rest. ⚠ zero stocks draw NOTHING and that is not an error: it is a fighter
+/// who is out, and an empty row is what says so.
+fn drawn_stocks(remaining: u32) -> (u32, Option<u32>) {
+    if remaining > MAX_DRAWN_STOCKS {
+        (1, Some(remaining))
+    } else {
+        (remaining, None)
+    }
+}
+
+/// **How wide a row of `count` panels spreads**, given the width it may use.
+///
+/// ⛔ **panels butted edge to edge is not "distributed"** — the first capture
+/// put a 1v1 as two touching panels in the middle of a 1280px screen, which
+/// reads as one wide box rather than as two players. A platform fighter spreads
+/// them: the more players, the more of the screen the row occupies, and two
+/// players sit well apart.
+fn panel_row_span(available: f32, count: usize) -> f32 {
+    // ⭐ **a fraction of the SCREEN, not a multiple of the panels.** Sizing the
+    // row from the panels put a 1v1 in a 396px huddle in the middle of a 1280px
+    // screen (photographed 2026-08-21, second capture) — technically spread,
+    // and nothing like the genre, which puts two players near the quarter and
+    // three-quarter marks and lets four fill the width. The row is as wide as
+    // the screen allows whatever the count; what changes with the count is how
+    // many panels share it.
+    //
+    // ⚠ still floored at the panels' own width, or five players would overlap.
+    (available * ROW_FRACTION).max(PANEL_W * count.max(1) as f32)
+}
+
+/// How much of the gameplay width a full panel row occupies. Short of the edges
+/// on purpose: a host draws its own buttons in the corners.
+const ROW_FRACTION: f32 = 0.72;
+
+/// Where one panel's LEFT edge sits, given its place in the row.
+///
+/// Centred as a group about `centre_x`, so two panels sit either side of the
+/// middle and four spread evenly across it.
+fn panel_left(centre_x: f32, available: f32, index: usize, count: usize) -> f32 {
+    let span = panel_row_span(available, count);
+    let pitch = span / count.max(1) as f32;
+    let first_centre = centre_x - span * 0.5 + pitch * 0.5;
+    first_centre + pitch * index as f32 - PANEL_W * 0.5
+}
+
+/// Lay the fighter panels out across their region and hang each one's pieces
+/// off its slot's live text node.
+///
+/// ⚠ **after the placer**, like the gauges: a panel tracks a position that
+/// frame settled on.
+pub fn update_declared_hud_panels(
+    readouts: Res<HudReadouts>,
+    active: Res<ActiveHudDeclaration>,
+    presentation: Res<ResolvedGameplayPresentation>,
+    asset_server: Res<AssetServer>,
+    mut slots: Query<
+        (&DeclaredHudSlot, &DeclaredHudSpec, &mut Node),
+        (
+            Without<DeclaredHudPanel>,
+            Without<DeclaredHudPortrait>,
+            Without<DeclaredHudStock>,
+            Without<DeclaredHudStockCount>,
+        ),
+    >,
+    mut panels: Query<
+        (&DeclaredHudPanel, &mut Node, &mut Visibility),
+        (
+            Without<DeclaredHudPortrait>,
+            Without<DeclaredHudStock>,
+            Without<DeclaredHudStockCount>,
+        ),
+    >,
+    mut portraits: Query<
+        (&DeclaredHudPortrait, &mut ImageNode, &mut Visibility),
+        (Without<DeclaredHudStock>, Without<DeclaredHudStockCount>),
+    >,
+    mut stocks: Query<
+        (&DeclaredHudStock, &mut ImageNode, &mut Visibility),
+        (Without<DeclaredHudPortrait>, Without<DeclaredHudStockCount>),
+    >,
+    mut counts: Query<(&DeclaredHudStockCount, &mut Text, &mut Visibility)>,
+) {
+    let panelled = panelled_slots(&active, &readouts);
+    let count = panelled.len();
+    // The gameplay rectangle's centre, so the row is centred on what the player
+    // is looking at rather than on the window — they differ under letterboxing.
+    let centre_x = presentation.gameplay_rect.min.x + presentation.gameplay_rect.width() * 0.5;
+
+    // ── the panel roots, and the slot text they carry ────────────────────
+    for (panel, mut node, mut visibility) in &mut panels {
+        let Some(index) = panelled.iter().position(|id| *id == panel.0) else {
+            set_hidden(&mut visibility);
+            continue;
+        };
+        set_shown(&mut visibility);
+        // The slot's OWN declared font size, because the percent is drawn in it
+        // and the panel's height is portrait + that line + the stock row.
+        let panel_font = slots
+            .iter()
+            .find(|(slot, ..)| slot.0 == panel.0)
+            .map(|(_, spec, _)| spec.0.font_size)
+            .unwrap_or(22.0);
+        let left = panel_left(centre_x, presentation.gameplay_rect.width(), index, count);
+        set_px(&mut node.left, left);
+        set_px(&mut node.width, PANEL_W);
+
+        // The slot's own text is the PERCENT, and it belongs under the
+        // portrait. `place_declared_hud` put it wherever the region stacker
+        // wanted; a panelled slot overrides that, which is the one place this
+        // renderer takes a position back from the stacker.
+        let top = panel_top(&presentation, panel_font);
+        set_px(&mut node.top, top);
+        for (slot, _, mut slot_node) in &mut slots {
+            if slot.0 != panel.0 {
+                continue;
+            }
+            set_px(&mut slot_node.left, left);
+            set_px(&mut slot_node.width, PANEL_W);
+            set_px(&mut slot_node.top, top + PORTRAIT_PX + 2.0);
+        }
+    }
+
+    // ── the portraits ────────────────────────────────────────────────────
+    for (portrait, mut image, mut visibility) in &mut portraits {
+        let path = readouts
+            .get(&portrait.0)
+            .and_then(|readout| readout.standing_of())
+            .and_then(|standing| standing.portrait.clone());
+        match path {
+            // ⚠ a fighter with no portrait draws none rather than a blank box:
+            // an empty rectangle reads as art that failed to load.
+            None => set_hidden(&mut visibility),
+            Some(path) => {
+                set_shown(&mut visibility);
+                let handle: Handle<Image> = asset_server.load(path);
+                if image.image != handle {
+                    image.image = handle;
+                }
+            }
+        }
+    }
+
+    // ── the stock icons, and the count that replaces them ────────────────
+    for (stock, mut image, mut visibility) in &mut stocks {
+        let standing = readouts
+            .get(&stock.0)
+            .and_then(|readout| readout.standing_of());
+        let Some(standing) = standing else {
+            set_hidden(&mut visibility);
+            continue;
+        };
+        let (drawn, _) = drawn_stocks(standing.remaining);
+        let Some(path) = standing.stock_icon.clone() else {
+            set_hidden(&mut visibility);
+            continue;
+        };
+        if stock.1 >= drawn {
+            set_hidden(&mut visibility);
+            continue;
+        }
+        set_shown(&mut visibility);
+        let handle: Handle<Image> = asset_server.load(path);
+        if image.image != handle {
+            image.image = handle;
+        }
+    }
+    for (count_of, mut text, mut visibility) in &mut counts {
+        let standing = readouts
+            .get(&count_of.0)
+            .and_then(|readout| readout.standing_of());
+        match standing {
+            Some(standing) if drawn_stocks(standing.remaining).1.is_some() => {
+                set_shown(&mut visibility);
+                let next = format!("x{}", standing.remaining);
+                if text.0 != next {
+                    text.0 = next;
+                }
+            }
+            _ => set_hidden(&mut visibility),
+        }
+    }
+}
+
+/// **How tall a whole panel is** — portrait, the percent under it, the stock
+/// row under that.
+///
+/// ⛔ **the panel is not its portrait, and pretending otherwise put the percent
+/// off the bottom of the screen** (photographed 2026-08-21, first capture of
+/// this HUD). Anchoring by the portrait alone left everything below it hanging
+/// past the edge, which no headless test could see.
+fn panel_height(font_size: f32) -> f32 {
+    PORTRAIT_PX + font_size * LINE_HEIGHT_FACTOR + 4.0 + STOCK_ICON_PX + HUD_MARGIN
+}
+
+/// The top of the panel row, positioned so the WHOLE panel is on screen.
+fn panel_top(presentation: &ResolvedGameplayPresentation, font_size: f32) -> f32 {
+    let height = panel_height(font_size);
+    match presentation.hud_region(SurroundRegion::Bottom) {
+        // The reserved strip, sat against its top edge — and pulled up if the
+        // strip is shorter than the panel, so a thin letterbox clips the
+        // BACKGROUND rather than the numbers.
+        Some(rect) => rect.min.y.min(rect.max.y - height).max(0.0) + HUD_MARGIN * 0.5,
+        // No reserved surround: overlay INSIDE the gameplay rectangle, sat on
+        // its bottom edge, which is where a fighting game's HUD belongs anyway.
+        None => (presentation.gameplay_rect.max.y - height - HUD_MARGIN).max(0.0),
+    }
+}
+
+fn set_px(value: &mut Val, px: f32) {
+    let next = Val::Px(px);
+    if *value != next {
+        *value = next;
+    }
+}
+
+fn set_shown(visibility: &mut Visibility) {
+    if *visibility != Visibility::Inherited {
+        *visibility = Visibility::Inherited;
+    }
+}
+
+fn set_hidden(visibility: &mut Visibility) {
+    if *visibility != Visibility::Hidden {
+        *visibility = Visibility::Hidden;
+    }
+}
+
 /// Installs the declared-HUD surface.
 ///
 /// Belongs to the presentation face rather than any one app, because the whole
@@ -487,6 +860,9 @@ impl Plugin for DeclaredHudPlugin {
                 // AFTER the placer: a gauge tracks its slot's live position, so
                 // it has to read the position this frame settled on.
                 update_declared_hud_gauges.after(place_declared_hud),
+                // AFTER the placer for the same reason, and it takes the
+                // position back for a panelled slot — see the note there.
+                update_declared_hud_panels.after(place_declared_hud),
             )
                 .chain()
                 .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists),
@@ -500,6 +876,72 @@ mod tests {
     use ambition_platformer2d_shared_tangle::gameplay_presentation::{
         HudDeclaration, HudLayoutPolicy, HudReadout, NamedScreenRect,
     };
+
+    /// **THE PANELS ARE CENTRED AS A GROUP, whatever the player count.**
+    ///
+    /// ⭐ this is what "horizontally distributed depending on the number of
+    /// players" has to mean: a 1v1 sits two panels either side of the middle
+    /// and a four-player match spreads four across it, and in BOTH the row's
+    /// own centre is the screen's. A layout that packed from the left would put
+    /// a 1v1 in the corner.
+    #[test]
+    fn a_panel_row_is_centred_on_the_screen_for_any_player_count() {
+        let centre = 640.0;
+        for count in 1..=4usize {
+            let lefts: Vec<f32> = (0..count)
+                .map(|i| panel_left(centre, 1280.0, i, count))
+                .collect();
+            let first = lefts[0];
+            let last = lefts[count - 1] + PANEL_W;
+            let row_centre = (first + last) * 0.5;
+            assert!(
+                (row_centre - centre).abs() < 0.001,
+                "{count} panels centred at {row_centre}, not {centre}: {lefts:?}"
+            );
+        }
+    }
+
+    /// **AND THEY DO NOT OVERLAP.** Two panels sharing pixels is two percents
+    /// on top of each other, which is the failure a HUD cannot have.
+    #[test]
+    fn panels_in_a_row_never_overlap() {
+        for count in 1..=4usize {
+            for index in 1..count {
+                let previous = panel_left(640.0, 1280.0, index - 1, count) + PANEL_W;
+                let current = panel_left(640.0, 1280.0, index, count);
+                assert!(
+                    current >= previous - 0.001,
+                    "panel {index} of {count} starts at {current}, inside the one ending at {previous}"
+                );
+            }
+        }
+    }
+
+    /// **FEW STOCKS ARE ICONS; MANY ARE A COUNT.**
+    ///
+    /// ⚠ the boundary is asserted from both sides. A rule that only checked the
+    /// small case would let the threshold drift by one and nobody would see it
+    /// until a HUD tried to draw nine little heads.
+    #[test]
+    fn stocks_draw_as_icons_until_there_are_too_many() {
+        assert_eq!(
+            drawn_stocks(0),
+            (0, None),
+            "a fighter who is out draws icons"
+        );
+        assert_eq!(drawn_stocks(1), (1, None));
+        assert_eq!(
+            drawn_stocks(MAX_DRAWN_STOCKS),
+            (MAX_DRAWN_STOCKS, None),
+            "the threshold itself still draws one icon each"
+        );
+        assert_eq!(
+            drawn_stocks(MAX_DRAWN_STOCKS + 1),
+            (1, Some(MAX_DRAWN_STOCKS + 1)),
+            "one past the threshold must collapse to a single icon and a count"
+        );
+        assert_eq!(drawn_stocks(99), (1, Some(99)));
+    }
 
     #[test]
     fn same_slot_id_with_changed_style_forces_a_rebuild() {

@@ -30,7 +30,7 @@
 //!   cargo run --release -p ambition_app_tools --bin capture_scene -- \
 //!       --route smash_select /tmp/match.png 1280x720 --warmup 420 --include-ui \
 //!       --press touch:167x523,touch:167x523,touch:482x523,touch:482x523,\
-//! touch:586x446,touch:479x121,touch:622x446,touch:801x121,touch:1191x446
+//! touch:559x446,touch:479x121,touch:613x446,touch:801x121,touch:1191x446
 //!
 //! ⚠ **the portrait taps are the two that can rot** — `479x121` and `801x121`
 //! are grid cells, and the grid re-flows when the host's roster changes size
@@ -39,6 +39,14 @@
 //! re-flowed to six columns, and both taps landed on nothing. **Appending does
 //! not preserve cell 1.** The role buttons, tokens and START do not depend on the roster at
 //! all.
+//!
+//! ⚠ **THE TOKEN TAPS MOVED TOO, on 2026-08-21** — `586`/`622` became
+//! `559`/`613`. Not because the roster changed: the home tokens are spaced by
+//! the TOUCH pitch now rather than by their drawn width, so a thumb-sized
+//! target does not overlap its neighbour. ⇒ these numbers depend on what a
+//! token IS as well as on how many fighters there are, and
+//! `the_capture_tools_documented_taps_seat_two_cpus_on_two_fighters` is what
+//! catches either drift.
 //!
 //! ⭐ **RE-DERIVE THEM BY PHOTOGRAPHING THE SCREEN**, which is cheaper than
 //! reading the roster: `--route smash_select --warmup 120 --include-ui` with NO

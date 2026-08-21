@@ -1,6 +1,6 @@
 # HEAD orientation
 
-**Snapshot:** `359b15070` (2026-08-20 local project date).
+**Snapshot:** `2a2116684` (2026-08-21 local project date).
 
 ⚠ **this SHA goes stale within hours during an active run** — it names the tree
 these paragraphs were measured against, not the tree you have. ⭐ **if it
@@ -14,6 +14,39 @@ replenish it. Focused plans own technical design.
 
 If this page disagrees with current source or a focused open plan, update this
 page rather than appending an archaeological correction.
+
+## What moved on 2026-08-21: the monolith carve, by DOMAIN
+
+Jon, that day: *"loc is the proxy. the real win is conceptual domain
+separation."* D33 is where this lives, and the row now leads with that.
+
+**Landed** — each with gate + 31/31 absence contracts + smash + `app_it` green:
+
+```text
+ActorSurfaceState            -> ambition_platformer2d_core   6c4592021
+feel tuning                  -> ambition_combat              d6db434f4
+hit reaction + stance        -> ambition_combat              403a32155
+capture systems (1,922 ln)   -> ambition_combat              8669740f5
+footstool (859 ln)           -> ambition_combat              00030e603
+hit camera shake             -> ambition_combat              23755e201
+boss animation               -> ambition_boss_encounter      9ea8ea2fa
+PickupKindSpec               DELETED (was PickupKind)        d3bd6e95a
+```
+
+⭐ **the reusable part is the METHOD, not the moves.** A carve's coupling is not
+what a file imports: strip comments, grep BOTH `crate::…` and `ambition_…::…`,
+resolve each symbol to its defining crate. Three of these needed a retry because
+that was done partially — and a whole 1,922-line domain turned out to be pinned
+in the wrong crate by one `pub(crate)` function, not by any real coupling.
+
+⚠ **and two scans produced confident-looking rankings of NOTHING** ("quest"
+matching inside "request"; `super::super::` counts that never cross a crate).
+Both are corrected in place with the negative recorded, because a list left
+standing gets worked. ⛔ check the top hit by eye before believing any of them.
+
+⇒ next: `attack.rs` and `limbs.rs` are both measured and BLOCKED — one on a
+dependency decision costing five lockfiles, one on a three-way split across a
+crate ordering constraint. Read D33 before picking either up.
 
 ## Major closure: D73 is finished
 

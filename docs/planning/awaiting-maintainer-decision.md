@@ -741,6 +741,40 @@ per-route host     TwinTrack takes `fixed_tick`, Smash keeps rollback. ⚠ the
 genuinely wants rollback AND has two seats, and "who is playing" had been
 declarable only from inside the rollback backend.
 
+### 29. ▢ NEW 2026-08-21 — should the gate cover LIBRARY crates' test targets?
+
+`cargo check -p ambition_app --all-targets` builds the APP's test targets. It
+does not build each library crate's. **Two independent sessions left a library
+test build red on main within hours of each other on 2026-08-21**, and neither
+was caught by anything:
+
+```text
+ambition_platformer2d_ldtk       `use entity_catalog::…` — no crate prefix
+  (d3bd6e95a)                    conversion/mod.rs, a test 20 lines above its use
+ambition_platformer2d_actor_monolith
+  (9ea8ea2fa, d3bd6e95a)         3 errors: a test module left behind by a carve
+                                 calling functions now private in another crate,
+                                 plus a privately re-exported `PickupKind`
+```
+
+⚠ **both surfaced only by accident** — someone compiling those crates directly
+for unrelated work. A carve that moves a type or a function is exactly the change
+that breaks a sibling crate's tests, and D33 is a carving campaign, so the
+exposure is not incidental.
+
+```text
+widen the gate    `--workspace --all-targets`, or a per-crate loop over the
+                  crates a commit touches. ⛔ measured cost: the full sweep of
+                  12 crates took ~10 minutes cold on this machine, and
+                  `--workspace --tests` has filled the disk here before
+leave it          a broken library test build is found by whoever next compiles
+                  that crate — which today was hours, and only by luck
+```
+
+⇒ recorded rather than answered: this is a build-time-versus-coverage call, and
+this project is deliberately hostile to guardrail machinery. ⛔ what should NOT
+happen is a third instance being treated as a surprise.
+
 ### 20. ▢ NEW 2026-08-19 — eight boss chests are authored with treasure that does not exist
 
 **The wiring half is FIXED and is not the question.** `ChestFeature::reward()`

@@ -3075,13 +3075,39 @@ by size.
 ```text
 891  bosses/tick.rs              ⚠ bosses already carved to ambition_boss_encounter
 460  actors/limbs.rs
-420  attack.rs
+420  attack.rs                   ⛔ MEASURED AND BLOCKED — see below
 409  spawn/capability_lanes.rs
 400  spawn/content_staging.rs
 364  actors/conversion.rs
 348  spawn/character_spawn_plan.rs
 346  anim_helpers.rs
 ```
+
+⛔⛔ **`attack.rs` IS MEASURED AND BLOCKED — it needs a DEPENDENCY DECISION, not
+a move (2026-08-21).** Every path it names resolves except one:
+
+```text
+crate::combat::*                   -> ambition_combat        ✔ becomes crate::
+crate::physics::ResolvedMotionFrame -> shared_tangle          ✔ re-export
+crate::time::feel::…               -> ambition_combat::feel  ✔ moved today
+ambition_platformer2d_world::collision::CollisionWorld        ⛔ combat does NOT
+                                                                 depend on world
+```
+
+⚠ **the edge is not free, and this was PROBED rather than assumed.** Adding
+`ambition_platformer2d_world` to `ambition_combat` breaks the contract job
+immediately: `cargo tree --locked` exits 101 because the edge rewrites the
+lockfile — and there are **FIVE** of them (`./`, `examples/capability_demo`,
+`examples/portal_tutorial`, `fixtures/minimal_game`,
+`fixtures/external_consumer`). ⭐ the probe also dirtied the root `Cargo.lock`
+and nothing else; it was restored.
+
+⇒ two honest options, and it is a design call rather than a mechanical one:
+**(a)** combat takes the world edge, accepting the footprint growth that
+`capability-footprint-may-not-grow` exists to watch; or **(b)** the strike
+resolution that needs `CollisionWorld` is threaded in by the caller instead, so
+combat asks nobody for terrain. ⛔ do not add the edge just to make a carve
+compile — that is the debt-laundering this row refuses.
 
 ⚠⚠ **TWO LIMITS ON THAT LIST, and neither is optional to check.**
 1. the scan resolves TYPE-like symbols only, so a lowercase free function

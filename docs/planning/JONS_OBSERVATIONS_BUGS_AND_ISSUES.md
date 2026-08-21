@@ -232,12 +232,20 @@ itself measured three things worth more than the test would have been.**
     3. ⛔ **that contradicts the code's own comment.** `publish` inserts under
        `character_id` precisely so that *"a character published without ever
        being declared … still resolves by its own id"* — yet no declared id
-       resolves. So either `publish` is never reached on this road and every
-       resident sheet arrives via `publish_under`, or residency is keyed by a
-       token the id lookup cannot reach. **Both readings matter to this bug**:
-       the first means nothing on screen converges on a quality change, and the
-       second means the id-keyed road silently answers `None` while something
-       else answers.
+       resolves.
+       ⚠ **and the obvious explanation is WRONG — checked before recording it.**
+       "`publish` has no production caller" looked true: every
+       `characters.publish(` in the tree is test code, including a file called
+       `quality_convergence_tests.rs`. It is not true. Production reaches it
+       inside `materialize_declared_character_sprite` as
+       **`sprites.publish(&cid, asset)`** — a different receiver name, which is
+       exactly what a `characters.publish(` grep cannot see. ⛔ so "nothing on
+       screen ever converges" is NOT established, and anybody re-deriving it from
+       that grep will reach the same false conclusion.
+       ⇒ what remains is narrower and still real: **the ids `declared_character_ids()`
+       returns do not match the `cid` production publishes under**, or the
+       materialization never ran for those 141 in that boot. That is the question
+       to ask next.
   ⇒ that is the thread to pull next, and it is cheap: ask why `sheet(<declared
   id>)` is `None` in a settled visible boot.
 

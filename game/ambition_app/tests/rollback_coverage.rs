@@ -1508,8 +1508,16 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "whether somebody pressed BACK on the select screen. The same shape as          `StartRequested` one line up and waived on the same reading, not by          category: written by `drive_the_cursor` and SPENT by          `leave_the_select_screen_when_asked` on the very frame it is set — both          in `Update`, on a route that has no session — and reset again by this          experience's scope on the way out, so it cannot be true on any tick a          session simulates",
     ),
     (
-        "ambition_demo_smash::select_screen::cursor::SelectCursor",
-        "where the select screen's pointer is and what is in its hand. Written          only by `drive_the_cursor`, which is gated on the select ROUTE being          active, so it cannot run while a session simulates; a rewind of a pointer          position would also be meaningless, since the position is re-derived from          the device on the next frame either way",
+        "ambition_demo_smash::select_screen::cursor::SelectCursors",
+        "where each seat's select-screen pointer is and what is in its hand —          FOUR of them since 2026-08-21, one per seat, which changes the count and          not the reading. Written only by `drive_the_cursor`, which is gated on          the select ROUTE being active, so it cannot run while a session          simulates; a rewind of a pointer position would also be meaningless,          since the position is re-derived from the device on the next frame          either way",
+    ),
+    (
+        "ambition_demo_smash::select_screen::SelectPage",
+        "which page of the character grid is showing. A phone cannot fit the          roster at a hittable size, so the grid pages; this is which page. Same          reading as the cursor two lines up rather than the same category: it is          written only by `drive_the_cursor` on the select route, it is reset by          this experience's scope on the way out, and what it selects is which          RECTANGLES are drawn — nothing downstream of the hand-off can see it, so          a rewound page could not change a simulated tick",
+    ),
+    (
+        "ambition_demo_smash::select_screen::SelectStyle",
+        "whether this screen offers Melee's drag-a-token or Ultimate's          tap-to-pick. ⚠ waived as a SETTING and not as menu state: nothing writes          it during play — it has no writer at all outside a test at the moment —          and it decides how a press is read on a route with no session. If it ever          becomes a live toggle it stays waived for the same reason `SmashRoster`          is: composition identity, decided before any session exists",
     ),
     (
         "ambition_encounter::spec::EncounterWaveBook",

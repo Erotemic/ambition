@@ -1,7 +1,8 @@
-//! **One pointer, three hands.**
+//! **Four pointers, and every device that drives one.**
 //!
 //! Jon, 2026-08-05: *"the arrows or game stick or mouse should move a cursor
-//! that can click on elements."*
+//! that can click on elements."* — and 2026-08-20, one per seat, because that
+//! is what Smash does and one shared pointer made four people take turns.
 //!
 //! A cursor that three input sources drive is a seam, not a widget detail, and
 //! it is written here as one. Everything in this module is a plain value over
@@ -9,21 +10,23 @@
 //! rectangles ARE. [`super`] measures the screen into [`HitRect`]s once per
 //! frame and asks these functions where the cursor should go.
 //!
-//! ## Why the arrows SNAP and the mouse does not
+//! ## Why a TAP snaps and a HELD stick does not
 //!
-//! A mouse reports a position, so the cursor takes it. A d-pad reports a
-//! DIRECTION and the menu frame reports it as a just-pressed edge — there is no
-//! "held right" in [`MenuControlFrame`], so integrating a velocity from it would
-//! produce a cursor that jumps one step per tap and cannot be steered.
-//!
-//! So a direction moves the cursor to the nearest thing IN that direction
-//! ([`snap`]). That is better than drift on a d-pad rather than a compromise
-//! for it: every stop is on something clickable, a token in hand lands on a
+//! A mouse or a finger reports a position, so the cursor takes it. A d-pad
+//! reports a DIRECTION as a just-pressed edge, and integrating a velocity from
+//! an edge produces a cursor that jumps one step per tap and cannot be steered
+//! — so a direction moves the cursor to the nearest thing IN that direction
+//! ([`snap`]). Every stop is on something clickable, a token in hand lands on a
 //! portrait rather than between two, and the whole screen is reachable in a
-//! bounded number of presses. An analog stick arrives through the same edges,
-//! so it behaves identically.
+//! bounded number of presses.
 //!
-//! ⚠ **the cursor has ONE position and no separate "focused element".** What it
+//! ⭐ **and since 2026-08-21 a HELD stick roams instead**, through
+//! `MenuControlFrame::nav`, which is the one non-edge direction on that frame
+//! and exists for exactly this. The snap did not go away: it is what a d-pad
+//! and a keyboard still get, and what a stick falls back to when it is flicked
+//! rather than held.
+//!
+//! ⚠ **each cursor has ONE position and no separate "focused element".** What it
 //! is over is re-derived from the rectangles every frame. Two representations of
 //! "where the cursor is" is how a highlight and a click end up disagreeing about
 //! which portrait was chosen.
@@ -149,12 +152,14 @@ const MIN_SNAP_TRAVEL_PX: f32 = 1.0;
 /// Sideways error costs double. See [`snap`].
 const SIDEWAYS_PENALTY: f32 = 2.0;
 
-/// **Where the pointer is and what is in its hand.**
+/// **Where one seat's pointer is and what is in its hand.**
 ///
-/// One resource, because there is one cursor. Four people at four pads share
-/// it, exactly like four people sharing one mouse — Jon asked for a cursor, not
-/// for four of them, and a per-player cursor is a different screen.
-#[derive(bevy::prelude::Resource, Clone, Copy, Debug, Default)]
+/// ⚠ **a VALUE since 2026-08-21, not a resource.** It was one shared cursor —
+/// *"Jon asked for a cursor, not for four of them"* — and four people at four
+/// pads took turns with it like a mouse. Smash gives every player their own
+/// hand and they all move at once; Jon's call, 2026-08-20, was to go there. See
+/// [`SelectCursors`], which owns one of these per seat.
+#[derive(Clone, Copy, Debug, Default)]
 pub struct SelectCursor {
     /// Logical window pixels, top-left origin.
     pub position: Vec2,
@@ -195,6 +200,49 @@ impl SelectCursor {
     /// immediately put the token back.
     pub fn release_should_drop(&self) -> bool {
         self.carrying.is_some() && self.position.distance(self.grabbed_at) > DRAG_SLOP_PX
+    }
+}
+
+/// **FOUR CURSORS, ONE PER SEAT** — the model every Smash has.
+///
+/// ⭐ **indexed by SEAT, which is also the slot and also the device index.**
+/// One numbering, because two that have to agree eventually disagree; the same
+/// rule `SeatMenuFrames` follows, and the reason a seat's pad, a seat's token
+/// and a seat's cursor never need a translation table between them.
+///
+/// ⚠ **every seat has a cursor whether or not anybody is in it.** An absent
+/// seat's cursor costs two floats and is simply not drawn — the alternative is
+/// an `Option` every reader unwraps, and a seat that joins mid-lobby would then
+/// have to invent a position from somewhere.
+#[derive(bevy::prelude::Resource, Clone, Copy, Debug, Default)]
+pub struct SelectCursors {
+    seats: [SelectCursor; crate::select::MAX_SMASH_SEATS],
+}
+
+impl SelectCursors {
+    pub fn seat(&self, seat: usize) -> &SelectCursor {
+        &self.seats[seat.min(crate::select::MAX_SMASH_SEATS - 1)]
+    }
+
+    pub fn seat_mut(&mut self, seat: usize) -> &mut SelectCursor {
+        &mut self.seats[seat.min(crate::select::MAX_SMASH_SEATS - 1)]
+    }
+
+    /// Every seat's cursor, in seat order — the order a reader must draw and
+    /// arbitrate in if two of them are ever to be compared.
+    pub fn iter(&self) -> impl Iterator<Item = (usize, &SelectCursor)> {
+        self.seats.iter().enumerate()
+    }
+
+    /// **Which seat is carrying `slot`'s token, if any.**
+    ///
+    /// ⚠ a seat carries its OWN token and nobody else's, so this is a lookup
+    /// rather than a search — but it is written as one so that the day a seat
+    /// may hand a token over, the callers do not have to change.
+    pub fn carrier_of(&self, slot: usize) -> Option<usize> {
+        self.iter()
+            .find(|(_, cursor)| cursor.carrying == Some(slot))
+            .map(|(seat, _)| seat)
     }
 }
 

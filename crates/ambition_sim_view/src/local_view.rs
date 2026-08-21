@@ -159,6 +159,33 @@ impl ViewPlacement {
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ViewSubject(pub Entity);
 
+/// **THE PARTICIPANT THIS VIEW FOLLOWS**, wherever that participant currently
+/// is.
+///
+/// ⛔⛔ **an entity is the wrong thing for a person's own pane to name, and
+/// TwinTrack proved it.** Its second pane wrote `ViewSubject(laboratory_twin)`,
+/// which follows EMMY — so the moment participant one possessed something else,
+/// or transferred, or was handed a different body, the pane stayed on a body
+/// nobody was driving while its person walked away off-camera. A pane belongs to
+/// the PERSON; which body they are in is a fact that changes.
+///
+/// ⭐ **and the default view already worked this way, for exactly one slot.**
+/// A view naming no subject frames `ControlledSubject`, which is derived as *the
+/// entity holding `DrivingParticipant(PRIMARY)`* — so seat zero has always had a
+/// participant-following pane and nobody else had a way to say it. This is that
+/// sentence, said for any slot.
+///
+/// ⚠ **[`ViewSubject`] still wins where both are present, and still exists.**
+/// Following one named body is a real policy and not a mistake: spectator
+/// cameras, cutscenes, a portal's far side. What was wrong was spelling *follow
+/// my participant* as *follow this entity* and losing the difference.
+///
+/// ⛔ **presentation only, and it is NOT control authority.** This says where a
+/// camera looks; `DrivingParticipant` says who is driving. Collapsing the two
+/// would make every spectator view a possession.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ViewParticipant(pub ambition_characters::brain::PlayerSlot);
+
 /// **The view, for a caller that knows there is exactly one.**
 ///
 /// ⚠ the name is the disclaimer: this asserts the single-view assumption out

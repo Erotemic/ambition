@@ -37,7 +37,7 @@ use ambition_platformer2d::relativity2d::{
     RelativityClockLabel, WorldlineTracked2d,
 };
 use ambition_platformer2d::runtime::demo_fixture::ActiveRoomMetadata;
-use ambition_platformer2d::sim_view::{LocalView, LocalViewId, ViewPlacement, ViewSubject};
+use ambition_platformer2d::sim_view::{LocalView, LocalViewId, ViewParticipant, ViewPlacement};
 
 use crate::{
     LaboratoryTwin, TwinTrackExperiment, LAB_POS, TWINTRACK_EXPERIENCE, TWINTRACK_GAMEPLAY_ROUTE,
@@ -314,29 +314,36 @@ fn declare_the_couch(
     seating.release(TWINTRACK_EXPERIENCE);
 }
 
-/// **Each pane watches its own participant.**
+/// **Each pane watches its own participant** — and now it says so.
 ///
-/// ⚠ the traveler's pane names NO subject on purpose. A view with no
-/// `ViewSubject` frames the session's controlled body, which is what seat zero's
-/// is — including while that seat is possessing something else. Naming it here
-/// would be a second answer to a question the engine already answers, and the
-/// two would disagree the moment possession moved the seat.
+/// ⚠ the traveler's pane names NOTHING on purpose. A view that names neither a
+/// subject nor a participant frames the session's controlled body, which is what
+/// seat zero's is — including while that seat is possessing something else.
+/// Naming it here would be a second answer to a question the engine already
+/// answers, and the two would disagree the moment possession moved the seat.
+///
+/// ⛔⛔ **and the second pane used to name a BODY, which is the same mistake the
+/// first one refuses.** It wrote `ViewSubject(laboratory_twin)` — Emmy, by
+/// entity — so the argument above applied to it in full and nobody noticed:
+/// the moment participant one possessed something else the pane would stay on a
+/// body nobody was driving, while the person it belongs to walked off camera.
+/// `ViewParticipant(LAB_TWIN_SLOT)` is the same sentence pane zero makes.
+///
+/// ⚠ **the two resolve to the same entity today**, because the twin is what
+/// carries `DrivingParticipant(LAB_TWIN_SLOT)`. That is what makes this safe to
+/// land; it is not what makes it right.
 fn frame_each_participant(
     mut commands: Commands,
-    views: Query<(Entity, &LocalViewId, Option<&ViewSubject>), With<LocalView>>,
-    twin: Query<Entity, With<LaboratoryTwin>>,
+    views: Query<(Entity, &LocalViewId, Option<&ViewParticipant>), With<LocalView>>,
 ) {
-    let Ok(twin) = twin.single() else {
-        return;
-    };
-    for (view, id, subject) in &views {
+    for (view, id, participant) in &views {
         if *id != LAB_TWIN_VIEW {
             continue;
         }
         // Compared before writing: an unconditional insert marks the component
         // changed every frame for anything gated on `is_changed()`.
-        if subject.map(|subject| subject.0) != Some(twin) {
-            commands.entity(view).insert(ViewSubject(twin));
+        if participant.map(|participant| participant.0) != Some(LAB_TWIN_SLOT) {
+            commands.entity(view).insert(ViewParticipant(LAB_TWIN_SLOT));
         }
     }
 }

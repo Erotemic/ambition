@@ -95,6 +95,26 @@ fn views(app: &mut App) -> Vec<(LocalViewId, ViewPlacement, Option<Entity>)> {
     rows
 }
 
+/// **WHERE A PANE ACTUALLY POINTED**, read off the snapshot the camera resolve
+/// published for that view.
+///
+/// ⛔ **the outcome, not the mechanism.** These assertions used to read which
+/// `ViewSubject` component the view carried, which is a fact about how the demo
+/// spells its intent rather than about where the camera ended up — so they went
+/// red when the spelling changed to `ViewParticipant` and the framing did not
+/// move an inch. A pane following the wrong body has a different follow point,
+/// which is what both tests are really about.
+fn pane_follow_point(app: &mut App, id: LocalViewId) -> Option<Vec2> {
+    let mut query = app.world_mut().query_filtered::<(
+        &LocalViewId,
+        &ambition_platformer2d::sim_view::camera_snapshot::ResolvedCameraSnapshot,
+    ), With<LocalView>>();
+    query
+        .iter(app.world())
+        .find(|(view, _)| **view == id)
+        .map(|(_, resolved)| resolved.follow_world)
+}
+
 fn traveler_body(app: &mut App) -> BodyKinematics {
     let mut query = app
         .world_mut()
@@ -1109,17 +1129,14 @@ fn the_plaza_opens_split_between_its_two_participants() {
         "the two panes leave part of the display unclaimed ({left:?} and {right:?})",
     );
 
-    let twin = {
-        let mut query = app
-            .world_mut()
-            .query_filtered::<Entity, With<LaboratoryTwin>>();
-        query.single(app.world()).unwrap()
-    };
-    assert_eq!(
-        rows[1].2,
-        Some(twin),
-        "the right pane must frame the laboratory twin, not whatever the session \
-         is following",
+    let twin_pos = laboratory_body(&mut app).pos;
+    let framed =
+        pane_follow_point(&mut app, LocalViewId(1)).expect("the right pane resolved a camera");
+    assert!(
+        (framed - twin_pos).length() < 1.0,
+        "the right pane framed {framed} while the laboratory twin is at \
+         {twin_pos} — it is following whatever the session is following, not \
+         its own participant",
     );
     // ⭐ and the LEFT pane names nobody on purpose: a view with no `ViewSubject`
     // frames the session's controlled body, which is seat zero's — including
@@ -1187,22 +1204,85 @@ fn with_nobody_in_the_second_seat_the_twin_stands_still_and_stays_watched() {
         after.pos,
     );
 
-    let rows = views(&mut app);
-    let watched = rows
-        .iter()
-        .find(|(id, _, _)| *id == LocalViewId(1))
-        .and_then(|(_, _, subject)| *subject);
-    let entity = {
+    let framed =
+        pane_follow_point(&mut app, LocalViewId(1)).expect("the second pane resolved a camera");
+    assert!(
+        (framed - after.pos).length() < 1.0,
+        "the second pane framed {framed} while the unattended twin is at {} — \
+         it stopped watching her because nobody was driving her, and an \
+         unattended observer is still an observer",
+        after.pos,
+    );
+}
+
+/// **⛔⛔ A PANE BELONGS TO A PERSON, NOT TO A BODY.**
+///
+/// The second pane used to write `ViewSubject(laboratory_twin)` — Emmy, by
+/// entity — so it followed her and not participant one. The moment that
+/// participant possessed something else, transferred, or was handed a different
+/// body, the pane would sit on a body nobody was driving while the person it
+/// belongs to walked off camera. The FIRST pane already refused this mistake by
+/// naming nothing at all: a view with no subject frames the session's controlled
+/// body, which is *the entity holding `DrivingParticipant(PRIMARY)`*. Seat zero
+/// had a participant-following pane and nobody else had a way to say it.
+///
+/// ⚠ **the seat is moved directly rather than through a possession**, because
+/// what is under test is the VIEW's resolution, not any particular way of
+/// changing who drives what. `DrivingParticipant` is the one authority either
+/// road goes through.
+///
+/// ⭐ the two positions must DIFFER, or a pane that never moved would pass.
+#[test]
+fn the_second_pane_follows_its_participant_to_a_new_body() {
+    use ambition_demo_twintrack::LAB_TWIN_SLOT;
+    use ambition_platformer2d::characters::brain::DrivingParticipant;
+
+    let mut app = ambition_demo_twintrack_app::build_demo_app();
+    activate(&mut app);
+    idle(&mut app, 4);
+
+    let twin_pos = laboratory_body(&mut app).pos;
+    let framed = pane_follow_point(&mut app, LocalViewId(1)).expect("the second pane has a camera");
+    assert!(
+        (framed - twin_pos).length() < 1.0,
+        "precondition: the second pane starts on the laboratory twin",
+    );
+
+    // Somebody else in the plaza, standing somewhere else.
+    let (target, target_pos) = {
+        let mut query = app
+            .world_mut()
+            .query::<(Entity, &TwinTrackCharacter, &BodyKinematics)>();
+        query
+            .iter(app.world())
+            .find(|(_, character, body)| {
+                character.id == DJ_ID && (body.pos - twin_pos).length() > 32.0
+            })
+            .map(|(entity, _, body)| (entity, body.pos))
+            .expect("the DJ stands somewhere other than the laboratory twin")
+    };
+
+    // Participant one takes over that body.
+    let twin = {
         let mut query = app
             .world_mut()
             .query_filtered::<Entity, With<LaboratoryTwin>>();
         query.single(app.world()).unwrap()
     };
-    assert_eq!(
-        watched,
-        Some(entity),
-        "the second pane stopped watching the twin because nobody was driving \
-         her — an unattended observer is still an observer",
+    app.world_mut()
+        .entity_mut(twin)
+        .remove::<DrivingParticipant>();
+    app.world_mut()
+        .entity_mut(target)
+        .insert(DrivingParticipant(LAB_TWIN_SLOT));
+    idle(&mut app, 4);
+
+    let framed = pane_follow_point(&mut app, LocalViewId(1)).expect("the second pane has a camera");
+    assert!(
+        (framed - target_pos).length() < 4.0,
+        "the second pane framed {framed} after its participant moved to a body \
+         at {target_pos}; the laboratory twin is at {twin_pos}. The pane is \
+         following a BODY rather than the person it belongs to",
     );
 }
 

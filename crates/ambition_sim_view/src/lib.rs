@@ -22,7 +22,6 @@
 
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 pub mod affordances;
-mod rollback_registration;
 mod anim_index;
 mod attack_vfx_view;
 pub mod camera_snapshot;
@@ -33,6 +32,7 @@ mod facts;
 pub mod local_view;
 mod pose_view;
 pub mod presented_pose;
+mod rollback_registration;
 mod view_index;
 
 // The affordance table — "what would each input do right now?" — moved here
@@ -60,7 +60,7 @@ pub use dialog_view::{rebuild_dialog_view, DialogView};
 pub use facts::*;
 pub use local_view::{
     compose_local_views, spawn_local_view, the_only_view, BoundLocalView, LocalView, LocalViewId,
-    PresentedForView, PresentsView, ViewPlacement, ViewSubject, ViewsOnHand,
+    PresentedForView, PresentsView, ViewParticipant, ViewPlacement, ViewSubject, ViewsOnHand,
 };
 pub use pose_view::{
     rebuild_body_pose_views, rebuild_shield_rings_view, BodyPoseView, ShieldRingFact,

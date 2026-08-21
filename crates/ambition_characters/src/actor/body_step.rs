@@ -80,7 +80,7 @@ pub fn step_body(
     // respawn or a level reset; a retained velocity would be spent the instant
     // the body came back. Idempotent, so it is safe under rollback re-simulation.
     if out_of_play {
-        clusters.kinematics.vel = ae::Vec2::ZERO;
+        ae::movement::halt_body(clusters.kinematics);
         ctx.dt = 0.0;
         return ae::step_motion(model, clusters, ctx);
     }
@@ -91,15 +91,17 @@ pub fn step_body(
         // one is still stopped. Its offensive twin, DI, already rides the launch
         // this same freeze precedes.
         //
-        // ⚠ written straight to `pos` because `dt` is about to be zero and
-        // nothing will integrate it. A shift into geometry is small and bounded
-        // (px per tick), so the kernel's own contact correction resolves it out
-        // the near face on the next moving tick — which is also the honest
-        // answer to "can I SDI through a wall": no.
-        clusters.kinematics.pos += ae::hit_response::smash_di_shift(
-            ctx.input.axes.vec(),
-            ctx.frame.down(),
-            axis_tuning.sdi_step,
+        // ⚠ **through the FROZEN-TICK authority, not a bare field write.** Both
+        // of this function's writes were authority leaks by the policy's own
+        // measure and neither was one; naming them is what made the difference
+        // sayable — see `movement::authority`.
+        ae::movement::shift_frozen_body(
+            clusters.kinematics,
+            ae::hit_response::smash_di_shift(
+                ctx.input.axes.vec(),
+                ctx.frame.down(),
+                axis_tuning.sdi_step,
+            ),
         );
         ctx.dt = 0.0;
     }

@@ -1062,11 +1062,16 @@ id = "engine.time-sandbox-policy-exists"
 scope = "engine"
 kind = "required-path"
 owners = ["ambition_time"]
-watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/time"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/time", "crates/ambition_combat/src"]
+# ⚠ `feel.rs` moved out of the monolith's `time/` into `ambition_combat` and this
+# row kept naming the old home, so the check had been RED rather than absent —
+# which is its own kind of useless: a gate that always fails is one nobody reads.
+# The claim is unchanged (a game-specific time/feel policy exists somewhere a
+# composition can reach); only the address was stale.
 rationale = "sandbox game-specific time policy exists"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-paths = ["crates/ambition_platformer2d_actor_monolith/src/time/time_control", "crates/ambition_platformer2d_actor_monolith/src/time/feel.rs"]
+paths = ["crates/ambition_platformer2d_actor_monolith/src/time/time_control", "crates/ambition_combat/src/feel.rs"]
 
 
 # was: architecture_boundaries_input_crate_is_extracted

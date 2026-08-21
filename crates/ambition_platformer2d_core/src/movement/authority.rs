@@ -195,10 +195,79 @@ pub fn constrain_body_pose(
     kinematics.vel = vel;
 }
 
+/// **THE FROZEN TICK: what may still change a body the kernel is about to step
+/// with `dt == 0`.**
+///
+/// ⭐ **a fifth authority, and it earned the name rather than a waiver.** Two
+/// production sites wrote `kinematics` directly here and the policy called both
+/// leaks — correctly, by the shape of the check. They are not leaks, and they
+/// are not ordinary integration either: the kernel IS invoked immediately after,
+/// with a zero step, so nothing integrates what these set. They state what the
+/// frozen body starts from.
+///
+/// Clear the body's velocity because it has left play.
+///
+/// ⚠ **cleared rather than merely frozen, and that is deliberate**: the window
+/// ends in a respawn or a level reset, and a retained velocity would be spent
+/// the instant the body came back. Idempotent, so it is safe to re-run under
+/// rollback re-simulation.
+pub fn halt_body(kinematics: &mut crate::body_clusters::BodyKinematics) {
+    kinematics.vel = Vec2::ZERO;
+}
+
+/// **SDI: the one thing a body may still do while frozen in hitlag.**
+///
+/// Hitlag is a WINDOW rather than merely a pause, and this is what makes it one
+/// — the victim shifts itself out of the next hit's way while the current one is
+/// still stopped. Its offensive twin, DI, rides the launch the same freeze
+/// precedes.
+///
+/// ⚠ **a POSE write, because `dt` is about to be zero and nothing will integrate
+/// a velocity.** The shift is small and bounded (pixels per tick), so the
+/// kernel's own contact correction resolves it out the near face on the next
+/// moving tick — which is also the honest answer to *can I SDI through a wall*:
+/// no.
+pub fn shift_frozen_body(kinematics: &mut crate::body_clusters::BodyKinematics, shift: Vec2) {
+    kinematics.pos += shift;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::movement::adhesive_crawler::CrawlerState;
+
+    /// The frozen-tick authorities do exactly what they say and nothing else —
+    /// the whole reason they exist is to be a NAME for two writes that used to be
+    /// bare, so the test is that they stay that small.
+    #[test]
+    fn a_halted_body_keeps_its_pose_and_loses_its_velocity() {
+        let mut kin = crate::body_clusters::BodyKinematics {
+            pos: Vec2::new(10.0, 20.0),
+            vel: Vec2::new(300.0, -120.0),
+            ..Default::default()
+        };
+        halt_body(&mut kin);
+        assert_eq!(kin.vel, Vec2::ZERO);
+        assert_eq!(kin.pos, Vec2::new(10.0, 20.0), "halting is not a teleport");
+        halt_body(&mut kin);
+        assert_eq!(kin.vel, Vec2::ZERO, "and it is idempotent under a rewind");
+    }
+
+    #[test]
+    fn a_frozen_shift_moves_the_pose_and_leaves_the_velocity_alone() {
+        let mut kin = crate::body_clusters::BodyKinematics {
+            pos: Vec2::new(10.0, 20.0),
+            vel: Vec2::new(300.0, -120.0),
+            ..Default::default()
+        };
+        shift_frozen_body(&mut kin, Vec2::new(-2.0, 0.5));
+        assert_eq!(kin.pos, Vec2::new(8.0, 20.5));
+        assert_eq!(
+            kin.vel,
+            Vec2::new(300.0, -120.0),
+            "SDI displaces the body; it does not re-aim the launch that follows"
+        );
+    }
     use crate::movement::surface_momentum::{SurfaceMotion, SurfaceRef};
     use crate::{AbilitySet, BodyClusterScratch, CrawlerParams, MomentumParams};
 

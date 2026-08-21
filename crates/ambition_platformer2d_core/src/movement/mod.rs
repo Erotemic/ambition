@@ -54,8 +54,8 @@ pub use body_contact::{constrain_motion, BodyContactBlocker, BodyContactField};
 // The ONE hazard-touch rule, exported so external observers apply the SAME
 // predicate the kernel applies — never a duplicated near-copy.
 pub use authority::{
-    arrive_body_in_room, carry_body, constrain_body_pose, reconcile_transit, transit_body,
-    ArrivalMomentum, TransitVelocity,
+    arrive_body_in_room, carry_body, constrain_body_pose, halt_body, reconcile_transit,
+    shift_frozen_body, transit_body, ArrivalMomentum, TransitVelocity,
 };
 pub use collision::{touching_hazard_aabb, touching_rebound_aabb};
 pub use events::{BlinkEvent, FrameEvents, GroundContactTransition, ResetCause};

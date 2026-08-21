@@ -164,7 +164,7 @@ here: **both are already true while the feature is broken.**
 Residency must be shown to *fall* after a transition, not merely to stop rising.
 `[image-census]` already reports totals; use it rather than building telemetry.
 
-## Jon's "quality change swapped my character" report — SIX causes eliminated
+## Jon's "quality change swapped my character" report — NINE causes eliminated
 
 > *"When I change the video quality in ambition, my sprite went from the robot v3
 > character to the robot v2 character."*
@@ -179,6 +179,25 @@ by replicating what the RUNTIME does rather than by reading intent:
 | 5 | two characters sharing a DISPLAY NAME | `CharacterSpriteAssets::declare` maps BOTH the id and the display name to the id and is LAST-WINS, so a shared display name would make the quality transition re-demand the wrong character. Measured: of 127 catalog rows, **zero** display names are claimed twice, and none equals another row's id |
 | 6 | a row whose PNG and MANIFEST name different sheets | `resolve_variant_pair` asks the CATALOG for the variant PNG (from `spritesheet`) and the SHEET INDEX for the variant spec (from `manifest`); a row where those roots differ would load one character's pixels with another's grid at reduced quality only. Measured: **zero** of 127 rows split them |
 
+**Three more, measured 2026-08-21** — same discipline, replicate the runtime:
+
+| # | eliminated | how |
+| --- | --- | --- |
+| 7 | the reduced TIER is a different PACKING, not a scaling | across all 198 sheets the median `0_5x`/canonical width ratio is **0.513**; only four sheets are outliers (`noether` 1.00, `perfect_cellular_automaton` 1.01, `carl_stargan` 1.05, `pugnacious_polygon` 0.81 — all at the 4096 texture cap). **Every one of the thirteen robot sheets reduces cleanly at 0.42–0.57**, v2 and v3 included, so a quality change cannot turn one into the other by geometry |
+| 8 | the FIRST-RECORD-WINS discard in `from_baked_table_by_file_root` | it keeps only `records.into_iter().next()`, so a file root with several records is decided by ORDER. Measured: exactly **one** baked file in the tree has more than one record (`creator_lab_props`, 8 — props), and its order is byte-identical across all four tiers |
+| 9 | the variant PATH construction | `scaled_logical_asset_path` is `Some("{folder}_{suffix}/{filename}")` unless the name is source-qualified. No index, no order, no lookup — `sprites/x.png` can only become `sprites_0_5x/x.png` |
+
+⇒ **so every layer that could CHOOSE the wrong sheet has now been checked and is
+deterministic.** That is what makes the remaining lead below the whole of what is
+left: the defect is in WHEN, not WHICH.
+
+⚠ **cause 7 leaves a REAL finding that is not this bug**: `noether` (Emmy) and
+`perfect_cellular_automaton` genuinely have no reduced tier — their "half" packs
+to the same 4096 cap. That is the likely explanation of Jon's separate report
+*"I see the new emmy sprite on the select screen, but her character is the old
+sprite in the match"*, and it is invisible to the incremental regen because the
+canonical's mtime is OLDER than the tier's.
+
 ⚠ **cause 5 is eliminated by CONTENT, not by construction, and the hazard is
 still latent.** `declare` really is last-wins, and nothing stops a future row
 from reusing a display name. If this report ever reproduces, check that first.
@@ -190,6 +209,19 @@ room, and `demote_stale_realizations` returns catalog IDS derived from
 where a body could be re-demanded as a neighbour. ⛔ and it is not reproducible
 by inspection — the next step is a live Apply with `[image-census]` on, which is
 what this plan's verification section already asks for.
+
+⭐ **TWO PRACTICALITIES FOR WHOEVER BUILDS THAT, both learned by failing at it
+2026-08-21:**
+1. **A shell-host composition cannot see this seam at all** — `GameAssets` is
+   ABSENT there, because character realizations are presentation state. Boot
+   `build_visible_app(VisibleRenderMode::NoWindow, true)`, the builder
+   `boot_budget` uses to read `[image-census]`.
+2. ⛔ **there is no public accessor that enumerates RESIDENT sheets.**
+   `ready_token_count()` gives a count; `declared_character_ids()` is its
+   COMPLEMENT (it filters to tokens with no resident sheet, per `is_declared`'s
+   doc) and returns the pending ones. A test that wants "every resident token and
+   the file it resolves to" has to add that accessor first — which is the
+   smallest real blocker in front of this bug.
 
 ## Three small fixes, deliberately kept separate
 

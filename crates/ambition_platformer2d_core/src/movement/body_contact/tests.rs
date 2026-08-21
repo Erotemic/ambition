@@ -10,6 +10,20 @@ fn body(center_x: f32, center_y: f32) -> Aabb {
     Aabb::new(Vec2::new(center_x, center_y), Vec2::new(10.0, 20.0))
 }
 
+/// A blocker that is STANDING THERE. Most of this file is about one mover
+/// against bodies that are not going anywhere, and for those the gap is
+/// undivided — the arithmetic is the same one this module had before it learned
+/// to split a gap between two movers.
+fn still(center_x: f32, center_y: f32) -> BodyContactBlocker {
+    BodyContactBlocker::new(body(center_x, center_y), Vec2::ZERO)
+}
+
+/// A blocker CLOSING on the mover at `speed` along x, positive meaning it
+/// travels toward +x.
+fn closing(center_x: f32, center_y: f32, speed: f32) -> BodyContactBlocker {
+    BodyContactBlocker::new(body(center_x, center_y), Vec2::new(speed, 0.0))
+}
+
 /// **THE IDENTITY, and it is the one every body in the engine gets.**
 ///
 /// ⛔ body contact is a capability a composition grants. A body that never opted
@@ -20,16 +34,17 @@ fn body(center_x: f32, center_y: f32) -> Aabb {
 fn a_body_nobody_resists_keeps_every_bit_of_its_motion() {
     let mover = body(0.0, 0.0);
     assert_eq!(
-        constrain_motion(mover, 7.5, true, WALK, BodyContactField::NONE),
+        constrain_motion(mover, 7.5, true, WALK, 1.0, BodyContactField::NONE),
         7.5
     );
-    let neighbour = [body(15.0, 0.0)];
+    let neighbour = [still(15.0, 0.0)];
     assert_eq!(
         constrain_motion(
             mover,
             7.5,
             true,
             WALK,
+            1.0,
             BodyContactField::new(&neighbour, 0.0)
         ),
         7.5,
@@ -44,14 +59,14 @@ fn a_body_nobody_resists_keeps_every_bit_of_its_motion() {
 /// lie between them. Asking for 30 must yield 20.
 #[test]
 fn full_resistance_spends_the_gap_and_stops() {
-    let blockers = [body(40.0, 0.0)];
+    let blockers = [still(40.0, 0.0)];
     let field = BodyContactField::new(&blockers, 1.0);
     assert_eq!(
-        constrain_motion(body(0.0, 0.0), 30.0, true, WALK, field),
+        constrain_motion(body(0.0, 0.0), 30.0, true, WALK, 1.0, field),
         20.0
     );
     assert_eq!(
-        constrain_motion(body(0.0, 0.0), 12.0, true, WALK, field),
+        constrain_motion(body(0.0, 0.0), 12.0, true, WALK, 1.0, field),
         12.0,
         "a step that fits in the gap is untouched",
     );
@@ -64,11 +79,11 @@ fn full_resistance_spends_the_gap_and_stops() {
 /// correct, so the capability carries the number instead of choosing.
 #[test]
 fn partial_resistance_keeps_a_share_of_the_motion_that_goes_deeper() {
-    let blockers = [body(40.0, 0.0)];
+    let blockers = [still(40.0, 0.0)];
     let field = BodyContactField::new(&blockers, 0.75);
     // 20 free, 10 deeper, a quarter of which survives.
     assert_eq!(
-        constrain_motion(body(0.0, 0.0), 30.0, true, WALK, field),
+        constrain_motion(body(0.0, 0.0), 30.0, true, WALK, 1.0, field),
         22.5
     );
 }
@@ -94,20 +109,20 @@ fn partial_resistance_keeps_a_share_of_the_motion_that_goes_deeper() {
 /// already resolving the situation itself.
 #[test]
 fn an_overlap_resists_going_deeper_and_never_resists_coming_out() {
-    let blockers = [body(8.0, 0.0)];
+    let blockers = [still(8.0, 0.0)];
     let field = BodyContactField::new(&blockers, 0.5);
     let mover = body(0.0, 0.0);
     assert!(
-        mover.strict_intersects(blockers[0]),
+        mover.strict_intersects(blockers[0].aabb),
         "the fixture must actually start overlapping or this proves nothing",
     );
     assert_eq!(
-        constrain_motion(mover, 6.0, true, WALK, field),
+        constrain_motion(mover, 6.0, true, WALK, 1.0, field),
         3.0,
         "deeper is halved",
     );
     assert_eq!(
-        constrain_motion(mover, -6.0, true, WALK, field),
+        constrain_motion(mover, -6.0, true, WALK, 1.0, field),
         -6.0,
         "a body walking OUT of an overlap was slowed down, which is how a pile \
          of bodies becomes a pile that cannot disperse",
@@ -122,10 +137,10 @@ fn an_overlap_resists_going_deeper_and_never_resists_coming_out() {
 /// them shoving each other through the floor.
 #[test]
 fn a_body_that_does_not_overlap_across_the_axis_constrains_nothing() {
-    let blockers = [body(40.0, 200.0)];
+    let blockers = [still(40.0, 200.0)];
     let field = BodyContactField::new(&blockers, 1.0);
     assert_eq!(
-        constrain_motion(body(0.0, 0.0), 30.0, true, WALK, field),
+        constrain_motion(body(0.0, 0.0), 30.0, true, WALK, 1.0, field),
         30.0
     );
 }
@@ -135,10 +150,13 @@ fn a_body_that_does_not_overlap_across_the_axis_constrains_nothing() {
 #[test]
 fn boxes_touching_exactly_on_the_cross_axis_do_not_block() {
     // Mover spans y ∈ [-20, 20]; blocker spans y ∈ [20, 60].
-    let blockers = [Aabb::new(Vec2::new(40.0, 40.0), Vec2::new(10.0, 20.0))];
+    let blockers = [BodyContactBlocker::new(
+        Aabb::new(Vec2::new(40.0, 40.0), Vec2::new(10.0, 20.0)),
+        Vec2::ZERO,
+    )];
     let field = BodyContactField::new(&blockers, 1.0);
     assert_eq!(
-        constrain_motion(body(0.0, 0.0), 30.0, true, WALK, field),
+        constrain_motion(body(0.0, 0.0), 30.0, true, WALK, 1.0, field),
         30.0
     );
 }
@@ -150,8 +168,8 @@ fn boxes_touching_exactly_on_the_cross_axis_do_not_block() {
 /// decide who won, which is a desync under rollback and unfairness on a couch.
 #[test]
 fn the_answer_does_not_depend_on_the_order_of_the_snapshot() {
-    let near = body(40.0, 0.0);
-    let far = body(80.0, 0.0);
+    let near = still(40.0, 0.0);
+    let far = still(80.0, 0.0);
     let forward = [near, far];
     let backward = [far, near];
     let a = constrain_motion(
@@ -159,6 +177,7 @@ fn the_answer_does_not_depend_on_the_order_of_the_snapshot() {
         90.0,
         true,
         WALK,
+        1.0,
         BodyContactField::new(&forward, 1.0),
     );
     let b = constrain_motion(
@@ -166,6 +185,7 @@ fn the_answer_does_not_depend_on_the_order_of_the_snapshot() {
         90.0,
         true,
         WALK,
+        1.0,
         BodyContactField::new(&backward, 1.0),
     );
     assert_eq!(a, b);
@@ -176,11 +196,11 @@ fn the_answer_does_not_depend_on_the_order_of_the_snapshot() {
 /// point along either one — the side axis under wall gravity is Y.
 #[test]
 fn the_constraint_is_axis_symmetric() {
-    let blockers = [body(0.0, 80.0)];
+    let blockers = [still(0.0, 80.0)];
     let field = BodyContactField::new(&blockers, 1.0);
     // Mover spans y ∈ [-20, 20], blocker y ∈ [60, 100]: 40 free.
     assert_eq!(
-        constrain_motion(body(0.0, 0.0), 60.0, false, WALK, field),
+        constrain_motion(body(0.0, 0.0), 60.0, false, WALK, 1.0, field),
         40.0
     );
 }
@@ -190,11 +210,11 @@ fn the_constraint_is_axis_symmetric() {
 /// it would already have accepted.
 #[test]
 fn the_constraint_never_adds_motion_and_never_reverses_it() {
-    let blockers = [body(30.0, 0.0), body(-30.0, 5.0), body(4.0, -3.0)];
+    let blockers = [still(30.0, 0.0), still(-30.0, 5.0), still(4.0, -3.0)];
     for resistance in [0.0, 0.3, 1.0] {
         let field = BodyContactField::new(&blockers, resistance);
         for asked in [-40.0f32, -7.0, -0.5, 0.5, 7.0, 40.0] {
-            let got = constrain_motion(body(0.0, 0.0), asked, true, WALK, field);
+            let got = constrain_motion(body(0.0, 0.0), asked, true, WALK, 1.0, field);
             assert!(
                 got.abs() <= asked.abs() + 1.0e-6,
                 "asked {asked}, got {got} at resistance {resistance}",
@@ -225,26 +245,162 @@ fn the_constraint_never_adds_motion_and_never_reverses_it() {
 /// own top speed.
 #[test]
 fn contact_only_resists_a_body_that_is_walking() {
-    let blockers = [body(15.0, 0.0)];
+    let blockers = [still(15.0, 0.0)];
     let solid = BodyContactField::new(&blockers, 1.0);
     let mover = body(0.0, 0.0);
     assert!(
-        mover.strict_intersects(blockers[0]),
+        mover.strict_intersects(blockers[0].aabb),
         "the fixture must start in contact or the budget is never reached",
     );
 
     // A WALKING step, entirely inside the budget: taken to zero by a wall.
-    assert_eq!(constrain_motion(mover, 4.5, true, 4.5, solid), 0.0);
+    assert_eq!(constrain_motion(mover, 4.5, true, 4.5, 1.0, solid), 0.0);
 
     // A LAUNCH — nine walks' worth in one step — loses exactly one walk.
-    assert_eq!(constrain_motion(mover, 40.0, true, 4.5, solid), 40.0);
-    assert_eq!(constrain_motion(mover, -40.0, true, 4.5, solid), -40.0);
+    assert_eq!(constrain_motion(mover, 40.0, true, 4.5, 1.0, solid), 40.0);
+    assert_eq!(constrain_motion(mover, -40.0, true, 4.5, 1.0, solid), -40.0);
 
     // ⚠ and the budget is a FLOOR, never a boost: a step the constraint would
     // not have touched is not lengthened by having a budget.
-    let far = [body(400.0, 0.0)];
+    let far = [still(400.0, 0.0)];
     assert_eq!(
-        constrain_motion(mover, 4.5, true, 1_000.0, BodyContactField::new(&far, 1.0)),
+        constrain_motion(
+            mover,
+            4.5,
+            true,
+            1_000.0,
+            1.0,
+            BodyContactField::new(&far, 1.0)
+        ),
         4.5,
+    );
+}
+
+/// **TWO MOVERS MAY NOT BOTH SPEND ONE GAP.**
+///
+/// ⛔⛔ the defect this file had no test for. Every case above is ONE mover
+/// against bodies that are standing still, including the order-reversal one —
+/// and a snapshot fixes *who sees whom where*, which is a different question
+/// from *how much of the gap is each of them allowed*. With 5 units between two
+/// solids and 4 asked each, both passed the "it fits in the gap" test and both
+/// took all 4: they closed 8 across a gap of 5 and ended 3 deep in each other.
+///
+/// ⚠ **resistance did not save it and could not.** The free-gap part of a step
+/// is granted at full speed by construction, so this happened at `1.0` — the
+/// value whose entire promise is that it stops a body exactly at contact.
+#[test]
+fn two_bodies_closing_on_one_gap_divide_it_instead_of_each_taking_it() {
+    // Each spans ±10 about its centre, so centres 25 apart leave a 5 gap.
+    let left = body(0.0, 0.0);
+    let right = body(25.0, 0.0);
+    // Both walking at each other at 4 units per tick, in the same snapshot.
+    let speed = 4.0;
+    let for_left = [closing(25.0, 0.0, -speed)];
+    let for_right = [closing(0.0, 0.0, speed)];
+
+    let moved_left = constrain_motion(
+        left,
+        speed,
+        true,
+        WALK,
+        1.0,
+        BodyContactField::moving(&for_left, 1.0, Vec2::new(speed, 0.0)),
+    );
+    let moved_right = constrain_motion(
+        right,
+        -speed,
+        true,
+        WALK,
+        1.0,
+        BodyContactField::moving(&for_right, 1.0, Vec2::new(-speed, 0.0)),
+    );
+
+    let closed = moved_left - moved_right;
+    assert!(
+        closed <= 5.0 + 1.0e-4,
+        "two solids closed {closed} across a gap of 5 — each was granted the \
+         whole of it",
+    );
+    // ⚠ **and they must MEET**, not stop short: a pass that solved the overlap
+    // by refusing both bodies would satisfy the line above and be a worse bug.
+    assert!(
+        closed >= 5.0 - 1.0e-4,
+        "two solids closed only {closed} of a 5 gap — they stopped short of \
+         each other",
+    );
+    // Symmetric bodies at symmetric speeds meet in the middle. That is a
+    // consequence of proportion, not a rule of its own.
+    assert!(
+        (moved_left - 2.5).abs() < 1.0e-4 && (moved_right + 2.5).abs() < 1.0e-4,
+        "the split was not symmetric: {moved_left} and {moved_right}",
+    );
+}
+
+/// **A BODY WALKING AT A STATIONARY ONE STILL GETS THE WHOLE GAP.**
+///
+/// ⛔ the falsifier for the test above, and the reason the fix is PROPORTION
+/// rather than halving. Halving passes the pair case and fails this one — a
+/// fighter walking at somebody standing still would stop half a gap short of
+/// them for no reason a player could see.
+#[test]
+fn a_lone_mover_is_not_made_to_share_a_gap_with_a_body_that_is_standing_still() {
+    let blockers = [still(40.0, 0.0)];
+    assert_eq!(
+        constrain_motion(
+            body(0.0, 0.0),
+            30.0,
+            true,
+            WALK,
+            1.0,
+            BodyContactField::moving(&blockers, 1.0, Vec2::new(30.0, 0.0)),
+        ),
+        20.0,
+        "a body whose neighbours are not moving must spend the whole 20 of free \
+         space, exactly as it did before the gap could be split",
+    );
+}
+
+/// **A BLOCKER LEAVING DOES NOT TAKE A SHARE OF THE GAP.**
+///
+/// The split counts CLOSING speed only. A body walking away is not spending the
+/// space between them, and charging it for the space anyway would slow a chase
+/// down to nothing.
+#[test]
+fn a_blocker_travelling_away_is_not_counted_as_spending_the_gap() {
+    let fleeing = [closing(40.0, 0.0, 4.0)];
+    assert_eq!(
+        constrain_motion(
+            body(0.0, 0.0),
+            30.0,
+            true,
+            WALK,
+            1.0,
+            BodyContactField::moving(&fleeing, 1.0, Vec2::new(30.0, 0.0)),
+        ),
+        20.0,
+        "a chaser was charged for space the body ahead of it was vacating",
+    );
+}
+
+/// **FOUR BODIES CLOSING ON ONE POINT STILL DIVIDE WHAT IS THERE.**
+///
+/// ⚠ the pair case generalises because the share is computed per BLOCKER: each
+/// neighbour's own closing speed decides how much of the gap to that neighbour
+/// belongs to this body, and the minimum over neighbours is what the body gets.
+#[test]
+fn the_split_is_per_blocker_so_the_nearest_closing_neighbour_still_binds() {
+    // A neighbour 5 away closing at 4, and one 40 away standing still.
+    let blockers = [closing(25.0, 0.0, -4.0), still(80.0, 0.0)];
+    let moved = constrain_motion(
+        body(0.0, 0.0),
+        4.0,
+        true,
+        WALK,
+        1.0,
+        BodyContactField::moving(&blockers, 1.0, Vec2::new(4.0, 0.0)),
+    );
+    assert!(
+        (moved - 2.5).abs() < 1.0e-4,
+        "the near closing neighbour did not bind: moved {moved}",
     );
 }

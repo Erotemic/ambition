@@ -103,7 +103,11 @@ impl Default for BodyContact {
 /// needs no sort, and adding one would imply a dependence that must not exist.
 #[derive(Resource, Default, Clone, Debug)]
 pub struct BodyContactSnapshot {
-    bodies: Vec<(Entity, ambition_platformer2d_core::Aabb, f32)>,
+    bodies: Vec<(
+        Entity,
+        ambition_platformer2d_core::movement::BodyContactBlocker,
+        f32,
+    )>,
 }
 
 impl BodyContactSnapshot {
@@ -111,13 +115,23 @@ impl BodyContactSnapshot {
         self.bodies.clear();
     }
 
+    /// ⚠ **the VELOCITY is not decoration.** It is what lets two bodies closing
+    /// on one gap divide it instead of each spending all of it; see
+    /// `constrain_motion`. Sampled from the same pre-integration pass as the
+    /// pose, because a split derived from two different instants is the
+    /// order-dependence this snapshot exists to remove.
     pub fn push(
         &mut self,
         body: Entity,
         contact_box: ambition_platformer2d_core::Aabb,
+        velocity: ambition_platformer2d_core::Vec2,
         resistance: f32,
     ) {
-        self.bodies.push((body, contact_box, resistance));
+        self.bodies.push((
+            body,
+            ambition_platformer2d_core::movement::BodyContactBlocker::new(contact_box, velocity),
+            resistance,
+        ));
     }
 
     pub fn is_empty(&self) -> bool {
@@ -142,14 +156,14 @@ impl BodyContactSnapshot {
     pub fn field_for<'s>(
         &self,
         body: Entity,
-        out: &'s mut Vec<ambition_platformer2d_core::Aabb>,
+        out: &'s mut Vec<ambition_platformer2d_core::movement::BodyContactBlocker>,
     ) -> ambition_platformer2d_core::movement::BodyContactField<'s> {
         out.clear();
-        let Some(resistance) = self
+        let Some((own, resistance)) = self
             .bodies
             .iter()
             .find(|(entity, _, _)| *entity == body)
-            .map(|(_, _, resistance)| *resistance)
+            .map(|(_, blocker, resistance)| (*blocker, *resistance))
         else {
             return ambition_platformer2d_core::movement::BodyContactField::NONE;
         };
@@ -157,8 +171,15 @@ impl BodyContactSnapshot {
             self.bodies
                 .iter()
                 .filter(|(other, _, _)| *other != body)
-                .map(|(_, contact_box, _)| *contact_box),
+                .map(|(_, blocker, _)| *blocker),
         );
-        ambition_platformer2d_core::movement::BodyContactField::new(out, resistance)
+        // ⭐ **this body's own snapshot velocity travels with the field**, so
+        // both halves of a contacting pair divide one gap by the same two
+        // numbers. See `constrain_motion`.
+        ambition_platformer2d_core::movement::BodyContactField::moving(
+            out,
+            resistance,
+            own.velocity,
+        )
     }
 }

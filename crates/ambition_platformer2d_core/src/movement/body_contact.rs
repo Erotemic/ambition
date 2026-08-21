@@ -35,17 +35,53 @@ use crate::{Aabb, AabbExt};
 /// proposed motion unchanged and the kernel behaves byte-for-byte as it did.
 /// Body contact is a capability a composition grants, never a term every body in
 /// the engine pays for.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BodyContactBlocker {
+    /// Where this body is, in the common pre-integration snapshot.
+    pub aabb: Aabb,
+    /// **How fast it was travelling in that same snapshot** — the evidence that
+    /// it is coming the other way, and the only thing that lets a mover tell
+    /// "the gap is mine to spend" from "we are both spending it".
+    ///
+    /// ⚠ **its ENTRY velocity, not the step it will actually take.** A common
+    /// snapshot is taken before any body has resolved its controller, so this is
+    /// last tick's answer. It is exact for a body already walking — the case the
+    /// split exists for — and one control step stale for a body starting from
+    /// rest. See [`constrain_motion`] for what that costs.
+    pub velocity: crate::Vec2,
+}
+
+impl BodyContactBlocker {
+    pub fn new(aabb: Aabb, velocity: crate::Vec2) -> Self {
+        Self { aabb, velocity }
+    }
+
+    /// This body's snapshot speed along one axis, counted only when it points
+    /// the way the mover is going — a blocker fleeing is not spending the gap.
+    fn approach(&self, horizontal: bool, moving_positive: bool) -> f32 {
+        let along = if horizontal {
+            self.velocity.x
+        } else {
+            self.velocity.y
+        };
+        // The mover travels `moving_positive`; a blocker CLOSING on it travels
+        // the other way.
+        let toward = if moving_positive { -along } else { along };
+        toward.max(0.0)
+    }
+}
+
 #[derive(Clone, Copy, Default)]
 pub struct BodyContactField<'a> {
-    /// The contact boxes of the OTHER opted-in bodies, sampled from a COMMON
-    /// pre-integration snapshot.
+    /// The OTHER opted-in bodies, sampled from a COMMON pre-integration
+    /// snapshot.
     ///
     /// ⛔ **the snapshot is why this is a slice and not a query.** Two bodies
     /// resolved in sequence would each see the other at a different pose — the
     /// first at its entry pose and the second at the first's already-integrated
     /// one — so who moved first would decide who won. Sampling once, before any
     /// body integrates, makes the pass order-independent.
-    pub blockers: &'a [Aabb],
+    pub blockers: &'a [BodyContactBlocker],
     /// How hard they resist, `0.0` (not at all) to `1.0` (a solid wall).
     ///
     /// ⭐ **the knob is here because the GENRE differs and the games differ**:
@@ -53,6 +89,14 @@ pub struct BodyContactField<'a> {
     /// a hard stop, and neither is more correct. `1.0` stops the body at contact;
     /// `0.25` lets it keep a quarter of the motion that would take it deeper.
     pub resistance: f32,
+    /// **THIS body's own velocity in that same snapshot.**
+    ///
+    /// ⛔⛔ **both halves of a pair must divide one gap the same way, and that
+    /// is only possible from numbers they both see.** Splitting by each body's
+    /// ACTUAL proposed step would have each computing its share from a figure
+    /// the other cannot read, and two shares derived from different arithmetic
+    /// do not add up to the gap. See [`constrain_motion`].
+    pub own_velocity: crate::Vec2,
 }
 
 impl<'a> BodyContactField<'a> {
@@ -61,12 +105,28 @@ impl<'a> BodyContactField<'a> {
     pub const NONE: Self = Self {
         blockers: &[],
         resistance: 0.0,
+        own_velocity: crate::Vec2::ZERO,
     };
 
-    pub fn new(blockers: &'a [Aabb], resistance: f32) -> Self {
+    /// A field for a body whose own motion is not being shared — every share it
+    /// computes is the whole gap, which is what a lone mover should get.
+    pub fn new(blockers: &'a [BodyContactBlocker], resistance: f32) -> Self {
         Self {
             blockers,
             resistance,
+            own_velocity: crate::Vec2::ZERO,
+        }
+    }
+
+    pub fn moving(
+        blockers: &'a [BodyContactBlocker],
+        resistance: f32,
+        own_velocity: crate::Vec2,
+    ) -> Self {
+        Self {
+            blockers,
+            resistance,
+            own_velocity,
         }
     }
 
@@ -148,9 +208,9 @@ fn deepens(mover: Aabb, blocker: Aabb, horizontal: bool, moving_positive: bool) 
 /// - **not walking** — a step longer than one tick of this body's own walk is a
 ///   launch, a blink, a scripted throw; it passes through untouched. See
 ///   `walk_budget`.
-/// - **approaching** — the body travels its free gap at full speed and keeps
-///   only `1 - resistance` of whatever is left over. At `resistance == 1.0` it
-///   stops exactly at contact, which is a solid.
+/// - **approaching** — the body travels its SHARE of the free gap at full speed
+///   and keeps only `1 - resistance` of whatever is left over. At
+///   `resistance == 1.0` it stops exactly at contact, which is a solid.
 /// - **already overlapping and going DEEPER** — the free gap is zero, so the
 ///   whole motion is scaled. Going the other way is not resisted at all: a body
 ///   resolving an overlap itself is not something this pass has any business
@@ -162,6 +222,37 @@ fn deepens(mover: Aabb, blocker: Aabb, horizontal: bool, moving_positive: bool) 
 /// sign.** That property is what makes this composable with the world sweep that
 /// runs after it: shortening a proposed delta can only ever produce a pose the
 /// world sweep would already have accepted.
+///
+/// ⛔⛔ **TWO MOVERS MAY NOT BOTH SPEND ONE GAP, and they used to.** Each body
+/// resolved its own motion against the others' snapshot poses, so with 5 units
+/// between them and 4 asked each, BOTH passed the "it fits in the gap" test and
+/// both took all 4 — closing 8 across a gap of 5. ⚠ **and resistance did not
+/// save it**: the free-gap part of a step is granted at full speed by
+/// construction, so a pair of solids overlapped by up to one walk-tick on the
+/// tick they met, which is exactly what `resistance == 1.0` promises not to do.
+///
+/// ⇒ **the gap is DIVIDED, in proportion to how fast each body is closing it.**
+/// The share sums to the gap across the pair, so the invariant holds for two
+/// movers and for four; and a body whose neighbours are all standing still has
+/// the whole gap to itself, which is the old arithmetic exactly.
+///
+/// ⛔ **not by halving.** Halving is the fix that looks equivalent and is not:
+/// it takes half the gap away from a body walking at a stationary neighbour,
+/// who should have all of it. Proportion collapses to the old answer in that
+/// case; halving does not.
+///
+/// ⚠ **both halves divide by SNAPSHOT velocities, never by their own proposed
+/// step.** Two bodies deriving shares from figures the other cannot read
+/// produce two shares that do not add up to the gap — the same order-dependence
+/// the snapshot exists to remove, wearing arithmetic instead of query order.
+///
+/// ⚠ **the residual, stated rather than hidden:** the snapshot is taken before
+/// any controller has run, so a body starting from REST reads as stationary for
+/// one tick. Two bodies that both begin walking at each other on the same tick,
+/// from a gap narrower than one tick of their acceleration, can still overlap by
+/// that much — bounded by one acceleration step, gone on the next tick, and
+/// closable only by splitting integration into propose and commit phases, which
+/// is a schedule change and not this function's business.
 pub fn constrain_motion(
     mover: Aabb,
     delta_along: f32,
@@ -182,6 +273,9 @@ pub fn constrain_motion(
     // fighters walking into each other stall where they meet, and a launched
     // fighter passes through everybody — which is also the genre's answer.
     walk_budget: f32,
+    // The step this tick spans, so a snapshot VELOCITY can be compared against a
+    // proposed DISTANCE. See [`BodyContactBlocker::velocity`].
+    dt: f32,
     field: BodyContactField<'_>,
 ) -> f32 {
     if field.is_inert() || delta_along == 0.0 || !delta_along.is_finite() {
@@ -194,18 +288,48 @@ pub fn constrain_motion(
     let resistance = field.resistance.clamp(0.0, 1.0);
     let moving_positive = delta_along > 0.0;
     let asked = delta_along.abs();
+    // This body's own closing speed in the SAME snapshot both halves read.
+    let mine = {
+        let along = if horizontal {
+            field.own_velocity.x
+        } else {
+            field.own_velocity.y
+        };
+        let toward = if moving_positive { along } else { -along };
+        toward.max(0.0) * dt
+    };
     let mut allowed = asked;
     for blocker in field.blockers {
-        if !overlaps_across(mover, *blocker, horizontal) {
+        if !overlaps_across(mover, blocker.aabb, horizontal) {
             continue;
         }
-        let free = gap_along(mover, *blocker, horizontal, moving_positive).max(0.0);
+        let gap = gap_along(mover, blocker.aabb, horizontal, moving_positive).max(0.0);
+        // **HOW MUCH OF THAT GAP IS THIS BODY'S TO SPEND.** The other body is
+        // closing too, and the two shares must sum to the gap rather than each
+        // being the whole of it.
+        //
+        // ⚠ **no evidence means the whole gap.** A snapshot in which neither
+        // body was moving carries nothing to divide by, and refusing to move on
+        // no evidence would stop a body walking at a neighbour that is merely
+        // standing there.
+        let theirs = blocker.approach(horizontal, moving_positive) * dt;
+        let closing = mine + theirs;
+        let free = if closing > 0.0 {
+            gap * (mine / closing)
+        } else {
+            gap
+        };
         if asked <= free {
             continue;
         }
         // Already in contact and heading OUT: this body is resolving the overlap
         // itself and nothing here has any business slowing it down.
-        if free <= 0.0 && !deepens(mover, *blocker, horizontal, moving_positive) {
+        //
+        // ⚠ **asked of the real GAP, not of this body's share.** A share can be
+        // zero with daylight still between the boxes, and reading that as
+        // "already overlapping" would send a body that is merely being out-paced
+        // down the leaving-an-overlap path.
+        if gap <= 0.0 && !deepens(mover, blocker.aabb, horizontal, moving_positive) {
             continue;
         }
         // The part of the step that would take this body deeper.

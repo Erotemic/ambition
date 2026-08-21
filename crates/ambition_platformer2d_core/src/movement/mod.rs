@@ -50,7 +50,7 @@ pub use surface_momentum::{
 
 pub use abilities::{resolve_burst_maneuver, resolve_shield, BurstManeuver};
 pub use blink::{blink_destination_clusters, blink_destination_to_point_clusters};
-pub use body_contact::{constrain_motion, BodyContactField};
+pub use body_contact::{constrain_motion, BodyContactBlocker, BodyContactField};
 // The ONE hazard-touch rule, exported so external observers apply the SAME
 // predicate the kernel applies — never a duplicated near-copy.
 pub use authority::{

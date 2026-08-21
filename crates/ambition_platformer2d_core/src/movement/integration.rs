@@ -198,6 +198,7 @@ pub(super) fn integrate_velocity_clusters(
                     // constraint ate knockback and two `smash_it` guards about
                     // matches ENDING went red.
                     tuning.locomotion.max_run_speed * dt,
+                    dt,
                     contact,
                 )
             } else {

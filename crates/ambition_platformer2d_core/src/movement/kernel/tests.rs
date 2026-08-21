@@ -1061,7 +1061,7 @@ fn the_launch_channel_is_emptied_by_the_step_that_consumes_it() {
 /// equal.
 #[test]
 fn a_grounded_body_walking_into_another_one_is_stopped_by_the_real_sweep() {
-    fn walk_right(blockers: &[crate::Aabb]) -> f32 {
+    fn walk_right(blockers: &[crate::movement::BodyContactBlocker]) -> f32 {
         let world = floor_world();
         let start = Vec2::new(200.0, 380.0);
         let mut scratch = BodyClusterScratch::new_with_abilities(start, AbilitySet::default());
@@ -1095,9 +1095,12 @@ fn a_grounded_body_walking_into_another_one_is_stopped_by_the_real_sweep() {
     );
 
     // A wall of another body 60px to the right of the start pose.
-    let blocker = [crate::Aabb::new(
-        Vec2::new(300.0, 380.0),
-        Vec2::new(20.0, 24.0),
+    let blocker = [crate::movement::BodyContactBlocker::new(
+        crate::Aabb::new(Vec2::new(300.0, 380.0), Vec2::new(20.0, 24.0)),
+        // Standing there. A stationary blocker leaves the whole gap to the
+        // mover, which is what makes this an A/B on the constraint rather than
+        // on the gap split.
+        Vec2::ZERO,
     )];
     let blocked = walk_right(&blocker);
     assert!(

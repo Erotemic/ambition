@@ -1041,6 +1041,9 @@ pub fn snapshot_body_contact(
         snapshot.push(
             entity,
             kinematics.aabb_oriented(frame.down()),
+            // ⚠ its ENTRY velocity — this pass runs before any body resolves its
+            // controller, which is the whole point of a common snapshot.
+            kinematics.vel,
             contact.resistance,
         );
     }
@@ -1083,7 +1086,7 @@ pub fn integrate_sim_bodies(
     // The per-body blocker list, reused across bodies and across ticks. ⚠ a
     // `Local` rather than a fresh `Vec` per body: this is the innermost loop of
     // the movement phase.
-    mut contact_scratch: Local<Vec<ae::Aabb>>,
+    mut contact_scratch: Local<Vec<ae::BodyContactBlocker>>,
     world_time: Res<WorldTime>,
     world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
         ambition_platformer2d_core::RoomGeometry,

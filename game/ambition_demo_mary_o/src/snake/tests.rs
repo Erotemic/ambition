@@ -312,3 +312,76 @@ fn a_stomp_shoves_a_peeking_or_emerging_snake_back_into_its_shell() {
 
 // (The top/side geometry itself is proven in `crate::stomp`, the ONE authority
 // both enemies read.)
+
+/// **THE WALKING SNAKE AND THE BOXED SNAKE RESCALE TOGETHER.**
+///
+/// Jon, 2026-08-21: *"we should make sure the scale of the snake and its
+/// in-the-box form are consistent if we ever change the scale of the snake."*
+///
+/// Both forms are the same sheet read at [`snake_world_per_pixel`] — the walking
+/// row and the `boxed_idle` row — so a rescale is ONE number and both follow it.
+/// This pins that: measured at a scale and at twice it, every dimension of both
+/// forms doubles. A path that hardcoded either form's size, or read a second
+/// scale, breaks this and nothing else in the suite would notice.
+///
+/// ⭐ measured while writing this: the walking form is 21.33 x 9.48 and the boxed
+/// form 9.48 x 6.93. The boxed snake is SHORTER still, so the fixed 16px stomp
+/// band this session replaced misclassified side contact with a shell as well as
+/// with a walking snake — the clamp to half the body covers both.
+///
+/// ⚠ it asserts PROPORTIONALITY rather than the sizes themselves, on purpose:
+/// the numbers are the art's to choose and change, and a test that pinned them
+/// would fail on an ordinary redraw. What may not change is that the two forms
+/// answer to the same scale.
+#[test]
+fn both_snake_forms_follow_one_scale() {
+    use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
+
+    let at = |wpp: f32, anim: CharacterAnim| {
+        ambition_platformer2d::character_sprites::posed_body_geometry(
+            super::SNAKE_SHEET_TARGET,
+            anim,
+            wpp,
+        )
+        .map(|g| g.collision)
+    };
+
+    let base = super::snake_world_per_pixel();
+    let (Some(walk), Some(boxed)) = (
+        at(base, CharacterAnim::Idle),
+        at(base, CharacterAnim::ShellIdle),
+    ) else {
+        // No baked art (`--no-assets`): there is no geometry to be consistent
+        // about. Skipping is honest here BECAUSE the assertion below is about a
+        // relationship between two measurements, not about their presence — and
+        // a fixture with no sheet cannot produce either one.
+        //
+        // ⚠ VERIFIED NOT TAKEN in this tree (2026-08-21) by making it panic and
+        // watching the test still pass — the check below really runs, rather
+        // than skipping the way three other checks in this session did.
+        return;
+    };
+    let (Some(walk2), Some(boxed2)) = (
+        at(base * 2.0, CharacterAnim::Idle),
+        at(base * 2.0, CharacterAnim::ShellIdle),
+    ) else {
+        panic!("the sheet resolved at one scale and not at twice it");
+    };
+
+    // The premise: the two forms are actually different boxes, or "they agree"
+    // is vacuous.
+    assert!(
+        (walk - boxed).length() > 1e-3,
+        "the walking and boxed forms measure the same box ({walk:?}), so this \
+         test would pass without them being related at all"
+    );
+
+    for (name, one, two) in [("walking", walk, walk2), ("boxed", boxed, boxed2)] {
+        assert!(
+            (two.x - one.x * 2.0).abs() < 1e-3 && (two.y - one.y * 2.0).abs() < 1e-3,
+            "the {name} form does not follow the scale: {one:?} at 1x became \
+             {two:?} at 2x. Both forms must read the SAME world-per-pixel, or a \
+             rescale moves one and leaves the other."
+        );
+    }
+}

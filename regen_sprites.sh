@@ -1102,6 +1102,13 @@ then
     exit 0
 fi
 
+# Cheap structural preflight before the first expensive render. A stale or
+# mistyped CharacterJob used to fail only when its turn reached `draw-review`,
+# after earlier batches had already spent minutes rendering. The adapter config
+# surface is small enough to validate up front.
+echo "==> validate sprite character configs"
+run_renderer_python validate-configs -m ambition_sprite2d_renderer validate-configs
+
 echo "==> config-driven targets (robot / goblin / boss) → $sprites_dir"
 run_renderer_python draw-all -m ambition_sprite2d_renderer draw-all --out-dir "$sprites_dir"
 

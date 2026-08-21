@@ -771,6 +771,22 @@ leave it          a broken library test build is found by whoever next compiles
                   that crate — which today was hours, and only by luck
 ```
 
+⭐ **AND THE REST OF THE WORKSPACE IS CLEAN — measured 2026-08-21, all 54
+crates.** After fixing the two above, every remaining crate compiles
+`--all-targets`. So this is INCIDENTAL and correlated with carving, not endemic
+rot:
+
+```text
+54 crates swept, per-crate (never `--workspace --tests`, which has filled
+                            this disk before)
+ 2 broken, both from today's carves, both now fixed
+ 0 broken anywhere else
+```
+
+⇒ that argues for the cheaper answer — sweep the crates a CARVE touches, not the
+workspace on every gate. The 12-crate touched-today sweep took ~10 minutes cold;
+the full 54 is proportionally worse and would buy nothing today.
+
 ⇒ recorded rather than answered: this is a build-time-versus-coverage call, and
 this project is deliberately hostile to guardrail machinery. ⛔ what should NOT
 happen is a third instance being treated as a surprise.

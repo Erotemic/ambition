@@ -373,9 +373,16 @@ jumped into.
 ⭐ **and the validator now says so on every build** (`71332ab75`). The rule
 `EdgeExit ... overlaps solid X; ... so the exit is physically reachable` already
 existed and asked a PROXY question — it scans ENTITIES named `Solid`, and these
-levels paint their floors into the Collision IntGrid, so it could not fire on the
-case it was written for. It asks the real geometry now, and warns (not errors)
-because the five violations are standing content whose fix is this row.
+levels paint their floors into the Collision IntGrid. It asks the real geometry
+now, and warns (not errors) because the five violations are standing content
+whose fix is this row.
+
+⛔⛔ **and the old rule could not merely have MISSED this — it could not fire at
+all.** Measured across every shipped world: **15** levels author an `EdgeExit`,
+**4** place a `Solid` entity (`mary_o_1_1`, `mary_o_1_3`, `mockingbird_arena`,
+`gnu_ton_arena`), and the intersection is **EMPTY**. It scanned an empty set on
+every world it was ever run against — the "check that cannot fail" pattern, in
+the validator that exists to catch exactly this class.
 
 ⇒ **the conflict is with `EdgeExit`'s own contract** — *"the validator requires
 the zone to touch a level edge so the player physically walks off the screen

@@ -231,12 +231,24 @@ mod tests;
 
 /// **HOW MANY SOLID COLLISION CELLS SIT INSIDE THIS RECT.**
 ///
-/// ⛔⛔ **the reachability rule beside this one asked a PROXY question for as
-/// long as it existed.** `EdgeExit LoadingZone ... overlaps solid X; ... so the
-/// exit is physically reachable` scans entities named `Solid` on the Ambition
-/// layer — and the geometry a body actually collides with in these levels is
-/// the **Collision IntGrid**. The rule was right, the subject was wrong, and it
-/// could not fire on the case it was written for.
+/// ⛔⛔ **the reachability rule beside this one COULD NOT FIRE — measured, not
+/// suspected.** `EdgeExit LoadingZone ... overlaps solid X; ... so the exit is
+/// physically reachable` scans entities named `Solid` on the Ambition layer,
+/// and the geometry a body actually collides with in these levels is the
+/// **Collision IntGrid**. Across every shipped world (2026-08-21):
+///
+/// ```text
+/// levels with an EdgeExit   15
+/// levels with a Solid ENTITY 4   (mary_o_1_1, mary_o_1_3,
+///                                 mockingbird_arena, gnu_ton_arena)
+/// intersection               0   -- EMPTY
+/// ```
+///
+/// No level has both, so the rule scanned an empty set on every world it was
+/// ever run against. It is not that it was subtly wrong; it was structurally
+/// incapable of failing, which is the pattern this repo names explicitly: *a
+/// check that cannot fail is worse than no check, because it spends the
+/// credibility of the ones that can.*
 ///
 /// Measured 2026-08-20: five of twenty-four authored `EdgeExit` zones have a
 /// floor lip inside them — `central_hub_main` to `scroll_lab` and to

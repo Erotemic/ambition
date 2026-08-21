@@ -3091,13 +3091,24 @@ finds them automatically, and finds more:
 
 ```text
 alien/total  module                        foreign domains named
-  18/29      construction/mod.rs           quest 9, mount 3, item 2, boss/enemy/shrine/limb
+   9/29      construction/mod.rs           mount 3, item 2, boss/enemy/shrine/limb
    9/14      features/ecs/spawn_static.rs  pickup 3, chest 2, portal 2, item, shrine
    7/10      features/ecs/damage_apply.rs  player 7          ← the split found by hand
-   7/14      schedule/input_systems.rs     menu 4, player, quest, cutscene
+   6/14      schedule/input_systems.rs     menu 4, player, cutscene
    5/7       features/ecs/anim_helpers.rs  boss 4, chest      ← "helpers" that are mostly boss
-   4/5       avatar/systems.rs             player 3, quest
+   3/5       avatar/systems.rs             player 3
 ```
+
+⛔⛔ **THE FIRST VERSION OF THIS TABLE WAS WRONG, AND THE WAY IT WAS WRONG IS THE
+WARNING.** It reported `construction/mod.rs` as **18/29 with "quest" nine
+times** — the single largest signal in the scan — and every one of those nine
+was `re`**quest**: `relocate_request`, `authored_actor_requests`,
+`placement_requests`. A SUBSTRING match, not a domain. The corrected scan uses
+word boundaries and the row drops to 9/29 with no quest at all.
+
+⚠ a name-matching instrument will invent its own biggest finding if you let it,
+and the finding will look like the most interesting one on the page. **Check the
+top hit by eye before believing the list.**
 
 ⭐ **it independently rediscovered `damage_apply`**, which is the only reason to
 trust it at all.

@@ -402,14 +402,18 @@ These three hold some:
 
 | doc | open | what |
 | --- | --- | --- |
-| [`engine/character-actions.md`](engine/character-actions.md) | 4 | cast-action authoring where a body still relies on defaults · presentation metadata on authored moves · two DECISIONS deferred until a real repertoire forces them |
+| [`engine/character-actions.md`](engine/character-actions.md) | 3 | ~~cast-action authoring where a body still relies on defaults~~ **CHECKED 2026-08-20 and LANDED** — `smash_fighter_kit()` was deleted 2026-08-12 and 18 characters author their own moveset · presentation metadata on authored moves (verified OPEN, and PRICED: 100 exhaustive `MoveSpec` literals, so the enabling `Default`/constructor comes first) · two DECISIONS deferred until a real repertoire forces them |
 | [`engine/unified-movement-kernel.md`](engine/unified-movement-kernel.md) | 2 | block ↔ chain crawl transfer — ✔ VERIFIED OPEN 2026-08-20: `CrawlAttachment::Chain` returns early into `crawl_chain` and `Block` falls through to the riding path, so the two are separate roads with no shared transfer rule · portal transit inside authored gravity zones (its own text says there is no known bug and no room authors the combination — customer-gated, leave ▢) |
-| [`demos/super-mary-o.md`](demos/super-mary-o.md) | 1 | crossing 1-2 while GROWN, plus further authored levels. ⚠ its second row was RETIRED 2026-08-20 — it claimed nothing had ever bonked a ?-block while grown, which the ✔ two lines above it contradicts |
+| [`demos/super-mary-o.md`](demos/super-mary-o.md) | 1 | further authored levels. ⚠ TWO of its rows are now retired: the ?-block-while-grown claim (contradicted by the ✔ two lines above it), and **crossing 1-2 while GROWN — CHECKED 2026-08-20 and already covered** by `she_crosses_wearing_the_form_she_earned` (`two_rooms.rs`, green), whose own doc calls itself "the last of the four the continuity row asks about" |
 
-⛔ **THESE ▢ WERE COUNTED, NOT CHECKED — EXCEPT WHERE THE TABLE SAYS OTHERWISE.**
-One is now verified open (see the movement-kernel row); the rest were counted, and a row's prose goes stale faster than the code — a ▢ on
+⛔ **THESE ▢ WERE COUNTED, NOT CHECKED — AND CHECKING THEM FOUND TWO ALREADY
+DONE.** As of 2026-08-20 every row above has been read against HEAD. Two of the
+seven were STALE (the default-repertoire item and the grown-crossing item), one
+was verified OPEN and priced, one was verified open and customer-gated, and two
+are decisions waiting on a customer. **That is a 2-in-7 stale rate on a table
+that had never been checked**, which is the whole reason for the rule: a ▢ on
 work that already landed has cost this project four sessions. Grep for the thing
-each says is missing BEFORE working it, and if HEAD contradicts the doc, update
+a row says is missing BEFORE working it, and if HEAD contradicts the doc, update
 the doc.
 
 ⚠ two of `character-actions.md`'s four are explicitly *"decide only when a real

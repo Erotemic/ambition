@@ -178,8 +178,14 @@ Remaining acceptance work
   ⚠ Fallout: the engine group now supplies `AmbitionLoadPlugin` (the transition
   IS a load plan) — both demo hosts and three test hosts that had their own copy
   were panicking on a duplicate; there is now one owner.
-- ▢ still open on 1-2: crossing while GROWN (the continuity proof covers coins,
-  lives and score), and further authored levels.
+- ✔ **crossing while GROWN is COVERED** — verified 2026-08-20 against HEAD, not
+  counted. `she_crosses_wearing_the_form_she_earned` (`two_rooms.rs`) earns the
+  star wand out of 1-1's own authored `?`-block by a real head contact, crosses
+  to 1-2, and asserts `WornEquipment` still carries it — reading the row off the
+  BODY rather than the tall sheet, so it cannot pass on a body that arrived
+  naked before the deriving system ran. Its own doc names itself "the last of
+  the four the continuity row asks about". Green.
+- ▢ still open on 1-2: further authored levels.
 - ✔ **ANSWERED 2026-08-14: the level can give it to you, and nothing tells
   you.** `a_grown_mary_o_bonks_a_question_block_and_wears_the_fire_flower`
   (`level_1_acceptance.rs`, default feature set) is green — a grown Mary-O

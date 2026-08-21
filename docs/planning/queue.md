@@ -562,6 +562,35 @@ between. Give every seat a row, run the shapers over the table, then accumulate
 — and `ControlFrame` stops being an input bus and becomes seat zero's confirmed
 output alone.
 
+⭐⭐ **AND THE TWO RAW PRODUCERS DIFFER SIX WAYS — measured 2026-08-21, so the
+unification starts from a list rather than a reading.**
+`populate_control_frame_from_actions` (seat zero) against
+`populate_secondary_slot_controls` (the rest):
+
+```text
+gate           active_context.primary()      │ active_context.gameplay_owned(slot)
+unfocus guard  applied                        │ ✔ FIXED f9085f478 — it took no
+                                              │   Query<&Window> at all
+world stopped  read_menu_control_frame(..)    │ ControlFrame::default()
+filters        the machine's settings sliders │ per-pad filters_for_seat
+burst edge     PlayerBurstTriggerState (a     │ SeatBurstTriggerState (a component
+               RESOURCE)                      │   on the participant)
+destination    ControlFrame                   │ the latch, or SlotControls
+```
+
+⛔ **only ONE of those six was a defect and it is fixed.** The unfocus row was a
+rule that exists as one function with one caller — alt-tab froze player one and
+left player two walking. The FILTERS row is deliberate and stays (Jon,
+2026-08-06: filtering per pad, bindings shared — a couch seat cannot reach the
+settings screen). ⚠ **the WORLD-STOPPED row is the one to resolve before
+unifying**, and it is a real question, not an oversight to sweep: seat zero is
+handed a menu frame while the world is stopped and every other seat is handed
+neutral. Find out which is right before making them agree.
+
+⭐ the burst-edge row is free deletion when the producers merge: seat zero has a
+participant entity like everybody else, so `PlayerBurstTriggerState` — two real
+consumers — becomes a `SeatBurstTriggerState` on row zero.
+
 ⚠ **DO NOT start that with budget for only part of it.** A half-migrated shaper
 is worse than none: the old path keeps working, so nothing goes red, and the
 next reader finds two shaping stages instead of one.

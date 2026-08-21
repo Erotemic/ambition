@@ -210,6 +210,22 @@ half-swapped registry, produces a correct path resolving to the previous image.
 ⛔ that cannot be caught by reading files — it needs a live capture across an
 Apply, which is what `sprite-residency-and-live-quality.md` asks for.
 
+  * ⊙ **the convergence read end-to-end, and one CLASS of body provably never
+converges.** `converge_character_residency_to_active_quality` →
+`demote_stale_realizations` retires each stale realization and re-demands it —
+but only where `declared.contains_key(token)`. `publish_under` inserts into
+`sheets` and NEVER into `declared`, and that exclusion is deliberate: *"art it
+did not build, so retiring it would delete a face with no way to draw it
+again."* Same for the id-keyed row a character gets when published without ever
+being declared.
+  ⇒ **so a host-published realization is FROZEN at whatever tier it was
+published at, by design** — the intro's NPCs are named in the sibling comment as
+exactly this case. That is a documented limitation rather than the swap, and it
+is worth knowing before somebody "fixes" the guard: removing it deletes faces
+permanently. ⛔ if a robot v3 body is ever published this way, it would hold its
+old realization across a quality change while a declared sibling moved — which
+is the shape to test first when the live capture happens.
+
 ## 2026-08-20 — doors do not work in Ambition, and Mary-O's 1-1 loops
 
 Jon: *"In ambition I cannot go through any doors anymore. This is both interact

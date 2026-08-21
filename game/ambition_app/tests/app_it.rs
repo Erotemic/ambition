@@ -126,6 +126,7 @@ mod the_engine_can_be_told_to_do_things;
 mod the_engine_ships_its_own_effects;
 mod two_fighters_author_a_grab;
 mod door_with_the_touch_overlay;
+mod fly_to_the_hall_of_characters;
 mod mary_o_lap_in_the_host;
 mod walking_into_a_loading_zone;
 mod two_persistence_authorities_for_one_item;

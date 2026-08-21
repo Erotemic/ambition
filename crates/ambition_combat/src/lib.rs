@@ -21,6 +21,7 @@ pub mod feel;
 pub mod hazard_runtime;
 pub mod hazards;
 pub mod held_items;
+pub mod hit_reaction;
 pub mod hitbox;
 pub mod moveset;
 pub mod on_hit;

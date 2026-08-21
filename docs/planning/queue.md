@@ -2183,10 +2183,30 @@ limb edge fails only the limb test.
 
 ⚠ **`CapturedBy` is deliberately NOT an edge.** A captive is attached to its
 captor by exactly this rule, but no composition can express a captor carrying one
-through a door — capture is the platform fighter's, and a versus stage has no
-room changes. ⛔ adding it would be a rule for a state nothing can reach. ⇒ **if a
-room-based game ever gets grabs, that is the edge to add, and this clause is the
-note that says so.**
+through a door. ⛔ adding it would be a rule for a state nothing can reach. ⇒ **if
+a room-based game ever gets grabs, that is the edge to add, and this clause is
+the note that says so.**
+
+⭐ **RE-CHECKED 2026-08-21, and the gate is now a FACT rather than a genre
+argument.** The clause used to rest on *"capture is the platform fighter's"*,
+which is a claim about intent. The checkable version:
+
+```text
+acquire_captures  registered ONLY by game/ambition_demo_smash/src/capture.rs
+                  — no engine plugin, no Ambition composition
+```
+
+⚠ **and the check was worth running, because the obvious signal now points the
+other way.** As of `f3611b93d` every fighter authors a grab and four throws,
+`Grab` IS bound in the shipped input preset, and thirteen of the movesets
+carrying one are AMBITION characters — including `player_robot_moveset`, on the
+V3 incarnation the player wears in rooms, whose own comment says the robot is
+*"the SAME character in Ambition and in Smash"*. So a body walking around a
+room-based game holds a grab MOVE. What it does not have is a system to turn
+that move into a `CapturedBy`.
+
+⇒ the trigger fires the day a second composition registers `acquire_captures`,
+and that is one grep, not a judgement about genres.
 
 ⭐⭐ **A POSSESSED ACTOR WAS DUPLICATING ITSELF — FIXED 2026-08-19.** Possessing an
 authored enemy and carrying it through a door left two live entities behind one

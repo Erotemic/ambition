@@ -3156,7 +3156,34 @@ cross-tick cache    none (no `Local<…>` anywhere in the module)
 ⇒ **it satisfies the destination's stated contract**, which is what
 `dev/trace` failed.
 
-✔✔ **AND ALL FOUR GATES NOW PASS — this carve is READY, not merely cheap.**
+⛔⛔ **CORRECTION 2026-08-21: A FIFTH GATE FAILS, AND IT IS THE ONE THIS ROW
+ALREADY WARNED ABOUT.** I recorded "all four gates pass, ready" and then went to
+do it. Four affordance types are ROLLBACK-REGISTERED — from the monolith's
+`rollback_registration.rs`, not from the module, which is why grepping the module
+directory found nothing:
+
+```text
+declare_rollback_derived_resource::<crate::affordances::PlayerAffordances>
+                                    …::intent::PlayerIntent
+                                    …::interactable_proximity::NearestInteractable
+                                    …::pogo_proximity::PogoTargetBelow
+```
+
+Their TYPE PATHS are in `scripts/baselines/rollback-schema-baseline.json`. ⇒ this
+is **a wire-format change, not a file move**: the registration has to move too,
+the baseline has to be rewritten, and `rollback-wire-format-is-frozen` reddens
+until it is. That is exactly this row's own ⛔⛔ — *"the price of moving a
+registered type: three path-keyed ledgers, and they are not in one place"* —
+which I had read hours earlier and still walked toward.
+
+⚠ **so the gate list below was INCOMPLETE.** A fifth belongs on it permanently:
+**does anything register these types for rollback, from anywhere?** Ask
+`rollback_registration.rs` in the OWNING crate, never the moving module.
+
+⇒ still worth doing, at a materially higher price than "1,733 lines with zero
+inbound". Price it as a schema change.
+
+**The four gates that DO pass:**
 
 ```text
 1 coupling        1,733 lines, ZERO inbound `crate::affordances` references
@@ -3175,10 +3202,11 @@ cross-tick cache    none (no `Local<…>` anywhere in the module)
                   `features::ChestFeature`. No new edge, no inversion
 ```
 
-⚠ **NOT EXECUTED, and that is a judgement rather than a blocker.** It is a
-~1,733-line cross-crate move in the crate another session is actively carving;
-the analysis is the hard part and it is done, the mechanics are ordinary. ⇒ do
-it when somebody is watching the gate, not at the tail of an unattended run.
+⚠ **NOT EXECUTED — and after the fifth gate, that is a blocker rather than a
+preference.** A wire-format change begun unattended, in the crate another session
+is actively carving, is how a desync ships. ⇒ do it deliberately, with the
+baseline rewrite and the absence contract in the same slice, and with somebody
+watching the gate.
 
 ⭐ **THE ENDPOINT IS NOW STATED IN THE CRATE ITSELF — 2026-08-21.** A
 decomposition with no stated endpoint runs forever, and the monolith's header

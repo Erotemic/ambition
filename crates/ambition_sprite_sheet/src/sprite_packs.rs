@@ -127,12 +127,18 @@ mod tests {
     /// it IS present every tier must parse, validate, and cover the same
     /// target set — a tier that silently lost targets would fall back
     /// per-target at runtime and hide a broken regen.
+    ///
+    /// ⛔ **it used to `eprintln!` and `return` on a tree with no packs, and
+    /// that is the silent skip this repo keeps finding.** `cargo test` swallows
+    /// stderr for a PASSING test, so the green tick meant "checked" and "there
+    /// was nothing to check" identically. `has_baked_packs` is a build-script
+    /// cfg over the same table, so the run says `ignored` and says why.
     #[test]
+    #[cfg_attr(
+        not(has_baked_packs),
+        ignore = "this tree has no ultrapack (regen output is gitignored) — run ./regen_sprites.sh"
+    )]
     fn baked_pack_tiers_parse_and_agree_on_coverage() {
-        if baked::BAKED_PACK_CATALOGS.is_empty() {
-            eprintln!("no baked pack catalogs (regen not run) — skipping");
-            return;
-        }
         // Every baked tier survived parse+validate into the index.
         assert_eq!(
             catalogs().len(),
@@ -155,12 +161,23 @@ mod tests {
     /// from the shared pack at TWO different quality tiers, the Idle row maps,
     /// and a Bevy atlas layout builds for every page the spec addresses. The
     /// other half (pixels on screen) is the in-app run.
+    ///
+    /// ⛔ **the third `eprintln!`-and-`return` in this file, and the last.** See
+    /// `baked_pack_tiers_parse_and_agree_on_coverage`: a skip that only reaches
+    /// stderr is invisible on a passing run, so the tick meant "checked" and
+    /// "there was nothing to check" identically.
+    ///
+    /// ⚠ this one wants EVERY tier, not just any — it asks `full` and `potato`
+    /// by name. A tree with a PARTIAL pack set fails it, and should: a regen
+    /// that produced some tiers and not others is exactly the broken state
+    /// `baked_pack_tiers_parse_and_agree_on_coverage` guards from the other
+    /// side.
     #[test]
+    #[cfg_attr(
+        not(has_baked_packs),
+        ignore = "this tree has no ultrapack (regen output is gitignored) — run ./regen_sprites.sh"
+    )]
     fn intro_cart_pack_spec_resolves_at_two_tiers() {
-        if baked::BAKED_PACK_CATALOGS.is_empty() {
-            eprintln!("no baked pack catalogs (regen not run) — skipping");
-            return;
-        }
         use crate::character::sheets::{try_load_pack_spec_for_target, SheetTuning};
         let tuning = SheetTuning::new(1.0, 2);
         for (scale, want_tier) in [

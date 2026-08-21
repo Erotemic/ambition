@@ -358,7 +358,19 @@ fn a_clip_on_a_trimmed_sheet_is_measured_by_the_clip_row() {
 /// all four tiers, so a pack path that dropped this would have left them facing
 /// backwards again on exactly the devices that load packs, while their own
 /// sheets looked correct.
+///
+/// ⭐ **the precondition assertion at the bottom stays.** A version that passed
+/// when no tier resolved would have been green throughout the original defect,
+/// which is the whole reason it asserts what it checked. ⚠ but on a tree that
+/// never ran regen there is no pack to check at all, and being RED for that is
+/// noise that teaches people to ignore red — so `has_baked_packs`, a
+/// build-script cfg over the same table the test reads, turns it into an
+/// `ignored` line with its reason on it.
 #[test]
+#[cfg_attr(
+    not(has_baked_packs),
+    ignore = "this tree has no ultrapack (regen output is gitignored) — run ./regen_sprites.sh"
+)]
 fn a_packed_target_keeps_the_facing_its_artwork_was_drawn_in() {
     for target in ["patent_clerk", "carl_stargan"] {
         let base = record_for_target(target)
@@ -428,7 +440,10 @@ fn a_sheets_gameplay_body_does_not_depend_on_the_graphics_setting() {
     for (target, full) in index.iter() {
         // Full-resolution targets only — a tier key carries its suffix, and
         // comparing a tier against itself proves nothing.
-        if TIERS.iter().any(|tier| target.ends_with(&format!(".{tier}"))) {
+        if TIERS
+            .iter()
+            .any(|tier| target.ends_with(&format!(".{tier}")))
+        {
             continue;
         }
         for tier in TIERS {

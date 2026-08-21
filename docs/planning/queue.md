@@ -450,27 +450,31 @@ vacating.
   `--features bevy/track_location` and `Ref::changed_by()` answered it in one
   run.
 
-- ▢ **D176 — THE SPRITE-SHEET SUITE IS RED ON ANY TREE WITHOUT GENERATED PACKS.**
-  (found 2026-08-21)
+- ✔ **D176 — the sprite-sheet suite was red on any tree without generated packs,
+  and TWO of its siblings were silently green for the same reason.** Pack output
+  is gitignored, so on a fresh checkout `BAKED_PACK_CATALOGS` is empty and
+  `catalog_for_scale` answers `None` at every tier. Fixed by `<this commit>`:
+  `build.rs` emits `has_baked_packs` — a cfg over the same table the tests read —
+  and the three pack-dependent tests carry
+  `#[cfg_attr(not(has_baked_packs), ignore = "…run ./regen_sprites.sh")]`, so a
+  packless tree REPORTS them rather than failing or quietly passing.
 
-`cargo test -p ambition_sprite_sheet` fails
-`a_packed_target_keeps_the_facing_its_artwork_was_drawn_in` with *"no baked pack
-tier resolved patent_clerk, so this proved nothing"*. Cause measured, not
-guessed: `target/debug/build/.../out/baked_pack_catalogs.rs` is
-`BAKED_PACK_CATALOGS: &[] = &[]` — the ultrapack was never generated in this
-tree, so `catalog_for_scale` answers `None` at all four tiers.
+  ⭐ **the row asked only how to report it, and the answer turned up two more
+  instances of the worse half.** `baked_pack_tiers_parse_and_agree_on_coverage`
+  and `intro_cart_pack_spec_resolves_at_two_tiers` both did `eprintln!` then
+  `return` — and `cargo test` swallows stderr for a PASSING test, so their green
+  ticks meant *checked* and *there was nothing to check* identically. That is the
+  silent skip this repo keeps finding, and it was sitting beside the test that
+  refused to be one.
 
-⭐ **THE TEST IS RIGHT AND SHOULD NOT BE WEAKENED.** It asserts its own
-precondition on purpose — the facing bug it guards is one where a character
-faced correctly from his own sheet and backwards from the ultrapack, so a
-version that passed vacuously when no pack resolved would have been green
-throughout the original defect.
+  ⛔ **no test was weakened** — the facing guard still asserts its own
+  precondition, because the bug it covers is one where a character faced
+  correctly from his own sheet and backwards from the ultrapack.
 
-⇒ the open question is only how a tree with no generated art should REPORT
-this: fail (today — honest, but red on a fresh clone for a reason that is not a
-defect), or skip in a way that is loud enough not to become the silent-skip
-this repo keeps finding. ⛔ a bare `return` is the wrong answer; that is the
-exact shape that made four checks pass while never running (2026-08-21).
+  ⭐ **verified in BOTH directions, which is the point**: with no packs, 56
+  passed and the guarded tests print `ignored, this tree has no ultrapack …`;
+  after building all four tiers, 58 passed and 0 ignored. A guard that could only
+  ever be ignored would be a check that cannot fail.
 
 - ▢ **D175 — NINE PARTICIPANT-INPUT ITEMS REACHABLE FROM NO LEDGER ROW.**
   (promoted 2026-08-21)

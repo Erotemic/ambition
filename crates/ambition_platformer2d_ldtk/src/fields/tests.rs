@@ -4,9 +4,9 @@
 //! `use super::*;`.
 
 use super::*;
-use ambition_platformer2d_core::KinematicPathMode;
 use ambition_entity_catalog::placements::{BossBrain, CharacterBrain};
-use ambition_platformer2d_world::rooms::PickupKind as PickupKind;
+use ambition_platformer2d_core::KinematicPathMode;
+use ambition_platformer2d_world::rooms::PickupKind;
 
 #[test]
 fn parse_points_reads_semicolon_pairs_and_skips_malformed() {
@@ -180,41 +180,95 @@ fn level_with_collision(w: i32, h: i32, solid: &[(i32, i32)]) -> LdtkLevel {
     serde_json::from_value(json).expect("the probe level parses")
 }
 
-/// **THE REACHABILITY RULE CAN SEE THE COLLISION GRID.**
+/// **THE REACHABILITY RULE ASKS ABOUT A STEP, NOT ABOUT SOLIDITY.**
 ///
-/// ⛔⛔ its sibling — `EdgeExit ... overlaps solid X` — scans entities named
-/// `Solid`, and these levels paint their floors into the Collision IntGrid, so
-/// that rule could not fire on the case it was written for. This is the same
-/// question asked of the geometry a body actually collides with.
+/// ⛔⛔ two proxies preceded it. The first scanned entities named `Solid` while
+/// these levels paint their floors into the Collision IntGrid, so it read an
+/// empty set on every world. The second counted solid CELLS inside the zone and
+/// flagged five of twenty-four exits — three of them correct authoring.
+///
+/// This is `central_hub_main`'s real shape: the opening is a hole in a wall
+/// whose bottom row is still solid, so the ground inside is one cell higher than
+/// the ground you walk in from.
 #[test]
-fn a_solid_collision_cell_inside_a_rect_is_counted() {
-    // The shape measured in `central_hub_main`: an empty column with a floor
-    // lip in its bottom row only.
-    let level = level_with_collision(8, 8, &[(6, 7), (7, 7)]);
-    // A rect over cols 6..7, rows 4..7 — the lip is inside it.
-    assert_eq!(solid_cells_in_rect(&level, (96, 64, 32, 64)), 2);
+fn an_exit_whose_ground_is_higher_than_the_approach_reports_the_step() {
+    // Floor along row 7; the two exit columns have their floor at row 6 instead,
+    // one cell higher — a sill.
+    let level = level_with_collision(
+        8,
+        8,
+        &[
+            (0, 7),
+            (1, 7),
+            (2, 7),
+            (3, 7),
+            (4, 7),
+            (5, 7),
+            (6, 7),
+            (7, 7),
+            (6, 6),
+            (7, 6),
+        ],
+    );
+    // A zone over cols 6..7, rows 4..7.
+    assert_eq!(edge_exit_step_up_px(&level, (96, 64, 32, 64)), 16);
 }
 
-/// **⛔ AND IT REPORTS ZERO FOR A CLEAR ONE, which is the half that makes the
-/// count mean something.** A rule that answered "blocked" everywhere would pass
-/// the test above and be useless.
+/// **⛔ AND A ZONE STANDING ON THE ROOM'S OWN FLOOR REPORTS NOTHING — which is
+/// the half the previous rule got WRONG.**
+///
+/// `scroll_lab`, `square_arena` and `tiny_chamber` all have solid cells in their
+/// zone's bottom row, and all three are fine: that row is the floor, running
+/// unbroken across the level. A zone stopping one row above it could never be
+/// touched by a body standing on it. Counting cells called these defects;
+/// asking about the step does not.
 #[test]
-fn a_rect_clear_of_collision_counts_nothing() {
-    let level = level_with_collision(8, 8, &[(6, 7), (7, 7)]);
-    // Same columns, but stopping ABOVE the lip's row.
-    assert_eq!(solid_cells_in_rect(&level, (96, 64, 32, 48)), 0);
-    // And a level that paints no collision at all blocks nobody.
+fn a_zone_standing_on_the_rooms_own_floor_is_not_a_step() {
+    let level = level_with_collision(
+        8,
+        8,
+        &[
+            (0, 7),
+            (1, 7),
+            (2, 7),
+            (3, 7),
+            (4, 7),
+            (5, 7),
+            (6, 7),
+            (7, 7),
+        ],
+    );
+    // The same zone as above: its bottom row IS the floor, and there is no step.
+    assert_eq!(edge_exit_step_up_px(&level, (96, 64, 32, 64)), 0);
+    // A level that paints no collision blocks nobody.
     let empty = level_with_collision(8, 8, &[]);
-    assert_eq!(solid_cells_in_rect(&empty, (0, 0, 128, 128)), 0);
+    assert_eq!(edge_exit_step_up_px(&empty, (0, 0, 128, 128)), 0);
 }
 
-/// **⚠ HALF-OPEN IN PIXELS**: a rect ending exactly on a cell boundary must not
-/// claim the next cell, or every zone would report its neighbour's floor.
+/// **⚠ THE APPROACH COLUMN IS ON THE ROOM'S SIDE, NOT ALWAYS THE LEFT.**
+///
+/// An `EdgeExit` touches a level edge, so the room is on whichever side is not
+/// the edge. Reading the approach from a fixed side would compare a LEFT exit
+/// against the void outside the level and report a step that is not there.
 #[test]
-fn a_rect_ending_on_a_cell_boundary_does_not_claim_the_next_cell() {
-    let level = level_with_collision(8, 8, &[(4, 0)]);
-    // Cols 0..3 only: x 0..64 is four whole cells, and col 4 starts at 64.
-    assert_eq!(solid_cells_in_rect(&level, (0, 0, 64, 16)), 0);
-    // One pixel further and col 4 is in.
-    assert_eq!(solid_cells_in_rect(&level, (0, 0, 65, 16)), 1);
+fn a_left_edge_exit_is_measured_against_the_room_to_its_right() {
+    // Floor along row 7 except under cols 0..1, which are one cell higher.
+    let level = level_with_collision(
+        8,
+        8,
+        &[
+            (0, 7),
+            (1, 7),
+            (2, 7),
+            (3, 7),
+            (4, 7),
+            (5, 7),
+            (6, 7),
+            (7, 7),
+            (0, 6),
+            (1, 6),
+        ],
+    );
+    // Cols 0..1, rows 4..7 — a sill at the LEFT edge.
+    assert_eq!(edge_exit_step_up_px(&level, (0, 64, 32, 64)), 16);
 }

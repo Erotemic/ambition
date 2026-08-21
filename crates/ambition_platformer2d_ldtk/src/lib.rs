@@ -116,8 +116,8 @@ pub use surfaces::{
 pub use fields::{field_bool, field_f32, field_i32, field_string};
 
 use fields::{
-    entity_rect, entity_touches_level_edge, known_entity, pivot_is_top_left, rects_strict_intersect,
-    solid_cells_in_rect,
+    edge_exit_step_up_px, entity_rect, entity_touches_level_edge, known_entity, pivot_is_top_left,
+    rects_strict_intersect,
 };
 use intgrid::{AMBITION_LAYER, GRID};
 use surfaces::{is_surface_like_identifier, parse_surface_spec};
@@ -308,7 +308,9 @@ impl LdtkProject {
                             ));
                         }
                         if activation
-                            == Some(ambition_platformer2d_world::rooms::LoadingZoneActivation::EdgeExit)
+                            == Some(
+                                ambition_platformer2d_world::rooms::LoadingZoneActivation::EdgeExit,
+                            )
                         {
                             if !entity_touches_level_edge(entity, level) {
                                 report.errors.push(format!(
@@ -330,20 +332,25 @@ impl LdtkProject {
                             // floors and walls into the Collision IntGrid, so the
                             // reachability rule could not fire on the case it was
                             // written for. Five of twenty-four authored EdgeExits
-                            // have a lip inside them (see `solid_cells_in_rect`).
                             //
-                            // ⚠ **a WARNING, not an error, and that is a
-                            // deliberate choice rather than timidity.** Five zones
-                            // violate it today; promoting it to an error would red
-                            // the content gate on standing level geometry whose
-                            // fix — clear the cells, or accept that these exits are
-                            // hopped — is a design call (D174). A warning names all
-                            // five now and the rule is ready to be an error the day
-                            // the content agrees with it.
-                            let blocked = solid_cells_in_rect(level, entity_rect(entity));
-                            if blocked > 0 {
+                            // ⛔⛔ **AND THE FIRST REPLACEMENT ASKED A PROXY
+                            // TOO.** It counted solid cells inside the zone and
+                            // warned on any, which flagged five of twenty-four
+                            // exits — and three of those five were correct
+                            // authoring: their bottom row is solid because that
+                            // row IS THE FLOOR, unbroken across the level, and a
+                            // zone stopping above the floor could never be
+                            // touched by a body standing on it.
+                            //
+                            // ⇒ the question is whether the ground INSIDE is
+                            // higher than the ground you walk in from. See
+                            // `edge_exit_step_up_px`. It answers 0 for every
+                            // authored EdgeExit now that the hub's two sills are
+                            // cleared, so this is ready to be an error.
+                            let step = edge_exit_step_up_px(level, entity_rect(entity));
+                            if step > 0 {
                                 report.warnings.push(format!(
-                                    "EdgeExit LoadingZone {} in level '{}' has {blocked} solid Collision cell(s) inside it; a walking body stalls against them and the exit can only be entered by jumping",
+                                    "EdgeExit LoadingZone {} in level '{}' sits {step}px above the ground it is entered from; a walking body stalls against the sill and the exit can only be entered by jumping",
                                     entity.iid, level.identifier
                                 ));
                             }

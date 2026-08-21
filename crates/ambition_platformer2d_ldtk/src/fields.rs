@@ -229,7 +229,8 @@ pub(super) fn parse_debug_label_kind(
 #[cfg(test)]
 mod tests;
 
-/// **HOW MANY SOLID COLLISION CELLS SIT INSIDE THIS RECT.**
+/// **HOW FAR A BODY MUST STEP UP TO WALK INTO THIS RECT**, in px. `0` when the
+/// ground inside it is level with the ground just outside.
 ///
 /// ⛔⛔ **the reachability rule beside this one COULD NOT FIRE — measured, not
 /// suspected.** `EdgeExit LoadingZone ... overlaps solid X; ... so the exit is
@@ -238,28 +239,36 @@ mod tests;
 /// **Collision IntGrid**. Across every shipped world (2026-08-21):
 ///
 /// ```text
-/// levels with an EdgeExit   15
-/// levels with a Solid ENTITY 4   (mary_o_1_1, mary_o_1_3,
-///                                 mockingbird_arena, gnu_ton_arena)
-/// intersection               0   -- EMPTY
+/// levels with an EdgeExit    15
+/// levels with a Solid ENTITY  4   (mary_o_1_1, mary_o_1_3,
+///                                  mockingbird_arena, gnu_ton_arena)
+/// intersection                0   -- EMPTY
 /// ```
 ///
 /// No level has both, so the rule scanned an empty set on every world it was
-/// ever run against. It is not that it was subtly wrong; it was structurally
-/// incapable of failing, which is the pattern this repo names explicitly: *a
-/// check that cannot fail is worse than no check, because it spends the
-/// credibility of the ones that can.*
+/// ever run against — *a check that cannot fail is worse than no check, because
+/// it spends the credibility of the ones that can.*
 ///
-/// Measured 2026-08-20: five of twenty-four authored `EdgeExit` zones have a
-/// floor lip inside them — `central_hub_main` to `scroll_lab` and to
-/// `square_arena`, and the return exits in `scroll_lab`, `square_arena` and
-/// `tiny_chamber`. In every one it is the zone's BOTTOM row. A walking body
-/// stalls against the lip's side and never enters, which is exactly Jon's
-/// *"I cannot go through contact doors"* (2026-08-20).
+/// ⛔⛔ **AND ITS REPLACEMENT ASKED A PROXY.** The first fix counted SOLID CELLS
+/// inside the zone and warned on any, which flagged five of twenty-four exits.
+/// Three of those five were correct authoring: their zone's bottom row is solid
+/// because that row IS THE FLOOR, running unbroken across the level, and a zone
+/// stopping one row above the floor could never be touched by a body standing on
+/// it. The number was right and the sentence after it was wrong.
 ///
-/// ⚠ `0` for a level with no Collision IntGrid, which is an honest answer: a
-/// level that paints no collision blocks nobody.
-pub(super) fn solid_cells_in_rect(level: &LdtkLevel, rect: (i32, i32, i32, i32)) -> usize {
+/// ⇒ **the question is not "is there anything solid in here", it is "is the
+/// ground in here HIGHER than the ground out there".** Only `central_hub_main`'s
+/// two exits were: their openings are holes in a three-cell-thick wall whose
+/// bottom rows were still solid, so the opening sat 32px above the floor — a
+/// window, not a door, and a walking body stalled against the sill at x=1841
+/// (Jon, 2026-08-20: *"I cannot go through contact doors"*). Fixed in content;
+/// this now answers `0` for every authored `EdgeExit`.
+///
+/// ⚠ `0` for a level with no Collision IntGrid, and for a zone with no ground
+/// under it at all — both honest: a level that paints no collision blocks
+/// nobody, and a doorway over a void is a different complaint with a different
+/// rule.
+pub(super) fn edge_exit_step_up_px(level: &LdtkLevel, rect: (i32, i32, i32, i32)) -> i32 {
     let Some(layer) = level
         .layer_instances
         .iter()
@@ -276,19 +285,28 @@ pub(super) fn solid_cells_in_rect(level: &LdtkLevel, rect: (i32, i32, i32, i32))
     if rw <= 0 || rh <= 0 {
         return 0;
     }
-    // Half-open in px, so a zone ending exactly on a cell boundary does not
-    // claim the next cell.
     let c0 = (x.div_euclid(grid)).clamp(0, w - 1);
     let c1 = ((x + rw - 1).div_euclid(grid)).clamp(0, w - 1);
     let r0 = (y.div_euclid(grid)).clamp(0, h - 1);
-    let r1 = ((y + rh - 1).div_euclid(grid)).clamp(0, h - 1);
-    let mut solid = 0;
-    for row in r0..=r1 {
-        for col in c0..=c1 {
-            if layer.int_grid_csv[(row * w + col) as usize] != 0 {
-                solid += 1;
-            }
-        }
+
+    // The row a body standing in this column would rest on: the first solid
+    // cell at or below the zone's top edge.
+    let surface_row = |col: i32| -> Option<i32> {
+        (r0..h).find(|row| layer.int_grid_csv[(row * w + col) as usize] != 0)
+    };
+    // The WORST surface across the zone's span — a body has to cross all of it.
+    let Some(inside) = (c0..=c1).filter_map(surface_row).min() else {
+        return 0;
+    };
+    // The column the body walks in FROM. An `EdgeExit` touches a level edge, so
+    // the room is on whichever side is not the edge.
+    let approach = if c0 == 0 { c1 + 1 } else { c0 - 1 };
+    if approach < 0 || approach >= w {
+        return 0;
     }
-    solid
+    let Some(outside) = surface_row(approach) else {
+        return 0;
+    };
+    // Inside is higher when its surface row is SMALLER (rows count downward).
+    ((outside - inside) * grid).max(0)
 }

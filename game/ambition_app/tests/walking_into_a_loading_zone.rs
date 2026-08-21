@@ -49,7 +49,6 @@ use crate::common::{base, fixed_60hz_sim};
 /// are about ARRIVAL and the ROOM, never about when.
 const WALK_CAP: usize = 600;
 
-
 fn active_room(sim: &mut Platformer2dSimHarness) -> String {
     sim.observation().active_room.clone()
 }
@@ -151,23 +150,28 @@ fn walk_into(
 /// `.ldtk` finds 381 `Door` zones, 72 `EdgeExit`s and not one `Walk` — a test
 /// that asked for `Walk` would sit on its own "no such zone" guard forever.
 ///
-/// ⛔⛔ **and she has to JUMP to get in, which is a content defect this test
-/// deliberately does NOT hide.** Measured 2026-08-20: the start room's right
-/// edge exit spans grid cols 116-118, and the Collision layer is empty through
-/// every row of it EXCEPT the bottom one, where cols 116-118 are solid. That
-/// 16px floor lip sits inside the zone, a walking body collides with its side,
-/// and she stalls at x=1841 forever — held direction, 600 frames, no arrival.
-/// Hop the lip and the transition fires at once.
+/// ✔ **THE HOP IS DELETED, which is what this doc said to do the day the lip
+/// went.** She had to jump in: `central_hub_main`'s edge exits were holes in a
+/// three-cell-thick wall whose bottom two rows were still solid, so the opening
+/// sat 32px above the floor — a window, not a door. A walking body hit the sill
+/// and stalled at x=1841 forever (held direction, 600 frames, no arrival).
 ///
-/// ⚠ **it is NOT a regression**: those three cells have been solid in every
-/// commit of `sandbox.ldtk` back to 2026-08-15. It is a standing conflict
-/// between the lip and `EdgeExit`'s own contract — *"the zone must touch a
-/// level edge so the player physically walks off the screen into it"*. Tracked
-/// as D174; the fix is content, not code.
+/// ⚠ **it was never a regression**: those cells were solid in every commit of
+/// `sandbox.ldtk` back to 2026-08-15. It was a standing conflict with
+/// `EdgeExit`'s own contract — *"the zone must touch a level edge so the player
+/// physically walks off the screen into it"* — and the fix was content: clear
+/// the sill so the opening reaches the floor at row 61, which is solid all the
+/// way across, so no pit appears.
 ///
-/// So the input here is walk-and-hop, which is what a player does, and what
-/// this pins is the MECHANISM: reaching a contact zone under your own power
-/// fires it. Delete the hop the day the lip goes and it should still pass.
+/// ⛔ **and the census that priced it as FIVE zones was wrong.** Three of the
+/// five — `scroll_lab`, `square_arena`, `tiny_chamber` — have solid cells in
+/// their zone's bottom row because that row IS THE FLOOR, running unbroken
+/// across the level. A zone that stopped one row above the floor could never be
+/// touched by a body standing on it. Only the hub's two exits had a sill above
+/// the floor, and only they were changed.
+///
+/// So the input is a plain WALK, and what this pins is the MECHANISM: reaching
+/// a contact zone under your own power fires it.
 #[test]
 fn reaching_a_contact_zone_under_her_own_power_changes_the_room() {
     let mut sim = fixed_60hz_sim();
@@ -192,20 +196,17 @@ fn reaching_a_contact_zone_under_her_own_power_changes_the_room() {
         }
         let here = body_pos(&mut sim);
         let dir = if target_x > here.x { 1.0 } else { -1.0 };
+        let _ = frame;
         sim.step(AgentAction {
             move_x: dir,
             right_pressed: dir > 0.0,
             left_pressed: dir < 0.0,
-            // Pulsed, not held: a held jump is one jump, and clearing a lip
-            // needs a fresh press each time she lands against it.
-            jump: frame % 20 == 0,
-            jump_held: frame % 20 < 8,
             ..base()
         });
     }
     panic!(
-        "moved toward the `{name}` contact zone of '{before}' for {WALK_CAP} \
-         frames, jumping, and never left the room. She ended at {:?}; the zone \
+        "WALKED toward the `{name}` contact zone of '{before}' for {WALK_CAP} \
+         frames and never left the room. She ended at {:?}; the zone \
          is {:?}. Contact transitions fire on overlap alone, so this names the \
          mechanism: overlap → transition_for_player → RoomTransitionRequested → \
          the room actually changing.",

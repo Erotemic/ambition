@@ -660,59 +660,35 @@ adjacent to facts already recorded elsewhere: per-seat pause ownership is the
 participant contexts only"* is the per-seat-vs-global split
 `declare_in_session_input_contexts` already solved for gameplay.
 
-- ▢ **D174 — A FLOOR LIP SITS INSIDE THE START ROOM'S EDGE EXIT, SO YOU CANNOT
-  WALK OUT OF IT.** (found and diagnosed 2026-08-20)
+- ✔ **D174 — the hub's edge exits were WINDOWS: openings 32px above the floor,
+  so you had to jump into your own front door.** Jon, 2026-08-20: *"I cannot go
+  through any doors anymore"*, contact half. Fixed in content
+  (`ambition_map_assets` `db7e72f`): `central_hub_main`'s two `EdgeExit` openings
+  are holes in a wall three cells thick, and the wall's bottom two rows were
+  still solid. Clearing that sill drops each opening to the floor at row 61,
+  which is solid unbroken across the level, so no pit appears. Ten cells, through
+  `ambition_ldtk_tools intgrid erase`, which writes editor-style formatting.
 
-⭐ **the mechanism is FINE, and that is the headline.** Reaching a contact zone
-under your own power fires the transition — pinned by
-`app_it::walking_into_a_loading_zone::reaching_a_contact_zone_under_her_own_power_changes_the_room`.
-What fails is getting in on foot.
+  ⛔⛔ **AND THE ROW'S OWN CENSUS WAS WRONG — it priced this as FIVE zones and it
+  was two.** `scroll_lab`, `square_arena` and `tiny_chamber` have solid cells in
+  their zone's bottom row because that row IS THE FLOOR, running unbroken across
+  the level: their ground inside and their ground outside are the same height,
+  and a zone stopping one row above the floor could never be touched by a body
+  standing on it. The measurement was right and the sentence after it was wrong.
 
-**Measured.** `central_hub_main`'s right `EdgeExit` is px (1870,776) 30x176 =
-grid cols 116-118, rows 48-59. The Collision IntGrid is EMPTY through every row
-of it **except the bottom one**, where cols 116-118 are solid — a 16px floor
-lip inside the zone. A walking body hits its side and stalls at x=1841 forever
-(held direction, 600 frames, no arrival). Pulse a jump and she is in after 211
-frames and the room changes to `scroll_lab`.
+  ⇒ **the validator inherited the same conflation and now asks the real
+  question.** `solid_cells_in_rect` is deleted; `edge_exit_step_up_px` reports
+  how much higher the ground inside a zone is than the ground it is entered
+  from, measured against the column on the ROOM's side (an `EdgeExit` touches a
+  level edge, so reading a fixed side would compare a left-hand exit against the
+  void). Measured across every shipped world: **24 authored `EdgeExit` zones, 0
+  with a step** — so the rule is ready to be promoted from warning to error.
 
-⛔ **NOT a regression.** Those three cells are solid in every commit of
-`sandbox.ldtk` back to 2026-08-15 — eight commits, `solid_cells=3` throughout.
-So this is standing content, and pricing it as a code regression would be wrong.
-
-**IT IS FIVE ZONES, NOT ONE.** Census of all 24 authored `EdgeExit`s:
-`central_hub_main`→`scroll_lab` (3 cells), `central_hub_main`→`square_arena`
-(2), `scroll_lab`→hub (2), `square_arena`→hub (3), `tiny_chamber`→hub (3). Every
-one is the zone's bottom row. So the hub's whole ring of contact exits must be
-jumped into.
-
-⭐ **and the validator now says so on every build** (`71332ab75`). The rule
-`EdgeExit ... overlaps solid X; ... so the exit is physically reachable` already
-existed and asked a PROXY question — it scans ENTITIES named `Solid`, and these
-levels paint their floors into the Collision IntGrid. It asks the real geometry
-now, and warns (not errors) because the five violations are standing content
-whose fix is this row.
-
-⛔⛔ **and the old rule could not merely have MISSED this — it could not fire at
-all.** Measured across every shipped world: **15** levels author an `EdgeExit`,
-**4** place a `Solid` entity (`mary_o_1_1`, `mary_o_1_3`, `mockingbird_arena`,
-`gnu_ton_arena`), and the intersection is **EMPTY**. It scanned an empty set on
-every world it was ever run against — the "check that cannot fail" pattern, in
-the validator that exists to catch exactly this class.
-
-⇒ **the conflict is with `EdgeExit`'s own contract** — *"the validator requires
-the zone to touch a level edge so the player physically walks off the screen
-into it"*. A lip that must be jumped defeats that sentence. Two honest answers:
-clear the three cells so the exit can be walked into, or accept that these exits
-are hopped and soften the doc. **Content, not code**, and Jon's call.
-
-⚠ ⛔ body contact is NOT involved: the `BodyContactSnapshot` is EMPTY at the
-stall. The other half of Jon's report — interact doors — does not reproduce in
-ANY buildable composition; the eliminations are in
-`JONS_OBSERVATIONS_BUGS_AND_ISSUES.md` (2026-08-20).
-
-⚠ authoring note found on the way: **381 `Door` zones and 72 `EdgeExit`s are
-authored across every `.ldtk`, and NOT ONE `Walk`.** `LoadingZoneActivation::Walk`
-is a variant the shipped content never uses.
+  ⭐ guarded by `walking_into_a_loading_zone::reaching_a_contact_zone_under_her_own_power_changes_the_room`,
+  whose hop is DELETED — its own doc said to do that the day the lip went — plus
+  three unit tests including the floor case the old rule called a defect.
+  Falsified both ways: repainting the sill puts her back to stalling at
+  x=1840.97, the figure the original diagnosis measured.
 
 - ▢ **D171 — THREE MORE DOCS CARRY OPEN ITEMS NO LEDGER ROW CAN REACH.**
   (promoted 2026-08-20)

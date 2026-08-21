@@ -1350,6 +1350,56 @@ fn the_stage_always_plays_by_smash_rules(
     commands.insert_resource(smash_declared_combat_rules());
 }
 
+/// **SMASH'S FIGHTERS ARE SOLID TO EACH OTHER — this is jostle.**
+///
+/// ⭐⭐ **the capability is the ENGINE's and the word is SMASH'S.** Jon's ruling
+/// on §25 (2026-08-20): AVOID PUSHOUT is about portals; a body mechanic may
+/// express contact, it *"should never be a mandatory part of the movement
+/// kernel"*, and *"games will want this, so we should be able to express it"*.
+/// The engine therefore owns an unnamed constraint — one body's proposed motion
+/// reduced by the bodies it is touching
+/// (`ambition_platformer2d_core::movement::body_contact`) — and this ruleset
+/// grants it to its cast. Nothing in the kernel knows the word jostle.
+///
+/// ⛔⛔ **AND IT IS NOT A FORCE.** The previous attempt at this added an
+/// acceleration beside the controller and had eight passing unit tests;
+/// `bbbc5e46c` deleted it. The axis-swept kernel treats `vel.x` as a velocity
+/// TARGET that `approach()` overwrites every tick, so a term summed into it is
+/// erased before integration — the tests passed because their fixture had no
+/// movement kernel in it. **A test that supplies its own precondition cannot
+/// prove the mechanism reaches production.**
+///
+/// ⚠ **granted to `MatchBody`-seated fighters, which is the cast.** A projectile
+/// or a stage prop that happens to be a body is not a fighter and does not get
+/// it; the grant follows the thing the ruleset seated.
+fn smash_fighters_are_solid_to_each_other(
+    mut commands: bevy::prelude::Commands,
+    router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
+    fighters: bevy::prelude::Query<
+        bevy::prelude::Entity,
+        (
+            bevy::prelude::With<ambition_platformer2d::actor::FighterStocks>,
+            bevy::prelude::Without<ambition_platformer2d::platformer::body::BodyContact>,
+        ),
+    >,
+) {
+    let on_stage = router
+        .active
+        .as_ref()
+        .is_some_and(|active| active.route_id.as_str() == SMASH_GAMEPLAY_ROUTE);
+    if !on_stage {
+        return;
+    }
+    // ⚠ `Without<BodyContact>` in the filter IS the idempotence: a body that
+    // already has it is not in the query, so nothing is written on the frames
+    // where nothing changed, and no change tick moves.
+    for fighter in &fighters {
+        commands
+            .entity(fighter)
+            .try_insert(ambition_platformer2d::platformer::body::BodyContact::FIRM);
+    }
+}
+
 fn return_to_the_select_screen_when_the_match_ends(
     mut decided: bevy::prelude::MessageReader<ambition_platformer2d::actor::StocksMatchDecided>,
     router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
@@ -1698,6 +1748,7 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                     // ⛔ the safety net for every entry that skips the lobby —
                     // the dev bins and the stage tests. See its doc.
                     the_stage_always_plays_by_smash_rules,
+                    smash_fighters_are_solid_to_each_other,
                     // ⚠ **AFTER the driver that sets the flag, and in the same
                     // chain**, so a press and the route change it asks for are
                     // one frame apart at most. The screen would otherwise keep

@@ -70,6 +70,7 @@ use crate::MotionFrame;
 /// apply wall abilities + rebound + end-of-frame `pre_wall_vel`
 /// bookkeeping. Reads and writes the shared clusters plus the axis
 /// policy's model-private maneuver `state`.
+#[allow(clippy::too_many_arguments)]
 pub(super) fn integrate_velocity_clusters(
     world: &World,
     clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
@@ -78,6 +79,7 @@ pub(super) fn integrate_velocity_clusters(
     dt: f32,
     frame: MotionFrame,
     tuning: AxisSweptParams,
+    contact: super::body_contact::BodyContactField<'_>,
     events: &mut FrameEvents,
 ) {
     use crate::player_state::BodyMode;
@@ -166,6 +168,41 @@ pub(super) fn integrate_velocity_clusters(
                 crate::collision_semantics::Axis::X => clusters.kinematics.vel.x,
                 crate::collision_semantics::Axis::Y => clusters.kinematics.vel.y,
             } * dt;
+            // ⭐⭐ **BODY-VS-BODY CONTACT, and this line is the whole placement
+            // argument.** Jon's ruling (2026-08-20) is that a body mechanic may
+            // express contact but it *"should never be a mandatory part of the
+            // movement kernel"* — so the capability CONSTRAINS the motion this
+            // body proposed, immediately before the world sweep resolves it, and
+            // does nothing at all to a body whose composition never granted it
+            // (`BodyContactField::is_inert`). Nothing is separated afterwards.
+            //
+            // ⛔ **SIDE AXIS AND GROUNDED ONLY, first slice.** Standing ON another
+            // body is `footstool`, which already exists and means something else;
+            // and an airborne fighter passing another one is Smash-correct. The
+            // ground flag read here is the body's ENTRY state — the side sweep
+            // runs before support is re-established — which is the right answer
+            // to *is this body standing* for this step.
+            //
+            // ⛔⛔ **AND IT IS NOT A FORCE.** A term summed into `vel` is erased:
+            // `approach()` overwrites `vel` toward the input target every tick,
+            // which is why the acceleration version of this had eight green tests
+            // and moved nothing in a real match (`bbbc5e46c`).
+            let delta_along = if axis == side_axis && clusters.ground.on_ground {
+                super::body_contact::constrain_motion(
+                    clusters.kinematics.aabb_oriented(frame.down()),
+                    delta_along,
+                    matches!(axis, crate::collision_semantics::Axis::X),
+                    // ⛔ **ONE WALK'S WORTH, and no more.** A body standing in
+                    // the way pushes back with the force of standing there; a
+                    // launched body ploughs through it. Without this the
+                    // constraint ate knockback and two `smash_it` guards about
+                    // matches ENDING went red.
+                    tuning.locomotion.max_run_speed * dt,
+                    contact,
+                )
+            } else {
+                delta_along
+            };
             // A crush on this axis rides out on the frame's events for the body's
             // OWNER to interpret; the kernel has already reported the contacts and
             // refused to invent a position no surface accepts.

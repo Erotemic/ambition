@@ -72,6 +72,8 @@ fn step_as(
         Platformer2dFeelTuningMonolith::default(),
         DT,
         DT,
+        // A momentum rig with one body in it: nobody to be solid to.
+        ae::BodyContactField::NONE,
     )
 }
 

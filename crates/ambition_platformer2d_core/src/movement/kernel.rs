@@ -29,6 +29,13 @@ pub struct MotionStepContext<'a> {
     pub frame: MotionFrame,
     pub facing_intent: f32,
     pub dt: f32,
+    /// **THE OTHER BODIES THIS STEP MAY NOT MOVE FREELY THROUGH.**
+    ///
+    /// ⚠ **`BodyContactField::NONE` is the default and the identity** — every
+    /// composition that has not granted the capability resolves exactly as it
+    /// did. See [`super::body_contact`] for why an acceleration term cannot do
+    /// this job and why the field is a snapshot rather than a query.
+    pub contact: super::body_contact::BodyContactField<'a>,
 }
 
 /// The tick's SEMANTIC support fact, selected from contact KINDS — never from
@@ -126,7 +133,13 @@ pub fn step_motion(
     match model {
         MotionModel::AxisSwept(axis) => {
             let events = super::update_body_with_frame_clusters(
-                ctx.world, axis, clusters, ctx.input, ctx.frame, ctx.dt,
+                ctx.world,
+                axis,
+                clusters,
+                ctx.input,
+                ctx.frame,
+                ctx.dt,
+                ctx.contact,
             );
             MotionStepResult::from_events(events, ctx.frame)
         }

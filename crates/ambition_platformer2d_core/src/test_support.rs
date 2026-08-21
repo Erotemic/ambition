@@ -15,10 +15,10 @@
 //! multi-tick tests keep coyote windows, buffers, dash timers, and ledge
 //! grabs across steps exactly as a live entity would.
 
-use crate::body_clusters::{BodyClusterScratch, BodyClustersMut, reset_body_clusters};
+use crate::body_clusters::{reset_body_clusters, BodyClusterScratch, BodyClustersMut};
 use crate::movement::{
-    AxisSweptParams, DEFAULT_GRAVITY_DIR, DEFAULT_TUNING, FrameEvents, InputState, MotionModel,
-    MotionModelSpec, MotionStepContext, MovementTuning, step_motion,
+    step_motion, AxisSweptParams, FrameEvents, InputState, MotionModel, MotionModelSpec,
+    MotionStepContext, MovementTuning, DEFAULT_GRAVITY_DIR, DEFAULT_TUNING,
 };
 use crate::{LedgeContact, LedgeGrabState, MotionFrame, Vec2, World};
 
@@ -113,6 +113,7 @@ pub(crate) fn update_player_with_tuning_clusters(
             frame: tuning.frame(),
             facing_intent: 0.0,
             dt: raw_dt,
+            contact: crate::movement::body_contact::BodyContactField::NONE,
         },
     );
     if result.events.reset.is_some() {
@@ -208,6 +209,7 @@ pub(crate) fn update_player_simulation_with_clusters(
         raw_dt,
         tuning.frame(),
         tuning.params(),
+        crate::movement::body_contact::BodyContactField::NONE,
     );
     if events.reset.is_some() {
         reset_body_clusters(

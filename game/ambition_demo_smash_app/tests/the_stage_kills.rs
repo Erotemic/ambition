@@ -1410,6 +1410,7 @@ fn a_second_match_on_the_same_stage_counts_in_and_ends() {
     let slot: ambition_platformer2d::presentation::HudSlotId =
         ambition_demo_smash::SMASH_ANNOUNCE_HUD_SLOT.into();
 
+    let world_width = ambition_demo_smash::smash_stage().world.size.x;
     let mut app = build_demo_app();
     app.init_resource::<Decisions>();
     app.add_systems(
@@ -1462,15 +1463,32 @@ fn a_second_match_on_the_same_stage_counts_in_and_ends() {
         let mut standing: Option<Vec<(usize, ambition_platformer2d::engine_core::Vec2)>> = None;
         for tick in 0..(countdown + 600) {
             app.update();
-            // The launch, once, after the ceremony has released the cast: a body
-            // thrown at 2400px/s crosses this stage's blast margin in a handful
-            // of ticks, and on one stock that is the match.
-            if !launched && tick > countdown + 30 {
+            // The launch, once, as soon as the ceremony has released the cast: a
+            // body thrown at 2400px/s crosses this stage's blast margin in a
+            // handful of ticks, and on one stock that is the match.
+            //
+            // ⛔ **AS SOON AS, not thirty ticks later.** This test asserts WHICH
+            // fighter's card comes up, and every tick between the release and
+            // the script is a tick in which the CPUs can decide that themselves —
+            // measured 2026-08-20, when body contact made them actually engage
+            // and seat 2 won a match this test says seat 0 wins. The sibling
+            // four-way's own note already says it: a claim about the WORDING of a
+            // card must not depend on combat tuning.
+            if !launched && tick > countdown + 2 {
                 let world = app.world_mut();
                 let mut query = world.query::<(&MatchSeat, &mut BodyKinematics)>();
                 for (seat, mut kin) in query.iter_mut(world) {
                     if seat.0 == 1 {
-                        kin.vel = ambition_platformer2d::engine_core::Vec2::new(2_400.0, -200.0);
+                        // Toward the NEARER edge — see the four-way's note: a
+                        // fixed direction makes crossing the margin depend on
+                        // where the CPU wandered before this fired.
+                        let toward = if kin.pos.x * 2.0 > world_width {
+                            1.0
+                        } else {
+                            -1.0
+                        };
+                        kin.vel =
+                            ambition_platformer2d::engine_core::Vec2::new(2_400.0 * toward, -200.0);
                         launched = true;
                     }
                 }
@@ -1645,6 +1663,7 @@ fn a_four_way_free_for_all_ends_when_one_fighter_is_left() {
             ),
         ));
 
+    let world_width = ambition_demo_smash::smash_stage().world.size.x;
     let mut seated = 0usize;
     let mut launched = false;
     // ⚠ **it STOPS a few ticks after the end, and that is not impatience.** The
@@ -1671,10 +1690,22 @@ fn a_four_way_free_for_all_ends_when_one_fighter_is_left() {
             let mut query = world.query::<(&MatchSeat, &mut BodyKinematics)>();
             for (seat, mut kin) in query.iter_mut(world) {
                 if seat.0 > 0 {
-                    kin.vel = ambition_platformer2d::engine_core::Vec2::new(
-                        2_400.0 * if seat.0 % 2 == 0 { 1.0 } else { -1.0 },
-                        -200.0,
-                    );
+                    // ⛔ **TOWARD THE NEARER EDGE, not by seat parity.** The
+                    // parity version launched a body standing near the LEFT edge
+                    // all the way across the stage, so whether it crossed the
+                    // blast margin depended on where its CPU happened to have
+                    // wandered when this fired — measured 2026-08-20, when body
+                    // contact moved the fighters and one launch came down eighty
+                    // pixels short. This test's own comment says every
+                    // elimination is one it CAUSES; a launch aimed at the far
+                    // side was the one thing about it that was still a race.
+                    let toward = if kin.pos.x * 2.0 > world_width {
+                        1.0
+                    } else {
+                        -1.0
+                    };
+                    kin.vel =
+                        ambition_platformer2d::engine_core::Vec2::new(2_400.0 * toward, -200.0);
                     launched = true;
                 }
             }
@@ -1799,12 +1830,26 @@ fn a_team_victory_names_the_team_and_not_its_last_survivor() {
         seats.sort_unstable();
         seats
     };
+    let world_width = ambition_demo_smash::smash_stage().world.size.x;
+    // ⛔ **TOWARD THE NEARER EDGE, and `speed` is a MAGNITUDE now.** The signed
+    // version aimed a fixed direction per seat, so whether a body crossed the
+    // blast margin depended on where its CPU had wandered when this fired —
+    // measured 2026-08-20, when body contact moved the fighters and one launch
+    // came down short. This test's own note says every elimination is one it
+    // CAUSES on a fixed schedule; a launch aimed at the far side was the one
+    // thing about it that was still a race.
     let launch = |app: &mut App, seat_wanted: usize, speed: f32| {
         let world = app.world_mut();
         let mut query = world.query::<(&MatchSeat, &mut BodyKinematics)>();
         for (seat, mut kin) in query.iter_mut(world) {
             if seat.0 == seat_wanted {
-                kin.vel = ambition_platformer2d::engine_core::Vec2::new(speed, -200.0);
+                let toward = if kin.pos.x * 2.0 > world_width {
+                    1.0
+                } else {
+                    -1.0
+                };
+                kin.vel =
+                    ambition_platformer2d::engine_core::Vec2::new(speed.abs() * toward, -200.0);
             }
         }
     };
@@ -1827,15 +1872,25 @@ fn a_team_victory_names_the_team_and_not_its_last_survivor() {
         // ⚠ after the ceremony RELEASES the cast — a body held by
         // `ScriptedControl` is placed by the respawn rule every tick, so a
         // velocity written during the count is simply overwritten.
-        if tick == countdown + 40 {
+        // ⛔ **as soon as the ceremony releases, for the reason the sibling
+        // second-match test now records: every tick between the release and the
+        // script is a tick in which the CPUs can decide the match themselves.
+        if tick == countdown + 3 {
             launch(&mut app, 1, -4_800.0);
         }
-        if tick == countdown + 60 {
-            launch(&mut app, 2, 2_400.0);
-            launch(&mut app, 3, -2_400.0);
+        if tick == countdown + 8 {
+            // ⚠ **the same speed as seat 1's, because the SPEED was never the
+            // claim.** A body starting near the middle of the stage has further
+            // to travel than one already near an edge, and at 2400px/s the
+            // controller's decay can bring it down inside the world — which
+            // reads as "nothing decided" rather than as a launch that fell
+            // short. What this test asserts is the WORDING of a team's card;
+            // every elimination in it is one it causes, and it should cause them
+            // hard enough that where a CPU was standing cannot matter.
+            launch(&mut app, 2, 4_800.0);
+            launch(&mut app, 3, 4_800.0);
         }
-        if teammate_gone_on.is_none() && tick > countdown + 40 && !seats_now(&mut app).contains(&1)
-        {
+        if teammate_gone_on.is_none() && tick > countdown + 3 && !seats_now(&mut app).contains(&1) {
             teammate_gone_on = Some(tick);
         }
         if decided_on.is_none() && !app.world().resource::<Decisions>().0.is_empty() {
@@ -2018,5 +2073,88 @@ fn two_cpus_wearing_one_character_stop_being_a_perfect_reflection() {
          streams almost nothing to diverge ON at this difficulty. Whether that is \
          acceptable is a product decision (queue D167); do NOT answer it by \
          unmirroring the spawns or by adding noise"
+    );
+}
+
+/// **THE STAGE GRANTS BODY CONTACT TO ITS CAST, AND THE SNAPSHOT CARRIES IT.**
+///
+/// Jon's ruling on §25 (2026-08-20) made body contact expressible; the engine
+/// owns an unnamed constraint and this ruleset grants it, which is the whole of
+/// what smash contributes. This test is the WIRING half of that claim: in a real
+/// match, on the real stage, both seated fighters carry the capability and both
+/// reach the pre-integration snapshot the movement phase reads.
+///
+/// ⚠ **and it says what it does NOT prove, because the last attempt at this was
+/// deleted for exactly that.** `bbbc5e46c` removed an acceleration-based jostle
+/// with eight passing unit tests that moved nothing in a game — its fixture had
+/// no movement kernel in it. Whether the constraint survives the controller is
+/// proven where the controller runs:
+/// `ambition_platformer2d_core::movement::kernel::tests::a_grounded_body_walking_into_another_one_is_stopped_by_the_real_sweep`
+/// holds RIGHT for a second against the `approach()` overwrite that erased the
+/// force version, and measures the distance. This test only says the two are
+/// connected.
+///
+/// ⛔ **the emergent MATCH behaviour is deliberately not asserted here.** Two
+/// CPUs launch each other constantly, land overlapped — which this pass never
+/// separates, by Jon's ruling — and a closest-approach statistic over such a
+/// match measures the launches, not the walking. That is a feel question for
+/// Jon and a re-measurement to take after he has looked at it, not a number to
+/// invent in a test.
+#[test]
+fn the_stage_grants_body_contact_to_both_seated_fighters() {
+    use ambition_platformer2d::actor::MatchSeat;
+    use ambition_platformer2d::platformer::body::{BodyContact, BodyContactSnapshot};
+
+    let mut app = build_demo_app();
+    for _ in 0..30 {
+        app.update();
+    }
+    app.world_mut()
+        .insert_resource(ambition_demo_smash::smash_roster_at_levels(
+            [
+                ambition_demo_smash::SMASH_CHARACTER_ID,
+                ambition_demo_smash::SMASH_OPPONENT_ID,
+            ],
+            &[5, 5],
+        ));
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
+            ambition_platformer2d::game_shell::ShellRouteId::new(
+                ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+            ),
+        ));
+
+    let mut granted = 0usize;
+    let mut sampled = 0usize;
+    let mut resistances: Vec<f32> = Vec::new();
+    for _ in 0..400 {
+        app.update();
+        let world = app.world_mut();
+        if let Some(snapshot) = world.get_resource::<BodyContactSnapshot>() {
+            sampled = sampled.max(snapshot.len());
+        }
+        let mut fighters = world.query_filtered::<&BodyContact, bevy::prelude::With<MatchSeat>>();
+        let seen: Vec<f32> = fighters.iter(world).map(|c| c.resistance).collect();
+        if seen.len() > granted {
+            granted = seen.len();
+            resistances = seen;
+        }
+    }
+
+    assert_eq!(
+        granted, 2,
+        "the stage seated two fighters and granted body contact to {granted} of \
+         them, so the ruleset's own cast is not solid to itself",
+    );
+    assert!(
+        resistances.iter().all(|r| *r > 0.0),
+        "a fighter was granted the capability at zero resistance, which is the \
+         documented way of opting OUT: {resistances:?}",
+    );
+    assert_eq!(
+        sampled, 2,
+        "only {sampled} of the two granted fighters ever reached the \
+         pre-integration snapshot, so the movement phase was told about fewer \
+         bodies than the stage made solid",
     );
 }

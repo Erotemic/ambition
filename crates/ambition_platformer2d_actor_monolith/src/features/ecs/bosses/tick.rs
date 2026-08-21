@@ -820,6 +820,10 @@ pub fn integrate_boss_bodies(
             &mut hit_events,
             #[cfg(feature = "causal")]
             None,
+            // ⚠ **a boss is not in the contact snapshot.** Body contact is
+            // granted per body by a composition; nothing grants it to a boss,
+            // and an inert field resolves this body exactly as it did.
+            ae::BodyContactField::NONE,
         );
         *motion_facts = ambition_platformer2d_core::BodyMotionFacts::from_model(&motion_model);
     }

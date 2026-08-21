@@ -77,6 +77,7 @@ fn dash_run(can_dash: bool, ticks: u32) -> f32 {
             crate::time::feel::Platformer2dFeelTuningMonolith::default(),
             None,
             &ambition_characters::actor::BodyCombat::default(),
+            ae::BodyContactField::NONE,
         );
     }
     em.kin.pos.x - start_x
@@ -137,6 +138,7 @@ fn a_non_surface_walker_keeps_its_frame_normal_live_under_gravity() {
             crate::time::feel::Platformer2dFeelTuningMonolith::default(),
             None,
             &ambition_characters::actor::BodyCombat::default(),
+            ae::BodyContactField::NONE,
         );
         let expected = -gravity;
         assert!(
@@ -187,6 +189,7 @@ fn walk_run_staggered(combat: ambition_characters::actor::BodyCombat, ticks: u32
             crate::time::feel::Platformer2dFeelTuningMonolith::default(),
             None,
             &combat,
+            ae::BodyContactField::NONE,
         );
     }
     em.kin.pos.x - start_x
@@ -282,6 +285,7 @@ fn an_uncapable_body_does_not_burst_and_just_walks() {
         crate::time::feel::Platformer2dFeelTuningMonolith::default(),
         None,
         &ambition_characters::actor::BodyCombat::default(),
+        ae::BodyContactField::NONE,
     );
     let crate::features::MotionModel::AxisSwept(axis) = &model else {
         panic!("test body is not axis-swept");
@@ -333,6 +337,7 @@ fn an_aerial_body_steers_toward_its_velocity_target_through_the_flight_limb() {
             crate::time::feel::Platformer2dFeelTuningMonolith::default(),
             None,
             &ambition_characters::actor::BodyCombat::default(),
+            ae::BodyContactField::NONE,
         );
     }
     assert!(
@@ -425,6 +430,7 @@ fn fly_toggle_run(can_fly: bool, ticks: u32) -> (bool, f32) {
             crate::time::feel::Platformer2dFeelTuningMonolith::default(),
             None,
             &ambition_characters::actor::BodyCombat::default(),
+            ae::BodyContactField::NONE,
         );
     }
     (em.flight.fly_enabled, start_y - em.kin.pos.y)

@@ -58,6 +58,7 @@ fn step(
             frame,
             facing_intent: 0.0,
             dt: DT,
+            contact: crate::movement::body_contact::BodyContactField::NONE,
         },
     )
 }
@@ -1038,5 +1039,77 @@ fn the_launch_channel_is_emptied_by_the_step_that_consumes_it() {
         after > climbing,
         "a drained launch does not re-fire; gravity should be pulling the upward \
          velocity back toward zero ({climbing} -> {after})"
+    );
+}
+
+/// **⛔⛔ THE CAPABILITY REACHES THE REAL SWEEP — through `step_motion`, with the
+/// real controller running.**
+///
+/// This is the test the deleted acceleration jostle could not have. `bbbc5e46c`
+/// removed an implementation with eight passing unit tests that moved nothing in
+/// a match, because its fixture had no movement kernel in it: the axis-swept
+/// controller treats `vel.x` as a velocity TARGET and `approach()` overwrites it
+/// every tick, so a term summed into velocity is erased before integration.
+///
+/// So this enters through `step_motion`, holds RIGHT for a full second of ticks
+/// against the controller that would overwrite a force, and measures the body.
+///
+/// ⚠ **the A/B is the assertion.** The same run happens twice — once with the
+/// body's contact field populated and once with `NONE`, the documented identity
+/// — and the free body must travel measurably further. No distance in this test
+/// is chosen; both are measured, and if the constraint were inert they would be
+/// equal.
+#[test]
+fn a_grounded_body_walking_into_another_one_is_stopped_by_the_real_sweep() {
+    fn walk_right(blockers: &[crate::Aabb]) -> f32 {
+        let world = floor_world();
+        let start = Vec2::new(200.0, 380.0);
+        let mut scratch = BodyClusterScratch::new_with_abilities(start, AbilitySet::default());
+        let mut model = MotionModel::axis_swept(AxisSweptParams::default());
+        let frame = MotionFrame::from_direction(Vec2::new(0.0, 1.0), 900.0);
+        let mut input = InputState::default();
+        input.axes = LocalAxes::new(1.0, 0.0);
+        for _ in 0..60 {
+            let mut clusters = scratch.as_mut();
+            step_motion(
+                &mut model,
+                &mut clusters,
+                MotionStepContext {
+                    world: &world,
+                    input,
+                    frame,
+                    facing_intent: 1.0,
+                    dt: DT,
+                    contact: crate::movement::body_contact::BodyContactField::new(blockers, 1.0),
+                },
+            );
+        }
+        scratch.as_mut().kinematics.pos.x - start.x
+    }
+
+    let free = walk_right(&[]);
+    assert!(
+        free > 100.0,
+        "the fixture never walked anywhere ({free:.1}px), so nothing below \
+         measures a constraint",
+    );
+
+    // A wall of another body 60px to the right of the start pose.
+    let blocker = [crate::Aabb::new(
+        Vec2::new(300.0, 380.0),
+        Vec2::new(20.0, 24.0),
+    )];
+    let blocked = walk_right(&blocker);
+    assert!(
+        blocked < free - 20.0,
+        "a body walking into another one travelled {blocked:.1}px against \
+         {free:.1}px unobstructed: the constraint is not reaching the sweep, \
+         which is exactly how an acceleration term passes its own unit tests \
+         and moves nothing in a game",
+    );
+    assert!(
+        blocked > 0.0,
+        "the constrained body went backwards ({blocked:.1}px) — this pass may \
+         only ever REDUCE motion, never separate bodies",
     );
 }

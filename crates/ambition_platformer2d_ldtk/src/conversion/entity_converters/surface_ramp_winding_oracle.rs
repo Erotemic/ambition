@@ -139,6 +139,9 @@ fn ride_into_the_corner(o: RampOrientation) -> ae::Vec2 {
                 frame,
                 facing_intent: 0.0,
                 dt: DT,
+                // A winding oracle traces ONE body against authored geometry;
+                // there is nobody else in it to be solid to.
+                contact: ae::BodyContactField::NONE,
             },
         );
         // Past the fillet's far tangent point, measured along the wall axis.

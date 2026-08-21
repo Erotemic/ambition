@@ -137,6 +137,7 @@ fn crawl(
                 frame: TEST_TUNING.frame(),
                 facing_intent: facing,
                 dt: DT,
+                contact: crate::movement::body_contact::BodyContactField::NONE,
             },
         );
         track.push(clusters.kinematics.pos);

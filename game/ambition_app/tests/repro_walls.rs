@@ -42,6 +42,7 @@ fn step_axis_for_test(
             frame,
             facing_intent: input.axes.x,
             dt,
+            contact: ae::BodyContactField::NONE,
         },
     )
     .events
@@ -223,7 +224,10 @@ fn locate_teleport_target_block() {
         panic!("validation failed");
     }
     let room_set = project
-        .to_room_set(&ambition_content::worlds::world_manifest(), &ambition_app::composed_ldtk_vocabulary())
+        .to_room_set(
+            &ambition_content::worlds::world_manifest(),
+            &ambition_app::composed_ldtk_vocabulary(),
+        )
         .expect("room_set");
     let arena = room_set
         .rooms
@@ -285,7 +289,10 @@ fn square_arena_wall_cling_full_world_does_not_teleport() {
         panic!("validation failed");
     }
     let room_set = project
-        .to_room_set(&ambition_content::worlds::world_manifest(), &ambition_app::composed_ldtk_vocabulary())
+        .to_room_set(
+            &ambition_content::worlds::world_manifest(),
+            &ambition_app::composed_ldtk_vocabulary(),
+        )
         .expect("room_set");
     let arena = room_set
         .rooms
@@ -295,8 +302,11 @@ fn square_arena_wall_cling_full_world_does_not_teleport() {
     let world = arena.world.clone();
     let platforms = arena.moving_platforms.clone();
     let ecs_overlay = sb::features::FeatureEcsWorldOverlay::default();
-    let augmented =
-        ambition_platformer2d::world::collision::world_with_sandbox_solids(&world, &platforms, &ecs_overlay);
+    let augmented = ambition_platformer2d::world::collision::world_with_sandbox_solids(
+        &world,
+        &platforms,
+        &ecs_overlay,
+    );
 
     let mut player = scratch_at(world.spawn);
     // EXACT live state from frame 1087 of trace 1777905256-095151097-000000.
@@ -355,7 +365,10 @@ fn square_arena_wall_cling_full_world_steps_many_times() {
         panic!("validation failed");
     }
     let room_set = project
-        .to_room_set(&ambition_content::worlds::world_manifest(), &ambition_app::composed_ldtk_vocabulary())
+        .to_room_set(
+            &ambition_content::worlds::world_manifest(),
+            &ambition_app::composed_ldtk_vocabulary(),
+        )
         .expect("room_set");
     let arena = room_set
         .rooms
@@ -365,8 +378,11 @@ fn square_arena_wall_cling_full_world_steps_many_times() {
     let world = arena.world.clone();
     let platforms = arena.moving_platforms.clone();
     let ecs_overlay = sb::features::FeatureEcsWorldOverlay::default();
-    let augmented =
-        ambition_platformer2d::world::collision::world_with_sandbox_solids(&world, &platforms, &ecs_overlay);
+    let augmented = ambition_platformer2d::world::collision::world_with_sandbox_solids(
+        &world,
+        &platforms,
+        &ecs_overlay,
+    );
 
     let mut player = scratch_at(world.spawn);
     player.kinematics.pos = ae::Vec2::new(62.0, 1567.9125);
@@ -621,7 +637,10 @@ fn mob_lab_lock_wall_cling_does_not_teleport() {
 fn goblin_encounter_full_world_lock_wall_cling_repro() {
     let project = load_project_for_test().expect("sandbox LDtk should load");
     let room_set = project
-        .to_room_set(&ambition_content::worlds::world_manifest(), &ambition_app::composed_ldtk_vocabulary())
+        .to_room_set(
+            &ambition_content::worlds::world_manifest(),
+            &ambition_app::composed_ldtk_vocabulary(),
+        )
         .expect("room_set");
     let Some(room) = room_set.rooms.iter().find(|s| s.id == "goblin_encounter") else {
         eprintln!("no goblin_encounter room; known rooms:");
@@ -633,8 +652,11 @@ fn goblin_encounter_full_world_lock_wall_cling_repro() {
     let world = room.world.clone();
     let platforms = room.moving_platforms.clone();
     let ecs_overlay = sb::features::FeatureEcsWorldOverlay::default();
-    let mut augmented =
-        ambition_platformer2d::world::collision::world_with_sandbox_solids(&world, &platforms, &ecs_overlay);
+    let mut augmented = ambition_platformer2d::world::collision::world_with_sandbox_solids(
+        &world,
+        &platforms,
+        &ecs_overlay,
+    );
 
     // Append the runtime lock wall last (matches sync_lock_walls insert
     // order). Trace coords: LDtk px (480,400) size (224,208).
@@ -727,7 +749,10 @@ fn goblin_encounter_full_world_lock_wall_cling_repro() {
 fn goblin_encounter_real_walljump_repro() {
     let project = load_project_for_test().expect("sandbox LDtk should load");
     let room_set = project
-        .to_room_set(&ambition_content::worlds::world_manifest(), &ambition_app::composed_ldtk_vocabulary())
+        .to_room_set(
+            &ambition_content::worlds::world_manifest(),
+            &ambition_app::composed_ldtk_vocabulary(),
+        )
         .expect("room_set");
     let Some(room) = room_set.rooms.iter().find(|s| s.id == "goblin_encounter") else {
         return;
@@ -735,8 +760,11 @@ fn goblin_encounter_real_walljump_repro() {
     let world = room.world.clone();
     let platforms = room.moving_platforms.clone();
     let ecs_overlay = sb::features::FeatureEcsWorldOverlay::default();
-    let mut augmented =
-        ambition_platformer2d::world::collision::world_with_sandbox_solids(&world, &platforms, &ecs_overlay);
+    let mut augmented = ambition_platformer2d::world::collision::world_with_sandbox_solids(
+        &world,
+        &platforms,
+        &ecs_overlay,
+    );
     augmented.blocks.push(ae::Block::solid(
         "lockwall:goblin_encounter",
         ae::Vec2::new(480.0, 400.0),

@@ -48,6 +48,7 @@ fn step_axis_body(
             frame: ae::MotionFrame::from_direction(ae::DEFAULT_GRAVITY_DIR, ae::GRAVITY),
             facing_intent: 0.0,
             dt,
+            contact: ambition_platformer2d_core::BodyContactField::NONE,
         },
     );
     if result.events.reset.is_some() {

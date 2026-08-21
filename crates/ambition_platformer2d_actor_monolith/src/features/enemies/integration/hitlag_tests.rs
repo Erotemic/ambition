@@ -97,6 +97,7 @@ fn walk_distance_with_hitstop(hitstop: f32, ticks: u32) -> f32 {
             crate::time::feel::Platformer2dFeelTuningMonolith::default(),
             None,
             &combat,
+            ae::BodyContactField::NONE,
         );
     }
     em.kin.pos.x - start_x

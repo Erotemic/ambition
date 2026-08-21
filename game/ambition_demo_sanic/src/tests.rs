@@ -492,6 +492,7 @@ impl MomentumRig {
                     .expect("non-zero acceleration"),
                 facing_intent: 0.0,
                 dt: 1.0 / 60.0,
+                contact: ae::BodyContactField::NONE,
             },
         );
     }

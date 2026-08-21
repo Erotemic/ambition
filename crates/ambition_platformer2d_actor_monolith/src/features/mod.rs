@@ -157,7 +157,7 @@ pub use ecs::{
     magnetize_pickups, open_ecs_chests, project_boss_attack_state_from_move,
     rebuild_feature_ecs_world_overlay, refresh_body_damageable_volumes,
     refresh_boss_damageable_volumes, refresh_breakable_damageable_volumes, reset_ecs_room_features,
-    route_boss_strikes_to_limbs, select_actor_targets, spawn_encounter_mob,
+    route_boss_strikes_to_limbs, select_actor_targets, snapshot_body_contact, spawn_encounter_mob,
     spawn_projectiles_from_brain_actions, spawn_room_feature_entities_from_plan,
     steer_mount_from_rider, sync_actor_poses_from_feature_aabbs, sync_actor_read_model,
     sync_boss_actor_components, sync_boss_encounter_phase, sync_ecs_actors_with_save,
@@ -545,6 +545,11 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // selection, before the NPC bark ticker). Registered separately from the big
         // WorldPrep tuple, which is at Bevy's chain-length ceiling.
         app.init_resource::<ActorSteering>();
+        // **Every solid body's contact box, resampled before every movement
+        // phase.** Empty in every composition that grants no body the
+        // capability, and an empty snapshot answers `BodyContactField::NONE`
+        // for every body — so this resource existing changes nothing on its own.
+        app.init_resource::<ambition_platformer2d_shared_tangle::body::BodyContactSnapshot>();
         app.init_resource::<crate::features::ecs::perception::PerceptionPeers>();
         app.init_resource::<crate::features::ecs::perception::PerceptionProjectiles>();
         app.add_systems(
@@ -663,6 +668,13 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // It carries `WorldPrepSet::Integrate` so a consumer — in this
                 // crate or in a game — can say "before bodies move" or "after they
                 // land" without naming this function.
+                // ⛔⛔ **ONE SAMPLE, BEFORE ANYBODY MOVES.** Body contact is
+                // resolved per body inside the integrator; a body that asked the
+                // world for its neighbours' LIVE poses would see whoever moved
+                // first already integrated, and query order would decide who won
+                // the contest. Chained, so this is not an ordering somebody has
+                // to remember.
+                snapshot_body_contact,
                 integrate_sim_bodies.in_set(crate::schedule::WorldPrepSet::Integrate),
                 sync_actor_read_model,
                 // **THE CAPTIVE IS PUT BACK AFTER IT MOVED**, exactly as

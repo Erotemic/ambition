@@ -805,6 +805,11 @@ pub(crate) fn integrate_actor_body(
     #[cfg(feature = "causal")] movement_ops: Option<
         &mut MessageWriter<crate::causal::BodyMovementOps>,
     >,
+    // **The other solid bodies this one may not walk through**, resolved from
+    // the pre-integration snapshot by the caller. Inert for a body whose
+    // composition never granted the capability, which is every body outside a
+    // ruleset that opted its cast in.
+    contact_field: ae::BodyContactField<'_>,
 ) {
     // The brain's intent for this body, produced upstream in `tick_actor_brains`.
     let mut brain_frame = control
@@ -880,6 +885,7 @@ pub(crate) fn integrate_actor_body(
         feel,
         authored_tuning,
         combat,
+        contact_field,
     );
     if was_dead && em.health.alive() {
         combat.hit_flash = 0.24;
@@ -1000,6 +1006,46 @@ pub(crate) fn integrate_actor_body(
     }
 }
 
+/// **SAMPLE EVERY SOLID BODY'S CONTACT BOX BEFORE ANY OF THEM MOVES.**
+///
+/// ⛔⛔ **a separate system, immediately before the integration phase, and that
+/// is the fairness argument.** Body contact is resolved per body inside the
+/// integrator; if each body asked the world for its neighbours' LIVE poses, the
+/// second body to be resolved would see the first one already integrated and the
+/// contest would be decided by query order. Under rollback that is a desync, and
+/// on a couch it is one player being harder to push than the other for no reason
+/// anybody authored. One sample, before anybody moves.
+///
+/// ⚠ **grounded bodies only, first slice** — see [`BodyContactSnapshot`]. An
+/// airborne body passing over another is not in its way, and standing ON one is
+/// `footstool`, which already exists and means something else.
+///
+/// ⚠ **it clears unconditionally.** A snapshot that survived a tick in which
+/// nothing ran would be last tick's poses presented as this tick's, which is the
+/// stale-derivation shape rollback cannot rewind out of.
+pub fn snapshot_body_contact(
+    mut snapshot: ResMut<ambition_platformer2d_shared_tangle::body::BodyContactSnapshot>,
+    bodies: Query<(
+        bevy::prelude::Entity,
+        &ambition_platformer2d_shared_tangle::body::BodyKinematics,
+        &ae::BodyGroundState,
+        &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
+        &ambition_platformer2d_shared_tangle::body::BodyContact,
+    )>,
+) {
+    snapshot.clear();
+    for (entity, kinematics, ground, frame, contact) in &bodies {
+        if !ground.on_ground {
+            continue;
+        }
+        snapshot.push(
+            entity,
+            kinematics.aabb_oriented(frame.down()),
+            contact.resistance,
+        );
+    }
+}
+
 /// PHASE — integrate sim bodies. The ONE scheduled movement phase for every
 /// non-boss sim body: it reads each body's brain-produced `ActorControl` and moves
 /// it through the shared movement kernel (`ae::step_motion`).
@@ -1029,6 +1075,15 @@ pub fn integrate_sim_bodies(
     // query rather than another member of the cluster tuple, which is already at
     // twelve.
     body_sources: Query<&ambition_sfx::BodyPresentationSource>,
+    // **EVERY SOLID BODY'S CONTACT BOX, sampled before any of them moved** —
+    // see `snapshot_body_contact`, which runs immediately before this phase.
+    // Empty in every composition that has not granted the capability, and an
+    // empty snapshot answers `BodyContactField::NONE` for every body.
+    contact: Res<ambition_platformer2d_shared_tangle::body::BodyContactSnapshot>,
+    // The per-body blocker list, reused across bodies and across ticks. ⚠ a
+    // `Local` rather than a fresh `Vec` per body: this is the innermost loop of
+    // the movement phase.
+    mut contact_scratch: Local<Vec<ae::Aabb>>,
     world_time: Res<WorldTime>,
     world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
         ambition_platformer2d_core::RoomGeometry,
@@ -1097,6 +1152,9 @@ pub fn integrate_sim_bodies(
     // home body just also owns the `PlayerBodyFrameOutput` reset/presentation seam.
     mut players: Query<
         (
+            // Whose body this is, so the contact snapshot can hand it every
+            // OTHER solid body's box without including its own.
+            Entity,
             ae::BodyClusterQueryData,
             &BodyCombat,
             // ⛔ **the body's own reason set, because a hazard TILE is damage.**
@@ -1181,6 +1239,7 @@ pub fn integrate_sim_bodies(
             &mut hit_events,
             #[cfg(feature = "causal")]
             movement_ops.as_mut(),
+            contact.field_for(actor_entity, &mut contact_scratch),
         );
         // Publish the semantic movement facts this step produced (ADR 0024):
         // presentation/combat consumers read THESE, never policy internals.
@@ -1203,6 +1262,7 @@ pub fn integrate_sim_bodies(
     let frame_dt = world_time.raw_dt;
     let scaled_dt = world_time.scaled_dt;
     for (
+        player_entity,
         mut cluster_item,
         combat,
         health,
@@ -1251,6 +1311,7 @@ pub fn integrate_sim_bodies(
             player_feel,
             frame_dt,
             scaled_dt,
+            contact.field_for(player_entity, &mut contact_scratch),
         );
         *motion_facts = ambition_platformer2d_core::BodyMotionFacts::from_model(&motion_model);
         // Input-relative facts the model projection can't know: republished
@@ -1632,7 +1693,10 @@ fn legality_of(
         // Nothing owns the body: every candidate is startable.
         return ActionLegality::Now;
     };
-    if pb.spec.cancel_permits(pb.t, pb.landed_hit, &[verb_name, move_id]) {
+    if pb
+        .spec
+        .cancel_permits(pb.t, pb.landed_hit, &[verb_name, move_id])
+    {
         ActionLegality::Now
     } else {
         ActionLegality::BlockedByPlayback

@@ -23,6 +23,7 @@ fn step_axis_player(
             frame,
             facing_intent: input.axes.x,
             dt,
+            contact: ambition_platformer2d_core::BodyContactField::NONE,
         },
     );
     let events = result.events;

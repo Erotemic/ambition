@@ -121,6 +121,10 @@ pub fn integrate_home_body(
     feel: Platformer2dFeelTuningMonolith,
     frame_dt: f32,
     scaled_dt: f32,
+    // **The other solid bodies this one may not walk through**, sampled before
+    // any body moved. `BodyContactField::NONE` for a body whose composition
+    // never granted the capability, which is every body in Ambition today.
+    contact_field: ae::BodyContactField<'_>,
 ) -> Option<ae::Vec2> {
     // ⭐ the BODY, so both roads read the same authority. The actor road used to
     // spell half of it (ledger D108); the signature no longer has a half to
@@ -155,6 +159,7 @@ pub fn integrate_home_body(
             frame: motion_frame,
             facing_intent: actor_control.facing,
             dt: scaled_dt,
+            contact: contact_field,
         },
     );
 

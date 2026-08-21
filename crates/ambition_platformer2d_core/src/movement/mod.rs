@@ -25,6 +25,7 @@ mod abilities;
 mod adhesive_crawler;
 mod authority;
 mod blink;
+pub mod body_contact;
 pub(crate) mod collision;
 pub mod containment;
 mod control;
@@ -49,6 +50,7 @@ pub use surface_momentum::{
 
 pub use abilities::{resolve_burst_maneuver, resolve_shield, BurstManeuver};
 pub use blink::{blink_destination_clusters, blink_destination_to_point_clusters};
+pub use body_contact::{constrain_motion, BodyContactField};
 // The ONE hazard-touch rule, exported so external observers apply the SAME
 // predicate the kernel applies — never a duplicated near-copy.
 pub use authority::{
@@ -251,6 +253,7 @@ pub(crate) fn update_body_simulation_in_frame(
     raw_dt: f32,
     frame: MotionFrame,
     tuning: AxisSweptParams,
+    contact: body_contact::BodyContactField<'_>,
 ) -> FrameEvents {
     // §3.1 SweepSample: both endpoints are captured INSIDE the kernel —
     // `prev` at sim-phase entry, `curr` at exit — so any position change
@@ -261,7 +264,9 @@ pub(crate) fn update_body_simulation_in_frame(
     // segment, never a stale one).
     let entry_pos = clusters.kinematics.pos;
     let entry_vel = clusters.kinematics.vel;
-    let events = update_body_simulation_inner(world, clusters, state, input, raw_dt, frame, tuning);
+    let events = update_body_simulation_inner(
+        world, clusters, state, input, raw_dt, frame, tuning, contact,
+    );
     if let Some(sweep) = clusters.sweep.as_deref_mut() {
         *sweep = crate::body_clusters::SweepSample {
             prev: entry_pos,
@@ -273,6 +278,7 @@ pub(crate) fn update_body_simulation_in_frame(
     events
 }
 
+#[allow(clippy::too_many_arguments)]
 fn update_body_simulation_inner(
     world: &World,
     clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
@@ -281,6 +287,7 @@ fn update_body_simulation_inner(
     raw_dt: f32,
     frame: MotionFrame,
     tuning: AxisSweptParams,
+    contact: body_contact::BodyContactField<'_>,
 ) -> FrameEvents {
     let mut events = FrameEvents::default();
     if raw_dt <= 0.0 {
@@ -471,6 +478,7 @@ fn update_body_simulation_inner(
         dt,
         frame,
         tuning,
+        contact,
         &mut events,
     );
 
@@ -512,6 +520,7 @@ pub(crate) fn update_body_with_frame_clusters(
     input: InputState,
     frame: MotionFrame,
     raw_dt: f32,
+    contact: body_contact::BodyContactField<'_>,
 ) -> FrameEvents {
     let tuning = axis.params;
     let state = &mut axis.state;
@@ -533,8 +542,9 @@ pub(crate) fn update_body_with_frame_clusters(
         kernel::establish_axis_ground_contact_baseline(world, clusters, frame)
     }
     .with_impact_velocity(clusters.kinematics.vel, frame);
-    let mut sim_events =
-        update_body_simulation_in_frame(world, clusters, state, input, raw_dt, frame, tuning);
+    let mut sim_events = update_body_simulation_in_frame(
+        world, clusters, state, input, raw_dt, frame, tuning, contact,
+    );
     sim_events.ground_contact = baseline.transition_to(clusters.ground.on_ground);
     events.extend(sim_events);
     events

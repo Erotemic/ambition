@@ -557,6 +557,8 @@ fn run_effort(
                     frame,
                     facing_intent,
                     dt: probe.dt,
+                    // A recovery probe, not this body's real motion.
+                    contact: crate::movement::body_contact::BodyContactField::NONE,
                 },
             )
         };

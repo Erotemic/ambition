@@ -144,6 +144,7 @@ impl Probe {
                     .expect("non-zero acceleration"),
                 facing_intent: 0.0,
                 dt: DT,
+                contact: ae::BodyContactField::NONE,
             },
         );
         let ae::MotionModel::SurfaceMomentum(m) = &self.model else {

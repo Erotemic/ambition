@@ -3,15 +3,19 @@
 
 use bevy::prelude::*;
 
+use ambition_characters::brain::ActionSet;
+use ambition_input::ControlFrame;
 use ambition_platformer2d_actor_monolith::actor::BodyBaseSize;
 use ambition_platformer2d_actor_monolith::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
-use ambition_platformer2d_actor_monolith::platformer_runtime::gravity::{gravity_upright_angle, GravityField};
-use ambition_platformer2d_actor_monolith::platformer_runtime::orientation::{update_actor_roll, ActorRoll};
+use ambition_platformer2d_actor_monolith::platformer_runtime::gravity::{
+    gravity_upright_angle, GravityField,
+};
+use ambition_platformer2d_actor_monolith::platformer_runtime::orientation::{
+    update_actor_roll, ActorRoll,
+};
 use ambition_platformer2d_actor_monolith::platformer_runtime::transit::rotate_velocity_between_normals as portal_transform_velocity;
-use ambition_characters::brain::ActionSet;
 use ambition_platformer2d_core::RoomGeometry;
 use ambition_platformer2d_core::{self as ae};
-use ambition_input::ControlFrame;
 
 #[allow(unused_imports)]
 use super::*;
@@ -51,6 +55,7 @@ fn step_axis_scratch(
             frame,
             facing_intent: input.axes.x,
             dt,
+            contact: ambition_platformer2d_core::BodyContactField::NONE,
         },
     );
 }
@@ -789,7 +794,9 @@ fn transit_is_gradual_centroid_crossing_flags_the_teleport_then_clears() {
         mut flag: ResMut<TeleportedThisFrame>,
         mut trail_flag: ResMut<TrailBreakThisFrame>,
         mut reader: MessageReader<BodyTeleported>,
-        mut trail_reader: MessageReader<ambition_platformer2d_actor_monolith::avatar::trail::TrailContinuityBreak>,
+        mut trail_reader: MessageReader<
+            ambition_platformer2d_actor_monolith::avatar::trail::TrailContinuityBreak,
+        >,
     ) {
         flag.0 = reader.read().next().is_some();
         trail_flag.0 = trail_reader.read().next().is_some();
@@ -1469,8 +1476,8 @@ fn floor_floor_round_trip_saturates_at_the_terminal_apex_when_capped() {
 #[test]
 fn a_portal_on_a_moving_platform_rides_its_host_face() {
     use crate::portal::host_adapter::{attach_portal_hosts, refresh_hosted_portal_frames};
-    use ambition_platformer2d_world::platforms::MovingPlatformState;
     use ambition_platformer2d_world::collision::MovingPlatformSet;
+    use ambition_platformer2d_world::platforms::MovingPlatformState;
 
     let mut app = App::new();
     // Authored base: one anon fixture wall (unattributable on purpose).

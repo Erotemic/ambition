@@ -66,6 +66,7 @@ fn stepped(
                 frame: frame(),
                 facing_intent: 0.0,
                 dt: DT,
+                contact: ae::BodyContactField::NONE,
             },
         );
     }

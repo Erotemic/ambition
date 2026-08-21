@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v59
+ggrs-rollback-schema-v60
 actor.action_set	component-clone	ActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.active_combatant	component-canonical	ActiveCombatant	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.aggression	component-clone-cursor	ActorAggression	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
@@ -69,6 +69,7 @@ body.ability_base	component-clone	AbilityBase	bevy_ggrs clone snapshot; state ch
 body.action_buffer	component-canonical	BodyActionBuffer	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.base_size	component-canonical	BodyBaseSize	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.blink	component-canonical	BodyBlinkState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+body.contact	component-clone	BodyContact	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 body.dash	component-canonical	BodyDashState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.dodge	component-canonical	BodyDodgeState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.flight	component-canonical	BodyFlightState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
@@ -141,6 +142,7 @@ cutscene.playback	resource-canonical	ActiveCutscene	bevy_ggrs canonical codec sn
 derived.actor_action_scheme	derived	ActorActionScheme	reconciled from abilities, moveset, and action set
 derived.actor_steering	derived	ActorSteering	rebuilt from the authoritative actor population before movement
 derived.authored_switch_commands	derived	AuthoredSwitchCommands	authored switch verbs prepared for the active room; recomputed from the room set and LDtk project
+derived.body_contact_snapshot	derived	BodyContactSnapshot	cleared and refilled from authoritative BodyKinematics every tick, immediately before the movement phase that reads it
 derived.body_environment_contact	derived	BodyEnvironmentContact	rewritten every movement step from body geometry and the live world
 derived.body_mode_capabilities	derived	BodyModeCapabilities	projected from the active body mode each frame
 derived.body_motion_facts	derived	BodyMotionFacts	republished from MotionModel every movement step

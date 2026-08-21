@@ -65,6 +65,20 @@ where
         "derived.gravity_zones",
         "rebuilt from authoritative GravityZone components before body integration",
     );
+    registrar.declare_rollback_derived_resource::<crate::body::BodyContactSnapshot>(
+        OWNER,
+        "derived.body_contact_snapshot",
+        "cleared and refilled from authoritative BodyKinematics every tick, immediately \
+         before the movement phase that reads it",
+    );
+    registrar.rollback_component_clone_probed::<crate::body::BodyContact>(
+        OWNER,
+        "body.contact",
+        // ⚠ **probed, not presence-only.** The capability is a NUMBER: two peers
+        // can agree a body is solid and disagree about how hard, which is a
+        // divergence in every step that body takes beside another one.
+        |contact| u64::from(contact.resistance.to_bits()),
+    );
     registrar
         .rollback_component_canonical::<crate::lifecycle::RoomScopedEntity>(OWNER, "scope.room");
     registrar.rollback_component_canonical::<crate::lifecycle::SessionScopedEntity>(

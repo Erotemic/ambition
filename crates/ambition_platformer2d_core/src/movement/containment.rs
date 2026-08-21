@@ -130,6 +130,9 @@ pub fn probe_containment(
                 frame,
                 facing_intent: probe.axes.x,
                 dt: probe.dt,
+                // Containment asks the kernel where a body FITS in its room; other
+                // bodies are not part of that question.
+                contact: crate::movement::body_contact::BodyContactField::NONE,
             },
         );
         let pos = scratch.kinematics.pos;

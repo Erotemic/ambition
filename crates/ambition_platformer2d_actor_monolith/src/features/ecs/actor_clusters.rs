@@ -1116,6 +1116,8 @@ impl ActorClusterSeed {
                 crate::time::feel::Platformer2dFeelTuningMonolith::default(),
                 None,
                 &ambition_characters::actor::BodyCombat::default(),
+                // A single-body rig: nobody to be solid to.
+                ae::BodyContactField::NONE,
             )
             .0
     }

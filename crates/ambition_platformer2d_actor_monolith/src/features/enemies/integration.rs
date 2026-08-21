@@ -199,6 +199,10 @@ impl<'a> ActorMut<'a> {
         // grant site's own comment says it exists to prevent.
         authored_tuning: Option<ae::MovementTuning>,
         combat: &ambition_characters::actor::BodyCombat,
+        // **The other solid bodies this one may not walk through**, sampled
+        // before any body moved. Inert for every body whose composition never
+        // granted the capability, which is every body outside a smash match.
+        contact_field: ae::BodyContactField<'_>,
     ) -> (
         ambition_characters::actor::control::ActorControlFrame,
         ae::FrameEvents,
@@ -264,6 +268,7 @@ impl<'a> ActorMut<'a> {
             feel,
             authored_tuning,
             combat,
+            contact_field,
         );
 
         // Face the brain's committed direction whenever it commits one. Hostile
@@ -320,6 +325,7 @@ impl<'a> ActorMut<'a> {
         // grant site's own comment says it exists to prevent.
         authored_tuning: Option<ae::MovementTuning>,
         combat: &ambition_characters::actor::BodyCombat,
+        contact_field: ae::BodyContactField<'_>,
     ) -> ae::FrameEvents {
         let flying = self.flight.fly_enabled;
         let mut tuning = self
@@ -366,7 +372,10 @@ impl<'a> ActorMut<'a> {
         // movement authority but preserves the attack verb. Applied after the
         // flight-axis override so a knocked flyer loses its steering too.
         crate::features::ecs::attack::apply_post_hit_input_gates(
-            &mut input, feel, combat, self.shield,
+            &mut input,
+            feel,
+            combat,
+            self.shield,
         );
         // ⭐⭐ **the tuning refresh and the hitlag freeze are ONE CALL with the
         // avatar road now** (D117). Both roads used to spell these two steps
@@ -387,6 +396,7 @@ impl<'a> ActorMut<'a> {
                 frame: motion_frame,
                 facing_intent: frame.facing,
                 dt,
+                contact: contact_field,
             },
         );
         drop(clusters);

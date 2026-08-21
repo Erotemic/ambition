@@ -3030,6 +3030,27 @@ counts TESTS (39% of this crate), so a well-tested crate trips its own carve
 alarm, and a carve that moves code moves its tests with it. Neither number says
 anything about whether a domain is whole.
 
+⛔⛔ **THE PRICE OF MOVING A REGISTERED TYPE: THREE PATH-KEYED LEDGERS, AND THEY
+ARE NOT IN ONE PLACE.** Learned the hard way twice on 2026-08-21 — one carve
+reddened an absence contract, the next reddened the app suite, both within an
+hour of a green gate.
+
+```text
+scripts/baselines/rollback-schema-baseline.json   FULL TYPE PATH   caught by `rollback-wire-format-is-frozen`
+rollback_coverage.rs  RESOURCE_WAIVED / WAIVED    PATH SUFFIX      caught by app_it
+rollback_schema_baseline.txt / .rs                STABLE ID        unaffected — keys on `actor.surface_state`
+```
+
+⇒ **the gate is not enough for a relocation.** `cargo check -p ambition_app
+--all-targets` and even the smash suite pass while two of these are stale; only
+the app integration suite and the contract checker see them. ⚠ run BOTH before
+committing a type move.
+
+⭐ and when you re-point a waiver, **re-point the path and leave the REASON
+alone**. The waiver answers a question — "is this per-frame state?" — and moving
+a type does not change the answer, only where to ask it. Rewriting the
+justification to match a diff is how a true waiver becomes a false one.
+
 ⭐⭐ **THE CAPTURE CARVE: ATTEMPTED 2026-08-21, UNWOUND, AND IT NAMED THE CARVE
 ORDER.** The prerequisite landed (`6c4592021`, `ActorSurfaceState` down to the
 floor crate); the move itself did not, and the reason is worth more than the

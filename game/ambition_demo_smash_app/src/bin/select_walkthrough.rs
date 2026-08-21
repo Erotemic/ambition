@@ -18,10 +18,10 @@
 //! photographs the real thing, and this prints what the screen BELIEVES, which a
 //! photograph cannot.
 
-use ambition_demo_smash::select::{SmashRoster, SmashSelect, MAX_SMASH_SEATS};
-use ambition_demo_smash::select_screen::cursor::SelectCursor;
+use ambition_demo_smash::select::{MAX_SMASH_SEATS, SmashRoster, SmashSelect};
+use ambition_demo_smash::select_screen::cursor::SelectCursors;
 use ambition_demo_smash::select_screen::layout::SelectLayout;
-use ambition_demo_smash::select_screen::{card_name_text, role_button_text, StartRequested};
+use ambition_demo_smash::select_screen::{StartRequested, card_name_text, role_button_text};
 use ambition_demo_smash_app::build_demo_app;
 use ambition_platformer2d::input::{MenuControlFrame, SeatMenuFrames};
 use bevy::prelude::*;
@@ -74,8 +74,11 @@ fn main() {
 
 /// Put the cursor on a rectangle and press confirm, from seat 0.
 fn click(app: &mut App, rect: ambition_demo_smash::select_screen::cursor::HitRect, what: &str) {
+    // ⚠ seat 0's cursor, not "the" cursor: there are four since 2026-08-21,
+    // one per seat, and this walkthrough drives seat 0 as its doc says.
     app.world_mut()
-        .resource_mut::<SelectCursor>()
+        .resource_mut::<SelectCursors>()
+        .seat_mut(0)
         .move_to(rect.center());
     let mut frames = app.world_mut().resource_mut::<SeatMenuFrames>();
     frames.clear();
@@ -102,7 +105,7 @@ fn show(app: &mut App, what: &str) {
         .world()
         .get_resource::<ambition_platformer2d::character::CharacterCatalog>()
         .cloned();
-    let carrying = app.world().resource::<SelectCursor>().carrying;
+    let carrying = app.world().resource::<SelectCursors>().seat(0).carrying;
     let asked = app.world().resource::<StartRequested>().0;
     println!("\n── {what} ──");
     println!("   ┌────────────────────────────────────────────────┐");

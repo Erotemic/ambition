@@ -12,9 +12,9 @@
 //! clicks exactly where a windowed one draws.
 
 use ambition_demo_smash::select::{
-    SlotOccupant, SlotPick, SmashRoster, SmashSelect, MAX_SMASH_SEATS,
+    MAX_SMASH_SEATS, SlotOccupant, SlotPick, SmashRoster, SmashSelect,
 };
-use ambition_demo_smash::select_screen::cursor::{HitRect, SelectCursor};
+use ambition_demo_smash::select_screen::cursor::{HitRect, SelectCursors};
 use ambition_demo_smash::select_screen::layout::SelectLayout;
 use ambition_demo_smash::select_screen::{CardName, RoleButtonLabel, SlotToken};
 use ambition_demo_smash_app::build_demo_app;
@@ -150,15 +150,20 @@ fn layout(app: &App) -> SelectLayout {
 
 /// Put the cursor somewhere. A mouse does exactly this; so does a pad, one snap
 /// at a time, and `the_arrows_alone_can_work_the_whole_screen` covers that path.
-fn point_at(app: &mut App, rect: HitRect) {
+fn point_at(app: &mut App, seat: u8, rect: HitRect) {
+    // ⛔ **THE SEAT MUST BE THREADED, not assumed 0.** There are four cursors
+    // since 2026-08-21, one per seat. Pointing seat 0 and then pressing as seat
+    // 1 puts that seat's press wherever its own cursor happens to be, which
+    // reads as "the second card never claimed a controller" three tests later.
     app.world_mut()
-        .resource_mut::<SelectCursor>()
+        .resource_mut::<SelectCursors>()
+        .seat_mut(seat as usize)
         .move_to(rect.center());
 }
 
 /// Point at something and press confirm from `seat`.
 fn click(app: &mut App, seat: u8, rect: HitRect) {
-    point_at(app, rect);
+    point_at(app, seat, rect);
     press(app, seat, confirm());
 }
 
@@ -347,7 +352,10 @@ fn a_token_dropped_on_empty_space_goes_back_to_the_fighter_it_had() {
     click(&mut app, 0, layout.token_home(0));
     press(&mut app, 0, back());
     assert_eq!(slot(&app, 0).pick, Some(SlotPick::Fighter(nth(&app, 1))));
-    assert_eq!(app.world().resource::<SelectCursor>().carrying, None);
+    assert_eq!(
+        app.world().resource::<SelectCursors>().seat(0).carrying,
+        None
+    );
 }
 
 /// **A screen that works and cannot be seen is the same bug one layer up.**
@@ -500,7 +508,7 @@ fn the_arrows_alone_can_work_the_whole_screen() {
     for _ in 0..12 {
         press(&mut app, 0, arrow("down"));
     }
-    let position = app.world().resource::<SelectCursor>().position;
+    let position = app.world().resource::<SelectCursors>().seat(0).position;
     let layout = layout(&app);
     assert!(
         (0..MAX_SMASH_SEATS).any(|slot| layout.role_button(slot).contains(position)),
@@ -519,7 +527,7 @@ fn the_arrows_alone_can_work_the_whole_screen() {
     for _ in 0..12 {
         press(&mut app, 0, arrow("up"));
     }
-    let position = app.world().resource::<SelectCursor>().position;
+    let position = app.world().resource::<SelectCursors>().seat(0).position;
     assert!(
         (0..app.world().resource::<SmashRoster>().len()).any(|index| layout
             .portrait(index)

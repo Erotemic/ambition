@@ -890,7 +890,7 @@ the public umbrella and pins the migrated body and controller values — this
 preserves the sentinel's purpose: a public SDK break the shared workspace cannot
 see still fails in the independent consumer.
 
-### 23. ◐ ANSWERED VIA §25, 2026-08-20 — five `the_stage_kills` guards are RED, three of them from the legality filter, and the prescribed fix contradicts a deliberate fairness property
+### 23. ✔ CLOSED 2026-08-20 — it was the missing spacing primitive, and body contact turned all seven green
 
 ⭐⭐ **THE QUESTION BELOW IS SUPERSEDED — §25 answers what to BUILD.** Jon,
 2026-08-20: *"the limit cycle is very plausibly exposing a missing physical
@@ -899,15 +899,19 @@ than compensating for missing contact by making the AI stranger."* ⇒ the chang
 to make is opt-in body contact in the movement sweep (§25), NOT a spawn asymmetry
 and NOT more randomness.
 
-⛔⛔ **BUT BODY CONTACT IS NOT PROVEN TO FIX THESE TESTS, AND NOTHING SHOULD SAY
-IT IS.** The limit-cycle diagnosis was taken in a match running NO smash combat
-rules — see the measurement below — so it is a CANDIDATE explanation, not a
-finding. `a1c251b44` closed the route-entry hole and the suite went from five red
-to **seven**: two repertoire guards had been green only because staling and the
-rest of the ruleset were absent. ⇒ the order is: build the capability because the
-genre wants it and Jon has ruled on it, then RE-MEASURE the seven under the
-corrected construction, and only then decide what they were saying. This row
-stays ◐ until that re-measurement exists.
+⭐⭐ **AND THE RE-MEASUREMENT IS IN: `smash_it` 26/7 → 34/0** (`da884be08`). All
+seven — both repertoire guards and all five `the_stage_kills` — pass with fighters
+that are solid to each other, and **nothing in the brain moved**. Jon's reading of
+the limit cycle was right.
+
+⚠ **the order this was taken in is the part worth keeping.** The diagnosis below
+was made in a match running NO smash combat rules, so it was a CANDIDATE and was
+recorded as one; `a1c251b44` closed the route-entry hole and the suite went five
+red → **seven**, because two repertoire guards had been green only while staling
+and the rest of the ruleset were absent. The capability was then built because
+the GENRE wants it and Jon had ruled on it — not to fix these tests — and only
+then re-measured. A build aimed at the seven would have been tuned until they
+passed, and would have proved nothing about either.
 
 ⛔⛔ **MEASURED 2026-08-20: THOSE FIVE TESTS RUN A MATCH WITH NO SMASH COMBAT
 RULES AT ALL, AND THAT INVALIDATES EVERY DIAGNOSIS TAKEN IN THEM — INCLUDING THE
@@ -1130,7 +1134,16 @@ per-turn gate, so a behavioural suite went five-red across at least two
 regressions without anything saying so. `cargo test --workspace --lib` and
 `-p ambition_app --test app_it` do not reach it.
 
-### 25. ✔ ANSWERED 2026-08-20 — body contact belongs in the SWEEP, as an OPT-IN capability, not a global property of every body
+### 25. ✔ ANSWERED AND BUILT 2026-08-20 — body contact belongs in the SWEEP, as an OPT-IN capability, not a global property of every body
+
+⭐ **SHIPPED in `da884be08`** as `ambition_platformer2d_core::movement::body_contact`
+— a constraint on the motion a body PROPOSED, applied before the world sweep and
+writing no position, so nothing is teleported apart. `BodyContact { resistance }`
+is presence-as-opt-in; the smash stage grants it to its cast and calls the result
+jostle, and the engine does not know that word. See queue D172 for the three
+rules it had to learn and for what it did to the smash suite. ▢ the resistance
+NUMBER (0.85) is a feel choice nobody has measured, and airborne contact is
+deliberately not in the first slice.
 
 ⭐⭐ **JON'S RULING, VERBATIM.** Keep these words; the paraphrase loses the
 constraints.

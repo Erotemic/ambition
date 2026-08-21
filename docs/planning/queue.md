@@ -291,41 +291,37 @@ made of. ⛔ do not delete `collision_scale` before counting: a shipped
 capability can have zero adopters, and so can a legacy path still carrying half
 the roster.
 
-- ▢ **D172 — BODY-VS-BODY CONTACT IS RULED, DESIGNED AND UNBUILT.**
-  (promoted 2026-08-20)
+✔ **D172 — body-vs-body contact did not exist, so a closing fighter's reward
+was to sail past the one it was closing on.** Built by `da884be08` as
+`ambition_platformer2d_core::movement::body_contact`: a constraint on the motion
+a body PROPOSED, applied immediately before the world sweep resolves it. Monotone
+and position-free, so nothing is ever teleported apart. `BodyContact { resistance }`
+is presence-as-opt-in and the smash stage grants it to its cast; the engine does
+not know the word jostle. Guarded by
+`movement::kernel::tests::a_grounded_body_walking_into_another_one_is_stopped_by_the_real_sweep`
+(through `step_motion`, against the `approach()` overwrite that erased the force
+version) and `the_stage_kills::the_stage_grants_body_contact_to_both_seated_fighters`.
+Schema v59 → v60.
 
-Jon answered `awaiting-maintainer-decision.md` §25 on 2026-08-20 and the ruling
-is complete enough to build from. AVOID PUSHOUT is about **portals**; a body
-mechanic may express contact, and *"games will want this, so we should be able to
-express it"* makes it ENGINE vocabulary rather than a smash detail.
+⭐⭐ **AND IT TURNED SMASH GREEN: `smash_it` 26/7 → 34/0.** All seven long-red
+guards, both repertoire ones and all five `the_stage_kills`. That MEASURES §23's
+hypothesis — *"the limit cycle is very plausibly exposing a missing physical
+spacing primitive rather than a brain defect"* — under the corrected ruleset,
+where the original diagnosis was taken in a match running no smash rules at all.
+Nothing in the brain moved.
 
-**The mechanism, from Jon's own constraints:**
+⛔ **three rules it had to learn, each from a red test, each worth keeping:**
+only motion that DEEPENS an overlap is resisted (resisting every direction left
+four fighters spawning on one point unable to walk apart); a step longer than one
+tick of the body's own WALK is a launch and passes through untouched (contact ate
+knockback and three guards about matches ENDING went red); and the blockers come
+from a snapshot taken before ANY body integrates (otherwise query order decides
+who wins the contest, which is a desync).
 
-- a **sweep** capability — proposed motion is CONSTRAINED before integration,
-  never separated after the fact;
-- **opt-in and typed** — never a term every body in `step_body` pays for;
-- pairs come from a **common pre-integration snapshot** with a stable ordering
-  (ADR 0023), so two bodies cannot each see the other's already-moved position;
-- **grounded lateral only** for the first slice;
-- a **pre-existing overlap is never teleported apart** — that is the pushout the
-  rule does forbid;
-- the core mechanism is **unnamed for any game**; smash opts its fighters in and
-  calls the result jostle.
-
-⛔ **AN ACCELERATION TERM CANNOT WORK, AND THIS IS PROVEN.** `bbbc5e46c` deleted
-one that had eight passing tests: the movement kernel treats `vx` as a velocity
-TARGET and `approach()` overwrites it every tick, so a force added beside it is
-erased before integration. The tests passed because the fixture had no movement
-kernel in it — **a test that supplies its own precondition cannot prove the
-mechanism reaches production**, and the tell (unit green, end-to-end unmoved) was
-available and misread. Any new attempt must be measured in a fixture that runs
-the real sweep.
-
-⛔ **AND IT IS NOT PROVEN TO FIX THE SEVEN SMASH REDS.** The limit-cycle
-diagnosis in §23 was taken in a match running no smash combat rules at all;
-`a1c251b44` fixed that and the suite went five red → **seven**. Build the
-capability because the genre wants it and Jon has ruled on it; then RE-MEASURE
-those seven under the corrected construction before touching the brain.
+▢ **the resistance NUMBER is Jon's**, and airborne contact is deliberately not in
+this slice. `BodyContact::FIRM` is 0.85 — two fighters walking into each other
+stall where they meet and a determined one still squeezes past — chosen because
+the genre does that, not because anything measured it.
 
 - ▢ **D171 — THREE MORE DOCS CARRY OPEN ITEMS NO LEDGER ROW CAN REACH.**
   (promoted 2026-08-20)

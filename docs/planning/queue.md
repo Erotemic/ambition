@@ -5596,6 +5596,27 @@ refuses body lifecycle   spawn/despawn/residency/possession are the actor
 contract — hitlag and hitstop are rules a fight obeys, not decoration on one — so
 the next borderline case has a worked example rather than only a rule.
 
+⛔⛔ **AND THE SHARPER LESSON, from the crate literally named `shared_tangle`: a
+DEPENDENCY refusal is not an ADMISSION RULE.** Its header already said it depends
+on no monolith, content, presentation, app assembly or devtools — and turned away
+nothing that respects those edges, so anything awkward to place qualified. That
+is how a tangle becomes one. Measured: 13 files gained in 14 days, second only to
+the monolith it is carved from.
+
+⭐ **the admission rule was already written — on ONE TYPE, where nobody placing a
+second one would look.** `MountDied` says it: *"it lives HERE, below the domains,
+because two of them share it… a message owned by one of the two would make the
+other depend on it for a type carrying nothing but a pair of entities."* Promoted
+to the crate header as the test it always was: **two real consumers in different
+domains, today** — not "generic", not "might be shared later", not "awkward where
+it was". ⛔ with the corollary that matters to an active carve: moving something
+here without a second domain that reads it LAUNDERS the debt — the carve looks
+finished while the concept is now split across two crates instead of one.
+
+⇒ **the pattern for the rest of this row: the rule usually EXISTS, buried on the
+first type that needed it.** Promoting it costs nothing and is not doc-writing —
+it is moving a decision to where the next person looks.
+
 ⇒ **every one of those is a composition boundary written down where the next
 person looks**, and each turned a plausible move into an obviously wrong one at
 zero cost. ⭐ the rule this yields is small and practical: **read the

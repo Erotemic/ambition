@@ -3014,6 +3014,22 @@ Use [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decompositi
 Choose carves from current dependency and authority measurements, not an old LOC
 target.
 
+⭐⭐⭐ **LOC IS THE PROXY. THE WIN IS CONCEPTUAL DOMAIN SEPARATION.** Jon,
+2026-08-21, on the measurements below: *"loc is the proxy. the real win is
+conceptual domain separation."*
+
+⇒ read every number in this row as a SYMPTOM, and judge a carve by one question
+instead: **does the concept end up in the crate that owns it?** A slice that
+moves 2,000 lines and leaves the concept split across two crates is worth less
+than one that moves 200 and makes a domain whole. ⛔ do not price a carve by
+what it removes from a per-crate ledger — that is how debt gets laundered rather
+than paid.
+
+⚠ the corollary, and it is why the LOC readings kept misleading: the ratchet
+counts TESTS (39% of this crate), so a well-tested crate trips its own carve
+alarm, and a carve that moves code moves its tests with it. Neither number says
+anything about whether a domain is whole.
+
 ⛔⛔ **STEP 3 WAS ATTEMPTED AS THE `encounter` CARVE ON 2026-08-17 AND IS
 REFUSED — BOTH PRECONDITIONS BELOW ARE FALSE, AND THE MEASUREMENT THAT PRODUCED
 THEM WAS TAKEN WITH THE WRONG INSTRUMENT.** The block below is the original

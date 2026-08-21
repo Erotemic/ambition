@@ -5,42 +5,41 @@
 //! Jon, 2026-08-12: *"When I change the video quality in ambition, my sprite went
 //! from the robot v3 character to the robot v2 character."*
 //!
-//! ⛔⛔ **nothing in this tree changed quality at runtime and looked at what
-//! happened** — measured 2026-08-21. Nine candidate causes have been eliminated
-//! by replicating the runtime over files (see
-//! `sprite-residency-and-live-quality.md`); every layer that could CHOOSE the
-//! wrong sheet is deterministic. What is left is WHEN, and a file cannot answer
-//! that.
+//! ⭐ **THIS EXERCISES THE REPORTED CASE, NOT A PROXY — and it does not
+//! reproduce.** In a direct gameplay boot the PrimaryPlayer's own worn character
+//! is resident, its sheet MOVES tier when the profile changes, and its file root
+//! is unchanged. Both of those are asserted, because either one missing makes
+//! the test green for the wrong reason. That is the tenth eliminated cause; the
+//! other nine are in `sprite-residency-and-live-quality.md`, and every layer
+//! that could CHOOSE the wrong sheet is deterministic. What is left is WHEN.
+//!
+//! ⛔⛔ **`shell_hosted` DECIDES WHETHER THIS TEST MEANS ANYTHING.** With `true`
+//! the app boots to the launcher, there is no `PrimaryPlayer` at all, and the
+//! resident tokens are 18 NPCs — none of them the character the report is
+//! about. Written as `if let Some(worn)` the player check passed while never
+//! running, so the boot is `false` and the check is an `expect`.
 //!
 //! ⚠ **two things made this unwritable until now**, both worth knowing:
 //! `GameAssets` is ABSENT from a shell-host composition (character realizations
-//! are presentation state), so this boots `build_visible_app(NoWindow)`; and
-//! there was no accessor enumerating RESIDENT sheets —
-//! `declared_character_ids()` is that set's COMPLEMENT, so reaching for it
-//! yields a tautology.
-//!
-//! ⛔⛔ **WHAT THIS DOES NOT COVER, measured rather than assumed: THE PLAYER.**
-//! `build_visible_app(NoWindow, true)` boots with **no `PrimaryPlayer` wearing a
-//! character** — checked by asserting one exists, which failed. So the 18
-//! resident tokens this exercises are all NPCs, and Jon's report is about HIS
-//! sprite (`robot v3` becoming `robot v2`). ⇒ the extension that would cover it
-//! is to drive the app into gameplay before the transition; until then this
-//! guards the mechanism, not the reported case, and saying so is the difference
-//! between a limitation and a false negative.
+//! are presentation state); and there was no accessor enumerating RESIDENT
+//! sheets — `declared_character_ids()` is that set's COMPLEMENT, so reaching for
+//! it yields a tautology.
 //!
 //! ⚠ **the assertion is on the FILE ROOT, not the path.** A tier change is
-//! SUPPOSED to move `sprites/x.png` to `sprites_0_5x/x.png`. Asserting the path
-//! would fail on correct behaviour; asserting the root fails only when the
+//! SUPPOSED to move `sprites/x.png` to `sprites_potato/x.png`. Asserting the
+//! path would fail on correct behaviour; asserting the root fails only when the
 //! character actually changed.
 
 use bevy::asset::AssetServer;
 use bevy::prelude::*;
 
 fn boot() -> App {
-    let mut app = ambition_app::app::build_visible_app(
-        ambition_app::app::VisibleRenderMode::NoWindow,
-        true,
-    );
+    // ⭐ `shell_hosted: false` — DIRECT gameplay, not the launcher. With `true`
+    // the app boots to the shell and no `PrimaryPlayer` ever exists, so the
+    // player's own character is not among the resident tokens and the case Jon
+    // reported goes uncovered.
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, false);
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f64(1.0 / 60.0),
     ));
@@ -73,7 +72,28 @@ fn changing_the_quality_profile_never_changes_which_character_a_token_resolves_t
         app.update();
     }
 
+    // ⛔⛔ **THE PLAYER'S OWN CHARACTER MUST BE ONE OF THE TOKENS CHECKED**, and
+    // this is an assert rather than an `if let` on purpose: written as a silent
+    // skip it passed while never running (measured — the shell-hosted boot has
+    // no player at all).
+    let worn = {
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<
+            &ambition_platformer2d::characters::actor::WornCharacter,
+            With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
+        >();
+        q.iter(world).next().map(|w| w.0.as_str().to_owned())
+    }
+    .expect("a direct gameplay boot has a PrimaryPlayer wearing a character");
+
     let before = resident(&app);
+    assert!(
+        before.contains_key(&worn) || before.keys().any(|t| t.eq_ignore_ascii_case(&worn)),
+        "the player wears `{worn}`, which is not among the {} resident token(s), \
+         so this test would not cover the case Jon reported. Resident: {:?}",
+        before.len(),
+        before.keys().take(10).collect::<Vec<_>>(),
+    );
     // ⚠ LOUD: a transition over an empty table proves nothing, and an empty
     // table is exactly what a silently-failed boot produces.
     assert!(
@@ -83,9 +103,9 @@ fn changing_the_quality_profile_never_changes_which_character_a_token_resolves_t
     );
 
     {
-        let mut settings = app
-            .world_mut()
-            .resource_mut::<ambition_platformer2d::persistence::settings::UserSettings>();
+        let mut settings =
+            app.world_mut()
+                .resource_mut::<ambition_platformer2d::persistence::settings::UserSettings>();
         settings.video.quality.profile =
             ambition_platformer2d::persistence::settings::VisualQualityProfile::Potato;
     }
@@ -111,6 +131,19 @@ fn changing_the_quality_profile_never_changes_which_character_a_token_resolves_t
          the transition did not happen and the identity check below would pass \
          over nothing. {} tokens resident.",
         before.len(),
+    );
+    // ⛔⛔ **AND THE PLAYER'S OWN TOKEN MUST BE ONE THAT MOVED.** Being merely
+    // RESIDENT is not enough: if the player's sheet sat still across the
+    // quality change, the identity check below is vacuous for precisely the
+    // character Jon's report is about, and the test would go green having
+    // covered every NPC and not him.
+    assert!(
+        moved.iter().any(|t| t.eq_ignore_ascii_case(&worn)),
+        "the player wears `{worn}`, whose sheet did NOT move across the quality \
+         change — so the identity assertion below never examines the reported \
+         character. {} other token(s) did move: {:?}",
+        moved.len(),
+        moved.iter().take(8).collect::<Vec<_>>(),
     );
 
     let file_root = |p: &str| p.rsplit('/').next().unwrap_or(p).to_string();

@@ -1,5 +1,12 @@
 # Controlled-character actor kernel — immediate Engine 1.0 priority
 
+> ⚠ **`Brain::Player` NO LONGER EXISTS** (re-measured 2026-08-20). `Brain` is a
+> ONE-VARIANT enum — `StateMachine(StateMachineCfg)` — and who drives a body is
+> the separate typed component `DrivingParticipant(PlayerSlot)`. Every mention of
+> `Brain::Player` below is HISTORY describing the pre-split tree; the repository
+> has 29 such mentions left and all 29 are comments, zero live code. ⛔ do not
+> grep for it expecting to find the mechanism.
+
 **State:** OPEN / PRIORITY — begin here before large new D115/D116 implementation campaigns.
 
 ## Goal

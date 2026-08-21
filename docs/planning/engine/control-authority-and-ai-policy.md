@@ -1,5 +1,12 @@
 # Control authority and AI policy are two facts in one component
 
+> ⚠ **`Brain::Player` NO LONGER EXISTS** (re-measured 2026-08-20). `Brain` is a
+> ONE-VARIANT enum — `StateMachine(StateMachineCfg)` — and who drives a body is
+> the separate typed component `DrivingParticipant(PlayerSlot)`. Every mention of
+> `Brain::Player` below is HISTORY describing the pre-split tree; the repository
+> has 29 such mentions left and all 29 are comments, zero live code. ⛔ do not
+> grep for it expecting to find the mechanism.
+
 **Owner: the engine.** Written 2026-08-20 from Jon's architectural review of
 `4af278e77`, which named this as the next broad direction after the custody and
 construction work. ⛔ **the review also REFUSED the obvious version of it**, and

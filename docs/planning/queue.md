@@ -731,10 +731,13 @@ to whatever carried `PrimaryPlayer`, so under possession the possessed body
 opened the chest while the vacated home avatar played the reach-and-open; the
 PRESS was read from and cleared on SLOT 0 whichever seat was driving, so a
 second seat's interaction spent seat 0's buffered interact. The authority is
-the BRAIN — a seat that possessed an actor carries `Brain::Player` on that
-body — so `crate::control::ActingParticipant` asks that once and answers both
-questions from it, stating the primary-seat startup fallback in ONE place
-instead of four call sites. The pose now lands on the acting body when it has
+the seat a body is DRIVEN BY — so `crate::control::ActingParticipant` asks
+that once and answers both questions from it, stating the primary-seat startup
+fallback in ONE place instead of four call sites. ⚠ **this sentence used to say
+"a seat that possessed an actor carries `Brain::Player` on that body"; that
+variant no longer exists** and `ActingParticipant` queries
+`DrivingParticipant` (`control/acting.rs:39`). The mechanism is unchanged — only
+the component the authority lives on. The pose now lands on the acting body when it has
 `BodyAnimFacts` and on nothing when it does not.
 
 ⭐ **two more control-seam breaches closed the same day.** `open_death_interlude`

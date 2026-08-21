@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v60
+ggrs-rollback-schema-v61
 actor.action_set	component-clone	ActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.active_combatant	component-canonical	ActiveCombatant	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.aggression	component-clone-cursor	ActorAggression	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
@@ -164,10 +164,7 @@ derived.nearest_interactable	derived	NearestInteractable	proximity read model re
 derived.perception_peers	derived	PerceptionPeers	perception snapshot rebuilt every tick before brains read it
 derived.perception_projectiles	derived	PerceptionProjectiles	perception snapshot rebuilt every tick before brains read it
 derived.placement_continuity	derived	AuthoredOccurrences	authored-occurrence whereabouts; republished from live state while its room is loaded
-derived.player_affordances	derived	PlayerAffordances	affordance read model recomputed per frame from body state
 derived.player_body_frame_output	derived	PlayerBodyFrameOutput	republished by body integration every simulation frame
-derived.player_intent	derived	PlayerIntent	affordance read model recomputed per frame from control input
-derived.pogo_target_below	derived	PogoTargetBelow	proximity read model recomputed per frame
 derived.portal_carves	derived	PortalCarves	rebuilt from placed portals and transit occupancy each frame
 derived.portal_host_depths	derived	PortalHostDepths	republished from the authoritative collision world each frame
 derived.portal_player_movement_intent	derived	PlayerMovementIntent	republished from the current controller frame before portal transit

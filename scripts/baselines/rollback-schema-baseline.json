@@ -46,7 +46,7 @@
     "2026-08-19 (second): +resource.owned_items_baseline. The player's entitlements join the checkpoint horizon so a mint may SPEND the quantity it came from (D132's gate); GGRS_ROLLBACK_SCHEMA_VERSION 39 -> 40.",
     "\u26a0 2026-08-20: Brain::Player(PlayerSlot) is DELETED. derived.driving_participant becomes actor.driving_participant \u2014 the SAME component, moving from DECLARED-DERIVED to REGISTERED (rollback_component_clone). \u26d4\u26d4 the derived declaration's justification was \"the driving seat reprojected from Brain::Player and possession every tick\", and one of those two inputs no longer exists: Brain is AI policy only now, and the seat a participant drives from is authored at the spawn/seat site and lives in this component and nowhere else \u2014 so a rewind that did not carry it would restore a body nobody drives. control::project_driving_participant still MOVES it for a possession, which is a reconcile over registered state (PossessionState) rather than a reprojection of it. \u2b50 encoded_types is UNCHANGED at 119: a component-clone registration writes no SnapshotState impl, so no type joined or left the byte format. stable_schema_name_count stays 365 \u2014 one row renamed, none added. \u26a0 derived.controlled_subject's reason string also changed (it names DrivingParticipant now); that string is hashed into schema_fingerprint, so it is a wire change even though nothing it describes moved. GGRS_ROLLBACK_SCHEMA_VERSION 56 -> 58 (57 skipped: offered to a concurrent lane so two branches could not both take one number, the same reasoning v53 records)."
   ],
-  "measured_on": "2026-08-20",
+  "measured_on": "2026-08-21",
   "stable_schema_names": [
     "actor.action_set",
     "actor.active_combatant",
@@ -183,10 +183,7 @@
     "derived.perception_peers",
     "derived.perception_projectiles",
     "derived.placement_continuity",
-    "derived.player_affordances",
     "derived.player_body_frame_output",
-    "derived.player_intent",
-    "derived.pogo_target_below",
     "derived.portal_carves",
     "derived.portal_host_depths",
     "derived.portal_player_movement_intent",

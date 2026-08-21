@@ -3164,7 +3164,21 @@ this measurement produces — nothing in the monolith would notice them leaving:
   STAYS SIM-SIDE in `ambition_platformer2d_actor_monolith::dev::trace`."*
   ⇒ **not a candidate.** Zero inbound coupling made it look free; it is not
   misplaced, it is where it has to be, because it samples the sim.
-* **`affordances`** (1,733 lines) — *"what would each input do right now?"*, a
+* ✔✔ **`affordances` — CARVED, THEN MOSTLY DELETED (2026-08-21), and the second
+  step is the lesson.** It moved to `ambition_sim_view` on the strength of a
+  coupling measurement; a GPT review then asked whether anything READ the thing.
+  Census: `PlayerAffordances`, `PlayerIntent`, `Aim`, `PogoTargetBelow` and the
+  Attack/Jump/Shield/Dash/Special variant families are named NOWHERE outside the
+  module — the only mention of the central product was its own rollback
+  declaration. Only `NearestInteractable`/`InteractVariant` have a consumer (the
+  portal adapter), plus the plugin and its system set (runtime, touch overlay).
+  ⇒ **1,020 lines deleted**, three rollback declarations dropped,
+  `GGRS_ROLLBACK_SCHEMA_VERSION` 60 → 61 because types LEAVING the schema is a
+  real wire change. ⛔⛔ **a coupling measurement says a module CAN move; it says
+  nothing about whether anything wants it. Count the consumers FIRST** — a carve
+  is exactly how a dead subsystem earns a second life.
+
+* ~~**`affordances`** (1,733 lines)~~ — *"what would each input do right now?"*, a
   table the HUD reads and, in its own words, *"gameplay code (today: nothing)"*.
   One consumer, zero siblings. ⚠ its natural home is the family that already owns
   the HUD read-model (`ambition_sim_view`'s `ControlPrompt`) rather than a crate

@@ -42,6 +42,7 @@
 | [`projectiles`](src/projectiles.rs) | Ambition-owned projectile visual registrations. |
 | [`provider`](src/provider.rs) | Reusable Ambition gameplay provider. |
 | [`pugnacious_polygon_moveset`](src/pugnacious_polygon_moveset.rs) | Pugnacious Polygon — brawler archetype repertoire. |
+| [`projectile_polygon_moveset`](src/projectile_polygon_moveset.rs) | Projectile Polygon — ranged beast-biped fundamentals repertoire. |
 | [`quest`](src/quest.rs) | Ambition's authored quests + their completion payouts. |
 | [`quests`](src/quests/mod.rs) | Named Ambition quest content registration. |
 | [`worlds`](src/worlds.rs) | Ambition's LDtk WORLD payload + its `WorldManifest` — CONTENT, evicted from the engine core (R3.2, the #1 violation: the engine shipped the game's worlds). |

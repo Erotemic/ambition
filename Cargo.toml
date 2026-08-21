@@ -106,6 +106,21 @@ description = "Ambition: a code-generated endgame movement sandbox for a mathema
 # ⚠ opt-in (`./build_for_web.sh --optimize`), because fat LTO + one codegen unit
 # turns a ~6 minute build into a much longer one, and the ordinary web dev loop
 # wants the fast build.
+[profile.ship]
+# Native distribution profile: this is the artifact policy used by
+# `./run_game.sh --ship`.  Optimize across the complete crate graph and emit
+# one codegen unit so LLVM can see as much of the final program as possible.
+# Keep the build portable across supported Steam PCs: CPU-specific tuning
+# belongs in separately targeted packages, never in this baseline profile.
+inherits = "release"
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = "symbols"
+debug = false
+incremental = false
+
 [profile.web-release]
 inherits = "release"
 opt-level = "s"

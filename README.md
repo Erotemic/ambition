@@ -219,12 +219,16 @@ The helper script wraps common desktop modes:
 ```bash
 ./run_game.sh
 ./run_game.sh release
+./run_game.sh --ship
 ./run_game.sh hot release
 ./run_game.sh validate
 ./run_game.sh hot release -- --start-room goblin_encounter
 ```
 
-Use `./run_game.sh --help` for the full list.
+Use `./run_game.sh --help` for the full list. `--ship` selects the portable
+native distribution profile used for the packaged Steam build: fat LTO, one
+codegen unit, aborting panics, no debug information, and stripped symbols. It
+deliberately does not use host-specific CPU tuning.
 
 The first Bevy build can take a while.
 

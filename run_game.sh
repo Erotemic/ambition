@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Desktop-only run script. Builds/runs for the host platform (Linux x86-64
-# in this dev VM), NOT for Android. Use --help for release, hot-reload,
+# in this dev VM), NOT for Android. Use --help for release, shipping, hot-reload,
 # validation, and game-argument examples.
 #
 # An actual Android APK build is NOT produced by this script and would require
@@ -14,7 +14,7 @@ ldtk_tools_dir="$repo_root/tools/ambition_ldtk_tools"
 source "$repo_root/scripts/lib/tool_python.sh"
 python_bin="$(ambition_select_tool_python "$ldtk_tools_dir" AMBITION_LDTK_PYTHON)"
 
-release=0
+build_profile="dev"
 clean_coverage=0
 coverage=0
 hot_reload=0
@@ -52,6 +52,11 @@ Common commands:
   ./run_game.sh sandbox release
   ./run_game.sh sandbox --release
       Run directly in the Ambition sandbox with cargo --release.
+
+  ./run_game.sh --ship
+  ./run_game.sh sandbox --ship
+      Run the portable native shipping build: opt-level 3, fat LTO, one
+      codegen unit, aborting panics, no debug info, and stripped symbols.
 
   ./run_game.sh hot
   ./run_game.sh --hot-reload
@@ -102,6 +107,8 @@ Launch targets (mode aliases):
 Options and mode aliases:
   -h, --help              Show this help.
   -r, --release, release  Use cargo --release.
+  --ship, ship             Use the native shipping profile intended for the
+                           packaged Steam build.
   --cov, coverage         Run through cargo llvm-cov run --no-report.
   --debug, debug, dev     Force dev/debug cargo profile.
   --hot-reload, --hot,
@@ -216,10 +223,13 @@ while [[ $# -gt 0 ]]; do
             exit 0
             ;;
         -r|--release|release)
-            release=1
+            build_profile="release"
+            ;;
+        --ship|ship)
+            build_profile="ship"
             ;;
         --debug|debug|dev)
-            release=0
+            build_profile="dev"
             ;;
         --cov|coverage)
             coverage=1
@@ -308,6 +318,14 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
+if [[ "$build_profile" == "ship" && "$hot_reload" -eq 1 ]]; then
+    fail "--ship cannot be combined with hot reload; shipping builds exclude development-only reload machinery"
+fi
+
+if [[ "$build_profile" == "ship" && "$coverage" -eq 1 ]]; then
+    fail "--ship cannot be combined with coverage instrumentation; use --release or dev for coverage runs"
+fi
+
 if [[ "$validate_before_run" -eq 1 ]]; then
     run_ldtk_validation
     run_dialogue_lint
@@ -369,9 +387,19 @@ if [[ "${#features[@]}" -gt 0 ]]; then
     unset IFS
 fi
 
-if [[ "$release" -eq 1 ]]; then
-    cargo_args+=(--release)
-fi
+case "$build_profile" in
+    release)
+        cargo_args+=(--release)
+        ;;
+    ship)
+        cargo_args+=(--profile ship)
+        ;;
+    dev)
+        ;;
+    *)
+        fail "internal error: unknown build profile '$build_profile'"
+        ;;
+esac
 
 if [[ "${#game_args[@]}" -gt 0 ]]; then
     cargo_args+=(-- "${game_args[@]}")

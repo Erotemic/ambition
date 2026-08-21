@@ -3109,10 +3109,17 @@ PortalChannelColorSpec  Cyan/Green/Magenta/…/Indexed       ⟷ ambition_portal
 behaviour. ⚠ *"mirrors X"* is a fork declaration, and a variant added to one
 side and not the other is a silent lowering gap, not a compile error.
 
+✔ **AND IT HAS NOT DRIFTED — checked, 2026-08-21.** All seven pairs match
+variant for variant today (4/4, 3/3, 3/3, 3/3, 6/6, 5/5, 9/9). ⇒ this is a
+LATENT hazard, not a live defect: nothing is broken right now, and the row must
+not be worked as though something is. Its cost is paid the day somebody adds a
+variant to one side.
+
 ⇒ worth its own slice, and it is a DELETION one: either the spec enums go and
 the catalog names the runtime types directly, or the mapping becomes a derive
 that cannot drift. ⛔ do not price it from `spawn_static`'s line count — the
-duplication is in the two vocabularies, not in the mapper.
+duplication is in the two vocabularies, not in the mapper. ⚠ and do not price it
+as URGENT either; the measurement above is what says so.
 
 ✔ **BOSS ANIMATION CARVED 2026-08-21 (`9ea8ea2fa`) — the first slice the split
 scan found rather than a human.** `anim_helpers.rs` had 7 public fns of which 4

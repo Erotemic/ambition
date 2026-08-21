@@ -169,14 +169,15 @@ Jon: *"In ambition I cannot go through any doors anymore. This is both interact
 doors and contact doors. In maryo finishing 1-1 sends you back to 1-1. These are
 huge regressions, not sure how we didn't have a test to catch these."*
 
-  ◐ **One real defect found, and it is the contact half.** Neither `EdgeExit`
-  zone in `central_hub_complex` is reachable on foot from a fresh spawn:
-  `to scroll lab` (x 1870-1900) stalls her at x=1841 for all 600 frames, and
-  `to square arena` (x 0-30) is never reached either. Something solid stands in
-  front of both. ⚠ NOT yet established whether that wall is new — that is a
-  level-geometry question, and until it is answered this is a defect but not
-  necessarily a regression. Reproduction parked in
-  `docs/planning/triage/contact_zone_reproduction.rs.txt`.
+  ✔ **Contact half DIAGNOSED, and the mechanism is fine.** She stalls at x=1841
+  walking at the right edge exit — but there is no wall: the Collision IntGrid is
+  empty through the whole zone except its BOTTOM ROW, where three cells form a
+  16px floor lip. She collides with its side. Pulse a jump and she is in after
+  211 frames and the room changes to `scroll_lab`, so contact transitions work.
+  ⛔ **not a regression** — those three cells are solid in every commit back to
+  2026-08-15. It is a standing conflict with `EdgeExit`'s contract ("walks off
+  the screen into it"), and the fix is CONTENT: clear the three cells, or accept
+  that these exits are hopped. Tracked as D174.
 
   ▢ **The interact half does not reproduce anywhere I can build it**, and the
   eliminations are worth more than the guess they replace. Ruled out by

@@ -23,11 +23,10 @@
 //!     → the active room actually changes
 //! ```
 //!
-//! ⚠ **only the DOOR half is here.** The contact-zone twin found a real defect
-//! the day it was written — neither `EdgeExit` in the start room is reachable on
-//! foot — so it is parked in
-//! `docs/planning/triage/contact_zone_reproduction.rs.txt` rather than shipped
-//! red. Paste it back when that wall is ruled on.
+//! ⛔ **the contact half needs a HOP, and that is a content defect, not this
+//! test being lenient.** A 16px floor lip sits inside the start room's edge exit,
+//! so a walking body stalls against its side forever. See the test's own doc and
+//! D174: the geometry is unchanged since 2026-08-15, so it is standing, not new.
 //!
 //! ⚠ **the walk is asserted separately from the transition**, and that split is
 //! the diagnosis. If the body never reaches the zone, the failure says the
@@ -144,6 +143,75 @@ fn walk_into(
     }
     let now = active_room(sim);
     (arrived, (now != before).then_some(now))
+}
+
+/// **A CONTACT ZONE FIRES BECAUSE SHE GOT THERE UNDER HER OWN POWER.**
+///
+/// ⚠ **`EdgeExit` IS the contact zone in this game.** A census of every authored
+/// `.ldtk` finds 381 `Door` zones, 72 `EdgeExit`s and not one `Walk` — a test
+/// that asked for `Walk` would sit on its own "no such zone" guard forever.
+///
+/// ⛔⛔ **and she has to JUMP to get in, which is a content defect this test
+/// deliberately does NOT hide.** Measured 2026-08-20: the start room's right
+/// edge exit spans grid cols 116-118, and the Collision layer is empty through
+/// every row of it EXCEPT the bottom one, where cols 116-118 are solid. That
+/// 16px floor lip sits inside the zone, a walking body collides with its side,
+/// and she stalls at x=1841 forever — held direction, 600 frames, no arrival.
+/// Hop the lip and the transition fires at once.
+///
+/// ⚠ **it is NOT a regression**: those three cells have been solid in every
+/// commit of `sandbox.ldtk` back to 2026-08-15. It is a standing conflict
+/// between the lip and `EdgeExit`'s own contract — *"the zone must touch a
+/// level edge so the player physically walks off the screen into it"*. Tracked
+/// as D174; the fix is content, not code.
+///
+/// So the input here is walk-and-hop, which is what a player does, and what
+/// this pins is the MECHANISM: reaching a contact zone under your own power
+/// fires it. Delete the hop the day the lip goes and it should still pass.
+#[test]
+fn reaching_a_contact_zone_under_her_own_power_changes_the_room() {
+    let mut sim = fixed_60hz_sim();
+    for _ in 0..10 {
+        sim.step(base());
+    }
+    let before = active_room(&mut sim);
+    let zone = zones_by_distance(&mut sim, LoadingZoneActivation::EdgeExit)
+        .into_iter()
+        .next()
+        .unwrap_or_else(|| {
+            panic!(
+                "'{before}' authors no `EdgeExit` loading zone, so this test \
+                 walked at nothing — point it at a room that has one"
+            )
+        });
+    let name = zone.name.clone();
+    let target_x = zone.aabb.center().x;
+    for frame in 0..WALK_CAP {
+        if active_room(&mut sim) != before {
+            return;
+        }
+        let here = body_pos(&mut sim);
+        let dir = if target_x > here.x { 1.0 } else { -1.0 };
+        sim.step(AgentAction {
+            move_x: dir,
+            right_pressed: dir > 0.0,
+            left_pressed: dir < 0.0,
+            // Pulsed, not held: a held jump is one jump, and clearing a lip
+            // needs a fresh press each time she lands against it.
+            jump: frame % 20 == 0,
+            jump_held: frame % 20 < 8,
+            ..base()
+        });
+    }
+    panic!(
+        "moved toward the `{name}` contact zone of '{before}' for {WALK_CAP} \
+         frames, jumping, and never left the room. She ended at {:?}; the zone \
+         is {:?}. Contact transitions fire on overlap alone, so this names the \
+         mechanism: overlap → transition_for_player → RoomTransitionRequested → \
+         the room actually changing.",
+        body_pos(&mut sim),
+        zone.aabb,
+    );
 }
 
 /// **AND A DOOR OPENS FOR A BODY THAT WALKED UP TO IT.**

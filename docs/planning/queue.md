@@ -3164,8 +3164,34 @@ affordances        ◐ LEGAL    contract met, concept whole, direction fine —
                               CHANGE, not a file move
 ```
 
-⇒ **D136's thesis is now four-for-four**, and three of those four caught THIS
-session mid-reach. A stated contract is the cheapest refusal in the project.
+```text
+audio              ⛔ REFUSED  `ambition_audio` is "content-free … HOSTS decide
+                              which track to request" — and the monolith's
+                              `audio` IS that host-side decision layer, with six
+                              inward deps (actor, assets, music, rooms,
+                              schedule, session)
+```
+
+⇒ **D136's thesis is now five-for-five**, and four of those caught THIS session
+mid-reach. A stated contract is the cheapest refusal in the project.
+
+⛔⛔ **AND THE COUPLING TABLE SHOULD BE READ UPSIDE DOWN — this is the session's
+real finding.** Four of the five cheapest-by-coupling modules are refused or
+schema-priced, and the reason is structural rather than bad luck: **a module has
+low coupling because it is ASSEMBLY or an OBSERVER, and assembly is exactly what
+this crate is FINISHED as.** `dev/trace` samples the sim; `audio` decides what
+the host plays; `schedule` and `host` are the assembly outright.
+
+⇒ so *"lowest coupling first"* selects for the modules that must STAY. The
+carveable ones are domains with real internal mass — and those are the ones the
+rollback gate prices as schema changes. That is not an accident either: a domain
+with state worth rewinding is a domain, and a domain is what a crate is for.
+
+⇒ **the practical ordering this yields**: stop looking for a cheap carve. Pick
+the domain whose CONCEPT most wants to be whole, accept the schema price, and do
+the baseline rewrite in the same slice. `affordances` is the smallest instance of
+that shape on the board (4 registered types), which makes it the right REHEARSAL
+for the ones that matter (`items` at 12, `features` at 49).
 
 ⚠ **coupling is NECESSARY, NOT SUFFICIENT — and the `dev/trace` entry above is
 this row's own proof, earned the embarrassing way.** The table said 0 inbound and

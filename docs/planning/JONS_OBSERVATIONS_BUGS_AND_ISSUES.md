@@ -190,6 +190,7 @@ huge regressions, not sure how we didn't have a test to catch these."*
   | body contact (landed 2026-08-19) blocking her | ✖ `BodyContactSnapshot` is EMPTY at the stall |
   | the demo-binary-vs-shipped-host split | ✖ driven through the real launcher on a `SimulationHost::Rollback` host, finishing 1-1 lands in 1-2 with a body in it |
   | doors themselves | ✖ she WALKS across `central_hub_complex` into a door holding interact and the room changes |
+  | the TOUCH OVERLAY, installed unconditionally by `add_presentation_plugins` whenever `mobile_touch` is compiled — which `desktop_dev` does, with no runtime gate on desktop | ✖ the door opens with `TouchControlsPlugin` in the app; it was the last STRUCTURAL difference between the compositions that work and the binary that does not |
 
   ⇒ what is left is on Jon's machine and not in the tree: persisted state
   (`~/.local/share/ambition/`), the `desktop_dev` feature set, real devices, or

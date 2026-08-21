@@ -648,6 +648,52 @@ const SMASH_KIT: &[(&str, &str, ambition_platformer2d::entity_catalog::AttackDir
     ]
 };
 
+/// **THE CAPTURE HALF OF THE KIT** — `(label, verb)`, resolved by verb rather
+/// than by direction.
+///
+/// ⭐ **this is the ratchet growing exactly as it promised it would.** Jon, on
+/// the kit census: *"16 is the current target, but we will need to do more
+/// (trips, grabs, falls, techs, etc…)"*, and the assertion below reads
+/// `KIT_TOTAL` rather than a copied number so the target moves by itself.
+/// Grabs are the first of that list to become authorable across the whole
+/// roster: until 2026-08-20 fourteen movesets authored only `forward_throw` and
+/// left back/up/down `None`, so this list could not have been asserted on
+/// anybody.
+///
+/// ⚠ **resolved with `move_for_verb`, NOT `move_for_directional_verb`, and that
+/// is not a detail.** A throw is selected by the attack press INSIDE a capture
+/// relationship, not by a directional grab press — `smash_capture::verbs` says
+/// so explicitly, because naming them `grab_forward` would invite the
+/// directional matcher to light the Grab slot for a fighter that authored only
+/// throws. Asking the directional road here would reproduce that exact
+/// confusion inside the census.
+const SMASH_CAPTURE_KIT: &[(&str, &str)] = &[
+    ("grab", ambition_platformer2d::entity_catalog::GRAB_VERB),
+    (
+        "pummel",
+        ambition_platformer2d::entity_catalog::CAPTURE_PUMMEL_VERB,
+    ),
+    (
+        "fthrow",
+        ambition_platformer2d::entity_catalog::CAPTURE_THROW_FORWARD_VERB,
+    ),
+    (
+        "bthrow",
+        ambition_platformer2d::entity_catalog::CAPTURE_THROW_BACK_VERB,
+    ),
+    (
+        "uthrow",
+        ambition_platformer2d::entity_catalog::CAPTURE_THROW_UP_VERB,
+    ),
+    (
+        "dthrow",
+        ambition_platformer2d::entity_catalog::CAPTURE_THROW_DOWN_VERB,
+    ),
+];
+
+/// Presses plus captures. The ratchet reads THIS, so both halves grow it.
+const KIT_TOTAL: usize = SMASH_KIT.len() + SMASH_CAPTURE_KIT.len();
+
 /// Which postures a press is asked in.
 ///
 /// ```text
@@ -753,11 +799,24 @@ fn report_the_smash_kit_every_selectable_fighter_has() {
                 seen.entry(id.clone()).or_insert(label);
             }
         }
+        // The capture half. Same "its own move" rule: a throw that resolves to
+        // a move an earlier entry already claimed is a fallback wearing a
+        // throw's name, which is the thing `bound()` refuses to produce.
+        for (label, verb) in SMASH_CAPTURE_KIT {
+            match moveset.move_for_verb(verb).map(|mv| mv.id.clone()) {
+                Some(id) if !seen.contains_key(id.as_str()) => {
+                    distinct.push(label);
+                    seen.insert(id, label);
+                }
+                Some(id) => wrong.push(format!("{label}={}", seen[id.as_str()])),
+                None => wrong.push(format!("{label}=nothing")),
+            }
+        }
         rows.push(format!(
             "  {id:<34} {}  {:>2}/{} presses  moves={:<3} | not its own: {}",
             if authored { "authored" } else { "DERIVED " },
             distinct.len(),
-            SMASH_KIT.len(),
+            KIT_TOTAL,
             moveset.moves.len(),
             if wrong.is_empty() {
                 "-".to_string()
@@ -779,21 +838,19 @@ fn report_the_smash_kit_every_selectable_fighter_has() {
     let short: Vec<&String> = rows
         .iter()
         .filter(|row| {
-            !row.contains(&format!(
-                "{:>2}/{} presses",
-                SMASH_KIT.len(),
-                SMASH_KIT.len()
-            ))
+            !row.contains(&format!("{:>2}/{} presses", KIT_TOTAL, KIT_TOTAL))
         })
         .collect();
     assert!(
         short.is_empty(),
-        "{} selectable fighter(s) are short of the full {}-press kit:\n{}\n\n\
+        "{} selectable fighter(s) are short of the full {}-entry kit:\n{}\n\n\
          A press with no move of its own is not silence — `directional_verb_chain` \
          falls back, so it swings something ELSE and reads as a character missing \
-         a move rather than as a bug.",
+         a move rather than as a bug. An unauthored THROW is different and worse \
+         in its own way: it resolves to NOTHING on purpose, so the direction is \
+         simply a dead input.",
         short.len(),
-        SMASH_KIT.len(),
+        KIT_TOTAL,
         rows.join("\n")
     );
 }

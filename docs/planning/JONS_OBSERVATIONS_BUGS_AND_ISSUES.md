@@ -151,6 +151,7 @@
 * In smash it should be easy for 2 controllers to select their own characters, or turn other characters off or into cpus, any controller should be able to turn a slot into a player if there is a controller connected to it.
   * ▢ ⛔ I first wrote here that this was built and switched off. **That was wrong — I truncated my own grep with `| head`.** Smash DOES claim `InputAssignmentPolicy::JoinToClaim`, route-scoped, while the select or gameplay route is up (`demo_smash/src/lib.rs:1508`), and releases it on leaving. So keyboard + one pad should already be two players and the enum default never applies here.
   * ⊙ Which means the report is about something further in: does the second source get a SLOT and fail to claim a character, or never appear at all? Say which and it narrows to seats vs the select screen.
+  * ◐ 2026-08-20: the SEATING half is measured good — `seats_offered_under` gives keyboard + N pads N+1 slots under the couch policy, nothing else in the tree writes `InputAssignmentPolicy`, and `the_screen_decides::two_players_take_controllers_pick_fighters_and_the_battle_starts` seats keyboard-as-device-0 beside pad 1 and starts the match; so if it still fails for you it is the claiming/feel half, not the seats.
 
 
 *  Note, in ambition I can't use "F" to go through doors anymore, and in smash, I see the new emmy sprite on the select screen, but her character is the old sprite in the match.

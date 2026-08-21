@@ -397,8 +397,12 @@ is not the durable step.
   so the pointer the superproject records already exists remotely.
 - ⛔ **push commits, never somebody else's uncommitted work.** The sprite
   submodule routinely carries Jon's in-progress rig and target edits; `git push`
-  there is safe, `git add` is not — and `docs/planning/JONS_OBSERVATIONS_BUGS_AND_ISSUES.md`
-  is his live file in the superproject.
+  there is safe, `git add` is not.
+- ✔ **`docs/planning/JONS_OBSERVATIONS_BUGS_AND_ISSUES.md` IS committed like any
+  other planning file** (Jon, 2026-08-20, retiring the older rule). Marking an
+  item and then leaving the mark uncommitted meant every finding an agent wrote
+  there lived only in one machine's working tree — which is the exact failure the
+  paragraph above this one is about. Mark it, commit it, push it.
 
 ## Landing when somebody else holds `main`
 

@@ -3093,6 +3093,21 @@ Use [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decompositi
 Choose carves from current dependency and authority measurements, not an old LOC
 target.
 
+⭐ **THE ENDPOINT IS NOW STATED IN THE CRATE ITSELF — 2026-08-21.** A
+decomposition with no stated endpoint runs forever, and the monolith's header
+listed the domains it holds, which is an INVENTORY and cannot refuse anything:
+every gameplay-systems-shaped thing matches it. Measured — the crate gained **49
+files in the fourteen days it was being carved**, more than any other crate in
+the workspace.
+
+⇒ what it is FINISHED as is the **ASSEMBLY**: the schedule, the host, the
+session, the module graph, and the cross-cutting types submodules reach through
+it. Assembly is the one concept that cannot be carved out, because it is what
+does the assembling. Every domain in the list — `world`, `abilities`, `combat`,
+`gravity`, `items`, `music`, `quest`, actors and brains — is therefore a carve
+CANDIDATE rather than a resident, and the crate now says so where somebody adds a
+file: *is this assembly, or a domain that has not been given its crate yet?*
+
 ⭐⭐⭐ **LOC IS THE PROXY. THE WIN IS CONCEPTUAL DOMAIN SEPARATION.** Jon,
 2026-08-21, on the measurements below: *"loc is the proxy. the real win is
 conceptual domain separation."*

@@ -25,6 +25,32 @@
 //! already owned their subject (`ambition_conversation`, `ambition_menu`,
 //! `ambition_items`) and the fourth was deleted outright.
 //!
+//! # The ENDPOINT: what is still here when the carve is done
+//!
+//! ⛔⛔ **the module list above is an INVENTORY OF WHAT HAS NOT MOVED YET, not a
+//! claim of ownership** — and reading it as ownership is what lets a
+//! decomposition run forever. An inventory cannot refuse anything: every
+//! gameplay-systems-shaped thing matches it, which is how this crate gained 49
+//! files in the fourteen days it was being carved (measured 2026-08-21).
+//!
+//! ⭐ **what this crate is FINISHED as is the ASSEMBLY.** The schedule, the host,
+//! the session, the module graph, and the cross-cutting types submodules
+//! reference through it. Jon, 2026-08-21, on D33: *"loc is the proxy. the real
+//! win is conceptual domain separation."* Assembly is the one concept that
+//! cannot be carved out, because it is what does the assembling.
+//!
+//! ⇒ so every DOMAIN named above — `world`, `abilities`, `combat`, `gravity`,
+//! `items`, `music`, `quest`, actors and brains — is a carve CANDIDATE rather
+//! than a resident, and the test for a new file is: *is this assembly, or is it a
+//! domain that has not been given its crate yet?* ⛔ a domain answer means it is
+//! arriving in a waiting room, and it should say so.
+//!
+//! ⚠ **the corollary D33 already learned the hard way**: judge a carve by whether
+//! the concept ends up whole in the crate that owns it, never by what it removes
+//! from a per-crate line count. A slice that moves 2,000 lines and leaves the
+//! concept split across two crates is worth less than one that moves 200 and
+//! makes a domain whole.
+//!
 //! This crate owns the module graph and the cross-cutting types (`RoomGeometry`,
 //! `RoomTransitionCooldown`) that submodules reference through the actor crate.
 //! It is a library only; the playable app, the headless entry point

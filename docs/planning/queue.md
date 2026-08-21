@@ -612,11 +612,41 @@ a policy away to give back. `project_driving_participant` is the ONE runtime
 writer. Rollback schema v59; the seat is registered AND value-probed, because two
 peers can agree a body is driven and disagree about by whom.
 
-▢ **WHAT IS LEFT IS THE CRATE CARVE, and it is priced but not started.** 8,950
-non-test lines of platform-fighter policy (`brain/fighter`, `brain/smash`) still
-sit inside `ambition_characters`, a floor crate every composition links. The
-reason they were there — policy sharing a component with control authority — is
-gone, so the carve is now an ordinary move rather than a coupling.
+▢ **WHAT IS LEFT IS THE CRATE CARVE, AND IT IS BLOCKED. Measured 2026-08-20.**
+10,067 lines (8,948 non-test) of platform-fighter policy — `brain/fighter`,
+`brain/smash`, 32 files — still sit inside `ambition_characters`, a floor crate
+every composition links, unconditionally: there is no feature gate.
+
+⛔⛔ **and this row said the carve was "now an ordinary move rather than a
+coupling" earlier the same day. That sentence was wrong**, written from the fact
+that control authority had left the enum rather than from a measurement of what
+else was in it. The measurement:
+
+`StateMachineCfg` (`brain/state_machine/mod.rs`) is a CLOSED enum whose variants
+hold the policy by value — `Fighter { cfg: FighterCfg, state: FighterState }` and
+`Smash { cfg: SmashCfg, state: SmashState }`, beside `Patrol`, `Wanderer`,
+`Sniper`, `BossPattern`. Three inward edges follow from that and all three are
+inside `ambition_characters`:
+
+| site | what it does |
+| --- | --- |
+| `actor/character_catalog/resolver.rs` (7) | BUILDS `FighterCfg` / `SmashCfg` from catalog rows |
+| `snapshot_impls.rs` (7) | ENCODES those variants — the rollback wire format |
+| `actor/character_catalog/entry.rs` (1) | reads `fighter::decision::DEFAULT_DECISION_INTERVAL_TICKS` |
+
+⇒ moving the policy out means the enum stops naming it, and the three ways to do
+that are each refused or enormous: an ERASED dispatch is what the review already
+said no to twice (*"removes closed enum edges by adding a service locator"* — no
+`Any`, no `TypeId`, no registry); moving the whole enum takes `Brain` and every
+other policy with it, leaving `ambition_characters` with no brain at all; and a
+FEATURE GATE would make the snapshot encoding depend on a build flag, so two
+peers compiled differently would disagree about the wire format — the schema
+fingerprint is content identity.
+
+⚠ **so this is an open DESIGN problem, not an unstarted task**, and the next
+person should not price it as a move. What would unblock it is a way for a closed
+enum to be extended by a crate above without erasure — and nobody has one. ⛔ do
+not reopen it by reaching for the service locator; that answer is already given.
 
 ⚠ **`Brain` is a ONE-VARIANT enum now** (`StateMachine(StateMachineCfg)`).
 Collapsing it to a struct is a separate decision and deliberately not taken here:

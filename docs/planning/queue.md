@@ -525,10 +525,21 @@ committed — and at every one of those three stages seat zero has its own
 spelling of the table the other seats share:
 
 ```text
-feel-clock latch     ControlFrameLatch        │  SlotControlLatches   (slot 0 absent)
-pending input        PendingLocalInput        │  PendingSeatInputs    (slot 0 absent)
-confirmed publish    → ControlFrame           │  → SlotControls[n]
+feel-clock latch     ✔ MERGED 889107010 — SlotControlLatches, seat zero is row zero
+pending input        ✔ MERGED 477fc8693 — PendingSeatInputs, handle zero included
+confirmed publish    ▢ → ControlFrame        │  → SlotControls[n]
 ```
+
+⭐ **two of the three are gone, and the twins went with them.**
+`drive_control_frame` and `drive_seat_frame` — a declared pair, *"the twin of
+`drive_control_frame`, and it exists for the same reason that one does"* — had
+identical bodies once both tables covered seat zero, in BOTH crates that carry a
+copy. They collapse onto one `drive_one_seat`. Also deleted on the way: the
+`handle == 0` branch in `publish_local_inputs`, a second reset in
+`reset_input_authority`, a second drain in `capture_latched_local_input`, two
+`init_resource` calls and two `add_systems` blocks in the host, a second
+assertion in the host's device-latch test, and a waiver row in
+`rollback_coverage` whose subject stopped being a resource.
 
 ⛔ **each fork DECLARES itself, which is the tell.** `SlotControlLatches`'s own
 doc: *"`ControlFrameLatch` does this for the primary seat and nothing did it for
@@ -536,15 +547,24 @@ the others… Slot 0 is deliberately NOT latched here."* `PendingSeatInputs`'s:
 *"Slot 0 is intentionally absent: it is `PendingLocalInput`."* A type whose doc
 says it mirrors another type is a fork with a note attached.
 
-⇒ **remove them bottom-up, one per slice, each one complete:** the latch first
-(it is host-agnostic and the shallowest), then the pending pair, then the
-publish. Once seat zero is a row in the same table as everybody else, a shaping
-stage that loops over that table is per-participant with no second call site —
-which is the whole point of the row.
+⇒ **the THIRD link is the payload, and it is not another table merge.** Seat
+zero's frame goes to `ControlFrame` because the portal, gesture, touch and
+scripted shapers all take `ResMut<ControlFrame>` and no other seat has them.
+Collapsing the destination means moving those shapers, and they must stay on the
+PRE-LATCH side — `fast_fall_pressed` is packed into the encoded rollback input,
+so a shaper that runs after publication becomes something each peer computes
+from its own wall clock.
 
-⚠ **DO NOT start this with budget for only part of it.** A half-merged fork is
-worse than the fork: the old path keeps working, so nothing goes red, and the
-next reader finds three spellings instead of two.
+⇒ what is missing is a per-seat RAW frame table: seat zero has one
+(`ControlFrame` is exactly that) and seats 1.. compute theirs inline inside
+`populate_secondary_slot_controls` and accumulate immediately, with no stage in
+between. Give every seat a row, run the shapers over the table, then accumulate
+— and `ControlFrame` stops being an input bus and becomes seat zero's confirmed
+output alone.
+
+⚠ **DO NOT start that with budget for only part of it.** A half-migrated shaper
+is worse than none: the old path keeps working, so nothing goes red, and the
+next reader finds two shaping stages instead of one.
 
 ⭐ **PROMOTED, NOT WRITTEN** — the same shape as the seven Engine 1.0 plans
 stranded on 2026-08-14, found by the same measurement: of the 65 docs

@@ -3083,6 +3083,36 @@ by size.
 346  anim_helpers.rs
 ```
 
+✔ **BOSS ANIMATION CARVED 2026-08-21 (`9ea8ea2fa`) — the first slice the split
+scan found rather than a human.** `anim_helpers.rs` had 7 public fns of which 4
+were boss-only; those four plus two private helpers are
+`ambition_boss_encounter::anim` now, at no dependency cost (`ambition_sim_view`
+was reading them THROUGH the monolith while already depending on that crate —
+checked BEFORE moving, after `attack.rs` proved an edge is not free). What stayed
+is not boss: chest, breakable, and the actor overlay advance.
+
+⭐⭐⭐ **AND IT SURFACED A THIRD, SHARPER SIGNAL — `super::super::` REACHING INTO
+ANOTHER CRATE.** The last compile error of that carve was the module calling
+`super::super::bosses::boss_animation_keys_for_profile` — a RELATIVE path
+climbing out through the monolith to reach a function that lives in
+`ambition_boss_encounter::behavior`, i.e. the crate the code belonged in all
+along. Code walking up and out to reach its own crate's function is the
+strongest placement smell there is, and it is greppable:
+
+```text
+27  features/ecs/actors/update.rs
+11  features/ecs/damage/actor_hit.rs
+ 9  features/ecs/spawn_actors.rs
+ 8  features/ecs/actors/conversion.rs
+ 6  features/ecs/bosses/tick.rs
+ 4  features/ecs/damage/boss_hit.rs
+```
+
+⚠ **a count of `super::super::` alone means nothing** — inside one crate it is
+ordinary module navigation. What made it a finding was the DESTINATION: the path
+resolved into a DIFFERENT crate. Resolve each one before believing it, the same
+rule as every other scan in this row.
+
 ⭐⭐ **A CHEAP SCAN THAT FINDS SPLIT CANDIDATES: public functions naming a domain
 their FILE does not.** Both splits found by hand this session have the same
 tell — `apply_player_hit_events` in `damage_apply.rs`,

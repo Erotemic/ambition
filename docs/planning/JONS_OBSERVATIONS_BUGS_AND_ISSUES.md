@@ -186,7 +186,10 @@ player_robot_v3   3072x2484 -> 1600x1259   0.52
 … 11 more robot sheets, every ratio 0.42-0.57, none capped
 ```
 
-  ⇒ **v2 and v3 are separate, correctly-reduced sheets at every tier**, so a quality change cannot turn one into the other by geometry. That leaves RESOLUTION — which sheet gets chosen — and so it strengthens rather than replaces the standing hypothesis: `from_baked_table_by_file_root` resolving quality variants through a separate FILE-ROOT index instead of the shared target road.
+  ⇒ **v2 and v3 are separate, correctly-reduced sheets at every tier**, so a quality change cannot turn one into the other by geometry. That leaves RESOLUTION — which sheet gets chosen.
+  * ✖ **FIFTH CAUSE ELIMINATED the same day — it is not the first-record-wins discard either.** Reading the suspect function, `from_baked_table_by_file_root` keeps only `records.into_iter().next()` and silently drops the rest, so a file root whose baked RON holds several records is decided by ORDER. Measured: exactly ONE baked file in the whole tree holds more than one record (`creator_lab_props_spritesheet.ron`, 8 — props, not characters), and its order is byte-identical across all four tiers (`genesis_vat` first everywhere). ⇒ cannot swap a robot.
+  ⚠ **but note the LATENT trap while somebody is in here**: that `.next()` is safe today by coincidence — one multi-record file, and a generation order that happens to be stable. The day a character sheet carries two records, or the packer's order shifts between tiers, a quality change silently picks a different one. ⛔ the honest fix is to refuse a multi-record file root, or key by target, rather than to trust the order.
+  ⇒ so the standing hypothesis narrows again: not geometry, not record order — **which FILE ROOT the variant road asks for.**
 
 ## 2026-08-20 — doors do not work in Ambition, and Mary-O's 1-1 loops
 

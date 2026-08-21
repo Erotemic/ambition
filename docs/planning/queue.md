@@ -486,6 +486,33 @@ The other three asymmetries, for completeness: portal axis warping
 (`app/sim_systems.rs`), and scripted control (`scripted_input.rs`) are all
 `ResMut<ControlFrame>` and therefore seat zero's alone.
 
+⭐⭐ **AND THE SHAPE OF THE WORK IS A FORK CHAIN, THREE LINKS LONG.** Both roads
+already end in the same representation — a per-seat `ControlFrame` waiting to be
+committed — and at every one of those three stages seat zero has its own
+spelling of the table the other seats share:
+
+```text
+feel-clock latch     ControlFrameLatch        │  SlotControlLatches   (slot 0 absent)
+pending input        PendingLocalInput        │  PendingSeatInputs    (slot 0 absent)
+confirmed publish    → ControlFrame           │  → SlotControls[n]
+```
+
+⛔ **each fork DECLARES itself, which is the tell.** `SlotControlLatches`'s own
+doc: *"`ControlFrameLatch` does this for the primary seat and nothing did it for
+the others… Slot 0 is deliberately NOT latched here."* `PendingSeatInputs`'s:
+*"Slot 0 is intentionally absent: it is `PendingLocalInput`."* A type whose doc
+says it mirrors another type is a fork with a note attached.
+
+⇒ **remove them bottom-up, one per slice, each one complete:** the latch first
+(it is host-agnostic and the shallowest), then the pending pair, then the
+publish. Once seat zero is a row in the same table as everybody else, a shaping
+stage that loops over that table is per-participant with no second call site —
+which is the whole point of the row.
+
+⚠ **DO NOT start this with budget for only part of it.** A half-merged fork is
+worse than the fork: the old path keeps working, so nothing goes red, and the
+next reader finds three spellings instead of two.
+
 ⭐ **PROMOTED, NOT WRITTEN** — the same shape as the seven Engine 1.0 plans
 stranded on 2026-08-14, found by the same measurement: of the 65 docs
 `tracks.md` points at, 35 are named in no queue row, and all but a handful hold

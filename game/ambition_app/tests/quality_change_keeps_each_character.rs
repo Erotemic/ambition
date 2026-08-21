@@ -19,6 +19,15 @@
 //! `declared_character_ids()` is that set's COMPLEMENT, so reaching for it
 //! yields a tautology.
 //!
+//! ⛔⛔ **WHAT THIS DOES NOT COVER, measured rather than assumed: THE PLAYER.**
+//! `build_visible_app(NoWindow, true)` boots with **no `PrimaryPlayer` wearing a
+//! character** — checked by asserting one exists, which failed. So the 18
+//! resident tokens this exercises are all NPCs, and Jon's report is about HIS
+//! sprite (`robot v3` becoming `robot v2`). ⇒ the extension that would cover it
+//! is to drive the app into gameplay before the transition; until then this
+//! guards the mechanism, not the reported case, and saying so is the difference
+//! between a limitation and a false negative.
+//!
 //! ⚠ **the assertion is on the FILE ROOT, not the path.** A tier change is
 //! SUPPOSED to move `sprites/x.png` to `sprites_0_5x/x.png`. Asserting the path
 //! would fail on correct behaviour; asserting the root fails only when the

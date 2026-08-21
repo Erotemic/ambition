@@ -164,6 +164,33 @@ here: **both are already true while the feature is broken.**
 Residency must be shown to *fall* after a transition, not merely to stop rising.
 `[image-census]` already reports totals; use it rather than building telemetry.
 
+## Jon's "quality change swapped my character" report — SIX causes eliminated
+
+> *"When I change the video quality in ambition, my sprite went from the robot v3
+> character to the robot v2 character."*
+
+Three were eliminated before (missing art; a missing `_actor.ron` sidecar; a
+per-tier sheet collision on a rig target). Three more, measured 2026-08-20 — all
+by replicating what the RUNTIME does rather than by reading intent:
+
+| # | eliminated | how |
+| --- | --- | --- |
+| 4 | the tier sheet INDEX picks the wrong file | replicated `record_index`'s keying over all four tier directories: `player_robot_v3.{0_5x,0_25x,potato}` each resolve to `player_robot_v3_spritesheet.ron`, and **zero** keys collide anywhere in the index |
+| 5 | two characters sharing a DISPLAY NAME | `CharacterSpriteAssets::declare` maps BOTH the id and the display name to the id and is LAST-WINS, so a shared display name would make the quality transition re-demand the wrong character. Measured: of 127 catalog rows, **zero** display names are claimed twice, and none equals another row's id |
+| 6 | a row whose PNG and MANIFEST name different sheets | `resolve_variant_pair` asks the CATALOG for the variant PNG (from `spritesheet`) and the SHEET INDEX for the variant spec (from `manifest`); a row where those roots differ would load one character's pixels with another's grid at reduced quality only. Measured: **zero** of 127 rows split them |
+
+⚠ **cause 5 is eliminated by CONTENT, not by construction, and the hazard is
+still latent.** `declare` really is last-wins, and nothing stops a future row
+from reusing a display name. If this report ever reproduces, check that first.
+
+▢ **what is left is the re-materialization ORDER** — `3bf154974` (2026-08-08)
+made a quality change re-materialize on-screen bodies instead of only the next
+room, and `demote_stale_realizations` returns catalog IDS derived from
+`declared[token]` while the retired entries are TOKENS. That mapping is exactly
+where a body could be re-demanded as a neighbour. ⛔ and it is not reproducible
+by inspection — the next step is a live Apply with `[image-census]` on, which is
+what this plan's verification section already asks for.
+
 ## Three small fixes, deliberately kept separate
 
 Not part of this architecture and not allowed to shape it:

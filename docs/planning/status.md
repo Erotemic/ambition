@@ -15,6 +15,46 @@ replenish it. Focused plans own technical design.
 If this page disagrees with current source or a focused open plan, update this
 page rather than appending an archaeological correction.
 
+## Also 2026-08-21, later: content, guards, and the carve's PRICE
+
+⚠ a second session ran beside the carve above. What a cold start needs from it:
+
+**Landed.** Every fighter authors all four throws (`f3611b93d`), and the roster
+ratchet grew 16 → 22 to cover grabs. Seat declaration moved out of the GGRS
+backend into `ambition_input` (`d8994ce92`) — TwinTrack's second seat drives, and
+the bug it fixed was *host-only*, invisible to every demo-binary test. The LDtk
+`EdgeExit` reachability rule now reads the Collision IntGrid; it had been scanning
+`Solid` ENTITIES and **could never fire** (15 levels vs 4, intersection empty).
+A misspelt loading-zone `activation` is refused instead of silently becoming a
+`Door`.
+
+**Open and worth knowing before you pick a row:**
+
+```text
+Jon's interact-door bug   NOT reproducible in the sim harness, the demo
+                          binaries, the shell host, under rollback, or with the
+                          touch overlay. Five suspects eliminated by
+                          measurement. Next probe is machine-local:
+                          AMBITION_DATA_DIR=$(mktemp -d) ./run_game.sh
+D174                      a 16px floor lip inside FIVE EdgeExit zones — you
+                          must jump into the hub's contact exits. Content fix
+                          or soften the contract; Jon's call
+D175                      nine participant-input items, promoted from a doc no
+                          ledger row could reach. Its first item is the SEAT-0
+                          SHAPING BUS, which is why couch bugs keep recurring
+TwinTrack                 PARKED, with a known limit: two panes render ONE
+                          coordinate-time slice, so they can disagree about
+                          optics and never about simultaneity
+```
+
+⛔ **and the carve's price, measured — read this before proposing one.** More
+than half the monolith's modules hold rollback-registered types, so they cannot
+move without rewriting the wire format. Worse, the cheap-by-coupling modules are
+cheap *because* they are assembly or observers — which is exactly what the
+monolith is finished AS. Five candidates were taken to a verdict; four were
+refused by their destination's own stated contract. D33 carries the table, the
+pre-flight command, and the reasoning.
+
 ## What moved on 2026-08-21: the monolith carve, by DOMAIN
 
 Jon, that day: *"loc is the proxy. the real win is conceptual domain

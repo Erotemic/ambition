@@ -8,11 +8,27 @@
 
 ## Remaining
 
-- ▢ **Block ↔ chain crawl transfer.** A crawler attached to a block surface does
-  not transfer directly onto an overlapping chain surface (or vice versa)
-  without detaching first. Define the shared attachment-transfer rule so the
-  two authored surface domains can hand off continuously without introducing a
-  second crawler controller.
+- ▢ **Block ↔ chain crawl transfer — REAL, and CUSTOMER-GATED.** A crawler
+  attached to a block surface does not transfer directly onto an overlapping
+  chain surface (or vice versa) without detaching first. `step_adhesive_crawler`
+  dispatches `CrawlAttachment::Chain` into `crawl_chain` and returns, while
+  `Block` falls through to the riding path — two roads, and only the block road
+  has a face-transition rule (`wall_ahead` → re-attach). Defining the shared
+  attachment-transfer rule is the fix, and it must not introduce a second crawler
+  controller.
+
+  ⛔ **but NO AUTHORED LEVEL PUTS THE TWO TOGETHER. Measured 2026-08-20** across
+  every `.ldtk` in `game/ambition_map_assets`: `SurfaceChain` appears in exactly
+  two levels, `sanic_sandbox` and `sanic_speedway`, and neither places a crawler
+  — the three crawler characters (`npc_puppy_slug` and its two variants) live in
+  `hall_of_characters`, `intro` and `sandbox`, none of which authors a chain in
+  the same level.
+
+  ⇒ leave it ▢ for the same reason as the portal/gravity-zone row below: it is
+  waiting on a customer, not on effort. ⚠ **and do not build it speculatively** —
+  a transfer rule nothing exercises is a rule nothing can falsify, and the
+  crawler is the subsystem this repository has already had to correct three times
+  from play.
 
 - ▢ **Exercise portal transit inside authored gravity zones.** The code resolves
   projectile gravity per body and portal transit itself is pure portal geometry,

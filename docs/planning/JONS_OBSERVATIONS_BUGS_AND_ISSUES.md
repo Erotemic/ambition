@@ -253,6 +253,48 @@ permanently. ⛔ if a robot v3 body is ever published this way, it would hold it
 old realization across a quality change while a declared sibling moved — which
 is the shape to test first when the live capture happens.
 
+## 2026-08-21 — Mary-O: the pole victory TRANSLATES her, and side contact hits the snake
+
+Jon: *"if she runs into solid snake from the side, the snake gets hit instead of
+her. And when she gets a victory for the pole, her sprite seems to just translate
+instead of using the climb animation to slide down the pole and then the walk
+animation to move after. We should not hack these in, these should be done via
+scripted control of the character in an elegant way so we get these animations
+for free."*
+
+  ▢ **THE POLE SEQUENCE MUST DRIVE HER, NOT MOVE HER.** Today `run_flag_sequence`
+  writes `FlagSequence::driven` onto the body through `constrain_body_pose` every
+  tick the phase is not `Idle` — a POSITION write, which is exactly the
+  "translate" Jon is seeing, and it is why no animation plays. ⇒ the sequence
+  should hold the character through the scripted-control seam and express the
+  slide as a CLIMB and the walk-off as MOVEMENT INPUT, so the animation picker
+  chooses the clips for free. ⛔ Jon named the approach, so do not pin a clip by
+  hand as a shortcut — that is the hack he is refusing in advance.
+
+  ▢ **Side contact with Solid Snake damages the SNAKE, not her.** A stomp is
+  decided by approach direction; something is attributing an ordinary side
+  collision to her as the attacker. Arbitrate by identity/approach rather than by
+  whoever is queried first.
+
+## 2026-08-21 — Mary-O: tall crouch is too tall, and death keeps the camera panning
+
+Jon: *"Her tall crouch should be the same height (in terms of collision as her
+small form, but currently its a bit too tall, so she can't clear places she used
+to be able to), and also when you die, the camera will still keep panning. Her
+death should stop her velocity to play her death animation, so the camera should
+stop too as a side effect."*
+
+  ▢ **Tall crouch collision height must EQUAL small-form height.** It is the SMB1
+  rule and it is what makes a crouch-slide under a one-tile gap work at either
+  size. The symptom Jon names — places she used to clear and no longer can — is
+  the observable, so the guard belongs on the crouched envelope, not on a
+  constant.
+
+  ▢ **Death zeroes velocity; the camera stopping is a CONSEQUENCE, not a second
+  fix.** ⛔ do not fix this by pinning the camera on death — Jon states the
+  causal order explicitly, and a camera that stops while the body drifts is the
+  same bug wearing a hat.
+
 ## 2026-08-20 — doors do not work in Ambition, and Mary-O's 1-1 loops
 
 Jon: *"In ambition I cannot go through any doors anymore. This is both interact

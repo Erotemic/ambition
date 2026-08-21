@@ -218,6 +218,29 @@ but only where `declared.contains_key(token)`. `publish_under` inserts into
 did not build, so retiring it would delete a face with no way to draw it
 again."* Same for the id-keyed row a character gets when published without ever
 being declared.
+  * ⊙ **TRIED to build the reproduction headlessly, 2026-08-21 — and the attempt
+itself measured three things worth more than the test would have been.**
+    1. **The seam is unreachable from a shell-host composition**: `GameAssets` is
+       ABSENT there (character realizations are presentation state). It needs
+       `build_visible_app(VisibleRenderMode::NoWindow, true)` — the builder
+       `boot_budget` uses. That is why this seam has no coverage: structure, not
+       neglect.
+    2. In that boot, settled 900 frames: **141 characters declared, 21 tokens
+       ready — and ZERO of the 141 declared ids resolves to a sheet**
+       (`sheet(id)` is `None` for every one). Not a timing artefact; identical at
+       180 and 900 frames.
+    3. ⛔ **that contradicts the code's own comment.** `publish` inserts under
+       `character_id` precisely so that *"a character published without ever
+       being declared … still resolves by its own id"* — yet no declared id
+       resolves. So either `publish` is never reached on this road and every
+       resident sheet arrives via `publish_under`, or residency is keyed by a
+       token the id lookup cannot reach. **Both readings matter to this bug**:
+       the first means nothing on screen converges on a quality change, and the
+       second means the id-keyed road silently answers `None` while something
+       else answers.
+  ⇒ that is the thread to pull next, and it is cheap: ask why `sheet(<declared
+  id>)` is `None` in a settled visible boot.
+
   ⇒ **so a host-published realization is FROZEN at whatever tier it was
 published at, by design** — the intro's NPCs are named in the sibling comment as
 exactly this case. That is a documented limitation rather than the swap, and it

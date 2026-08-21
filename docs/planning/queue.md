@@ -352,13 +352,41 @@ which is why the logic moved into a script a test can run.
 (`79f465e62`). Two things named in the same review are still open, and neither
 is a threshold to tune.
 
-**(a) MOTION PROVENANCE, not magnitude.** `body_contact.rs` treats anything
-faster than one walk-tick as "not walking" and lets it pass. That correctly
-exempts a launch, but it is a PROXY: a knockback that has decayed, a recoil, or
-a scripted displacement eventually falls below walking speed and starts being
-constrained as locomotion. ⇒ the movement/contact seam should carry an explicit
-fact about whether a proposed motion participates in body contact. ⛔ do not
-infer the origin of a displacement from how big it is.
+**(a) MOTION PROVENANCE, not magnitude — REAL IN PRINCIPLE, AND I COULD NOT
+REACH IT.** `body_contact.rs` treats anything faster than one walk-tick as "not
+walking". That correctly exempts a launch and it is a PROXY: a knockback DECAYS,
+and the tick it drops below walking speed is the tick it starts being resisted
+as locomotion, with nothing about the number saying where it came from.
+
+⭐ **the semantic question already exists and is phrased exactly right** —
+`knockdown::owns_control(state)`, *"is the floor game holding the controller
+this tick"*, and `integrate_velocity_clusters` already holds that `state`. The
+fix is three lines. ⛔ **it is not landed, because nothing could falsify it.**
+
+Measured 2026-08-21, three ways, each failing at the PRECONDITION:
+
+```text
+hand-set knockdown_timer + hold right   the body gets straight up — holding a
+                                        direction IS a getup, so that fixture
+                                        measured a state production never reaches
+900 px/s sideways launch, no input      "grounded AND moving AND owned" never
+                                        occurred once across 120 ticks
+a downed body as the BLOCKER            not this rule at all: the constraint is
+                                        on the MOVER, and a downed body is not
+                                        moving
+```
+
+⇒ **contact runs only on the GROUNDED SIDE AXIS, and a grounded body is either
+being steered — in which case the steering input is a getup and the floor game
+does not own it — or owned and therefore not moving.** The overlap looks empty,
+which is why the proxy has never been seen to misfire.
+
+⛔ **do not land the gate without a falsifier.** A correct question nothing can
+test is dead code wearing a good comment. What would make it reachable, and what
+should reopen this row: body contact extending to the AIRBORNE case (where
+tumble is long and fast), or a grounded scripted shove that moves a body the
+floor game owns. ⚠ the fixture lesson generalises — a hand-set timer bypassed
+the getup rule and measured a state the game cannot be in.
 
 **(b) THE RESIDUAL THE SPLIT COULD NOT REACH, and it is written into the
 function's own doc.** The snapshot is taken before any controller runs, so a

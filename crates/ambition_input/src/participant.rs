@@ -4,7 +4,8 @@
 //! the entity that owns device/action state (leafwing `ActionState` +
 //! `InputMap`, attached by the host), the declared input contexts, and —
 //! through its [`ParticipantId`] → `PlayerSlot` correspondence — the seat that
-//! `Brain::Player(slot)` reads. Possession, session relaunch, and actor death
+//! the body carrying `DrivingParticipant(slot)` reads. Possession, session
+//! relaunch, and actor death
 //! never touch the participant; they only change which body interprets the
 //! participant's deterministic `ControlFrame` downstream.
 //!
@@ -20,7 +21,8 @@ use bevy::prelude::*;
 
 /// Which seat at the machine. Maps 1:1 onto the sim-side `PlayerSlot`
 /// (`ambition_characters::brain`): the participant with id N feeds
-/// `SlotControls[N]`, which `Brain::Player(slot N)` consumes.
+/// `SlotControls[N]`, which the body carrying `DrivingParticipant(slot N)`
+/// consumes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct ParticipantId(pub u8);
 

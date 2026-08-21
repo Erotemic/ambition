@@ -85,9 +85,16 @@ in `app/plugins.rs` because they must chain after sandbox input systems:
 
 ## Where each kind of AI lives
 
+⛔ **the first row is not a brain, and that is why it no longer names one.**
+`Brain::Player(slot)` meant *a participant drives this body*, which is control
+authority rather than AI policy — it sat in this enum only because there was
+nowhere else to say it, and possession had to MOVE the variant, destroying the
+target's own policy on the way. That fact is `DrivingParticipant(slot)` now and
+`Brain` is policy only; a driven body keeps whatever policy it has.
+
 | Actor kind | Brain backend | Behavior code | Spawned/wired from |
 |---|---|---|---|
-| **Player** | `Brain::Player(slot)` | `player.rs` — *pure translation* of the slot-selected `ControlFrame` → frame; makes **no** gameplay decisions | player spawn |
+| **Participant-driven** | *(none — `DrivingParticipant(slot)`)* | `player.rs` — *pure translation* of the slot-selected `ControlFrame` → frame; makes **no** gameplay decisions | player spawn |
 | **NPC (peaceful)** | `StateMachine(Patrol{aggressiveness:0})` / `StandStill` | `state_machine/mod.rs` (`tick_patrol`, `tick_stand_still`) | `features/npcs.rs` |
 | **Enemy (common)** | `StateMachine(MeleeBrute/Skirmisher/Sniper/Shark/Wanderer)` | `state_machine/mod.rs` (`tick_*` per template) | `features/ecs/brain_builders.rs` (`enemy_default_brain`, archetype-driven from `character_archetypes.ron`) |
 | **Enemy (brawler)** | `StateMachine(Smash{..})` | `smash/` 5-stage pipeline | `brain_builders.rs` (`smash_cfg_for_archetype`) |

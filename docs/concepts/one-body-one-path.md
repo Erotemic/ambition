@@ -187,7 +187,7 @@ this table is the map between them.
 | --- | --- | --- | --- |
 | `ParticipantId` | the person in front of a controller | outlives every session, body and possession | anything a body does |
 | `PlayerSlot` | which seat at the machine that participant occupies; `SlotControls[N]` is its control frame | the session's seating | "the protagonist" — slot 0 is a seat, not a role |
-| `Brain::Player(slot)` | **control authority**: this body is driven by that seat | moves between bodies, which is what possession IS | a body kind; a boss carrying it is an ordinary controlled body |
+| `DrivingParticipant(slot)` | **control authority**: this body is driven by that seat | moves between bodies, which is what possession IS | a body kind; a boss carrying it is an ordinary controlled body. ⛔ and not `Brain` — that is AI policy, and the two shared one enum variant until it was split out |
 | `PlayerEntity` | a body belonging to the player population | the body | assuming there is exactly one, or any |
 | `PrimaryPlayer` | the **home avatar** — save identity, respawn anchor, inventory owner | the home body, and a session may have none | "the currently controlled body" (possession moves that away) |
 | `ControlledSubject` | which body a local presentation/control context follows | the frame | a second global actor identity |

@@ -619,6 +619,18 @@ pub fn populate_secondary_slot_controls(
     // Present only under a fixed-tick host, mirroring `ControlFrameLatch`.
     // Absent, a frame IS a tick and there is nothing to bridge.
     mut latches: Option<ResMut<ambition_characters::brain::SlotControlLatches>>,
+    // ⛔⛔ **THE UNFOCUS GUARD, and its absence was a real defect rather than a
+    // simplification.** `pause_input_when_unfocused` clears the device-agnostic
+    // frames while no window reports focus; `populate_control_frame_from_actions`
+    // has applied it since it landed and this system never took a window query at
+    // all, so it could not have. Two people on a couch, the window loses focus,
+    // and player one freezes while player two keeps walking on a held stick.
+    //
+    // ⚠ **the rule was already ONE function** — `input_suppressed_by_unfocus` —
+    // and only one of the two roads that need it ever asked. That is the shape
+    // this whole fork keeps producing: not two implementations, one
+    // implementation with one caller.
+    windows: Query<&Window>,
 ) {
     // ⚠ THIS SEAT'S context, not the primary's. Reading one folded answer here
     // is what made a per-seat surface inexpressible: seat N declaring a claim
@@ -632,7 +644,8 @@ pub fn populate_secondary_slot_controls(
     // the level — including the ones nobody was talking to.
     let world_running = !mode
         .get()
-        .stops_the_world(dialogue_policy.map(|p| *p).unwrap_or_default());
+        .stops_the_world(dialogue_policy.map(|p| *p).unwrap_or_default())
+        && !input_suppressed_by_unfocus(&user_settings, windows.iter().map(|w| w.focused));
     for (participant, actions, mut burst) in &mut seats {
         if participant.id == ambition_input::ParticipantId::PRIMARY {
             continue;
@@ -1542,6 +1555,98 @@ mod focus_gate_tests {
                 .jump_held,
             false,
             "a paused world stops every seat, whatever context each one owns"
+        );
+    }
+
+    /// **⛔⛔ ALT-TAB STOPS EVERY SEAT, NOT JUST SEAT ZERO.**
+    ///
+    /// `pause_input_when_unfocused` is an opt-in that clears the device-agnostic
+    /// frames while no window reports focus. `populate_control_frame_from_actions`
+    /// applies it; `populate_secondary_slot_controls` did not — it never took a
+    /// `Query<&Window>` at all, so it could not have. Two people on a couch, the
+    /// window loses focus, and player one freezes while player two keeps walking
+    /// on a held stick.
+    ///
+    /// ⚠ **the existing unfocus tests could not see this** and were right not to:
+    /// they exercise `input_suppressed_by_unfocus` as a pure predicate, which was
+    /// always correct. What was wrong is that one of the two roads never asked
+    /// it — a rule that exists as one function and is called from one of the two
+    /// places that need it.
+    ///
+    /// ⭐ **the control is inside the test**: with the setting OFF, the same
+    /// unfocused window must leave the seat driving, or this would pass against a
+    /// build that had simply stopped seat one for some other reason.
+    #[test]
+    fn an_unfocused_window_stops_a_secondary_seat_too() {
+        use ambition_characters::brain::{PlayerSlot, SlotControls};
+        use ambition_input::participant::context_priority;
+        use ambition_input::{ContextClaim, GAMEPLAY_CONTEXT};
+        use ambition_platformer2d_shared_tangle::schedule::GameMode;
+
+        fn app_with(pause_when_unfocused: bool) -> App {
+            let mut app = App::new();
+            app.init_resource::<SeatInputContexts>();
+            app.init_resource::<SlotControls>();
+            let mut settings = ambition_persistence::settings::UserSettings::default();
+            settings.gameplay.pause_input_when_unfocused = pause_when_unfocused;
+            app.insert_resource(settings);
+            app.add_plugins(bevy::state::app::StatesPlugin);
+            app.insert_state(GameMode::Playing);
+            for slot in [0u8, 1] {
+                let mut contexts = ParticipantContexts::default();
+                contexts.declare(ContextClaim::capturing(
+                    GAMEPLAY_CONTEXT,
+                    context_priority::GAMEPLAY,
+                ));
+                let mut actions = ActionState::<Platformer2dInputActionMonolith>::default();
+                actions.press(&Platformer2dInputActionMonolith::Jump);
+                app.world_mut().spawn((
+                    InputParticipant {
+                        id: ParticipantId(slot),
+                    },
+                    contexts,
+                    actions,
+                    super::SeatBurstTriggerState::default(),
+                ));
+            }
+            // A window that is NOT focused — the whole subject.
+            app.world_mut().spawn(bevy::prelude::Window {
+                focused: false,
+                ..Default::default()
+            });
+            app.add_systems(
+                Update,
+                (
+                    resolve_active_input_context,
+                    super::populate_secondary_slot_controls,
+                )
+                    .chain(),
+            );
+            app
+        }
+
+        let mut off = app_with(false);
+        off.update();
+        assert!(
+            off.world()
+                .resource::<SlotControls>()
+                .get(PlayerSlot(1))
+                .jump_held,
+            "precondition: with the guard OFF an unfocused window changes nothing, \
+             so seat one is driving and the assertion below is about the guard",
+        );
+
+        let mut on = app_with(true);
+        on.update();
+        assert!(
+            !on.world()
+                .resource::<SlotControls>()
+                .get(PlayerSlot(1))
+                .jump_held,
+            "the window is unfocused and `pause_input_when_unfocused` is on, and \
+             seat one is still holding jump. Seat zero stopped; a couch game just \
+             kept walking player two into a pit while the player was reading their \
+             email",
         );
     }
 

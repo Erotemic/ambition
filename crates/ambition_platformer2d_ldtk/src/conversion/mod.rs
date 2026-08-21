@@ -1271,8 +1271,8 @@ mod tests {
     /// ⇒ `None` ⇒ the static per-kind sprite.
     #[test]
     fn pickup_spawn_carries_an_optional_animated_sprite() {
+        use ambition_entity_catalog::placements::PlacementSchema;
         use ambition_entity_catalog::PickupKind;
-    use entity_catalog::placements::PlacementSchema;
         let project = synthetic_level(vec![
             entity_at(
                 "PickupSpawn",

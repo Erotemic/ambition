@@ -3113,10 +3113,14 @@ construction       5897    232    42     46.5
 ⇒ **two candidates have ZERO inbound references**, which is the strongest signal
 this measurement produces — nothing in the monolith would notice them leaving:
 
-* **`dev/trace`** (2,000 lines). `ambition_dev_tools` already exists and its own
-  header says it *"owns the content-free half of the old `dev/` module"* — so
-  this is the other half, and the destination is built, named and stating its
-  purpose. The cheapest coherent carve on the board.
+* ⛔ **`dev/trace` (2,000 lines) — REFUSED BY ITS DESTINATION, and I proposed it
+  an hour before reading the refusal.** `ambition_dev_tools` does own *"the
+  content-free half of the old `dev/` module"*, and its own **"What stays
+  elsewhere"** section names this exact module: *"The gameplay `trace` recorder
+  samples live sim state (`player`/`features`/`rooms`/`portal`/`game_mode`) and
+  STAYS SIM-SIDE in `ambition_platformer2d_actor_monolith::dev::trace`."*
+  ⇒ **not a candidate.** Zero inbound coupling made it look free; it is not
+  misplaced, it is where it has to be, because it samples the sim.
 * **`affordances`** (1,733 lines) — *"what would each input do right now?"*, a
   table the HUD reads and, in its own words, *"gameplay code (today: nothing)"*.
   One consumer, zero siblings. ⚠ its natural home is the family that already owns
@@ -3124,9 +3128,25 @@ this measurement produces — nothing in the monolith would notice them leaving:
   of its own — ⛔ check that destination's stated contract first, which is the
   rule D136 yields.
 
-⚠ **coupling is NECESSARY, NOT SUFFICIENT.** A module nothing reads is easy to
-move; that does not make the concept whole when it lands. Judge the result by
-Jon's test, not by this table.
+⚠ **coupling is NECESSARY, NOT SUFFICIENT — and the `dev/trace` entry above is
+this row's own proof, earned the embarrassing way.** The table said 0 inbound and
+a destination already existed; both were true, and the module still belongs
+exactly where it is. A module nothing reads is easy to move; that does not make
+it MISPLACED. Judge the result by Jon's test, not by this table.
+
+⭐⭐ **AND IT IS THE FOURTH POSITIVE INSTANCE FOR D136, this time catching an
+agent mid-reach.** The destination's stated contract killed a plausible carve at
+zero cost — before a line moved, in the same session that wrote *"read the
+DESTINATION's stated contract before moving anything into it"* into three other
+crates. The rule is worth what that sentence claims.
+
+⚠ **`affordances` is NOT cleared either — the check is named, not done.**
+`ambition_sim_view`'s contract is specific: plain-data snapshots, pure functions
+of sim state, **no `Entity`/`Handle` borrows in the ROWS**, no caching across
+ticks. `affordances` has no cross-tick caching and its `Entity` uses look like
+query params rather than published rows — but "look like" is not the standard
+this row holds itself to. Read the published table type before proposing the
+move.
 
 ⭐ **THE ENDPOINT IS NOW STATED IN THE CRATE ITSELF — 2026-08-21.** A
 decomposition with no stated endpoint runs forever, and the monolith's header

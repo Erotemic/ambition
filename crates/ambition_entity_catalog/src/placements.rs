@@ -8,6 +8,7 @@
 //! sim/content LOWERS these records into behavior at room-load; the arrow
 //! is always sim/content → catalog, never the reverse.
 
+use crate::PickupKind;
 use serde::{Deserialize, Serialize};
 
 /// Damage/team relationship used by hitboxes and hurtboxes — the `can_damage`
@@ -171,7 +172,7 @@ pub enum InteractionKindSpec {
 /// ONE pure type carried on the single `PlacementRecord` channel.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PickupSpec {
-    pub kind: PickupKindSpec,
+    pub kind: PickupKind,
     pub respawn: HazardRespawn,
     pub collected: bool,
     /// Optional animated sprite sheet (a prop-kind key registered in
@@ -185,7 +186,7 @@ pub struct PickupSpec {
 }
 
 impl PickupSpec {
-    pub fn new(kind: PickupKindSpec) -> Self {
+    pub fn new(kind: PickupKind) -> Self {
         Self {
             kind,
             respawn: HazardRespawn::Never,
@@ -201,16 +202,13 @@ impl PickupSpec {
     }
 }
 
-/// The authored reward category carried by [`PickupSpec`] (and a [`ChestSpec`]
-/// reward).
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub enum PickupKindSpec {
-    Health { amount: i32 },
-    Currency { amount: i32 },
-    Ability { ability_id: String },
-    StoryFlag { flag: String },
-    Custom(String),
-}
+// ✔ `PickupKind` DELETED 2026-08-21 (D33). It was byte-identical to
+// `crate::PickupKind` -- same five variants, same fields, same derives -- in the
+// SAME crate. `PickupKind`'s own doc already said it "was never
+// interaction-specific, it was merely first needed there"; this was the other
+// half of that consolidation, left behind. The authored schema names
+// `PickupKind` directly now, and the serialized shape is unchanged because the
+// variant names and fields were identical.
 
 /// The authored chest schema — open/closed state, an optional reward, and a
 /// persistence flag. Fully plain data; the interaction runtime lowers it to a
@@ -219,12 +217,12 @@ pub enum PickupKindSpec {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ChestSpec {
     pub state: ChestStateSpec,
-    pub reward: Option<PickupKindSpec>,
+    pub reward: Option<PickupKind>,
     pub persistent: bool,
 }
 
 impl ChestSpec {
-    pub fn new(reward: Option<PickupKindSpec>) -> Self {
+    pub fn new(reward: Option<PickupKind>) -> Self {
         Self {
             state: ChestStateSpec::Closed,
             reward,

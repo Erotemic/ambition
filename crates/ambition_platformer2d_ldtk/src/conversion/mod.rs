@@ -1271,7 +1271,8 @@ mod tests {
     /// ⇒ `None` ⇒ the static per-kind sprite.
     #[test]
     fn pickup_spawn_carries_an_optional_animated_sprite() {
-        use ambition_entity_catalog::placements::{PickupKindSpec, PlacementSchema};
+        use ambition_entity_catalog::PickupKind;
+    use entity_catalog::placements::PlacementSchema;
         let project = synthetic_level(vec![
             entity_at(
                 "PickupSpawn",
@@ -1308,7 +1309,7 @@ mod tests {
                 .expect("pickup lowered")
         };
         let (ring_kind, ring_sprite) = sprite_of("ring");
-        assert!(matches!(ring_kind, PickupKindSpec::Currency { amount: 1 }));
+        assert!(matches!(ring_kind, PickupKind::Currency { amount: 1 }));
         assert_eq!(
             ring_sprite.as_deref(),
             Some("sanic_ring_prop"),

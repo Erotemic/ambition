@@ -203,12 +203,13 @@ pub const RING_SPRITE_KIND: &str = "sanic_ring_prop";
 pub fn is_ring_placement(
     record: &ambition_platformer2d::world::placements::PlacementRecord,
 ) -> bool {
-    use ambition_platformer2d::entity_catalog::placements::{PickupKindSpec, PlacementSchema};
+    use ambition_platformer2d::entity_catalog::PickupKind;
+    use ambition_platformer2d::entity_catalog::placements::PlacementSchema;
     record.name == "ring"
         && matches!(
             &record.schema,
             PlacementSchema::Pickup(pickup)
-                if matches!(pickup.kind, PickupKindSpec::Currency { .. })
+                if matches!(pickup.kind, PickupKind::Currency { .. })
         )
 }
 
@@ -2234,7 +2235,7 @@ pub fn scatter_rings_on_hit(
                 aabb: ae::Aabb::new(event.pos, size * 0.5),
                 payload: {
                     let mut spec = ambition_platformer2d::entity_catalog::placements::PickupSpec::new(
-                        ambition_platformer2d::entity_catalog::placements::PickupKindSpec::Currency {
+                        ambition_platformer2d::entity_catalog::PickupKind::Currency {
                             amount: 1,
                         },
                     );

@@ -149,27 +149,27 @@ pub(super) fn parse_optional_path(
     })
 }
 
-pub(super) fn parse_pickup_kind(value: &str) -> ambition_platformer2d_world::rooms::PickupKindSpec {
+pub(super) fn parse_pickup_kind(value: &str) -> ambition_platformer2d_world::rooms::PickupKind {
     if let Some(amount) = value
         .strip_prefix("health:")
         .and_then(|text| text.parse::<i32>().ok())
     {
-        ambition_platformer2d_world::rooms::PickupKindSpec::Health { amount }
+        ambition_platformer2d_world::rooms::PickupKind::Health { amount }
     } else if let Some(amount) = value
         .strip_prefix("currency:")
         .and_then(|text| text.parse::<i32>().ok())
     {
-        ambition_platformer2d_world::rooms::PickupKindSpec::Currency { amount }
+        ambition_platformer2d_world::rooms::PickupKind::Currency { amount }
     } else if let Some(ability_id) = value.strip_prefix("ability:") {
-        ambition_platformer2d_world::rooms::PickupKindSpec::Ability {
+        ambition_platformer2d_world::rooms::PickupKind::Ability {
             ability_id: ability_id.to_string(),
         }
     } else if let Some(flag) = value.strip_prefix("flag:") {
-        ambition_platformer2d_world::rooms::PickupKindSpec::StoryFlag {
+        ambition_platformer2d_world::rooms::PickupKind::StoryFlag {
             flag: flag.to_string(),
         }
     } else {
-        ambition_platformer2d_world::rooms::PickupKindSpec::Custom(value.to_string())
+        ambition_platformer2d_world::rooms::PickupKind::Custom(value.to_string())
     }
 }
 

@@ -1313,7 +1313,8 @@ fn the_sanic_sfx_registry_validates_with_every_new_cue() {
 
 #[test]
 fn the_speedway_authors_a_field_of_collectible_rings() {
-    use ambition_platformer2d::entity_catalog::placements::{PickupKindSpec, PlacementSchema};
+    use ambition_platformer2d::entity_catalog::PickupKind;
+    use ambition_platformer2d::entity_catalog::placements::PlacementSchema;
     let room = sanic_speedway();
     let rings = room
         .placements
@@ -1323,7 +1324,7 @@ fn the_speedway_authors_a_field_of_collectible_rings() {
                 && matches!(
                     &record.schema,
                     PlacementSchema::Pickup(pickup)
-                        if matches!(pickup.kind, PickupKindSpec::Currency { amount } if amount >= 1)
+                        if matches!(pickup.kind, PickupKind::Currency { amount } if amount >= 1)
                 )
         })
         .count();

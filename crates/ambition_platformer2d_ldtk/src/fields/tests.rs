@@ -6,7 +6,7 @@
 use super::*;
 use ambition_platformer2d_core::KinematicPathMode;
 use ambition_entity_catalog::placements::{BossBrain, CharacterBrain};
-use ambition_platformer2d_world::rooms::PickupKindSpec as PickupKind;
+use ambition_platformer2d_world::rooms::PickupKind as PickupKind;
 
 #[test]
 fn parse_points_reads_semicolon_pairs_and_skips_malformed() {

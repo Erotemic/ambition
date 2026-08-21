@@ -166,15 +166,15 @@ pub fn entity_sprite_for_boss(
     Some(EntitySprite::BossCore)
 }
 
-fn pickup_sprite(kind: &ambition_platformer2d_world::rooms::PickupKindSpec) -> EntitySprite {
+fn pickup_sprite(kind: &ambition_platformer2d_world::rooms::PickupKind) -> EntitySprite {
     match kind {
-        ambition_platformer2d_world::rooms::PickupKindSpec::Health { .. } => {
+        ambition_platformer2d_world::rooms::PickupKind::Health { .. } => {
             EntitySprite::PickupHealth
         }
-        ambition_platformer2d_world::rooms::PickupKindSpec::Currency { .. } => {
+        ambition_platformer2d_world::rooms::PickupKind::Currency { .. } => {
             EntitySprite::PickupCurrency
         }
-        ambition_platformer2d_world::rooms::PickupKindSpec::Ability { .. } => {
+        ambition_platformer2d_world::rooms::PickupKind::Ability { .. } => {
             EntitySprite::PickupAbility
         }
         // StoryFlag and Custom fall back to the ability look until they

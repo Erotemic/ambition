@@ -3183,7 +3183,7 @@ fn placement_registry() -> crate::world::placements::PlacementLoweringRegistry {
 
 fn placement_room() -> crate::rooms::RoomSpec {
     use ambition_entity_catalog::placements::{
-        HazardRespawn, InteractableSpec, InteractionKindSpec, PickupKindSpec, PickupSpec,
+        HazardRespawn, InteractableSpec, InteractionKindSpec, PickupKind, PickupSpec,
         PlacementSchema,
     };
     let mut room = empty_room("gallery");
@@ -3191,7 +3191,7 @@ fn placement_room() -> crate::rooms::RoomSpec {
         .push(crate::world::placements::PlacementRecord::new(
             "ring_1",
             PlacementSchema::Pickup(PickupSpec {
-                kind: PickupKindSpec::Health { amount: 1 },
+                kind: PickupKind::Health { amount: 1 },
                 respawn: HazardRespawn::Never,
                 collected: false,
                 sprite: None,

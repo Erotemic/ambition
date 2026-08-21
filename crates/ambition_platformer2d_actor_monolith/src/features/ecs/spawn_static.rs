@@ -33,23 +33,23 @@ fn damage_volume_from_authored(
     }
 }
 
-fn pickup_kind_from_spec(kind: &crate::rooms::PickupKindSpec) -> ambition_interaction::PickupKind {
+fn pickup_kind_from_spec(kind: &crate::rooms::PickupKind) -> ambition_interaction::PickupKind {
     match kind {
-        crate::rooms::PickupKindSpec::Health { amount } => {
+        crate::rooms::PickupKind::Health { amount } => {
             ambition_interaction::PickupKind::Health { amount: *amount }
         }
-        crate::rooms::PickupKindSpec::Currency { amount } => {
+        crate::rooms::PickupKind::Currency { amount } => {
             ambition_interaction::PickupKind::Currency { amount: *amount }
         }
-        crate::rooms::PickupKindSpec::Ability { ability_id } => {
+        crate::rooms::PickupKind::Ability { ability_id } => {
             ambition_interaction::PickupKind::Ability {
                 ability_id: ability_id.clone(),
             }
         }
-        crate::rooms::PickupKindSpec::StoryFlag { flag } => {
+        crate::rooms::PickupKind::StoryFlag { flag } => {
             ambition_interaction::PickupKind::StoryFlag { flag: flag.clone() }
         }
-        crate::rooms::PickupKindSpec::Custom(value) => {
+        crate::rooms::PickupKind::Custom(value) => {
             ambition_interaction::PickupKind::Custom(value.clone())
         }
     }

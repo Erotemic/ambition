@@ -556,8 +556,9 @@ pub use ambition_entity_catalog::placements::{InteractableSpec, InteractionKindS
 
 /// Authored pickup payload — now owned by the Tier-0 catalog and carried
 /// through the single `PlacementRecord` channel (fable audit F9.2). Re-exported
-/// here so `rooms::PickupSpec` / `rooms::PickupKindSpec` paths stay stable.
-pub use ambition_entity_catalog::placements::{PickupKindSpec, PickupSpec};
+/// here so `rooms::PickupSpec` / `rooms::PickupKind` paths stay stable.
+pub use ambition_entity_catalog::placements::PickupSpec;
+pub use ambition_entity_catalog::PickupKind;
 
 /// Authored chest payload — now owned by the Tier-0 catalog and carried through
 /// the single `PlacementRecord` channel (fable audit F9.2). Re-exported here so

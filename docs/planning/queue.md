@@ -386,64 +386,41 @@ vacating.
   spectators, cutscenes and portals deliberately follow one body, and control
   authority must never be collapsed into presentation subject.
 
-- ▢ **D177 — A MAIN CAMERA IS REWRITTEN EVERY FRAME ONCE THERE ARE TWO VIEWS.**
-  (measured 2026-08-21)
+- ✔ **D177 — "a main camera is rewritten every frame" was a FOLLOWING CAMERA
+  DOING ITS JOB, and the row is closed by explaining it rather than by fixing
+  anything.** Opened 2026-08-21 off a churn measurement, closed the same day by
+  `bevy/track_location`, which names the writer outright:
+  `bevy_render-0.18.1/src/camera.rs:385` — Bevy's own `camera_system`,
+  recomputing `clip_from_view` because its guard includes
+  `camera_projection.is_changed()`. `camera_follow` takes `&mut *projection`
+  every frame, so `Projection` is marked changed every frame, so `Camera` is
+  rewritten every frame. A camera that follows a body moves every frame; that is
+  the feature.
 
-⭐ **the shape of the row changed under measurement, which is the point of
-measuring.** It opened as *"the viewport double-writer is fixed and unguarded"*.
-The guard now exists — `twintrack_split_has_two_viewports` boots the windowed
-host, routes to the plaza and proves two distinct non-overlapping physical
-rectangles, which nothing tested before. ⛔ **but it does NOT guard
-single-writership, and its own doc says so**: restoring the deleted
-`camera.viewport = None` writes leaves it GREEN, because the applier compares
-before writing and re-asserts the rectangle next frame. A test that measures who
-wins a race measures the schedule.
+  ⛔⛔ **AND THE MEASUREMENT THAT OPENED THIS ROW WAS A PROXY.** "1 of 20 frames
+  with one view, 40 of 40 with two" compared a live plaza against an **idle
+  launcher route**, where `camera_follow` does not run at all — it needs the
+  session's `RoomGeometry` (`camera_names_its_view` says so in its own doc). The
+  number was right and the sentence after it was wrong: the variable was not the
+  view count, it was whether gameplay was running.
 
-⇒ **what the probe found instead is live, and it is not TwinTrack's viewport
-write.** With a churn counter over `Ref<Camera>` in `Last`:
+  ⭐ **the useful part survives**: `twintrack_split_has_two_viewports` is real
+  and stays. It proves TwinTrack's split puts two distinct non-overlapping
+  physical rectangles on a display, which nothing tested before. ⛔ it does NOT
+  guard single-writership and its doc says so — restoring the deleted
+  `camera.viewport = None` writes leaves it green, because the applier compares
+  before writing and re-asserts next frame.
 
-```text
-one view,  no twintrack route      Main Camera changed on  1 of 20 frames
-two views, plaza active            Main Camera            30 of 30
-                                   pane camera            30 of 30
-```
-
-Both cameras hold exactly ONE distinct `(is_active, viewport)` value across all
-30 frames, so somebody writes an IDENTICAL value unconditionally — the needless
-render-world sync `apply_gameplay_camera_viewport`'s own comment says it
-compares before writing to avoid.
-
-⭐⭐ **ATTRIBUTED 2026-08-21 — it is `apply_gameplay_camera_viewport` itself,
-and its compare-before-write is not holding.** Four probes, each eliminating one
-suspect:
-
-```text
-plaza live, two views                    both cameras change 40 of 40
-back home, one view, no viewport                              0 of 20
-back home, one view, viewport set BY HAND                     0 of 20
-plaza live, sync_view_cameras fully disabled                  40 of 40
-```
-
-⛔ **the third and fourth lines are the ones that matter, and each killed a
-conclusion I had already written down.** A hand-set viewport with no TwinTrack
-anywhere churns NOTHING, so Bevy's own viewport handling is not the writer —
-which had become the leading suspect after the second line, on the unsound
-ground that the one-view baseline "runs the same applier" when in fact it has no
-viewport at all and never takes that branch. And disabling `sync_view_cameras`
-outright leaves the count identical, so the demo is not the writer either,
-despite its query matching exactly the two cameras that churn.
-
-⇒ the applier is the only `&mut Camera` holder left in this composition, and it
-only writes when `viewport_matches` says the stored rectangle differs from the
-desired one. With two views it evidently says that every frame while the
-observed value never changes — so the compare disagrees with something that
-normalises or rewrites the stored viewport between frames. `physical_size`
-clamping against the render target and the `depth` range are the two fields to
-print first; the observed `(position, size)` pair is stable, so the discrepancy
-is in what the comparison does not see.
-
-⚠ **this is the engine's defect, not the demo's**, and it is exactly the cost
-that function's own comment says the comparison exists to avoid.
+  ⚠ **the standing lesson, and it cost four wrong conclusions in a row:** every
+  elimination in a bisect needs its own falsifier. "Bevy is not the writer,
+  because a hand-set viewport did not churn" — the applier had overwritten that
+  viewport with `None` on the next frame. "Not Bevy, because an unmanaged camera
+  did not churn" — that camera was `is_active: false`. "Not the applier, because
+  disabling its write changed nothing" — true, and it proved nothing, because
+  the actual writer was elsewhere the whole time. ⇒ when a bisect keeps
+  eliminating every candidate, stop bisecting and **ask the tool**:
+  `--features bevy/track_location` and `Ref::changed_by()` answered it in one
+  run.
 
 - ▢ **D176 — THE SPRITE-SHEET SUITE IS RED ON ANY TREE WITHOUT GENERATED PACKS.**
   (found 2026-08-21)

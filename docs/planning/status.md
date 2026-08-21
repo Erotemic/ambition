@@ -51,11 +51,23 @@ ownership, and no test whose successor claims DIFFERENT values can see it. Ask
 *is this mine*. `SessionSeatingSource::release` had the right shape the whole
 time, two lines below the broken code.
 
-**Opened by the same review** — D177 (the viewport fix has no fixture; it needs
-a windowed host and the TwinTrack route in ONE app), D178 (a pane follows a
-BODY, not the participant driving it), D179 (contact eligibility is still
-inferred from displacement MAGNITUDE, and the propose/commit residual the gap
-split could not reach).
+**Opened by the same review, and two closed the same day.** D178 landed
+(`0ebcef4e4`): `ViewParticipant(PlayerSlot)` resolves a pane through the body
+carrying `DrivingParticipant(slot)`, so a person's pane follows the person.
+D177 got its fixture (`twintrack_split_has_two_viewports`, the first test of
+TwinTrack's split on a real display) and then closed as NOT A DEFECT — see the
+receipt in the ledger. **D179 is the one still open**: contact eligibility is
+inferred from displacement MAGNITUDE rather than provenance, plus the
+propose/commit residual the gap split could not reach.
+
+⛔⛔ **the most expensive lesson of the day is in D177's receipt and it is not
+about cameras.** Four eliminations in a row were unsound — each one's falsifier
+was itself broken, and each was caught only by the next probe. When a bisect
+keeps eliminating every candidate, the bisect is lying: stop and ASK THE TOOL.
+`--features bevy/track_location` plus `Ref::changed_by()` named the writer in a
+single run after four rounds of guessing. And the number that opened the row was
+right while the sentence after it was wrong — it compared a live route against
+an idle one and called the difference "view count".
 
 **Deliberately not done:** D175 remains the largest named architecture item —
 seat 0 rides the global shaped `ControlFrame` bus while seats 1+ publish

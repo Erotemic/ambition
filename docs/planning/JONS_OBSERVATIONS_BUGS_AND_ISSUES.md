@@ -162,3 +162,46 @@
 * When I change the video quality in ambition, my sprite went from the robot v3 character to the robot v2 character. 
   * ▢ Three causes eliminated (missing art, a missing `_actor.ron` sidecar, a per-tier sheet collision — none of the colliding rig targets is a character id). Not eliminated: quality variants resolve through a separate FILE-ROOT index (`from_baked_table_by_file_root`) rather than the shared target road, and `3bf154974` (2026-08-08) made a quality change re-materialize on-screen bodies instead of only the next room — that re-materialization path is the likely site. Owner doc: `sprite-residency-and-live-quality.md`.
   * ⊙ Two things that would settle it: was your report BEFORE or AFTER 2026-08-08, and does it swap back if you change quality again?
+
+## 2026-08-20 — doors do not work in Ambition, and Mary-O's 1-1 loops
+
+Jon: *"In ambition I cannot go through any doors anymore. This is both interact
+doors and contact doors. In maryo finishing 1-1 sends you back to 1-1. These are
+huge regressions, not sure how we didn't have a test to catch these."*
+
+  ◐ **One real defect found, and it is the contact half.** Neither `EdgeExit`
+  zone in `central_hub_complex` is reachable on foot from a fresh spawn:
+  `to scroll lab` (x 1870-1900) stalls her at x=1841 for all 600 frames, and
+  `to square arena` (x 0-30) is never reached either. Something solid stands in
+  front of both. ⚠ NOT yet established whether that wall is new — that is a
+  level-geometry question, and until it is answered this is a defect but not
+  necessarily a regression. Reproduction parked in
+  `docs/planning/triage/contact_zone_reproduction.rs.txt`.
+
+  ▢ **The interact half does not reproduce anywhere I can build it**, and the
+  eliminations are worth more than the guess they replace. Ruled out by
+  measurement, not inspection:
+
+  | suspect | verdict |
+  |---|---|
+  | LDtk assets damaged by an editor session | ✖ EntityRefs intact (4/6/0/0, unchanged); the ONLY difference in all four dirty worlds is `nextUid`, same byte length |
+  | the game loads different world files than the tests | ✖ `game/ambition_content/assets/worlds/*` are SYMLINKS into the submodule; `static_world_text!` compiles in the same bytes the tests read |
+  | body contact (landed 2026-08-19) blocking her | ✖ `BodyContactSnapshot` is EMPTY at the stall |
+  | the demo-binary-vs-shipped-host split | ✖ driven through the real launcher on a `SimulationHost::Rollback` host, finishing 1-1 lands in 1-2 with a body in it |
+  | doors themselves | ✖ she WALKS across `central_hub_complex` into a door holding interact and the room changes |
+
+  ⇒ what is left is on Jon's machine and not in the tree: persisted state
+  (`~/.local/share/ambition/`), the `desktop_dev` feature set, real devices, or
+  playing to the pole rather than warping. **The 30-second probe that splits
+  it:** `AMBITION_DATA_DIR=$(mktemp -d) ./run_game.sh` — `data_dir_root()`
+  honours that variable, so it boots with a throwaway save and settings. If
+  doors work there, it is persisted state; if not, the `[world-event]` lines at
+  the moment of the press name the destination.
+
+  ⭐ **and the coverage gap that let this happen is closed either way.** Every
+  room-transition test put the body in the zone by ASSIGNMENT
+  (`kin.pos = zone.aabb.center()`), so nothing between "a body is walking" and
+  "a body is in that zone" was covered; and the level tests asked whether the
+  room CHANGED, never WHICH, which `Replay` satisfies. Both now have guards
+  (`walking_into_a_loading_zone`, `level_lap`, `mary_o_lap_in_the_host`).
+

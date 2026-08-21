@@ -19,6 +19,31 @@
 //! Named world content (the actual cast of bosses/enemies) stays in
 //! `ambition_content`; `ambition_platformer2d_actor_monolith` re-exports these modules at the
 //! historical `crate::actor` / `crate::brain` paths.
+//!
+//! # ⛔⛔ "CONTENT-FREE" IS THE WRONG AXIS FOR THIS CRATE, AND THAT IS MEASURED
+//!
+//! The rule above is stated, and it could not have refused the thing that
+//! actually accumulated here. **15,928 lines of platform-fighter policy**
+//! (`brain/fighter`, `brain/smash`) sit in this crate, and **zero of them are
+//! named world content** — nothing there mentions a `CharacterId` or the
+//! character catalog. Every line passed the stated boundary while being exactly
+//! what a floor crate must not hold. (D168, re-measured 2026-08-21.)
+//!
+//! ⚠ **this crate is a FLOOR — every composition links it**, including a
+//! movement-only game with no fighters in it. So the axis that matters is not
+//! content-vs-vocabulary but:
+//!
+//! ⭐ **DOES EVERY GAME BUILT ON THIS ENGINE NEED THIS WORD?** A brain contract,
+//! a control frame, a faction, a pose: yes. A platform fighter's option
+//! generator, its ledge-recovery search, its capture repertoire: **no** —
+//! content-free and genre-specific are not the same thing, and only one of them
+//! is a reason to live in the floor.
+//!
+//! ⇒ so the admission test for a new module here is a QUESTION ABOUT GAMES, not
+//! about data: *would a game that is not a platform fighter still want this?* If
+//! the answer is no, it belongs to the genre's own crate — which is the carve
+//! D168 records as measured and BLOCKED. ⛔ until that carve lands, do not read
+//! the size of `brain/fighter` as permission to add the next one beside it.
 
 pub mod action_scheme;
 pub mod actor;

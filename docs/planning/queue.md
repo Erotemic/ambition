@@ -5613,9 +5613,28 @@ it was". ⛔ with the corollary that matters to an active carve: moving somethin
 here without a second domain that reads it LAUNDERS the debt — the carve looks
 finished while the concept is now split across two crates instead of one.
 
+⛔⛔ **AND THE THIRD INSTANCE IS THE STRONGEST: A BOUNDARY CAN BE STATED, READ,
+AND OBEYED — ON THE WRONG AXIS.** `ambition_characters` already refuses named
+world content (*"the actual cast of bosses/enemies stays in `ambition_content`"*).
+Measured 2026-08-21: the **15,928 lines** of platform-fighter policy D168 wants
+carved out contain **ZERO** references to a `CharacterId` or the character
+catalog. Every line passed the stated rule. Nobody broke anything.
+
+⇒ **the axis was content-vs-vocabulary; the axis that matters for a FLOOR crate
+is *would a game that is not a platform fighter still want this?*** Content-free
+and genre-specific are not the same thing, and only one of them is a reason to
+live in a crate every composition links — including a movement-only game with no
+fighters in it. That question is now the crate's stated admission test, with a
+⛔ against reading the size of `brain/fighter` as permission to add the next one
+beside it.
+
 ⇒ **the pattern for the rest of this row: the rule usually EXISTS, buried on the
-first type that needed it.** Promoting it costs nothing and is not doc-writing —
-it is moving a decision to where the next person looks.
+first type that needed it — or stated plainly on an axis that cannot see the
+problem.** Promoting or re-aiming it costs nothing and is not doc-writing; it is
+moving a decision to where the next person looks. Three destinations done on
+evidence (`ambition_combat`, `shared_tangle`, `ambition_characters`), each a
+different failure: no refusal at all, a dependency refusal mistaken for an
+admission rule, and a correct refusal on the wrong axis.
 
 ⇒ **every one of those is a composition boundary written down where the next
 person looks**, and each turned a plausible move into an obviously wrong one at

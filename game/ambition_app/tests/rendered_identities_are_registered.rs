@@ -89,7 +89,17 @@ fn target_dir() -> PathBuf {
 /// authored it. It is in this count rather than in `WAIVED` for the same reason
 /// as the eighth and ninth: the scan cannot read an id the target never spells
 /// as a literal.
-const COMPUTED_ID_TARGETS: usize = 10;
+///
+/// ⭐ **10 → 11 on 2026-08-21, hand-checked the same way.** The eleventh is
+/// `projectile_polygon`, the ranged beast-biped reference fighter.
+/// **It HAS a catalog row** (`character_catalog.ron:2729`, naming
+/// `sprites/projectile_polygon_spritesheet.png` and its manifest), it was added
+/// to `regen_sprites.sh`'s explicit publish batch — which it arrived WITHOUT,
+/// exactly the orphaning that script's own comment predicts for *"every
+/// character added since the last audit"* — and its sheet, portraits and actor
+/// sidecar are rendered, so `every_catalog_character_names_a_spritesheet_that_exists`
+/// is green rather than waived.
+const COMPUTED_ID_TARGETS: usize = 11;
 
 /// Every `character_id` VALUE spelled out in one target's source, in file order.
 ///

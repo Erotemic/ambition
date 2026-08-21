@@ -647,6 +647,7 @@ tackon_targets=(
     paul_diracula
     player_robot_v2
     player_robot_v3
+    projectile_polygon
     python_goras
     richard_duckling
     yuclid

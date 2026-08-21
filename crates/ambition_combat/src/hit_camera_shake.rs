@@ -1,3 +1,14 @@
+//! ⭐ **carved out of `ambition_platformer2d_actor_monolith` on 2026-08-21
+//! (D33).** The CAUSE is a landed hit and combat owns hits; the EFFECT is a
+//! `CameraShakeRequest` that `shared_tangle::camera_ease` consumes, and combat
+//! already depends on that crate. Putting it the other way round — camera easing
+//! reaching for combat's hit state — would invert the dependency.
+//!
+//! ⚠ its last tie to the monolith was the feel tuning, which moved to
+//! `crate::feel` earlier the same day. The `ambition_platformer2d_runtime`
+//! mention below is PROSE, not a dependency: it names a failure this module
+//! avoids, and runtime sits above this crate.
+
 //! **A landed hit shakes the screen — for whichever BODY landed it.** (P4.37)
 //!
 //! ⛔⛔ **the first version of this shipped as home-avatar presentation, and that
@@ -89,7 +100,7 @@ use ambition_platformer2d_shared_tangle::camera_ease::{hit_shake_amplitude, Came
 /// far side of the confirmed-frame boundary; see the module docs for why the
 /// earlier in-place kick could not be made correct by any guard living here.
 pub fn shake_camera_on_landed_hits(
-    feel: Option<Res<crate::time::feel::Platformer2dFeelTuningMonolith>>,
+    feel: Option<Res<crate::feel::Platformer2dFeelTuningMonolith>>,
     mut requests: MessageWriter<CameraShakeRequest>,
     bodies: Query<&ambition_characters::actor::BodyCombat>,
 ) {
@@ -129,7 +140,7 @@ mod tests {
         let mut app = App::new();
         app.init_resource::<CameraShakeState>();
         app.init_resource::<CameraShakeTuning>();
-        app.init_resource::<crate::time::feel::Platformer2dFeelTuningMonolith>();
+        app.init_resource::<crate::feel::Platformer2dFeelTuningMonolith>();
         app.add_message::<CameraShakeRequest>();
         for &hitstop in hitstops {
             app.world_mut().spawn(BodyCombat {
@@ -146,7 +157,7 @@ mod tests {
 
     fn reference(app: &App) -> f32 {
         app.world()
-            .resource::<crate::time::feel::Platformer2dFeelTuningMonolith>()
+            .resource::<crate::feel::Platformer2dFeelTuningMonolith>()
             .hitlag_time
     }
 
@@ -253,11 +264,11 @@ mod tests {
         let mut app = App::new();
         app.init_resource::<CameraShakeState>();
         app.init_resource::<CameraShakeTuning>();
-        app.init_resource::<crate::time::feel::Platformer2dFeelTuningMonolith>();
+        app.init_resource::<crate::feel::Platformer2dFeelTuningMonolith>();
         app.add_message::<CameraShakeRequest>();
         let hard = app
             .world()
-            .resource::<crate::time::feel::Platformer2dFeelTuningMonolith>()
+            .resource::<crate::feel::Platformer2dFeelTuningMonolith>()
             .hitlag_time
             * 4.0;
         app.world_mut().spawn(BodyCombat {

@@ -12,15 +12,29 @@ only character/action authoring that still remains.
 
 ## Remaining
 
-- ▢ **Finish cast action authoring where a body still relies on implicit/default
-  repertoire.** Keep the rule body-owned: the character authors abilities and
-  move repertoire; a controller only supplies intent. Do not introduce a
-  fighter/peaceful taxonomy to compensate for missing body data.
+- ✔ **Cast action authoring no longer falls back to a shared kit** — verified
+  2026-08-20 against HEAD, not counted. `smash_fighter_kit()` is DELETED
+  (2026-08-12, `demo_smash/src/select.rs:862`); every remaining mention in the
+  tree is a doc comment explaining its removal, and **eighteen** characters
+  author their own `*_moveset() -> MovesetContract`. The rule the item asked for
+  — body-owned repertoire, controller supplies intent only, no
+  fighter/peaceful taxonomy — is the shipped shape.
 
 - ▢ **Give authored moves useful presentation metadata where still missing.** A
   stable move/action id remains the machine identity; a display label and
   optional icon/prompt presentation are authoring metadata, with a deterministic
   fallback when absent.
+
+  ⚠ **VERIFIED OPEN 2026-08-20, and the code says so itself.**
+  `MoveSpec::display()` title-cases the id (`"sandbag_swat"` → `"Sandbag
+  Swat"`), and its own doc comment reads *"P6 adds an authored `display_name:
+  Option<String>` field that this reads first"* — that field does not exist on
+  `MoveSpec`. The deterministic fallback is built; the authored override is not.
+  ⭐ the CONSUMER is live: `action_scheme.rs:295` fills each slot's
+  `display_name` from `mv.display()`, so a label authored on the move would
+  reach the control prompts with no new plumbing. Today there is no production
+  way to author a player-facing move label at all — `"tilt_up"` can only ever
+  read "Tilt Up".
 
 - ▢ **Decide layout behavior only when a real repertoire exceeds prompt capacity.**
   Do not pre-generalize the control surface for hypothetical >8-slot schemes.

@@ -3051,7 +3051,46 @@ alone**. The waiver answers a question — "is this per-frame state?" — and mo
 a type does not change the answer, only where to ask it. Rewriting the
 justification to match a diff is how a true waiver becomes a false one.
 
-⭐⭐ **THE CAPTURE CARVE: ATTEMPTED 2026-08-21, UNWOUND, AND IT NAMED THE CARVE
+✔✔ **THE CAPTURE CARVE LANDED 2026-08-21 (`8669740f5`), AND IT WAS NEVER A
+COUPLING PROBLEM.** The whole 1,922-line module named exactly FIVE paths outside
+its crate, and every one was fixed by putting a TYPE where it belonged — nothing
+about capture changed:
+
+```text
+ActorSurfaceState               -> platformer2d_core   6c4592021
+Platformer2dFeelTuningMonolith  -> ambition_combat     d6db434f4
+apply_body_hit_reaction         -> ambition_combat     403a32155
+                                   ⛔ it was `pub(crate)` — a whole domain
+                                   pinned by a VISIBILITY MODIFIER
+ActorFaction / CenteredAabb     already in characters/geometry, merely
+                                reached through the monolith's re-export
+```
+
+⭐ **a dependency died with it**: `ambition_platformer2d_runtime` was registering
+capture systems THROUGH the monolith and names `ambition_combat` directly now.
+The demo reaches them through the facade, as a game should.
+
+⭐ **and the boundary inside `damage_apply` is the reusable finding.** It splits:
+`apply_body_hit_reaction` / `VictimStance` / `hit_response_tuning` are
+body-generic and went to combat; `apply_player_hit_events`,
+`publish_kernel_reset_death` and `void_pending_player_hits_at_lifecycle_
+boundaries` all take `PlayerSafetyState`/`PlayerBodyFrameOutput` and stayed.
+⇒ **"move damage_apply" would have been the WRONG slice** — applying a hit to
+any body is combat's, applying one to the player's avatar is the game's.
+
+**Where that leaves the numbers** (symptoms, per the framing above):
+
+```text
+                total     tests   NON-TEST
+baseline      111,429    42,146     69,283
+2026-08-21    118,655    47,521     71,134   (+7,226 / +1,851 non-test)
+ambition_combat 19,817    5,733     14,084   ← where capture now lives
+```
+
+⚠ still over, and **still mostly tests** (+5,375 of the +7,226). The
+behaviour-side gap is +1,851 in twelve days.
+
+⭐⭐ **THE CAPTURE CARVE: FIRST ATTEMPT UNWOUND, AND IT NAMED THE CARVE
 ORDER.** The prerequisite landed (`6c4592021`, `ActorSurfaceState` down to the
 floor crate); the move itself did not, and the reason is worth more than the
 move would have been.

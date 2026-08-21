@@ -711,10 +711,47 @@ pub fn publish_latched_slot_controls(
     if replay.is_some_and(|replay| replay.replaying_history) {
         return;
     }
+    // ⚠ **from ONE, not from zero.** Seat zero is a row in this same table now,
+    // but its drain does not land in `SlotControls` — it lands in `ControlFrame`,
+    // where the shaping stages that only seat zero has still read it. See
+    // `publish_latched_control_frame` below; collapsing that difference is the
+    // rest of D175, not this.
     for slot in 1..ambition_characters::brain::SlotControls::MAX_SLOTS {
         let slot = ambition_characters::brain::PlayerSlot(slot as u8);
         slots.set(slot, latches.take(slot));
     }
+}
+
+/// **FEEL clock: fold this frame's device sample into SEAT ZERO's latch.** Runs
+/// in `Update` after every `ControlFrame` writer (`InputSet::Route`).
+///
+/// ⛔ **this used to live in `ambition_platformer2d_core` beside a standalone
+/// `ControlFrameLatch` RESOURCE.** It is here now because the latch it folds
+/// into is row zero of [`SlotControlLatches`], and that table lives one layer up
+/// where `PlayerSlot` exists. Nothing about what it does changed.
+#[cfg(feature = "input")]
+pub fn accumulate_control_frame_latch(
+    frame: Res<ControlFrame>,
+    mut latches: ResMut<ambition_characters::brain::SlotControlLatches>,
+) {
+    latches.accumulate(ambition_characters::brain::PlayerSlot::PRIMARY, *frame);
+}
+
+/// **TICK clock: publish seat zero's latched frame as THIS tick's
+/// `ControlFrame`.** Runs at the head of the sim's input phase, before any
+/// reader or edge-deriving writer.
+///
+/// ⚠ the twin of [`publish_latched_slot_controls`], and the ONE thing that is
+/// still not symmetric with it: seat zero's frame goes to the global
+/// `ControlFrame` because the portal, gesture, touch and scripted shapers all
+/// read that resource and no other seat has them. That asymmetry is D175's
+/// remaining work, and it is one visible line here rather than a parallel type.
+#[cfg(feature = "input")]
+pub fn publish_latched_control_frame(
+    mut latches: ResMut<ambition_characters::brain::SlotControlLatches>,
+    mut frame: ResMut<ControlFrame>,
+) {
+    *frame = latches.take(ambition_characters::brain::PlayerSlot::PRIMARY);
 }
 
 /// Bridge keyboard/gamepad/menu-wheel input into the device-agnostic menu frame.

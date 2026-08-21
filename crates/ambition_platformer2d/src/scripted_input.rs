@@ -113,7 +113,7 @@ pub fn drive_the_local_participant(app: &mut App) {
         Update,
         write_scripted_controls
             .after(ambition_input::InputSet::Route)
-            .before(ambition_platformer2d_core::accumulate_control_frame_latch),
+            .before(ambition_platformer2d_runtime::host_input::accumulate_control_frame_latch),
     );
     // ⚠ **`Last`, and it reads the SLOT TABLE.** The observation has to come
     // from the far side of the pipeline or it would only be restating the write

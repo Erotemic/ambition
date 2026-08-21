@@ -107,17 +107,17 @@ fn main() {
         .world()
         .get_resource::<ambition_platformer2d::runtime::SimulationHost>()
         .copied();
-    let primary_latch = app
+    // ⚠ seat zero is ROW ZERO of the one latch table now; it used to be its own
+    // `ControlFrameLatch` resource beside it.
+    let latches = app
         .world()
-        .get_resource::<ambition_platformer2d::engine_core::ControlFrameLatch>()
+        .get_resource::<ambition_platformer2d::characters::brain::SlotControlLatches>()
         .copied();
-    println!(
-        "web-persona-boot: simulation host = {host:?}, primary device latch = {primary_latch:?}"
-    );
-    let Some(latch) = primary_latch else {
+    println!("web-persona-boot: simulation host = {host:?}, device latches = {latches:?}");
+    let Some(latches) = latches else {
         eprintln!(
             "web-persona-boot: ⛔ the web persona composed a {host:?} host with NO \
-             `ControlFrameLatch` — nothing bridges this frame's device sample to the \
+             `SlotControlLatches` — nothing bridges this frame's device sample to the \
              next tick, so seat zero's input is neutral every tick and the controlled \
              body cannot move. Menus still work; they never go through the session."
         );
@@ -129,9 +129,10 @@ fn main() {
     // latch registered without its frame-clock accumulator reproduces the exact
     // bug with the resource sitting right there. Startup ran hundreds of frames
     // above; if `accumulate_control_frame_latch` were scheduled, it has run.
-    if !latch.is_device_authority() {
+    if !latches.is_device_authority(ambition_platformer2d::characters::brain::PlayerSlot::PRIMARY) {
         eprintln!(
-            "web-persona-boot: ⛔ the web persona has a `ControlFrameLatch` that NOTHING \
+            "web-persona-boot: ⛔ the web persona has a `SlotControlLatches` whose seat \
+             zero NOTHING \
              HAS FED after {} frames. `capture_latched_local_input` refuses to publish an \
              unfed latch, so seat zero is still neutral every tick — the same dead \
              gameplay input, with the resource present. The accumulator was left behind \

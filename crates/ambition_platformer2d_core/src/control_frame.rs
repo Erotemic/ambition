@@ -8,7 +8,7 @@
 //! prevents controller vocabulary from leaking upward into reusable character
 //! brains.
 
-use bevy_ecs::prelude::{Res, ResMut, Resource};
+use bevy_ecs::prelude::Resource;
 
 use crate::RawDirectionEdges;
 
@@ -249,7 +249,12 @@ impl ControlFrame {
 /// enforced and delete this. It is not; this is the mechanism. (The rollback
 /// host solves the same problem differently — the SESSION publishes the frame
 /// GGRS confirmed, on the `ReadInputs` edge.)
-#[derive(Resource, Clone, Copy, Debug, Default)]
+/// ⚠ **NOT a `Resource` — it is one ROW of
+/// `ambition_characters::brain::SlotControlLatches`, seat zero's included.** It
+/// was a standalone resource beside that array, which covered slots 1.. and said
+/// so in its own doc; every consumer then handled the pair. See
+/// `SlotControlLatches`.
+#[derive(Clone, Copy, Debug, Default)]
 pub struct ControlFrameLatch {
     accumulated: ControlFrame,
     /// Whether a DEVICE has ever fed this latch.
@@ -295,24 +300,6 @@ impl ControlFrameLatch {
     pub fn peek(&self) -> ControlFrame {
         self.accumulated
     }
-}
-
-/// FEEL clock: fold this frame's device sample into the latch. Runs in `Update`
-/// after every `ControlFrame` writer (`InputSet::Route`).
-pub fn accumulate_control_frame_latch(
-    frame: Res<ControlFrame>,
-    mut latch: ResMut<ControlFrameLatch>,
-) {
-    latch.accumulate(*frame);
-}
-
-/// TICK clock: publish the latched frame as THIS tick's `ControlFrame`. Runs at
-/// the head of the sim's input phase, before any reader or edge-deriving writer.
-pub fn publish_latched_control_frame(
-    mut latch: ResMut<ControlFrameLatch>,
-    mut frame: ResMut<ControlFrame>,
-) {
-    *frame = latch.take();
 }
 
 #[cfg(test)]

@@ -21,10 +21,10 @@ pub use input_systems::declare_gameplay_input_context;
 pub use input_systems::declare_in_session_input_contexts;
 #[cfg(feature = "input")]
 pub use input_systems::{
-    apply_menu_frame_to_cutscene_request, decode_menu_frame,
+    accumulate_control_frame_latch, apply_menu_frame_to_cutscene_request, decode_menu_frame,
     freeze_local_seating_for_the_decided_match, populate_control_frame_from_actions,
     populate_menu_control_frame_from_actions, populate_seat_menu_frames,
-    populate_secondary_slot_controls, publish_latched_slot_controls,
+    populate_secondary_slot_controls, publish_latched_control_frame, publish_latched_slot_controls,
     seat_input_participants_for_roster, spawn_primary_input_participant,
     sync_primary_recipe_from_settings, toggle_player_trail_emission_from_actions, MenuFrameConsume,
     MenuFrameCutsceneSkip, MenuFramePopulate, MenuNavConsume, SeatBurstTriggerState,

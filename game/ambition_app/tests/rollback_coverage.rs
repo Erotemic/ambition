@@ -1469,11 +1469,7 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     ),
     (
         "ambition_characters::brain::SlotControlLatches",
-        "the DEVICE side of the input boundary: it folds device samples between          ticks and drains on the tick clock. A rollback resimulates from STORED          INPUTS and never by re-reading a latch, so this is input TO the rollback          rather than state inside it — restoring it would feed the resimulation a          second copy of what it is already replaying",
-    ),
-    (
-        "ambition_platformer2d_core::control_frame::ControlFrameLatch",
-        "the same boundary, one level down — the per-frame latch `ReadInputs`          fills before GGRS is handed its inputs. Same argument: the session          replays what was RECORDED, not what the devices are doing now",
+        "the DEVICE side of the input boundary, for EVERY seat including zero: it          folds device samples between ticks and drains on the tick clock. A rollback resimulates from STORED          INPUTS and never by re-reading a latch, so this is input TO the rollback          rather than state inside it — restoring it would feed the resimulation a          second copy of what it is already replaying",
     ),
     (
         "ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperHotkeyBindings",

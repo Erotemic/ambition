@@ -119,29 +119,45 @@ impl SlotControls {
     }
 }
 
-/// **The frame→tick input latch for SECONDARY seats.** (queue Y2)
+/// **THE FRAME→TICK INPUT LATCH, ONE PER SEAT — INCLUDING SEAT ZERO.**
 ///
-/// [`ambition_platformer2d_core::ControlFrameLatch`] does this for the primary seat
-/// and nothing did it for the others, which was written down as a known limit
-/// rather than hidden: *"a secondary seat has no latch yet, so on a fixed-tick
-/// host a very short player-two tap can be missed."*
+/// A tap that opens and closes between two ticks must still reach the sim, so a
+/// fixed-tick host folds device samples on the FEEL clock and drains them on the
+/// TICK clock. That is what a latch is.
 ///
-/// That is a FAIRNESS asymmetry, not a rounding error. Two people on two pads in
-/// the same couch match, and one of them has forgiving input while the other's
-/// tap can land entirely between two ticks and vanish. It is most visible in the
-/// first frames of a versus round, which is exactly where the round-start
-/// countdown hands control back.
+/// ⛔⛔ **seat zero used to have its OWN spelling of this and it was a FORK, not
+/// a design.** `ControlFrameLatch` was a standalone `Resource`; this array
+/// covered slots 1.. and its own doc said *"slot 0 is deliberately NOT latched
+/// here: it already goes through `ControlFrameLatch`"*. A type whose doc says it
+/// mirrors another type is a fork with a note attached — and every consumer paid
+/// for it twice: `drive_control_frame`/`drive_seat_frame`, two `init_resource`
+/// calls, two reset blocks in the GGRS session, two capture blocks. The pairs
+/// are gone; seat zero is row zero.
 ///
-/// One latch per slot, folded on the FEEL clock and drained on the TICK clock —
-/// the same two-system shape the primary seat uses, for the same reason. Slot 0
-/// is deliberately NOT latched here: it already goes through
-/// `ControlFrameLatch`, and latching it twice would hold an edge for two ticks.
+/// ⚠ **the ELEMENT type survives and is still `ControlFrameLatch`** — it was
+/// always the right thing, it was just also a resource. What is deleted is the
+/// second home for one seat's copy of it.
+///
+/// ⭐ the asymmetry that made the fork visible was a FAIRNESS bug: two people on
+/// two pads and only one of them forgiving, most visible in the first frames of
+/// a versus round where the countdown hands control back.
 #[derive(bevy::ecs::resource::Resource, Clone, Copy, Debug, Default)]
 pub struct SlotControlLatches {
     slots: [ambition_platformer2d_core::ControlFrameLatch; SlotControls::MAX_SLOTS],
 }
 
 impl SlotControlLatches {
+    /// **Does a device feed `slot` at all**, so its latch speaks for the frame?
+    ///
+    /// A consumer that would OVERWRITE another writer's frame must ask first: an
+    /// untouched latch means *no device is wired to this seat*, not *the device
+    /// said nothing*. Sticky by design — see `ControlFrameLatch::device_seen`.
+    pub fn is_device_authority(&self, slot: PlayerSlot) -> bool {
+        self.slots
+            .get(slot.0 as usize)
+            .is_some_and(ambition_platformer2d_core::ControlFrameLatch::is_device_authority)
+    }
+
     /// Fold one device sample for `slot`. Levels overwrite; edges stick.
     pub fn accumulate(
         &mut self,

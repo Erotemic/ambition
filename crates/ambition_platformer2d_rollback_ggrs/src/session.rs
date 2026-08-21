@@ -7,7 +7,7 @@ use bevy_ggrs::{
     PlayerInputs, ReadInputs, RollbackFrameCount, RunGgrsSystems, Session, SyncTestMismatch,
 };
 
-use ambition_platformer2d_core::{ConfirmedFrameBoundary, ControlFrame, ControlFrameLatch};
+use ambition_platformer2d_core::{ConfirmedFrameBoundary, ControlFrame};
 
 use super::RollbackRegistry;
 use crate::{PreparedContentIdentity, SnapshotSchemaFingerprint};
@@ -441,9 +441,9 @@ fn has_session_world_root(world: &World) -> bool {
 fn reset_input_authority(world: &mut World) {
     world.insert_resource(PendingLocalInput::default());
     world.insert_resource(PendingSeatInputs::default());
-    if world.contains_resource::<ControlFrameLatch>() {
-        world.insert_resource(ControlFrameLatch::default());
-    }
+    // ⭐ ONE table. This used to reset seat zero's latch and the other seats'
+    // separately, which is exactly how "preserved some, cleared the rest" became
+    // possible in the first place.
     if world.contains_resource::<ambition_characters::brain::SlotControlLatches>() {
         world.insert_resource(ambition_characters::brain::SlotControlLatches::default());
     }
@@ -612,8 +612,10 @@ pub fn session_is_active(world: &World) -> bool {
 /// carry its own copy of this branch, which is the definition of a leak — every
 /// consumer rediscovering an engine rule the engine could have stated once.
 pub fn drive_control_frame(world: &mut World, frame: ControlFrame) {
-    if let Some(mut latch) = world.get_resource_mut::<ControlFrameLatch>() {
-        latch.accumulate(frame);
+    if let Some(mut latches) =
+        world.get_resource_mut::<ambition_characters::brain::SlotControlLatches>()
+    {
+        latches.accumulate(ambition_characters::brain::PlayerSlot::PRIMARY, frame);
         return;
     }
     // ⚠ this does NOT clear `PendingSeatInputs`, and an earlier version did.
@@ -672,7 +674,9 @@ pub(crate) fn install_session_bridge(app: &mut App) {
     // Only a speculating host quarantines external effects, so the whole
     // mechanism is installed HERE rather than in the engine group: a fixed-tick
     // or render-frame game carries none of these systems at all.
-    ambition_platformer2d_runtime::external_effects::quarantine_presentation_effects(app, LoadWorld);
+    ambition_platformer2d_runtime::external_effects::quarantine_presentation_effects(
+        app, LoadWorld,
+    );
 
     // ⭐ **THE SESSION OWNER, and it is the engine's.** A GGRS host that never
     // installs a session never simulates; before this the only installer was the
@@ -791,14 +795,11 @@ pub(crate) fn install_session_bridge(app: &mut App) {
 /// rendered frames may pass before a simulation tick, and a later level-only
 /// sample would overwrite a short press before GGRS observed it.
 fn capture_latched_local_input(
-    latch: Option<ResMut<ControlFrameLatch>>,
+    // ⭐ **ONE table for every seat, zero included.** This took seat zero's latch
+    // as a separate resource beside this one and drained the two in separate
+    // blocks — the same edge, the same reason, twice.
+    latches: Option<ResMut<ambition_characters::brain::SlotControlLatches>>,
     mut pending: ResMut<PendingLocalInput>,
-    // The SECONDARY seats' half (queue Y1), drained on the same edge and for the
-    // same reason: several rendered frames may pass before GGRS asks, and a
-    // later level-only sample would overwrite a short press before the session
-    // observed it. Optional because a composition with one seat installs
-    // neither.
-    seat_latches: Option<ResMut<ambition_characters::brain::SlotControlLatches>>,
     mut seats: Option<ResMut<PendingSeatInputs>>,
 ) {
     // ONLY when a device is actually wired to this latch. An untouched latch
@@ -811,15 +812,22 @@ fn capture_latched_local_input(
     // The predicate is STICKY rather than per-frame: a tick that sampled
     // nothing must still receive the retained levels, or a held direction
     // sticks on forever.
-    if let Some(mut latch) = latch {
-        if latch.is_device_authority() {
-            pending.0 = latch.take();
-        }
+    let Some(mut latches) = latches else {
+        return;
+    };
+    let primary = ambition_characters::brain::PlayerSlot::PRIMARY;
+    if latches.is_device_authority(primary) {
+        pending.0 = latches.take(primary);
     }
-    if let (Some(mut seat_latches), Some(seats)) = (seat_latches, seats.as_deref_mut()) {
+    // ⚠ **seats 1.. are drained UNCONDITIONALLY, and seat zero is not.** Only
+    // seat zero has a second author to lose to — every rollback harness drives
+    // `PendingLocalInput` directly, and replacing that with a neutral default is
+    // how four oracles went red at once. Nothing drives `PendingSeatInputs`
+    // behind this system's back.
+    if let Some(seats) = seats.as_deref_mut() {
         for handle in 1..ambition_characters::brain::SlotControls::MAX_SLOTS {
             let slot = ambition_characters::brain::PlayerSlot(handle as u8);
-            seats.set(handle, seat_latches.take(slot));
+            seats.set(handle, latches.take(slot));
         }
     }
 }
@@ -1094,9 +1102,15 @@ mod tests {
         let mut windowed = World::new();
         windowed.insert_resource(ControlFrame::default());
         windowed.insert_resource(PendingLocalInput::default());
-        windowed.insert_resource(ControlFrameLatch::default());
+        windowed.insert_resource(ambition_characters::brain::SlotControlLatches::default());
         drive_control_frame(&mut windowed, pressed);
-        assert_eq!(windowed.resource::<ControlFrameLatch>().peek().axis_x, 1.0);
+        assert_eq!(
+            windowed
+                .resource::<ambition_characters::brain::SlotControlLatches>()
+                .peek(ambition_characters::brain::PlayerSlot::PRIMARY)
+                .axis_x,
+            1.0
+        );
         assert_eq!(windowed.resource::<PendingLocalInput>().0.axis_x, 0.0);
     }
 
@@ -1337,21 +1351,27 @@ mod tests {
     fn device_edges_are_consumed_when_read_inputs_runs_not_each_render_frame() {
         let mut app = App::new();
         app.init_schedule(ReadInputs)
-            .init_resource::<ControlFrameLatch>()
+            .init_resource::<ambition_characters::brain::SlotControlLatches>()
             .init_resource::<PendingLocalInput>()
             .init_resource::<LocalPlayers>();
         install_session_bridge(&mut app);
 
         {
-            let mut latch = app.world_mut().resource_mut::<ControlFrameLatch>();
-            latch.accumulate(ControlFrame {
-                jump_pressed: true,
-                jump_held: true,
-                ..default()
-            });
+            let primary = ambition_characters::brain::PlayerSlot::PRIMARY;
+            let mut latches = app
+                .world_mut()
+                .resource_mut::<ambition_characters::brain::SlotControlLatches>();
+            latches.accumulate(
+                primary,
+                ControlFrame {
+                    jump_pressed: true,
+                    jump_held: true,
+                    ..default()
+                },
+            );
             // A later rendered frame sees the button released, but no GGRS
             // tick requested input between these samples.
-            latch.accumulate(ControlFrame::default());
+            latches.accumulate(primary, ControlFrame::default());
         }
 
         assert_eq!(
@@ -1628,7 +1648,10 @@ mod ac23_tests {
             invalidation: Some("room reconstructed under a live timeline".to_string()),
         };
         let carried = RollbackSessionStatus::carried_from(Some(&previous));
-        assert!(!carried.is_healthy(), "an inherited invalidation was reported healthy");
+        assert!(
+            !carried.is_healthy(),
+            "an inherited invalidation was reported healthy"
+        );
         assert_eq!(
             carried.invalidation.as_deref(),
             Some("room reconstructed under a live timeline"),
@@ -1671,7 +1694,10 @@ mod ac23_tests {
     #[test]
     fn a_healthy_session_installs_clean() {
         let previous = RollbackSessionStatus::default();
-        assert!(previous.is_healthy(), "the default session status is not healthy");
+        assert!(
+            previous.is_healthy(),
+            "the default session status is not healthy"
+        );
         assert_eq!(
             RollbackSessionStatus::carried_from(Some(&previous)),
             RollbackSessionStatus::default()

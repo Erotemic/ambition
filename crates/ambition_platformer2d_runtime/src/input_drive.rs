@@ -7,7 +7,7 @@
 
 use bevy::prelude::World;
 
-use ambition_platformer2d_core::{ControlFrame, ControlFrameLatch};
+use ambition_platformer2d_core::ControlFrame;
 
 /// Drive the primary participant's next control frame on a non-rollback host.
 ///
@@ -15,8 +15,10 @@ use ambition_platformer2d_core::{ControlFrame, ControlFrameLatch};
 /// survive until the simulation drains them. Otherwise write the authoritative
 /// frame directly.
 pub fn drive_control_frame(world: &mut World, frame: ControlFrame) {
-    if let Some(mut latch) = world.get_resource_mut::<ControlFrameLatch>() {
-        latch.accumulate(frame);
+    if let Some(mut latches) =
+        world.get_resource_mut::<ambition_characters::brain::SlotControlLatches>()
+    {
+        latches.accumulate(ambition_characters::brain::PlayerSlot::PRIMARY, frame);
         return;
     }
     if let Some(mut control) = world.get_resource_mut::<ControlFrame>() {

@@ -87,11 +87,10 @@ pub use ambition_geometry::{combat_volume, geometry, reference_frame, swing_shap
 pub use confirmed_frame::{world_state_is_confirmed, ConfirmedFrameBoundary};
 pub use content_epoch::ContentEpoch;
 pub use control_frame::ControlFrame;
-/// The frame→tick input latch (netcode N0.1) and its two systems. Separate from
-/// the `ControlFrame` vocabulary above because only the DEVICE layer installs it.
-pub use control_frame::{
-    accumulate_control_frame_latch, publish_latched_control_frame, ControlFrameLatch,
-};
+/// One seat's frame→tick input latch (netcode N0.1). ⚠ a VALUE, not a resource:
+/// the table that holds one per seat is `SlotControlLatches`, one layer up where
+/// `PlayerSlot` exists.
+pub use control_frame::ControlFrameLatch;
 pub use geo_id::{Face, GeoFaceRef, GeoId, GeoSource, PlacementId};
 /// The per-tick input artifact (netcode N0.2): replay, RL, forensics, wire.
 pub use input_stream::{InputStream, InputStreamError, InputStreamFrame, INPUT_STREAM_VERSION};

@@ -6,7 +6,7 @@
 //! keycode problem — the same gamepad failed, and device input plainly reached
 //! leafwing, since the menus responded to it.
 //!
-//! The primary device→tick latch, [`ControlFrameLatch`], was installed by
+//! The device→tick latch table, `SlotControlLatches`, was installed by
 //! `ambition_app::dev::rollback_observatory`, which is behind `dev_tools`. The
 //! web persona does not enable `dev_tools`. So the browser composed a live GGRS
 //! session with live device actions and NO latch, and
@@ -25,7 +25,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_core::ControlFrameLatch;
+use ambition_platformer2d_runtime::host_input::SlotControlLatches;
 use ambition_platformer2d_runtime::SimulationHost;
 
 /// A host with a device and nothing else: no app crate, no dev tooling, no
@@ -45,19 +45,17 @@ fn host_with_device(sim_host: SimulationHost) -> App {
 fn a_rollback_host_owns_the_primary_device_latch_without_any_developer_tooling() {
     let app = host_with_device(SimulationHost::Rollback);
 
+    // ⚠ **ONE assertion where there were two.** Seat zero had its own
+    // `ControlFrameLatch` resource beside this table and both had to be checked;
+    // seat zero is row zero now.
     assert!(
-        app.world().contains_resource::<ControlFrameLatch>(),
+        app.world().contains_resource::<SlotControlLatches>(),
         "a GGRS host composed the device input bridge and installed no \
-         `ControlFrameLatch`. `capture_latched_local_input` treats the missing \
+         `SlotControlLatches`. `capture_latched_local_input` treats the missing \
          latch as 'nobody feeds me' and leaves `PendingLocalInput` at its neutral \
          default, so the session publishes a motionless seat zero every tick — \
          the browser's 'menus respond, character does not move' bug. The device \
          host owns this bridge; a developer instrument may not."
-    );
-    assert!(
-        app.world()
-            .contains_resource::<ambition_platformer2d_runtime::host_input::SlotControlLatches>(),
-        "the secondary seats' latch went missing from the same arm"
     );
 }
 
@@ -70,7 +68,7 @@ fn a_frame_stepped_host_still_installs_no_latch_because_it_has_nothing_to_bridge
     let app = host_with_device(SimulationHost::RenderFrame);
 
     assert!(
-        !app.world().contains_resource::<ControlFrameLatch>(),
+        !app.world().contains_resource::<SlotControlLatches>(),
         "a frame-stepped host installed a frame→tick latch it has no use for; \
          the rollback assertion above is then vacuous"
     );

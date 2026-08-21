@@ -582,10 +582,15 @@ destination    ControlFrame                   │ the latch, or SlotControls
 rule that exists as one function with one caller — alt-tab froze player one and
 left player two walking. The FILTERS row is deliberate and stays (Jon,
 2026-08-06: filtering per pad, bindings shared — a couch seat cannot reach the
-settings screen). ⚠ **the WORLD-STOPPED row is the one to resolve before
-unifying**, and it is a real question, not an oversight to sweep: seat zero is
-handed a menu frame while the world is stopped and every other seat is handed
-neutral. Find out which is right before making them agree.
+settings screen). ⚠ **the WORLD-STOPPED row looked like the blocker and is RESOLVED**: seat zero
+is handed `read_menu_control_frame` while the world is stopped, which sets
+exactly one field — `start_pressed` — and every other seat is handed neutral.
+Nothing in gameplay reads that field. `brain/player.rs` destructures it away
+explicitly and says why: *"Shell-level, not body verbs: pause and reset belong
+to the session, and a body that could read them could act on somebody else's
+menu."* Its only readers are the trace codec and the harness's action encoder.
+⇒ either choice is behaviour-preserving for gameplay; take seat zero's, because
+that is what the recorded input stream already contains.
 
 ⭐ the burst-edge row is free deletion when the producers merge: seat zero has a
 participant entity like everybody else, so `PlayerBurstTriggerState` — two real

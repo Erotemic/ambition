@@ -60,7 +60,6 @@ pub use ambition_platformer2d_core::ControlFrame;
 /// Which local source drives which control channel — the map that keeps a
 /// lobby's sparse source numbers out of the rollback host's dense handles.
 pub use channels::{LocalChannelPlan, LocalInputSource};
-pub use control::PlayerBurstTriggerState;
 #[cfg(feature = "input")]
 pub use control::{
     read_gameplay_control_frame, read_gameplay_control_frame_with_settings, read_menu_control_frame,

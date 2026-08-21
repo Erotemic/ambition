@@ -77,20 +77,17 @@ pub struct HostInputBindingsPlugin;
 #[cfg(feature = "input")]
 impl Plugin for HostInputBindingsPlugin {
     fn build(&self, app: &mut App) {
-        use ambition_input::{
-            MenuControlFrame, MenuInputState, Platformer2dInputActionMonolith,
-            PlayerBurstTriggerState,
-        };
+        use ambition_input::{MenuControlFrame, MenuInputState, Platformer2dInputActionMonolith};
         use ambition_platformer2d_runtime::host_input::{
             accumulate_control_frame_latch, apply_menu_frame_to_cutscene_request,
             declare_gameplay_input_context, declare_in_session_input_contexts,
             dialog_pointer_input, freeze_local_seating_for_the_decided_match,
-            populate_control_frame_from_actions, populate_menu_control_frame_from_actions,
-            populate_seat_menu_frames, populate_secondary_slot_controls,
-            publish_latched_control_frame, publish_latched_slot_controls,
-            seat_input_participants_for_roster, spawn_primary_input_participant,
-            sync_primary_recipe_from_settings, toggle_player_trail_emission_from_actions,
-            MenuFrameConsume, MenuFrameCutsceneSkip, MenuFramePopulate, MenuNavConsume,
+            populate_menu_control_frame_from_actions, populate_seat_control_frames,
+            populate_seat_menu_frames, publish_latched_control_frame,
+            publish_latched_slot_controls, seat_input_participants_for_roster,
+            spawn_primary_input_participant, sync_primary_recipe_from_settings,
+            toggle_player_trail_emission_from_actions, MenuFrameConsume, MenuFrameCutsceneSkip,
+            MenuFramePopulate, MenuNavConsume,
         };
         use leafwing_input_manager::prelude::InputManagerPlugin;
 
@@ -175,7 +172,7 @@ impl Plugin for HostInputBindingsPlugin {
         // BOTH LATCHES, for a fixed-tick host AND a rollback one.
         //
         // `SlotControlLatches` needs no system of its own:
-        // `populate_secondary_slot_controls` folds into it whenever the resource
+        // `populate_seat_control_frames` folds into it whenever the resource
         // exists and writes `SlotControls` straight through when it does not, so
         // installing the resource IS the switch. Under rollback,
         // `capture_latched_local_input` drains it on the `ReadInputs` edge —
@@ -255,7 +252,6 @@ impl Plugin for HostInputBindingsPlugin {
         app.init_resource::<MenuInputState>()
             .init_resource::<MenuControlFrame>()
             .init_resource::<ambition_input::SeatMenuFrames>()
-            .init_resource::<PlayerBurstTriggerState>()
             .init_resource::<ambition_input::SeatActiveDevices>()
             .add_plugins(InputManagerPlugin::<Platformer2dInputActionMonolith>::default())
             .add_systems(
@@ -376,7 +372,7 @@ impl Plugin for HostInputBindingsPlugin {
                 (MenuFrameCutsceneSkip, MenuNavConsume).in_set(MenuFrameConsume),
             )
             // Collect semantic menu intent before gameplay input is
-            // suppressed. `populate_control_frame_from_actions` may zero the
+            // suppressed. `populate_seat_control_frames` may zero the
             // sim-side `ControlFrame` in UI modes, but it must not mutate
             // leafwing's `ActionState`; held keyboard/menu buttons should not
             // become `just_pressed` again on every dialog frame.
@@ -398,11 +394,14 @@ impl Plugin for HostInputBindingsPlugin {
                     populate_seat_menu_frames
                         .in_set(ambition_input::InputSet::Route)
                         .in_set(MenuFramePopulate),
-                    populate_control_frame_from_actions.in_set(ambition_input::InputSet::Route),
-                    // Every seat past the first writes its own slot directly.
-                    // Same phase as the primary bridge: both are device→control
-                    // translation, and neither reads the other's output.
-                    populate_secondary_slot_controls.in_set(ambition_input::InputSet::Route),
+                    // ⭐ **ONE registration.** There were two adjacent entries
+                    // here, and the comment on the second said *"same phase as
+                    // the primary bridge: both are device→control translation,
+                    // and neither reads the other's output"* — which is the
+                    // argument for them being one system, made while they were
+                    // two. See `populate_seat_control_frames` for the six ways
+                    // they had drifted.
+                    populate_seat_control_frames.in_set(ambition_input::InputSet::Route),
                     toggle_player_trail_emission_from_actions,
                     apply_menu_frame_to_cutscene_request.in_set(MenuFrameCutsceneSkip),
                     dialog_pointer_input,

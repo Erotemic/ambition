@@ -6,7 +6,6 @@
 //! frame. Headless/replay/netcode callers can construct `ControlFrame` directly
 //! without depending on this crate.
 
-use bevy::prelude::Resource;
 #[cfg(feature = "input")]
 use leafwing_input_manager::prelude::ActionState;
 
@@ -178,12 +177,4 @@ pub fn read_menu_control_frame(
         start_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Start),
         ..ControlFrame::default()
     }
-}
-
-/// Persistent burst-trigger edge state. Lives outside `ControlFrame` because
-/// the hysteresis logic must remember the previous state across frames;
-/// `ControlFrame` is stateless and rebuilt every frame.
-#[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct PlayerBurstTriggerState {
-    pub edge: crate::settings::TriggerEdgeState,
 }

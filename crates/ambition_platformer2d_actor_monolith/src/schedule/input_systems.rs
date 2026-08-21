@@ -1,7 +1,7 @@
 //! Participant → frame populate systems: the schedule-anchored input vocabulary.
 //!
 //! Bridges the persistent participant's leafwing `ActionState<Platformer2dInputActionMonolith>`
-//! into the sim-side `ControlFrame` ([`populate_control_frame_from_actions`])
+//! into the sim-side `ControlFrame` ([`populate_seat_control_frames`])
 //! and the menu-side [`MenuControlFrame`]
 //! ([`populate_menu_control_frame_from_actions`]), the device-agnostic seam
 //! the sim/menu read instead of raw devices (ADR 0012). Also:
@@ -19,8 +19,8 @@ use leafwing_input_manager::prelude::ActionState;
 use ambition_input::participant::{context_priority, ContextClaim};
 use ambition_input::{
     analog_to_dir, ControlFrame, InputParticipant, KeyboardPreset, MenuControlFrame,
-    MenuInputState, ParticipantContexts, PlayerBurstTriggerState, SeatInputContexts,
-    CUTSCENE_CONTEXT, DIALOGUE_CONTEXT, GAMEPLAY_CONTEXT,
+    MenuInputState, ParticipantContexts, SeatInputContexts, CUTSCENE_CONTEXT, DIALOGUE_CONTEXT,
+    GAMEPLAY_CONTEXT,
 };
 #[cfg(feature = "input")]
 use ambition_input::{
@@ -171,6 +171,12 @@ pub fn spawn_primary_input_participant(
         ActionState::<Platformer2dInputActionMonolith>::default(),
         recipe.build(),
         recipe,
+        // ⛔ **seat zero carries its own burst edge like every other seat.** It
+        // used to keep one in a `PlayerBurstTriggerState` RESOURCE, which is
+        // correct for exactly one seat; the merged producer reads the component
+        // for everybody, and a participant without it drops out of the query
+        // entirely — its frame is then never written and reads neutral forever.
+        SeatBurstTriggerState::default(),
     ));
 }
 
@@ -451,154 +457,54 @@ pub fn toggle_player_trail_emission_from_actions(
     }
 }
 
-/// Bridge leafwing's `ActionState` into the sim-side `ControlFrame` resource.
-///
-/// This is the visible-binary half of the ADR 0012 input seam. The sim
-/// reads `Res<ControlFrame>` only — it never queries `ActionState` —
-/// which means headless / RL drivers can populate the resource directly
-/// without an `InputManagerPlugin` in scope.
-///
-/// Non-gameplay modes suppress the sim-side `ControlFrame` without
-/// mutating leafwing's `ActionState`. Menu systems read their own
-/// semantic `MenuControlFrame`, so clearing gameplay here must not
-/// make held keyboard/menu buttons look newly pressed every frame.
-#[cfg(feature = "input")]
-pub fn populate_control_frame_from_actions(
-    mode: Res<State<GameMode>>,
-    // See `populate_secondary_slot_controls`: the world-stop is a policy now.
-    dialogue_policy: Option<Res<DialogueStopsTheWorld>>,
-    active_context: Res<SeatInputContexts>,
-    player_input: Query<(
-        &InputParticipant,
-        &ActionState<Platformer2dInputActionMonolith>,
-    )>,
-    mut frame: ResMut<ControlFrame>,
-    user_settings: Res<ambition_persistence::settings::UserSettings>,
-    mut burst_state: ResMut<PlayerBurstTriggerState>,
-    windows: Query<&Window>,
-) {
-    // The participant persists across the whole app lifetime, so "no player
-    // spawned yet" no longer implies "no ActionState". The resolved input
-    // context is the gate: while the launcher/startup (or nothing) owns the
-    // participant's actions, gameplay input stays neutral. In-session UI
-    // states (pause/dialogue/cutscene) keep their own suppressions below —
-    // the session still owns input there.
-    // This system authors the PRIMARY seat's frame (see the comment at the
-    // `find` below), so it asks the primary seat's context. Every other seat is
-    // gated individually in `populate_secondary_slot_controls`.
-    if !active_context.primary().gameplay_owned() {
-        burst_state.edge = ambition_persistence::settings::TriggerEdgeState::default();
-        *frame = ControlFrame::default();
-        return;
-    }
-
-    // Optional unfocus guard: clear gameplay input while the window is unfocused
-    // (and the setting is on). Reset the burst edge too so the post-refocus re-press
-    // starts clean, mirroring the pause path.
-    if input_suppressed_by_unfocus(&user_settings, windows.iter().map(|w| w.focused)) {
-        burst_state.edge = ambition_persistence::settings::TriggerEdgeState::default();
-        *frame = ControlFrame::default();
-        return;
-    }
-    // ⚠ dialogue and cutscene used to be matched HERE, off `GameMode` and
-    // `ActiveCutscene`. They are `ContextClaim`s now
-    // (`declare_in_session_input_contexts`), so the `gameplay_owned()` check
-    // above already covers both and this router has one gate instead of three.
-    //
-    // Two things the move preserves and one it changes:
-    //
-    // * the underlying `ActionState` is still untouched, so a held arrow does
-    //   not become `just_pressed` again every frame when the surface closes;
-    // * the semantic MENU frame is still the sole producer of cutscene
-    //   advance/skip, so this bridge only neutralises the simulation packet and
-    //   cannot double-count a held confirm;
-    // * the burst edge is now reset on a CUTSCENE too, which it was not before.
-    //   That is the pause and dialogue rule applied to the third case rather
-    //   than a fourth policy — a trigger held across a cutscene needs a
-    //   re-press, like one held across a pause.
-    // THE PRIMARY seat authors the global `ControlFrame`, by id.
-    //
-    // This used to take "the only participant" and go NEUTRAL when a second one
-    // existed, warning that two would compete to author one frame. The warning
-    // was right about the hazard and the remedy was the wrong way round: it made
-    // adding a second local player break the FIRST one, silently, with the
-    // symptom "gameplay input stopped working". Its own comment named the fix —
-    // *real multi-participant support keys frames by ParticipantId → slot* — so
-    // that is what this does. Seat 0 owns this resource; every other seat writes
-    // its own slot (`populate_secondary_slot_controls`) and cannot touch this one.
-    let action_state = player_input
-        .iter()
-        .find(|(participant, _)| participant.id == ambition_input::ParticipantId::PRIMARY)
-        .map(|(_, actions)| actions);
-    *frame = match action_state {
-        Some(action_state) => {
-            // ⚠ `stops_the_world`, not `allows_gameplay` — the same split as the
-            // secondary router. This seat already proved it OWNS gameplay above;
-            // what is left to ask is whether the world is running.
-            if !mode
-                .get()
-                .stops_the_world(dialogue_policy.map(|p| *p).unwrap_or_default())
-            {
-                // The PRIMARY seat reads the settings screen's own sliders —
-                // they are the sliders of whoever is sitting at that screen.
-                let (next_frame, next_state) = read_gameplay_control_frame_with_settings(
-                    action_state,
-                    ambition_input::ControlFilters::from_settings(&user_settings.controls),
-                    burst_state.edge,
-                );
-                burst_state.edge = next_state;
-                next_frame
-            } else {
-                // While paused, suppress gameplay input AND reset the
-                // burst trigger state so the post-pause re-press starts
-                // from a clean Released edge.
-                burst_state.edge = ambition_persistence::settings::TriggerEdgeState::default();
-                read_menu_control_frame(action_state)
-            }
-        }
-        // No participant exists only in minimal fixtures that never ran the
-        // boot spawn. Neutral input is the contract there, not a warning.
-        None => ControlFrame::default(),
-    };
-}
-
 /// Per-seat burst edge state.
 ///
-/// The primary seat's lives in the `PlayerBurstTriggerState` RESOURCE, which is
-/// correct for exactly one seat and wrong for two: a shared edge means player
-/// one's burst release cancels player two's press. A second seat carries its own
-/// on its participant entity.
+/// ⛔ **seat zero's used to live in a `PlayerBurstTriggerState` RESOURCE**, which
+/// is correct for exactly one seat and wrong for two: a shared edge means player
+/// one's burst release cancels player two's press. Every seat carries its own on
+/// its participant entity now — including seat zero, which has a participant
+/// entity like everybody else — and that resource is deleted.
 #[cfg(feature = "input")]
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub struct SeatBurstTriggerState(pub ambition_persistence::settings::TriggerEdgeState);
 
-/// **Every non-primary seat writes its OWN slot.** (C4 couch versus)
+/// **EVERY SEAT'S CONTROL FRAME, DECIDED IN ONE PLACE.** (C4 couch versus)
 ///
-/// `populate_slot_controls` fills slot 0 from the global `ControlFrame` and says
-/// in its own docs that co-op adds writers for higher slots without touching it.
-/// This is that writer.
+/// ⛔⛔ **there were TWO of these and they had drifted six ways.** Seat zero had
+/// `populate_control_frame_from_actions` and everybody else had this; the host
+/// registered them adjacently in the same set, with a comment saying *"both are
+/// device→control translation, and neither reads the other's output"*. What that
+/// arrangement actually produced:
 ///
-/// It deliberately does not go through `ControlFrame`: that resource is the
-/// primary seat's, everything downstream of it is allowlisted as single-frame,
-/// and routing a second player through it is what the old "two participants
-/// compete" guard was protecting against. Seat N reads its own `ActionState` and
-/// publishes straight into `SlotControls[N]`, which is where
-/// `tick_controlled_brains` already looks for it.
+/// ```text
+/// gate           the PRIMARY's context     │ this seat's context
+/// unfocus guard  applied                    │ never asked — no window query
+/// world stopped  read_menu_control_frame    │ neutral
+/// filters        the machine's sliders      │ per-pad filters_for_seat
+/// burst edge     a RESOURCE                 │ a component on the participant
+/// ```
 ///
-/// ✔ **Latched now (queue Y2).** This used to end with a known limit: the primary
-/// seat's frame passes through `ControlFrameLatch`, which ORs sub-tick press
-/// edges together so a tap between two ticks is never swallowed, and a secondary
-/// seat had none — so on a fixed-tick host a very short player-two tap could be
-/// missed. Bounded and named rather than hidden, which was right, and still a
-/// FAIRNESS asymmetry: two people on two pads and only one of them forgiving.
+/// The unfocus row was a live defect: alt-tab froze player one and left player
+/// two walking on a held stick. The rest are now one answer each.
 ///
-/// Under a fixed-tick host this now folds into [`SlotControlLatches`] on the
-/// FEEL clock and [`publish_latched_slot_controls`] drains it on the TICK clock —
-/// the primary seat's two-system shape, for the primary seat's reason. Under a
-/// frame-stepped host one frame IS one tick, no latch is installed, and this
-/// writes `SlotControls` directly exactly as before.
-#[cfg(feature = "input")]
-pub fn populate_secondary_slot_controls(
+/// ⭐ **the FILTERS row moved seat zero, deliberately.** Jon, 2026-08-06:
+/// *filtering per pad, bindings shared — a deadzone is a fact about the stick in
+/// somebody's hands.* Seat zero predates that rule and was still reading the
+/// machine-wide sliders; `filters_for_seat` falls back to exactly those when no
+/// device detector exists, so a headless fixture is unchanged and a windowed
+/// build finally gives seat zero its own pad's deadzone.
+///
+/// ⭐ **the WORLD-STOPPED row is preserved rather than harmonised**, because the
+/// field it turns on — `start_pressed` — is read by the trace codec and by
+/// nothing in gameplay. Changing it would change the recorded input stream for
+/// no gameplay reason.
+///
+/// ✔ **Latched (queue Y2).** Every seat's frame folds into `SlotControlLatches`
+/// on the FEEL clock and drains on the TICK clock, so a tap that opens and closes
+/// between two ticks reaches the sim. That used to be seat zero's alone, and a
+/// couch where only one of two people has forgiving input is a fairness bug
+/// rather than a rounding error.
+pub fn populate_seat_control_frames(
     mode: Res<State<GameMode>>,
     // Whether a conversation stops the world for everybody. Default `false`
     // (Jon, 2026-08-06); an experience that wants the modal beat sets it.
@@ -616,14 +522,18 @@ pub fn populate_secondary_slot_controls(
         &mut SeatBurstTriggerState,
     )>,
     mut slots: ResMut<ambition_characters::brain::SlotControls>,
-    // Present only under a fixed-tick host, mirroring `ControlFrameLatch`.
+    // **SEAT ZERO'S destination**, and the only thing that still makes it
+    // special. See the branch at the bottom of the loop.
+    mut frame: ResMut<ControlFrame>,
+    // Present only under a fixed-tick host. Absent, a frame IS a tick and there
+    // is nothing to bridge.
     // Absent, a frame IS a tick and there is nothing to bridge.
     mut latches: Option<ResMut<ambition_characters::brain::SlotControlLatches>>,
     // ⛔⛔ **THE UNFOCUS GUARD, and its absence was a real defect rather than a
     // simplification.** `pause_input_when_unfocused` clears the device-agnostic
-    // frames while no window reports focus; `populate_control_frame_from_actions`
-    // has applied it since it landed and this system never took a window query at
-    // all, so it could not have. Two people on a couch, the window loses focus,
+    // frames while no window reports focus; seat zero's own producer applied it
+    // and the one every other seat used never took a window query at all, so it
+    // could not have. Two people on a couch, the window loses focus,
     // and player one freezes while player two keeps walking on a held stick.
     //
     // ⚠ **the rule was already ONE function** — `input_suppressed_by_unfocus` —
@@ -647,9 +557,7 @@ pub fn populate_secondary_slot_controls(
         .stops_the_world(dialogue_policy.map(|p| *p).unwrap_or_default())
         && !input_suppressed_by_unfocus(&user_settings, windows.iter().map(|w| w.focused));
     for (participant, actions, mut burst) in &mut seats {
-        if participant.id == ambition_input::ParticipantId::PRIMARY {
-            continue;
-        }
+        let primary = participant.id == ambition_input::ParticipantId::PRIMARY;
         let gameplay = world_running && active_context.gameplay_owned(participant.id.slot());
         // ⭐ through the SEAM rather than by arithmetic (R5). This line is the
         // exact shape the reviewer asked new code to stop writing — a bare
@@ -658,14 +566,27 @@ pub fn populate_secondary_slot_controls(
         let slot = crate::participant_seat::player_slot_of(participant.id);
         if !gameplay {
             // Neutral, and RESET the edge, so the post-pause re-press starts from
-            // a clean Released state — the same rule the primary seat follows.
+            // a clean Released state.
             burst.0 = ambition_persistence::settings::TriggerEdgeState::default();
-            slots.set(slot, ControlFrame::default());
-            // The latch is CLEARED rather than drained: a seat that has stopped
-            // being driven must not hand a held direction to the tick after the
-            // pause, and an edge accumulated before it must not survive it.
-            if let Some(latches) = latches.as_deref_mut() {
-                latches.reset(slot);
+            if primary {
+                // ⚠ **seat zero is handed `read_menu_control_frame`, which sets
+                // exactly one field: `start_pressed`.** Nothing in gameplay reads
+                // it — `brain/player.rs` destructures it away and says why:
+                // *"pause and reset belong to the session, and a body that could
+                // read them could act on somebody else's menu."* Its only readers
+                // are the trace codec and the harness's action encoder, so this
+                // is what the RECORDED stream contains and changing it would
+                // change the wire for no gameplay reason.
+                *frame = read_menu_control_frame(actions);
+            } else {
+                slots.set(slot, ControlFrame::default());
+                // The latch is CLEARED rather than drained: a seat that has
+                // stopped being driven must not hand a held direction to the tick
+                // after the pause, and an edge accumulated before it must not
+                // survive it.
+                if let Some(latches) = latches.as_deref_mut() {
+                    latches.reset(slot);
+                }
             }
             continue;
         }
@@ -677,15 +598,28 @@ pub fn populate_secondary_slot_controls(
         // bindings shared.) The PREFERENCES inside `ControlFilters` — burst mode,
         // inverted aim — stay machine-wide, because those are about the person.
         let filters = filters_for_seat(&user_settings, devices.as_deref(), participant.id.slot());
-        let (frame, next) = read_gameplay_control_frame_with_settings(actions, filters, burst.0);
+        let (next_frame, next) =
+            read_gameplay_control_frame_with_settings(actions, filters, burst.0);
         burst.0 = next;
+        // ⛔⛔ **THE ONE ASYMMETRY LEFT, and it is the DELIVERY rather than the
+        // decision.** Seat zero's frame goes to the global `ControlFrame` because
+        // the portal, gesture, touch and scripted shapers all take
+        // `ResMut<ControlFrame>` and no other seat has them; a separate system
+        // folds that resource into seat zero's latch after they have all run.
+        // Collapsing this is D175's remaining work — moving those shapers onto a
+        // per-seat table — and until then it is one visible branch instead of a
+        // parallel system.
+        if primary {
+            *frame = next_frame;
+            continue;
+        }
         match latches.as_deref_mut() {
             // Fixed tick: fold this device sample in and let the tick drain it.
             // Writing `SlotControls` here as well would be the sample racing its
             // own latch — the tick would see whichever ran last.
-            Some(latches) => latches.accumulate(slot, frame),
+            Some(latches) => latches.accumulate(slot, next_frame),
             // Frame-stepped: a frame IS a tick, so publish straight through.
-            None => slots.set(slot, frame),
+            None => slots.set(slot, next_frame),
         }
     }
 }
@@ -1510,6 +1444,9 @@ mod focus_gate_tests {
         let mut app = App::new();
         app.init_resource::<SeatInputContexts>();
         app.init_resource::<SlotControls>();
+        // Seat zero's destination: every real composition has it, and the merged
+        // producer writes row zero there. See its delivery branch.
+        app.init_resource::<ambition_input::ControlFrame>();
         app.init_resource::<ambition_persistence::settings::UserSettings>();
         app.add_plugins(bevy::state::app::StatesPlugin);
         app.insert_state(GameMode::Playing);
@@ -1525,7 +1462,7 @@ mod focus_gate_tests {
             Update,
             (
                 resolve_active_input_context,
-                super::populate_secondary_slot_controls,
+                super::populate_seat_control_frames,
             )
                 .chain(),
         );
@@ -1561,8 +1498,8 @@ mod focus_gate_tests {
     /// **⛔⛔ ALT-TAB STOPS EVERY SEAT, NOT JUST SEAT ZERO.**
     ///
     /// `pause_input_when_unfocused` is an opt-in that clears the device-agnostic
-    /// frames while no window reports focus. `populate_control_frame_from_actions`
-    /// applies it; `populate_secondary_slot_controls` did not — it never took a
+    /// frames while no window reports focus. Seat zero's producer applied it;
+    /// the one every other seat used did not — it never took a
     /// `Query<&Window>` at all, so it could not have. Two people on a couch, the
     /// window loses focus, and player one freezes while player two keeps walking
     /// on a held stick.
@@ -1587,6 +1524,10 @@ mod focus_gate_tests {
             let mut app = App::new();
             app.init_resource::<SeatInputContexts>();
             app.init_resource::<SlotControls>();
+            app.init_resource::<ambition_input::ControlFrame>();
+            // Seat zero's destination: every real composition has it, and the merged
+            // producer writes row zero there. See its delivery branch.
+            app.init_resource::<ambition_input::ControlFrame>();
             let mut settings = ambition_persistence::settings::UserSettings::default();
             settings.gameplay.pause_input_when_unfocused = pause_when_unfocused;
             app.insert_resource(settings);
@@ -1618,7 +1559,7 @@ mod focus_gate_tests {
                 Update,
                 (
                     resolve_active_input_context,
-                    super::populate_secondary_slot_controls,
+                    super::populate_seat_control_frames,
                 )
                     .chain(),
             );
@@ -1684,6 +1625,9 @@ mod focus_gate_tests {
         let mut app = App::new();
         app.init_resource::<SeatInputContexts>();
         app.init_resource::<SlotControls>();
+        // Seat zero's destination: every real composition has it, and the merged
+        // producer writes row zero there. See its delivery branch.
+        app.init_resource::<ambition_input::ControlFrame>();
         app.init_resource::<ambition_persistence::settings::UserSettings>();
         app.init_resource::<ambition_cutscene::ActiveCutscene>();
         app.init_resource::<ambition_conversation::ActiveConversation>();
@@ -1696,7 +1640,7 @@ mod focus_gate_tests {
             (
                 declare_in_session_input_contexts,
                 resolve_active_input_context,
-                super::populate_secondary_slot_controls,
+                super::populate_seat_control_frames,
             )
                 .chain(),
         );
@@ -1802,6 +1746,9 @@ mod focus_gate_tests {
         let mut app = App::new();
         app.init_resource::<SeatInputContexts>();
         app.init_resource::<SlotControls>();
+        // Seat zero's destination: every real composition has it, and the merged
+        // producer writes row zero there. See its delivery branch.
+        app.init_resource::<ambition_input::ControlFrame>();
         app.init_resource::<ambition_persistence::settings::UserSettings>();
         app.add_plugins(bevy::state::app::StatesPlugin);
         app.insert_state(GameMode::Dialogue);
@@ -1817,7 +1764,7 @@ mod focus_gate_tests {
             Update,
             (
                 resolve_active_input_context,
-                super::populate_secondary_slot_controls,
+                super::populate_seat_control_frames,
             )
                 .chain(),
         );

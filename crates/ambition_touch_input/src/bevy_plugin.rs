@@ -350,7 +350,7 @@ impl Plugin for TouchControlsPlugin {
                     // a detector that no longer exists there.
                     update_button_glyph_from_active_input.after(ambition_input::InputSet::Route),
                     update_button_pressed_from_actions
-                        .after(ambition_platformer2d_actor_monolith::affordances::AffordancesSystemSet::Compute),
+                        .after(ambition_sim_view::affordances::AffordancesSystemSet::Compute),
                     render_touch_button_text
                         .after(update_button_verb_from_prompt)
                         .after(update_button_glyph_from_active_input)

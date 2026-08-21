@@ -3214,6 +3214,31 @@ set it belongs to is *"which types are in the wire format"*, and a move keeps it
 in. ⭐ **the waiver's REASON stays as written**; a move does not change the
 answer to *"is this per-frame state?"*, only where to ask it.
 
+⭐⭐ **PROVEN BY DOING IT — `affordances` LANDED IN `ambition_sim_view`,
+2026-08-21.** 1,725 lines left the monolith carrying all four of its
+rollback-declared types, and `the_rollback_schema_matches_its_recorded_baseline`
+stayed GREEN with no baseline edit at all. Two reasons, and the second is
+sharper than the correction above:
+
+* the fingerprint records `stable name / kind / bare type name / reason` and no
+  owning crate, so `OWNER = env!("CARGO_PKG_NAME")` changing from the monolith
+  to `ambition_sim_view` moved nothing;
+* **a DERIVED declaration is not in the wire format to begin with.** All four are
+  `declare_rollback_derived_resource` — the declaration exists to tell the sweep
+  *not* to snapshot them. `rollback-wire-format-is-frozen` reports 119 encoded
+  types and none of these is one. ⇒ the ⛔ column above over-counts: a module's
+  registered types are only a carve cost when they are AUTHORITATIVE.
+
+⚠ **the real price was two things the ⛔ column never mentioned**: the five
+lockfiles (`cargo tree --locked` exits 101 on a new dep edge, and the contracts
+job crashes rather than failing), and a `#[cfg(feature = "portal")]` that turned
+into a SILENT REGRESSION on arrival — `ambition_sim_view` has no `portal`
+feature, so every gate resolved false and `portal_gun_active` became a hardcoded
+`false` while the crate compiled clean. The gates are deleted; this crate's
+dependency on the monolith names `portal` unconditionally, so the `not(portal)`
+arm was unreachable-but-selected. ⇒ **grep the moved code for `cfg(feature` before
+believing a carve is behaviour-preserving.**
+
 ⚠ **so the ⛔/✔ split above is really cheap vs cheaper**, and the campaign has
 been avoiding 15 modules for a cost it does not pay. ⛔ what a carve DOES still
 owe is the check that neither ledger went stale: `cargo test -p ambition_app

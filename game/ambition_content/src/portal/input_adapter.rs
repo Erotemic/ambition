@@ -19,7 +19,7 @@ use bevy::prelude::*;
 use ambition_characters::brain::{DrivingParticipant, PlayerSlot, SlotControls};
 use ambition_input::ControlFrame;
 use ambition_platformer2d_actor_monolith::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
-use ambition_platformer2d_actor_monolith::affordances::{InteractVariant, NearestInteractable};
+use ambition_sim_view::affordances::{InteractVariant, NearestInteractable};
 use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 use ambition_portal2d::{
     DropPortalGun, FirePortalGun, PickUpPortalGun, PortalGun, TogglePortalGun,

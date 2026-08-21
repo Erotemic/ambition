@@ -36,6 +36,7 @@ ambition_entity_catalog = { path = "../ambition_entity_catalog" }
 ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
 ambition_interaction = { path = "../ambition_interaction" }
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+ambition_portal2d = { path = "../ambition_portal2d" }
 ambition_time = { path = "../ambition_time" }
 ambition_persistence = { path = "../ambition_persistence" }
 ambition_dev_tools = { path = "../ambition_dev_tools" }

@@ -21,6 +21,8 @@
 //! that).
 
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
+pub mod affordances;
+mod rollback_registration;
 mod anim_index;
 mod attack_vfx_view;
 pub mod camera_snapshot;
@@ -33,6 +35,10 @@ mod pose_view;
 pub mod presented_pose;
 mod view_index;
 
+// The affordance table — "what would each input do right now?" — moved here
+// from the actor monolith 2026-08-21. It is a read model recomputed per frame
+// from body state, which is this crate's stated contract; its four rollback
+// declarations all say so in as many words. See `affordances`.
 pub use anim_index::{
     rebuild_actor_anim_index, rebuild_boss_frame_index, ActorAnimFrame, ActorAnimIndex,
     ActorSpriteData, BossFrameIndex, BossFrameView, ClipRequest, HazardLaneFact,
@@ -143,3 +149,6 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
         );
     }
 }
+
+// Domain-owned rollback declaration; the host supplies the backend registrar.
+pub use rollback_registration::register_rollback_state;

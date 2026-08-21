@@ -100,7 +100,6 @@ pub mod actor;
 /// "What would each button do right now?" — the per-frame verb table the HUD
 /// labels its buttons from. A BRIDGE (input x body x world -> verb), which is why
 /// it is neither `control` nor `features`. Moved off `player/` in R6d.
-pub mod affordances;
 pub mod assets;
 pub mod body_custody;
 pub mod body_mode;

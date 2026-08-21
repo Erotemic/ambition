@@ -485,7 +485,7 @@ impl PluginGroup for PlatformerEnginePlugins {
             // Deterministic sim traces.
             .add(ambition_platformer2d_actor_monolith::trace::TraceSchedulePlugin)
             // Per-frame affordance table (what would each verb do right now).
-            .add(ambition_platformer2d_actor_monolith::affordances::AffordancesPlugin)
+            .add(ambition_sim_view::affordances::AffordancesPlugin)
             // Per-body derived action scheme (slot → action) — the source the
             // control-prompt read-model (P2) and the input→action seam (P3)
             // read. Reconciled from live AbilitySet + moveset.

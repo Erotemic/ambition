@@ -625,26 +625,6 @@ where
         "derived.encounter_switch_index",
         "rebuilt from SwitchFeature + SwitchOn components each frame",
     );
-    registrar.declare_rollback_derived_resource::<crate::affordances::PlayerAffordances>(
-        OWNER,
-        "derived.player_affordances",
-        "affordance read model recomputed per frame from body state",
-    );
-    registrar.declare_rollback_derived_resource::<crate::affordances::intent::PlayerIntent>(
-        OWNER,
-        "derived.player_intent",
-        "affordance read model recomputed per frame from control input",
-    );
-    registrar.declare_rollback_derived_resource::<crate::affordances::interactable_proximity::NearestInteractable>(
-        OWNER,
-        "derived.nearest_interactable",
-        "proximity read model recomputed per frame",
-    );
-    registrar.declare_rollback_derived_resource::<crate::affordances::pogo_proximity::PogoTargetBelow>(
-        OWNER,
-        "derived.pogo_target_below",
-        "proximity read model recomputed per frame",
-    );
     registrar.clear_message_on_rollback::<crate::features::BrainCommand>(
         OWNER,
         "message.brain_command",

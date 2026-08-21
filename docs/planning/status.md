@@ -1,6 +1,6 @@
 # HEAD orientation
 
-**Snapshot:** `867d339ec` (2026-08-21 local project date).
+**Snapshot:** `78df20395` (2026-08-21 local project date).
 
 ⚠ **this SHA goes stale within hours during an active run** — it names the tree
 these paragraphs were measured against, not the tree you have. ⭐ **if it
@@ -15,52 +15,79 @@ replenish it. Focused plans own technical design.
 If this page disagrees with current source or a focused open plan, update this
 page rather than appending an archaeological correction.
 
-## 2026-08-21, LATEST — D175's fork chain, and two rows closed
-
-**D175 is two-thirds done.** Seat zero had its own spelling of the input path at
-three stages, and each fork declared itself in its own doc:
+## 2026-08-21, LATEST — D175's fork chain is CLOSED, and player two can fast-fall
 
 ```text
 feel-clock latch  ✔ 889107010  SlotControlLatches — seat zero is row zero
 pending input     ✔ 477fc8693  PendingSeatInputs — handle zero included
 raw producer      ✔ 249af69b0  one system decides every seat's frame
-confirmed publish ▢            seat zero still lands in the global ControlFrame
+raw SHAPING stage ✔ 0dab21479  SeatRawFrames — one row per seat
+confirmed publish ✔ 0dab21479  SlotControls for everybody
 ```
 
-⭐ **the twins collapsed with them.** `drive_control_frame` / `drive_seat_frame`
-had identical bodies once both tables covered seat zero — in BOTH crates that
-carry a copy. `PlayerBurstTriggerState` is deleted. The two raw producers had
-drifted **six ways**, and one was a live bug: `populate_secondary_slot_controls`
-never took a `Query<&Window>`, so **alt-tab froze player one and left player two
-walking on a held stick** (`f9085f478`).
+**The global `ControlFrame` was the input bus**: a device wrote it, four systems
+shaped it, one copy fanned it into `SlotControls[0]`. That is why shaping was
+seat zero's *by construction* — every other seat went from its `ActionState`
+straight into its own slot with no stage between — and why the secondary frame
+producer could hardcode `fast_fall_pressed: false`. `SeatRawFrames` is that stage
+for everybody; `ControlFrame` is now seat zero's OUTPUT MIRROR.
 
-⛔ **what is LEFT is not another table merge.** Seat zero's frame goes to
-`ControlFrame` because the portal, gesture, touch and scripted shapers all take
-`ResMut<ControlFrame>` and no other seat has them. They must stay PRE-latch —
-`fast_fall_pressed` is packed into the encoded rollback input, so a shaper that
-runs after publication becomes something each peer computes from its own wall
-clock. What is missing is a per-seat RAW frame table. **Do not start it with
-budget for only part of it.**
+⭐ **the deletion ledger is where the size of the fork shows.** Six `ControlFrame`
+entries in the workspace policy allowlist stopped holding the resource at all,
+and the policy's `Bridge` vocabulary lost `FrameToSlot` for `SlotToFrame` —
+**the direction reversed**, so the old category would now be a cycle. Gone:
+`populate_slot_controls`, `accumulate_control_frame_latch`,
+`publish_latched_control_frame`, the `handle == 0` branch in `publish_ggrs_input`,
+`drive_slot_frame`'s last seat-zero arm, and three hand-written copies of "which
+body drives this slot".
 
-**Also closed.** D176: a packless tree now reports its three pack-dependent
-tests as `ignored` with a reason (`build.rs` emits `has_baked_packs`), and two of
-those three had been `eprintln!`-and-`return` — green ticks that meant *checked*
-and *nothing to check* identically. D174: the hub's edge exits were WINDOWS,
-openings 32px above the floor, so you jumped into your own front door; content
-fixed, and the validator's rule now measures the STEP rather than counting solid
-cells.
+⛔⛔ **THE ROW'S OWN PLAN WAS WRONG ABOUT WHERE THE DERIVATION RUNS, and checking
+that is what made the fix small.** It said the gesture derivation is on the FEEL
+clock and must not move after publication. `input_timer_system` is registered
+into the SIM schedule, which under a rollback host **is** `GgrsSchedule` — it
+runs inside rollback, with `SlotInteractionState` as canonical rollback state.
+The clock argument was sound; the placement claim was not.
 
-⛔⛔ **the recurring lesson of the day, and it bit twice: a census can be right
-in NUMBER and wrong in KIND.** "Five of twenty-four EdgeExits have solid cells in
-their zone" — three of those five are the level's own floor row. "1 of 20 frames
-versus 40 of 40" — the baseline was an idle launcher, not a one-view session.
-Before acting on a census, ask what a HEALTHY instance looks like in your count.
+▢ **what is left is a `SlotGestures` SPLIT, not another table.** The gesture
+derivation and the interact buffer are still tagged `InputSet::Route` although
+neither writes `ControlFrame` any more. What keeps them there is the ORDERING:
+the portal warp is pinned after `InteractionInputBuffered` and before the commit,
+because a warp may not rewrite the axes until the interact press has been
+buffered against the UNWARPED ones. Moving either past the commit makes the graph
+unsolvable, and Bevy says so outright. Split the double-tap WINDOW timers (device
+clock, like the latch) from the PENDING flags and interact buffer (sim state a
+rollback restores), and both systems can move into the shaping window.
 
-**Merged for Jon:** `fix-freshclone` + `fix-tooling` twice, adding Projectile
-Polygon. ⚠ it arrived orphaned from `regen_sprites.sh`'s publish batch — that
-script's own comment predicts this for *"every character added since the last
-audit"* — and its branch pinned a stale submodule SHA that would have moved the
-gitlink backward.
+**Also this session.** The camera resolve stopped searching control authority — a
+`DrivingParticipant` query had been folded into another parameter's tuple to fit
+Bevy's 16-param ceiling, which satisfies the limit without reducing what the
+system knows about; `ResolvedViewSubject` is a stage now and the resolve dropped
+to 11 params. `drive_seat_frame(PRIMARY, …)` used to `return` silently, and the
+SDK acceptance test asserted that it should — a test whose whole content is "it
+did not panic" agrees with a function that does nothing. `run_game.sh` learned
+`twintrack` (the fourth demo shell, previously reachable only by hand-writing the
+cargo invocation), and `--ticks` stopped being ignored by the smash shell.
+
+⛔⛔ **THE RECURRING LESSON, and it is the sharpest kind of unfalsifiable check.**
+Three Mary-O fixtures asserted *"a scripted press did not survive into the
+simulation"* by reading `ControlFrame` — **the resource the scripted stage writes
+directly.** None could fail for the reason all three named. They only became real
+when that resource changed role, and immediately reported a one-tick lag they had
+never been able to see. ⇒ ask of any liveness check: is the thing I read
+DOWNSTREAM of the thing I drive, or is it the thing I drive?
+
+⚠ **two `ambition_demo_mary_o_app` tests are RED and were red before this work** —
+`level_1_acceptance::a_grown_mary_o_bonks_a_question_block…` and
+`two_rooms::she_crosses_wearing_the_form_she_earned`. Verified against `8f3c0e85e`
+in a detached worktree. ⭐ that technique is worth reusing: a baseline worktree
+will not build until the SUBMODULE paths are symlinked into it, and the symlinks
+must be removed BEFORE `git worktree remove --force`.
+
+⚠ **also long-red and outside the gate**: three `ambition_workspace_policy`
+engine-policy rows (`body_step.rs` direct `kinematics.pos`/`vel` writes, and a
+required path `time/feel.rs` that no longer exists), and the two consumer
+fixtures under `fixtures/` are separate workspaces the repository gate cannot
+reach — `minimal_game` had been red for eight days on a deleted catalog field.
 
 ## 2026-08-21, latest: four competing-authority defects, from a review of `f8ad04f9a`
 

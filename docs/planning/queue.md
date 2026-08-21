@@ -3099,19 +3099,24 @@ climbing out through the monolith to reach a function that lives in
 along. Code walking up and out to reach its own crate's function is the
 strongest placement smell there is, and it is greppable:
 
-```text
-27  features/ecs/actors/update.rs
-11  features/ecs/damage/actor_hit.rs
- 9  features/ecs/spawn_actors.rs
- 8  features/ecs/actors/conversion.rs
- 6  features/ecs/bosses/tick.rs
- 4  features/ecs/damage/boss_hit.rs
-```
+⛔⛔ **AND THEN EVERY CANDIDATE IT PRODUCED WAS RESOLVED, AND ALL OF THEM ARE
+FALSE — which is the result worth recording.** The raw counts looked
+actionable (`update.rs` 27, `actor_hit.rs` 11, `spawn_actors.rs` 9,
+`conversion.rs` 8, `bosses/tick.rs` 6, `boss_hit.rs` 4) and **not one crosses a
+crate**. They resolve to `components`, `actor_clusters`, `perception`,
+`damage_drops`, `enemies`, `npcs` — all monolith-internal, i.e. ordinary module
+navigation in a deep tree.
 
-⚠ **a count of `super::super::` alone means nothing** — inside one crate it is
-ordinary module navigation. What made it a finding was the DESTINATION: the path
-resolved into a DIFFERENT crate. Resolve each one before believing it, the same
-rule as every other scan in this row.
+⇒ **the signal is REAL but RARE: it has fired exactly once** (the boss-anim
+carve, now clean) and the raw count is worthless without resolving the
+destination. ⛔ do not work this list — there is nothing on it. Re-run the scan
+after a carve, resolve each target's crate, and act only on the ones that leave
+the crate.
+
+⚠ this is the second scan in an hour whose headline was an artifact (after
+"quest" matching inside "request"). A cheap grep over a large tree WILL produce a
+confident-looking ranking of nothing. The caveat is not boilerplate; it is the
+only thing standing between the list and a wasted session.
 
 ⭐⭐ **A CHEAP SCAN THAT FINDS SPLIT CANDIDATES: public functions naming a domain
 their FILE does not.** Both splits found by hand this session have the same

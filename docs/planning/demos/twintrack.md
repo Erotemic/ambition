@@ -1,5 +1,15 @@
 # TwinTrack — Relativity Plaza
 
+> **⏸ PARKED 2026-08-20.** Jon: *"I want to put twintrack down for now and get
+> back to the main games. Twin track is fun, but not the primary target."* The
+> second seat is confirmed driving on hardware and the plaza is in a finished
+> state; nothing below is queued work. ⛔ **and the exhibit has a KNOWN LIMIT**
+> that a future session must not rediscover as a bug: both panes render one
+> instant of the simulation's coordinate time, so they can disagree about optics
+> (light delay, aberration, Doppler) and NOT about simultaneity, which is what
+> the twin paradox is. Recorded as question 28 in
+> `awaiting-maintainer-decision.md`.
+>
 > **Status (2026-08-20): TwinTrack is a TWO-PLAYER game with a real split
 > screen.** The laboratory twin is Emmy No-Ether, driven by seat one; the plaza
 > opens split, one gameplay view per participant. See SR-11 below for what that

@@ -685,6 +685,62 @@ goes red and stays red, and both failures were guards that were CORRECT when
 written and became wrong when a rule moved under them. ⇒ **when you add a check,
 name the TIER that runs it.**
 
+### 28. ⏸ PARKED 2026-08-20 — can a SPLIT SCREEN demo relativity at all, and does TwinTrack want a rollback host?
+
+⛔ **TwinTrack is PUT DOWN, and neither question below is open work.** Jon,
+2026-08-20, right after confirming the second seat drives on hardware: *"I want
+to put twintrack down for now and get back to the main games. Twin track is fun,
+but not the primary target."* The analysis is recorded because it was measured,
+not because it is queued — do not pick it up as a task.
+
+Jon, 2026-08-20, after driving the second seat for the first time: *"I'm not
+sure we can even really demo relativity with this split screen"*. He is right,
+and the limit is the construction rather than the presentation.
+
+**Both panes render one instant of the simulation's coordinate time.** They are
+two positions on ONE simultaneity surface, so what they can honestly disagree
+about is optics — retarded images, aberration, Doppler, each twin's own clock
+reading — and every one of those the per-observer views already get right. What
+they cannot disagree about is SIMULTANEITY, which is the entire content of the
+twin paradox. Two panes side by side read to a viewer as *two frames' views of
+now*, and they are one "now" drawn twice.
+
+```text
+keep it as OPTICS      the exhibit is honest about what it shows: light delay,
+                       aberration and Doppler, and the paradox stays narrated
+make each pane a SLICE each pane resamples every worldline where it crosses THAT
+                       observer's constant-time surface. The same event then sits
+                       at different positions in the two panes, they disagree
+                       about where the other twin is "right now", and the
+                       disagreement FLIPS at turnaround — the paradox, visible
+```
+
+⭐ **the data for the second already exists**: `WorldlineTracked2d` /
+`WorldlineHistoryView2d` store the history a slice would resample. It is not a
+camera change — a pane stops being a VIEW and becomes a SLICE.
+
+**And a second question rides along.** The shipped `ambition_app` is a
+`SimulationHost::Rollback` host for every route, and `visible_composition.rs`
+says why: not netplay, but a stable timestep (`check_distance = 0`, rollback
+dormant). TwinTrack wants that timestep MORE than a platformer does — proper
+time integrated at a variable `dt` makes clocks disagree for reasons that are
+not physics — and wants the rollback half not at all. The half it does not want
+charges a real price: a GGRS session's handle count is decided once at session
+start and is never resized, which is exactly why the laboratory twin was inert
+in the game while the standalone `fixed_tick` binary drove her fine.
+
+```text
+one host, always   simplest; a route that declares seating must do so BEFORE the
+                   session starts, which is what landed 2026-08-20
+per-route host     TwinTrack takes `fixed_tick`, Smash keeps rollback. ⚠ the
+                   schedule is chosen at BUILD time, before any sim plugin
+                   registers, so this is a real design slice and not a flag
+```
+
+⇒ the seating declaration landed either way and is not waiting on this: Smash
+genuinely wants rollback AND has two seats, and "who is playing" had been
+declarable only from inside the rollback backend.
+
 ### 20. ▢ NEW 2026-08-19 — eight boss chests are authored with treasure that does not exist
 
 **The wiring half is FIXED and is not the question.** `ChestFeature::reward()`

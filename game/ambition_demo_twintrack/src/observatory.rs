@@ -684,6 +684,21 @@ DIRECTIONS AROUND YOU",
     ));
 }
 
+/// **WHICH OF THIS DEMO'S CAMERAS ARE DRAWING.**
+///
+/// ⛔⛔ **`is_active` ONLY — the physical VIEWPORT is not this demo's to write.**
+/// `apply_gameplay_camera_viewport` owns `Camera::viewport` for every
+/// `MainCamera` that presents a `LocalView`, and TwinTrack's own pane cameras
+/// ARE such cameras: `spawn_pane_camera` gives each one `MainCamera` and a
+/// `PresentsView` link. This loop used to clear their viewport to `None` every
+/// frame, so the generic owner's half-screen rectangle and this demo's erasure
+/// of it raced with no order between them — the split panes surviving on
+/// whichever system the schedule happened to run second.
+///
+/// ⚠ **and the observatory camera's clear went too, though nothing contended
+/// for it.** It is not a `MainCamera`, so the generic pass never sees it and it
+/// keeps the `None` it was spawned with; a line restating a default nobody
+/// writes is a second writer waiting for somebody to add the first.
 fn sync_view_cameras(
     experiment: Query<&TwinTrackExperiment, With<LaboratoryTwin>>,
     mut observatory: Query<&mut Camera, With<ObservatoryCamera>>,
@@ -695,7 +710,6 @@ fn sync_view_cameras(
     let optical_active = experiment.view_mode == TwinTrackViewMode::Optical;
     if let Ok(mut camera) = observatory.single_mut() {
         camera.is_active = optical_active;
-        camera.viewport = None;
     }
     for mut camera in &mut laboratory {
         // The split-observer panes cover the whole window with their own
@@ -705,7 +719,6 @@ fn sync_view_cameras(
             experiment.view_mode,
             TwinTrackViewMode::Laboratory | TwinTrackViewMode::Spacetime
         );
-        camera.viewport = None;
     }
 }
 

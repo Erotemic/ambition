@@ -3112,8 +3112,28 @@ side and not the other is a silent lowering gap, not a compile error.
 ✔ **AND IT HAS NOT DRIFTED — checked, 2026-08-21.** All seven pairs match
 variant for variant today (4/4, 3/3, 3/3, 3/3, 6/6, 5/5, 9/9). ⇒ this is a
 LATENT hazard, not a live defect: nothing is broken right now, and the row must
-not be worked as though something is. Its cost is paid the day somebody adds a
-variant to one side.
+not be worked as though something is.
+
+⭐⭐ **AND THE HAZARD IS ONE-DIRECTIONAL — HALF OF IT IS ALREADY GUARDED.**
+`spawn_static`'s mappings are exhaustive matches on the SPEC enum with **zero
+catch-all arms** (`grep -c '_ =>'` = 0). So:
+
+```text
+new variant on the SPEC side     -> match is non-exhaustive -> COMPILE ERROR ✔
+new variant on the RUNTIME side  -> nothing breaks; the variant is simply
+                                    unreachable from authoring        ⛔ SILENT
+```
+
+⇒ the exhaustive destructure is already doing the work in one direction, which
+is why nothing has drifted. The unguarded direction is a runtime variant with no
+authored spec — content that cannot be authored rather than content authored
+wrong, so it fails as *"the editor cannot place this"*, never as a crash.
+
+⇒ **that makes the slice much smaller than "delete the spec enums"**: what is
+missing is a check that every RUNTIME variant has a spec counterpart. ⚠ still
+not urgent — zero drift today — and ⛔ still not a reason to add a dependency
+edge from `ambition_entity_catalog` to `ambition_interaction`/`ambition_portal2d`
+(see `attack.rs` above for what an edge costs).
 
 ⇒ worth its own slice, and it is a DELETION one: either the spec enums go and
 the catalog names the runtime types directly, or the mapping becomes a derive

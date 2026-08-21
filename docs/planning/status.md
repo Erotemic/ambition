@@ -1,6 +1,6 @@
 # HEAD orientation
 
-**Snapshot:** `a50c7ea12` (2026-08-21 local project date).
+**Snapshot:** `867d339ec` (2026-08-21 local project date).
 
 ⚠ **this SHA goes stale within hours during an active run** — it names the tree
 these paragraphs were measured against, not the tree you have. ⭐ **if it
@@ -14,6 +14,53 @@ replenish it. Focused plans own technical design.
 
 If this page disagrees with current source or a focused open plan, update this
 page rather than appending an archaeological correction.
+
+## 2026-08-21, LATEST — D175's fork chain, and two rows closed
+
+**D175 is two-thirds done.** Seat zero had its own spelling of the input path at
+three stages, and each fork declared itself in its own doc:
+
+```text
+feel-clock latch  ✔ 889107010  SlotControlLatches — seat zero is row zero
+pending input     ✔ 477fc8693  PendingSeatInputs — handle zero included
+raw producer      ✔ 249af69b0  one system decides every seat's frame
+confirmed publish ▢            seat zero still lands in the global ControlFrame
+```
+
+⭐ **the twins collapsed with them.** `drive_control_frame` / `drive_seat_frame`
+had identical bodies once both tables covered seat zero — in BOTH crates that
+carry a copy. `PlayerBurstTriggerState` is deleted. The two raw producers had
+drifted **six ways**, and one was a live bug: `populate_secondary_slot_controls`
+never took a `Query<&Window>`, so **alt-tab froze player one and left player two
+walking on a held stick** (`f9085f478`).
+
+⛔ **what is LEFT is not another table merge.** Seat zero's frame goes to
+`ControlFrame` because the portal, gesture, touch and scripted shapers all take
+`ResMut<ControlFrame>` and no other seat has them. They must stay PRE-latch —
+`fast_fall_pressed` is packed into the encoded rollback input, so a shaper that
+runs after publication becomes something each peer computes from its own wall
+clock. What is missing is a per-seat RAW frame table. **Do not start it with
+budget for only part of it.**
+
+**Also closed.** D176: a packless tree now reports its three pack-dependent
+tests as `ignored` with a reason (`build.rs` emits `has_baked_packs`), and two of
+those three had been `eprintln!`-and-`return` — green ticks that meant *checked*
+and *nothing to check* identically. D174: the hub's edge exits were WINDOWS,
+openings 32px above the floor, so you jumped into your own front door; content
+fixed, and the validator's rule now measures the STEP rather than counting solid
+cells.
+
+⛔⛔ **the recurring lesson of the day, and it bit twice: a census can be right
+in NUMBER and wrong in KIND.** "Five of twenty-four EdgeExits have solid cells in
+their zone" — three of those five are the level's own floor row. "1 of 20 frames
+versus 40 of 40" — the baseline was an idle launcher, not a one-view session.
+Before acting on a census, ask what a HEALTHY instance looks like in your count.
+
+**Merged for Jon:** `fix-freshclone` + `fix-tooling` twice, adding Projectile
+Polygon. ⚠ it arrived orphaned from `regen_sprites.sh`'s publish batch — that
+script's own comment predicts this for *"every character added since the last
+audit"* — and its branch pinned a stale submodule SHA that would have moved the
+gitlink backward.
 
 ## 2026-08-21, latest: four competing-authority defects, from a review of `f8ad04f9a`
 

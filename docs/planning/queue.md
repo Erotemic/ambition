@@ -3074,7 +3074,7 @@ by size.
 
 ```text
 891  bosses/tick.rs              ⚠ bosses already carved to ambition_boss_encounter
-460  actors/limbs.rs
+460  actors/limbs.rs             ◐ SPLITS — see below
 420  attack.rs                   ⛔ MEASURED AND BLOCKED — see below
 409  spawn/capability_lanes.rs
 400  spawn/content_staging.rs
@@ -3082,6 +3082,28 @@ by size.
 348  spawn/character_spawn_plan.rs
 346  anim_helpers.rs
 ```
+
+◐ **`actors/limbs.rs` SPLITS, and its own doc is the evidence (2026-08-21).**
+The module says it is generic — *"any mount or actor with articulated parts"* —
+and then reads boss types. **4 of its 13 items touch `BossConfig` /
+`BossAttackState`**, one of them named `route_boss_strikes_to_limbs` outright:
+
+```text
+generic limb rig      9 items   ActorControlFrame + brain::  -> ambition_characters
+boss strike routing   4 items   BossConfig, BossAttackState  -> ambition_boss_encounter
+                                resolve_active_route, station_frame,
+                                route_boss_strikes_to_limbs, LimbPhase
+```
+
+⇒ **the same shape as `damage_apply`**: a module whose NAME is one domain and
+whose CONTENTS are two, so "move limbs.rs" is the wrong slice in exactly the way
+"move damage_apply" was. The generic half's dependencies (`ActorControlFrame`,
+`brain::`) are both `ambition_characters`; the boss half's are already
+`ambition_boss_encounter`'s own — ⚠ and that crate sits ABOVE `characters`, so
+the halves cannot travel together and the file cannot go to either crate whole.
+
+⚠ **not attempted** — the split needs the boss half's own coupling measured
+before it moves, and a 3-way change is not a thing to start on short runway.
 
 ⛔⛔ **`attack.rs` IS MEASURED AND BLOCKED — it needs a DEPENDENCY DECISION, not
 a move (2026-08-21).** Every path it names resolves except one:

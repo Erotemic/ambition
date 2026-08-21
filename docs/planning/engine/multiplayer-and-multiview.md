@@ -516,8 +516,36 @@ session that declares seats and stops there gets a dead second seat, measured on
 real hardware. A couch session claims `JoinToClaim` for as long as it is up and
 restores the default when it ends, which is what Smash already did route-scoped.
 
-▢ **HUD ownership is still not proved.** TwinTrack's HUD is full-screen on the
-front camera; nothing yet targets a slot at a view or a local participant.
+▢ **HUD ownership is still not proved — and MEASURED 2026-08-21, it is
+CUSTOMER-GATED rather than unbuilt.** TwinTrack's HUD is full-screen on the front
+camera; nothing targets a slot at a view or a local participant. What the
+measurement adds is why that is not yet a defect:
+
+```text
+ControlPrompt                    a RESOURCE — one prompt for the whole app
+its binding label                hardcoded ParticipantId::PRIMARY
+                                 (`control_prompt.rs:382`)
+every consumer of it             `ambition_touch_input` — the touch HUD, and
+                                 nothing else in the tree
+```
+
+⭐ **so the `PRIMARY` hardcode is the RIGHT answer for its only customer.** A
+touch HUD belongs to the one pair of thumbs holding the device; asking it whose
+seat it draws for would be inventing a question that surface does not have.
+
+⛔ **and this is the third instance of a pattern this repo has already fixed
+twice**, which is the useful part: input ownership was one global computed from
+PRIMARY until `SeatInputContexts` made it per-seat, and the optical/targeting
+views were `observers.single()` until 2026-08-20 made them per-observer. Both
+fixes landed only when a SECOND consumer existed to disagree — TwinTrack's second
+observer forced the targeting split, and it forced it in the same commit as the
+adoption because a `Deref` that changes which row it means is not a compile
+error.
+
+⇒ **do not build a per-view HUD before its second consumer exists.** The only
+multi-view experience is TwinTrack and it is PARKED (2026-08-20), so a slot
+targeting a view would ship with zero adopters — scaffolding, by this project's
+own rule. When a live surface needs two, the shape is already drawn twice above.
 
 ✔ **the optical AND targeting views are per-observer, and TwinTrack ADOPTED
 them** (2026-08-20). The last `observers.single()` was in

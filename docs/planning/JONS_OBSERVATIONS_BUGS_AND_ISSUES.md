@@ -346,10 +346,17 @@ huge regressions, not sure how we didn't have a test to catch these."*
   empty through the whole zone except its BOTTOM ROW, where three cells form a
   16px floor lip. She collides with its side. Pulse a jump and she is in after
   211 frames and the room changes to `scroll_lab`, so contact transitions work.
-  ⛔ **not a regression** — those three cells are solid in every commit back to
+  ⛔ **not a regression** — those cells are solid in every commit back to
   2026-08-15. It is a standing conflict with `EdgeExit`'s contract ("walks off
-  the screen into it"), and the fix is CONTENT: clear the three cells, or accept
-  that these exits are hopped. Tracked as D174.
+  the screen into it").
+
+  ✔ **FIXED 2026-08-21 — it was a SILL, not a lip, and the opening was a
+  window.** The exits are holes in a wall three cells thick and its bottom two
+  rows were still solid, so each opening sat 32px above the floor. Cleared, and
+  the floor at row 61 is unbroken across the level so no pit appears
+  (`ambition_map_assets` `db7e72f`). She walks out now with the jump deleted
+  from the test. ⛔ and the census that called it five zones was wrong: the other
+  three have solid cells in their bottom row because that row IS the floor.
 
   ✔ **RESOLVED ON JON'S MACHINE, 2026-08-21** — *"moving through trigger and
   contact loading zones works again."* No fix was ever committed for it, which

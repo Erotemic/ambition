@@ -345,6 +345,39 @@ without the resolver still runs the guard. Breaking that hook takes the whole
 standing-goal mechanism down, and it can only be exercised by ending a turn,
 which is why the logic moved into a script a test can run.
 
+- ▢ **D175 — NINE PARTICIPANT-INPUT ITEMS REACHABLE FROM NO LEDGER ROW.**
+  (promoted 2026-08-21)
+
+⭐ **PROMOTED, NOT WRITTEN** — the same shape as the seven Engine 1.0 plans
+stranded on 2026-08-14, found by the same measurement: of the 65 docs
+`tracks.md` points at, 35 are named in no queue row, and all but a handful hold
+**zero** ▢ (correctly reference-only). [`engine/participant-action-system.md`](engine/participant-action-system.md)
+holds **nine**, is in no ledger row and no `status.md` entry, and was last
+verified against `cecd01ca` (2026-08-13).
+
+⛔ **its first item is VERIFIED LIVE against HEAD 2026-08-21, first-hand.**
+*"Remove the seat-0 control split — `ControlFrame`/`ControlFrameLatch` still
+carry a primary-seat special path while secondary seats use slot/seat state."*
+Confirmed while working the couch seam today:
+
+```text
+populate_slot_controls            slot 0, from the global `ControlFrame`
+populate_secondary_slot_controls  every OTHER seat, from its own ActionState
+                                  + SeatInputContexts + per-seat filters
+```
+
+Two roads to one fact, and the asymmetry is what made TwinTrack's second seat
+inert in the shipped host while seat zero worked (`d8994ce92`). ⚠ the doc's own
+caution stands — converge them *"without changing simulation semantics merely
+for naming symmetry"*.
+
+⚠ **the other eight are COUNTED, NOT CHECKED.** Checking D171's table today
+found two of seven already landed, so grep each before working it. Two look
+adjacent to facts already recorded elsewhere: per-seat pause ownership is the
+"a pause is TWO globals the session does not own" problem, and *"dialogue through
+participant contexts only"* is the per-seat-vs-global split
+`declare_in_session_input_contexts` already solved for gameplay.
+
 - ▢ **D174 — A FLOOR LIP SITS INSIDE THE START ROOM'S EDGE EXIT, SO YOU CANNOT
   WALK OUT OF IT.** (found and diagnosed 2026-08-20)
 

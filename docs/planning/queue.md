@@ -3185,10 +3185,40 @@ because a module can be rollback state without containing one line that says so)
                        host, music, platformer_runtime, quest, schedule
 ```
 
-⇒ **more than half the monolith cannot be carved without rewriting the wire
-format**, which is the single most useful number this row has produced: it says
-why the campaign is slow, and it prices every future candidate before anybody
-starts one.
+⛔⛔ **THAT CONCLUSION IS WRONG, AND IT WAS OVERPRICING THE WHOLE CAMPAIGN
+(corrected 2026-08-21).** The measurement is right — 15 modules do hold
+rollback-registered types — but *"cannot be carved without rewriting the wire
+format"* does not follow from it. **A MOVE IS NOT A SCHEMA CHANGE.** Read what
+each artifact actually keys on:
+
+```text
+rollback_schema_baseline.txt   stable name + codec shape + BARE TYPE NAME   ← no crate path
+   `actor.action_set  component-clone  ActionSet  …`                          ⇒ a move changes NO line
+GGRS_ROLLBACK_SCHEMA_VERSION   bumped for byte changes under an unchanged
+                               descriptor                                     ⇒ a move changes no bytes
+rollback-schema-baseline.json  encoded_types + encoding_crates = FULL PATHS  ⇒ a move DOES change these
+rollback_coverage.rs waivers   path SUFFIX                                    ⇒ a move DOES re-point these
+```
+
+⭐ **MEASURED, not reasoned** (the whole artifact, not a sample): of the 443
+lines in `rollback_schema_baseline.txt`, **zero** contain `ambition_`. The 87
+that contain `::` are all the fixed string `bevy_ggrs::Rollback` in the
+description column. No line names one of our crates, so no move between our
+crates can change one.
+
+⇒ the real price of carving a rollback-registered module is **two ledger updates,
+not a wire-format rewrite**: re-spell the paths in the JSON baseline and
+re-point the waivers. The `.txt` fingerprint and the version constant do not
+move, because the type is the same type with the same descriptor — the frozen
+set it belongs to is *"which types are in the wire format"*, and a move keeps it
+in. ⭐ **the waiver's REASON stays as written**; a move does not change the
+answer to *"is this per-frame state?"*, only where to ask it.
+
+⚠ **so the ⛔/✔ split above is really cheap vs cheaper**, and the campaign has
+been avoiding 15 modules for a cost it does not pay. ⛔ what a carve DOES still
+owe is the check that neither ledger went stale: `cargo test -p ambition_app
+--test app_it` and `python3 scripts/check_absence_contracts.py --check`, because
+`cargo check -p ambition_app --all-targets` passes green while both are red.
 
 ⚠ **the table above is a SNAPSHOT; the METHOD is the durable part** — the same
 lesson the stranded-doc census records about itself. Re-run it for the module you

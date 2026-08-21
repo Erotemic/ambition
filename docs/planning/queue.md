@@ -3100,11 +3100,12 @@ BreakableCollisionSpec  None/OneWayUp/Solid                ⟷ ambition_interact
 BreakableTriggerSpec    OnHit/OnStand/Either               ⟷ ambition_interaction::BreakableTrigger
 ChestStateSpec          Closed/Opening/Opened              ⟷ ambition_interaction::ChestState
 InteractionKindSpec     Breakable/Chest/Door/Npc/Pickup/…  ⟷ ambition_interaction::InteractionKind
-PickupKindSpec          Ability/Currency/Health/StoryFlag  ⟷ ambition_entity_catalog::PickupKind
+PickupKindSpec          ✔ DELETED 2026-08-21 (`d3bd6e95a`) — it WAS `PickupKind`,
+                        byte-identical, in the SAME crate. No edge needed.
 PortalChannelColorSpec  Cyan/Green/Magenta/…/Indexed       ⟷ ambition_portal2d::PortalChannelColor
 ```
 
-**Seven enum pairs, ~30 variants, kept in step BY HAND** — every spec lives in
+**SIX pairs left (was seven), ~25 variants, kept in step BY HAND** — every spec lives in
 `ambition_entity_catalog` and every runtime twin in the crate that owns the
 behaviour. ⚠ *"mirrors X"* is a fork declaration, and a variant added to one
 side and not the other is a silent lowering gap, not a compile error.
@@ -3128,6 +3129,12 @@ new variant on the RUNTIME side  -> nothing breaks; the variant is simply
 is why nothing has drifted. The unguarded direction is a runtime variant with no
 authored spec — content that cannot be authored rather than content authored
 wrong, so it fails as *"the editor cannot place this"*, never as a crash.
+
+⚠ **and a rename is not done until every PREFIX is swept.** Deleting that one
+pair took three passes because the same type is spelled
+`ambition_entity_catalog::…`, `ambition_platformer2d::entity_catalog::…` and
+`…::placements::…`. Sweep the symbol AND every path that reaches it — this cost
+a retry on three separate carves today.
 
 ⇒ **that makes the slice much smaller than "delete the spec enums"**: what is
 missing is a check that every RUNTIME variant has a spec counterpart. ⚠ still

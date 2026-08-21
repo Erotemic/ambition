@@ -3051,10 +3051,34 @@ at this inflow rate a carve buys about four days. ⛔ do not open another carve
 row without saying what stops the refill — that is the actual finding, and it is
 new.
 
-⚠ **two measurement facts the LOC number hides**, both worth stating before
-anybody prices a slice:
-* **39% of the crate is TESTS** — 47,288 of 120,990. A carve moves the tests
-  with the code, so LOC deltas are not a proxy for how much *behaviour* moved.
+⛔⛔ **AND THE SHARPER CORRECTION, measured after the above and softening it:
+56% OF THAT REGRESSION IS TEST CODE.**
+
+```text
+              baseline    HEAD     delta
+TEST            42,146  47,521    +5,375   ← 56% of the +9,561
+NON-TEST        69,283  73,469    +4,186   ← the crate's actual behaviour
+```
+
+⇒ the crate's BEHAVIOUR grew 6% in twelve days while the ratchet reported a
+9,561-line regression. The inflow finding above stands, but it is half the size
+it looks.
+
+⭐⭐ **THE REAL DEFECT IS THAT ONE NUMBER SERVES TWO QUESTIONS.**
+`largest_unit_lines` lives in `compile_ratchet.py`, where counting tests is
+CORRECT — tests compile, and `--all-targets` pays for them. D33 then reads the
+same number as a DECOMPOSITION signal, where counting tests is wrong: a crate
+that adds good tests trips its own carve alarm, and "carve me" and "well tested"
+want opposite responses.
+
+⇒ ⛔ **do not retune the ratchet** — it is right for its own question. **D33
+should cite the NON-TEST number**, and this row now does. The instrument asks a
+proxy question only when read by this row.
+
+⚠ **the other measurement fact**, still worth stating before anybody prices a
+slice:
+* a carve moves the tests with the code, so LOC deltas are not a proxy for how
+  much *behaviour* moved — the split above is.
 * **`features/` is 40% of the crate** (48,477) and `features/ecs` alone is
   38,949 — a third of the whole monolith. It is not an ownership unit; it is a
   grab bag, and **32 loose files sit directly in `features/ecs` totalling

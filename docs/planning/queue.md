@@ -3051,6 +3051,47 @@ alone**. The waiver answers a question — "is this per-frame state?" — and mo
 a type does not change the answer, only where to ask it. Rewriting the
 justification to match a diff is how a true waiver becomes a false one.
 
+⭐⭐⭐ **HOW TO MEASURE A CARVE'S COUPLING — learned three ways in one session,
+each by getting it wrong.** A module's coupling is not what it imports:
+
+```text
+use statements only    -> missed inline `crate::` paths in fn bodies   (capture, attempt 1)
+`crate::` paths only   -> missed ABSOLUTE self-references to the        (footstool: 13
+                          destination crate                             refs pointing home)
+any mention of a crate -> FALSE blocker from a DOC COMMENT naming a     (hit_camera_shake:
+                          crate above you                                nearly refused)
+```
+
+⇒ **grep the CODE (strip `///`, `//!`, `//`) for BOTH `crate::…` and
+`ambition_…::…`, resolve each symbol to its defining crate, and count only the
+ones defined ONLY in the monolith.**
+
+⭐ **and domain moves COMPOUND**: `hit_camera_shake` was freed by the feel-tuning
+move made hours earlier for a different carve. Do them in dependency order, not
+by size.
+
+**Candidates by that method (2026-08-21), zero monolith-owned type blockers:**
+
+```text
+891  bosses/tick.rs              ⚠ bosses already carved to ambition_boss_encounter
+460  actors/limbs.rs
+420  attack.rs
+409  spawn/capability_lanes.rs
+400  spawn/content_staging.rs
+364  actors/conversion.rs
+348  spawn/character_spawn_plan.rs
+346  anim_helpers.rs
+```
+
+⚠⚠ **TWO LIMITS ON THAT LIST, and neither is optional to check.**
+1. the scan resolves TYPE-like symbols only, so a lowercase free function
+   defined in the monolith can still block — `apply_body_hit_reaction` was
+   exactly that, and it pinned a 1,922-line domain by being `pub(crate)`.
+2. **zero blockers does not name a DESTINATION.** Capture, footstool and hit
+   shake went to `ambition_combat` because it owns their concepts; `spawn/…`
+   and `anim_helpers` may own nothing there. ⛔ a carve with no owning crate is
+   a relocation, not domain separation — the thing this row exists to refuse.
+
 ✔✔ **THE CAPTURE CARVE LANDED 2026-08-21 (`8669740f5`), AND IT WAS NEVER A
 COUPLING PROBLEM.** The whole 1,922-line module named exactly FIVE paths outside
 its crate, and every one was fixed by putting a TYPE where it belonged — nothing

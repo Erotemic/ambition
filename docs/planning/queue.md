@@ -3030,6 +3030,38 @@ counts TESTS (39% of this crate), so a well-tested crate trips its own carve
 alarm, and a carve that moves code moves its tests with it. Neither number says
 anything about whether a domain is whole.
 
+⭐⭐ **THE CAPTURE CARVE: ATTEMPTED 2026-08-21, UNWOUND, AND IT NAMED THE CARVE
+ORDER.** The prerequisite landed (`6c4592021`, `ActorSurfaceState` down to the
+floor crate); the move itself did not, and the reason is worth more than the
+move would have been.
+
+**The domain:** `ambition_combat` owns the capture VOCABULARY (`captive_of`,
+`CapturedBy`, `CaptureAttemptRequested`) and the monolith owns every SYSTEM that
+reads or writes it — acquire, tick the hold, constrain the captive's body,
+restrict the captor, release, pummel, throw. One concept, two crates, and the
+systems in a crate that has nothing to do with grabbing.
+
+**It compiles down to ONE blocking system.** Of 1,922 lines, every import was
+already on `ambition_combat` — parent vocabulary, `hitbox`,
+`platformer2d_core`, `shared_tangle::sim_id`, `characters::brain`. The whole
+module moved cleanly except **`apply_capture_throws`**, which reaches UP twice:
+
+```text
+crate::features::ecs::damage_apply::apply_body_hit_reaction   (line 1919)
+crate::time::feel::Platformer2dFeelTuningMonolith             (line 1857)
+```
+
+⇒ **the carve order is DAMAGE FIRST, THEN CAPTURE.** Applying a hit reaction is
+combat's own subject and it is still monolith-owned, so capture cannot leave
+before it — and splitting `apply_capture_throws` off to move the other 1,900
+lines would leave the domain in two crates, which is the thing the carve is for.
+⛔ do not retry capture alone.
+
+⚠ **and the earlier reading that this module was "clean" was MINE and it was
+wrong** — it came from the `use` statements, and both blockers are `crate::`
+paths spelled inline inside a function body. A carve's coupling is not what a
+file imports; it is every path it names.
+
 ⛔⛔ **STEP 3 WAS ATTEMPTED AS THE `encounter` CARVE ON 2026-08-17 AND IS
 REFUSED — BOTH PRECONDITIONS BELOW ARE FALSE, AND THE MEASUREMENT THAT PRODUCED
 THEM WAS TAKEN WITH THE WRONG INSTRUMENT.** The block below is the original

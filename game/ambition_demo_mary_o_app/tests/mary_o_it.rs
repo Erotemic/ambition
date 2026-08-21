@@ -17,6 +17,7 @@ mod course_playthrough;
 mod only_run_and_jump;
 mod death_reset_timing;
 mod level_circuit;
+mod level_lap;
 mod one_placement_one_actor;
 mod exit_3;
 mod hud_placement;

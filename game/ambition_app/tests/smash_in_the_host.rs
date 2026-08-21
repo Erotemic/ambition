@@ -1694,8 +1694,8 @@ fn a_fighter_picked_in_smash_does_not_follow_the_player_into_ambition() {
     );
     assert_eq!(
         app.world()
-            .resource::<ambition_platformer2d::rollback::local_session::SessionSeatingSource>(),
-        &ambition_platformer2d::rollback::local_session::SessionSeatingSource::Devices,
+            .resource::<ambition_platformer2d::input::SessionSeatingSource>(),
+        &ambition_platformer2d::input::SessionSeatingSource::Devices,
         "the seat count Smash decided outlived the match, so the next \
          experience's session is sized by a match that has ended"
     );
@@ -4603,9 +4603,11 @@ fn on_the_smash_pad_attacking_while_holding_pummels() {
 /// `forward = axis.x * facing`, so the stick is MIRRORED by which way the body
 /// faces — and earlier in the capture campaign a left-facing captor asked for a
 /// BACK throw from a forward shove, because a caller had not applied the mirror.
-/// George authors no back throw, so that defect would show here as "nothing
-/// happens" rather than as the wrong move: an unauthored throw resolves to
-/// NOTHING on purpose, and does not fall back to the pummel.
+/// ⚠ **George authored a back throw on 2026-08-20, and this test got SHARPER
+/// for it.** The mirror defect used to show here as "nothing happens", because
+/// an unauthored throw resolves to NOTHING; it now shows as `george_bthrow`
+/// starting where `george_fthrow` was asked for, which is the wrong move rather
+/// than no move — a louder failure and a more honest one.
 ///
 /// ⇒ the stick is pushed the way the captor is CURRENTLY facing, read each
 /// round, rather than at a fixed side — otherwise this test would pass or fail

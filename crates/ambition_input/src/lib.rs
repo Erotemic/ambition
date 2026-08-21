@@ -34,6 +34,7 @@ pub mod participant;
 mod presets;
 #[cfg(feature = "input")]
 mod rebind;
+pub mod seating;
 pub mod semantic;
 pub mod settings;
 pub mod sources;
@@ -59,6 +60,7 @@ pub use ambition_platformer2d_core::ControlFrame;
 /// Which local source drives which control channel — the map that keeps a
 /// lobby's sparse source numbers out of the rollback host's dense handles.
 pub use channels::{LocalChannelPlan, LocalInputSource};
+pub use seating::SessionSeatingSource;
 pub use control::PlayerBurstTriggerState;
 #[cfg(feature = "input")]
 pub use control::{

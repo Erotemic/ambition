@@ -41,7 +41,7 @@ use ambition_platformer2d::sim_view::{LocalView, LocalViewId, ViewPlacement, Vie
 
 use crate::{
     LaboratoryTwin, TwinTrackExperiment, LAB_POS, TWINTRACK_EXPERIENCE,
-    TWINTRACK_LAB_TWIN_CHARACTER_ID,
+    TWINTRACK_GAMEPLAY_ROUTE, TWINTRACK_LAB_TWIN_CHARACTER_ID,
 };
 
 /// The seat the laboratory twin holds. Slot 0 is the traveler's, authored by the
@@ -210,9 +210,13 @@ fn spawn_pane_camera(_commands: &mut Commands, _view: Entity) {}
 /// `ambition_input::local_seats`
 /// (`a_single_pad_beside_a_keyboard_player_drives_the_second_seat`).
 fn declare_the_couch(
-    roots: Query<&ActiveRoomMetadata>,
+    router: Res<ambition_platformer2d::game_shell::ShellRouter>,
     mut seats: ResMut<ambition_platformer2d::input::DeclaredInputSeats>,
     mut policy: ResMut<ambition_platformer2d::input::InputAssignmentPolicy>,
+    // **HOW MANY LOCAL CHANNELS THE SESSION OPENS.** The third half of the
+    // couch, and the one whose absence made the other two useless — see the
+    // block comment below.
+    mut seating: ResMut<ambition_platformer2d::input::SessionSeatingSource>,
     // ⛔⛔ **WHETHER THIS EXPERIENCE IS THE ONE HOLDING THE CLAIM.** Both
     // resources are process-global and TwinTrack is one route in a host that
     // also runs Mary-O, Smash and a launcher — so "not live ⇒ write the
@@ -226,9 +230,17 @@ fn declare_the_couch(
     // value is still the one that was claimed.
     mut claimed: Local<bool>,
 ) {
-    let live = roots
-        .iter()
-        .any(|metadata| metadata.0.mode.as_deref() == Some(TWINTRACK_EXPERIENCE));
+    // ⛔⛔ **THE ROUTE, NOT THE ROOM, and the difference is a whole frame that
+    // matters.** This asked `ActiveRoomMetadata`, which exists only once the
+    // plaza has been CONSTRUCTED — and the rollback session is sized the moment
+    // a gameplay world appears, which is the same tick. A claim that lands with
+    // the construction cannot precede it. The route is what the launcher
+    // switched, it is live before any of the plaza exists, and it is the same
+    // authority Smash's select screen reads for the same reason.
+    let live = router
+        .active
+        .as_ref()
+        .is_some_and(|active| active.route_id.as_str() == TWINTRACK_GAMEPLAY_ROUTE);
     let couch = ambition_platformer2d::input::InputAssignmentPolicy::JoinToClaim;
     if live {
         let wanted = ambition_platformer2d::input::DeclaredInputSeats(TWINTRACK_SEATS);
@@ -239,6 +251,35 @@ fn declare_the_couch(
         }
         if *policy != couch {
             *policy = couch;
+        }
+        // ⛔⛔ **AND THE TWO ABOVE ARE STILL NOT ENOUGH — measured a second time,
+        // on the same hardware.** Jon, 2026-08-20: *"in twin track I still
+        // cannot control emmy with the game pad."* Two seats existed, seat one
+        // held the only controller, and the laboratory twin was inert — because
+        // the SHIPPED host is a rollback host, where a seat's frame is published
+        // by the GGRS session from the handles that session opened. Nothing had
+        // told it to open two, so it sized itself from connected DEVICES (one
+        // pad ⇒ one handle) and a GGRS session is never resized afterwards.
+        //
+        // ⭐ **the plan, not a count.** Which SOURCE drives each channel is the
+        // half a number cannot carry: the traveler is on the keyboard and the
+        // laboratory twin on the first pad, and a bare `2` leaves every consumer
+        // to re-derive that and disagree.
+        //
+        // ⚠ **it does not go through `pending` first.** That state is for a
+        // surface whose answer is not known yet — a lobby waiting on people to
+        // pick. TwinTrack's exhibit IS two observers, so the answer exists
+        // before the route opens and holding the session for it would be a stall
+        // with nothing at the end of it.
+        let plan = ambition_platformer2d::input::LocalChannelPlan::from_sources([
+            ambition_platformer2d::input::LocalInputSource::Keyboard,
+            ambition_platformer2d::input::LocalInputSource::FIRST_PAD,
+        ]);
+        if seating.channel_plan() != Some(&plan) {
+            *seating = ambition_platformer2d::input::SessionSeatingSource::decided(
+                TWINTRACK_EXPERIENCE,
+                plan,
+            );
         }
         *claimed = true;
         return;
@@ -253,6 +294,9 @@ fn declare_the_couch(
     if *policy == couch {
         *policy = ambition_platformer2d::input::InputAssignmentPolicy::default();
     }
+    // Same rule, and the type enforces it: `release` is a no-op on a claim that
+    // is not this owner's.
+    seating.release(TWINTRACK_EXPERIENCE);
 }
 
 /// **Each pane watches its own participant.**
@@ -381,17 +425,45 @@ mod tests {
     use super::*;
     use ambition_platformer2d::input::{DeclaredInputSeats, InputAssignmentPolicy};
 
+    /// ⚠ **the ROUTER is the fixture now, not a hand-spawned room.** The claim
+    /// keys off the route (see `declare_the_couch`), and a fixture that
+    /// manufactured room metadata would be testing a question the system no
+    /// longer asks.
     fn couch_app(live: bool) -> App {
+        use ambition_platformer2d::game_shell::{
+            ActiveShellExperience, ShellActivationId, ShellExperienceId, ShellRouteId, ShellRouter,
+        };
         let mut app = App::new();
         app.init_resource::<DeclaredInputSeats>()
             .init_resource::<InputAssignmentPolicy>()
+            .init_resource::<ambition_platformer2d::input::SessionSeatingSource>()
+            .init_resource::<ShellRouter>()
             .add_systems(Update, declare_the_couch);
         if live {
-            let mut metadata = ambition_platformer2d::world::rooms::RoomMetadata::default();
-            metadata.mode = Some(TWINTRACK_EXPERIENCE.to_owned());
-            app.world_mut().spawn(ActiveRoomMetadata(metadata));
+            app.world_mut().resource_mut::<ShellRouter>().active = Some(ActiveShellExperience {
+                activation_id: ShellActivationId(1),
+                route_id: ShellRouteId::new(TWINTRACK_GAMEPLAY_ROUTE),
+                experience_id: ShellExperienceId::new(TWINTRACK_EXPERIENCE),
+                parameters: Default::default(),
+                load_authorization: None,
+                prepared_session: None,
+            });
         }
         app
+    }
+
+    fn seating_owner(app: &App) -> Option<String> {
+        app.world()
+            .resource::<ambition_platformer2d::input::SessionSeatingSource>()
+            .owner()
+            .map(str::to_owned)
+    }
+
+    /// The launcher takes the route back.
+    fn leave_the_plaza(app: &mut App) {
+        app.world_mut()
+            .resource_mut::<ambition_platformer2d::game_shell::ShellRouter>()
+            .active = None;
     }
 
     fn couch(app: &App) -> (DeclaredInputSeats, InputAssignmentPolicy) {
@@ -447,6 +519,90 @@ mod tests {
         );
     }
 
+    /// **⛔⛔ AND THE THIRD CLAIM, WHICH IS THE ONE THAT WAS MISSING.**
+    ///
+    /// The two above were both landing and Jon still could not drive the
+    /// laboratory twin (2026-08-20). A rollback host publishes a seat's frame
+    /// from the GGRS handles its SESSION opened, and that session sizes itself
+    /// once — from connected devices, unless somebody declares otherwise — and is
+    /// never resized. So a plaza that declared two seats into a one-handle
+    /// session had a second participant holding a controller and no way for its
+    /// input to reach the simulation.
+    ///
+    /// ⚠ **the PLAN, not the count.** `channels()` alone would pass while
+    /// naming the wrong device for each seat, which is the failure one layer up
+    /// that `LocalChannelPlan` exists for.
+    #[test]
+    fn a_live_plaza_declares_which_source_drives_each_channel() {
+        use ambition_platformer2d::input::LocalInputSource;
+        let mut app = couch_app(true);
+        app.update();
+        let source = app
+            .world()
+            .resource::<ambition_platformer2d::input::SessionSeatingSource>()
+            .clone();
+        assert_eq!(source.owner(), Some(TWINTRACK_EXPERIENCE));
+        assert_eq!(
+            source.channel_plan().map(|plan| plan.sources().to_vec()),
+            Some(vec![LocalInputSource::Keyboard, LocalInputSource::FIRST_PAD]),
+            "the plaza did not tell the session that its two channels are the \
+             keyboard and the first pad; a rollback session then sizes itself \
+             from connected devices and seat one is inert for the whole visit",
+        );
+        assert_eq!(
+            source.seat_count(),
+            Some(TWINTRACK_SEATS as usize),
+            "the declared channel count and the declared seat count disagree",
+        );
+    }
+
+    /// **A DORMANT PLAZA DECLARES NO SEATING, so every single-player
+    /// composition still seats from what is plugged in.**
+    ///
+    /// ⛔ the falsifier that matters is not the plaza's own claim — it is every
+    /// OTHER route in the host. A declaration left standing sizes the next
+    /// game's session, and a session is never resized.
+    #[test]
+    fn a_dormant_plaza_declares_no_seating_and_gives_its_claim_back() {
+        let mut app = couch_app(false);
+        app.update();
+        assert_eq!(seating_owner(&app), None);
+
+        let mut app = couch_app(true);
+        app.update();
+        assert_eq!(seating_owner(&app), Some(TWINTRACK_EXPERIENCE.to_owned()));
+        leave_the_plaza(&mut app);
+        app.update();
+        assert_eq!(
+            seating_owner(&app),
+            None,
+            "leaving the plaza left its seating declaration standing, so the next \
+             game's session is sized by an exhibit that has ended",
+        );
+    }
+
+    /// **⛔ AND IT GIVES BACK ONLY ITS OWN.** `release` is a no-op on a stranger's
+    /// claim, and this pins that the plaza routes through it rather than
+    /// resetting the resource.
+    #[test]
+    fn leaving_the_plaza_leaves_another_surfaces_seating_alone() {
+        use ambition_platformer2d::input::{LocalChannelPlan, LocalInputSource, SessionSeatingSource};
+        let mut app = couch_app(true);
+        app.update();
+        leave_the_plaza(&mut app);
+        let theirs = SessionSeatingSource::decided(
+            "smash",
+            LocalChannelPlan::from_sources([LocalInputSource::Pad(0), LocalInputSource::Pad(1)]),
+        );
+        app.insert_resource(theirs.clone());
+        app.update();
+        assert_eq!(
+            *app.world().resource::<SessionSeatingSource>(),
+            theirs,
+            "the plaza's release took a seating declaration that was not its own",
+        );
+    }
+
     /// **THE RELEASE UNDOES ITS OWN VALUE AND NOTHING ELSE.**
     ///
     /// ⛔ the falsifier is the value written BETWEEN: somebody else's claim
@@ -457,15 +613,7 @@ mod tests {
         let mut app = couch_app(true);
         app.update();
         // The session ends.
-        {
-            let mut roots = app
-                .world_mut()
-                .query_filtered::<Entity, With<ActiveRoomMetadata>>();
-            let live: Vec<Entity> = roots.iter(app.world()).collect();
-            for root in live {
-                app.world_mut().entity_mut(root).despawn();
-            }
-        }
+        leave_the_plaza(&mut app);
         app.update();
         assert_eq!(
             couch(&app),
@@ -476,15 +624,7 @@ mod tests {
         // Now the same run again, but somebody else takes both over first.
         let mut app = couch_app(true);
         app.update();
-        {
-            let mut roots = app
-                .world_mut()
-                .query_filtered::<Entity, With<ActiveRoomMetadata>>();
-            let live: Vec<Entity> = roots.iter(app.world()).collect();
-            for root in live {
-                app.world_mut().entity_mut(root).despawn();
-            }
-        }
+        leave_the_plaza(&mut app);
         app.insert_resource(DeclaredInputSeats(4));
         app.update();
         assert_eq!(

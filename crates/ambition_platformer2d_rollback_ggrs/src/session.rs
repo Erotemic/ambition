@@ -684,7 +684,7 @@ pub(crate) fn install_session_bridge(app: &mut App) {
         // has an answer to read and an owner to release. The default —
         // `Devices` — is what every composition that never decides a match
         // wants.
-        .init_resource::<super::local_session::SessionSeatingSource>()
+        .init_resource::<ambition_input::SessionSeatingSource>()
         .add_systems(
             Update,
             super::local_session::maintain_local_session

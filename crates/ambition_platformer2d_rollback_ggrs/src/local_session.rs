@@ -52,6 +52,10 @@ pub enum LocalSessionSet {
 
 use super::session::{AmbitionGgrsSession, SyncTestSettings};
 
+// ⭐ **the declaration is the INPUT layer's** — a host consumes who is playing, it
+// does not define it. See `ambition_input::seating`.
+use ambition_input::SessionSeatingSource;
+
 /// How the local session is configured. The OWNER reads it; a developer
 /// instrument may write it to ask for deeper verification.
 ///
@@ -177,121 +181,6 @@ fn maintained_settings(world: &World) -> Option<super::session::SyncTestSettings
 /// Exclusive-world because starting and stopping a GGRS session is a whole-world
 /// operation (it rebases snapshot storage), which is also why this cannot be an
 /// ordinary system with resource params.
-/// **Where this session's seats come from, whether they are decided yet, and
-/// whose answer it is.**
-///
-/// One value for the whole chain: an experience CLAIMS roster-driven seating,
-/// its roster becomes DECIDED, the participant topology is frozen from that
-/// roster, the session is built from that topology, and the claim is released
-/// when the experience ends.
-///
-/// ⚠ **[`Self::Devices`] is a real answer, not a missing one.** A single-player
-/// game, a headless oracle, a demo with no match — none of them has a roster and
-/// all of them are correct to seat from what is plugged in. Roster-driven
-/// seating is opt-IN, which is what keeps the gate from stalling every
-/// composition that never intended to publish anything.
-///
-/// ⚠ **every roster-driven state names its OWNER.** A seat count with no owner
-/// cannot be released by the experience that decided it: the previous version of
-/// this was a bare `DecidedSeatCount(usize)` that the versus route inserted and
-/// nothing ever removed, so the next experience's session was sized by a match
-/// that had already ended.
-#[derive(bevy::prelude::Resource, Debug, Default, Clone, PartialEq, Eq)]
-pub enum SessionSeatingSource {
-    /// Nobody claimed roster-driven seating: freeze from connected devices.
-    #[default]
-    Devices,
-    /// `owner` will publish a roster. **The session does not start yet** — a
-    /// topology frozen from devices here is a topology the roster is about to
-    /// contradict, and the session is never resized afterwards.
-    RosterPending { owner: String },
-    /// `owner`'s roster decided `channels`. `frozen_topology` is stamped by
-    /// the maintainer with the generation it actually captured, so the roster,
-    /// the handle count and the per-seat latches cite one number rather than
-    /// agreeing by coincidence.
-    ///
-    /// ⛔ **`seat_count: usize` was not enough, and this is the same lesson one
-    /// layer up from [`ambition_input::LocalSeatTopology`].** A count opens the
-    /// right number of GGRS handles and says nothing about whose controller
-    /// feeds each one, so every consumer re-derived the missing half from the
-    /// roster's SPARSE source numbers — and a lobby that seats a CPU before a
-    /// human produced a fighter on a channel the session never opened (GPT 5.6,
-    /// 2026-08-07).
-    RosterDecided {
-        owner: String,
-        channels: ambition_input::LocalChannelPlan,
-        frozen_topology: Option<u64>,
-    },
-}
-
-impl SessionSeatingSource {
-    /// `owner` intends to publish a roster and has not yet.
-    pub fn pending(owner: impl Into<String>) -> Self {
-        Self::RosterPending {
-            owner: owner.into(),
-        }
-    }
-
-    /// `owner`'s roster decided which source drives which channel.
-    pub fn decided(owner: impl Into<String>, channels: ambition_input::LocalChannelPlan) -> Self {
-        Self::RosterDecided {
-            owner: owner.into(),
-            channels,
-            frozen_topology: None,
-        }
-    }
-
-    /// Which experience claimed roster-driven seating, if any.
-    pub fn owner(&self) -> Option<&str> {
-        match self {
-            Self::Devices => None,
-            Self::RosterPending { owner } | Self::RosterDecided { owner, .. } => Some(owner),
-        }
-    }
-
-    pub fn is_owned_by(&self, owner: &str) -> bool {
-        self.owner() == Some(owner)
-    }
-
-    /// The decided channel plan, or `None` while seating is pending or
-    /// device-driven.
-    pub fn channel_plan(&self) -> Option<&ambition_input::LocalChannelPlan> {
-        match self {
-            Self::RosterDecided { channels, .. } => Some(channels),
-            _ => None,
-        }
-    }
-
-    /// The decided seat count, or `None` while seating is pending or device-driven.
-    pub fn seat_count(&self) -> Option<usize> {
-        self.channel_plan().map(|channels| channels.channels())
-    }
-
-    /// The topology generation the session was built from, once one was frozen.
-    pub fn frozen_topology(&self) -> Option<u64> {
-        match self {
-            Self::RosterDecided {
-                frozen_topology, ..
-            } => *frozen_topology,
-            _ => None,
-        }
-    }
-
-    /// **Give the claim back, if it is this owner's to give.**
-    ///
-    /// Returns whether anything was released. A stranger's claim is left alone:
-    /// cleanup that reset the source unconditionally would be one experience
-    /// deciding another's seating, which is the failure the owner exists to
-    /// prevent.
-    pub fn release(&mut self, owner: &str) -> bool {
-        if !self.is_owned_by(owner) {
-            return false;
-        }
-        *self = Self::Devices;
-        true
-    }
-}
-
 /// The seat count this session installs with: the roster's when one was decided,
 /// the connected devices' otherwise.
 ///
@@ -325,7 +214,7 @@ fn decided_or_device_seating(world: &mut World) -> usize {
             // claim.** Without it "the roster decided two seats" and "the
             // session is running two handles" are two assertions that usually
             // agree; with it they are one fact anything can cite.
-            if let Some(SessionSeatingSource::RosterDecided {
+            if let Some(SessionSeatingSource::Decided {
                 frozen_topology, ..
             }) = world
                 .get_resource_mut::<SessionSeatingSource>()
@@ -470,13 +359,13 @@ pub fn maintain_local_session(world: &mut World) {
     // piece was "the maintainer knowing a roster is COMING".)
     //
     // ⭐ **the declaration is the fix, not a heuristic.** An experience that
-    // intends to publish a roster claims [`SessionSeatingSource::RosterPending`];
+    // intends to publish a roster claims [`SessionSeatingSource::Pending`];
     // until that roster is decided, this returns and tries again next frame. A
     // host that says nothing keeps device-derived seating, which is what every
     // single-player composition wants and what the tests rely on.
     if matches!(
         world.get_resource::<SessionSeatingSource>(),
-        Some(SessionSeatingSource::RosterPending { .. })
+        Some(SessionSeatingSource::Pending { .. })
     ) {
         return;
     }

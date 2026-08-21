@@ -131,6 +131,11 @@ impl Plugin for HostInputBindingsPlugin {
                 .chain()
                 .before(leafwing_input_manager::plugin::InputManagerSystem::Update),
         );
+        // **WHO IS PLAYING, declared rather than counted.** Present from boot in
+        // every host, not only the rollback one that used to own the type: a
+        // surface must be able to state its seating without knowing which
+        // backend will consume it. See `ambition_input::seating`.
+        app.init_resource::<ambition_input::SessionSeatingSource>();
         app.init_resource::<ambition_input::SeatInputContexts>();
         app.init_resource::<ambition_input::SeatBindings>();
         app.init_resource::<ambition_input::ActiveUiCues>();

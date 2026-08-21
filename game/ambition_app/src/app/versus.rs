@@ -721,7 +721,7 @@ fn track_versus_roster(
             // route's scope hands it back on the way out, so the next
             // experience's session is not sized by a match that has ended.
             commands.insert_resource(
-                ambition_platformer2d::rollback::local_session::SessionSeatingSource::decided(
+                ambition_platformer2d::input::SessionSeatingSource::decided(
                     VERSUS_EXPERIENCE,
                     // CHANNELS, not participants — the versus stage published
                     // the same conflation Smash did. See
@@ -1117,7 +1117,7 @@ fn declare_versus_experience_scope(app: &mut App) {
             )
             .releasing_with("SessionSeatingSource", |world, owner| {
                 if let Some(mut seating) = world.get_resource_mut::<
-                    ambition_platformer2d::rollback::local_session::SessionSeatingSource,
+                    ambition_platformer2d::input::SessionSeatingSource,
                 >() {
                     seating.release(owner.as_str());
                 }

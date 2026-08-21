@@ -1939,7 +1939,7 @@ fn present_the_select_screen(
             // resized afterwards, so the lobby's answer would arrive too late to
             // matter. `start_the_battle_when_asked` turns this into a decision.
             commands.insert_resource(
-                ambition_platformer2d::rollback::local_session::SessionSeatingSource::pending(
+                ambition_platformer2d::input::SessionSeatingSource::pending(
                     SMASH_EXPERIENCE,
                 ),
             );
@@ -2165,7 +2165,7 @@ fn start_the_battle_when_asked(
     // asks for the route, so the session, which is built at least a frame later,
     // has never seen a smash gameplay world without them.
     commands.insert_resource(
-        ambition_platformer2d::rollback::local_session::SessionSeatingSource::decided(
+        ambition_platformer2d::input::SessionSeatingSource::decided(
             SMASH_EXPERIENCE,
             // ⛔ **CHANNELS, not participants.** This said `participants.len()`,
             // so a one-person-one-CPU lobby built a two-handle rollback session
@@ -2453,7 +2453,7 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
                 .resetting::<select_screen::cursor::SelectCursor>()
                 .releasing_with("SessionSeatingSource", |world, owner| {
                     if let Some(mut seating) = world.get_resource_mut::<
-                        ambition_platformer2d::rollback::local_session::SessionSeatingSource,
+                        ambition_platformer2d::input::SessionSeatingSource,
                     >() {
                         seating.release(owner.as_str());
                     }

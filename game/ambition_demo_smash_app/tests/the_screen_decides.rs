@@ -12,11 +12,11 @@
 //! clicks exactly where a windowed one draws.
 
 use ambition_demo_smash::select::{
-    MAX_SMASH_SEATS, SlotOccupant, SlotPick, SmashRoster, SmashSelect,
+    SlotOccupant, SlotPick, SmashRoster, SmashSelect, MAX_SMASH_SEATS,
 };
 use ambition_demo_smash::select_screen::cursor::{HitRect, SelectCursors};
 use ambition_demo_smash::select_screen::layout::SelectLayout;
-use ambition_demo_smash::select_screen::{CardName, RoleButtonLabel, SlotToken};
+use ambition_demo_smash::select_screen::{CardName, CursorNode, RoleButtonLabel, SlotToken};
 use ambition_demo_smash_app::build_demo_app;
 use ambition_platformer2d::input::{MenuControlFrame, SeatMenuFrames};
 use bevy::prelude::*;
@@ -148,13 +148,14 @@ fn layout(app: &App) -> SelectLayout {
     SelectLayout::for_viewport(None, app.world().resource::<SmashRoster>().cell_count())
 }
 
-/// Put the cursor somewhere. A mouse does exactly this; so does a pad, one snap
-/// at a time, and `the_arrows_alone_can_work_the_whole_screen` covers that path.
+/// Put ONE SEAT'S cursor somewhere. A mouse does exactly this; so does a pad,
+/// one snap at a time, and `the_arrows_alone_can_work_the_whole_screen` covers
+/// that path.
+///
+/// ⚠ **per seat since 2026-08-21.** Four cursors now, so "point at" has to say
+/// whose hand — pointing seat 0's and then pressing seat 2's button arbitrates
+/// at wherever seat 2's hand happened to be.
 fn point_at(app: &mut App, seat: u8, rect: HitRect) {
-    // ⛔ **THE SEAT MUST BE THREADED, not assumed 0.** There are four cursors
-    // since 2026-08-21, one per seat. Pointing seat 0 and then pressing as seat
-    // 1 puts that seat's press wherever its own cursor happens to be, which
-    // reads as "the second card never claimed a controller" three tests later.
     app.world_mut()
         .resource_mut::<SelectCursors>()
         .seat_mut(seat as usize)
@@ -197,6 +198,59 @@ fn card_text(app: &mut App) -> Vec<(String, String)> {
 /// **Two people take controllers, drag a fighter each, and click START.**
 ///
 /// The whole loop, through the only surface a player has.
+/// **A PAD THAT IS PLUGGED IN GETS A HAND BEFORE IT GETS A SEAT.**
+///
+/// ⛔ Jon, 2026-08-21: *"if a player seat is not enabled they don't get a cursor
+/// at all, so a game pad cannot join, unless player 1 lets them in."* The
+/// cursor was drawn only for a seat that already PARTICIPATED, and the way in
+/// is to press your own card's role button — so player two had nothing to press
+/// it with and had to be admitted by player one.
+///
+/// ⚠ the other half is asserted too: a seat with no device and nobody in it
+/// still draws nothing, or a one-player lobby shows three hands nobody can move.
+#[test]
+fn a_plugged_in_pad_has_a_cursor_before_anybody_admits_it() {
+    let mut app = build_demo_app();
+    install_press_port(&mut app);
+    plug_in(&mut app, 2);
+    app.update();
+    app.update();
+
+    // ⛔ **the premise, asserted.** If plugging a pad in also SEATED it, every
+    // assertion below would pass on the old rule too and this test would be
+    // checking nothing.
+    assert_eq!(
+        slot(&app, 1).occupant,
+        SlotOccupant::Absent,
+        "seat 1 joined by itself, so this test cannot tell the two rules apart"
+    );
+
+    let shown: Vec<(usize, bool)> = {
+        let world = app.world_mut();
+        let mut q = world.query::<(&CursorNode, &Visibility)>();
+        let mut rows: Vec<(usize, bool)> = q
+            .iter(world)
+            .map(|(node, visibility)| (node.0, *visibility != Visibility::Hidden))
+            .collect();
+        rows.sort_by_key(|(seat, _)| *seat);
+        rows
+    };
+    assert_eq!(
+        shown.len(),
+        MAX_SMASH_SEATS,
+        "the screen did not draw one cursor per seat: {shown:?}"
+    );
+    assert!(
+        shown[1].1,
+        "seat 1 has a pad and no cursor, so its player cannot press their own \
+         role button to join: {shown:?}"
+    );
+    assert!(
+        !shown[3].1,
+        "seat 3 has no device and nobody in it, and still drew a hand: {shown:?}"
+    );
+}
+
 #[test]
 fn two_players_take_controllers_pick_fighters_and_the_battle_starts() {
     let mut app = build_demo_app();
@@ -352,10 +406,7 @@ fn a_token_dropped_on_empty_space_goes_back_to_the_fighter_it_had() {
     click(&mut app, 0, layout.token_home(0));
     press(&mut app, 0, back());
     assert_eq!(slot(&app, 0).pick, Some(SlotPick::Fighter(nth(&app, 1))));
-    assert_eq!(
-        app.world().resource::<SelectCursors>().seat(0).carrying,
-        None
-    );
+    assert_eq!(app.world().resource::<SelectCursors>().seat(0).carrying, None);
 }
 
 /// **A screen that works and cannot be seen is the same bug one layer up.**

@@ -432,6 +432,11 @@ tackon_targets=(
     # only by accident of local history.
     pointed_polygon
     pugnacious_polygon
+    # ⚠ **NAMED HERE, not only reachable by `--target`.** The game loads
+    # `sprites/hud_stock_icon.png` by path from `STOCK_ICON_ASSET`, so a clone
+    # that cannot produce it has a match HUD with holes where the stocks go —
+    # the same trap the two polygons hit, one comment down.
+    hud_icons
     sandbag
     burning_flying_shark
     pipi_tau

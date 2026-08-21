@@ -1516,6 +1516,10 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "which page of the character grid is showing. A phone cannot fit the          roster at a hittable size, so the grid pages; this is which page. Same          reading as the cursor two lines up rather than the same category: it is          written only by `drive_the_cursor` on the select route, it is reset by          this experience's scope on the way out, and what it selects is which          RECTANGLES are drawn — nothing downstream of the hand-off can see it, so          a rewound page could not change a simulated tick",
     ),
     (
+        "ambition_demo_smash::select_screen::TokenRest",
+        "where each select-screen token was last PUT DOWN, as a fraction of the          viewport. Same reading as the cursor and the page it sits beside: written          only by `drive_the_cursor` on the select route, reset by this          experience's scope on the way out, and what it decides is where a          rectangle is DRAWN. The decision it feeds — which fighter a slot picked —          is `SmashSelect`, which is waived on its own line; a rewound token          position could not change a simulated tick",
+    ),
+    (
         "ambition_demo_smash::select_screen::SelectStyle",
         "whether this screen offers Melee's drag-a-token or Ultimate's          tap-to-pick. ⚠ waived as a SETTING and not as menu state: nothing writes          it during play — it has no writer at all outside a test at the moment —          and it decides how a press is read on a route with no session. If it ever          becomes a live toggle it stays waived for the same reason `SmashRoster`          is: composition identity, decided before any session exists",
     ),

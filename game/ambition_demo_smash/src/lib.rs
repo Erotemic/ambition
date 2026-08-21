@@ -866,6 +866,13 @@ pub const FIGHTER_HUD_SLOTS: [&str; 4] = [
 /// The winner card. One slot, because the stage says one thing at a time.
 pub const SMASH_ANNOUNCE_HUD_SLOT: &str = "smash_announce";
 
+/// **What one remaining stock is drawn as**, under the sprites asset root.
+///
+/// ⚠ generated, not committed — `regen_sprites.sh` names it in its publish
+/// roster, which is what lets a fresh clone produce it. Art that exists only
+/// where it was once rendered is a trap this repo has already paid for twice.
+pub const STOCK_ICON_ASSET: &str = "sprites/hud_stock_icon.png";
+
 /// **What plays on the stage.**
 pub const SMASH_STAGE_TRACK: &str = "super_smash_siblings_theme";
 /// **What plays over the character select**, in a host whose frontend audio
@@ -999,17 +1006,32 @@ pub fn publish_smash_hud(
         &ambition_platformer2d::characters::actor::BodyHealth,
         Option<&ambition_platformer2d::actor::FighterStocks>,
         &bevy::prelude::Name,
+        // **WHO this body is**, which is what a PORTRAIT needs. The `Name` above
+        // is a display string; a portrait is resolved from the character id.
+        Option<&ambition_platformer2d::characters::actor::WornCharacter>,
     )>,
+    // ⚠ **the GAME resolves the portrait path, not the renderer.** `HudFigure`'s
+    // variants are presentation primitives and "which character" is content —
+    // see the note on `HudStanding::portrait`. This is the side that knows.
+    catalog: Option<
+        bevy::prelude::Res<
+            ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog,
+        >,
+    >,
     mut readouts: bevy::prelude::ResMut<ambition_platformer2d::presentation::HudReadouts>,
 ) {
-    let mut rows: Vec<(usize, String, f32, Option<(u32, u32)>)> = fighters
+    let mut rows: Vec<(usize, String, f32, Option<(u32, u32)>, Option<String>)> = fighters
         .iter()
-        .map(|(seat, health, stocks, name)| {
+        .map(|(seat, health, stocks, name, worn)| {
+            let portrait = worn.zip(catalog.as_deref()).and_then(|(worn, catalog)| {
+                catalog.portrait_image_path(worn.id())
+            });
             (
                 seat.0,
                 name.as_str().to_string(),
                 health.damage_percent(),
                 stocks.map(|s| (s.remaining, s.started_with)),
+                portrait,
             )
         })
         .collect();
@@ -1018,20 +1040,36 @@ pub fn publish_smash_hud(
     rows.sort_by_key(|(seat, ..)| *seat);
 
     let mut written = [false; FIGHTER_HUD_SLOTS.len()];
-    for (seat, name, percent, stocks) in &rows {
+    for (seat, _name, percent, stocks, portrait) in &rows {
         let Some(slot) = FIGHTER_HUD_SLOTS.get(*seat) else {
             continue;
         };
         written[*seat] = true;
-        let value = match stocks {
-            Some((remaining, started)) => {
-                format!("{:.0}%  ·  {remaining}/{started}", percent * 100.0)
-            }
-            None => format!("{:.0}%", percent * 100.0),
-        };
+        // ⛔ **the percent ONLY.** It used to read `"88%  ·  2/3"`, because a
+        // string was the only thing a readout could carry — Jon, 2026-08-21:
+        // *"currently in a match we just give players text boxes that are
+        // percent"*. Stocks are ICONS now and a fraction printed beside them
+        // would be the same fact said twice.
+        let value = format!("{:.0}%", percent * 100.0);
+        let (remaining, started) = stocks.unwrap_or((0, 0));
         readouts.set(
             *slot,
-            ambition_platformer2d::presentation::HudReadout::gauge(name.clone(), value, *percent),
+            ambition_platformer2d::presentation::HudReadout::standing(
+                // ⛔ **NO LABEL, and the first capture is why.** `text()` joins
+                // the label and the value, so passing the fighter's name here
+                // drew "George Booul 0%" across a 132px panel — two panels'
+                // worth of text colliding in the middle of the screen. The
+                // PORTRAIT says who this is; the text says the one thing a
+                // player reads mid-match.
+                String::new(),
+                value,
+                ambition_platformer2d::presentation::HudStanding {
+                    portrait: portrait.clone(),
+                    stock_icon: Some(STOCK_ICON_ASSET.to_string()),
+                    remaining,
+                    started,
+                },
+            ),
         );
     }
     // A 1v1 declares four slots and fills two. An unwritten slot must be
@@ -1626,6 +1664,7 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
         app.init_resource::<select_screen::cursor::SelectCursors>();
         app.init_resource::<select_screen::SelectPage>();
         app.init_resource::<select_screen::SelectStyle>();
+        app.init_resource::<select_screen::TokenRest>();
         app.init_resource::<select_screen::StartRequested>();
         app.init_resource::<select_screen::LeaveRequested>();
         // **THE ROSTER IS A COMPOSITION FACT, so it is resolved once, late.**
@@ -1821,6 +1860,7 @@ fn present_the_select_screen(
     mut viewing: (
         bevy::prelude::ResMut<select_screen::cursor::SelectCursors>,
         bevy::prelude::ResMut<select_screen::SelectPage>,
+        bevy::prelude::ResMut<select_screen::TokenRest>,
     ),
     mut start: bevy::prelude::ResMut<select_screen::StartRequested>,
     fighters: bevy::prelude::Res<select::SmashRoster>,
@@ -1939,6 +1979,7 @@ fn present_the_select_screen(
             // page two would open on a grid whose first cell is not the
             // roster's first, which reads as a different roster.
             *viewing.1 = select_screen::SelectPage::default();
+            *viewing.2 = select_screen::TokenRest::default();
             *start = select_screen::StartRequested::default();
             // THIS demo's roster. Another stage in the same host publishes its
             // own into the same global resource, and clearing "the roster" is
@@ -2346,7 +2387,11 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
             for (seat, slot) in FIGHTER_HUD_SLOTS.iter().enumerate() {
                 hud = hud.slot(
                     ambition_platformer2d::presentation::HudSlotSpec::new(*slot)
-                        .with_region(ambition_platformer2d::presentation::SurroundRegion::Top)
+                        // **THE BOTTOM**, where a platform fighter puts its
+                        // players. It was `Top` because a text row had to go
+                        // somewhere; a portrait panel belongs where Jon asked
+                        // for it and where the genre puts it.
+                        .with_region(ambition_platformer2d::presentation::SurroundRegion::Bottom)
                         .with_font_size(22.0)
                         .with_min_px(ambition_platformer2d::engine_core::Vec2::new(220.0, 30.0))
                         // Coloured by seat parity, so a partner's meter reads as
@@ -2466,6 +2511,7 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
                 .resetting::<select_screen::LeaveRequested>()
                 .resetting::<select_screen::cursor::SelectCursors>()
                 .resetting::<select_screen::SelectPage>()
+                .resetting::<select_screen::TokenRest>()
                 .releasing_with("SessionSeatingSource", |world, owner| {
                     if let Some(mut seating) = world.get_resource_mut::<
                         ambition_platformer2d::input::SessionSeatingSource,
@@ -3600,6 +3646,7 @@ mod pause_arbitration_tests {
         app.init_resource::<select_screen::cursor::SelectCursors>();
         app.init_resource::<select_screen::SelectPage>();
         app.init_resource::<select_screen::SelectStyle>();
+        app.init_resource::<select_screen::TokenRest>();
         // ⚠ **the CLOCK, because the cursor roams now.** `drive_the_cursor`
         // integrates a held stick against `Time`, so a hand-built app without
         // one fails validation on a resource rather than on anything this test

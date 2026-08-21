@@ -39,7 +39,7 @@ pub use control_regions::{
 // owned WHERE a HUD may live.
 pub use hud::{
     ActiveHudDeclaration, HudDeclaration, HudDeclarationCatalog, HudFigure, HudReadout,
-    HudReadouts, HudSlotId, HudSlotSpec,
+    HudReadouts, HudSlotId, HudSlotSpec, HudStanding,
 };
 pub use presets::profiles;
 pub use resolve::{resolve_gameplay_presentation, GameplayPresentationInput};

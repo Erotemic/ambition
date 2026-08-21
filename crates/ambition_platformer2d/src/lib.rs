@@ -584,8 +584,8 @@ pub mod presentation {
     /// engine holds no readout vocabulary — every label is a string the game
     /// writes.
     pub use ambition_platformer2d_shared_tangle::gameplay_presentation::{
-        ActiveHudDeclaration, HudDeclaration, HudReadout, HudReadouts, HudSlotId, HudSlotSpec,
-        SurroundRegion,
+        ActiveHudDeclaration, HudDeclaration, HudFigure, HudReadout, HudReadouts, HudSlotId,
+        HudSlotSpec, HudStanding, SurroundRegion,
     };
     pub use ambition_render::hud::declared::{DeclaredHudPlugin, DeclaredHudRoot, DeclaredHudSlot};
 }

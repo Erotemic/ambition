@@ -440,11 +440,58 @@ const CURSOR_SPEED_PER_SECOND: f32 = 1.15;
 /// not before.
 #[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum SelectStyle {
-    /// Grab your token, carry it to a fighter, let go. Melee.
+    /// **Both.** Grab your token and carry it to a fighter, or just press the
+    /// fighter — Melee's idiom and Ultimate's, on one screen, because a person
+    /// who reaches for either is asking the same question.
+    ///
+    /// ⚠ **this variant used to be drag-ONLY**, and Jon's answer to that was
+    /// *"shouldn't I be able to just click on a character or press choose on a
+    /// character to select?"* — yes, and refusing it taught nobody anything.
+    /// The knob is still here because the games genuinely differ; what changed
+    /// is that the default no longer refuses half of them.
     #[default]
-    DragToken,
-    /// Put the cursor on a fighter and press. Ultimate.
-    TapToPick,
+    DragOrTap,
+    /// Ultimate's, strictly: the token is not draggable and a press on a
+    /// fighter is the only way to choose. Kept for the screen that wants to
+    /// teach one idiom rather than offer two.
+    TapOnly,
+}
+
+/// **WHERE EACH TOKEN WAS PUT DOWN**, as a fraction of the viewport.
+///
+/// ⭐ **because a dropped token should stay where you dropped it.** Jon,
+/// 2026-08-21: *"when I drop a token, it still snaps into a location, it
+/// doesn't just stay where it was."* It did: the resting place was DERIVED from
+/// the pick — on the chosen portrait, or home — so letting go anywhere teleported
+/// the piece. Direct manipulation that moves the thing out from under your
+/// finger is not direct manipulation.
+///
+/// ⚠ **a FRACTION, not pixels.** The window resizes, the grid re-pages, and a
+/// token remembered in pixels would end up off-screen or on a different
+/// fighter. A fraction keeps it where it looked like it was.
+///
+/// `None` means nobody has put this token down yet, and it rests wherever the
+/// pick says — which is the behaviour every token has until it is first moved.
+#[derive(Resource, Clone, Copy, Debug, Default, PartialEq)]
+pub struct TokenRest(pub [Option<Vec2>; MAX_SMASH_SEATS]);
+
+impl TokenRest {
+    fn put_down(&mut self, slot: usize, at: Vec2, viewport: Vec2) {
+        let viewport = viewport.max(Vec2::splat(1.0));
+        self.0[slot] = Some(at / viewport);
+    }
+
+    /// Forget where a token was put down, so it goes back to resting on
+    /// whatever the pick says. ⚠ what a TAP does: a press on a face is not a
+    /// placement, so the token travels to the face rather than staying in the
+    /// pool where the taps happened.
+    fn forget(&mut self, slot: usize) {
+        self.0[slot] = None;
+    }
+
+    fn of(&self, slot: usize, viewport: Vec2) -> Option<Vec2> {
+        self.0[slot].map(|fraction| fraction * viewport)
+    }
 }
 
 /// **Which page of the grid is showing.**
@@ -925,7 +972,7 @@ pub fn drive_the_cursor(
     host: Option<Res<ambition_platformer2d::game_shell::ShellHostConfiguration>>,
     // ⚠ paired for the same reason `update_the_select_screen`'s are: this
     // system is at Bevy's parameter ceiling and a free cursor needs a clock.
-    paging: (ResMut<SelectPage>, Res<Time>),
+    paging: (ResMut<SelectPage>, Res<Time>, ResMut<TokenRest>),
     style: Res<SelectStyle>,
     mut last_mouse: Local<Option<Vec2>>,
     // **WHICH SEAT EACH FINGER IS DRIVING**, for as long as it stays down.
@@ -938,7 +985,7 @@ pub fn drive_the_cursor(
     // ignored.
     mut fingers: Local<std::collections::HashMap<u64, usize>>,
 ) {
-    let (mut page, time) = paging;
+    let (mut page, time, mut rest) = paging;
     let layout = current_layout(&windows, &fighters, &page);
     let exit = exit_leads_somewhere(host.as_deref());
     // ⭐ **the LAYOUT says where things are; the SCREEN says what is
@@ -1097,7 +1144,7 @@ pub fn drive_the_cursor(
             let taken: Vec<usize> = fingers.values().copied().collect();
             let on_token = (0..MAX_SMASH_SEATS).find(|slot| {
                 !taken.contains(slot)
-                    && token_rect(&layout, &select, *slot)
+                    && token_rect(&layout, &select, &rest, *slot)
                         .map(SelectLayout::touchable)
                         .is_some_and(|rect| rect.contains(touch.position()))
             });
@@ -1276,25 +1323,38 @@ pub fn drive_the_cursor(
             };
             let on_token = (0..MAX_SMASH_SEATS).find(|slot| {
                 may_grab(*slot)
-                    && token_rect(&layout, &select, *slot)
+                    && token_rect(&layout, &select, &rest, *slot)
                         .map(SelectLayout::touchable)
                         .is_some_and(|rect| rect.contains(position))
             });
             match (carrying, on_token, over) {
-                // **TAP TO PICK** — the Ultimate idiom, when it is switched on:
-                // no token to grab, the press on a face IS the choice. The token
-                // still travels to the portrait afterwards, so the screen reads
-                // the same and `SmashSelect` sees the same decision.
-                (None, _, Some(SelectTarget::Portrait(cell)))
-                    if *style == SelectStyle::TapToPick =>
-                {
+                // Picking up.
+                //
+                // ⛔ **FIRST, and above the tap below.** A placed token sits on
+                // top of the portrait it chose, so both arms match there — and
+                // if the tap won, a token once placed could never be picked back
+                // up: every press on it would re-choose the fighter underneath.
+                //
+                // ⚠ skipped entirely under `TapOnly`, which is the one thing
+                // that variant means.
+                (None, Some(slot), _) if *style != SelectStyle::TapOnly => {
+                    cursors.seat_mut(seat).grab(slot)
+                }
+                // **PRESSING A FIGHTER WITH AN EMPTY HAND CHOOSES IT.** Jon,
+                // 2026-08-21: *"shouldn't I be able to just click on a character
+                // or press choose on a character to select?"* The token travels
+                // there afterwards, so the screen reads the same and
+                // `SmashSelect` sees the same decision either way it was asked.
+                (None, _, Some(SelectTarget::Portrait(cell))) => {
                     if let Some(pick) = fighters.cell(cell) {
                         select.set_pick(seat, pick);
                     }
+                    // ⚠ **a tap is not a placement**, so forget where the token
+                    // was last put down and let it travel to the face that was
+                    // chosen. Keeping the old rest would choose a fighter and
+                    // leave the piece across the screen from them.
+                    rest.forget(seat);
                 }
-                // Picking up. ⚠ **before the page arrows below**, so a token that
-                // overlaps one on a narrow pool is still the thing you grabbed.
-                (None, Some(slot), _) => cursors.seat_mut(seat).grab(slot),
                 // **TURNING THE PAGE IS LEGAL WITH A TOKEN IN HAND**, and it has
                 // to be: the fighter you are carrying it to may be on another
                 // page, and having to put the token down to go looking would
@@ -1316,13 +1376,20 @@ pub fn drive_the_cursor(
                     if let Some(pick) = fighters.cell(cell) {
                         select.set_pick(slot, pick);
                     }
+                    // **PUT DOWN MEANS PUT DOWN, WHERE THE HAND WAS.** See
+                    // [`TokenRest`] — deriving the resting place from the pick
+                    // is what made a dropped token jump.
+                    rest.put_down(slot, position, layout.viewport);
                     cursors.seat_mut(seat).drop_it();
                 }
-                // Anywhere else with something in hand: put it back. Dropping a
-                // token on empty space returns it rather than clearing the slot —
-                // losing a fighter to a misclick is the one thing a select screen
-                // must not do to somebody holding a controller.
-                (Some(_), _, _) => {
+                // Anywhere else with something in hand: it stays there, and the
+                // PICK is untouched. ⚠ **the token no longer "returns" —** it
+                // used to fly home, which was the visible half of the snap Jon
+                // reported. Losing a fighter to a misclick is still the one
+                // thing a select screen must not do, and that is why the pick
+                // is left alone rather than cleared.
+                (Some(slot), _, _) => {
+                    rest.put_down(slot, position, layout.viewport);
                     cursors.seat_mut(seat).drop_it();
                 }
                 (None, None, Some(SelectTarget::RoleButton(slot))) => {
@@ -1338,6 +1405,11 @@ pub fn drive_the_cursor(
                 (None, None, Some(SelectTarget::Back)) => {
                     leave.0 = true;
                 }
+                // ⚠ **`TapOnly` lands here when a press hits a token and
+                // nothing else.** The guard on the grab arm above declines it,
+                // and declining is the whole content of that variant — a token
+                // that is not draggable is a token a press does nothing to.
+                (None, Some(_), _) => {}
                 (None, None, _) => {}
             }
         } else if drive.released && release_should_drop {
@@ -1347,6 +1419,9 @@ pub fn drive_the_cursor(
                 if let Some(pick) = fighters.cell(cell) {
                     select.set_pick(slot, pick);
                 }
+            }
+            if let Some(slot) = carrying {
+                rest.put_down(slot, position, layout.viewport);
             }
             cursors.seat_mut(seat).drop_it();
         }
@@ -1378,7 +1453,12 @@ pub fn drive_the_cursor(
 /// `None` for a slot nobody is at — an absent slot has no token to grab, and
 /// returning its pool rect anyway would let a click on empty space pick up a
 /// player who is not there.
-pub fn token_rect(layout: &SelectLayout, select: &SmashSelect, slot: usize) -> Option<HitRect> {
+pub fn token_rect(
+    layout: &SelectLayout,
+    select: &SmashSelect,
+    rest: &TokenRest,
+    slot: usize,
+) -> Option<HitRect> {
     let card = select.slot(slot);
     if !card.occupant.participates() {
         return None;
@@ -1395,6 +1475,14 @@ pub fn token_rect(layout: &SelectLayout, select: &SmashSelect, slot: usize) -> O
     // the feedback; what does not happen is the screen rearranging itself
     // around a choice the player has not made yet. Dragging ONTO random is the
     // same: the token goes home, because there is no portrait under it.
+    // **WHERE IT WAS PUT DOWN WINS.** See [`TokenRest`]: a token a person moved
+    // stays moved, and only one that nobody has touched is placed by its pick.
+    if let Some(at) = rest.of(slot, layout.viewport) {
+        return Some(HitRect::from_center_size(
+            at,
+            Vec2::splat(layout.token_px()),
+        ));
+    }
     match card
         .pick
         .and_then(SlotPick::fighter)
@@ -1456,7 +1544,7 @@ pub fn update_the_select_screen(
     // note on `lobby_facts` below says a further resource is a compile error
     // rather than a style choice. These two belong together anyway: the roster
     // is what the grid shows and the page is which part of it.
-    grid: (Res<SmashRoster>, Res<SelectPage>),
+    grid: (Res<SmashRoster>, Res<SelectPage>, Res<TokenRest>),
     // **THE ENGINE'S REFUSAL, if it has one.** See the prompt below: this is the
     // only surface in the product that can say a decided roster could not be
     // built, and until it read this the answer to that was an empty stage.
@@ -1527,7 +1615,18 @@ pub fn update_the_select_screen(
     >,
 ) {
     let (refusal, devices, assignment) = lobby_facts;
-    let (fighters, page) = grid;
+    // **HOW MANY SEATS THIS MACHINE IS OFFERING**, which is how many hands the
+    // screen draws — see the cursor loop at the bottom.
+    let offered_seats = devices
+        .as_deref()
+        .map(|devices| {
+            crate::select::seats_offered_under(
+                devices,
+                ambition_platformer2d::input::sources::InputAssignmentPolicy::JoinToClaim,
+            )
+        })
+        .unwrap_or(1);
+    let (fighters, page, rest) = grid;
     let catalog = Some(&*art.catalog);
     let layout = current_layout(&windows, &fighters, &page);
 
@@ -1668,7 +1767,7 @@ pub fn update_the_select_screen(
     // the pool. Written every frame from the layout rather than remembered, so a
     // resized window carries the tokens with it.
     for (token, mut node, mut visibility) in &mut tokens {
-        let Some(resting) = token_rect(&layout, &select, token.0) else {
+        let Some(resting) = token_rect(&layout, &select, &rest, token.0) else {
             set_visibility(&mut visibility, Visibility::Hidden);
             continue;
         };
@@ -1694,10 +1793,19 @@ pub fn update_the_select_screen(
     // very first frame.
     for (marker, mut node, mut visibility) in &mut cursor_node {
         let seat = marker.0;
-        // **A SEAT NOBODY IS IN HAS NO HAND ON THE SCREEN.** Four cursors
-        // hovering over a one-player lobby is three cursors nobody can move,
-        // which reads as a frozen screen rather than as an empty seat.
-        if !select.slot(seat).occupant.participates() {
+        // **A SEAT WITH A DEVICE GETS A HAND, JOINED OR NOT.**
+        //
+        // ⛔ **this asked `participates()` until 2026-08-21 and that locked
+        // people out.** Jon: *"if a player seat is not enabled they don't get a
+        // cursor at all, so a game pad cannot join, unless player 1 lets them
+        // in."* Exactly right — the way IN is to press your own card's role
+        // button, and with no cursor there is nothing to press it with. A pad
+        // plugged in is a person in the room; the screen owes them a hand
+        // before it owes them a seat.
+        //
+        // ⚠ a seat with NO device and nobody in it still draws nothing: that is
+        // three cursors nobody can move, which reads as a frozen screen.
+        if !select.slot(seat).occupant.participates() && seat >= offered_seats {
             set_visibility(&mut visibility, Visibility::Hidden);
             continue;
         }
@@ -1770,6 +1878,7 @@ mod touch_tests {
         app.init_resource::<LeaveRequested>();
         app.init_resource::<SelectPage>();
         app.init_resource::<SelectStyle>();
+        app.init_resource::<TokenRest>();
         // See the note in `lib.rs`'s fixture: the cursor integrates a clock.
         app.init_resource::<Time>();
         app.init_resource::<Touches>();
@@ -1797,8 +1906,8 @@ mod touch_tests {
 
         let layout = headless_layout();
         let select = app.world().resource::<SmashSelect>().clone();
-        let token_zero = token_rect(&layout, &select, 0).expect("seat 0 is in the lobby");
-        let token_one = token_rect(&layout, &select, 1).expect("seat 1 is in the lobby");
+        let token_zero = token_rect(&layout, &select, &TokenRest::default(), 0).expect("seat 0 is in the lobby");
+        let token_one = token_rect(&layout, &select, &TokenRest::default(), 1).expect("seat 1 is in the lobby");
 
         finger(&mut app, 10, TouchPhase::Started, token_zero.center());
         finger(&mut app, 11, TouchPhase::Started, token_one.center());
@@ -1830,6 +1939,108 @@ mod touch_tests {
         );
     }
 
+    /// **A DROPPED TOKEN STAYS WHERE IT WAS DROPPED.**
+    ///
+    /// ⛔ Jon, 2026-08-21: *"when I drop a token, it still snaps into a
+    /// location, it doesn't just stay where it was."* The resting place was
+    /// DERIVED from the pick — on the chosen portrait, or home — so letting go
+    /// anywhere teleported the piece out from under the finger that put it
+    /// there. ⚠ asserted against `token_rect`, which is what the screen both
+    /// draws and hit-tests with, rather than against the stored fraction.
+    #[test]
+    fn a_token_let_go_in_open_space_stays_in_open_space() {
+        let mut app = screen();
+        app.world_mut()
+            .resource_mut::<SmashSelect>()
+            .set_occupant(0, SlotOccupant::Controller { device: 0 });
+
+        let layout = headless_layout();
+        let select = app.world().resource::<SmashSelect>().clone();
+        let token = token_rect(&layout, &select, &TokenRest::default(), 0).expect("a token");
+        // Somewhere that is neither a portrait nor the pool: the gap under the
+        // grid, which is empty on every viewport this lays out.
+        let empty = Vec2::new(layout.viewport.x * 0.5, layout.viewport.y * 0.60);
+
+        finger(&mut app, 50, TouchPhase::Started, token.center());
+        app.update();
+        finger(&mut app, 50, TouchPhase::Moved, empty);
+        app.update();
+        finger(&mut app, 50, TouchPhase::Ended, empty);
+        app.update();
+
+        let select = app.world().resource::<SmashSelect>().clone();
+        let rest = *app.world().resource::<TokenRest>();
+        let landed = token_rect(&layout, &select, &rest, 0).expect("a token");
+        assert!(
+            landed.center().distance(empty) < 1.0,
+            "the token was let go at {empty:?} and went to {:?}",
+            landed.center()
+        );
+        assert!(
+            landed.center().distance(layout.token_home(0).center()) > 1.0,
+            "the token flew home, which is the snap this fixes"
+        );
+    }
+
+    /// **PRESSING A FIGHTER WITH AN EMPTY HAND CHOOSES IT — IN THE DEFAULT.**
+    ///
+    /// ⚠ **the default, which is the point.** Tap-to-pick used to need
+    /// `SelectStyle::TapToPick` switched on, and Jon's *"shouldn't I be able to
+    /// just click on a character"* is what said that was wrong. This fixture
+    /// touches no style at all.
+    #[test]
+    fn a_tap_on_a_fighter_chooses_it_without_switching_any_mode() {
+        let mut app = screen();
+        app.world_mut()
+            .resource_mut::<SmashSelect>()
+            .set_occupant(0, SlotOccupant::Controller { device: 0 });
+
+        let layout = headless_layout();
+        let portrait = layout.portrait(1).expect("a grid with two cells");
+        finger(&mut app, 51, TouchPhase::Started, portrait.center());
+        app.update();
+
+        assert_eq!(
+            app.world().resource::<SmashSelect>().slot(0).pick,
+            Some(SlotPick::Fighter(1)),
+            "a plain tap on a face did not choose that fighter"
+        );
+    }
+
+    /// **AND A PLACED TOKEN CAN STILL BE PICKED BACK UP.**
+    ///
+    /// ⛔ the arm-ordering trap: a placed token sits ON the portrait it chose,
+    /// so a press there matches both "pick this up" and "choose this". If the
+    /// tap won, a token once placed could never be moved again.
+    #[test]
+    fn a_token_resting_on_a_face_is_picked_up_rather_than_re_choosing_it() {
+        let mut app = screen();
+        app.world_mut()
+            .resource_mut::<SmashSelect>()
+            .set_occupant(0, SlotOccupant::Controller { device: 0 });
+
+        let layout = headless_layout();
+        let portrait = layout.portrait(1).expect("a grid with two cells");
+        finger(&mut app, 52, TouchPhase::Started, portrait.center());
+        app.update();
+        finger(&mut app, 52, TouchPhase::Ended, portrait.center());
+        app.update();
+
+        // The token now rests on that face. Press it again.
+        let select = app.world().resource::<SmashSelect>().clone();
+        let rest = *app.world().resource::<TokenRest>();
+        let on_face = token_rect(&layout, &select, &rest, 0).expect("a token");
+        finger(&mut app, 53, TouchPhase::Started, on_face.center());
+        app.update();
+
+        assert_eq!(
+            app.world().resource::<SelectCursors>().seat(0).carrying,
+            Some(0),
+            "pressing a placed token re-chose the fighter under it instead of \
+             picking the token up"
+        );
+    }
+
     /// **TWO TAPS BY A SEAT THAT IS NOT SEAT ZERO.**
     ///
     /// ⛔ **the bug this pins is the one the host caught, not the demo.** Tap
@@ -1848,7 +2059,7 @@ mod touch_tests {
         }
         let layout = headless_layout();
         let select = app.world().resource::<SmashSelect>().clone();
-        let token_one = token_rect(&layout, &select, 1).expect("seat 1 is in the lobby");
+        let token_one = token_rect(&layout, &select, &TokenRest::default(), 1).expect("seat 1 is in the lobby");
         let portrait = layout.portrait(1).expect("a grid with two cells");
 
         // Tap one: pick the token up. The finger LIFTS.
@@ -1899,11 +2110,11 @@ mod touch_tests {
         }
         let layout = headless_layout();
         let select = app.world().resource::<SmashSelect>().clone();
-        let token_zero = token_rect(&layout, &select, 0).expect("seat 0 is in the lobby");
+        let token_zero = token_rect(&layout, &select, &TokenRest::default(), 0).expect("seat 0 is in the lobby");
 
         // Seat 1's finger claims seat 1 by landing on its own token, then walks
         // over to seat 0's and presses again.
-        let token_one = token_rect(&layout, &select, 1).expect("seat 1 is in the lobby");
+        let token_one = token_rect(&layout, &select, &TokenRest::default(), 1).expect("seat 1 is in the lobby");
         finger(&mut app, 20, TouchPhase::Started, token_one.center());
         app.update();
         finger(&mut app, 20, TouchPhase::Ended, token_one.center());
@@ -1928,7 +2139,7 @@ mod touch_tests {
     #[test]
     fn tap_to_pick_chooses_a_fighter_without_grabbing_anything() {
         let mut app = screen();
-        *app.world_mut().resource_mut::<SelectStyle>() = SelectStyle::TapToPick;
+        *app.world_mut().resource_mut::<SelectStyle>() = SelectStyle::TapOnly;
         app.world_mut()
             .resource_mut::<SmashSelect>()
             .set_occupant(0, SlotOccupant::Controller { device: 0 });
@@ -2044,7 +2255,7 @@ mod touch_tests {
     /// Where slot 0's token is sitting, asked of the same function the screen
     /// hit-tests with.
     fn token_of_slot_zero(app: &App, layout: &SelectLayout) -> HitRect {
-        token_rect(layout, app.world().resource::<SmashSelect>(), 0)
+        token_rect(layout, app.world().resource::<SmashSelect>(), &TokenRest::default(), 0)
             .expect("slot 0 is participating, so it owns a token")
     }
 

@@ -162,7 +162,18 @@
 *  Note, in ambition I can't use "F" to go through doors anymore, and in smash, I see the new emmy sprite on the select screen, but her character is the old sprite in the match.
   * ✔ The F half does NOT reproduce on the keyboard preset — pressed it against a live Door and the room changed: `capture_scene pirate_cove 0,0 out.png 1280x720 --warmup 90 --press f` logs `room-transition begin pirate_cove -> central_hub_complex` then `room-loaded`.
   * ⊙ So if it still fails for you it is the gamepad or a saved rebind, not the door — say which you were using.
-  * ▢ The emmy sprite half is untouched.                           
+  * ◐ **The emmy sprite half, measured 2026-08-21 — she is one of FOUR sheets whose reduced tier is not a reduction.** Her catalog row is `sheet: "sprites/noether_spritesheet.png"`, and the select screen and the match resolve the same id, so the difference has to be WHICH FILE each road reads. Compared all 198 sheets, canonical vs `sprites_0_5x`:
+
+```text
+median width ratio across 198 sheets      0.513   (tiers ARE normally half)
+noether        4096x3875 -> 4095x4041     1.00    ⛔ not reduced at all
+perfect_cellular_automaton                1.01    ⛔ same shape
+carl_stargan   1650x16328 -> 1728x1349    1.05
+pugnacious_polygon                        0.81
+```
+
+  ⇒ **the mechanism**: `noether` and `perfect_cellular_automaton` saturate the 4096 texture cap, so the "half" tier packs to the SAME cap and is a differently-packed sheet rather than a scaled one. A body drawn from that tier reads different frame rects than one drawn from the canonical — which is what "the new sprite on select, the old one in the match" looks like. ⚠ the causal link is a strong inference, not yet a capture; the falsifier is to force full quality and see her change in the match.
+  ⛔ **and it is invisible to the incremental regen**: canonical mtime 2026-08-19 21:14 is OLDER than the tier's 2026-08-20 11:37, so an mtime check calls the tier fresh and skips it. That is also why the goal's art-tier check keeps going stale and why regenerating did not fix this.                           
 
 * When I change the video quality in ambition, my sprite went from the robot v3 character to the robot v2 character. 
   * ▢ Three causes eliminated (missing art, a missing `_actor.ron` sidecar, a per-tier sheet collision — none of the colliding rig targets is a character id). Not eliminated: quality variants resolve through a separate FILE-ROOT index (`from_baked_table_by_file_root`) rather than the shared target road, and `3bf154974` (2026-08-08) made a quality change re-materialize on-screen bodies instead of only the next room — that re-materialization path is the likely site. Owner doc: `sprite-residency-and-live-quality.md`.

@@ -1444,6 +1444,12 @@ fn publish_twintrack_hud(
     signals: Res<RelativitySignalView2d>,
     optics: Res<RelativisticOpticalView2d>,
     targeting: Res<RelativisticTargetingView2d>,
+    // ⭐ **WHOSE eyes this line is written from.** Both resources hold one row
+    // per observer, and reading them through `Deref` takes the FIRST row in
+    // label order — which became the laboratory twin the moment she became an
+    // observer, because "laboratory" sorts before "traveler". This teacher line
+    // says "YOUR NOW" and "FOX IMAGE AGE"; it is the traveler's.
+    traveler_observer: Query<Entity, With<TravelerTwin>>,
     dual: Res<TwinTrackDualObserverView>,
     pulse: Res<TwinTrackLightPulseView>,
     traveler_body: Query<&ae::BodyKinematics, With<TravelerTwin>>,
@@ -1638,14 +1644,21 @@ fn publish_twintrack_hud(
             )),
         );
     } else if experiment.view_mode == TwinTrackViewMode::Spacetime {
-        let target = targeting
-            .targets
-            .iter()
-            .find(|target| target.label == "Photon Fox");
-        let image_age = optics
-            .sources
-            .iter()
-            .find(|source| source.label == "Photon Fox")
+        let observer = traveler_observer.single().ok();
+        let target = observer
+            .and_then(|observer| targeting.for_observer(observer))
+            .and_then(|aim| {
+                aim.targets
+                    .iter()
+                    .find(|target| target.label == "Photon Fox")
+            });
+        let image_age = observer
+            .and_then(|observer| optics.for_observer(observer))
+            .and_then(|view| {
+                view.sources
+                    .iter()
+                    .find(|source| source.label == "Photon Fox")
+            })
             .map_or(0.0, |source| source.light_age);
         let lead = target
             .and_then(|target| target.apparent_to_intercept_angle)

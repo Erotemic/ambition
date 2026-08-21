@@ -24,10 +24,10 @@ use crate::dual_observer::{
 use crate::{
     decoded_clock_seconds, doppler_frequency_for_target, musical_note_name, payload_parts,
     LaboratoryTwin, TravelerTwin, TwinTrackCharacter, TwinTrackExperiment, TwinTrackPhase,
-    TwinTrackTrajectory, TwinTrackViewMode, COURIER_ID, DJ_ID, DJ_POS, DOPPLER_PASSBAND_MAX, DOPPLER_PASSBAND_MIN,
-    DOPPLER_TARGET_FREQUENCY, DRIFTER_ID, INVARIANT_SPEED, LAB_POS, LIGHT_TAG_ROUNDS,
-    PAYLOAD_ASK_CLOCK, PAYLOAD_CLOCK_REPORT, PAYLOAD_DOPPLER_NOTE, PAYLOAD_LIGHT_TAG, ROOM_WIDTH,
-    SPINNER_ID, TAGGER_ID, TWINTRACK_EXPERIENCE, VIEW_CONSOLE_POS,
+    TwinTrackTrajectory, TwinTrackViewMode, COURIER_ID, DJ_ID, DJ_POS, DOPPLER_PASSBAND_MAX,
+    DOPPLER_PASSBAND_MIN, DOPPLER_TARGET_FREQUENCY, DRIFTER_ID, INVARIANT_SPEED, LAB_POS,
+    LIGHT_TAG_ROUNDS, PAYLOAD_ASK_CLOCK, PAYLOAD_CLOCK_REPORT, PAYLOAD_DOPPLER_NOTE,
+    PAYLOAD_LIGHT_TAG, ROOM_WIDTH, SPINNER_ID, TAGGER_ID, TWINTRACK_EXPERIENCE, VIEW_CONSOLE_POS,
 };
 
 pub(crate) const OPTICAL_LAYER: usize = 28;
@@ -161,7 +161,6 @@ struct OpticalAberrationGuide;
 #[derive(Component)]
 struct OpticalVelocityLine;
 
-
 pub(crate) fn install(app: &mut App) {
     app.add_systems(
         Update,
@@ -246,7 +245,11 @@ fn spawn_twintrack_visuals(
             LabCharacterVisual(id),
             Sprite::from_color(
                 color,
-                if id == DJ_ID { Vec2::splat(64.0) } else { Vec2::new(58.0, 34.0) },
+                if id == DJ_ID {
+                    Vec2::splat(64.0)
+                } else {
+                    Vec2::new(58.0, 34.0)
+                },
             ),
             Transform::from_xyz(0.0, 0.0, 8.0),
             Name::new(format!("TwinTrack lab character {label}")),
@@ -285,7 +288,10 @@ fn spawn_twintrack_visuals(
         for index in 0..ORBIT_DOT_COUNT {
             commands.spawn((
                 TwinTrackVisible,
-                LabOrbitDot { character_id, index },
+                LabOrbitDot {
+                    character_id,
+                    index,
+                },
                 Sprite::from_color(color.with_alpha(0.42), Vec2::splat(5.5)),
                 Transform::from_xyz(0.0, 0.0, 3.0),
                 Name::new(format!("TwinTrack orbit trail {character_id}:{index}")),
@@ -676,8 +682,6 @@ DIRECTIONS AROUND YOU",
         layer.clone(),
         Name::new("TwinTrack optical light-tag guide"),
     ));
-
-
 }
 
 fn sync_view_cameras(
@@ -779,7 +783,6 @@ fn update_lab_character_visuals(
     }
 }
 
-
 fn update_lab_orbit_visuals(
     characters: Query<(
         &TwinTrackCharacter,
@@ -787,7 +790,12 @@ fn update_lab_orbit_visuals(
     )>,
     mut dots: Query<(&LabOrbitDot, &mut Transform, &mut Visibility)>,
     mut radii: Query<
-        (&LabOrbitRadiusLine, &mut Sprite, &mut Transform, &mut Visibility),
+        (
+            &LabOrbitRadiusLine,
+            &mut Sprite,
+            &mut Transform,
+            &mut Visibility,
+        ),
         Without<LabOrbitDot>,
     >,
     mut speed_labels: Query<
@@ -1223,7 +1231,13 @@ fn update_doppler_music_visuals(
 
 fn update_light_tag_guides(
     experiment: Query<&TwinTrackExperiment, With<LaboratoryTwin>>,
-    traveler: Query<&ambition_platformer2d::engine_core::BodyKinematics, With<crate::TravelerTwin>>,
+    traveler: Query<
+        (
+            bevy::prelude::Entity,
+            &ambition_platformer2d::engine_core::BodyKinematics,
+        ),
+        With<crate::TravelerTwin>,
+    >,
     targeting: Res<RelativisticTargetingView2d>,
     mut guides: ParamSet<(
         Query<(&mut Sprite, &mut Transform, &mut Visibility), With<LabAimLine>>,
@@ -1235,14 +1249,21 @@ fn update_light_tag_guides(
         Query<(&mut Text2d, &mut Visibility), With<OpticalTagGuideLabel>>,
     )>,
 ) {
-    let (Ok(experiment), Ok(traveler)) = (experiment.single(), traveler.single()) else {
+    let (Ok(experiment), Ok((traveler_entity, traveler))) =
+        (experiment.single(), traveler.single())
+    else {
         return;
     };
     let active = experiment.phase == TwinTrackPhase::LightTag;
-    let target = targeting
-        .targets
-        .iter()
-        .find(|target| target.label == "Photon Fox");
+    // ⭐ **the TRAVELER's aim, named.** The targeting view holds one row per
+    // observer; these are the traveler's own guides, and reading the resource
+    // through `Deref` would take the first row in label order — the laboratory
+    // twin's, since she became an observer too.
+    let target = targeting.for_observer(traveler_entity).and_then(|aim| {
+        aim.targets
+            .iter()
+            .find(|target| target.label == "Photon Fox")
+    });
 
     {
         let mut lab_aim = guides.p0();
@@ -1412,6 +1433,11 @@ fn update_optical_observer_marker(
 
 fn update_observatory_stars(
     optical: Res<RelativisticOpticalView2d>,
+    // ⭐ **the TRAVELER's sky, named.** The optical view holds one image per
+    // observer, and reading it through `Deref` takes the first row in label
+    // order — the laboratory twin's, since she became an observer too. The
+    // observatory is the instrument the traveler is looking through.
+    traveler: Query<bevy::prelude::Entity, With<crate::TravelerTwin>>,
     experiment: Query<&TwinTrackExperiment, With<LaboratoryTwin>>,
     mut stars: Query<(
         &ObservatoryStar,
@@ -1420,7 +1446,13 @@ fn update_observatory_stars(
         &mut Visibility,
     )>,
 ) {
-    let (Some(observer), Ok(experiment)) = (optical.observer.as_ref(), experiment.single()) else {
+    let (Ok(traveler), Ok(experiment)) = (traveler.single(), experiment.single()) else {
+        return;
+    };
+    let Some(observer) = optical
+        .for_observer(traveler)
+        .and_then(|view| view.observer.as_ref())
+    else {
         return;
     };
     let visible = experiment.view_mode == TwinTrackViewMode::Optical;
@@ -1466,12 +1498,25 @@ fn update_observatory_stars(
 
 fn update_optical_aberration_beacons(
     optical: Res<RelativisticOpticalView2d>,
+    // The TRAVELER's sky — see `update_observatory_stars`.
+    traveler: Query<bevy::prelude::Entity, With<crate::TravelerTwin>>,
     experiment: Query<&TwinTrackExperiment, With<LaboratoryTwin>>,
     mut beacons: Query<
-        (&OpticalAberrationBeacon, &mut Sprite, &mut Transform, &mut Visibility),
-        (Without<OpticalVelocityLine>, Without<OpticalAberrationGuide>),
+        (
+            &OpticalAberrationBeacon,
+            &mut Sprite,
+            &mut Transform,
+            &mut Visibility,
+        ),
+        (
+            Without<OpticalVelocityLine>,
+            Without<OpticalAberrationGuide>,
+        ),
     >,
-    mut guides: Query<&mut Visibility, (With<OpticalAberrationGuide>, Without<OpticalVelocityLine>)>,
+    mut guides: Query<
+        &mut Visibility,
+        (With<OpticalAberrationGuide>, Without<OpticalVelocityLine>),
+    >,
     mut velocity_lines: Query<
         (&mut Sprite, &mut Transform, &mut Visibility),
         (With<OpticalVelocityLine>, Without<OpticalAberrationGuide>),
@@ -1482,10 +1527,19 @@ fn update_optical_aberration_beacons(
     };
     let visible = experiment.view_mode == TwinTrackViewMode::Optical;
     for mut visibility in &mut guides {
-        *visibility = if visible { Visibility::Visible } else { Visibility::Hidden };
+        *visibility = if visible {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        };
     }
 
-    let Some(observer) = optical.observer.as_ref() else {
+    let Some(observer) = traveler
+        .single()
+        .ok()
+        .and_then(|traveler| optical.for_observer(traveler))
+        .and_then(|view| view.observer.as_ref())
+    else {
         for (_, _, _, mut visibility) in &mut beacons {
             *visibility = Visibility::Hidden;
         }
@@ -1557,6 +1611,8 @@ fn update_optical_aberration_beacons(
 
 fn update_optical_proxies(
     optical: Res<RelativisticOpticalView2d>,
+    // The TRAVELER's sky — see `update_observatory_stars`.
+    traveler: Query<bevy::prelude::Entity, With<crate::TravelerTwin>>,
     experiment: Query<&TwinTrackExperiment, With<LaboratoryTwin>>,
     mut proxies: Query<
         (&OpticalProxy, &mut Sprite, &mut Transform, &mut Visibility),
@@ -1575,12 +1631,15 @@ fn update_optical_proxies(
     let Ok(experiment) = experiment.single() else {
         return;
     };
+    let sources = traveler
+        .single()
+        .ok()
+        .and_then(|traveler| optical.for_observer(traveler))
+        .map(|view| view.sources.as_slice())
+        .unwrap_or_default();
     let visible = experiment.view_mode == TwinTrackViewMode::Optical;
     for (proxy, mut sprite, mut transform, mut visibility) in &mut proxies {
-        let source = optical
-            .sources
-            .iter()
-            .find(|source| source.label == proxy.0);
+        let source = sources.iter().find(|source| source.label == proxy.0);
         *visibility = if visible && source.is_some() {
             Visibility::Visible
         } else {
@@ -1599,10 +1658,7 @@ fn update_optical_proxies(
         };
     }
     for (label, mut color, mut transform, mut visibility) in &mut labels {
-        let source = optical
-            .sources
-            .iter()
-            .find(|source| source.label == label.0);
+        let source = sources.iter().find(|source| source.label == label.0);
         *visibility = if visible && source.is_some() {
             Visibility::Visible
         } else {
@@ -1697,8 +1753,8 @@ fn update_lab_beacon_visuals(
     view: Res<TwinTrackDualObserverView>,
     mut beacons: Query<(&LabBeaconVisual, &mut Sprite)>,
 ) {
-    let lit = view.coordinate_time.rem_euclid(BEACON_FLASH_PERIOD_SECONDS)
-        < BEACON_FLASH_GLOW_SECONDS;
+    let lit =
+        view.coordinate_time.rem_euclid(BEACON_FLASH_PERIOD_SECONDS) < BEACON_FLASH_GLOW_SECONDS;
     for (beacon, mut sprite) in &mut beacons {
         sprite.color = if lit {
             Color::WHITE

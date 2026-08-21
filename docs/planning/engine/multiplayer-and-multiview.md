@@ -512,11 +512,14 @@ restores the default when it ends, which is what Smash already did route-scoped.
 ▢ **HUD ownership is still not proved.** TwinTrack's HUD is full-screen on the
 front camera; nothing yet targets a slot at a view or a local participant.
 
-✔ **the optical AND targeting views are per-observer** as of 2026-08-20 — the
-last `observers.single()` was in `publish_targeting_view`, where a second
-observer BLANKED the only aim there was. ▢ what is owed is an ADOPTER: a view
-that holds an observer entity and asks `for_observer`, instead of reading the
-first row through `Deref`.
+✔ **the optical AND targeting views are per-observer, and TwinTrack ADOPTED
+them** (2026-08-20). The last `observers.single()` was in
+`publish_targeting_view`, where a second observer BLANKED the only aim there was;
+the plaza now seats two observers and every consumer names the one it draws for.
+⚠ the lesson for the next capability like this: the split and the adoption had to
+land in two commits but the ADOPTION and the second observer had to land in one,
+because a `Deref` that silently changes which row it means is not a compile
+error.
 
 ### M3 — adaptive share/split
 

@@ -239,17 +239,33 @@ fn complete_doppler_dance(app: &mut App) {
     wait_for_phase(app, TwinTrackPhase::LightTag, 180);
 }
 
+/// The traveler's own row in the per-observer targeting view.
+fn traveler_aim(app: &mut App, label: &str) -> Option<Vec2> {
+    let traveler = {
+        let mut query = app
+            .world_mut()
+            .query_filtered::<Entity, With<TravelerTwin>>();
+        query.single(app.world()).ok()?
+    };
+    app.world()
+        .resource::<RelativisticTargetingView2d>()
+        .for_observer(traveler)?
+        .targets
+        .iter()
+        .find(|target| target.label == label)
+        .map(|target| target.observer_local_emission_direction)
+}
+
 fn complete_light_tag(app: &mut App) {
     for expected_hit in 1..=LIGHT_TAG_ROUNDS {
         wait_for_transmitter(app);
         idle(app, 3);
-        let aim = app
-            .world()
-            .resource::<RelativisticTargetingView2d>()
-            .targets
-            .iter()
-            .find(|target| target.label == "Photon Fox")
-            .map(|target| target.observer_local_emission_direction)
+        // ⭐ **the TRAVELER's aim, named.** The targeting view holds one row per
+        // observer, and reading it through `Deref` takes the first row in label
+        // order — which is the LABORATORY twin's, since Emmy became an observer
+        // too. She stands at the other end of the plaza, so her intercept
+        // direction points somewhere the traveler's shot cannot land.
+        let aim = traveler_aim(app, "Photon Fox")
             .expect("Photon Fox should publish a local light-intercept direction");
         step(
             app,
@@ -588,8 +604,18 @@ fn photon_fox_visible_image_and_future_light_intercept_are_distinct() {
     activate(&mut app);
     idle(&mut app, 180);
 
+    // The TRAVELER's own intercept — the plaza has two observers, and the other
+    // one is standing still at the far end of it.
+    let traveler = {
+        let mut query = app
+            .world_mut()
+            .query_filtered::<Entity, With<TravelerTwin>>();
+        query.single(app.world()).expect("the traveler is seated")
+    };
     let targeting = app.world().resource::<RelativisticTargetingView2d>();
     let target = targeting
+        .for_observer(traveler)
+        .expect("the traveler publishes its own aim")
         .targets
         .iter()
         .find(|target| target.label == "Photon Fox")
@@ -616,7 +642,17 @@ fn optical_view_uses_an_earlier_light_event_for_a_moving_character() {
     activate(&mut app);
     idle(&mut app, 240);
 
-    let view = app.world().resource::<RelativisticOpticalView2d>();
+    let traveler = {
+        let mut query = app
+            .world_mut()
+            .query_filtered::<Entity, With<TravelerTwin>>();
+        query.single(app.world()).expect("the traveler is seated")
+    };
+    let view = app
+        .world()
+        .resource::<RelativisticOpticalView2d>()
+        .for_observer(traveler)
+        .expect("the traveler publishes its own sky");
     let observer = view
         .observer
         .as_ref()
@@ -1218,5 +1254,74 @@ fn the_plaza_declares_two_seats_and_a_couch_policy_only_while_it_is_live() {
         Some(InputAssignmentPolicy::JoinToClaim),
         "the seats are declared but every device still drives seat zero: a \
          keyboard and one controller are two people at this exhibit",
+    );
+}
+
+/// **⛔⛔ THE PLAZA HAS TWO OBSERVERS, AND THEY SEE DIFFERENT SKIES.**
+///
+/// The per-observer optical and targeting views landed with ZERO adopters —
+/// every consumer read the first row through `Deref`, which is one observer's
+/// sky drawn for everybody. This is the adoption: the laboratory twin carries
+/// her own `RelativisticObserver2d`, so the resources publish two rows and the
+/// exhibit's claim is made of measured numbers rather than of a diagram.
+///
+/// ⚠ **the falsifier is that the two rows must DISAGREE.** Two rows carrying the
+/// same numbers would mean the publisher had computed one image and copied it,
+/// which is exactly what the `Deref` did and what this replaces. They disagree
+/// because they must: the traveler is moving and the laboratory twin is not, so
+/// they disagree about the light's arrival time, its direction and its colour.
+#[test]
+fn both_observers_publish_their_own_sky_and_the_two_disagree() {
+    let mut app = ambition_demo_twintrack_app::build_demo_app();
+    activate(&mut app);
+    set_traveler_state(
+        &mut app,
+        LAB_POS + Vec2::new(240.0, 0.0),
+        Vec2::new(TARGET_SPEED, 0.0),
+    );
+    idle(&mut app, 120);
+
+    let (traveler, laboratory) = {
+        let world = app.world_mut();
+        let mut travelers = world.query_filtered::<Entity, With<TravelerTwin>>();
+        let traveler = travelers.single(world).expect("the traveler is seated");
+        let mut twins = world.query_filtered::<Entity, With<LaboratoryTwin>>();
+        let laboratory = twins.single(world).expect("the laboratory twin is seated");
+        (traveler, laboratory)
+    };
+
+    let optics = app.world().resource::<RelativisticOpticalView2d>();
+    assert_eq!(
+        optics.len(),
+        2,
+        "the plaza publishes {} optical image(s) — the exhibit compares two \
+         observers, so both of them have to BE observers",
+        optics.len(),
+    );
+
+    let source = "Photon Fox";
+    let seen = |observer: Entity| {
+        optics
+            .for_observer(observer)
+            .and_then(|view| view.sources.iter().find(|s| s.label == source))
+            .map(|s| (s.emission_event.coordinate_time, s.doppler_factor))
+    };
+    let (Some((traveler_time, traveler_doppler)), Some((lab_time, lab_doppler))) =
+        (seen(traveler), seen(laboratory))
+    else {
+        panic!("both observers should have {source} inside their retained past light cone");
+    };
+
+    assert!(
+        (traveler_time - lab_time).abs() > 1.0e-4,
+        "both observers read the same emission event ({traveler_time}) for \
+         {source}: they are at different places, so the light that reaches them \
+         now left at different times",
+    );
+    assert!(
+        (traveler_doppler - lab_doppler).abs() > 1.0e-3,
+        "both observers measure the same Doppler factor ({traveler_doppler}) — \
+         one of them is moving at {TARGET_SPEED} and the other is at rest, so \
+         this is one image being copied rather than two being computed",
     );
 }

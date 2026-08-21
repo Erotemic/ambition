@@ -45,12 +45,18 @@ instrument reading, and not yet in aberration and Doppler.
 > sorted order so a per-pane consumer can pair them, with a `Deref` to the first
 > row that keeps every one-observer reading byte-identical.
 >
-> ▢ **what is actually left is ADOPTION.** The laboratory twin carries no
-> `RelativisticObserver2d`, so the plaza still has exactly one observer and every
-> consumer reads it through that `Deref`. Giving Emmy one, and pointing the two
-> panes at `for_observer`, is the remaining slice — and until it happens the
-> capability has zero adopters, which is the state this repo treats as unfinished
-> rather than as done.
+> ✔ **ADOPTED the same day.** The laboratory twin carries her own
+> `RelativisticObserver2d`, so the plaza publishes TWO optical images and TWO
+> sets of intercepts, and every TwinTrack consumer — the teacher HUD, the
+> observatory's stars, aberration beacons and proxies, the light-tag guides, and
+> the integration suite — names the observer it is drawing for instead of taking
+> the first row. ⛔ the two had to land together: `"laboratory"` sorts before
+> `"traveler"`, so making her an observer without naming the observers first
+> would have silently redrawn the traveler's instruments from her eyes.
+>
+> Guarded by `both_observers_publish_their_own_sky_and_the_two_disagree`, whose
+> falsifier is the interesting half: two rows carrying the SAME numbers would
+> mean one image had been computed and copied, which is what the `Deref` did.
 >
 > **Adaptive vs permanently split, for THIS demo:** permanently split. §11's
 > adaptive-with-hysteresis ruling is Ambition's product layout policy; a view
@@ -181,11 +187,16 @@ not create a TwinTrack-only camera manager. The first proof can be fixed 50/50
 split; adaptive grouping is primarily an Ambition product requirement and should
 come from the same engine view-index model.
 
-✔ **Everything above except the last sentence landed on 2026-08-20** — see SR-11.
-What is still owed is *"each view may choose laboratory or observer-local
-presentation independently"*, and it is now ADOPTION rather than shape: both
+✔ **All of it landed on 2026-08-20** — see SR-11. *"Each view may choose
+laboratory or observer-local presentation independently"* is real: both
 `RelativisticOpticalView2d` and `RelativisticTargetingView2d` publish one row per
-observer, and the plaza has one observer to publish for.
+observer, the plaza has two observers, and every consumer names whose eyes it is
+drawing from.
+
+▢ **what is left is a PRESENTATION choice nobody has made**: the two gameplay
+panes still draw the same world-space sprites, because which pane shows which
+observer's aberrated sky is a design question about what the exhibit should look
+like, not a missing seam.
 
 Acceptance:
 

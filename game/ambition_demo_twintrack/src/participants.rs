@@ -33,8 +33,8 @@ use ambition_platformer2d::actor::{ActorConfig, ActorFaction, SpawnActorKind, Sp
 use ambition_platformer2d::characters::brain::{DrivingParticipant, PlayerSlot};
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::relativity2d::{
-    OpticalSource2d, ProperTimeElapsed, RelativisticClock2d, RelativityClockLabel,
-    WorldlineTracked2d,
+    OpticalSource2d, ProperTimeElapsed, RelativisticClock2d, RelativisticObserver2d,
+    RelativityClockLabel, WorldlineTracked2d,
 };
 use ambition_platformer2d::runtime::demo_fixture::ActiveRoomMetadata;
 use ambition_platformer2d::sim_view::{LocalView, LocalViewId, ViewPlacement, ViewSubject};
@@ -336,6 +336,18 @@ pub(crate) fn adopt_the_laboratory_twin(
         RelativityClockLabel("laboratory".to_owned()),
         WorldlineTracked2d::new("laboratory"),
         OpticalSource2d::new("laboratory", 180.0, 1.0, 18.0),
+        // ⭐⭐ **SHE SEES, she is not only seen.** An `OpticalSource2d` is what
+        // OTHER observers receive light FROM; this is what makes the laboratory
+        // twin an observer in her own right, with her own retarded image of
+        // every source and her own null intercepts — the second half of an
+        // exhibit whose whole claim is that two observers disagree.
+        //
+        // ⛔ **it is also what makes every `Deref` read of those two resources a
+        // lie**, because "laboratory" sorts before "traveler" and the first row
+        // is now hers. Every TwinTrack consumer names its observer explicitly;
+        // adding this without that would have silently redrawn the traveler's
+        // instruments from the lab twin's eyes.
+        RelativisticObserver2d("laboratory".to_owned()),
         // ⛔ **NOT `ZERO`, and the difference is the whole reference frame.**
         // The laboratory twin is at rest in the laboratory, so her proper time
         // IS the plaza's coordinate time — that identity is what every other

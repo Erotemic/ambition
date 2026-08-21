@@ -211,9 +211,10 @@ impl SelectCursor {
 
 /// **FOUR CURSORS, ONE PER SEAT** — the model every Smash has.
 ///
-/// ⭐ **indexed by INPUT SEAT, which is also the device index** — the same
-/// numbering `SeatMenuFrames` uses, because a cursor is a HAND and a hand
-/// belongs to a person.
+/// ⭐ **indexed by INPUT SEAT, which is also the dense local source ordinal** —
+/// the same numbering `SeatMenuFrames` uses, because a cursor is a HAND and a
+/// hand belongs to a person. ⚠ not a physical device id: the ordinal counts the
+/// sources taken up on this machine, so a lone player on pad three is seat zero.
 ///
 /// ⛔⛔ **and a MATCH SLOT is a third numbering, which this is not.** A seat's
 /// cursor, a seat's pad and a seat's menu frame agree; the CARD that seat

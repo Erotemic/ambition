@@ -345,6 +345,80 @@ without the resolver still runs the guard. Breaking that hook takes the whole
 standing-goal mechanism down, and it can only be exercised by ending a turn,
 which is why the logic moved into a script a test can run.
 
+- ▢ **D180 — THE PRESENTATION/AUTHORITY BOUNDARY AND THE IDENTITY VOCABULARY.**
+  (found 2026-08-21, by GPT review of `f3b4b83a1`)
+
+**(a) ✔ THE CAMERA RESOLVE WAS SEARCHING CONTROL AUTHORITY.**
+`resolve_camera_observation` is a ~600-line geometry and easing resolver, and
+D178 put a `DrivingParticipant` query inside it — folded into another
+parameter's tuple, with a comment saying the system sits at Bevy's 16-parameter
+ceiling. ⛔⛔ **packing satisfies the limit without reducing what the system
+knows about**, which is the whole smell: the limit was telling the truth and the
+tuple silenced it.
+
+Fixed by extracting the question rather than the query. `ResolvedViewSubject`
+is a component on the view; `resolve_view_subjects` decides it from
+`ViewSubject` (a body) or `ViewParticipant` (a seat) and chains before the
+resolve, which now reads one entity. The resolve dropped from 13 parameters to
+11, `body_driving` is gone, and the "one param, two resources" packing note went
+with it. ⭐ **and the one-body-one-slot invariant landed at the layer that owns
+it**: the camera used to take the first of several holders while its own comment
+called a second holder an error; `body_driving_seat` debug-asserts instead.
+
+⚠ the new fact joins `local_view_facts()`, which is the ONE bundle both spawn
+paths share — a fact added to one path and missed by the other is not a compile
+error, not a panic and not a log line, just a view that silently fails the
+resolve's query and reads as a camera frozen at the origin. Pinned
+component-by-component by `the_plugin_spawns_one_complete_view_at_build_time`.
+Falsified by removing the participant arm: 3 of 24 twintrack tests go red.
+
+**(b) ✔ `drive_seat_frame(PRIMARY, …)` SILENTLY DROPPED THE INPUT**, and a
+fixture asserted that it should. The refusal was `if slot.0 == 0 { return; }`,
+argued as "the primary seat belongs to `drive_control_frame`, and a driver that
+meant it should say so" — but a bare return on a valid slot is exactly the
+wrong-seam failure the pair of helpers exists to remove, and the SDK acceptance
+test's whole content was that the call does not panic. ⛔⛔ **a test whose
+assertion is "it did not panic" agrees with a function that does nothing.**
+
+Replaced by one `drive_slot_frame` taking every slot, in both hosts;
+`drive_control_frame` stays as the name for the primary, a convenience over the
+same road rather than a second road with different rules. The fixture now drives
+the two seams into two identical games and holds them to the same observable,
+which fails against the old refusal. Duplicate `init_resource::<PendingSeatInputs>()`
+removed in the same pass.
+
+**(c) ✔ `ViewParticipant` SAID "PERSON" AND HELD A SEAT — doc fixed, type kept,
+and the reasoning is the deliverable.** The reviewer preferred `ParticipantId`.
+⭐ **the fact it resolves against is `DrivingParticipant(PlayerSlot)`**, so the
+seat is what it can honestly hold, and nothing here does participant↔seat
+arithmetic — which is the only thing `participant_seat` forbids new code from
+adding. Holding a `ParticipantId` would convert person→seat at the view and then
+compare seats anyway, moving the hop without removing it. ⛔ **so the two move
+TOGETHER when the identity split lands**: a pane following a person through a
+seat that has been reassigned is one question, not two.
+
+**(d) ✔ "SEAT == DEVICE INDEX" WAS THE FALSE HALF.** `SlotOccupant::Controller`'s
+`device` indexes LOCAL SOURCE ORDER, not hardware: somebody who picks up pad
+three with pads one and two unplugged is source ZERO. A sparse physical id
+reaching a dense channel is the bug `LocalChannelPlan` exists for — a fighter
+deaf for a whole match — so `ambition_input::menu` and the select cursor now say
+"dense local source ordinal" and warn against reading it back as hardware.
+
+**(e) ▢ `SlotOccupant::Controller { device: usize }` SHOULD CARRY A NAMED SOURCE
+KEY**, not a bare `usize` whose meaning comes from the current assignment
+policy. 127 sites mention `device` across the smash demo; the reviewer deferred
+it explicitly and so does this row. ⛔ do not start it as a side effect of
+something else, and do not rename half of it.
+
+**(f) ▢ FORENSIC HISTORY IS CROWDING OUT THE CONTRACT in production comments.**
+Dates, queue ids, prior failed theories and per-incident measurements are
+accumulating in `body_contact.rs`, `seating.rs` and the input systems until the
+current invariant is hard to find. ⚠ **this is a TRIM, not a purge**: the
+warnings that explain a non-obvious invariant are load-bearing and have each
+prevented a re-do (the acceleration-term one has prevented it twice). What moves
+out is the per-incident narrative — which test went red on which date — and its
+home is the regression test, this ledger, or the commit message.
+
 - ▢ **D179 — ONE CONTACT DEFECT LEFT; THE GAP-SPLIT RESIDUAL IS CLOSED.** (found
   2026-08-21, by GPT review of `f8ad04f9a`)
 

@@ -13,7 +13,7 @@ use ambition_platformer2d::relativity2d::{
     RelativisticOpticalView2d, RelativisticTargetingView2d, RelativityClockView2d,
     RelativitySignalView2d, SpacetimeCoordinateTime2d, WorldlineHistoryView2d, WorldlineTrackId,
 };
-use ambition_platformer2d::sim::{drive_control_frame, drive_seat_frame, ControlFrame, PlayerSlot};
+use ambition_platformer2d::sim::{drive_control_frame, drive_slot_frame, ControlFrame, PlayerSlot};
 use ambition_platformer2d::sim_view::{LocalView, LocalViewId, ViewPlacement, ViewSubject};
 use ambition_platformer2d::world::rooms::CameraClampMode;
 use bevy::prelude::*;
@@ -1043,7 +1043,7 @@ fn each_seat_moves_its_own_body_and_leaves_the_others_alone() {
 
     // Seat one presses right; seat zero presses nothing.
     for _ in 0..45 {
-        drive_seat_frame(
+        drive_slot_frame(
             app.world_mut(),
             PlayerSlot(1),
             ControlFrame {

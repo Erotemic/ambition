@@ -1230,14 +1230,12 @@ pub fn resolve_camera_observation(
             &CameraScreenFraming,
             &CameraPresentationInputs,
             &CameraReferenceFrame,
-            // **THIS VIEW's subject**, when it names one. Absent — every
-            // single-view composition — the view frames the session's, resolved
-            // once above the loop.
-            Option<&crate::local_view::ViewSubject>,
-            // **OR THE PARTICIPANT IT FOLLOWS**, resolved through whichever body
-            // is currently carrying that slot. See [`ViewParticipant`]: a pane
-            // belongs to a PERSON, and which body they are in changes.
-            Option<&crate::local_view::ViewParticipant>,
+            // **THIS VIEW's subject, already resolved.** A view names either a
+            // body or a seat, and `resolve_view_subjects` turns whichever it
+            // used into one entity before this system runs. `None` — every
+            // single-view composition — frames the session's, resolved once
+            // above the loop.
+            &crate::local_view::ResolvedViewSubject,
             &mut ambition_platformer2d_shared_tangle::camera_ease::CameraEaseState,
             &mut ResolvedCameraSnapshot,
         ),
@@ -1262,23 +1260,17 @@ pub fn resolve_camera_observation(
         ),
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
-    // ⚠ ONE param, two resources: this system sits at Bevy's 16-param ceiling,
-    // which is also why `followed_body` below is a tuple. `framed` is what to
-    // look at when nothing is driving a body — see the `None` arm below.
-    subject: (
-        bevy::prelude::Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>,
-        bevy::prelude::Res<ambition_platformer2d_shared_tangle::markers::FramedCast>,
-        // **WHO IS DRIVING WHAT**, for the views that follow a PARTICIPANT
-        // rather than a body. ⚠ folded into this tuple rather than added as a
-        // parameter: this system sits at Bevy's 16-param ceiling, which is why
-        // `followed_body` is a tuple too.
-        bevy::prelude::Query<(
-            bevy::prelude::Entity,
-            &ambition_characters::brain::DrivingParticipant,
-        )>,
-    ),
-    // Both lookups for whichever body is being followed, grouped into ONE
-    // system param because this resolve sits at Bevy's 16-param ceiling.
+    // The session's default subject, for a view that names none of its own.
+    controlled: bevy::prelude::Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>,
+    // What to look at when nothing is driving a body — see the `None` arm below.
+    framed: bevy::prelude::Res<ambition_platformer2d_shared_tangle::markers::FramedCast>,
+    // **Three lookups on ONE subject**, grouped because they are one question
+    // asked of one entity — not because of the parameter limit. ⚠ that was the
+    // reason until 2026-08-21: this system sat at Bevy's 16-param ceiling, and
+    // packing to satisfy it is how a control-authority query ended up inside a
+    // camera resolve. Subject resolution moved to `resolve_view_subjects` and
+    // the headroom came back; the grouping stayed because it was always the
+    // honest shape.
     //
     // The camera frames the PRESENTED subject, not the raw tick pose: this and
     // the sprite must sample the same frame-clock position, or they disagree by
@@ -1295,20 +1287,6 @@ pub fn resolve_camera_observation(
     ),
 ) {
     let (body_kinematics, presented, subject_frames) = followed_body;
-    let (controlled, framed, drivers) = subject;
-    // **THE BODY A SLOT IS DRIVING**, resolved the same way `ControlledSubject`
-    // resolves the primary's: the entity holding `DrivingParticipant(slot)`.
-    //
-    // ⚠ **first match, and the invariant is that there is only one.**
-    // `resolve_controlled_subject` states it for slot zero and debug-asserts it;
-    // a second holder of one slot is a seat that was never retracted, which is a
-    // control bug and not something a camera should paper over by choosing.
-    let body_driving = |slot: ambition_characters::brain::PlayerSlot| {
-        drivers
-            .iter()
-            .find(|(_, driver)| driver.0 == slot)
-            .map(|(entity, _)| entity)
-    };
     // Dev tools can temporarily replace the authored/default camera view.
     let (base_view_w, base_view_h) = if developer_tools.camera_view_override_enabled {
         (
@@ -1546,7 +1524,6 @@ pub fn resolve_camera_observation(
         presentation,
         reference_frame,
         view_subject,
-        view_participant,
         mut camera_state,
         mut resolved,
     ) in &mut views
@@ -1561,15 +1538,11 @@ pub fn resolve_camera_observation(
         // pane watching somebody else would yank that pane when the participant
         // blinks — and `must_frame_world` is the declared CAST's box, which is a
         // constraint on the view that is watching the cast and on no other.
-        // ⭐ **an explicitly NAMED body wins over a participant.** Both are
-        // legitimate and they answer different questions — *watch this thing* and
-        // *watch this person* — so a view carrying both is stating a deliberate
-        // override of its own default, which is what `ViewSubject` is for.
-        let named = view_subject
-            .map(|subject| subject.0)
-            .or_else(|| view_participant.and_then(|participant| body_driving(participant.0)));
+        // ⭐ **whether the view named a body or a seat was decided upstream**, by
+        // `resolve_view_subjects`. What is left here is what a camera resolve
+        // should be doing with it: framing.
         let (focus, subject_down, follow_world, blink, must_frame_world) =
-            match named.and_then(view_focus) {
+            match view_subject.0.and_then(view_focus) {
                 Some((own_focus, own_down, own_center)) => {
                     (own_focus, own_down, own_center, None, None)
                 }
@@ -1857,6 +1830,10 @@ pub fn local_view_facts() -> impl bevy::prelude::Bundle {
         CameraReferenceFrame::default(),
         ambition_platformer2d_shared_tangle::camera_ease::CameraEaseState::default(),
         ResolvedCameraSnapshot::default(),
+        // Where this view is looking, resolved from its own declaration before
+        // anything frames it. Here rather than at the two spawn sites for the
+        // reason this whole function exists.
+        crate::local_view::ResolvedViewSubject::default(),
         // Sixth fact on the view (D116 M2): the live camera diagnostics the
         // overlays read. Carried here for the same reason as the others — a
         // reader must never see a frame where the view exists and its state
@@ -1909,6 +1886,10 @@ impl bevy::prelude::Plugin for CameraObservationPlugin {
             bevy::prelude::Update,
             (
                 apply_camera_reference_frame_setting,
+                // **WHO EACH VIEW IS WATCHING, before anything frames one.**
+                // Chained, so the resolve below reads a fact rather than
+                // searching control authority for it.
+                crate::local_view::resolve_view_subjects,
                 resolve_camera_observation,
             )
                 .chain()

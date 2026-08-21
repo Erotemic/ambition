@@ -34,9 +34,16 @@ impl MenuInputFrame {
 /// independently. The two coexist on purpose: this does not replace the global
 /// frame, it answers a different question.
 ///
-/// Keyed by the participant's SLOT, which is also the seat and also the device
-/// index — one numbering, because two that have to agree eventually disagree
-/// (see [`crate::ParticipantId::slot`]).
+/// Keyed by the participant's SLOT, which is also the seat and also the DENSE
+/// LOCAL SOURCE ORDINAL — one numbering, because two that have to agree
+/// eventually disagree (see [`crate::ParticipantId::slot`]).
+///
+/// ⛔ **and "local source ordinal" is not "device".** It counts the sources this
+/// machine has taken up, in order: somebody who picks up pad three while pads
+/// one and two are unplugged is source ZERO. A sparse physical id reaching a
+/// dense channel is exactly the bug `LocalChannelPlan` was written for — a
+/// fighter was deaf for a whole match — so this numbering is a channel and must
+/// never be read back as hardware identity.
 ///
 /// ⛔⛔ **that numbering ends at the input layer.** A GAME's roster slot is a
 /// third index and this crate cannot speak for it: a lobby may seat a person on

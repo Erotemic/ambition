@@ -316,9 +316,7 @@ fn the_app_prelude_carries_the_room_types_its_signatures_require() {
 /// with it: a host that exited 0 having never started.
 #[test]
 fn the_minimal_game_reports_that_it_started() {
-    let mut app = PlatformerApp::headless()
-        .mount(the_one_module())
-        .build();
+    let mut app = PlatformerApp::headless().mount(the_one_module()).build();
 
     assert_eq!(
         host_status(&app),
@@ -335,7 +333,10 @@ fn the_minimal_game_reports_that_it_started() {
         }
     }
 
-    assert!(status.is_running(), "never reached a running host; got {status:?}");
+    assert!(
+        status.is_running(),
+        "never reached a running host; got {status:?}"
+    );
     assert_eq!(
         status.route(),
         Some(minimal_game::MINIMAL_GAMEPLAY_ROUTE),
@@ -409,9 +410,14 @@ fn a_noncombat_character_gets_no_combat_state() {
     );
 
     let world = app.world_mut();
-    let mut players = world.query_filtered::<Entity, With<ambition_platformer2d::actor::PrimaryPlayer>>();
+    let mut players =
+        world.query_filtered::<Entity, With<ambition_platformer2d::actor::PrimaryPlayer>>();
     let bodies: Vec<Entity> = players.iter(world).collect();
-    assert_eq!(bodies.len(), 1, "expected exactly one primary player to inspect");
+    assert_eq!(
+        bodies.len(),
+        1,
+        "expected exactly one primary player to inspect"
+    );
 
     let components: Vec<String> = world
         .inspect_entity(bodies[0])
@@ -566,9 +572,7 @@ fn two_modules_claiming_one_experience_id_conflict_and_the_error_names_both() {
 fn the_walker_lands_on_the_floor_instead_of_falling_through_it() {
     use ambition_platformer2d::bevy::prelude::With;
 
-    let mut app = PlatformerApp::headless()
-        .mount(the_one_module())
-        .build();
+    let mut app = PlatformerApp::headless().mount(the_one_module()).build();
     for _ in 0..600 {
         app.update();
         if host_status(&app).is_running() {
@@ -798,7 +802,13 @@ fn the_sdk_worked_room_example_compiles_and_runs() {
                 .no_audio()
                 // `my_hero` is the id MINIMAL_CHARACTER_ROSTER_RON declares —
                 // the connection the README now states and this pins.
-                .playable("From The Readme", "…", "my_hero", "my_room", vec![my_room()]);
+                .playable(
+                    "From The Readme",
+                    "…",
+                    "my_hero",
+                    "my_room",
+                    vec![my_room()],
+                );
         }
     }
 
@@ -881,22 +891,62 @@ fn a_declaration_refusal_says_the_later_checks_have_not_run() {
 /// `ambition_platformer2d` alone.
 #[test]
 fn a_consumer_can_name_both_input_seams_without_leaving_the_sdk() {
-    use ambition_platformer2d::sim::{drive_control_frame, drive_seat_frame, ControlFrame, PlayerSlot};
+    use ambition_platformer2d::sim::{
+        drive_control_frame, drive_slot_frame, ControlFrame, PlayerSlot,
+    };
 
-    let mut app = PlatformerApp::headless()
-        .mount(the_one_module())
-        .try_build()
-        .expect("the smallest game composes headless");
+    macro_rules! a_game {
+        () => {
+            PlatformerApp::headless()
+                .mount(the_one_module())
+                .try_build()
+                .expect("the smallest game composes headless")
+        };
+    }
+    let pressed = ControlFrame {
+        axis_x: 1.0,
+        ..Default::default()
+    };
 
-    // Seat 0 through the primary seam, seat 1 through the named one. Neither
-    // call needs to know which host is running — that is the whole point of the
-    // pair, and a driver that guessed wrong would move nothing and be told
-    // nothing.
+    // Seat 0 by name, seat 1 by number. Neither call needs to know which host is
+    // running — that is the whole point of the seam, and a driver that guessed
+    // wrong would move nothing and be told nothing.
+    let mut app = a_game!();
     drive_control_frame(app.world_mut(), ControlFrame::default());
-    drive_seat_frame(app.world_mut(), PlayerSlot(1), ControlFrame::default());
+    drive_slot_frame(app.world_mut(), PlayerSlot(1), ControlFrame::default());
 
-    // Slot 0 is REFUSED by the named seam rather than silently redirected: it
-    // belongs to `drive_control_frame`, and a driver that meant the primary seat
-    // should say so. Asserted as a no-panic, since the refusal is a return.
-    drive_seat_frame(app.world_mut(), PlayerSlot(0), ControlFrame::default());
+    // ⛔⛔ **SLOT ZERO GOES THROUGH THE GENERAL SEAM, and this assertion used to
+    // say the opposite.** It read: *"Slot 0 is REFUSED rather than silently
+    // redirected… asserted as a no-panic, since the refusal is a return"* — and
+    // a bare `return` on a valid slot is a silent dropped input, which is the
+    // one failure this pair of helpers exists to remove. A test whose whole
+    // content is "the call does not panic" agrees with a function that does
+    // nothing.
+    //
+    // ⚠ **asked of the app, not of the branch.** Which resource the frame lands
+    // in is the composition's business — a latching host folds it into a latch,
+    // a headless one writes the frame — so this drives the two seams into two
+    // identical games and holds them to the same OBSERVABLE, rather than
+    // restating the helper's own arm structure back at it.
+    let mut by_name = a_game!();
+    let mut by_number = a_game!();
+    for _ in 0..8 {
+        drive_control_frame(by_name.world_mut(), pressed);
+        by_name.update();
+        drive_slot_frame(by_number.world_mut(), PlayerSlot(0), pressed);
+        by_number.update();
+    }
+    let named = *by_name.world_mut().resource::<ControlFrame>();
+    let numbered = *by_number.world_mut().resource::<ControlFrame>();
+    assert_eq!(
+        named.axis_x, pressed.axis_x,
+        "the fixture never delivered the press through EITHER seam, so nothing \
+         below distinguishes them",
+    );
+    assert_eq!(
+        numbered, named,
+        "a press driven at PlayerSlot(0) through the general seam did not reach \
+         the seat that `drive_control_frame` reaches: {numbered:?} against \
+         {named:?}",
+    );
 }

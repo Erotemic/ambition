@@ -19,25 +19,18 @@ pub const MINIMAL_ROOM_ID: &str = "minimal_room";
 
 /// One character, no combat, no art.
 ///
-/// ⚠ **`playable_kit` is a required field whose two values mean opposite
-/// things, and the wrong one ARMS YOUR PEACEFUL CHARACTER.**
+/// The sheet named here does not exist; the engine degrades to a placeholder
+/// body, which is the correct behaviour for a game that ships no art.
 ///
-/// `HostCode` means "give this body the host protagonist's kit", so the engine
-/// calls `default_player_action_set` and the authored `melee: None` is ignored
-/// entirely. `Authored` means "my action set is the authority".
-///
-/// This game shipped `HostCode` for a day because it was copied out of
-/// Outlander — which is a protagonist and wants it — and blind run 2 recorded
-/// doing exactly the same copy for exactly the same reason. Nothing documents
-/// the difference. The consumer-matrix test
-/// `a_noncombat_character_gets_no_combat_state` is what caught it, by asking
-/// the live body rather than the RON what it could do. The sheet
-/// named here does not exist; the engine degrades to a placeholder body, which
-/// is the correct behaviour for a game that ships no art and is also exactly
-/// the "declared image indistinguishable from an unskinned bolt" hazard the
-/// repo has been bitten by. Recorded rather than worked around — a required
-/// field with no meaningful value is API pressure, and slice C's evidence
-/// should see it.
+/// ⛔⛔ **A CATALOG FRAGMENT IS PARSED AT RUNTIME, so `cargo check` is not a
+/// check on it.** This row carried `playable_kit: Authored` until 2026-08-21 —
+/// eight days after `PlayableKitSource` was deleted — and every one of the ten
+/// tests here that boots a game panicked on the unknown field the whole time,
+/// while the fixture compiled clean. ⚠ this is a SEPARATE WORKSPACE, deliberately,
+/// so the repository gate (`cargo check -p ambition_app --all-targets`) does not
+/// reach it: run it from `fixtures/minimal_game` after changing anything a
+/// consumer's RON can name. The sibling fixture `external_consumer` hit the
+/// identical failure and was fixed alone, which is how this one kept it.
 pub const MINIMAL_ROSTER_RON: &str = r#"(
     brain_presets: { "still": StandStill },
     action_set_presets: {
@@ -58,7 +51,6 @@ pub const MINIMAL_ROSTER_RON: &str = r#"(
             composition: None,
             default_brain: "still",
             default_action_set: "walk_only",
-            playable_kit: Authored,
             tags: ["player"],
         ),
     },

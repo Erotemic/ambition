@@ -47,8 +47,11 @@ pub use ambition_platformer2d_core::snapshot::{
     put_opt_str, put_str, put_u32, put_u64, put_u8, put_vec2, resolved_checksum, state_checksum,
     Reader, SnapshotCursor, SnapshotResolve, SnapshotState, StateHasher,
 };
-pub use ambition_platformer2d_runtime::rollback::{
-    RollbackEntryKind, RollbackRegistrationDescriptor, RollbackRegistry,
+pub use ambition_platformer2d_rollback_ggrs::local_session;
+pub use ambition_platformer2d_rollback_ggrs::session::{
+    drive_control_frame, drive_slot_frame, session_health, session_is_active,
+    start_sync_test_session, stop_session, stop_session_deferred, RollbackExecutionStats,
+    RollbackSessionOwnership, RollbackSessionStatus, SyncTestOwner, SyncTestSettings,
 };
 pub use ambition_platformer2d_rollback_ggrs::{
     AdvanceWorld, AdvanceWorldSystems, AmbitionGgrsSession, AmbitionRollbackApp,
@@ -56,11 +59,8 @@ pub use ambition_platformer2d_rollback_ggrs::{
     LoadWorldSystems, Rollback, RollbackChecksumProbes, RollbackEnginePlugin, RollbackFrameCount,
     RollbackRestoreAudit, RunGgrsSystems, SaveWorld,
 };
-pub use ambition_platformer2d_rollback_ggrs::local_session;
-pub use ambition_platformer2d_rollback_ggrs::session::{
-    drive_control_frame, drive_seat_frame, session_health, session_is_active,
-    start_sync_test_session, stop_session, stop_session_deferred, RollbackExecutionStats,
-    RollbackSessionOwnership, RollbackSessionStatus, SyncTestOwner, SyncTestSettings,
+pub use ambition_platformer2d_runtime::rollback::{
+    RollbackEntryKind, RollbackRegistrationDescriptor, RollbackRegistry,
 };
 
 /// How a rollback session should be brought up.

@@ -613,43 +613,27 @@ pub fn session_is_active(world: &World) -> bool {
 /// carry its own copy of this branch, which is the definition of a leak — every
 /// consumer rediscovering an engine rule the engine could have stated once.
 pub fn drive_control_frame(world: &mut World, frame: ControlFrame) {
-    drive_one_seat(
+    drive_slot_frame(
         world,
         ambition_characters::brain::PlayerSlot::PRIMARY,
         frame,
     );
 }
 
-/// **THE seam a driver writes a SECONDARY seat's input through.** (queue Y1)
-///
-/// The twin of [`drive_control_frame`], and it exists for the same reason that
-/// one does: every driver that grew its own copy grew the same bug, because
-/// writing the wrong resource is silently ignored and the sim simply never
-/// moves.
-///
-/// ⛔ **Slot 0 is refused rather than silently redirected.** It is
-/// [`drive_control_frame`]'s, and a driver that meant the primary seat should
-/// say so. ⚠ that refusal is now the ONLY difference between these two — the
-/// bodies are one function below, because the latch table and the pending table
-/// both cover seat zero.
-pub fn drive_seat_frame(
-    world: &mut World,
-    slot: ambition_characters::brain::PlayerSlot,
-    frame: ControlFrame,
-) {
-    if slot.0 == 0 {
-        return;
-    }
-    drive_one_seat(world, slot, frame);
-}
-
-/// **ONE seat's input, delivered to whichever surface this composition has.**
+/// **ANY seat's input, delivered to whichever surface this composition has.**
+/// (queue Y1)
 ///
 /// ⭐ this was TWO functions with the same four-arm shape, differing only in
 /// which resource each arm named — and the resources they named have since
 /// become one table each (`SlotControlLatches`, `PendingSeatInputs`). What is
 /// left of the fork is the last arm.
-fn drive_one_seat(
+///
+/// ⛔ **it accepts every slot, and the version that did not was a bug.**
+/// `drive_seat_frame` refused slot zero with a bare `return`, on the argument
+/// that the primary seat belonged to [`drive_control_frame`]. A silent dropped
+/// input is precisely the wrong-seam failure this pair exists to remove, and
+/// the fixture asserting the refusal asserted the bug.
+pub fn drive_slot_frame(
     world: &mut World,
     slot: ambition_characters::brain::PlayerSlot,
     frame: ControlFrame,
@@ -663,7 +647,7 @@ fn drive_one_seat(
         return;
     }
     // ⚠ this does NOT clear the other handles, and an earlier version did.
-    // `drive_seat_frame` is called BEFORE the step it applies to, so clearing
+    // `drive_slot_frame` is called BEFORE the step it applies to, so clearing
     // here wiped every other seat's input on the way past — the seam was built
     // and then emptied by its own sibling, one line later. A driver that wants a
     // seat neutral drives it neutral; silence is not a request.
@@ -740,7 +724,6 @@ pub(crate) fn install_session_bridge(app: &mut App) {
 
     app.add_systems(Update, report_input_written_to_the_wrong_seam);
     app.init_resource::<InputSeamMisuse>()
-        .init_resource::<PendingSeatInputs>()
         .init_resource::<PendingSeatInputs>()
         .init_resource::<ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>()
         .init_resource::<RollbackExecutionStats>()

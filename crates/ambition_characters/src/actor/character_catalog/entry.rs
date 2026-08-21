@@ -806,8 +806,8 @@ pub enum BrainPreset {
     /// vocabulary a catalog row has for choosing a brain, and there was no
     /// variant for this one. That is the third time in a day the same shape has
     /// turned up here — a capability built, correct, and unreachable from where
-    /// a consumer stands (`drive_seat_frame`, the inert rollback registration,
-    /// and now this).
+    /// a consumer stands (the named-seat driver seam, the inert rollback
+    /// registration, and now this).
     ///
     /// `level` picks a rung of the ladder. The other knobs are the ones a stage
     /// legitimately varies per opponent; everything else about how the brain

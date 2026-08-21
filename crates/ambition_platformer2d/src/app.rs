@@ -364,10 +364,6 @@ struct ExperienceDefinition {
 /// * `tier` — `MainHall` for an ordinary character.
 /// * `body_kind` — `Standard`.
 /// * `composition` — `None` unless the body is assembled from parts.
-/// * `playable_kit` — **`Authored`** if this character's own action set is the
-///   authority, `HostCode` if it should wear the host protagonist's kit
-///   instead. These mean opposite things and the wrong one silently overrides
-///   everything you declared below it.
 /// * `move_style` — `Walk`.
 /// * a brain preset value — `StandStill` for a character that does not act.
 pub const MINIMAL_CHARACTER_ROSTER_RON: &str = r#"(
@@ -1724,9 +1720,7 @@ fn experience_installer(experience: &ExperienceDraft) -> Option<CapabilityInstal
     let rooms = definition.rooms.clone();
 
     Some(Box::new(move |app: &mut App| {
-        use crate::runtime::demo_fixture::{
-            ActiveRoomMetadata, RoomSet, StartingCharacter,
-        };
+        use crate::runtime::demo_fixture::{ActiveRoomMetadata, RoomSet, StartingCharacter};
         let Some(first) = rooms.first().cloned() else {
             return;
         };

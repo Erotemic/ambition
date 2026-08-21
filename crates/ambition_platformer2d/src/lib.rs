@@ -256,8 +256,8 @@ pub mod actor {
     /// it asked for is the match it got.
     ///
     /// ⚠ **the input half is CLOSED as of 2026-07-31**:
-    /// `ambition_platformer2d::sim::drive_seat_frame` drives a named seat, beside
-    /// `drive_control_frame` for the primary. The seam had existed in
+    /// `ambition_platformer2d::sim::drive_slot_frame` drives any seat, beside
+    /// `drive_control_frame` naming the primary. The seam had existed in
     /// `ambition_platformer2d_runtime` since queue Y1 and was simply never re-exported — so
     /// the finding described the FACADE, not the engine, which is the more
     /// embarrassing of the two and the harder one to notice.
@@ -434,9 +434,8 @@ pub mod sim {
     #[cfg(not(feature = "rollback"))]
     pub use ambition_platformer2d_runtime::input_drive::drive_control_frame;
 
-    /// **Drive input to a NAMED seat** — the twin of
-    /// [`drive_control_frame`],
-    /// and the half blind run 7's finding (g) recorded as missing.
+    /// **Drive input to ANY seat**, and the half blind run 7's finding (g)
+    /// recorded as missing.
     ///
     /// ⚠ the seam existed in the old runtime rollback module since queue Y1; it
     /// was never re-exported, so from a consumer's side "no public seam drives
@@ -447,9 +446,14 @@ pub mod sim {
     ///
     /// A driver that needs two independent streams — couch versus, a character
     /// select where four people press their own buttons, a two-peer replay —
-    /// writes seat 0 through `drive_control_frame` and every other seat through
-    /// this. Slot 0 is REFUSED here rather than silently redirected: it belongs
-    /// to the other seam, and a driver that meant the primary seat should say so.
+    /// writes every seat through this. [`drive_control_frame`] is the same road
+    /// with the primary slot filled in, kept because naming the primary seat is
+    /// the common case.
+    ///
+    /// ⛔ **slot zero is accepted, and the version that refused it was a bug.**
+    /// It returned silently on `slot.0 == 0` — a dropped input, which is the
+    /// wrong-seam failure this seam exists to remove, and the fixture asserting
+    /// the refusal asserted the bug.
     ///
     /// Under a latching host it folds into that seat's latch, so a sub-tick press
     /// survives exactly as the primary seat's does; without one it writes the
@@ -467,9 +471,9 @@ pub mod sim {
     /// with that reconcile.
     pub use ambition_characters::brain::DrivingParticipant;
     #[cfg(feature = "rollback")]
-    pub use ambition_platformer2d_rollback_ggrs::drive_seat_frame;
+    pub use ambition_platformer2d_rollback_ggrs::drive_slot_frame;
     #[cfg(not(feature = "rollback"))]
-    pub use ambition_platformer2d_runtime::input_drive::drive_seat_frame;
+    pub use ambition_platformer2d_runtime::input_drive::drive_slot_frame;
 }
 
 /// **What is drawn, as a game observes it.**

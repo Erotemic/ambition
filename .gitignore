@@ -1,5 +1,10 @@
 # Rust build output
 /target/
+# The two external-consumer fixtures are SEPARATE WORKSPACES (deliberately: they
+# may name only the SDK facade), so each builds its own multi-gigabyte target
+# outside the root one above. ⛔ they are also outside the repository gate — see
+# `fixtures/minimal_game/src/minimal_experience.rs` for the eight days that cost.
+fixtures/*/target/
 
 # Generated browser bundle (wasm-bindgen output from ./build_for_web.sh).
 game/ambition_app/web/pkg/

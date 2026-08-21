@@ -130,9 +130,9 @@ impl SlotControls {
 /// covered slots 1.. and its own doc said *"slot 0 is deliberately NOT latched
 /// here: it already goes through `ControlFrameLatch`"*. A type whose doc says it
 /// mirrors another type is a fork with a note attached — and every consumer paid
-/// for it twice: `drive_control_frame`/`drive_seat_frame`, two `init_resource`
-/// calls, two reset blocks in the GGRS session, two capture blocks. The pairs
-/// are gone; seat zero is row zero.
+/// for it twice: two driver seams, two `init_resource` calls, two reset blocks
+/// in the GGRS session, two capture blocks. The pairs are gone; seat zero is row
+/// zero, and `drive_slot_frame` takes every slot.
 ///
 /// ⚠ **the ELEMENT type survives and is still `ControlFrameLatch`** — it was
 /// always the right thing, it was just also a resource. What is deleted is the

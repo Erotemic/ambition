@@ -297,7 +297,7 @@ impl Platformer2dSimHarness {
     /// not hold is written and never asked for, which is inert rather than
     /// wrong — the same as a pad plugged into a one-player game.
     pub fn drive_seat(&mut self, slot: u8, frame: ControlFrame) {
-        ambition_platformer2d::rollback::drive_seat_frame(
+        ambition_platformer2d::rollback::drive_slot_frame(
             self.app.world_mut(),
             ambition_platformer2d::characters::brain::PlayerSlot(slot),
             frame,
@@ -510,9 +510,7 @@ impl Platformer2dSimHarness {
         self.step(AgentAction::default())
     }
 
-    fn sync_test_settings(
-        &self,
-    ) -> Option<ambition_platformer2d::rollback::SyncTestSettings> {
+    fn sync_test_settings(&self) -> Option<ambition_platformer2d::rollback::SyncTestSettings> {
         match self.rollback {
             RollbackMode::Disabled => None,
             RollbackMode::SyncTest {
@@ -539,11 +537,8 @@ impl Platformer2dSimHarness {
             return Ok(());
         };
         ambition_platformer2d::rollback::stop_session(self.app.world_mut());
-        ambition_platformer2d::rollback::start_sync_test_session(
-            self.app.world_mut(),
-            settings,
-        )
-        .map_err(|error| format!("failed to rebase GGRS sync-test history: {error}"))
+        ambition_platformer2d::rollback::start_sync_test_session(self.app.world_mut(), settings)
+            .map_err(|error| format!("failed to rebase GGRS sync-test history: {error}"))
     }
 
     /// Execute one setup-only simulation frame without retaining rollback

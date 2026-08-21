@@ -11,7 +11,7 @@
 //! foundation crates. This file is the consumer, not the capability.
 
 use ambition_platformer2d::app::{GameModule, ModuleDraft, ModuleManifest, PlatformerApp};
-use ambition_platformer2d::input::{GAMEPLAY_CONTEXT, InstalledActions, SemanticActionId};
+use ambition_platformer2d::input::{InstalledActions, SemanticActionId, GAMEPLAY_CONTEXT};
 use bevy::prelude::*;
 
 /// One character, so the composition has somebody to start as.
@@ -40,7 +40,6 @@ const ROSTER: &str = r#"(
             composition: None,
             default_brain: "still",
             default_action_set: "walk_only",
-            playable_kit: Authored,
             tags: ["player"],
         ),
     },
@@ -248,8 +247,8 @@ fn declaring_required_rollback_without_providing_it_is_refused() {
 #[test]
 fn a_game_validates_the_capabilitys_authored_content_through_the_facade() {
     use ambition_platformer2d::content::{
-        AssetsUnchecked, ContentPackDraft, ContentPackManifest, ModuleNamespace, PackId,
-        PackVersion, SchemaId, SchemaVersion, SourceDeclaration, compile, engine_schemas,
+        compile, engine_schemas, AssetsUnchecked, ContentPackDraft, ContentPackManifest,
+        ModuleNamespace, PackId, PackVersion, SchemaId, SchemaVersion, SourceDeclaration,
     };
 
     let root = std::env::temp_dir().join("capability_demo_sdk/pack");
@@ -284,7 +283,9 @@ fn a_game_validates_the_capabilitys_authored_content_through_the_facade() {
 
     let pack = compile(&draft, &registry, &AssetsUnchecked).expect("the game's tuning compiles");
     let profiles = pack
-        .lowered::<Vec<capability_demo::PulseProfile>>(&SchemaId::new(capability_demo::PULSE_SCHEMA))
+        .lowered::<Vec<capability_demo::PulseProfile>>(&SchemaId::new(
+            capability_demo::PULSE_SCHEMA,
+        ))
         .expect("a Runtime schema lowers what the game will run");
     assert_eq!(profiles[0].name, "heavy");
     assert_eq!(profiles[0].radius, 180.0);

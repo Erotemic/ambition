@@ -159,8 +159,7 @@ impl ViewPlacement {
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ViewSubject(pub Entity);
 
-/// **THE PARTICIPANT THIS VIEW FOLLOWS**, wherever that participant currently
-/// is.
+/// **THE SEAT THIS VIEW FOLLOWS**, wherever the body driving it currently is.
 ///
 /// ⛔⛔ **an entity is the wrong thing for a person's own pane to name, and
 /// TwinTrack proved it.** Its second pane wrote `ViewSubject(laboratory_twin)`,
@@ -168,6 +167,16 @@ pub struct ViewSubject(pub Entity);
 /// or transferred, or was handed a different body, the pane stayed on a body
 /// nobody was driving while its person walked away off-camera. A pane belongs to
 /// the PERSON; which body they are in is a fact that changes.
+///
+/// ⚠ **it holds a `PlayerSlot`, and the doc used to say PERSON while the field
+/// said SEAT** (GPT review, 2026-08-21). The seat is what it can honestly hold:
+/// the fact it resolves against is `DrivingParticipant(PlayerSlot)`, so nothing
+/// here does participant↔seat arithmetic and no new equality assumption is
+/// added — which is the rule `participant_seat` states for new code. ⛔ when the
+/// `ParticipantId` / `PlayerSlot` split does land, this type and
+/// `DrivingParticipant` move TOGETHER: a pane following a person through a seat
+/// that has been reassigned is one question, not two, and changing only this one
+/// would put the hop on the wrong side of the boundary.
 ///
 /// ⭐ **and the default view already worked this way, for exactly one slot.**
 /// A view naming no subject frames `ControlledSubject`, which is derived as *the
@@ -185,6 +194,77 @@ pub struct ViewSubject(pub Entity);
 /// would make every spectator view a possession.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ViewParticipant(pub ambition_characters::brain::PlayerSlot);
+
+/// **THE BODY THIS VIEW IS LOOKING AT**, resolved once per frame from whichever
+/// way the view declared it.
+///
+/// ⭐ **the two ways a view can name a subject collapse into ONE fact here.** A
+/// view declares a body ([`ViewSubject`]) or a seat ([`ViewParticipant`]); which
+/// of those it used, and where that seat's body currently is, are questions with
+/// a single answer, and answering them is not camera geometry.
+///
+/// ⛔⛔ **the camera resolve must not search control authority itself, and it
+/// did.** `resolve_camera_observation` carried a `DrivingParticipant` query
+/// folded into another parameter's tuple, with a comment explaining that the
+/// system sits at Bevy's 16-parameter ceiling. Packing satisfies the limit
+/// without reducing what the system knows about: a 600-line easing resolver that
+/// can also answer *who is driving* has two jobs, and the second one grows.
+///
+/// `None` means the view named nothing resolvable, and frames the session's
+/// default subject.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ResolvedViewSubject(pub Option<Entity>);
+
+/// **THE BODY DRIVING A SEAT**: the entity holding `DrivingParticipant(slot)`,
+/// resolved the same way `ControlledSubject` resolves the primary's.
+///
+/// ⛔ **one body drives one slot, and a second holder is a seat that was never
+/// retracted.** That is a control bug; picking one of them is not a repair, so
+/// this says so in a debug build rather than letting a camera quietly frame
+/// whichever body the query happened to yield first.
+fn body_driving_seat(
+    drivers: &bevy::prelude::Query<(Entity, &ambition_characters::brain::DrivingParticipant)>,
+    slot: ambition_characters::brain::PlayerSlot,
+) -> Option<Entity> {
+    let mut holders = drivers.iter().filter(|(_, driver)| driver.0 == slot);
+    let first = holders.next().map(|(entity, _)| entity);
+    debug_assert!(
+        holders.next().is_none(),
+        "more than one body carries DrivingParticipant({slot:?}) — a seat was \
+         never retracted, and presentation is not the layer that decides which \
+         of them a pane watches",
+    );
+    first
+}
+
+/// **RESOLVE EVERY VIEW'S SUBJECT, before anything frames one.**
+///
+/// ⭐ **an explicitly NAMED body wins over a seat.** Both are legitimate and they
+/// answer different questions — *watch this thing* and *watch whoever drives
+/// this seat* — so a view carrying both is stating a deliberate override of its
+/// own default, which is what [`ViewSubject`] is for.
+pub fn resolve_view_subjects(
+    mut views: bevy::prelude::Query<
+        (
+            &mut ResolvedViewSubject,
+            Option<&ViewSubject>,
+            Option<&ViewParticipant>,
+        ),
+        bevy::prelude::With<LocalView>,
+    >,
+    drivers: bevy::prelude::Query<(Entity, &ambition_characters::brain::DrivingParticipant)>,
+) {
+    use bevy::prelude::DetectChangesMut as _;
+    for (mut resolved, subject, participant) in &mut views {
+        let next = subject.map(|subject| subject.0).or_else(|| {
+            participant.and_then(|participant| body_driving_seat(&drivers, participant.0))
+        });
+        // ⚠ **`set_if_neq`, because a write every frame is a CHANGE every
+        // frame.** A view whose subject has not moved must not look to a reader
+        // keyed on `is_changed()` as though it had.
+        resolved.set_if_neq(ResolvedViewSubject(next));
+    }
+}
 
 /// **The view, for a caller that knows there is exactly one.**
 ///
@@ -705,6 +785,12 @@ mod tests {
         assert!(
             view.contains::<ResolvedCameraSnapshot>(),
             "nowhere to publish the resolved snapshot"
+        );
+        assert!(
+            view.contains::<ResolvedViewSubject>(),
+            "nowhere to publish who this view is watching — the camera resolve \
+             requires it, so a view without one is silently excluded and reads \
+             as a camera frozen at the origin"
         );
     }
 

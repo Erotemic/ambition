@@ -1023,9 +1023,9 @@ pub fn publish_smash_hud(
     let mut rows: Vec<(usize, String, f32, Option<(u32, u32)>, Option<String>)> = fighters
         .iter()
         .map(|(seat, health, stocks, name, worn)| {
-            let portrait = worn.zip(catalog.as_deref()).and_then(|(worn, catalog)| {
-                catalog.portrait_image_path(worn.id())
-            });
+            let portrait = worn
+                .zip(catalog.as_deref())
+                .and_then(|(worn, catalog)| catalog.portrait_image_path(worn.id()));
             (
                 seat.0,
                 name.as_str().to_string(),
@@ -1993,11 +1993,9 @@ fn present_the_select_screen(
             // would freeze a topology from connected DEVICES, and it is never
             // resized afterwards, so the lobby's answer would arrive too late to
             // matter. `start_the_battle_when_asked` turns this into a decision.
-            commands.insert_resource(
-                ambition_platformer2d::input::SessionSeatingSource::pending(
-                    SMASH_EXPERIENCE,
-                ),
-            );
+            commands.insert_resource(ambition_platformer2d::input::SessionSeatingSource::pending(
+                SMASH_EXPERIENCE,
+            ));
         }
         select_screen::spawn_select_screen(
             commands,
@@ -2219,26 +2217,24 @@ fn start_the_battle_when_asked(
     // wrong for every lobby that seats a CPU. Both land in the same flush that
     // asks for the route, so the session, which is built at least a frame later,
     // has never seen a smash gameplay world without them.
-    commands.insert_resource(
-        ambition_platformer2d::input::SessionSeatingSource::decided(
-            SMASH_EXPERIENCE,
-            // ⛔ **CHANNELS, not participants.** This said `participants.len()`,
-            // so a one-person-one-CPU lobby built a two-handle rollback session
-            // whose second handle nothing ever wrote — while
-            // `freeze_local_seating_for_the_decided_match` counted humans for
-            // the same decision, each citing itself as authoritative. A CPU is a
-            // participant and occupies no channel; a lobby of two CPUs needs
-            // none at all, which is the case that makes the difference
-            // impossible to ignore.
-            //
-            // ⛔ **and the whole PLAN, not the count of it.** A count sizes the
-            // session and leaves every consumer to guess which controller feeds
-            // each handle — which they did, from the lobby's SPARSE source
-            // numbers, so seating the CPU first put the human's fighter on a
-            // channel the session never opened.
-            decided.local_channel_plan(),
-        ),
-    );
+    commands.insert_resource(ambition_platformer2d::input::SessionSeatingSource::decided(
+        SMASH_EXPERIENCE,
+        // ⛔ **CHANNELS, not participants.** This said `participants.len()`,
+        // so a one-person-one-CPU lobby built a two-handle rollback session
+        // whose second handle nothing ever wrote — while
+        // `freeze_local_seating_for_the_decided_match` counted humans for
+        // the same decision, each citing itself as authoritative. A CPU is a
+        // participant and occupies no channel; a lobby of two CPUs needs
+        // none at all, which is the case that makes the difference
+        // impossible to ignore.
+        //
+        // ⛔ **and the whole PLAN, not the count of it.** A count sizes the
+        // session and leaves every consumer to guess which controller feeds
+        // each handle — which they did, from the lobby's SPARSE source
+        // numbers, so seating the CPU first put the human's fighter on a
+        // channel the session never opened.
+        decided.local_channel_plan(),
+    ));
     commands.insert_resource(decided);
     commands.insert_resource(declared_rules);
     // ⭐⭐ **AND THE PAD THIS GAME IS PLAYED ON** (D146 slice 3). Jon:
@@ -3851,8 +3847,7 @@ mod pause_arbitration_tests {
         let mut app = app_with(false);
         app.world_mut()
             .resource_mut::<select_screen::cursor::SelectCursors>()
-            .seat_mut(0)
-            .grab(0);
+            .try_grab(0, 0);
         seat_presses(
             &mut app,
             0,
@@ -3873,6 +3868,139 @@ mod pause_arbitration_tests {
         assert!(
             commands_sent(&mut app).is_empty(),
             "putting a token down also quit the lobby"
+        );
+    }
+
+    /// **A LOBBY WITH A CPU BETWEEN TWO PEOPLE ROUTES THE SECOND ONE HOME.**
+    ///
+    /// ⛔⛔ the roster is SPARSE and it is not in source order. `first_free_device`
+    /// hands out the lowest unclaimed source, so one person seating a machine
+    /// beside themselves and a friend seating themselves after produces:
+    ///
+    /// ```text
+    /// card 0   Controller { device: 0 }
+    /// card 1   Cpu
+    /// card 2   Controller { device: 1 }
+    /// ```
+    ///
+    /// The second person reports on input seat ONE — the numbering their pad,
+    /// their menu frame and their cursor all share — and the screen indexed the
+    /// CARDS with it too. Every press they made landed on the CPU's card, and
+    /// their own was unreachable from the only controller that owned it.
+    ///
+    /// ⚠ **through `SeatMenuFrames`**, the one channel a pad, a keyboard and the
+    /// touch overlay all reduce to. A test that reached into the cursor and
+    /// called the arbitration itself would agree with the bug.
+    #[test]
+    fn a_cpu_between_two_people_does_not_swallow_the_second_ones_presses() {
+        let mut app = app_with(false);
+        // `app_with` arms seat 0 on a role button; this test is about seat 1.
+        app.world_mut().resource_mut::<SeatMenuFrames>().clear();
+        {
+            let mut select = app.world_mut().resource_mut::<select::SmashSelect>();
+            select.set_occupant(0, select::SlotOccupant::Controller { device: 0 });
+            select.set_occupant(1, select::SlotOccupant::Cpu);
+            select.set_occupant(2, select::SlotOccupant::Controller { device: 1 });
+        }
+
+        let layout = select_screen::layout::SelectLayout::for_viewport(
+            None,
+            select::SmashRoster::default().cell_count(),
+        );
+        let face = layout.portrait(1).expect("a grid with a second cell");
+        app.world_mut()
+            .resource_mut::<select_screen::cursor::SelectCursors>()
+            .seat_mut(1)
+            .move_to(face.center());
+        seat_presses(
+            &mut app,
+            1,
+            MenuControlFrame {
+                select: true,
+                ..Default::default()
+            },
+        );
+        app.update();
+
+        let select = app.world().resource::<select::SmashSelect>();
+        assert_eq!(
+            select.slot(2).pick,
+            Some(select::SlotPick::Fighter(1)),
+            "the second person's press did not reach the card their controller drives"
+        );
+        // ⚠ **the other half, and the half that was actually broken.** Landing on
+        // card 2 is only right if it did NOT also land on the machine's.
+        assert_eq!(
+            select.slot(1).pick,
+            Some(select::SlotPick::Random),
+            "the second person chose the CPU's fighter"
+        );
+        assert_eq!(
+            select.slot(0).pick,
+            Some(select::SlotPick::Random),
+            "seat 1's press reached seat 0's card"
+        );
+    }
+
+    /// **ONE TOKEN HAS AT MOST ONE CARRIER.**
+    ///
+    /// ⭐ a human may pick up a CPU's token — one person setting up two machine
+    /// opponents is this lobby's most ordinary use. ⛔ but EVERY human could,
+    /// with nothing arbitrating, so two cursors carried the same piece and
+    /// `carrier_of` returned whichever the array reached first. Two people then
+    /// dragged one token to two different fighters and the last writer won.
+    ///
+    /// ⚠ **the incumbent keeps it**, resolved in seat order — deterministic, so
+    /// this cannot pass on one run and fail on the next.
+    #[test]
+    fn two_people_reaching_for_one_cpu_token_do_not_both_get_it() {
+        let mut app = app_with(false);
+        app.world_mut().resource_mut::<SeatMenuFrames>().clear();
+        {
+            let mut select = app.world_mut().resource_mut::<select::SmashSelect>();
+            select.set_occupant(0, select::SlotOccupant::Controller { device: 0 });
+            select.set_occupant(1, select::SlotOccupant::Controller { device: 1 });
+            select.set_occupant(2, select::SlotOccupant::Cpu);
+        }
+
+        let layout = select_screen::layout::SelectLayout::for_viewport(
+            None,
+            select::SmashRoster::default().cell_count(),
+        );
+        let token = select_screen::token_rect(
+            &layout,
+            app.world().resource::<select::SmashSelect>(),
+            &select_screen::TokenRest::default(),
+            2,
+        )
+        .expect("the machine is in the lobby, so it owns a token");
+        {
+            let mut cursors = app
+                .world_mut()
+                .resource_mut::<select_screen::cursor::SelectCursors>();
+            cursors.seat_mut(0).move_to(token.center());
+            cursors.seat_mut(1).move_to(token.center());
+        }
+        let press = MenuControlFrame {
+            select: true,
+            ..Default::default()
+        };
+        seat_presses(&mut app, 0, press);
+        seat_presses(&mut app, 1, press);
+        app.update();
+
+        let cursors = *app
+            .world()
+            .resource::<select_screen::cursor::SelectCursors>();
+        assert_eq!(
+            (cursors.seat(0).carrying, cursors.seat(1).carrying),
+            (Some(2), None),
+            "both hands closed on the machine's one token"
+        );
+        assert_eq!(
+            cursors.carrier_of(2),
+            Some(0),
+            "the token names a carrier the cursors disagree with"
         );
     }
 

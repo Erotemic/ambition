@@ -1160,9 +1160,8 @@ pub fn drive_the_cursor(
             // between them. A deterministic answer beats a lucky one, and the
             // case needs two people to put two tokens down and then have one of
             // them tap.
-            let carrying = (0..MAX_SMASH_SEATS).find(|seat| {
-                !taken.contains(seat) && cursors.seat(*seat).carrying.is_some()
-            });
+            let carrying = (0..MAX_SMASH_SEATS)
+                .find(|seat| !taken.contains(seat) && cursors.seat(*seat).carrying.is_some());
             // ⚠ **otherwise it drives seat 0, and only if seat 0 is free.** One
             // person on a phone taps portraits and buttons without ever
             // touching a token, and that has to work; a stray thumb during
@@ -1236,6 +1235,12 @@ pub fn drive_the_cursor(
     // ── each seat, in seat order ─────────────────────────────────────────
     for seat in 0..MAX_SMASH_SEATS {
         let drive = drives[seat];
+        // **WHICH CARD IS THIS PERSON'S?** Not `seat` — see
+        // [`SmashSelect::slot_driven_by`]. The cursor stays seat-keyed because a
+        // hand belongs to a person; the CARD is whichever one names this seat's
+        // input source, and with a CPU sitting between two people those two
+        // indices come apart.
+        let own_slot = select.slot_driven_by(seat);
         let pointer = cursors.seat_mut(seat);
 
         // The cursor starts on the first portrait rather than at the origin. A
@@ -1268,7 +1273,8 @@ pub fn drive_the_cursor(
         // cursor that crosses a monitor in a second crawls across a phone at the
         // same px/s, and the screen it is crossing is the thing that changed.
         if drive.nav != Vec2::ZERO {
-            let travel = drive.nav * layout.viewport.x * CURSOR_SPEED_PER_SECOND * time.delta_secs();
+            let travel =
+                drive.nav * layout.viewport.x * CURSOR_SPEED_PER_SECOND * time.delta_secs();
             let roamed = pointer.position + travel;
             pointer.move_to(Vec2::new(
                 roamed.x.clamp(0.0, layout.viewport.x),
@@ -1319,7 +1325,7 @@ pub fn drive_the_cursor(
             // host's own `an_up_tilt_*` tests seat Alice exactly this way, and
             // they are what caught the rule being too strict.
             let may_grab = |slot: usize| {
-                slot == seat || matches!(select.slot(slot).occupant, SlotOccupant::Cpu)
+                Some(slot) == own_slot || matches!(select.slot(slot).occupant, SlotOccupant::Cpu)
             };
             let on_token = (0..MAX_SMASH_SEATS).find(|slot| {
                 may_grab(*slot)
@@ -1338,22 +1344,31 @@ pub fn drive_the_cursor(
                 // ⚠ skipped entirely under `TapOnly`, which is the one thing
                 // that variant means.
                 (None, Some(slot), _) if *style != SelectStyle::TapOnly => {
-                    cursors.seat_mut(seat).grab(slot)
+                    // ⚠ **may be REFUSED**, and the press is then spent doing
+                    // nothing rather than falling through to the tap arm below:
+                    // reaching for a token somebody else is holding must not
+                    // quietly re-choose the fighter underneath it.
+                    cursors.try_grab(seat, slot);
                 }
                 // **PRESSING A FIGHTER WITH AN EMPTY HAND CHOOSES IT.** Jon,
                 // 2026-08-21: *"shouldn't I be able to just click on a character
                 // or press choose on a character to select?"* The token travels
                 // there afterwards, so the screen reads the same and
                 // `SmashSelect` sees the same decision either way it was asked.
+                //
+                // ⚠ **a seat with no card taps nothing.** A pad plugged in
+                // before its owner pressed a role button drives no slot, and
+                // writing the pick into card `seat` on its behalf is how the
+                // second person used to choose the CPU's fighter.
                 (None, _, Some(SelectTarget::Portrait(cell))) => {
-                    if let Some(pick) = fighters.cell(cell) {
-                        select.set_pick(seat, pick);
+                    if let (Some(own), Some(pick)) = (own_slot, fighters.cell(cell)) {
+                        select.set_pick(own, pick);
+                        // ⚠ **a tap is not a placement**, so forget where the
+                        // token was last put down and let it travel to the face
+                        // that was chosen. Keeping the old rest would choose a
+                        // fighter and leave the piece across the screen.
+                        rest.forget(own);
                     }
-                    // ⚠ **a tap is not a placement**, so forget where the token
-                    // was last put down and let it travel to the face that was
-                    // chosen. Keeping the old rest would choose a fighter and
-                    // leave the piece across the screen from them.
-                    rest.forget(seat);
                 }
                 // **TURNING THE PAGE IS LEGAL WITH A TOKEN IN HAND**, and it has
                 // to be: the fighter you are carrying it to may be on another
@@ -1906,8 +1921,10 @@ mod touch_tests {
 
         let layout = headless_layout();
         let select = app.world().resource::<SmashSelect>().clone();
-        let token_zero = token_rect(&layout, &select, &TokenRest::default(), 0).expect("seat 0 is in the lobby");
-        let token_one = token_rect(&layout, &select, &TokenRest::default(), 1).expect("seat 1 is in the lobby");
+        let token_zero =
+            token_rect(&layout, &select, &TokenRest::default(), 0).expect("seat 0 is in the lobby");
+        let token_one =
+            token_rect(&layout, &select, &TokenRest::default(), 1).expect("seat 1 is in the lobby");
 
         finger(&mut app, 10, TouchPhase::Started, token_zero.center());
         finger(&mut app, 11, TouchPhase::Started, token_one.center());
@@ -2059,7 +2076,8 @@ mod touch_tests {
         }
         let layout = headless_layout();
         let select = app.world().resource::<SmashSelect>().clone();
-        let token_one = token_rect(&layout, &select, &TokenRest::default(), 1).expect("seat 1 is in the lobby");
+        let token_one =
+            token_rect(&layout, &select, &TokenRest::default(), 1).expect("seat 1 is in the lobby");
         let portrait = layout.portrait(1).expect("a grid with two cells");
 
         // Tap one: pick the token up. The finger LIFTS.
@@ -2110,11 +2128,13 @@ mod touch_tests {
         }
         let layout = headless_layout();
         let select = app.world().resource::<SmashSelect>().clone();
-        let token_zero = token_rect(&layout, &select, &TokenRest::default(), 0).expect("seat 0 is in the lobby");
+        let token_zero =
+            token_rect(&layout, &select, &TokenRest::default(), 0).expect("seat 0 is in the lobby");
 
         // Seat 1's finger claims seat 1 by landing on its own token, then walks
         // over to seat 0's and presses again.
-        let token_one = token_rect(&layout, &select, &TokenRest::default(), 1).expect("seat 1 is in the lobby");
+        let token_one =
+            token_rect(&layout, &select, &TokenRest::default(), 1).expect("seat 1 is in the lobby");
         finger(&mut app, 20, TouchPhase::Started, token_one.center());
         app.update();
         finger(&mut app, 20, TouchPhase::Ended, token_one.center());
@@ -2255,8 +2275,13 @@ mod touch_tests {
     /// Where slot 0's token is sitting, asked of the same function the screen
     /// hit-tests with.
     fn token_of_slot_zero(app: &App, layout: &SelectLayout) -> HitRect {
-        token_rect(layout, app.world().resource::<SmashSelect>(), &TokenRest::default(), 0)
-            .expect("slot 0 is participating, so it owns a token")
+        token_rect(
+            layout,
+            app.world().resource::<SmashSelect>(),
+            &TokenRest::default(),
+            0,
+        )
+        .expect("slot 0 is participating, so it owns a token")
     }
 
     /// **A FINGER PLAYS THIS SCREEN.**

@@ -181,7 +181,13 @@ impl SelectCursor {
         self.placed = true;
     }
 
-    pub fn grab(&mut self, slot: usize) {
+    /// ⛔ **PRIVATE, and that is the invariant.** One token has at most one
+    /// carrier, and a rule enforced by every caller remembering it is a rule
+    /// with no owner — the screen let any human grab any CPU token, and two
+    /// cursors carrying the same one differ from one cursor only in which of
+    /// them the renderer happened to draw. Go through
+    /// [`SelectCursors::try_grab`], which is where the question is answered.
+    fn grab(&mut self, slot: usize) {
         self.carrying = Some(slot);
         self.grabbed_at = self.position;
     }
@@ -205,10 +211,17 @@ impl SelectCursor {
 
 /// **FOUR CURSORS, ONE PER SEAT** — the model every Smash has.
 ///
-/// ⭐ **indexed by SEAT, which is also the slot and also the device index.**
-/// One numbering, because two that have to agree eventually disagree; the same
-/// rule `SeatMenuFrames` follows, and the reason a seat's pad, a seat's token
-/// and a seat's cursor never need a translation table between them.
+/// ⭐ **indexed by INPUT SEAT, which is also the device index** — the same
+/// numbering `SeatMenuFrames` uses, because a cursor is a HAND and a hand
+/// belongs to a person.
+///
+/// ⛔⛔ **and a MATCH SLOT is a third numbering, which this is not.** A seat's
+/// cursor, a seat's pad and a seat's menu frame agree; the CARD that seat
+/// drives is whichever one names its source, and
+/// [`SmashSelect::slot_driven_by`](crate::select::SmashSelect::slot_driven_by)
+/// is the only honest way to ask. This doc used to say all three were one
+/// numbering, and the select screen believed it: a roster with a CPU between
+/// two people routed the second person onto the CPU's card.
 ///
 /// ⚠ **every seat has a cursor whether or not anybody is in it.** An absent
 /// seat's cursor costs two floats and is simply not drawn — the alternative is
@@ -236,13 +249,37 @@ impl SelectCursors {
 
     /// **Which seat is carrying `slot`'s token, if any.**
     ///
-    /// ⚠ a seat carries its OWN token and nobody else's, so this is a lookup
-    /// rather than a search — but it is written as one so that the day a seat
-    /// may hand a token over, the callers do not have to change.
+    /// ⚠ **a search, not a lookup** — a seat may carry a CPU's token as well as
+    /// its own, so the carrier of slot 2 is not seat 2. [`Self::try_grab`] is
+    /// what keeps the answer singular; without it this returned the first of
+    /// however many cursors held the same token, and the renderer drew one of
+    /// them.
     pub fn carrier_of(&self, slot: usize) -> Option<usize> {
         self.iter()
             .find(|(_, cursor)| cursor.carrying == Some(slot))
             .map(|(seat, _)| seat)
+    }
+
+    /// **Take a slot's token, unless somebody already has it.**
+    ///
+    /// ⭐ a human may pick up a CPU's token — that is the ordinary case of one
+    /// person setting up two machine opponents, and the rule exists so that
+    /// TWO people cannot both be setting up the same one.
+    ///
+    /// ⚠ **the incumbent wins, and re-grabbing your own hand succeeds** (it
+    /// re-arms `grabbed_at`, which is what tells a drag from a click). Seats
+    /// are arbitrated in seat order, so two hands closing on one token on the
+    /// same tick resolve to the lower seat every run — a screen that decided
+    /// this by whoever the query happened to visit first would decide it
+    /// differently between runs (ADR 0023).
+    pub fn try_grab(&mut self, seat: usize, slot: usize) -> bool {
+        match self.carrier_of(slot) {
+            Some(holder) if holder != seat => false,
+            _ => {
+                self.seat_mut(seat).grab(slot);
+                true
+            }
+        }
     }
 }
 

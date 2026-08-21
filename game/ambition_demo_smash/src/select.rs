@@ -458,6 +458,34 @@ impl SmashSelect {
         }
     }
 
+    /// **The roster slot this local input SOURCE drives, if any.**
+    ///
+    /// ⛔⛔ **a match slot is not an input seat, and this is the translation
+    /// nobody wrote.** The select screen keys its cursors by input seat —
+    /// correctly, a hand belongs to a person — and then used that same index as
+    /// the card to write a pick into. That holds only while the roster is dense
+    /// and in source order, and `first_free_device` deliberately breaks both:
+    ///
+    /// ```text
+    /// card 0   Controller { device: 0 }
+    /// card 1   Cpu
+    /// card 2   Controller { device: 1 }   ← the second person
+    /// ```
+    ///
+    /// Pad one reports on seat 1 and would drive CARD ONE, which is the CPU's,
+    /// and card two — its own — would be unreachable. Ask this instead of
+    /// indexing, and the arithmetic that cannot survive a hole in the roster
+    /// stops existing.
+    ///
+    /// `None` for a source nobody has seated. That is a real state, not a
+    /// fault: a pad plugged in before anyone presses the role button has no
+    /// card yet, and it must not get somebody else's.
+    pub fn slot_driven_by(&self, device: usize) -> Option<usize> {
+        self.slots
+            .iter()
+            .position(|card| card.occupant.device() == Some(device))
+    }
+
     /// Put a slot directly into a state, for a screen that has a reason to
     /// (the walkthrough, a test, a future "everyone in" button).
     pub fn set_occupant(&mut self, slot: usize, occupant: SlotOccupant) {

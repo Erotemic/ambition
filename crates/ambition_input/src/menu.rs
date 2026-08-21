@@ -37,6 +37,14 @@ impl MenuInputFrame {
 /// Keyed by the participant's SLOT, which is also the seat and also the device
 /// index — one numbering, because two that have to agree eventually disagree
 /// (see [`crate::ParticipantId::slot`]).
+///
+/// ⛔⛔ **that numbering ends at the input layer.** A GAME's roster slot is a
+/// third index and this crate cannot speak for it: a lobby may seat a person on
+/// card 0, a machine on card 1 and a second person on card 2, and that second
+/// person still reports HERE on seat 1. Smash's select screen read this
+/// sentence as covering its cards and routed the second pad onto the CPU's,
+/// which is why the boundary is now spelled out. Ask the roster which card
+/// names your source; never index it with a seat.
 /// **How many local seats a live SURFACE is offering right now.**
 ///
 /// ⚠ **a lobby needs input before a roster exists, and that is a genuine

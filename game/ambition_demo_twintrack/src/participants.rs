@@ -64,6 +64,13 @@ const LAB_TWIN_VIEW: LocalViewId = LocalViewId(1);
 pub(crate) fn install(app: &mut App) {
     app.init_resource::<ambition_platformer2d::input::DeclaredInputSeats>()
         .init_resource::<ambition_platformer2d::input::InputAssignmentPolicy>()
+        // ⛔ **and the third, for the same reason the other two are here.** A
+        // composition without the host input group never inits it, and a
+        // `ResMut` of a missing resource does not skip the system — Bevy 0.18
+        // fails param validation and panics the whole `Main` schedule, so one
+        // demo's declaration took down every app that links it (measured
+        // 2026-08-20 against the door suite, minutes after it landed).
+        .init_resource::<ambition_platformer2d::input::SessionSeatingSource>()
         // ⚠ **NEITHER is gated on the experience**, because half of each one's
         // job is RETIRING what it declared. A system that only ran while
         // TwinTrack was live would leave the second pane standing over Mary-O

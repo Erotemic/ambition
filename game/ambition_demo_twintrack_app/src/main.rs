@@ -8,12 +8,12 @@ const DEFAULT_TICKS: u32 = 300;
 
 fn main() {
     #[cfg(feature = "visible")]
-    if std::env::args().any(|arg| arg == "--window") {
+    if ambition_platformer2d::demo_shell::wants_a_window() {
         ambition_demo_twintrack_app::build_windowed_demo_app().run();
         return;
     }
 
-    let ticks = parse_ticks().unwrap_or(DEFAULT_TICKS);
+    let ticks = ambition_platformer2d::demo_shell::headless_ticks(DEFAULT_TICKS);
     let mut app = ambition_demo_twintrack_app::build_demo_app();
     for _ in 0..ticks {
         app.update();
@@ -32,14 +32,4 @@ fn main() {
         );
     }
     println!("Run with `--features visible -- --window` to play the round trip.");
-}
-
-fn parse_ticks() -> Option<u32> {
-    let mut args = std::env::args().skip(1);
-    while let Some(arg) = args.next() {
-        if arg == "--ticks" {
-            return args.next()?.parse().ok();
-        }
-    }
-    None
 }

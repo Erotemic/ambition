@@ -47,7 +47,7 @@ const DEFAULT_TICKS: u32 = 300;
 
 fn main() {
     #[cfg(feature = "visible")]
-    if std::env::args().any(|a| a == "--window") {
+    if ambition_platformer2d::demo_shell::wants_a_window() {
         // The drawn demo. One plugin more than the sim-only shell below.
         ambition_demo_sanic_app::build_windowed_demo_app(
             ambition_demo_sanic_app::RenderMode::Windowed,
@@ -56,7 +56,7 @@ fn main() {
         return;
     }
 
-    let ticks = parse_ticks().unwrap_or(DEFAULT_TICKS);
+    let ticks = ambition_platformer2d::demo_shell::headless_ticks(DEFAULT_TICKS);
 
     // The assembly lives in `lib.rs` so the exit-3 regression test builds the
     // SAME app this binary does.
@@ -70,20 +70,13 @@ fn main() {
     report(&mut app, ticks);
 }
 
-fn parse_ticks() -> Option<u32> {
-    let mut args = std::env::args().skip(1);
-    while let Some(arg) = args.next() {
-        if arg == "--ticks" {
-            return args.next()?.parse().ok();
-        }
-    }
-    None
-}
-
 /// Read the sim through the same seams any consumer uses — the canonical timeline,
 /// the mode-scoped act state, and the body's kinematics.
 fn report(app: &mut App, requested: u32) {
-    let tick = app.world().resource::<ambition_platformer2d::runtime::SimTick>().get();
+    let tick = app
+        .world()
+        .resource::<ambition_platformer2d::runtime::SimTick>()
+        .get();
 
     let elapsed = {
         let mut q = app.world_mut().query::<&SanicActState>();

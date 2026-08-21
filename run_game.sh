@@ -27,7 +27,7 @@ extra_features=()
 game_args=()
 
 # Launch target. Defaults to the multi-game host (the Ambition title screen).
-# The `sanic` / `mary-o` / `smash` mode aliases retarget this to a demo's OWN standalone
+# The `sanic` / `mary-o` / `smash` / `twintrack` mode aliases retarget this to a demo's OWN standalone
 # shell crate — the same binary `game/ambition_demo_*_app` ships, unrelated to
 # the host. This script is a launcher: demos default to WINDOWED
 # (`--features visible` + the `--window` game arg). `--headless` opts a demo
@@ -72,6 +72,7 @@ Common commands:
   ./run_game.sh sanic
   ./run_game.sh mary-o
   ./run_game.sh smash
+  ./run_game.sh twintrack
       Launch a demo's OWN standalone shell (windowed) instead of the host.
 
   ./run_game.sh sanic --headless -- --ticks 600
@@ -99,6 +100,9 @@ Launch targets (mode aliases):
   smash, smash-demo       The stocks demo's standalone shell — opens on
                           CHARACTER SELECT (ambition_demo_smash_app). The same
                           experience is also listed on the host's title screen.
+  twintrack, twin-track,
+  twintrack-demo          TwinTrack's standalone shell — the two-seat
+                          split-screen round trip (ambition_demo_twintrack_app).
                           Demos default to windowed (--features visible + the
                           --window game arg).
   --headless, headless    Opt the selected demo into its sim-only shell (no
@@ -107,8 +111,8 @@ Launch targets (mode aliases):
 Options and mode aliases:
   -h, --help              Show this help.
   -r, --release, release  Use cargo --release.
-  --ship, ship             Use the native shipping profile intended for the
-                           packaged Steam build.
+  --ship, ship            Use the native shipping profile intended for the
+                          packaged Steam build.
   --cov, coverage         Run through cargo llvm-cov run --no-report.
   --debug, debug, dev     Force dev/debug cargo profile.
   --hot-reload, --hot,
@@ -269,6 +273,11 @@ while [[ $# -gt 0 ]]; do
         smash|smash-demo)
             target_pkg="ambition_demo_smash_app"
             target_bin="smash_demo"
+            target_kind="demo"
+            ;;
+        twintrack|twin-track|twintrack-demo)
+            target_pkg="ambition_demo_twintrack_app"
+            target_bin="twintrack_demo"
             target_kind="demo"
             ;;
         --headless|headless)

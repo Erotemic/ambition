@@ -7,6 +7,7 @@
 //! game content or the `ambition_app` shell.
 
 pub mod app;
+pub mod demo_shell;
 /// Asset install for a game that DRAWS — rides the `ambition_render` capability
 /// edge, because its Startup ordering anchor is `ambition_render`'s.
 #[cfg(feature = "ambition_render")]

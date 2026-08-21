@@ -230,6 +230,23 @@ native distribution profile used for the packaged Steam build: fat LTO, one
 codegen unit, aborting panics, no debug information, and stripped symbols. It
 deliberately does not use host-specific CPU tuning.
 
+Each demo also ships its OWN standalone shell, and the script launches them by
+name — windowed by default:
+
+```bash
+./run_game.sh sanic
+./run_game.sh mary-o
+./run_game.sh smash
+./run_game.sh twintrack
+```
+
+`--headless` opts a demo into its sim-only shell instead, which prints a summary
+rather than opening a window:
+
+```bash
+./run_game.sh twintrack --headless -- --ticks 600
+```
+
 The first Bevy build can take a while.
 
 ## Headless simulation

@@ -106,6 +106,7 @@ pub use fields::{field_bool, field_f32, field_i32, field_string};
 
 use fields::{
     entity_rect, entity_touches_level_edge, known_entity, pivot_is_top_left, rects_strict_intersect,
+    solid_cells_in_rect,
 };
 use intgrid::{AMBITION_LAYER, GRID};
 use surfaces::{is_surface_like_identifier, parse_surface_spec};
@@ -292,6 +293,29 @@ impl LdtkProject {
                                         entity.iid, level.identifier, solid.identifier, solid.iid
                                     ));
                                 }
+                            }
+                            // ⛔⛔ **AND THE COLLISION GRID, which is what a body
+                            // actually collides with.** The rule above scans
+                            // entities named `Solid`; these levels paint their
+                            // floors and walls into the Collision IntGrid, so the
+                            // reachability rule could not fire on the case it was
+                            // written for. Five of twenty-four authored EdgeExits
+                            // have a lip inside them (see `solid_cells_in_rect`).
+                            //
+                            // ⚠ **a WARNING, not an error, and that is a
+                            // deliberate choice rather than timidity.** Five zones
+                            // violate it today; promoting it to an error would red
+                            // the content gate on standing level geometry whose
+                            // fix — clear the cells, or accept that these exits are
+                            // hopped — is a design call (D174). A warning names all
+                            // five now and the rule is ready to be an error the day
+                            // the content agrees with it.
+                            let blocked = solid_cells_in_rect(level, entity_rect(entity));
+                            if blocked > 0 {
+                                report.warnings.push(format!(
+                                    "EdgeExit LoadingZone {} in level '{}' has {blocked} solid Collision cell(s) inside it; a walking body stalls against them and the exit can only be entered by jumping",
+                                    entity.iid, level.identifier
+                                ));
                             }
                         }
                     }

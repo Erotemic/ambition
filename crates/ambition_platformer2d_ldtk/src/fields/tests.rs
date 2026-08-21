@@ -151,3 +151,70 @@ fn parse_boss_brain_dispatches_phasescript_and_falls_back_to_custom() {
         BossBrain::Custom(s) if s == "Mystery"
     ));
 }
+
+/// A level carrying one Collision IntGrid layer with `solid` painted at the
+/// given (col, row) cells, on a `w`x`h` grid of 16px cells.
+fn level_with_collision(w: i32, h: i32, solid: &[(i32, i32)]) -> LdtkLevel {
+    let mut csv = vec![0; (w * h) as usize];
+    for (c, r) in solid {
+        csv[(r * w + c) as usize] = 1;
+    }
+    let json = serde_json::json!({
+        "identifier": "probe",
+        "iid": "probe-iid",
+        "worldX": 0,
+        "worldY": 0,
+        "pxWid": w * 16,
+        "pxHei": h * 16,
+        "fieldInstances": [],
+        "layerInstances": [{
+            "__identifier": "Collision",
+            "__type": "IntGrid",
+            "__cWid": w,
+            "__cHei": h,
+            "__gridSize": 16,
+            "intGridCsv": csv,
+            "entityInstances": [],
+        }],
+    });
+    serde_json::from_value(json).expect("the probe level parses")
+}
+
+/// **THE REACHABILITY RULE CAN SEE THE COLLISION GRID.**
+///
+/// ⛔⛔ its sibling — `EdgeExit ... overlaps solid X` — scans entities named
+/// `Solid`, and these levels paint their floors into the Collision IntGrid, so
+/// that rule could not fire on the case it was written for. This is the same
+/// question asked of the geometry a body actually collides with.
+#[test]
+fn a_solid_collision_cell_inside_a_rect_is_counted() {
+    // The shape measured in `central_hub_main`: an empty column with a floor
+    // lip in its bottom row only.
+    let level = level_with_collision(8, 8, &[(6, 7), (7, 7)]);
+    // A rect over cols 6..7, rows 4..7 — the lip is inside it.
+    assert_eq!(solid_cells_in_rect(&level, (96, 64, 32, 64)), 2);
+}
+
+/// **⛔ AND IT REPORTS ZERO FOR A CLEAR ONE, which is the half that makes the
+/// count mean something.** A rule that answered "blocked" everywhere would pass
+/// the test above and be useless.
+#[test]
+fn a_rect_clear_of_collision_counts_nothing() {
+    let level = level_with_collision(8, 8, &[(6, 7), (7, 7)]);
+    // Same columns, but stopping ABOVE the lip's row.
+    assert_eq!(solid_cells_in_rect(&level, (96, 64, 32, 48)), 0);
+    // And a level that paints no collision at all blocks nobody.
+    let empty = level_with_collision(8, 8, &[]);
+    assert_eq!(solid_cells_in_rect(&empty, (0, 0, 128, 128)), 0);
+}
+
+/// **⚠ HALF-OPEN IN PIXELS**: a rect ending exactly on a cell boundary must not
+/// claim the next cell, or every zone would report its neighbour's floor.
+#[test]
+fn a_rect_ending_on_a_cell_boundary_does_not_claim_the_next_cell() {
+    let level = level_with_collision(8, 8, &[(4, 0)]);
+    // Cols 0..3 only: x 0..64 is four whole cells, and col 4 starts at 64.
+    assert_eq!(solid_cells_in_rect(&level, (0, 0, 64, 16)), 0);
+    // One pixel further and col 4 is in.
+    assert_eq!(solid_cells_in_rect(&level, (0, 0, 65, 16)), 1);
+}

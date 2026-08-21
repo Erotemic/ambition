@@ -228,3 +228,55 @@ pub(super) fn parse_debug_label_kind(
 
 #[cfg(test)]
 mod tests;
+
+/// **HOW MANY SOLID COLLISION CELLS SIT INSIDE THIS RECT.**
+///
+/// ⛔⛔ **the reachability rule beside this one asked a PROXY question for as
+/// long as it existed.** `EdgeExit LoadingZone ... overlaps solid X; ... so the
+/// exit is physically reachable` scans entities named `Solid` on the Ambition
+/// layer — and the geometry a body actually collides with in these levels is
+/// the **Collision IntGrid**. The rule was right, the subject was wrong, and it
+/// could not fire on the case it was written for.
+///
+/// Measured 2026-08-20: five of twenty-four authored `EdgeExit` zones have a
+/// floor lip inside them — `central_hub_main` to `scroll_lab` and to
+/// `square_arena`, and the return exits in `scroll_lab`, `square_arena` and
+/// `tiny_chamber`. In every one it is the zone's BOTTOM row. A walking body
+/// stalls against the lip's side and never enters, which is exactly Jon's
+/// *"I cannot go through contact doors"* (2026-08-20).
+///
+/// ⚠ `0` for a level with no Collision IntGrid, which is an honest answer: a
+/// level that paints no collision blocks nobody.
+pub(super) fn solid_cells_in_rect(level: &LdtkLevel, rect: (i32, i32, i32, i32)) -> usize {
+    let Some(layer) = level
+        .layer_instances
+        .iter()
+        .find(|layer| layer.layer_type == "IntGrid" && layer.identifier == "Collision")
+    else {
+        return 0;
+    };
+    let grid = layer.grid_size.max(1);
+    let (w, h) = (layer.c_wid, layer.c_hei);
+    if w <= 0 || h <= 0 || layer.int_grid_csv.len() != (w as usize) * (h as usize) {
+        return 0;
+    }
+    let (x, y, rw, rh) = rect;
+    if rw <= 0 || rh <= 0 {
+        return 0;
+    }
+    // Half-open in px, so a zone ending exactly on a cell boundary does not
+    // claim the next cell.
+    let c0 = (x.div_euclid(grid)).clamp(0, w - 1);
+    let c1 = ((x + rw - 1).div_euclid(grid)).clamp(0, w - 1);
+    let r0 = (y.div_euclid(grid)).clamp(0, h - 1);
+    let r1 = ((y + rh - 1).div_euclid(grid)).clamp(0, h - 1);
+    let mut solid = 0;
+    for row in r0..=r1 {
+        for col in c0..=c1 {
+            if layer.int_grid_csv[(row * w + col) as usize] != 0 {
+                solid += 1;
+            }
+        }
+    }
+    solid
+}

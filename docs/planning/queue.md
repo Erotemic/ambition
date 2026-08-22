@@ -3937,8 +3937,35 @@ component snapshots are construction, and the monolith already depends on
 `ambition_combat`, so exposing them upward would be a cycle.
 
 ⇒ **the next D33 slice is therefore SPAWN, not damage**, and the two move in that
-order or together. That is a statement about which carve is even possible, which
-is what this row has been asking for since it was written. ⛔ **so stop pricing carves from `crate::` counts on this
+order or together.
+
+⛔⛔ **AND SPAWN CANNOT MOVE ALONE EITHER — `construction` AND SPAWN ARE MUTUALLY
+DEPENDENT.** Measured to the definition site, both directions:
+
+```text
+construction (2 files, 2,197 prod)  →  features/ecs/actors/limbs.rs
+                                          LimbSlot 41 · LimbRig 16 · Limb 9
+                                       features/ecs/spawn/content_staging.rs
+                                          RoomContentStagingRegistry 25
+spawn (10,908 prod)                 →  construction/mod.rs
+                                          ActorConstructionServices, …Registry,
+                                          …Plan, preflight_planned_bodies  (~15)
+```
+
+⭐ everything ELSE either half names resolves outward: `crate::rooms::{RoomSpec,
+EnemySpawnSpec, Authored}` are `ambition_platformer2d_world`;
+`crate::character_runtime::{PreparedCharacterRegistry, CharacterDefinition,
+CharacterBindings, CharacterBodyBlueprint, PreparedCharacterDefinition}` are
+**`ambition_characters`** — so `character_runtime`'s 84 references from spawn
+collapse to ONE owned symbol (`KitOwnership`) plus test helpers.
+
+⇒ **THE ANSWER TO "WHICH CARVE IS POSSIBLE" IS: ONE, AND IT IS BIG.**
+`construction` + spawn is ~13,100 production lines that move together because
+they are one domain under two names, and damage's 3,788 follow because five of
+its six holders are theirs. **~17,000 production lines, one slice, in that
+order** — which is why every small carve priced today bottomed out. ⛔ do not go
+looking for a smaller one inside `features/ecs`; this measurement is what says
+there isn't one. ⛔ **so stop pricing carves from `crate::` counts on this
 crate entirely** — three modules measured this way in one day and all three were
 mostly laundering. Resolve every name to its defining crate first; the count that
 matters is the one left over.

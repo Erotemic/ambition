@@ -377,48 +377,44 @@ is not: a body at that pose walks and jumps normally (see D182's differential).
 What the chase actually shows is that she never gains the height to follow, and
 D182 records the head contact at that spot failing to register at all.
 
-⇒ **so D181 and D182 are probably ONE defect seen twice**: a head contact under
-that block not registering. ⛔ do NOT "fix" the test by teaching it to jump onto
-the block — that would assert a game nobody can play.
+⛔ **and D182's retractions apply here too** — the head contact under that block
+fires correctly when measured, so do not inherit "the bonk is broken" from it.
+⛔ do NOT "fix" this by teaching the fixture to jump onto the block; that would
+assert a game nobody can play.
 
-⭐ **next step is D182's probe**, since both rows now point at the same head
-contact.
+⭐ **next step**: `chase_until_worn` only walks, and the wand rests on the block
+top at y=272.5 while she is on the floor at y=400. Establish first whether the
+reward is reachable on foot in the shipped level at all — that is the genre
+question, and it is research rather than a decision.
 
 ⭐ the sibling defect in the same area is FIXED and is the reason this one is
 now visible — see D182.
 
-- ◐ **D182 — A BODY SET DOWN UNDER 1-1's FIRST ?-BLOCK RISES THROUGH IT WITHOUT
-  STRIKING IT.** (2026-08-22; the test is fixed, the mechanism is not)
+- ✔ **D182 — `two_rooms::she_crosses_wearing_the_form_she_earned` IS GREEN, AND
+  EVERY MECHANISM I PROPOSED FOR IT WAS WRONG.** (2026-08-22)
 
-`two_rooms::she_crosses_wearing_the_form_she_earned` was long red. It is green
-now because the fixture DROPS her in and lets her land instead of setting her
-down at her own resting height. The fix is verified both ways; the mechanism is
-not understood, and this row exists so the next reader does not inherit a story.
+The fixture set the body down at its own resting height beneath 1-1's first
+?-block; it now drops her from `DROP_HEIGHT_PX` above and lets her land. Verified
+green, and the fix needs no theory: landing is how a player arrives.
 
-⛔⛔ **I PUBLISHED TWO WRONG MECHANISMS FOR THIS BEFORE MEASURING, AND THAT IS
-THE LESSON WORTH MORE THAN THE BUG.** First: *the ground under the block is
-higher and she is embedded in terrain* — the collision layer is flat at
-`surface_y = 416` across x=160..272 and her box overlaps ZERO blocks. Second:
-*she is pinned and cannot move* — a differential probe at the same height,
-x=208 against x=508, holding right and then holding jump:
+⛔⛔ **THE VALUE HERE IS THE RETRACTIONS.** Three mechanisms, each published or
+half-written before the measurement that killed it:
 
-```text
-dx=0    frame 2   pos 208.0 → 208.109   vel.x 6.56    loco 0.6
-dx=300  frame 2   pos 508.0 → 508.109   vel.x 6.56    loco 0.6
-dx=0    frame 2   y 400 → 393.1         vel.y -412.5  airborne
-dx=300  frame 2   y 400 → 393.1         vel.y -412.5  airborne
-```
+| claim | refutation |
+|---|---|
+| the ground under the block is higher, so she was embedded in terrain | the collision layer is flat at `surface_y = 416` across x=160..272, and at that pose her box overlaps ZERO blocks |
+| she is pinned and cannot move | a differential at x=208 vs x=508, same height: she walks and jumps IDENTICALLY. The "pin" was the two-tick input latency, read off frames 0–1 of a probe that printed before it stepped |
+| she rises THROUGH the block without striking it | instrumenting the contact stream shows `Head/Block { kind: Solid, … MaryOBlock-106885 }` firing at head = 320.0, exactly the underside — the bonk works at the flush placement |
 
-**Identical.** She walks and jumps the same at both. The "pin" was the two-tick
-input latency read off frames 0–1 of a probe that printed before stepping.
+⇒ **so the flush placement is not broken in isolation**, and what actually
+differed in the failing run is unidentified. The test is green, the fix is
+sound, and nothing here should be read as a claim about the engine.
 
-⇒ **what IS measured, and all that is:** with the flush placement the run fails
-at `head_best = 288.2` — the block spans y 288..320, so her head rises THROUGH
-its whole span without a strike registering. With the drop-in placement the same
-head contact strikes and pays. ⭐ **the open question is why a landed body bonks
-and a set-down body passes through**, and the next probe is the head-contact arm
-itself (`ContactSource::Block`, the `BonkOnly` mirror) at both placements — not
-another theory about geometry.
+⭐ **the rule, since three tries produced three wrong stories: A DIFFERENTIAL
+BEATS A THEORY.** Every refutation came from running the same code at two inputs
+— two positions, one varying — never from reasoning about one. ⚠ and a probe
+that prints before it steps is off by the input pipeline's latency; print after
+the step, or print enough frames that latency reads as a delay and not a stall.
 
 - ▢ **D180 — THE PRESENTATION/AUTHORITY BOUNDARY AND THE IDENTITY VOCABULARY.**
   (found 2026-08-21, by GPT review of `f3b4b83a1`)

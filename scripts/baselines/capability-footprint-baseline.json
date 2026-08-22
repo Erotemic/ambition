@@ -27,7 +27,7 @@
     "2026-08-17 \u2014 baseline moved by the `ambition_conversation` carve (D33 step 2). ADDED ['ambition_conversation'] to the closure AND to `never_asked_for`; REMOVED []. The ratchet stopped it and was right to: a new crate name genuinely entered the sentinel's closure. \u26a0 NOTHING NEW IS LINKED \u2014 this is the conversation-continuity authority, ledger, hold and break rule that had been compiling inside `ambition_platformer2d_actor_monolith` since it was written; the monolith depends on it unconditionally, so the same code arrives by the same route under its own name. \u2b50 it joins `never_asked_for` rather than the wanted half, and that is the honest entry: a movement-only game asked for neither dialogue nor conversation, and `ambition_dialog` and `ambition_ui_nav` were already counted unwanted for exactly this reason. \u26d4 so the count reads 16 where it read 15, and the carve did NOT cause that \u2014 it NAMED it. The number that would mean something is a consumer linking code it did not already link, and this is not that. Shedding it needs the capability to become optional at the monolith's edge, which is the \u00a74 obligation, not this move.",
     "2026-08-17 \u2014 baseline moved by the `ambition_boss_encounter` carve (D33). ADDED ['ambition_boss_encounter'] to the closure AND to `never_asked_for`; REMOVED []. The ratchet stopped it and was right to: a new crate name genuinely entered the sentinel's closure. \u26a0 NOTHING NEW IS LINKED \u2014 this is the boss data model, catalog, phase tick, encounter entity and reward chests that had been compiling inside `ambition_platformer2d_actor_monolith` since they were written; the monolith depends on it unconditionally, so the same code arrives by the same route under its own name. \u2b50 it joins `never_asked_for`, which is the honest half: a movement-only game asked for no bosses, and `ambition_encounter` was already counted unwanted for exactly that reason. \u26d4 so the count reads 17 where it read 16, and the carve did NOT cause that \u2014 it NAMED it. What it bought is elsewhere: 7,635 lines left the largest compilation unit in the workspace, and the boss domain now answers upward, so a boss edit no longer rebuilds 114k lines of unrelated actor code. Shedding it from the closure needs the capability to become optional at the monolith's edge \u2014 the \u00a74 obligation, not this move."
   ],
-  "measured_on": "2026-08-17",
+  "measured_on": "2026-08-22",
   "sentinel": "fixtures/minimal_game (declares `ambition_platformer2d` and nothing else)",
   "ambition_closure": [
     "ambition_asset_manager",
@@ -64,7 +64,6 @@
     "ambition_projectile_spec",
     "ambition_projectiles",
     "ambition_render",
-    "ambition_settings_menu",
     "ambition_sfx",
     "ambition_sfx_bank",
     "ambition_sim_view",
@@ -73,7 +72,7 @@
     "ambition_ui_nav",
     "ambition_vfx"
   ],
-  "closure_size": 42,
+  "closure_size": 41,
   "never_asked_for": [
     "ambition_audio",
     "ambition_boss_encounter",
@@ -85,13 +84,12 @@
     "ambition_menu",
     "ambition_persistence",
     "ambition_projectiles",
-    "ambition_settings_menu",
     "ambition_sfx",
     "ambition_sfx_bank",
     "ambition_ui_nav",
     "ambition_vfx"
   ],
-  "never_asked_for_count": 15,
+  "never_asked_for_count": 14,
   "reachable_via_ambition_platformer2d_actor_monolith_alone": [
     "ambition_audio",
     "ambition_boss_encounter",
@@ -105,7 +103,6 @@
     "ambition_platformer2d_ldtk",
     "ambition_portal2d",
     "ambition_projectiles",
-    "ambition_settings_menu",
     "ambition_sfx",
     "ambition_sfx_bank",
     "ambition_ui_nav",
@@ -152,5 +149,11 @@
     "why_it_could_be_done_now_and_not_in_august": "D136 probed dropping those two lists on 2026-08-18 and recorded that the MONOLITH itself did not build without `ldtk_runtime`. Re-probed 2026-08-22: it does (`--no-default-features --features visible`, zero errors). The cfg-gating landed in between; the recorded blocker outlived it.",
     "\u26a0_the_content_fingerprint_did_not_move": "The provider writes `world.runtime-index` from the installed index; without the capability a game has none, and an absent index writes byte-for-byte what a RON-authored game already wrote (one `area\\t<id>\\t\\t-` row per room). That equality is stated in the provider's own comment and is why this is a link-closure change, not a content-identity change.",
     "portal_followed_the_same_day": "ambition_portal2d left too: 43 -> 42, never_asked_for 16 -> 15. FOUR unconditional edges (monolith, runtime, sim_view, and ambition_projectiles) plus the runtime's ungated `ambition_portal2d::register_rollback_state`, which is now behind `portal` exactly as the LDtk row is. The portal CODE was already cfg-gated everywhere; only the manifests said otherwise. \u26a0 and making the dep optional exposed a feature-unification lean: `ambition_projectiles::diagnostics` uses `bevy::prelude::info` and was getting `bevy_log` through ambition_portal2d's bevy features. It names the feature itself now \u2014 a crate that needs a feature declares it."
+  },
+  "settings_menu_left_the_closure_2026_08_22": {
+    "what": "ambition_settings_menu left the movement-only sentinel closure: 42 -> 41, never_asked_for 15 -> 14.",
+    "how": "Two ownership leaks were removed together. ambition_game_shell no longer imports the full settings/system-menu IR to edit four universal audio fields; its private row identity delegates to the canonical AudioSettings mutation helpers already in ambition_persistence. ambition_platformer2d_actor_monolith no longer names ambition_settings_menu only to forward its dev_tools feature; the public facade weakly forwards ambition_settings_menu?/dev_tools instead, so developer tooling configures that capability when selected without selecting it.",
+    "why_this_is_not_a_monolith_carve": "No actor code moved. The monolith had zero source references to ambition_settings_menu; its edge existed only as feature forwarding. Removing that composition responsibility and the independent shell edge is enough for the crate to leave a narrow consumer.",
+    "runtime_behavior": "Rich/default compositions still select ambition_settings_menu through all_capabilities. Enabling dev_tools still enables the settings menu developer row when the settings capability is present. Narrow compositions retain the shell audio controls because those mutate UserSettings::audio directly through AudioSettings helpers."
   }
 }

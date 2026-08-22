@@ -192,7 +192,7 @@ web_served = ["ambition_sprite_sheet/web_served"]
 # bevy_ecs_ldtk) get stripped further.
 headless = []
 
-dev_tools = ["dep:bevy-inspector-egui", "ambition_settings_menu/dev_tools"]
+dev_tools = ["dep:bevy-inspector-egui"]
 
 # Opt-in Bevy file watcher for live asset hot-reload. Off by default
 # in the desktop persona because the cost (inotify quota / open fds)
@@ -405,9 +405,6 @@ ambition_dialog = { path = "../ambition_dialog" }
 # DeveloperTools disk persistence, and the live-edit sync system. gameplay-core
 # re-exports these on the historical `crate::dev::*` paths.
 ambition_dev_tools = { path = "../ambition_dev_tools" }
-# The renderer-agnostic settings + system menu IR (E1e). Re-exported on the
-# historical `crate::menu::ir::*` + `crate::persistence::settings::*` paths.
-ambition_settings_menu = { path = "../ambition_settings_menu" }
 # Logical asset catalog + per-profile source resolution. The actor-side
 # sandbox only needs Bevy `AssetPath` formatting; SFX ownership stays with
 # the audio/SFX crates rather than flowing through the catalog crate.

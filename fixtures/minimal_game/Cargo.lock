@@ -276,7 +276,6 @@ dependencies = [
  "ambition_menu",
  "ambition_persistence",
  "ambition_platformer2d_shared_tangle",
- "ambition_settings_menu",
  "ambition_sfx",
  "bevy",
  "tracing",
@@ -438,7 +437,6 @@ dependencies = [
  "ambition_platformer2d_world",
  "ambition_portal2d",
  "ambition_projectiles",
- "ambition_settings_menu",
  "ambition_sfx",
  "ambition_sprite_sheet",
  "ambition_time",
@@ -638,14 +636,6 @@ dependencies = [
  "ambition_ui_nav",
  "ambition_vfx",
  "bevy",
-]
-
-[[package]]
-name = "ambition_settings_menu"
-version = "0.1.0"
-dependencies = [
- "ambition_input",
- "ambition_persistence",
 ]
 
 [[package]]

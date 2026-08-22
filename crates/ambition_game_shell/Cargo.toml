@@ -36,12 +36,10 @@ ambition_audio = { path = "../ambition_audio", default-features = false }
 # no ambition_* deps), so this stays a clean downward edge.
 ambition_input = { path = "../ambition_input", default-features = false }
 ambition_load = { path = "../ambition_load" }
-# The persisted user settings the shell's system menu edits, and the renderer-agnostic IR that
-# decides what editing one MEANS. Both sit strictly below the shell — `ambition_settings_menu`
-# names only the persistence vocabulary and has no bevy, no renderer and no game state, which is
-# the whole point of its carve-out.
+# The persisted user settings the shell's system menu edits. The shell owns only its four
+# universal audio rows and calls `AudioSettings`' canonical mutation helpers directly; the full
+# settings/system-menu IR is a separate capability and must not enter the base shell closure.
 ambition_persistence = { path = "../ambition_persistence", default-features = false }
-ambition_settings_menu = { path = "../ambition_settings_menu" }
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
 ambition_sfx = { path = "../ambition_sfx" }
 # `input.rs` (shell_action_edges) is always compiled and reads KeyCode +

@@ -92,7 +92,13 @@ web_platform = [
 web_served = ["ambition_platformer2d_actor_monolith/web_served"]
 web_audio = ["ambition_platformer2d_actor_monolith/web_audio"]
 headless = ["ambition_platformer2d_actor_monolith/headless"]
-dev_tools = ["ambition_platformer2d_actor_monolith/dev_tools"]
+dev_tools = [
+    "ambition_platformer2d_actor_monolith/dev_tools",
+    # Weak: developer tooling configures the settings capability when present;
+    # it must not pull the settings/system-menu IR into a composition that did
+    # not select that capability.
+    "ambition_settings_menu?/dev_tools",
+]
 dev_hot_reload = ["ambition_platformer2d_actor_monolith/dev_hot_reload"]
 static_map = ["ambition_platformer2d_actor_monolith/static_map"]
 static_core_assets = ["ambition_platformer2d_actor_monolith/static_core_assets"]

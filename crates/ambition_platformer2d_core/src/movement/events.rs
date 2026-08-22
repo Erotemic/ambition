@@ -46,7 +46,7 @@ pub enum ResetCause {
     /// The body was in water it cannot swim in.
     Drowned,
     /// The body passed the world's bounds along the fall direction, further
-    /// than the world's blast margin. Gravity-relative, so this is "fell out"
+    /// than [`crate::world::WorldEdgeMargins::fall`]. Gravity-relative, so this is "fell out"
     /// under any gravity direction, not just downward.
     LeftTheWorld,
 }

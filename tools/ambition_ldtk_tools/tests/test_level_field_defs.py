@@ -34,15 +34,22 @@ ENGINE_READ_LEVEL_FIELDS = {
     "visual_theme",
     "gallery",
     "mode",
-    "blast_margin",
-    "side_blast_margin",
-    "ceiling_blast_margin",
+    "fall_out_margin",
+    "side_out_margin",
+    "rise_out_margin",
 }
 
 
 # That is how this test started failing on six : projects that were perfectly fine: the six failures
 # were : `FileNotFoundError` on paths under a worktree, not a missing field def : anywhere.
-EXCLUDED_DIRS = frozenset({"target", "__pycache__", ".claude", ".git"})
+#
+# ⛔⛔ `.worktrees` is excluded for the SAME reason, one step further along: a
+# sibling agent's worktree is a DIFFERENT COMMIT of this repository, so scanning
+# it makes this test report another branch's state as this branch's failure. The
+# 2026-08-22 `fall_out_margin` rename landed green in the main tree and red here,
+# twelve times — six worlds x two worktrees — none of them this tree's files, and
+# none of them mine to edit.
+EXCLUDED_DIRS = frozenset({"target", "__pycache__", ".claude", ".git", ".worktrees"})
 
 
 def ldtk_projects() -> list[Path]:

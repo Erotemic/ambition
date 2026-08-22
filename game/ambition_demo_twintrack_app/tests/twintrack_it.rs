@@ -477,7 +477,7 @@ fn plaza_is_centered_open_and_camera_follow_is_unclamped() {
         "TwinTrack should not have perimeter walls"
     );
     assert_eq!(LAB_POS, Vec2::new(ROOM_WIDTH * 0.5, ROOM_HEIGHT * 0.5));
-    assert!(room.world.blast_margin > 1_000_000.0);
+    assert!(room.world.edges.fall > 1_000_000.0);
 
     let open_follow = room
         .camera_zones

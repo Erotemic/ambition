@@ -325,15 +325,15 @@ impl LdtkProject {
             .with_water_regions(water_regions)
             .with_climbable_regions(climbable_regions)
             .with_chains(chains)
-            // The room's own blast zones, authored on the level, in ONE call
-            // so a fourth direction cannot be added to the metadata and
-            // silently not forwarded. Absent, the engine defaults stand —
-            // which is what every room had when the fall margin was a literal
-            // inside the movement kernel and the other two did not exist.
-            .with_blast_zones(
-                metadata.blast_margin.map(|px| px as f32),
-                metadata.side_blast_margin.map(|px| px as f32),
-                metadata.ceiling_blast_margin.map(|px| px as f32),
+            // The room's own out-of-bounds margins, authored on the level, in
+            // ONE call so a fourth axis cannot be added to the metadata and
+            // silently not forwarded. Absent, the engine defaults stand — which
+            // is what every room had when the fall margin was a literal inside
+            // the movement kernel and the other two did not exist.
+            .with_edge_margins(
+                metadata.fall_out_margin.map(|px| px as f32),
+                metadata.side_out_margin.map(|px| px as f32),
+                metadata.rise_out_margin.map(|px| px as f32),
             ),
             loading_zones,
             metadata,
@@ -1001,29 +1001,29 @@ mod tests {
 
     /// A stage authors where it ends.
     ///
-    /// `World::blast_margin` was a `200.0` literal inside the movement kernel —
+    /// `WorldEdgeMargins::fall` was a `200.0` literal inside the movement kernel —
     /// duplicated across two copies of the out-of-bounds gate — so no room could
     /// disagree with it, which made a platform fighter's blast zone (a per-stage
     /// number that IS the loss condition of the genre) unauthorable. Rust rooms
-    /// gained `with_blast_margin`; this is the LDtk half, because "missing a
+    /// gained `with_fall_out_margin`; this is the LDtk half, because "missing a
     /// concept means ADD IT TO LDTK" and a number only Rust can set is not
     /// authored, it is hard-coded somewhere newer.
     #[test]
-    fn a_level_authors_its_own_blast_margin() {
+    fn a_level_authors_its_own_fall_out_margin() {
         let mut project = synthetic_level(Vec::new());
         project.levels[0]
             .field_instances
-            .push(level_field("blast_margin", Value::Number(64.into())));
+            .push(level_field("fall_out_margin", Value::Number(64.into())));
         let room_set = project
             .to_room_set_with_entry("central_hub_complex", &LdtkVocabulary::engine())
             .expect("the project composes");
         assert_eq!(
-            room_set.rooms[0].world.blast_margin, 64.0,
-            "the level authored a 64px blast margin and the composed world did \
+            room_set.rooms[0].world.edges.fall, 64.0,
+            "the level authored a 64px fall-out margin and the composed world did \
              not take it — the field is declared, read, and dropped"
         );
         assert_eq!(
-            room_set.rooms[0].metadata.blast_margin,
+            room_set.rooms[0].metadata.fall_out_margin,
             Some(64),
             "the metadata channel must carry it too; the world is downstream of it"
         );
@@ -1037,10 +1037,10 @@ mod tests {
             .to_room_set_with_entry("central_hub_complex", &LdtkVocabulary::engine())
             .expect("the project composes");
         assert_eq!(
-            room_set.rooms[0].world.blast_margin,
-            ae::World::DEFAULT_BLAST_MARGIN
+            room_set.rooms[0].world.edges.fall,
+            ae::World::DEFAULT_FALL_OUT_MARGIN
         );
-        assert_eq!(room_set.rooms[0].metadata.blast_margin, None);
+        assert_eq!(room_set.rooms[0].metadata.fall_out_margin, None);
     }
 
     /// A level authors where finishing it leads.
@@ -1104,10 +1104,10 @@ mod tests {
     /// not clamped, because a clamp turns an authoring mistake into a room that
     /// merely behaves oddly.
     #[test]
-    fn a_negative_blast_margin_is_refused_rather_than_clamped() {
+    fn a_negative_out_margin_is_refused_rather_than_clamped() {
         // All THREE margins, because they share one `take_px` closure now.
         let mut project = synthetic_level(Vec::new());
-        for name in ["blast_margin", "side_blast_margin", "ceiling_blast_margin"] {
+        for name in ["fall_out_margin", "side_out_margin", "rise_out_margin"] {
             project.levels[0]
                 .field_instances
                 .push(level_field(name, Value::Number((-32).into())));
@@ -1116,12 +1116,12 @@ mod tests {
             .to_room_set_with_entry("central_hub_complex", &LdtkVocabulary::engine())
             .expect("the project composes")
             .rooms[0];
-        assert_eq!(room.metadata.blast_margin, None);
-        assert_eq!(room.metadata.side_blast_margin, None);
-        assert_eq!(room.metadata.ceiling_blast_margin, None);
-        assert_eq!(room.world.blast_margin, ae::World::DEFAULT_BLAST_MARGIN);
-        assert_eq!(room.world.side_blast_margin, None);
-        assert_eq!(room.world.ceiling_blast_margin, None);
+        assert_eq!(room.metadata.fall_out_margin, None);
+        assert_eq!(room.metadata.side_out_margin, None);
+        assert_eq!(room.metadata.rise_out_margin, None);
+        assert_eq!(room.world.edges.fall, ae::World::DEFAULT_FALL_OUT_MARGIN);
+        assert_eq!(room.world.edges.side, None);
+        assert_eq!(room.world.edges.rise, None);
     }
 
     /// Zero is not "unset". A stage that authors `0` is saying "you are out the
@@ -1132,17 +1132,17 @@ mod tests {
         let mut project = synthetic_level(Vec::new());
         project.levels[0]
             .field_instances
-            .push(level_field("blast_margin", Value::Number(0.into())));
+            .push(level_field("fall_out_margin", Value::Number(0.into())));
         project.levels[0]
             .field_instances
-            .push(level_field("side_blast_margin", Value::Number(0.into())));
+            .push(level_field("side_out_margin", Value::Number(0.into())));
         let room = &project
             .to_room_set_with_entry("central_hub_complex", &LdtkVocabulary::engine())
             .expect("the project composes")
             .rooms[0];
-        assert_eq!(room.metadata.blast_margin, Some(0));
-        assert_eq!(room.world.blast_margin, 0.0);
-        assert_eq!(room.world.side_blast_margin, Some(0.0));
+        assert_eq!(room.metadata.fall_out_margin, Some(0));
+        assert_eq!(room.world.edges.fall, 0.0);
+        assert_eq!(room.world.edges.side, Some(0.0));
     }
 
     /// A stage can declare that its SIDES are a blast zone, and a corridor
@@ -1151,23 +1151,23 @@ mod tests {
     /// the two genres this engine serves, so they are `Option` and absent by
     /// default.
     #[test]
-    fn a_level_authors_its_optional_blast_zones() {
+    fn a_level_authors_its_optional_out_margins() {
         let mut project = synthetic_level(Vec::new());
         project.levels[0]
             .field_instances
-            .push(level_field("side_blast_margin", Value::Number(48.into())));
+            .push(level_field("side_out_margin", Value::Number(48.into())));
         project.levels[0].field_instances.push(level_field(
-            "ceiling_blast_margin",
+            "rise_out_margin",
             Value::Number(96.into()),
         ));
         let room = &project
             .to_room_set_with_entry("central_hub_complex", &LdtkVocabulary::engine())
             .expect("the project composes")
             .rooms[0];
-        assert_eq!(room.world.side_blast_margin, Some(48.0));
-        assert_eq!(room.world.ceiling_blast_margin, Some(96.0));
-        assert_eq!(room.metadata.side_blast_margin, Some(48));
-        assert_eq!(room.metadata.ceiling_blast_margin, Some(96));
+        assert_eq!(room.world.edges.side, Some(48.0));
+        assert_eq!(room.world.edges.rise, Some(96.0));
+        assert_eq!(room.metadata.side_out_margin, Some(48));
+        assert_eq!(room.metadata.rise_out_margin, Some(96));
     }
 
     /// A room that says nothing has NO side or ceiling blast zone. This is the
@@ -1180,8 +1180,8 @@ mod tests {
             .to_room_set_with_entry("central_hub_complex", &LdtkVocabulary::engine())
             .expect("the project composes")
             .rooms[0];
-        assert_eq!(room.world.side_blast_margin, None);
-        assert_eq!(room.world.ceiling_blast_margin, None);
+        assert_eq!(room.world.edges.side, None);
+        assert_eq!(room.world.edges.rise, None);
     }
 
     /// A level can declare its game mode. `RoomMetadata::mode` documented

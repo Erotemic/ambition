@@ -420,16 +420,16 @@ pub(crate) fn apply_world_hazard_gate(
     // there would break every corridor in the game, while a platform fighter
     // thrown off the left edge has lost a stock. `None` is "this direction is
     // not a blast zone", and it is the default.
-    let left_the_world = past_fall > world.blast_margin
-        || world
-            .side_blast_margin
-            .is_some_and(|margin| past_side > margin)
-        || world
-            .ceiling_blast_margin
-            .is_some_and(|margin| -past_fall > margin);
+    // ⛔ EXHAUSTIVE on purpose. A fourth axis must be a compile error here rather
+    // than a comparison somebody forgot to add — a missing margin is SILENT, and
+    // the room looks fine right up until a body drifts out of it forever.
+    let crate::world::WorldEdgeMargins { fall, side, rise } = &world.edges;
+    let left_the_world = past_fall > *fall
+        || side.is_some_and(|margin| past_side > margin)
+        || rise.is_some_and(|margin| -past_fall > margin);
 
-    // Order matters, and it is a design statement: a body that is BOTH past
-    // the blast margin and overlapping a hazard left the world. The void is
+    // Order matters, and it is a design statement: a body that is BOTH past an
+    // edge margin and overlapping a hazard left the world. The void is
     // further out than any authored volume, so it is the later, larger fact.
     if left_the_world {
         events.reset = events.reset.or(Some(ResetCause::LeftTheWorld));

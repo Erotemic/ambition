@@ -10,15 +10,15 @@ use crate::test_support::*;
 use crate::{AbilitySet, Vec2, World};
 
 /// An empty world with no floor, so a body placed past the edge stays there.
-/// `blast_margin` is the only thing these cases vary.
-fn void_world(blast_margin: f32) -> World {
+/// `fall_out_margin` is the only thing these cases vary.
+fn void_world(fall_out_margin: f32) -> World {
     World::new(
         "blast zone rig",
         Vec2::new(1600.0, 900.0),
         Vec2::new(800.0, 450.0),
         Vec::new(),
     )
-    .with_blast_margin(blast_margin)
+    .with_fall_out_margin(fall_out_margin)
 }
 
 /// One simulation step for a body parked `past` pixels below the world's
@@ -67,7 +67,7 @@ fn the_stage_owns_its_own_edge() {
     // the only thing that decided its fate is the number the stage authored.
     assert_eq!(
         step_below_edge(
-            World::DEFAULT_BLAST_MARGIN,
+            World::DEFAULT_FALL_OUT_MARGIN,
             120.0,
             MotionModelSpec::AxisSwept(AxisSweptParams::default())
         ),
@@ -103,7 +103,7 @@ fn every_motion_policy_agrees_where_the_world_ends() {
 
 #[test]
 fn leaving_the_world_is_not_the_same_event_as_touching_a_hazard() {
-    let mut world = void_world(World::DEFAULT_BLAST_MARGIN);
+    let mut world = void_world(World::DEFAULT_FALL_OUT_MARGIN);
     world.blocks.push(crate::world::Block::hazard(
         "spikes",
         Vec2::new(700.0, 400.0),
@@ -212,7 +212,7 @@ fn step_past_side(world: &World, past: f32) -> Option<ResetCause> {
 /// side margin is an `Option` and the fall margin is not.
 #[test]
 fn the_sides_kill_only_when_a_stage_says_they_do() {
-    let corridor = void_world(World::DEFAULT_BLAST_MARGIN);
+    let corridor = void_world(World::DEFAULT_FALL_OUT_MARGIN);
     assert_eq!(
         step_past_side(&corridor, 400.0),
         None,
@@ -220,7 +220,7 @@ fn the_sides_kill_only_when_a_stage_says_they_do() {
          corridor, and the room next door is where it is going"
     );
 
-    let stage = void_world(World::DEFAULT_BLAST_MARGIN).with_side_blast_margin(64.0);
+    let stage = void_world(World::DEFAULT_FALL_OUT_MARGIN).with_side_out_margin(64.0);
     assert_eq!(
         step_past_side(&stage, 120.0),
         Some(ResetCause::LeftTheWorld),
@@ -238,8 +238,8 @@ fn the_sides_kill_only_when_a_stage_says_they_do() {
 /// you do not fall toward", which is the only frame-agnostic way to say it.
 #[test]
 fn the_ceiling_kills_only_when_a_stage_says_so_and_it_follows_gravity() {
-    let open = void_world(World::DEFAULT_BLAST_MARGIN);
-    let ceiling = void_world(World::DEFAULT_BLAST_MARGIN).with_ceiling_blast_margin(64.0);
+    let open = void_world(World::DEFAULT_FALL_OUT_MARGIN);
+    let ceiling = void_world(World::DEFAULT_FALL_OUT_MARGIN).with_rise_out_margin(64.0);
 
     // 120px ABOVE the world (negative y is up under default gravity).
     let above = Vec2::new(800.0, -120.0);

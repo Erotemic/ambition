@@ -387,7 +387,7 @@ fn a_pit_death_returns_her_to_spawn_and_rearms_a_spent_block() {
     // body in a pit, not a body already past the edge.
     displace(
         &mut app,
-        Vec2::new(spawn.x, world.size.y + world.blast_margin * 0.5),
+        Vec2::new(spawn.x, world.size.y + world.edges.fall * 0.5),
     );
 
     let mut armed_after = None;

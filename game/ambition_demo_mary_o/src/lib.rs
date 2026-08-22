@@ -856,7 +856,7 @@ pub enum LevelDestination {
 /// A destination that lives in the level file cannot be one level behind the level file.
 ///
 /// the field is `next_room` on `RoomMetadata`, authored as an LDtk level
-/// string field beside `mode` and `blast_margin`. There is no room id in this
+/// string field beside `mode` and `fall_out_margin`. There is no room id in this
 /// function: a fourth area drawn in the editor with `next_room` set is reachable
 /// and leads somewhere without a line of Rust, which is the whole claim.
 ///

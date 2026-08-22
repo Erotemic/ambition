@@ -46,9 +46,9 @@ pub fn render_match_diagram(fighters: &[DrawnFighter]) -> Vec<u8> {
     let room = ambition_demo_smash::smash_stage();
     let world = &room.world;
     let platform = world.blocks[0].aabb;
-    let side_margin = world.side_blast_margin.unwrap_or(world.blast_margin);
-    let ceiling_margin = world.ceiling_blast_margin.unwrap_or(world.blast_margin);
-    let fall_margin = world.blast_margin;
+    let side_margin = world.edges.side.unwrap_or(world.edges.fall);
+    let ceiling_margin = world.edges.rise.unwrap_or(world.edges.fall);
+    let fall_margin = world.edges.fall;
     let respawn = ambition_demo_smash::respawn_placement(ambition_demo_smash::stage_centre(), 0);
 
     // Fit the BLAST ENVELOPE, not the world: the envelope is larger, and framing

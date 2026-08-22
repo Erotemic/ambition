@@ -65,9 +65,7 @@ fn shaft(extra: Vec<Block>) -> World {
         water_regions: Vec::new(),
         climbable_regions: Vec::new(),
         chains: Vec::new(),
-        blast_margin: World::DEFAULT_BLAST_MARGIN,
-        side_blast_margin: None,
-        ceiling_blast_margin: None,
+        edges: Default::default(),
     }
 }
 

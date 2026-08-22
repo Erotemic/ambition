@@ -73,7 +73,7 @@ fn versus_arena() -> RoomSpec {
             ),
         ],
     )
-    .with_blast_margin(96.0)
+    .with_fall_out_margin(96.0)
     // The SIDE blast zone, which is where a platform fighter actually loses
     // most of its stocks. Without it a fighter thrown off the left edge only
     // dies once its arc happens to carry it below the stage, which reads as the
@@ -81,7 +81,7 @@ fn versus_arena() -> RoomSpec {
     // floor: you are given further to recover from a horizontal launch than
     // from a straight drop, because a horizontal launch is the one you can act
     // on.
-    .with_side_blast_margin(160.0);
+    .with_side_out_margin(160.0);
     let mut room = RoomSpec::new(VERSUS_ROOM_ID, world);
     room.metadata.mode = Some(VERSUS_EXPERIENCE.to_owned());
     room

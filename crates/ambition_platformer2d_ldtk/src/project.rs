@@ -126,11 +126,11 @@ impl LdtkLevel {
         // A DISTANCE in whole pixels. Zero is meaningful — "you are out the
         // instant you cross my edge" is a legitimate stage — so only NEGATIVE
         // values are rejected, and they are REJECTED rather than clamped: a
-        // negative blast margin would put the kill line inside the room, and a
-        // clamp turns an authoring mistake into a room that merely behaves
+        // negative margin would put the out-of-bounds line INSIDE the room, and
+        // a clamp turns an authoring mistake into a room that merely behaves
         // oddly. One closure rather than one `filter` per field, because the
-        // three blast margins had already made three copies of it and the
-        // fourth distance field would have made the copy the pattern.
+        // three margins had already made three copies of it and the fourth
+        // distance field would have made the copy the pattern.
         let take_px = |name: &str| self.field_i32(name).filter(|px| *px >= 0);
         ambition_platformer2d_world::rooms::RoomMetadata {
             biome: take("biome"),
@@ -150,9 +150,9 @@ impl LdtkLevel {
             },
             gallery: self.field_bool("gallery").unwrap_or(false),
             mode: take("mode"),
-            blast_margin: take_px("blast_margin"),
-            side_blast_margin: take_px("side_blast_margin"),
-            ceiling_blast_margin: take_px("ceiling_blast_margin"),
+            fall_out_margin: take_px("fall_out_margin"),
+            side_out_margin: take_px("side_out_margin"),
+            rise_out_margin: take_px("rise_out_margin"),
             // Where finishing this level leads. An empty string is the same
             // answer as an unset field — "no successor, loop in place" — which
             // is why it goes through `take` rather than `field_string`: an

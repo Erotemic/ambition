@@ -12,16 +12,18 @@ The mechanism is already generic: `apply_world_hazard_gate`
 the world AABB and emits `ResetCause::LeftTheWorld`; the body's owner applies its
 own reset policy (Smash loses a stock, Mary-O respawns, Ambition calls it out of
 bounds). That is this plan's principle 1 already satisfied — **there is no
-bespoke platform-fighter primitive to remove.** What is genre-specific is the
-WORD: `blast_margin`, `side_blast_margin`, and `ceiling_blast_margin` in
-`crates/ambition_platformer2d_core/src/world.rs` name a platform-fighter concept
-even though every game's `World` carries all three fields. All six shipped
-worlds carry all three fields in `defs.levelFields`; zero levels author a
-value — eighteen schema entries, no data.
+bespoke platform-fighter primitive to remove.** What was genre-specific was the
+WORD.
 
-⇒ the slice is a RENAME, it costs no content migration, and the authoring half is
-a maintainer decision because the `.ldtk` files are hand-edited:
-[`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md) §26.
+✔✔ **DONE 2026-08-22.** `blast_margin` / `side_blast_margin` /
+`ceiling_blast_margin` are now ONE field, `World::edges: WorldEdgeMargins { fall,
+side: Option, rise: Option }`, named for the AXIS ROLE. The LDtk keys are
+`fall_out_margin` / `side_out_margin` / `rise_out_margin`, renamed in all six
+shipped worlds; `RoomMetadata` keeps its three flat `Option<i32>` under the new
+names because those merge independently first-`Some`-wins. `apply_world_hazard_gate`
+DESTRUCTURES the struct exhaustively, so a fourth axis is a compile error at the
+gate rather than a comparison somebody forgot. Cost: zero content migration —
+eighteen schema entries and no level authored a value.
 ⛔ **do not do the Rust half alone** — the struct field and the authored key are
 one name, so renaming one needs a mapping, and a mapping is the shim this project
 refuses.

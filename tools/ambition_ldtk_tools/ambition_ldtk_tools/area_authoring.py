@@ -354,15 +354,15 @@ OPTIONAL_LEVEL_FIELDS = (
     # split, and missing from this list the whole time — so a spec could not
     # author the field the engine was already reading.
     "mode",
-    # How far past the room a body may drift before the world declares it gone.
-    # A platformer's pit depth and a platform fighter's blast zone are the same
-    # number, in whole pixels.
-    "blast_margin",
-    # The two OPT-IN blast zones. Unset means that direction is not a blast
-    # zone at all, which is what every platformer room wants and no fighting
-    # stage does.
-    "side_blast_margin",
-    "ceiling_blast_margin",
+    # How far past the room a body may drift before the world declares it gone,
+    # per AXIS ROLE, in whole pixels. A platformer's pit depth and a platform
+    # fighter's blast zone are the same number, which is why these are named for
+    # the axis and not for either genre.
+    "fall_out_margin",
+    # The two OPT-IN axes. Unset means that direction is not a loss condition at
+    # all, which is what every platformer room wants and no fighting stage does.
+    "side_out_margin",
+    "rise_out_margin",
 )
 
 

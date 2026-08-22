@@ -141,7 +141,7 @@ that plans twelve ticks ahead is choosing to leave.
   a self-KO event and an infinite plane does not.
 - ⚠ *the model's death line is in the wrong place, and conservatively so.*
   `StageView.bounds` is `world.size`; the sim kills at `world.size +
-  blast_margin`. The imagination therefore thinks it dies EARLIER than it does,
+  world.edges.fall`. The imagination therefore thinks it dies EARLIER than it does,
   which should make a fighter more cautious, not less. It cannot explain a
   fighter that leaves.
 - ▢ **`ground_span` is only known while standing.** `supporting_floor()` requires

@@ -409,14 +409,14 @@ pub fn smash_stage() -> RoomSpec {
             Vec2::new(PLATFORM_WIDTH, 32.0),
         )],
     );
-    world.blast_margin = FALL_BLAST_MARGIN_PX;
+    world.edges.fall = FALL_BLAST_MARGIN_PX;
     // The SIDES are the interesting ones and they are not the default. A body
     // launched horizontally leaves through them, and without an explicit value
     // they inherit a margin sized for "fell through the floor" — generous enough
     // that a fighter knocked off the edge would drift for a second and a half
     // before anything noticed.
-    world.side_blast_margin = Some(SIDE_BLAST_MARGIN_PX);
-    world.ceiling_blast_margin = Some(CEILING_BLAST_MARGIN_PX);
+    world.edges.side = Some(SIDE_BLAST_MARGIN_PX);
+    world.edges.rise = Some(CEILING_BLAST_MARGIN_PX);
 
     let mut room = RoomSpec::new(SMASH_STAGE_ROOM_ID, world);
     room.metadata.mode = Some(SMASH_MODE.to_string());
@@ -2581,16 +2581,16 @@ mod tests {
         let world = &room.world;
         let platform = world.blocks[0].aabb;
         let side_margin = world
-            .side_blast_margin
+            .edges.side
             .expect("the smash stage authors side blast lines");
         let ceiling_margin = world
-            .ceiling_blast_margin
+            .edges.rise
             .expect("the smash stage authors a ceiling blast line");
 
         let left_ledge_to_blast = platform.left() + side_margin;
         let right_ledge_to_blast = (world.size.x - platform.right()) + side_margin;
         let surface_to_ceiling_blast = platform.top() + ceiling_margin;
-        let surface_to_fall_blast = (world.size.y - platform.top()) + world.blast_margin;
+        let surface_to_fall_blast = (world.size.y - platform.top()) + world.edges.fall;
 
         assert_eq!(platform.width(), PLATFORM_WIDTH);
         assert_eq!(left_ledge_to_blast, PLATFORM_WIDTH);
@@ -2599,7 +2599,7 @@ mod tests {
         assert_eq!(surface_to_fall_blast, PLATFORM_WIDTH * 0.875);
         assert_eq!(world.size.x + side_margin * 2.0, PLATFORM_WIDTH * 3.0);
         assert_eq!(
-            world.size.y + ceiling_margin + world.blast_margin,
+            world.size.y + ceiling_margin + world.edges.fall,
             PLATFORM_WIDTH * 2.0
         );
     }
@@ -2821,7 +2821,7 @@ mod tests {
             "the prepared geometry is not the one-platform stage"
         );
         assert_eq!(
-            prepared.geometry().0.side_blast_margin,
+            prepared.geometry().0.edges.side,
             Some(SIDE_BLAST_MARGIN_PX),
             "the prepared geometry lost the stage's blast margins, so a fighter \
              knocked off would drift instead of dying"

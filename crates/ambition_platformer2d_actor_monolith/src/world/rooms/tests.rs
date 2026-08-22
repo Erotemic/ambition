@@ -445,9 +445,9 @@ fn active_metadata_returns_active_room_metadata() {
         nameplate_policy: Default::default(),
         gallery: false,
         mode: None,
-        blast_margin: None,
-        side_blast_margin: None,
-        ceiling_blast_margin: None,
+        fall_out_margin: None,
+        side_out_margin: None,
+        rise_out_margin: None,
         next_room: None,
     };
     let m2 = RoomMetadata {
@@ -459,9 +459,9 @@ fn active_metadata_returns_active_room_metadata() {
         nameplate_policy: Default::default(),
         gallery: false,
         mode: None,
-        blast_margin: None,
-        side_blast_margin: None,
-        ceiling_blast_margin: None,
+        fall_out_margin: None,
+        side_out_margin: None,
+        rise_out_margin: None,
         next_room: None,
     };
     let mut set = RoomSet::from_parts(
@@ -492,9 +492,9 @@ fn sync_room_music_request_mirrors_metadata_music_track() {
             nameplate_policy: Default::default(),
             gallery: false,
             mode: None,
-            blast_margin: None,
-            side_blast_margin: None,
-            ceiling_blast_margin: None,
+            fall_out_margin: None,
+            side_out_margin: None,
+            rise_out_margin: None,
             next_room: None,
         }),
     );
@@ -544,9 +544,9 @@ fn sync_active_room_metadata_publishes_active_value() {
         nameplate_policy: Default::default(),
         gallery: false,
         mode: None,
-        blast_margin: None,
-        side_blast_margin: None,
-        ceiling_blast_margin: None,
+        fall_out_margin: None,
+        side_out_margin: None,
+        rise_out_margin: None,
         next_room: None,
     };
     let m_lab = RoomMetadata {
@@ -558,9 +558,9 @@ fn sync_active_room_metadata_publishes_active_value() {
         nameplate_policy: Default::default(),
         gallery: false,
         mode: None,
-        blast_margin: None,
-        side_blast_margin: None,
-        ceiling_blast_margin: None,
+        fall_out_margin: None,
+        side_out_margin: None,
+        rise_out_margin: None,
         next_room: None,
     };
     let set = RoomSet::from_parts(
@@ -627,9 +627,9 @@ fn room_metadata_is_empty_false_when_any_field_set() {
         nameplate_policy: Default::default(),
         gallery: false,
         mode: None,
-        blast_margin: None,
-        side_blast_margin: None,
-        ceiling_blast_margin: None,
+        fall_out_margin: None,
+        side_out_margin: None,
+        rise_out_margin: None,
         next_room: None,
     };
     assert!(!m.is_empty());
@@ -658,9 +658,9 @@ fn room_metadata_merge_preserves_existing_values() {
         nameplate_policy: Default::default(),
         gallery: false,
         mode: None,
-        blast_margin: None,
-        side_blast_margin: None,
-        ceiling_blast_margin: None,
+        fall_out_margin: None,
+        side_out_margin: None,
+        rise_out_margin: None,
         next_room: None,
     };
     let b = RoomMetadata {
@@ -675,9 +675,9 @@ fn room_metadata_merge_preserves_existing_values() {
         },
         gallery: true,              // takes effect — a.gallery was false (merge ORs)
         mode: Some("sanic".into()), // takes effect — a.mode was None
-        blast_margin: None,
-        side_blast_margin: None,
-        ceiling_blast_margin: None,
+        fall_out_margin: None,
+        side_out_margin: None,
+        rise_out_margin: None,
         // takes effect — a.next_room was None. An area spanning several levels
         // has ONE exit, and it is whichever member level names one first; a
         // merge that dropped it would turn an authored circuit into a room that
@@ -707,16 +707,16 @@ fn room_metadata_merge_preserves_existing_values() {
     // re-home an area another level already claimed for its ruleset.
     let mut a = RoomMetadata {
         mode: Some("sanic".into()),
-        blast_margin: None,
-        side_blast_margin: None,
-        ceiling_blast_margin: None,
+        fall_out_margin: None,
+        side_out_margin: None,
+        rise_out_margin: None,
         ..Default::default()
     };
     a.merge(RoomMetadata {
         mode: Some("CONFLICT".into()),
-        blast_margin: None,
-        side_blast_margin: None,
-        ceiling_blast_margin: None,
+        fall_out_margin: None,
+        side_out_margin: None,
+        rise_out_margin: None,
         ..Default::default()
     });
     assert_eq!(a.mode.as_deref(), Some("sanic"));

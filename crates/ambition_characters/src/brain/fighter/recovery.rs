@@ -178,9 +178,9 @@ impl RecoveryLens {
             world: ae::World::new("perceived stage", size, ae::Vec2::ZERO, blocks)
                 // the envelope IS the death line — see the module header. One
                 // model of dying, shared with `StageView::offstage`.
-                .with_blast_margin(0.0)
-                .with_side_blast_margin(0.0)
-                .with_ceiling_blast_margin(0.0),
+                .with_fall_out_margin(0.0)
+                .with_side_out_margin(0.0)
+                .with_rise_out_margin(0.0),
             origin,
             kit,
             frame,

@@ -845,22 +845,75 @@ pub struct World {
     /// every AABB-only room — the zero-chain case takes the existing fast
     /// paths untouched; only surface-momentum bodies ever read this list.
     pub chains: Vec<SurfaceChain>,
-    #[serde(default = "World::default_blast_margin")]
-    pub blast_margin: f32,
+    /// How far past `size` a body may travel on each axis before the world
+    /// declares it gone. See [`WorldEdgeMargins`].
+    #[serde(default)]
+    pub edges: WorldEdgeMargins,
+}
+
+/// HOW FAR PAST THE WORLD A BODY MAY GET BEFORE THE WORLD IS DONE WITH IT, per
+/// axis role.
+///
+/// ⭐⭐ **the engine owns the GEOMETRY; the game owns the MEANING.** Exceeding a
+/// margin emits [`crate::ResetCause::LeftTheWorld`] and nothing more — a
+/// platform fighter loses a stock, a platformer respawns from a pit, Ambition
+/// calls it out of bounds. One engine fact, three games.
+///
+/// ⛔⛔ **named for the AXIS ROLE, never for a genre.** These fields were
+/// `blast_margin` / `side_blast_margin` / `ceiling_blast_margin` until
+/// 2026-08-22, which put a platform-fighter noun in every world in the tree —
+/// Mary-O's `World` had a `blast_margin`, and so did TwinTrack's. The number was
+/// always generic; only the word was not. (Jon's ruling,
+/// `docs/planning/awaiting-maintainer-decision.md` §26.)
+///
+/// ⛔ readers DESTRUCTURE this exhaustively — see `apply_world_hazard_gate` — so
+/// a fourth axis is a compile error at every gate rather than a comparison
+/// somebody forgot to add. Same shape as `CapabilityLanes`.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct WorldEdgeMargins {
+    /// Along the fall direction: the pit floor. Always present, because every
+    /// world has a bottom a body can be gone past.
+    #[serde(default = "WorldEdgeMargins::default_fall")]
+    pub fall: f32,
+    /// Across the fall direction, both ways.
+    ///
     /// Opt-in because the two genres this engine serves disagree completely
     /// about what a side edge MEANS. A platformer walking off the left edge of
     /// a room is transitioning to the next room, and killing there would break
     /// every corridor in the game. A platform fighter thrown off the left edge
     /// has lost a stock — and that is where a platform fighter loses MOST of
-    /// them, which is why a fall-direction-only blast zone is not a blast zone.
+    /// them, which is why a fall-direction-only margin is not enough for one.
     #[serde(default)]
-    pub side_blast_margin: Option<f32>,
-    /// How far past `size` AGAINST the fall direction a body may drift before
-    /// the world declares it gone — the ceiling blast zone, the one a strong
-    /// upward launch scores on. `None` (the default) means a body can rise
-    /// forever, which is correct for a platformer with tall rooms.
+    pub side: Option<f32>,
+    /// AGAINST the fall direction — the one a strong upward launch scores on.
+    /// `None` (the default) means a body can rise forever, which is correct for
+    /// a platformer with tall rooms.
     #[serde(default)]
-    pub ceiling_blast_margin: Option<f32>,
+    pub rise: Option<f32>,
+}
+
+impl WorldEdgeMargins {
+    /// The fall margin a world gets when nobody authors one, and the value every
+    /// world used when the number was a literal in two copies of the
+    /// out-of-bounds gate. Generous: a platformer wants a body that fell in a
+    /// pit to be gone, not a body that clipped a corner to be dead.
+    pub const DEFAULT_FALL: f32 = 200.0;
+
+    /// `serde` default so every world serialized before the margin was
+    /// authorable still deserializes with the behaviour it was saved under.
+    fn default_fall() -> f32 {
+        Self::DEFAULT_FALL
+    }
+}
+
+impl Default for WorldEdgeMargins {
+    fn default() -> Self {
+        Self {
+            fall: Self::DEFAULT_FALL,
+            side: None,
+            rise: None,
+        }
+    }
 }
 
 /// First collision along a swept body path.
@@ -974,63 +1027,56 @@ impl World {
             water_regions: Vec::new(),
             climbable_regions: Vec::new(),
             chains: Vec::new(),
-            blast_margin: Self::DEFAULT_BLAST_MARGIN,
-            side_blast_margin: None,
-            ceiling_blast_margin: None,
+            edges: WorldEdgeMargins::default(),
         }
     }
 
-    /// The blast margin a world gets when nobody authors one, and the value
-    /// every world used when the number was a literal in two copies of the
-    /// out-of-bounds gate. Generous: a platformer wants a body that fell in a
-    /// pit to be gone, not a body that clipped a corner to be dead.
-    pub const DEFAULT_BLAST_MARGIN: f32 = 200.0;
+    /// The fall margin a world gets when nobody authors one. Kept on `World`
+    /// as well as on [`WorldEdgeMargins`] because most callers reach for it
+    /// through the world they are building.
+    pub const DEFAULT_FALL_OUT_MARGIN: f32 = WorldEdgeMargins::DEFAULT_FALL;
 
-    /// `serde` default so every world serialized before the margin was
-    /// authorable still deserializes with the behaviour it was saved under.
-    fn default_blast_margin() -> f32 {
-        Self::DEFAULT_BLAST_MARGIN
-    }
-
-    /// Builder-style setter for the blast margin. A stage tightens this when
+    /// Builder-style setter for the FALL margin. A stage tightens this when
     /// leaving it is supposed to be the LOSS CONDITION rather than an accident
     /// — a platform fighter's blast zone is exactly this number, authored small.
-    pub fn with_blast_margin(mut self, blast_margin: f32) -> Self {
-        self.blast_margin = blast_margin;
+    pub fn with_fall_out_margin(mut self, margin: f32) -> Self {
+        self.edges.fall = margin;
         self
     }
 
-    /// Builder-style setter for the SIDE blast zone. Opting in says "leaving me
+    /// Builder-style setter for the SIDE margin. Opting in says "leaving me
     /// sideways is losing", which is a fighting stage's statement and never a
     /// platformer corridor's.
-    pub fn with_side_blast_margin(mut self, margin: f32) -> Self {
-        self.side_blast_margin = Some(margin);
+    pub fn with_side_out_margin(mut self, margin: f32) -> Self {
+        self.edges.side = Some(margin);
         self
     }
 
-    /// Builder-style setter for the CEILING blast zone.
-    pub fn with_ceiling_blast_margin(mut self, margin: f32) -> Self {
-        self.ceiling_blast_margin = Some(margin);
+    /// Builder-style setter for the RISE margin.
+    pub fn with_rise_out_margin(mut self, margin: f32) -> Self {
+        self.edges.rise = Some(margin);
         self
     }
 
-    /// ALL THREE blast zones at once, for a lowering pass that has authored
-    /// values or nothing.
+    /// ALL THREE margins at once, for a lowering pass that has authored values
+    /// or nothing.
     ///
     /// Together, deliberately. A forwarding site that applies them one at a
     /// time is a site that can forget one, and a forgotten margin is SILENT —
     /// the field keeps its default and the room looks fine. `fall` is `Option`
-    /// here (unlike [`Self::with_blast_margin`]) because a lowering pass has
+    /// here (unlike [`Self::with_fall_out_margin`]) because a lowering pass has
     /// "the author said nothing", which is not the same as a number.
-    pub fn with_blast_zones(
+    pub fn with_edge_margins(
         mut self,
         fall: Option<f32>,
         side: Option<f32>,
-        ceiling: Option<f32>,
+        rise: Option<f32>,
     ) -> Self {
-        self.blast_margin = fall.unwrap_or(Self::DEFAULT_BLAST_MARGIN);
-        self.side_blast_margin = side;
-        self.ceiling_blast_margin = ceiling;
+        self.edges = WorldEdgeMargins {
+            fall: fall.unwrap_or(WorldEdgeMargins::DEFAULT_FALL),
+            side,
+            rise,
+        };
         self
     }
 

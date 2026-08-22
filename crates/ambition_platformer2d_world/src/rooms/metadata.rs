@@ -142,9 +142,9 @@ pub struct RoomMetadata {
     /// The field is declared in each LDtk project, so an authored room can select
     /// its own ruleset.
     pub mode: Option<String>,
-    /// How far past this room's bounds, along the fall direction, a body may
+    /// How far past this room's bounds, ALONG the fall direction, a body may
     /// drift before the world declares it gone
-    /// ([`World::blast_margin`](ambition_platformer2d_core::World::blast_margin)).
+    /// ([`WorldEdgeMargins::fall`](ambition_platformer2d_core::WorldEdgeMargins::fall)).
     ///
     /// A platformer's pit depth and a platform fighter's blast zone are the
     /// same number, and it belongs to the room. `None` takes the engine
@@ -152,23 +152,27 @@ pub struct RoomMetadata {
     /// inside the movement kernel — a stage could not disagree with it, which
     /// is why a fighting stage could not be authored at all.
     ///
-    /// Authored as the LDtk level integer field `blast_margin`, in whole
+    /// Authored as the LDtk level integer field `fall_out_margin`, in whole
     /// pixels, merged first-`Some`-wins like every other field here. Integer
     /// because `RoomMetadata` is `Eq` and a distance in pixels has no business
     /// being fractional; the composer widens it for the engine.
-    pub blast_margin: Option<i32>,
-    /// The SIDE blast zone, in whole pixels. `None` — the default — means the
-    /// sides are not a blast zone: walking off the left edge of a corridor is a
-    /// room transition, not a death. A fighting stage authors a number; a
-    /// platformer room never does.
     ///
-    /// Authored as the LDtk level integer field `side_blast_margin`.
-    pub side_blast_margin: Option<i32>,
-    /// The CEILING blast zone (against the fall direction), in whole pixels.
-    /// `None` (the default) lets a body rise forever.
+    /// ⛔ FLAT here, and grouped on the engine's `World`. The three are merged
+    /// independently first-`Some`-wins across metadata sources, so a struct
+    /// would have to merge field-by-field anyway and would only hide that.
+    pub fall_out_margin: Option<i32>,
+    /// ACROSS the fall direction, in whole pixels. `None` — the default — means
+    /// the sides are not a loss condition: walking off the left edge of a
+    /// corridor is a room transition, not a death. A fighting stage authors a
+    /// number; a platformer room never does.
     ///
-    /// Authored as the LDtk level integer field `ceiling_blast_margin`.
-    pub ceiling_blast_margin: Option<i32>,
+    /// Authored as the LDtk level integer field `side_out_margin`.
+    pub side_out_margin: Option<i32>,
+    /// AGAINST the fall direction, in whole pixels. `None` (the default) lets a
+    /// body rise forever.
+    ///
+    /// Authored as the LDtk level integer field `rise_out_margin`.
+    pub rise_out_margin: Option<i32>,
     /// Where finishing this room leads — the id of the room its goal sends
     /// the player to. `None` means the room has no successor and loops in
     /// place, which is the classic arcade answer and a real destination rather
@@ -199,9 +203,9 @@ impl RoomMetadata {
             && self.nameplate_policy.is_empty()
             && !self.gallery
             && self.mode.is_none()
-            && self.blast_margin.is_none()
-            && self.side_blast_margin.is_none()
-            && self.ceiling_blast_margin.is_none()
+            && self.fall_out_margin.is_none()
+            && self.side_out_margin.is_none()
+            && self.rise_out_margin.is_none()
             && self.next_room.is_none()
     }
 
@@ -224,14 +228,14 @@ impl RoomMetadata {
         if self.mode.is_none() {
             self.mode = other.mode;
         }
-        if self.blast_margin.is_none() {
-            self.blast_margin = other.blast_margin;
+        if self.fall_out_margin.is_none() {
+            self.fall_out_margin = other.fall_out_margin;
         }
-        if self.side_blast_margin.is_none() {
-            self.side_blast_margin = other.side_blast_margin;
+        if self.side_out_margin.is_none() {
+            self.side_out_margin = other.side_out_margin;
         }
-        if self.ceiling_blast_margin.is_none() {
-            self.ceiling_blast_margin = other.ceiling_blast_margin;
+        if self.rise_out_margin.is_none() {
+            self.rise_out_margin = other.rise_out_margin;
         }
         if self.next_room.is_none() {
             self.next_room = other.next_room;

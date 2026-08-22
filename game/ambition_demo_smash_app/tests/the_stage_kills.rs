@@ -30,7 +30,8 @@ fn the_worlds_edge_sits_within_a_launch_of_the_platform() {
     let world = ambition_demo_smash::smash_stage().world;
     let platform = world.blocks[0].aabb;
     let side_margin = world
-        .side_blast_margin
+        .edges
+        .side
         .expect("the stage authors its side margins");
 
     // How far past the platform's edge a body must travel to leave the world.

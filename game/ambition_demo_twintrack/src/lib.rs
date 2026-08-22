@@ -482,7 +482,7 @@ pub fn twintrack_room() -> RoomSpec {
     let mut world = ae::World::new("TwinTrack Relativity Plaza", size, LAB_POS, Vec::new());
     // Zero-gravity free flight should not silently inherit a platformer's bottom
     // blast margin once the participant leaves the authored exhibit rectangle.
-    world.blast_margin = OPEN_CAMERA_HALF_SPAN;
+    world.edges.fall = OPEN_CAMERA_HALF_SPAN;
     let mut room = RoomSpec::new(TWINTRACK_ROOM_ID, world);
     room.metadata.mode = Some(TWINTRACK_EXPERIENCE.to_owned());
     room.camera_zones.push(CameraZoneSpec {

@@ -469,36 +469,36 @@ pub fn draw_room_bounds(gizmos: &mut Gizmos, world: &ae::World) {
 /// The fall line is always drawn — every room has one whether it wanted one or
 /// not. The side and ceiling lines appear only when the stage opted in, so an
 /// absent line is the honest picture of a direction that does not kill.
-pub fn draw_blast_zones(gizmos: &mut Gizmos, world: &ae::World, gravity_dir: ae::Vec2) {
+pub fn draw_world_edges(gizmos: &mut Gizmos, world: &ae::World, gravity_dir: ae::Vec2) {
     // Red: crossing this is death. Dimmer for the opt-in pair, so the direction
     // that is ALWAYS live reads as the default and the other two read as
     // choices this stage made.
     let fall = Color::srgba(1.0, 0.25, 0.25, 0.55);
     let opt_in = Color::srgba(1.0, 0.45, 0.30, 0.42);
-    for line in blast_zone_lines(world, gravity_dir) {
+    for line in world_edge_lines(world, gravity_dir) {
         let color = if line.always_lethal { fall } else { opt_in };
         gizmos.line_2d(w2(world, line.from), w2(world, line.to), color);
     }
 }
 
-/// One drawn blast boundary, in WORLD space.
+/// One drawn world-edge boundary, in WORLD space.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct BlastZoneLine {
+pub struct WorldEdgeLine {
     pub from: ae::Vec2,
     pub to: ae::Vec2,
-    /// Whether this direction kills unconditionally (the fall margin) or only
-    /// because the stage opted in (the sides and the ceiling).
+    /// Whether this direction ends a body unconditionally (the fall margin) or
+    /// only because the stage opted in (the side and rise margins).
     pub always_lethal: bool,
 }
 
-/// The blast boundaries of `world` as world-space segments, resolved in the
-/// BODY's frame.
+/// The out-of-bounds boundaries of `world` as world-space segments, resolved
+/// in the BODY's frame.
 ///
 /// Pure, and separate from the drawing, because the thing worth pinning is the
 /// GEOMETRY: the gate measures every margin along the body's own `down`, so a
 /// line drawn at `y = size.y + margin` is correct only under down-gravity and
 /// lies in the Noether Chamber. A gizmo call cannot be asserted; a segment can.
-pub fn blast_zone_lines(world: &ae::World, gravity_dir: ae::Vec2) -> Vec<BlastZoneLine> {
+pub fn world_edge_lines(world: &ae::World, gravity_dir: ae::Vec2) -> Vec<WorldEdgeLine> {
     let frame = ae::AccelerationFrame::new(gravity_dir);
     let centre = world.size * 0.5;
     // Half-extents measured along the body's own axes, so a sideways-gravity
@@ -511,7 +511,7 @@ pub fn blast_zone_lines(world: &ae::World, gravity_dir: ae::Vec2) -> Vec<BlastZo
     let segment = |axis: ae::Vec2, distance: f32, span: f32, always_lethal: bool| {
         let along = axis * distance;
         let across = ae::Vec2::new(-axis.y, axis.x) * (span + 240.0);
-        BlastZoneLine {
+        WorldEdgeLine {
             from: centre + along - across,
             to: centre + along + across,
             always_lethal,
@@ -523,14 +523,14 @@ pub fn blast_zone_lines(world: &ae::World, gravity_dir: ae::Vec2) -> Vec<BlastZo
     // absent line is the honest picture of a direction that does not kill.
     let mut lines = vec![segment(
         frame.down,
-        half_fall + world.blast_margin,
+        half_fall + world.edges.fall,
         half_side,
         true,
     )];
-    if let Some(margin) = world.ceiling_blast_margin {
+    if let Some(margin) = world.edges.rise {
         lines.push(segment(-frame.down, half_fall + margin, half_side, false));
     }
-    if let Some(margin) = world.side_blast_margin {
+    if let Some(margin) = world.edges.side {
         lines.push(segment(frame.side, half_side + margin, half_fall, false));
         lines.push(segment(-frame.side, half_side + margin, half_fall, false));
     }
@@ -791,7 +791,7 @@ pub fn draw_debug_viz(
     // view publishes — bosses and actors included, which the `bodies` query
     // above cannot reach (`BodyPoseView` is player-bodied only).
     presented_bodies: Query<&ambition_sim_view::PresentedPose>,
-    // The live gravity, for the blast-zone lines. `Option` because headless and
+    // The live gravity, for the world-edge lines. `Option` because headless and
     // test apps do not insert it, and "down" is the honest fallback there.
     gravity: Option<Res<ambition_platformer2d_shared_tangle::gravity::GravityField>>,
 ) {
@@ -801,7 +801,7 @@ pub fn draw_debug_viz(
     let world = &world.0;
     if developer_tools.show_room_bounds {
         draw_room_bounds(&mut gizmos, world);
-        draw_blast_zones(
+        draw_world_edges(
             &mut gizmos,
             world,
             ambition_platformer2d_shared_tangle::gravity::gravity_dir_or_default(
@@ -888,7 +888,7 @@ pub fn draw_debug_viz(
 }
 
 #[cfg(test)]
-mod blast_zone_overlay_tests {
+mod world_edge_overlay_tests {
     use super::*;
 
     fn stage(side: Option<f32>, ceiling: Option<f32>) -> ae::World {
@@ -898,9 +898,9 @@ mod blast_zone_overlay_tests {
             ae::Vec2::new(480.0, 270.0),
             Vec::new(),
         )
-        .with_blast_margin(96.0);
-        world.side_blast_margin = side;
-        world.ceiling_blast_margin = ceiling;
+        .with_fall_out_margin(96.0);
+        world.edges.side = side;
+        world.edges.rise = ceiling;
         world
     }
 
@@ -910,7 +910,7 @@ mod blast_zone_overlay_tests {
     /// side boundary here would be telling a stage author their corridor kills.
     #[test]
     fn a_room_that_opted_into_nothing_draws_only_its_pit() {
-        let lines = blast_zone_lines(&stage(None, None), DOWN);
+        let lines = world_edge_lines(&stage(None, None), DOWN);
         assert_eq!(lines.len(), 1);
         assert!(lines[0].always_lethal);
         // 270 (half height) + 96 (margin) below the centre.
@@ -922,7 +922,7 @@ mod blast_zone_overlay_tests {
     /// and a ceiling, none of them marked unconditional.
     #[test]
     fn opting_in_draws_the_directions_that_were_opted_into() {
-        let lines = blast_zone_lines(&stage(Some(160.0), Some(64.0)), DOWN);
+        let lines = world_edge_lines(&stage(Some(160.0), Some(64.0)), DOWN);
         assert_eq!(lines.len(), 4);
         assert_eq!(lines.iter().filter(|l| l.always_lethal).count(), 1);
         let xs: Vec<f32> = lines
@@ -947,7 +947,7 @@ mod blast_zone_overlay_tests {
     #[test]
     fn the_boundaries_rotate_with_gravity() {
         let world = stage(None, None);
-        let sideways = blast_zone_lines(&world, ae::Vec2::new(1.0, 0.0));
+        let sideways = world_edge_lines(&world, ae::Vec2::new(1.0, 0.0));
         assert_eq!(sideways.len(), 1);
         let line = sideways[0];
         assert!(

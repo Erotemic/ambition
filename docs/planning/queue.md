@@ -3726,11 +3726,27 @@ and would cost nothing — but a body switching between biped, morph ball and
 flight is MOVEMENT, and putting it in the combat domain buys a free carve at the
 price of the ownership question this row exists to answer.
 
-⚠ **the shape worth pricing first: the module is a pure decision plus thin Bevy
-glue.** If the decision half takes no `ResolvedMotionFrame`, it belongs in
-`ambition_platformer2d_core::movement` beside the kernel it selects a model for,
-and only the system stays behind. Measure that split before choosing a crate for
-the whole file.
+⛔⛔ **AND MY OWN "ZERO DEPENDENCIES" WAS A `crate::` COUNT — the same error this
+entry opens by naming.** Counting what the module REACHES, not how it spells it:
+
+```text
+ambition_platformer2d_core            22
+ambition_platformer2d_shared_tangle    8
+ambition_characters                    6   (SlotInteractionState, DrivingParticipant, ActorControl)
+ambition_platformer2d_world            1   (CollisionWorld, in the system's params)
+```
+
+⇒ **four crates, and no existing home carries all four.** `ambition_combat` has
+three and would need a new `world` edge on top of owning movement it has no
+business owning; `ambition_characters` refused two of them.
+
+⇒ **`body_mode` is NOT carve-ready, and the pure/glue split that would make it so
+does not exist to be moved.** `mechanics/mod.rs` is one 296-line system function;
+no file in the module is Bevy-free. Extracting a pure decision from that loop
+would create one function with one caller purely to enable a future move — which
+is the speculative shape this row keeps refusing. ⇒ **leave it until a
+movement-domain crate above `core` exists for an unrelated reason**, and spend
+D33's next slice on a module whose destination already exists.
 
 ✔✔ **AND IT MOVED (2026-08-22) — the per-slot input model is now one place.**
 `SlotGestures` + `SlotInteractionState` → `ambition_characters::brain`, beside

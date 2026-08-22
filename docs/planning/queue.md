@@ -2081,6 +2081,37 @@ design doc names — there are two render-size publishers, and fixing one leaves
 both of the characters Jon complained about untouched. Find both before editing
 either.
 
+✔✔ **BOTH ARE FOUND, AND THEY AGREE — re-measured 2026-08-22.** They are
+`SpriteBodyCollision::render_size` (the catalog/standing-height route, via
+`catalog_join`) and `sprite_render_size(spec, body)` (the renderer route, used by
+`bind_worn_character_presentation` and `upgrade_actor_sprites`). The instrument
+already exists — `print_the_two_render_size_publishers` in
+`game/ambition_app/tests/enemy_body_scale.rs`, an `#[ignore]`d report — and every
+row of it reads **identical quads, `drawn/box 1.00`, `stretch 1.000`.** ⇒ this
+trap is closed; whatever remains is not a disagreement between publishers.
+
+⭐⭐ **AND THE SHARED UNIT IS ALREADY LIVE FOR THE WHOLE CATALOG, WHICH CHANGES
+WHAT SLICE 1 STILL OWES.** `catalog_join` resolves
+`standing_height ?? body_kind.default_standing_height()` into
+`scale = height / body_h`. `Standard` defaults to **48.0 — the player robot's own
+height** — so every humanoid in the cast is already exactly 48 tall and
+comparable. **Zero of 145 catalog rows author `standing_height`**, so the default
+is doing all the work, and *that* is Jon's report: an adult pirate is 48 because
+the chibi robot is 48 and nothing has said they differ. ⇒ **the remaining work on
+his three reports is AUTHORING heights, not building the unit.**
+
+⚠ **`Vitals::canonical_height` and `CharacterCatalogEntry::standing_height` are
+the same fact on two authoring surfaces** (definition-side Rust, catalog-side
+RON) — federated facets, not a duplication, but nothing resolves between them if
+a character ever declares both. `canonical_height` has 2 production adopters
+(robot lineage, Mary-O); `standing_height` has 0 of 145.
+
+⛔ **and the quad/body ratio is NOT downstream of any of this.** `render = frame ×
+scale` and `collision = body × scale`, so `render/collision = frame/body` with
+the scale cancelling: the snake's 2.46× is the art's padding and no declared
+height moves it. This row's *"shared unit FIRST, quad-from-bbox after"* is not a
+dependency — the two halves are independent.
+
 ⇒ **acceptance is Jon's three reports, not a number**: the snake and AI slop,
 Sanic in his own game, and the cove pirates against the robot. If declaring
 heights does not settle them, the quad-from-bbox route comes back with evidence

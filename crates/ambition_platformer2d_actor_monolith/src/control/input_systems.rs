@@ -128,7 +128,7 @@ pub fn input_timer_system(
         let Some(interaction) = slot_gestures.get_mut(slot) else {
             continue;
         };
-        let mut frame = crate::control::seat_frame_this_tick(
+        let frame = crate::control::seat_frame_this_tick(
             latches.as_deref(),
             rollback.as_deref(),
             &slots,

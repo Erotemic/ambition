@@ -1663,8 +1663,7 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
         // the mouse.
         app.init_resource::<select_screen::cursor::SelectCursors>();
         app.init_resource::<select_screen::SelectPage>();
-        app.init_resource::<select_screen::SelectStyle>();
-        app.init_resource::<select_screen::TokenRest>();
+        app.init_resource::<select_screen::SelectInteractionPolicy>();
         app.init_resource::<select_screen::StartRequested>();
         app.init_resource::<select_screen::LeaveRequested>();
         // **THE ROSTER IS A COMPOSITION FACT, so it is resolved once, late.**
@@ -1771,8 +1770,10 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
             bevy::prelude::Update,
             bevy::prelude::IntoScheduleConfigs::in_set(
                 bevy::prelude::IntoScheduleConfigs::chain((
-                    present_the_select_screen,
-                    // ⚠ **DRIVE BEFORE DRAW, and the order is not cosmetic.**
+                    maintain_smash_local_seat_offer,
+                    reset_select_frontend_on_arrival,
+                    present_select_screen_ui,
+                    // **DRIVE BEFORE DRAW.**
                     // The cursor hit-tests the MEASURED layout, which Bevy
                     // computes in `PostUpdate` — so both of these read last
                     // frame's rectangles. Drawing first would place the tokens
@@ -1784,7 +1785,14 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                         the_select_screen_owns_its_input,
                     ),
                     select_screen::place_the_screen,
-                    select_screen::update_the_select_screen,
+                    // Four small projections instead of one screen-wide mutable
+                    // query bundle. Their internal order is not semantic; keeping
+                    // them inside this drive-before-draw fence preserves the
+                    // existing frame contract without a B0001 exclusion matrix.
+                    select_screen::sync_select_grid,
+                    select_screen::sync_select_cards,
+                    select_screen::sync_select_chrome,
+                    select_screen::sync_select_tokens_and_cursors,
                     start_the_battle_when_asked,
                     // ⛔ the safety net for every entry that skips the lobby —
                     // the dev bins and the stage tests. See its doc.
@@ -1829,107 +1837,31 @@ fn assemble_the_smash_roster(
     }
 }
 
-/// Spawn the screen's UI on arrival and tear it down on leaving.
+/// Maintain Smash's local-seat offer across its frontend and gameplay routes.
 ///
-/// Route-driven rather than state-driven: the screen is a ROUTE, and tying the
-/// panels to `SmashSelect` would leave them standing through the match (the
-/// resource keeps its decision, which is what the match was built from).
-fn present_the_select_screen(
-    mut commands: bevy::prelude::Commands,
+/// The lobby offers connected local seats; gameplay gets its seats from the
+/// frozen match roster but keeps the same JoinToClaim assignment policy. The
+/// claim is owner-scoped, so leaving Smash cannot retract another route's offer.
+fn maintain_smash_local_seat_offer(
     router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
-    mut select: bevy::prelude::ResMut<select::SmashSelect>,
-    roster: Option<bevy::prelude::Res<MatchParticipantRoster>>,
     devices: Option<bevy::prelude::Res<ambition_platformer2d::input::LocalDeviceOrder>>,
-    // ⭐ **ONE claim, and it names its owner.** This was two resources guarded by
-    // two `Local<bool>` flags and two value-equality tests — a hand-kept
-    // ownership model beside a type that now carries one.
     mut offer: bevy::prelude::ResMut<ambition_platformer2d::input::LocalSeatOffer>,
-    // ⚠ **ONE parameter, two resources**, for the same reason `art` below is
-    // one and not four: this system is at Bevy's parameter tuple ceiling and a
-    // separate `page` argument put it over. The pair belongs together anyway —
-    // both answer "where is this screen being LOOKED at", neither is part of
-    // what it decided.
-    mut viewing: (
-        bevy::prelude::ResMut<select_screen::cursor::SelectCursors>,
-        bevy::prelude::ResMut<select_screen::SelectPage>,
-        bevy::prelude::ResMut<select_screen::TokenRest>,
-    ),
-    mut start: bevy::prelude::ResMut<select_screen::StartRequested>,
-    fighters: bevy::prelude::Res<select::SmashRoster>,
-    // ⚠ ONE parameter, not four. See `select_screen::ScreenArt` — four separate
-    // `Res` arguments pushed this system past Bevy's parameter tuple ceiling,
-    // and the three that make a portrait belong together anyway.
-    art: select_screen::ScreenArt,
-    // **WHETHER THIS COMPOSITION HAS A TITLE TO GO BACK TO.** See
-    // `select_screen::exit_leads_somewhere`: the standalone demo's home IS this
-    // screen, so it draws no exit; the multi-game host's is the launcher.
-    host: Option<bevy::prelude::Res<ambition_platformer2d::game_shell::ShellHostConfiguration>>,
-    existing: bevy::prelude::Query<(), bevy::prelude::With<select_screen::SmashSelectUiRoot>>,
-    roots: bevy::prelude::Query<
-        bevy::prelude::Entity,
-        bevy::prelude::With<select_screen::SmashSelectUiRoot>,
-    >,
 ) {
-    let on_select = router
-        .active
-        .as_ref()
-        .is_some_and(|active| active.route_id.as_str() == SMASH_SELECT_ROUTE);
-    // **WHILE THIS SCREEN IS UP, THE PADS ARE SEATS.** Declared here and dropped
-    // on the way out, so the participants it asks for live exactly as long as
-    // the question does — the same lifetime rule the match's own seats have.
-    // **THIS DEMO IS A COUCH GAME**, so its sources CLAIM seats rather than all
-    // driving player one — for the SELECT SCREEN *and the match it starts*.
-    //
-    // ⛔ this said `if on_select` and reverted to unified everywhere else, which
-    // meant the assignment a lobby made was undone the instant the stage loaded.
-    // Measured: the pad's DPadRight arrived on BOTH seats' `ActionState` during
-    // the match (`move_right=true` on slot 0 and slot 1) while `MenuSelect` on
-    // the select screen had correctly reached slot 1 alone. Menu input looked
-    // isolated and gameplay input was not, and the reason was not two input
-    // paths — it was the same path under two different policies, because the
-    // policy was keyed on the ROUTE and the route had changed.
-    //
-    // Jon's brief says it directly: *"Before the match starts, freeze:
-    // participant, session seat, control channel, input sources."* A source
-    // assignment that expires when the lobby closes is the opposite of frozen.
-    //
-    // ⚠ still scoped to this demo's own routes. Ambition's rooms keep the
-    // unified default, where a spare controller is another way to move the same
-    // character (milestone 8).
+    let on_select = on_the_select_route(&router);
     let on_smash_route = router.active.as_ref().is_some_and(|active| {
         matches!(
             active.route_id.as_str(),
             SMASH_SELECT_ROUTE | SMASH_GAMEPLAY_ROUTE
         )
     });
-    // ⛔ **write only what THIS demo claimed** (GPT 5.6, 2026-08-01). The first
-    // version set `JoinToClaim` on smash routes and `UnifiedPrimary` on every
-    // other one — so a demo plugin was stamping a global host resource while
-    // another game owned the screen, and no other experience could hold its own
-    // assignment policy. The comment said "route-scoped"; the code was global.
-    //
-    // ⭐ **the offer names its owner, so "only undo OUR value" stopped being
-    // something this system has to remember.** It was four hand-written guards —
-    // two `Local<bool>` claims and two `if it still equals what I wrote` tests —
-    // and the second half of that pair is a bug wherever it appears: a successor
-    // that claims the SAME values is erased by the previous owner's teardown.
     let couch = ambition_platformer2d::input::sources::InputAssignmentPolicy::JoinToClaim;
     let offered = devices
         .as_deref()
         .map(|devices| select::seats_offered_under(devices, couch))
         .unwrap_or(1) as u8;
+
     if on_smash_route {
-        // **SEATS ONLY WHILE THE SCREEN IS UP; THE POLICY ACROSS BOTH ROUTES.**
-        // A match's seats come from its roster, so the lobby's offer is
-        // withdrawn when the lobby is — but the couch assignment the lobby made
-        // must survive into the match it started. Jon's brief: *"Before the
-        // match starts, freeze: participant, session seat, control channel,
-        // input sources."* A source assignment that expires when the lobby
-        // closes is the opposite of frozen, and the pad arrived on BOTH seats
-        // during the match when this was keyed on the route alone.
         let seats = if on_select { offered } else { 0 };
-        // Compare before writing: a resource that "changes" every frame is a
-        // needless wake-up for everything watching it.
         if !offer.is_owned_by(SMASH_SELECT_EXPERIENCE)
             || offer.seats() != seats
             || offer.policy() != couch
@@ -1937,50 +1869,60 @@ fn present_the_select_screen(
             offer.claim(SMASH_SELECT_EXPERIENCE, seats, couch);
         }
     } else {
-        // A stranger's offer is left standing, and the TYPE decides that rather
-        // than a remembered flag and a value comparison.
         offer.release(SMASH_SELECT_EXPERIENCE);
     }
-    if on_select {
-        // **ARRIVING is where a rematch becomes possible.** The screen's own
-        // exit condition is "everyone is locked in AND no roster exists yet", so
-        // a match that ended and came home left both of those permanently
-        // wrong: the roster it was built from is a plain resource that outlives
-        // the session, and every seat was still locked in. The result was a
-        // select screen you could look at and never leave — reachable only from
-        // a host that can return here, which is exactly what listing this demo
-        // in a multi-game launcher made possible.
-        if existing.is_empty() {
-            *select = select::SmashSelect::default();
-            // ⚠ **the CURSOR and the START request are reset with it.** They are
-            // separate resources and would otherwise be the residue that makes
-            // a rematch behave differently from a first match: a `StartRequested`
-            // left true re-publishes the roster on the frame the screen opens,
-            // which is the same "you could look at it and never leave" bug the
-            // paragraph above is about, in a second resource.
-            *viewing.0 = select_screen::cursor::SelectCursors::default();
-            // ⚠ **and the PAGE**, for the same reason: a lobby re-entered on
-            // page two would open on a grid whose first cell is not the
-            // roster's first, which reads as a different roster.
-            *viewing.1 = select_screen::SelectPage::default();
-            *viewing.2 = select_screen::TokenRest::default();
-            *start = select_screen::StartRequested::default();
-            // THIS demo's roster. Another stage in the same host publishes its
-            // own into the same global resource, and clearing "the roster" is
-            // how one game deletes another's match.
-            if roster.is_some_and(|roster| roster.is_published_by(SMASH_EXPERIENCE)) {
-                commands.remove_resource::<MatchParticipantRoster>();
-            }
-            // ⭐ **AND THE SEATING IS THIS EXPERIENCE'S TO DECIDE, from now
-            // until it leaves.** Claimed the moment the question opens rather
-            // than when it is answered: a session that started in this window
-            // would freeze a topology from connected DEVICES, and it is never
-            // resized afterwards, so the lobby's answer would arrive too late to
-            // matter. `start_the_battle_when_asked` turns this into a decision.
-            commands.insert_resource(ambition_platformer2d::input::SessionSeatingSource::pending(
-                SMASH_EXPERIENCE,
-            ));
-        }
+}
+
+/// Reset frontend-only select state exactly once when this route is entered.
+///
+/// `SmashSelect` is the lobby decision, while cursor/page/request state is
+/// interaction state. A rematch must start with neither the previous decision
+/// nor the previous hand positions. The UI root is the route-occurrence marker:
+/// before it exists we are entering; once it exists these values are left alone.
+fn reset_select_frontend_on_arrival(
+    mut commands: bevy::prelude::Commands,
+    router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
+    mut select: bevy::prelude::ResMut<select::SmashSelect>,
+    roster: Option<bevy::prelude::Res<MatchParticipantRoster>>,
+    mut cursors: bevy::prelude::ResMut<select_screen::cursor::SelectCursors>,
+    mut page: bevy::prelude::ResMut<select_screen::SelectPage>,
+    mut start: bevy::prelude::ResMut<select_screen::StartRequested>,
+    existing: bevy::prelude::Query<(), bevy::prelude::With<select_screen::SmashSelectUiRoot>>,
+) {
+    if !on_the_select_route(&router) || !existing.is_empty() {
+        return;
+    }
+
+    *select = select::SmashSelect::default();
+    *cursors = select_screen::cursor::SelectCursors::default();
+    *page = select_screen::SelectPage::default();
+    *start = select_screen::StartRequested::default();
+
+    // A roster published by another experience is not ours to remove.
+    if roster.is_some_and(|roster| roster.is_published_by(SMASH_EXPERIENCE)) {
+        commands.remove_resource::<MatchParticipantRoster>();
+    }
+    commands.insert_resource(ambition_platformer2d::input::SessionSeatingSource::pending(
+        SMASH_EXPERIENCE,
+    ));
+}
+
+/// Spawn/despawn the select UI from route state. This system owns presentation
+/// lifetime only; seat policy and frontend-state initialization live in the two
+/// systems above.
+fn present_select_screen_ui(
+    commands: bevy::prelude::Commands,
+    router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
+    fighters: bevy::prelude::Res<select::SmashRoster>,
+    art: select_screen::ScreenArt,
+    host: Option<bevy::prelude::Res<ambition_platformer2d::game_shell::ShellHostConfiguration>>,
+    existing: bevy::prelude::Query<(), bevy::prelude::With<select_screen::SmashSelectUiRoot>>,
+    roots: bevy::prelude::Query<
+        bevy::prelude::Entity,
+        bevy::prelude::With<select_screen::SmashSelectUiRoot>,
+    >,
+) {
+    if on_the_select_route(&router) {
         select_screen::spawn_select_screen(
             commands,
             existing,
@@ -2265,27 +2207,27 @@ fn start_the_battle_when_asked(
     ));
 }
 
-/// **Leave the lobby for the title.**
+/// **Leave the lobby through the character-select screen's own Back affordance.**
 ///
 /// ⭐ Jon, 2026-08-16: *"in the smash character select, there is no way to quit
-/// to title, you can only do this if you start a match."* Exactly right, and the
-/// reason was structural rather than an oversight: the universal pause menu
-/// offers "Quit to Title" only when there is an `ActiveGameplaySession` to quit
-/// FROM (`PauseEntry::rows`), and the select screen is a frontend route with no
-/// session. So the only door out of the lobby was through a match.
+/// to title, you can only do this if you start a match."* There are TWO useful
+/// roads now, and they should stay distinct: Esc/Start opens the universal
+/// system menu, whose `Quit to Title` row is available on frontend subroutes as
+/// well as live sessions; this handler is the CSS-native Back / held-B route.
+/// Both emit the same host-relative `QuitToHome` command.
 ///
-/// ⭐ **`QuitToHome`, the SAME command the pause menu's own row writes.** Home is
-/// the host's declared `home_route` — the Ambition launcher in the multi-game
-/// host — so this reaches the title by the one road that already knows where it
-/// is, clears the route history, and lets every experience scope release what it
-/// claimed. Spelling a `GoTo(some_title_route)` here would be this demo naming
-/// a route it does not own, and it would be wrong in the next composition.
+/// Home is the host's declared `home_route` — the Ambition launcher in the
+/// multi-game host — so this reaches the title by the one road that already
+/// knows where it is, clears route history, and lets every experience scope
+/// release what it claimed. Spelling a `GoTo(some_title_route)` here would be
+/// this demo naming a route it does not own, and it would be wrong in the next
+/// composition.
 ///
 /// ⚠ **nothing to unwind by hand, and that is a claim worth stating.** What this
 /// route CLAIMED on arrival is released by the systems that claimed it, because
 /// each is keyed on the route rather than on a shutdown hook:
-/// `present_the_select_screen` drops its `LocalSeatOffer` seat count to zero, restores the
-/// assignment policy it set, and despawns the UI the moment the route is no
+/// `maintain_smash_local_seat_offer` releases its seat claim and
+/// `present_select_screen_ui` despawns the UI the moment the route is no
 /// longer active; `declare_the_select_input_context` retracts `SELECT_CONTEXT`;
 /// `publish_the_select_ui_cue` retracts the cue; and the experience scope
 /// declared in [`SmashExperiencePlugin`] resets `SmashSelect`,
@@ -2491,7 +2433,6 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
                 .resetting::<select_screen::LeaveRequested>()
                 .resetting::<select_screen::cursor::SelectCursors>()
                 .resetting::<select_screen::SelectPage>()
-                .resetting::<select_screen::TokenRest>()
                 .releasing_with("SessionSeatingSource", |world, owner| {
                     if let Some(mut seating) = world.get_resource_mut::<
                         ambition_platformer2d::input::SessionSeatingSource,
@@ -3625,8 +3566,7 @@ mod pause_arbitration_tests {
         app.init_resource::<ambition_platformer2d::game_shell::ShellRouter>();
         app.init_resource::<select_screen::cursor::SelectCursors>();
         app.init_resource::<select_screen::SelectPage>();
-        app.init_resource::<select_screen::SelectStyle>();
-        app.init_resource::<select_screen::TokenRest>();
+        app.init_resource::<select_screen::SelectInteractionPolicy>();
         // ⚠ **the CLOCK, because the cursor roams now.** `drive_the_cursor`
         // integrates a held stick against `Time`, so a hand-built app without
         // one fails validation on a resource rather than on anything this test
@@ -3760,27 +3700,33 @@ mod pause_arbitration_tests {
         })
     }
 
-    /// **BACK LEAVES THE LOBBY.**
-    ///
-    /// ⭐ Jon, 2026-08-16: *"in the smash character select, there is no way to
-    /// quit to title, you can only do this if you start a match."* The pause
-    /// menu offers "Quit to Title" only with a live session to quit from, and
-    /// this route has none — so this press is the whole feature.
-    ///
-    /// ⚠ **`QuitToHome`, the same command the pause menu's row writes.** The
-    /// assertion names the command rather than a resulting route id, because
-    /// WHERE home is belongs to the host spec and this demo must not know.
+    /// Tap-B is an in-screen token operation: with an empty hand, the cursor
+    /// returns to its own placed token and starts carrying it. It does not
+    /// navigate out of the character-select screen.
     #[test]
-    fn a_back_press_on_the_select_screen_quits_to_the_title() {
+    fn tap_back_recalls_the_owners_token_without_leaving() {
         let mut app = app_with(false);
-        // The control: the frame `app_with` armed is a confirm, and it must
-        // produce no shell command at all. Without this the assertion below
-        // would pass on a screen that quit on EVERY press.
+        // Spend the fixture's initial confirm: seat 0 becomes a controller on
+        // Random and therefore owns a placed token.
         app.update();
-        assert!(
-            commands_sent(&mut app).is_empty(),
-            "confirming on a role button asked the shell for something"
+        assert!(commands_sent(&mut app).is_empty());
+        seat_presses(&mut app, 0, MenuControlFrame::default());
+
+        let layout = select_screen::layout::SelectLayout::for_viewport(
+            None,
+            select::SmashRoster::default().cell_count(),
         );
+        let token = select_screen::token_rect(
+            &layout,
+            app.world().resource::<select::SmashSelect>(),
+            app.world().resource::<select::SmashRoster>(),
+            0,
+        )
+        .expect("seat 0 joined on Random, so it owns a placed token");
+        app.world_mut()
+            .resource_mut::<select_screen::cursor::SelectCursors>()
+            .seat_mut(0)
+            .move_to(layout.portrait(0).expect("a portrait").center());
 
         seat_presses(
             &mut app,
@@ -3791,43 +3737,57 @@ mod pause_arbitration_tests {
             },
         );
         app.update();
+
+        let cursor = app
+            .world()
+            .resource::<select_screen::cursor::SelectCursors>()
+            .seat(0);
+        assert_eq!(cursor.carrying, Some(0), "tap-B did not pick up the owner's token");
+        assert_eq!(
+            cursor.position,
+            token.center(),
+            "tap-B moved the token to the hand instead of returning the hand to the token"
+        );
         assert!(
-            asked_to_go_home(&mut app),
-            "BACK on the select screen left the player in the lobby"
+            commands_sent(&mut app).is_empty(),
+            "tap-B recalled a token and also left the lobby"
         );
     }
 
-    /// **ANY SEAT MAY LEAVE**, because four people share one cursor.
-    ///
-    /// Every other decision on this screen is a union over the seats — the
-    /// directions, the clicks and the token-drop all are — so a quit only seat 0
-    /// could reach would be the single press on this surface with a different
-    /// rule. On a couch the person who wants out is as often on pad 2.
+    /// The explicit Back control remains a shared way out. A connected input
+    /// seat does not need to own a match card merely to choose this UI action.
     #[test]
-    fn a_later_seat_may_back_out_too() {
+    fn a_later_seat_may_activate_the_back_control() {
         let mut app = app_with(false);
         seat_presses(&mut app, 0, MenuControlFrame::default());
+        let back = select_screen::layout::SelectLayout::for_viewport(
+            None,
+            select::SmashRoster::default().cell_count(),
+        )
+        .back_button();
+        app.world_mut()
+            .resource_mut::<select_screen::cursor::SelectCursors>()
+            .seat_mut(2)
+            .move_to(back.center());
         seat_presses(
             &mut app,
             2,
             MenuControlFrame {
-                back: true,
+                select: true,
                 ..Default::default()
             },
         );
         app.update();
         assert!(
             asked_to_go_home(&mut app),
-            "seat 3's BACK was ignored on a screen every other press treats as shared"
+            "seat 3 could not activate the shared Back control"
         );
     }
 
-    /// **BACK WITH A TOKEN IN HAND PUTS IT DOWN, and does not leave.**
-    ///
-    /// The graded rung every fighting game's select screen has. Reversing the
-    /// two would make one press on a held fighter cost the whole lobby.
+    /// B while already carrying a token is a no-op. It neither drops the token
+    /// nor leaves the lobby.
     #[test]
-    fn back_puts_a_carried_token_down_before_it_ever_leaves() {
+    fn back_is_a_noop_while_carrying_a_token() {
         let mut app = app_with(false);
         app.world_mut()
             .resource_mut::<select_screen::cursor::SelectCursors>()
@@ -3841,25 +3801,136 @@ mod pause_arbitration_tests {
             },
         );
         app.update();
-        assert!(
+        assert_eq!(
             app.world()
                 .resource::<select_screen::cursor::SelectCursors>()
                 .seat(0)
-                .carrying
-                .is_none(),
-            "BACK did not put the carried token down"
+                .carrying,
+            Some(0),
+            "BACK dropped a carried token"
         );
         assert!(
             commands_sent(&mut app).is_empty(),
-            "putting a token down also quit the lobby"
+            "BACK while carrying also quit the lobby"
+        );
+    }
+
+    /// Holding B is the navigation gesture. Unlike tap-B, it leaves the
+    /// character-select route once the hold threshold is crossed.
+    #[test]
+    fn holding_back_leaves_the_character_select_screen() {
+        let mut app = app_with(false);
+        app.update();
+        commands_sent(&mut app);
+
+        app.world_mut()
+            .resource_mut::<Time>()
+            .advance_by(std::time::Duration::from_millis(600));
+        seat_presses(
+            &mut app,
+            0,
+            MenuControlFrame {
+                back_held: true,
+                ..Default::default()
+            },
+        );
+        app.update();
+
+        assert!(
+            asked_to_go_home(&mut app),
+            "holding B past the CSS threshold did not leave the lobby"
+        );
+    }
+
+    /// An unseated connected participant may join by doing the thing they came
+    /// here to do: choosing a fighter. The press claims the first absent match
+    /// card and the same press chooses the portrait; no role-button preflight is
+    /// required.
+    #[test]
+    fn an_unseated_connected_cursor_claims_a_slot_when_it_selects_a_fighter() {
+        let mut app = app_with(false);
+        // Seat P1 through the fixture's real role-button press, then make seat 1
+        // present in the same per-seat input table production fills for a second
+        // connected participant.
+        app.update();
+        seat_presses(&mut app, 0, MenuControlFrame::default());
+        seat_presses(&mut app, 1, MenuControlFrame::default());
+
+        let layout = select_screen::layout::SelectLayout::for_viewport(
+            None,
+            select::SmashRoster::default().cell_count(),
+        );
+        let face = layout.portrait(1).expect("a grid with a second cell");
+        app.world_mut()
+            .resource_mut::<select_screen::cursor::SelectCursors>()
+            .seat_mut(1)
+            .move_to(face.center());
+        seat_presses(
+            &mut app,
+            1,
+            MenuControlFrame {
+                select: true,
+                ..Default::default()
+            },
+        );
+        app.update();
+
+        let select = app.world().resource::<select::SmashSelect>();
+        assert_eq!(
+            select.slot(1).occupant,
+            select::SlotOccupant::Controller { device: 1 },
+            "the second connected cursor selected a fighter but never joined"
+        );
+        assert_eq!(
+            select.slot(1).pick,
+            Some(select::SlotPick::Fighter(1)),
+            "the join press was consumed by seating instead of also choosing its fighter"
+        );
+    }
+
+    /// A seated player may explicitly open an empty human card for another
+    /// connected participant. This is distinct from implicit join-on-selection:
+    /// the requester chooses the roster POSITION, while the model assigns the
+    /// first connected source that is not already seated.
+    #[test]
+    fn player_one_can_enable_a_slot_for_a_connected_second_player() {
+        let mut app = app_with(false);
+        app.update(); // the fixture seats source 0 in slot 0
+        seat_presses(&mut app, 0, MenuControlFrame::default());
+        // A neutral row is still evidence that source 1 exists; production
+        // `populate_seat_menu_frames` writes one row per InputParticipant.
+        seat_presses(&mut app, 1, MenuControlFrame::default());
+
+        let role = select_screen::layout::SelectLayout::for_viewport(
+            None,
+            select::SmashRoster::default().cell_count(),
+        )
+        .role_button(1);
+        app.world_mut()
+            .resource_mut::<select_screen::cursor::SelectCursors>()
+            .seat_mut(0)
+            .move_to(role.center());
+        seat_presses(
+            &mut app,
+            0,
+            MenuControlFrame {
+                select: true,
+                ..Default::default()
+            },
+        );
+        app.update();
+
+        assert_eq!(
+            app.world().resource::<select::SmashSelect>().slot(1).occupant,
+            select::SlotOccupant::Controller { device: 1 },
+            "enabling the second card ignored the connected, unseated second participant"
         );
     }
 
     /// **A LOBBY WITH A CPU BETWEEN TWO PEOPLE ROUTES THE SECOND ONE HOME.**
     ///
-    /// ⛔⛔ the roster is SPARSE and it is not in source order. `first_free_device`
-    /// hands out the lowest unclaimed source, so one person seating a machine
-    /// beside themselves and a friend seating themselves after produces:
+    /// The roster is SPARSE and it is not in input-seat order. Explicit join
+    /// ownership can therefore produce:
     ///
     /// ```text
     /// card 0   Controller { device: 0 }
@@ -3954,7 +4025,7 @@ mod pause_arbitration_tests {
         let token = select_screen::token_rect(
             &layout,
             app.world().resource::<select::SmashSelect>(),
-            &select_screen::TokenRest::default(),
+            app.world().resource::<select::SmashRoster>(),
             2,
         )
         .expect("the machine is in the lobby, so it owns a token");
@@ -3998,9 +4069,8 @@ mod pause_arbitration_tests {
     /// out from under it — the double-fire being deterministic in whichever
     /// direction the schedule happened to resolve.
     ///
-    /// ⚠ the falsifier for the guard, not for the feature: the test above is
-    /// what proves a lone `back` still leaves, so this cannot pass by the screen
-    /// having no exit at all.
+    /// The explicit Back-control test above proves the screen still has a way
+    /// out; this guard is specifically about Escape's combined Start+Back edge.
     #[test]
     fn escape_does_not_quit_the_lobby_out_from_under_the_pause_menu_it_opens() {
         let mut app = app_with(false);

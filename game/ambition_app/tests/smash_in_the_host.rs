@@ -158,6 +158,23 @@ fn screen(app: &App) -> SelectLayout {
     )
 }
 
+/// Where an active slot's placed token is drawn. The token has no independent
+/// home/rest coordinate: when it is not carried, its pick determines this rect.
+fn placed_token(
+    app: &App,
+    slot: usize,
+) -> ambition_demo_smash::select_screen::cursor::HitRect {
+    let layout = screen(app);
+    ambition_demo_smash::select_screen::token_rect(
+        &layout,
+        app.world().resource::<SmashSelect>(),
+        app.world()
+            .resource::<ambition_demo_smash::select::SmashRoster>(),
+        slot,
+    )
+    .unwrap_or_else(|| panic!("slot {slot} has no placed token on the current page"))
+}
+
 /// **One person at a keyboard, against one CPU, from the buttons.**
 ///
 /// Slot 1 takes the only source; slot 2 has none left, so its button skips
@@ -167,7 +184,8 @@ fn decide_a_solo_match(app: &mut App) {
     click(app, layout.role_button(0));
     click(app, layout.role_button(1));
     for (slot, character) in [(0usize, 0usize), (1, 1)] {
-        click(app, layout.token_home(slot));
+        let token = placed_token(app, slot);
+        click(app, token);
         click(
             app,
             layout.portrait(character).expect("an authored portrait"),
@@ -206,7 +224,8 @@ fn the_title_screen_opens_character_select_and_the_screen_starts_the_match() {
         "a card no controller reaches has to be able to become a CPU"
     );
     for (slot, character) in [(0usize, 0usize), (1, 1)] {
-        click(&mut app, layout.token_home(slot));
+        let token = placed_token(&app, slot);
+        click(&mut app, token);
         click(
             &mut app,
             layout.portrait(character).expect("an authored portrait"),
@@ -680,12 +699,9 @@ fn a_keyboard_player_and_a_pad_player_drive_different_fighters() {
     // takes card one and the PAD takes card two, so this test still proves the
     // pad reaches the lobby at all and not only the match.
     //
-    // ⚠ **which slot gets which DEVICE is not decided by who pressed the
-    // button.** `first_free_device` hands out the lowest unclaimed source in
-    // card order, so card one is the keyboard (device 0) and card two is the pad
-    // (device 1) whichever hand did the clicking. That is the whole point:
-    // pressing a button is not a claim on a chair, and a screen where it was
-    // could seat two people on one device by pressing in the wrong order.
+    // Joining is explicit now: the keyboard press claims card one for input
+    // source 0 and the pad press claims card two for input source 1. The screen
+    // must not reconstruct that ownership later by scanning for a free device.
     let layout = screen(&app);
     // ⚠ **EVERY seat's hand, not seat 0's.** Each seat drives its own cursor
     // since 2026-08-21, and which seat a given pad speaks for is a fact about
@@ -741,9 +757,11 @@ fn a_keyboard_player_and_a_pad_player_drive_different_fighters() {
         );
     }
 
-    click(&mut app, layout.token_home(0));
+    let token_zero = placed_token(&app, 0);
+    click(&mut app, token_zero);
     click(&mut app, layout.portrait(0).expect("an authored portrait"));
-    pad_click(&mut app, layout.token_home(1));
+    let token_one = placed_token(&app, 1);
+    pad_click(&mut app, token_one);
     pad_click(&mut app, layout.portrait(1).expect("an authored portrait"));
     click(&mut app, layout.start_button());
     settle(&mut app);
@@ -1768,14 +1786,16 @@ fn pick_and_start(app: &mut App, character_id: &str) {
     let layout = screen(app);
     click(app, layout.role_button(0));
     click(app, layout.role_button(1));
-    click(app, layout.token_home(0));
+    let token_zero = placed_token(app, 0);
+    click(app, token_zero);
     click(
         app,
         layout
             .portrait(index)
             .unwrap_or_else(|| panic!("no portrait cell for {character_id}")),
     );
-    click(app, layout.token_home(1));
+    let token_one = placed_token(app, 1);
+    click(app, token_one);
     click(app, layout.portrait(0).expect("an authored portrait"));
     click(app, layout.start_button());
     settle(app);
@@ -1840,12 +1860,9 @@ enum MatchStart {
 
 /// Press one slot's role button `presses` times.
 ///
-/// The button cycles `Absent → Controller → Cpu → Absent`, and it SKIPS the
-/// controller rung when no input source is free. On a keyboard-only host that
-/// is exactly one source, which is what makes these sequences readable:
-/// one press on the first slot is a person, one press on the second is a CPU
-/// (no source left), and two presses on the first frees the source again for
-/// whoever asks next.
+/// The keyboard is source zero, so it can own at most one card. Pressing an
+/// empty card with a source that already owns another card makes the new card a
+/// CPU; a different input source must press if a second human is meant to join.
 fn cycle_role(app: &mut App, slot: usize, presses: usize) {
     for _ in 0..presses {
         let layout = screen(app);
@@ -1867,7 +1884,8 @@ fn pick_fighter(app: &mut App, slot: usize, character_id: &str) {
         .position(|id| id == character_id)
         .unwrap_or_else(|| panic!("{character_id} is not in this host's smash roster"));
     let layout = screen(app);
-    click(app, layout.token_home(slot));
+    let token = placed_token(app, slot);
+    click(app, token);
     click(
         app,
         layout
@@ -2597,10 +2615,8 @@ fn quitting_a_paused_match_to_the_title_does_not_freeze_the_next_one() {
     }
     settle(&mut app);
 
-    // `channels` is the whole point of the fixture, so the roles are cycled
-    // until the SCREEN agrees rather than a press count being guessed: the
-    // button skips the controller rung when no source is free, so the number of
-    // presses a CPU costs depends on what is plugged in and who took it.
+    // This fixture only asks for one local human. The keyboard/source-zero
+    // drives that card; the second card is deliberately CPU.
     fn set_role(app: &mut App, slot: usize, want_person: bool) {
         for _ in 0..4 {
             let seated = matches!(
@@ -2998,13 +3014,6 @@ fn the_capture_tools_documented_taps_seat_two_cpus_on_two_fighters() {
     // The `--press touch:...` list in `capture_scene`'s header, in order.
     const ROLE_BUTTON_0: Vec2 = Vec2::new(167.0, 523.0);
     const ROLE_BUTTON_1: Vec2 = Vec2::new(482.0, 523.0);
-    // ⚠ **AND AGAIN 2026-08-21**, for a third reason: the home tokens are now
-    // spaced by the TOUCH pitch (44px) rather than by their drawn width (26px),
-    // so a thumb-sized target does not overlap its neighbour. The tokens did not
-    // move because the roster changed this time — they moved because what a
-    // token IS changed. Re-derived from `SelectLayout::token_home` centres.
-    const TOKEN_HOME_0: Vec2 = Vec2::new(559.0, 446.0);
-    const TOKEN_HOME_1: Vec2 = Vec2::new(613.0, 446.0);
     // ⛔⛔ **THESE TWO WERE `747x121` AND `425x121` UNTIL 2026-08-16 AND THEY
     // SEATED THE WRONG PAIR** (queue D128). Those are grid cells 3 and 0 —
     // Sanic, who has no authored repertoire at all, and Player Robot v3 — so
@@ -3056,12 +3065,6 @@ fn the_capture_tools_documented_taps_seat_two_cpus_on_two_fighters() {
         layout.role_button(1)
     );
     assert!(
-        layout.token_home(0).contains(TOKEN_HOME_0) && layout.token_home(1).contains(TOKEN_HOME_1),
-        "the documented token taps are off the tokens: {:?} / {:?}",
-        layout.token_home(0),
-        layout.token_home(1)
-    );
-    assert!(
         layout.start_button().contains(START),
         "the documented START tap is off the button: {:?}",
         layout.start_button()
@@ -3088,11 +3091,14 @@ fn the_capture_tools_documented_taps_seat_two_cpus_on_two_fighters() {
         "two taps a card did not reach CPU on both cards"
     );
 
-    // Pick up a token, drop it on a portrait — the two-tap idiom, once per
-    // slot, onto two different faces.
-    tap(&mut app, TOKEN_HOME_0);
+    // Tokens are state-derived now: both CPUs begin on Random, offset there by
+    // slot so they remain individually manipulable. Ask the live state where
+    // they are instead of maintaining a second set of layout constants.
+    let token_zero = placed_token(&app, 0).center();
+    let token_one = placed_token(&app, 1).center();
+    tap(&mut app, token_zero);
     tap(&mut app, PORTRAIT_A);
-    tap(&mut app, TOKEN_HOME_1);
+    tap(&mut app, token_one);
     tap(&mut app, PORTRAIT_B);
 
     let picks: Vec<Option<SlotPick>> = (0..2)
@@ -3299,7 +3305,8 @@ fn a_fighter_from_another_game_reads_its_percent_against_this_stages_pool() {
     click(&mut app, layout.role_button(0));
     click(&mut app, layout.role_button(1));
     for (slot, character) in [(0usize, CROSSOVER), (1, NATIVE)] {
-        click(&mut app, layout.token_home(slot));
+        let token = placed_token(&app, slot);
+        click(&mut app, token);
         click(
             &mut app,
             layout
@@ -4216,15 +4223,34 @@ fn pad_hold(app: &mut App, pad: Entity, button: GamepadButton, value: f32) {
         ));
 }
 
+/// Put every hand on `rect`, then confirm with this physical pad. The all-hand
+/// placement avoids asserting the local channel index in a helper; the raw pad
+/// event is what decides which cursor actually clicks.
+fn pad_click(
+    app: &mut App,
+    pad: Entity,
+    rect: ambition_demo_smash::select_screen::cursor::HitRect,
+) {
+    {
+        let mut cursors = app.world_mut().resource_mut::<SelectCursors>();
+        for seat in 0..4 {
+            cursors.seat_mut(seat).move_to(rect.center());
+        }
+    }
+    pad_hold(app, pad, GamepadButton::South, 1.0);
+    app.update();
+    pad_hold(app, pad, GamepadButton::South, 0.0);
+    app.update();
+    settle(app);
+}
+
 /// Seat a keyboard person at slot 0 and a PAD player at slot 1 as `fighter`,
 /// start the match, and hand back the pad, the pad player's body, and the app.
 ///
-/// ⚠ **slot 1 is the pad, and that is the couch policy's answer rather than a
-/// choice**: `first_free_device` hands out the lowest unclaimed source in card
-/// order, so card one takes the keyboard and card two takes the pad whichever
-/// hand pressed which button. The assertion below says so out loud, because a
-/// test that measured the KEYBOARD seat while believing it was the pad would
-/// pass the layout cases for entirely the wrong reason.
+/// Slot 1 is the pad because the pad explicitly presses that card's role
+/// control. The assertion below keeps that ownership visible: a test that
+/// measured the keyboard seat while believing it was the pad would pass layout
+/// cases for the wrong reason.
 fn a_pad_player_fighting_as(fighter: &str) -> (App, Entity, Entity) {
     use ambition_platformer2d::actors::character_runtime::MatchSeat;
 
@@ -4239,8 +4265,9 @@ fn a_pad_player_fighting_as(fighter: &str) -> (App, Entity, Entity) {
     launch_row(&mut app, "Smash");
     settle(&mut app);
 
-    cycle_role(&mut app, 0, 1); // card one takes device 0 — the keyboard
-    cycle_role(&mut app, 1, 1); // card two takes device 1 — the pad
+    cycle_role(&mut app, 0, 1); // keyboard explicitly claims card one
+    let second_card = screen(&app).role_button(1);
+    pad_click(&mut app, pad, second_card); // pad explicitly claims card two
     assert_eq!(
         app.world().resource::<SmashSelect>().slot(1).occupant,
         SlotOccupant::Controller { device: 1 },
@@ -5009,7 +5036,8 @@ mod launched {
         click(app, layout.role_button(1));
         click(app, layout.role_button(1));
         for (slot, character) in [(0usize, "smash_george_booul"), (1, "npc_alice")] {
-            click(app, layout.token_home(slot));
+            let token = placed_token(app, slot);
+            click(app, token);
             click(
                 app,
                 layout

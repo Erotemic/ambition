@@ -34,24 +34,23 @@ impl MenuInputFrame {
 /// independently. The two coexist on purpose: this does not replace the global
 /// frame, it answers a different question.
 ///
-/// Keyed by the participant's SLOT, which is also the seat and also the DENSE
-/// LOCAL SOURCE ORDINAL — one numbering, because two that have to agree
-/// eventually disagree (see [`crate::ParticipantId::slot`]).
+/// Keyed by the local input SEAT (see [`crate::ParticipantId::slot`]).
 ///
-/// ⛔ **and "local source ordinal" is not "device".** It counts the sources this
-/// machine has taken up, in order: somebody who picks up pad three while pads
-/// one and two are unplugged is source ZERO. A sparse physical id reaching a
-/// dense channel is exactly the bug `LocalChannelPlan` was written for — a
-/// fighter was deaf for a whole match — so this numbering is a channel and must
-/// never be read back as hardware identity.
+/// ⛔ **a seat is not a device, and the agreement between them is a POLICY
+/// rather than a fact.** The current local assignment derives a seat from source
+/// ORDER — it counts the sources this machine has taken up, so somebody who
+/// picks up pad three while pads one and two are unplugged is seat ZERO. A
+/// physical source, an input participant and a game's roster slot stay distinct
+/// concepts however the policy happens to line them up today.
 ///
-/// ⛔⛔ **that numbering ends at the input layer.** A GAME's roster slot is a
-/// third index and this crate cannot speak for it: a lobby may seat a person on
-/// card 0, a machine on card 1 and a second person on card 2, and that second
-/// person still reports HERE on seat 1. Smash's select screen read this
-/// sentence as covering its cards and routed the second pad onto the CPU's,
-/// which is why the boundary is now spelled out. Ask the roster which card
-/// names your source; never index it with a seat.
+/// ⚠ **a sparse physical id reaching a dense channel is the bug
+/// `LocalChannelPlan` exists for** — a fighter was deaf for a whole match — so
+/// this numbering is a channel and must never be read back as hardware identity.
+///
+/// A game must cross that boundary explicitly. For example, a lobby may put a
+/// person on card 0, a CPU on card 1 and a second person on card 2 while the
+/// second person's menu frame is still seat 1. The roster decides which card
+/// that input seat drives; this table does not.
 
 #[derive(Resource, Clone, Debug, Default, PartialEq)]
 pub struct SeatMenuFrames {

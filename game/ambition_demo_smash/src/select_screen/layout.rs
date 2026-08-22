@@ -54,7 +54,7 @@ const GAP: f32 = 10.0;
 /// strip put the last portrait of the first row underneath them — photographed,
 /// not reasoned about.
 const TITLE_H: f32 = 64.0;
-const POOL_H: f32 = 44.0;
+const CONTROL_STRIP_H: f32 = 44.0;
 const CARD_GAP: f32 = 8.0;
 const ROLE_BUTTON_H: f32 = 30.0;
 const START_W: f32 = 150.0;
@@ -140,7 +140,7 @@ impl SelectLayout {
         let characters = characters.max(1);
 
         let grid_top = TITLE_H;
-        let grid_bottom = viewport.y * GRID_FRACTION - POOL_H;
+        let grid_bottom = viewport.y * GRID_FRACTION - CONTROL_STRIP_H;
         let area = Vec2::new(
             viewport.x - MARGIN * 2.0,
             (grid_bottom - grid_top).max(40.0),
@@ -263,11 +263,8 @@ impl SelectLayout {
     /// wrapped or clamped cell — an index nobody authored is a bug to see, not
     /// a rectangle to invent.
     /// ⚠ **`None` now also means "on another page"**, not only "past the end of
-    /// the roster". Every caller already had to handle `None` — `token_rect`
-    /// sends a token whose fighter has no cell home to the pool, which is the
-    /// same answer it has always given for RANDOM — so an off-page pick reads
-    /// as a token waiting rather than as a lost one, and the slot card still
-    /// shows the portrait that was chosen.
+    /// the roster". A placed token on another page is hidden here while the slot
+    /// card continues to show the fighter that was chosen.
     pub fn portrait(&self, index: usize) -> Option<HitRect> {
         if !self.page_range().contains(&index) {
             return None;
@@ -286,12 +283,11 @@ impl SelectLayout {
         })
     }
 
-    /// The strip under the grid holding the unplaced tokens, the prompt and
-    /// START.
-    fn pool(&self) -> HitRect {
+    /// The strip under the grid holding page controls, the prompt and START.
+    fn control_strip(&self) -> HitRect {
         let bottom = self.viewport.y * GRID_FRACTION;
         HitRect {
-            min: Vec2::new(MARGIN, bottom - POOL_H),
+            min: Vec2::new(MARGIN, bottom - CONTROL_STRIP_H),
             max: Vec2::new(self.viewport.x - MARGIN, bottom),
         }
     }
@@ -312,14 +308,6 @@ impl SelectLayout {
         self.token_px() * (CURSOR_PX / TOKEN_PX)
     }
 
-    /// **The pitch two tokens sit at**, which is a TOUCH question rather than a
-    /// drawing one: four home tokens spaced by their drawn width would overlap
-    /// once each is grown to the touch floor, and `token_rect`'s first-match
-    /// scan would then hand every press in the pool to the lowest slot.
-    fn token_pitch(&self) -> f32 {
-        self.token_px().max(MIN_TOUCH_PX)
-    }
-
     /// **Grow a rect about its own centre to the touch floor.**
     ///
     /// ⭐ the one place the floor is applied, so "drawn here" and "hittable
@@ -333,39 +321,25 @@ impl SelectLayout {
         )
     }
 
-    /// Where a slot's token rests when it is on nobody. Centred as a group, so
-    /// four resting tokens read as a row of pieces waiting rather than as four
-    /// unrelated dots.
-    pub fn token_home(&self, slot: usize) -> HitRect {
-        let pool = self.pool();
-        let pitch = self.token_pitch() + GAP;
-        let span = pitch * MAX_SMASH_SEATS as f32 - GAP;
-        let left = pool.center().x - span * 0.5 + slot as f32 * pitch;
-        HitRect::from_center_size(
-            Vec2::new(left + self.token_pitch() * 0.5, pool.center().y),
-            Vec2::splat(self.token_px()),
-        )
-    }
-
-    /// **A page arrow, at the LEFT of the pool row**, opposite START.
+    /// **A page arrow, at the LEFT of the control strip**, opposite START.
     ///
-    /// ⚠ sized to [`MIN_TOUCH_PX`] rather than to the pool's height: the pool
+    /// ⚠ sized to [`MIN_TOUCH_PX`] rather than to the strip's height: the strip
     /// shrinks with the viewport and these are the two controls a phone needs
     /// MOST, since a phone is the only place the grid pages at all.
     pub fn page_button(&self, next: bool) -> HitRect {
-        let pool = self.pool();
+        let strip = self.control_strip();
         let size = Vec2::splat(MIN_TOUCH_PX);
-        let left = pool.min.x + if next { MIN_TOUCH_PX + GAP } else { 0.0 };
+        let left = strip.min.x + if next { MIN_TOUCH_PX + GAP } else { 0.0 };
         HitRect::from_center_size(
-            Vec2::new(left + MIN_TOUCH_PX * 0.5, pool.center().y),
+            Vec2::new(left + MIN_TOUCH_PX * 0.5, strip.center().y),
             size,
         )
     }
 
     pub fn start_button(&self) -> HitRect {
-        let pool = self.pool();
+        let strip = self.control_strip();
         HitRect::from_center_size(
-            Vec2::new(pool.max.x - START_W * 0.5, pool.center().y),
+            Vec2::new(strip.max.x - START_W * 0.5, strip.center().y),
             Vec2::new(START_W, START_H),
         )
     }
@@ -386,10 +360,10 @@ impl SelectLayout {
     }
 
     pub fn prompt(&self) -> HitRect {
-        let pool = self.pool();
+        let strip = self.control_strip();
         HitRect {
-            min: Vec2::new(pool.min.x, pool.center().y - 10.0),
-            max: Vec2::new(pool.min.x + 520.0, pool.center().y + 10.0),
+            min: Vec2::new(strip.min.x, strip.center().y - 10.0),
+            max: Vec2::new(strip.min.x + 520.0, strip.center().y + 10.0),
         }
     }
 
@@ -432,7 +406,7 @@ impl SelectLayout {
     /// order on a different run would resolve those ties differently — which is
     /// the same class of defect as reading an unordered Bevy query.
     pub fn targets(&self) -> Vec<(SelectTarget, HitRect)> {
-        let mut targets = Vec::with_capacity(self.characters + MAX_SMASH_SEATS * 2 + 2);
+        let mut targets = Vec::with_capacity(self.characters + MAX_SMASH_SEATS + 4);
         for index in 0..self.characters {
             if let Some(rect) = self.portrait(index) {
                 targets.push((SelectTarget::Portrait(index), rect));
@@ -440,9 +414,6 @@ impl SelectLayout {
         }
         for slot in 0..MAX_SMASH_SEATS {
             targets.push((SelectTarget::RoleButton(slot), self.role_button(slot)));
-        }
-        for slot in 0..MAX_SMASH_SEATS {
-            targets.push((SelectTarget::Token(slot), self.token_home(slot)));
         }
         targets.push((SelectTarget::Start, self.start_button()));
         // ⚠ **only when there IS another page.** A button that turns to nowhere
@@ -511,44 +482,18 @@ mod tests {
         assert!(checked > 0, "a phone showed no portraits at all");
     }
 
-    /// **AND SO IS EVERY TOKEN**, which is the thing you have to grab first.
-    ///
-    /// ⚠ asked of [`SelectLayout::touchable`], not of the drawn rect — the two
-    /// are deliberately different sizes and the drawn one is allowed to be
-    /// small. A test that checked the drawing would fail for the right reason
-    /// and demand the wrong fix.
+    /// The token drawing may be compact, but its hit target still receives the
+    /// same touch floor as every other direct-manipulation target. Token
+    /// placement itself belongs to the select state, not to this layout.
     #[test]
-    fn a_phone_offers_no_token_smaller_than_a_thumb() {
+    fn a_phone_offers_a_thumb_sized_token_hit_target() {
         let layout = phone();
-        for slot in 0..MAX_SMASH_SEATS {
-            let size = SelectLayout::touchable(layout.token_home(slot)).size();
-            assert!(
-                size.x >= MIN_TOUCH_PX && size.y >= MIN_TOUCH_PX,
-                "slot {slot}'s token is {size:?} to a finger"
-            );
-        }
-    }
-
-    /// **THE HOME TOKENS DO NOT OVERLAP ONCE THEY ARE TOUCHABLE.**
-    ///
-    /// ⛔ the trap the pitch exists for: spacing four tokens by their DRAWN
-    /// width and then growing each to the touch floor makes them overlap, and
-    /// `token_rect`'s first-match scan would hand every press in the pool to
-    /// slot 0 — four players, one grabbable piece.
-    #[test]
-    fn four_home_tokens_stay_apart_at_touch_size() {
-        for layout in [SelectLayout::new(Vec2::new(1280.0, 720.0), roster()), phone()] {
-            for slot in 1..MAX_SMASH_SEATS {
-                let previous = SelectLayout::touchable(layout.token_home(slot - 1));
-                let current = SelectLayout::touchable(layout.token_home(slot));
-                assert!(
-                    current.min.x >= previous.max.x,
-                    "tokens {} and {slot} overlap at touch size on a {:?} screen",
-                    slot - 1,
-                    layout.viewport
-                );
-            }
-        }
+        let drawn = HitRect::from_center_size(Vec2::ZERO, Vec2::splat(layout.token_px()));
+        let size = SelectLayout::touchable(drawn).size();
+        assert!(
+            size.x >= MIN_TOUCH_PX && size.y >= MIN_TOUCH_PX,
+            "a token is {size:?} to a finger"
+        );
     }
 
     /// **A PHONE PAGES THE ROSTER; A MONITOR DOES NOT.**
@@ -738,7 +683,6 @@ mod tests {
         }
         for slot in 1..MAX_SMASH_SEATS {
             assert!(layout.card(slot).min.x > layout.card(slot - 1).min.x);
-            assert!(layout.token_home(slot).min.x > layout.token_home(slot - 1).min.x);
         }
     }
 }

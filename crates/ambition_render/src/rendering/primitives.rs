@@ -78,18 +78,15 @@ pub struct BlockVisual {
 /// **This block's art, said by the game rather than inherited from its
 /// `BlockKind`.**
 ///
-/// ⛔ **every block of a kind drew the same picture, and nothing could say
+/// **every block of a kind drew the same picture, and nothing could say
 /// otherwise.** `spawn_block` resolves art from `BlockKind` alone —
 /// `block_tile_sprite(Solid) -> SolidTile` for every code-authored solid in the
 /// room — so a bonus block, a used bonus block and a wall were one texture.
 /// `art_color` was the only per-block lever and it can only say "no art yet"
 /// (a flat quad), which is a statement about ABSENCE, not identity.
 ///
-/// ⭐ **and the identity a game needs is DYNAMIC.** A `?`-block becomes a used
-/// block mid-play; a spawn-time field on `ae::Block` could never express that.
-/// So this is a component on the RENDER entity, keyed by the same
-/// [`BlockVisual::geo_id`] a bonk arrives with — the handle queue D11 named when
-/// it said this seam was what to design next.
+/// **and the identity a game needs is DYNAMIC.** A `?`-block becomes a used block mid-play; a
+/// spawn-time field on `ae::Block` could never express that.
 ///
 /// Presentation only. Collision never reads it, exactly as `art_color` does not.
 #[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]
@@ -112,13 +109,7 @@ pub struct PropVisual {
     pub id: String,
     /// Registry key the sprite was looked up under.
     pub kind: String,
-    /// Authored display name (the LDtk entity name). Per-name presentation
-    /// systems (gate-portal visibility / ring spin, the cut-rope arena
-    /// props) match on THIS — a render-local fact, replacing the old
-    /// render-inserted sim `FeatureName` (E4 slice 10).
     pub name: String,
-    /// Authored nominal collision footprint used to rebuild the sprite if the
-    /// quality profile reloads the underlying character-sheet asset.
     pub size: Vec2,
     /// The authored [`PropDraw`], carried for the same reason as `size`: the
     /// sprite is REBUILT on a `GameAssets` change, and a rebuild that does not
@@ -150,7 +141,7 @@ pub fn block_color(kind: ae::BlockKind) -> Color {
             tier: ae::BlinkWallTier::Hard,
         } => Color::srgba(0.52, 0.14, 0.80, 0.96),
         ae::BlockKind::OneWay => Color::srgba(0.36, 0.43, 0.62, 0.92),
-        // ⚠ FULLY TRANSPARENT: this is the in-game fill, and a hidden block that
+        // FULLY TRANSPARENT: this is the in-game fill, and a hidden block that
         // tinted itself would announce the secret it exists to keep. A game that
         // wants it seen once found dresses it (Mary-O swaps to the spent tile).
         ae::BlockKind::BonkOnly => Color::srgba(0.0, 0.0, 0.0, 0.0),

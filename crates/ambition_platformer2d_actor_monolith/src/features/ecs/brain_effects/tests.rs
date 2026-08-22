@@ -219,17 +219,12 @@ fn ranged_message_for_dead_actor_is_dropped() {
 /// reference — kept for callers that grow this module's tests.
 fn _silence_action_set_import(_: ActionSet) {}
 
-// The melee-START unit pins that used to live here
-// (`melee_message_starts_enemy_windup_and_cooldown`,
-// `melee_message_can_start_windup_for_dismounted_pirate_heavy`,
-// `melee_message_during_cooldown_is_dropped`) exercised the deleted
-// actor-only `start_enemy_melee_from_brain_actions`. Melee-start is a moveset
-// `"attack"` move for every body now (`combat::moveset::trigger_moveset_moves`);
-// it is pinned through the REAL schedule by
+// Melee-start is a moveset `"attack"` move for every body now
+// (`combat::moveset::trigger_moveset_moves`); it is pinned through the REAL schedule by
 // `ambition_app/tests/enemy_attacks_player.rs` (actor melee lands on the player),
-// `possession_end_to_end.rs` (possessed actor melee), and the body-generic
-// `unified_melee.rs` tests (player + peaceful-NPC-with-kit + hostile actor all
-// enter the SAME lifecycle from `ActorActionMessage::Melee`).
+// `possession_end_to_end.rs` (possessed actor melee), and the body-generic `unified_melee.rs` tests
+// (player + peaceful-NPC-with-kit + hostile actor all enter the SAME lifecycle from
+// `ActorActionMessage::Melee`).
 
 /// Silence the test-only helper.
 #[test]

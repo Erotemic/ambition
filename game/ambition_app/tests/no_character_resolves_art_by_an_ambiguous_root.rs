@@ -6,12 +6,7 @@
 //! root only identifies a sheet while the file holds ONE record; `creator_lab_props`
 //! packs 8 props into one, so that root names all eight and therefore none.
 //!
-//! It used to keep `records[0]` and call that a rule. It is not a rule — it is
-//! the packer's emission order, and the packer re-runs per quality tier, so
-//! which record won was a value a graphics change was allowed to move. Those
-//! roots are refused now.
-//!
-//! ⭐ **THIS IS THE HALF THE SPRITE CRATE CANNOT WRITE.** It can see that a root
+//! **THIS IS THE HALF THE SPRITE CRATE CANNOT WRITE.** It can see that a root
 //! is ambiguous; it cannot see whether anything resolves art by that root,
 //! because it has no catalog — the same split `shadowed_targets` documents, and
 //! the same reason `report_shadowed_character_sheets` lives here. A refusal that
@@ -23,7 +18,7 @@ use ambition_platformer2d::characters::actor::character_catalog::CharacterCatalo
 #[test]
 fn no_composed_character_resolves_its_sheet_by_a_refused_file_root() {
     let refused = ambition_platformer2d::character_sprites::refused_file_roots();
-    // ⚠ LOUD: with nothing refused this test passes over an empty set forever,
+    // LOUD: with nothing refused this test passes over an empty set forever,
     // including on the day the refusal is accidentally deleted. The baked table
     // is known to contain a packed prop atlas, so zero means the mechanism
     // stopped working, not that the tree got cleaner.
@@ -45,12 +40,10 @@ fn no_composed_character_resolves_its_sheet_by_a_refused_file_root() {
         "the composed catalog is empty, so sweeping it proves nothing"
     );
 
-    // ⛔⛔ **POSITIVE CONTROL: the two names must live in the same namespace.**
-    // The sweep below compares `entry.manifest_target()` against a refused file
-    // root. If those were different spellings — a path against a stem, say —
-    // nothing could ever match and this test would pass forever while blind.
-    // Measured here rather than assumed, because that is precisely the shape of
-    // check this repo keeps catching itself writing.
+    // **POSITIVE CONTROL: the two names must live in the same namespace.** The sweep below compares
+    // `entry.manifest_target()` against a refused file root. If those were different spellings — a
+    // path against a stem, say — nothing could ever match and this test would pass forever while
+    // blind.
     let resolvable = catalog
         .iter()
         .filter(|(_, entry)| {

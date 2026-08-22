@@ -275,9 +275,6 @@ fn shrine_visual_source_from_record(
     let layout = atlas_layouts.add(atlas_layout_from_record(record));
     let image = asset_server.load("sprites/shrine_spritesheet.png");
 
-    // Resolve both rows through one ledger so a regenerated sheet that renamed
-    // EITHER is reported — the old code took `unwrap_or` per fact and a renamed
-    // `activate` left the shrine looping its idle with nothing said.
     let mut ledger = BindingLedger::new();
     let idle = row_playback(record, "idle", "shrine visual", &mut ledger);
     let activate = row_playback(record, "activate", "shrine visual", &mut ledger);

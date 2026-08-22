@@ -10,25 +10,14 @@
 use super::super::*;
 use super::*;
 
-// ⛔⛔ **`hostile_brain_id_for_actor()` WAS HERE AND IS DELETED (2026-08-13,
-// campaign P2.20) — the last roster key on the provoke road.**
+// It began as a matcher over an id, a display name and a dialogue node — *does any of them
+// contain "pirate"* — and handed the struck body a whole archetype.
 //
-// It began as a matcher over an id, a display name and a dialogue node — *does
-// any of them contain "pirate"* — and handed the struck body a whole archetype.
-// Those arms went one by one as the creatures took their own
-// `provoked_profile_ref` (D84, D89), leaving a function that took nothing and
-// returned the literal `"combatant"`, used for exactly one thing: setting
-// `config.brain = CharacterBrain::Custom("combatant")` on a provoked body.
+// Both branches read their `BrainProfile` now — the policy that always owned both numbers — so
+// `provoked_projection` derives the read-model with `config_brain_for` like every other road,
+// and provocation names no roster key.
 //
-// ⚠ **that write was not decoration, which is why it outlived the matcher.**
-// `evaluate_enemy_ai_output` branched `Passive => aggro 0.0` and
-// `patrol_enabled = !Passive`, so a provoked body needed a NON-`Passive`
-// read-model to be reported correctly, and an archetype name was the only value
-// to hand. Both branches read their `BrainProfile` now — the policy that always
-// owned both numbers — so `provoked_projection` derives the read-model with
-// `config_brain_for` like every other road, and provocation names no roster key.
-//
-// ⚠ its test-only twin `hostile_spec_for_actor` went with it: its whole purpose
+// its test-only twin `hostile_spec_for_actor` went with it: its whole purpose
 // was to be the roster's side of an equivalence test against this function.
 
 /// Build the read-model mirror components for an actor cluster seed at the given
@@ -42,7 +31,7 @@ pub fn actor_component_snapshot(
     ActorDisposition,
     BodyCombat,
 ) {
-    // ⭐ **THE SEED'S OWN, not a rebuild** (AC6.2). This constructed a fresh
+    // **THE SEED'S OWN, not a rebuild** (AC6.2). This constructed a fresh
     // `BodyCombat` and filled its one authored flag from
     // `ActorTuning::is_sandbag` — a copy of the character's `practice_target`
     // made at spawn so it could be copied AGAIN here. The seed decides a body's
@@ -87,15 +76,12 @@ pub fn enemy_component_snapshot(
 /// **Rebuild the driver from the policy the config now carries**, for a body
 /// whose CHARACTER answered the provocation question.
 ///
-/// ⚠ **the action set is untouched, and that is the difference.** The archetype
+/// **the action set is untouched, and that is the difference.** The archetype
 /// path swaps a body's kit because the archetype IS the kit; a character-first
 /// body already fights with what its character authored, and provocation has no
 /// business editing it. All that changes is who is deciding.
 ///
-/// ⛔ **and never for a player-driven body.** Inserting a brain over
-/// `Brain::Player(slot)` is a silent seizure — the defect the archetype path
-/// below documents at length, which cost a couch session before anybody read the
-/// brain component. One rule, both paths.
+/// One rule, both paths.
 fn rebuild_provoked_brain(
     commands: &mut Commands,
     entity: Entity,
@@ -128,10 +114,9 @@ fn rebuild_provoked_brain(
 }
 
 #[allow(clippy::too_many_arguments)]
-/// ⭐⭐ **IT NO LONGER TAKES A ROSTER** (2026-08-12). The generic branch asked
-/// it for `combatant`'s policy and HP pool, and that was the last thing on this
-/// path that knew the archetype ontology existed. Both come from the engine's
-/// own defaults now — see `brain_builders::default_provoked_policy`.
+/// The generic branch asked it for `combatant`'s policy and HP pool, and that was the last
+/// thing on this path that knew the archetype ontology existed. Both come from the engine's own
+/// defaults now — see `brain_builders::default_provoked_policy`.
 pub(crate) fn provoke_actor_in_place(
     commands: &mut Commands,
     entity: Entity,
@@ -139,19 +124,10 @@ pub(crate) fn provoke_actor_in_place(
     disposition: &mut ActorDisposition,
     combat_kit: &CombatKit,
     held_item: Option<&HeldItem>,
-    // ⚠ **the DIALOGUE NODE is gone with the matcher it fed** (ledger D89). It
-    // existed so a provoked body could be recognised by its encounter's dialogue
-    // id — one of three prose spellings `hostile_brain_id_for_actor` guessed at —
-    // and a creature that publishes its own provoked policy needs none of them.
-    // ⭐⭐ **WHICH CHARACTER THIS BODY IS — the GAMEPLAY identity.**
-    //
-    // ⛔ this read `em.config.sprite_character_id`, which is the identity its ART
-    // resolves through, and Jon's second redirect (P1) named it as the exact
-    // inversion D73 already removed from authored enemy spawning: presentation
-    // deciding a gameplay question. It happened to agree today because the sprite
-    // id and the worn id are the same string for every migrated body — which is
-    // the kind of agreement that stops holding the first time a character borrows
-    // another's art, and then a provoked body adopts a stranger's policy.
+    // It existed so a provoked body could be recognised by its encounter's dialogue id — one of
+    // three prose spellings `hostile_brain_id_for_actor` guessed at — and a creature that publishes
+    // its own provoked policy needs none of them. **WHICH CHARACTER THIS BODY IS — the GAMEPLAY
+    // identity.**
     worn_character: Option<&str>,
     // **WHAT THE BODY'S OWN CHARACTER SAYS ABOUT BEING PROVOKED**, if it says
     // anything — see `CharacterDefinition::provoked_profile_ref`. `Option`
@@ -160,19 +136,15 @@ pub(crate) fn provoke_actor_in_place(
     prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
     chase: bool,
 ) {
-    // ⭐⭐ **THE CREATURE'S OWN ANSWER, when it has one** (ledger D84).
+    // **THE CREATURE'S OWN ANSWER, when it has one**.
     //
-    // ⛔ what it replaces is `hostile_brain_id_for_actor`: provocation picks a
-    // hostile ARCHETYPE by substring-matching an id, a display name or a
-    // dialogue node — *does any of them contain "pirate"* — and then hands the
-    // body that archetype's tuning, HP pool and capabilities. A peaceful pirate
-    // that gets struck is given a different BODY rather than a different
-    // attitude, which is the fused ontology at its most literal, and it is the
-    // only thing keeping three archetype rows alive that no level places.
+    // A peaceful pirate that gets struck is given a different BODY rather than a different
+    // attitude, which is the fused ontology at its most literal, and it is the only thing
+    // keeping three archetype rows alive that no level places.
     //
-    // ⭐ provocation is one body, a different driver, a changed relationship.
+    // provocation is one body, a different driver, a changed relationship.
     // The body stays exactly as its character built it.
-    // ⚠ the ID travels with the value: the value drives the body NOW and the id
+    // the ID travels with the value: the value drives the body NOW and the id
     // is what a rewind resolves later, and taking both from one lookup is what
     // stops them disagreeing.
     let authored_provoked = prepared
@@ -189,10 +161,6 @@ pub(crate) fn provoke_actor_in_place(
             em.config.brain_profile = profile;
             *disposition = ActorDisposition::Hostile;
         }
-        // ⭐⭐ **RECORD THE POLICY AS THE AUTONOMOUS SOURCE** (Jon's second
-        // redirect, P1). Without this a rewind rereads `AutonomousSource`, finds
-        // whatever the body carried before it was provoked, and rebuilds the
-        // peaceful mind — so a provoke would not survive a rollback at all.
         let recorded = profile_id.clone();
         commands.queue(move |world: &mut bevy::prelude::World| {
             if let Some(mut binding) = world
@@ -204,23 +172,23 @@ pub(crate) fn provoke_actor_in_place(
                     };
             }
         });
-        // ⚠ the BRAIN is rebuilt from the new policy by the shared writer below,
+        // the BRAIN is rebuilt from the new policy by the shared writer below,
         // which is also what protects a player-driven body from a silent
         // seizure — see the note further down.
         rebuild_provoked_brain(commands, entity, em, combat_kit, held_item, chase);
         return;
     }
     if disposition.is_peaceful() {
-        // ⭐⭐ **THE LIVE PROVOKE PATH NO LONGER ASKS THE ROSTER.**
+        // **THE LIVE PROVOKE PATH NO LONGER ASKS THE ROSTER.**
         //
-        // ⛔ this looked `combatant` up with `spec_for_brain` to get a
+        // this looked `combatant` up with `spec_for_brain` to get a
         // `BrainProfile` and an HP pool — the last reason provocation knew the
         // archetype ontology existed. The policy is the ENGINE's default now
         // (`default_provoked_policy`), stated where a session ruleset will
         // eventually override it, exactly as `unarmed_melee` was named here
         // before moving to `DeclaredCombatRules`.
         //
-        // ⚠ nothing is recorded but the MODE: `binding.provoke()` sets the
+        // nothing is recorded but the MODE: `binding.provoke()` sets the
         // payloadless `AutonomousSource::ProvokedDefault`, so a rewind resolves
         // the policy the engine states rather than a roster key it must look up
         // (P2.21). `an_engine_default_provoked_policy_matches_the_combatant_row`
@@ -239,79 +207,37 @@ pub(crate) fn provoke_actor_in_place(
             held_item,
             em.abilities.abilities,
         );
-        // ⭐⭐ **THE MIND CHANGES. THE BODY DOES NOT.**
+        // **THE MIND CHANGES. THE BODY DOES NOT.**
         //
-        // ⛔ four assignments stood here and every one of them replaced the
-        // creature: `em.config.tuning` (its speed and gait),
-        // `em.surface.gravity_scale` (whether it flies),
-        // `em.config.sprite_override_npc_name` (what it looks like) and an
-        // inserted `proj.capabilities` (what it may reach for) — all from the
-        // `combatant` row. A struck villager did not become an angry villager,
-        // it became a `combatant` wearing a villager's name, and the
-        // paragraph above this branch has always said otherwise.
+        // A struck villager did not become an angry villager, it became a `combatant` wearing a
+        // villager's name, and the paragraph above this branch has always said otherwise.
         //
-        // ⚠ **the gravity one outlived the other three, as a RE-SYNC**, and it
-        // went on 2026-08-12: `em.surface.gravity_scale = proj.gravity_scale`
-        // re-grounded a flying body so a "grounded" policy could drive it. The
-        // premise had gone stale: the engine's default provoked policy is
-        // `CharacterBrainTemplate::Smash`, and the Smash brain branches on
-        // `obs.self_aerial` with no `can_fly` gate — a flyer's grounded motor
-        // outputs are discarded and it steers a 2D `velocity_target` instead.
-        // `cfg.can_fly` gates only the hybrid take-off/landing toggle, and it is
-        // read off THIS body's `AbilitySet`, so the driver a flying body is
+        // The premise had gone stale: the engine's default provoked policy is
+        // `CharacterBrainTemplate::Smash`, and the Smash brain branches on `obs.self_aerial`
+        // with no `can_fly` gate — a flyer's grounded motor outputs are discarded and it steers
+        // a 2D `velocity_target` instead. `cfg.can_fly` gates only the hybrid take-off/landing
+        // toggle, and it is read off THIS body's `AbilitySet`, so the driver a flying body is
         // handed already knows it flies. A provoked parrot is an angry parrot.
-        // `a_flying_npc_stays_flying_when_it_is_provoked` pins it, and its
-        // realism guards are the interesting half — the old test built a body
-        // production never builds (gravity 0, `fly_enabled` false) and the
-        // freeze it observed came from that disagreement, not from provocation.
         em.config.brain_profile = proj.brain_profile;
         em.config.brain = proj.config_brain;
-        // ⛔ **AND THE LAST BODY FACT WENT WITH IT.** This was
+        // **AND THE LAST BODY FACT WENT WITH IT.** This was
         // `*em.health = fresh_health_pool(DEFAULT_PROVOKED_HEALTH)` — a struck
         // body's entire `BodyHealth` replaced by a fresh 4-point pool, current
         // damage and all, because a peaceful placement spawned at `max_health: 1`
         // and a provoked one that kept its own pool died to a single hit.
         //
-        // ⭐ **the `1` was the defect, not the pool.** An undescribed body is
-        // undescribed before anybody hits it, so the number moved UP a level to
-        // `DEFAULT_UNAUTHORED_BODY_HEALTH`, shared by the two seeds that answer
-        // *how tough is a body nobody authored* (the character body blueprint
-        // and `new_peaceful_npc_in`). The value is unchanged at 4 and D96 item 7
-        // still owns it; what changed is that a body's pool is settled at
-        // construction and provocation no longer has an opinion.
-        //
-        // ⚠ this is not a rebalance: a peaceful body takes no health damage at
-        // all (`actor_hit` accumulates strikes and says "No health damage"), so
-        // raising the peaceful default is inert until the body is hostile — at
-        // which point it has exactly the pool it used to be given here.
+        // The value is unchanged at 4 and still owns it; what changed is that a body's pool is
+        // settled at construction and provocation no longer has an opinion.
         *disposition = ActorDisposition::Hostile;
         // The provoked actor KEEPS its `ActorFaction` identity (no in-place flip to
         // `Enemy`). It hunts + hits its attacker through the per-actor GRUDGE
         // (`ActorAggression::grudge`, set by `apply_actor_stimuli`): targeting treats
         // the grudge entity as a foe, and the victim-side damage gate is `can_damage`
         // (different-faction), which an Npc-vs-Player hit already passes.
-        // ⛔ **PROVOCATION CHANGES WHAT A BODY IS, NEVER WHO DRIVES IT.**
+        // **PROVOCATION CHANGES WHAT A BODY IS, NEVER WHO DRIVES IT.**
         //
-        // This inserted the archetype's brain unconditionally, and for a body
-        // under player control that is a silent seizure: the first hit a SEATED
-        // FIGHTER took replaced its participant-driven brain with the Smash state
-        // machine, in place, permanently — activation is one-shot and never
-        // rebinds — so a human's fighter became a CPU mid-fight and the couch
-        // test read it as input crosstalk. Measured: both seats opened as
-        // `Player(0)`/`Player(1)` and seat one flipped 28 frames after its pad
-        // went quiet, which is when it traded its first blows.
-        //
-        // ⚠ **this used to be the one path that did not know it**, and it was
-        // unreachable until a player-driven body could also be a provokable
-        // actor. Seating one is what made that ordinary.
-        //
-        // ⚠ **the sibling writers have since stopped needing the rule.** With
-        // `Brain::Player` deleted, `brain_command` and `reconcile_brain_bindings`
-        // let a switch apply LIVE to a driven body — nothing displaced its
-        // policy, so nothing can be clobbered. This site still skips, and the
-        // reason is different: a provocation replaces the body's whole policy
-        // from OUTSIDE, and doing that to somebody's fighter mid-fight is the
-        // seizure the comment above measured.
+        // Measured: both seats opened as `Player(0)`/`Player(1)` and seat one flipped 28 frames
+        // after its pad went quiet, which is when it traded its first blows.
         //
         // The ACTION SET still lands: what a body fights with is part of what it
         // is, and a provoked fighter should swing the archetype's kit. Only the
@@ -335,17 +261,11 @@ pub(crate) fn provoke_actor_in_place(
         });
         // Record that this body is provoked into the ENGINE's default policy.
         //
-        // ⚠ this used to add "a rewind rebuilds the same projection from the same
-        // two constants (`autonomous_reconcile::reconstruct_provoked_default`)".
-        // There is no such function: it was deleted with the reconciler (D104),
-        // which never ran in production and whose every output was already
-        // registered rollback state. What actually carries the provoked mode
-        // across a rewind is this binding plus the `Brain` cursor, proven end to
-        // end by `game/ambition_app/tests/rollback_provoked_actor.rs`.
+        // What actually carries the provoked mode across a rewind is this binding plus the
+        // `Brain` cursor, proven end to end by
+        // `game/ambition_app/tests/rollback_provoked_actor.rs`.
         //
-        // ⚠ this used to say "the stable archetype id is all a rewind needs",
-        // and the id it recorded was the string `"combatant"` on every call this
-        // repository ever made. `provoke()` carries nothing now.
+        // `provoke()` carries nothing now.
         //
         // Deferred so it lands with the `(brain, action_set)` insert; a no-op
         // for anonymous NPCs/enemies that carry no binding.

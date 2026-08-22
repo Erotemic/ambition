@@ -6,11 +6,6 @@
 //! rotates the ring so the active face turns to the camera, and folds the faces
 //! open/closed in the OoT "subscreen" style.
 //!
-//! This module is the consolidation of what used to be two drifted copies (the
-//! `ambition_mock_demo` private cube and an earlier lib re-port). The demo's
-//! look/fold/rotation/button-layout is the visual reference and is reproduced
-//! here faithfully, generalized over N pages.
-//!
 //! ## Tuning seam
 //! All geometry/speeds/visual knobs live in [`KaleidoscopeMenuConfig`] (a `Resource`).
 //! The plugin inserts a default if the host has not; the host (or demo) may
@@ -72,15 +67,11 @@ pub struct MenuRing;
 /// ([`sync_control_focus_visuals`] + [`sync_selection_corner_visuals`]), both gated on
 /// `Changed<MenuVisualState>`.
 ///
-/// These readers turn the host's `MenuVisualState` (which the host writes from its
-/// ECS focus cursor) into the on-screen cursor — the material recolour and the white
-/// selection corners. For the highlight to appear the host's writer MUST run BEFORE
-/// this set (so the flags it flips are seen the same frame). The lib already orders
-/// this set AFTER [`rebuild_cube_faces`] so a republish that respawns the controls
-/// can't wipe the flags after the writer set them; the host completes the ordering by
-/// running its writer `.before(KaleidoscopeFocusVisuals)`. Without that edge the
-/// `Changed` readers can run before the writer and a republish-driven rebuild can
-/// reset `MenuVisualState` after the write — the "cursor highlight is gone" regression.
+/// These readers turn the host's `MenuVisualState` (which the host writes from its ECS focus
+/// cursor) into the on-screen cursor — the material recolour and the white selection corners.
+/// The lib already orders this set AFTER [`rebuild_cube_faces`] so a republish that respawns
+/// the controls can't wipe the flags after the writer set them; the host completes the ordering
+/// by running its writer `.before(KaleidoscopeFocusVisuals)`.
 #[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct KaleidoscopeFocusVisuals;
 
@@ -195,10 +186,9 @@ pub struct CubeFace {
     pub half_height: f32,
 }
 
-/// Upper bound on the per-frame delta used to ease the open/close fold (~2 frames
-/// at 60 Hz). Caps how much a single hitchy frame (e.g. the host un-pausing the
-/// game on close) can advance the exponential ease, so the fold can never collapse
-/// into one frame and snap shut. See [`animate_cube_ring`].
+/// Caps how much a single hitchy frame (e.g. the host un-pausing the game on close) can advance the
+/// exponential ease, so the fold can never collapse into one frame and snap shut. See
+/// [`animate_cube_ring`].
 const MAX_FOLD_EASE_DT: f32 = 1.0 / 30.0;
 
 /// Eased open amount for the cube menu (0 = folded shut, 1 = laid flat/open).
@@ -368,12 +358,9 @@ where
             // without rebuilding the face). The demo drives its own look + rebuilds
             // on nav, so this is gated to the Bevy-picking (game) configuration.
             //
-            // Both readers live in the public [`KaleidoscopeFocusVisuals`] set, ordered
-            // AFTER `rebuild_cube_faces` so a republish that respawns the controls can't
-            // wipe the host writer's focus flags after they're set. The host runs its
-            // `MenuVisualState` writer `.before(KaleidoscopeFocusVisuals)`; without that
-            // edge the `Changed` readers could run before the writer (and a rebuild
-            // could reset the flags afterwards) — the "cursor highlight gone" bug.
+            // Both readers live in the public [`KaleidoscopeFocusVisuals`] set, ordered AFTER
+            // `rebuild_cube_faces` so a republish that respawns the controls can't wipe the
+            // host writer's focus flags after they're set.
             app.configure_sets(
                 Update,
                 KaleidoscopeFocusVisuals
@@ -635,10 +622,8 @@ fn cube_3d_picking(
     }
 }
 
-/// Recolor each control's material from its live [`MenuVisualState`] so keyboard /
-/// gamepad focus and pointer hover are VISIBLE. Without this, the lib only colours
-/// the selected cell once at build time, so a host that moves focus purely in ECS
-/// (the game) sees no on-screen cursor movement — the "arrow keys do nothing" bug.
+/// Recolor each control's material from its live [`MenuVisualState`] so keyboard / gamepad
+/// focus and pointer hover are VISIBLE.
 ///
 /// Non-generic (keyed off [`KaleidoscopeControlStyle`]) so it doesn't need the host's
 /// `Action`. Only changed states write a new material handle (cheap, idempotent).
@@ -877,14 +862,6 @@ fn animate_cube_ring<PageId, Action>(
     let rotate_step = (time.delta_secs() * config.page_rotate_speed).clamp(0.0, 1.0);
     let spin = ring_t.rotation.slerp(target, rotate_step);
 
-    // PERF (2026-06-10): SETTLE EARLY-OUT. Once the fold amount has reached its
-    // target (`ease_fold_amount` snaps within 0.002) AND the ring is already at the
-    // active-face rotation, the cube is fully open and still. Writing the ring +
-    // every face `Transform` then would needlessly re-propagate `GlobalTransform`
-    // over all face children (panels/text/icons/corners) EVERY frame — pure churn
-    // while the menu just sits open. Skip the writes while nothing actually moves;
-    // any retarget (open/close, page rotate) moves `target`/`state.target` and
-    // re-arms the animation next frame.
     let amount_settled =
         new_amount == state.target && (new_amount - state.amount).abs() <= f32::EPSILON;
     let rotation_settled = ring_t.rotation.angle_between(target) < 1.0e-4;
@@ -962,18 +939,15 @@ fn smoothstep(t: f32) -> f32 {
 /// One frame of the open/close fold ease: exponentially advance `amount` toward
 /// `target` at `rate` over `dt` seconds, snapping when within `0.002`.
 ///
-/// The `dt` is CLAMPED to [`MAX_FOLD_EASE_DT`]. The exponential ease
-/// `1 - exp(-rate*dt)` saturates to ~1.0 for a large `dt`, which would collapse the
-/// WHOLE fold into a single frame (`amount` jumps straight to `target`). That is
-/// exactly what an embedding host hits on CLOSE — closing the menu typically
-/// un-pauses the game and the resume frame carries a big delta (a one-frame hitch
-/// from un-suspending the sim / re-acquiring render state). Unclamped, that hitch
-/// eases `amount` 1.0 -> ~0 in one frame, so a host that gates the cube camera /
-/// visibility on `amount` (to keep the fold on-screen) cuts it the very next frame
-/// and the close reads as an instant SNAP instead of a fold. The standalone demo
-/// never hitches (no pause/resume), so it never snapped — this was the
-/// demo-vs-host regression. Capping `dt` keeps the ease frame-rate independent for
-/// normal frames while making one spiky frame cost at most ~2 frames of progress.
+/// The `dt` is CLAMPED to [`MAX_FOLD_EASE_DT`]. The exponential ease `1 - exp(-rate*dt)` saturates
+/// to ~1.0 for a large `dt`, which would collapse the WHOLE fold into a single frame (`amount`
+/// jumps straight to `target`). That is exactly what an embedding host hits on CLOSE — closing the
+/// menu typically un-pauses the game and the resume frame carries a big delta (a one-frame hitch
+/// from un-suspending the sim / re-acquiring render state). Unclamped, that hitch eases `amount`
+/// 1.0 -> ~0 in one frame, so a host that gates the cube camera / visibility on `amount` (to keep
+/// the fold on-screen) cuts it the very next frame and the close reads as an instant SNAP instead
+/// of a fold. Capping `dt` keeps the ease frame-rate independent for normal frames while making one
+/// spiky frame cost at most ~2 frames of progress.
 fn ease_fold_amount(amount: f32, target: f32, rate: f32, dt: f32) -> f32 {
     let dt = dt.min(MAX_FOLD_EASE_DT);
     let open_step = 1.0 - (-rate * dt).exp();
@@ -1007,7 +981,7 @@ fn fade_kaleidoscope_materials(
     mut last_amount: Local<f32>,
 ) {
     let amount = state.amount.clamp(0.0, 1.0);
-    // PERF (2026-06-10): SETTLE EARLY-OUT. Each plane's target (mode + alpha)
+    // PERF: SETTLE EARLY-OUT. Each plane's target (mode + alpha)
     // depends only on `amount` and its static `base_alpha`/textured-ness, so when
     // the fold amount is unchanged AND no faded plane's material was respawned or
     // recolored this frame, the whole sweep is a guaranteed no-op — skip it instead
@@ -1109,10 +1083,6 @@ fn project_scrollbar_tracks(
     }
 }
 
-/// Feature C: map a pointer position over a scrollbar track into the neutral
-/// `0..=1` drag fraction (0 = top, 1 = bottom). `None` if the track has no
-/// measured height yet (the projection has not run). Shared by the DragStart +
-/// Drag observers so a press and a drag map identically.
 fn scrollbar_fraction(bar: &MenuScrollbar, pointer_y: f32) -> Option<f32> {
     ambition_menu::scrollbar_fraction_from_rect(bar.track_top_y, bar.track_height, pointer_y)
 }
@@ -1261,8 +1231,7 @@ fn disabled_control_color() -> Color {
     Color::srgba(0.040, 0.045, 0.075, 0.72)
 }
 
-/// Fix 1: the DIM scrollbar track (the full-height channel the thumb rides in). Much
-/// darker than the old solid yellow so the bright thumb reads as the grab handle.
+/// Much darker than the old solid yellow so the bright thumb reads as the grab handle.
 fn scrollbar_track_color() -> Color {
     Color::srgba(0.10, 0.09, 0.04, 0.55)
 }

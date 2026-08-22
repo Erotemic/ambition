@@ -18,9 +18,6 @@ use bevy::sprite::Anchor;
 use super::anim::CharacterAnim;
 use super::CharacterSpriteAsset;
 use crate::{AtlasPage, NormPoint, SheetRecord};
-// Re-exported from the foundational crate so `super::sheets::{trimmed_render,
-// FrameTrim}` paths (the animator, renderer) keep resolving after the trim
-// algebra moved into `ambition_sprite_sheet`.
 pub use crate::{trimmed_render, FrameTrim};
 
 /// One animation row's runtime metadata. The pixel geometry (rects, pages,
@@ -47,12 +44,8 @@ pub struct RowInfo {
 #[derive(Clone, Debug)]
 pub struct CharacterSheetSpec {
     pub label_width: u32,
-    /// Pixel offset from the top of the sheet PNG before the first row.
-    /// Used to share one PNG across multiple sprite specs that each take
-    /// a different row block — e.g. the lab-props sheet has 8 props
-    /// stacked vertically, each addressed by its own static with
-    /// `y_offset = N * frame_height`. Defaults to 0 for sheets whose
-    /// row 0 starts at the top of the image.
+    /// Pixel offset from the top of the sheet PNG before the first row. Defaults to 0 for sheets
+    /// whose row 0 starts at the top of the image.
     pub y_offset: u32,
     /// Per-frame width in source-image pixels. The generator crops each
     /// sheet to the union of opaque-pixel bboxes across every frame,
@@ -83,11 +76,6 @@ pub struct CharacterSheetSpec {
     /// crop happened to leave, and the 180 baked sheets spanned **10.9x** in how
     /// big a character was drawn against its own box. The quad now comes from the
     /// sheet's own body rectangle, which makes that ratio 1.0 by construction.
-    ///
-    /// ⚠ **turning this does nothing for a character.** Probed 2026-08-08 by
-    /// forcing every value to 777: the 136-character cast measured identically.
-    /// If a character is drawn the wrong size, its BODY RECTANGLE is wrong and
-    /// the fix is in the art pipeline, not here.
     pub collision_scale: f32,
     /// Sprite anchor y (normalized; negative shifts the sprite up so feet
     /// land near the collision-box bottom). Authoritative value lives in
@@ -168,15 +156,9 @@ impl SheetTuning {
     }
 }
 
-/// **Sheet records a PROVIDER authored, App-local.** (queue U1)
-///
-/// The baked index below is an immutable asset CACHE, and its doc comment says
-/// so — "not a content registry, so it has no `install_*` seam". That was true
-/// of its job and false of its position: it was the only source of sheet
-/// metadata in the process, so a third party outside this workspace could
-/// address its own PNG and had no way to describe what was in it. Its character
-/// resolved no spec and drew the placeholder rectangle, whatever art it shipped
-/// (GPT 5.6 review chased the addressing; this is what the addressing led to).
+/// The baked index below is an immutable asset CACHE, and its doc comment says so — "not a
+/// content registry, so it has no `install_*` seam". Its character resolved no spec and drew
+/// the placeholder rectangle, whatever art it shipped .
 ///
 /// So the content registry is a separate, ordinary resource. A provider fills it
 /// from its own RON at plugin-build time, exactly as it registers a character
@@ -455,12 +437,9 @@ pub fn try_load_spec_for_target_scaled(
 /// Load a spec for `target` from the quality-tiered ultrapack catalogs
 /// (shared-page packs installed under `assets/sprite_packs/<tier>/`).
 ///
-/// The pack catalog's per-target [`SheetRecord`] view drops straight onto the
-/// same frame algebra every other reader uses — freely-packed rows whose
-/// per-frame rects carry their own page + trim offset — so a packed target
-/// needs no parallel render path. Returns the spec **and the tier actually
-/// used** (the requested tier falls back to `full` when absent) so the
-/// caller's page image paths address the catalog the rects came from.
+/// The pack catalog's per-target [`SheetRecord`] view drops straight onto the same frame
+/// algebra every other reader uses — freely-packed rows whose per-frame rects carry their own
+/// page + trim offset — so a packed target needs no parallel render path.
 ///
 /// The synthesized record has no `body_metrics`: `tuning` must carry the
 /// feet anchor / collision scale (lift them from the base per-target spec),
@@ -497,13 +476,10 @@ pub fn try_load_spec_for_character_id(character_id: &str) -> Option<CharacterShe
             .and_then(|stripped| index.get(stripped))
     })?;
     let spec = spec_from_record(record, &DEFAULT_TUNING);
-    // The runtime atlas indexer (`flat_index`) falls back to
-    // `Idle` for any animation that doesn't have its own row.
-    // Without at least an Idle row, the actor renderer panics
-    // on the very first frame. Better to skip these manifests
-    // here — caller falls back to the colored-rectangle visual.
-    // The renderer-side fix is to ensure every published sheet
-    // exposes an `idle` row; until then we drop them safely.
+    // The runtime atlas indexer (`flat_index`) falls back to `Idle` for any animation that
+    // doesn't have its own row. Without at least an Idle row, the actor renderer panics on the
+    // very first frame. Better to skip these manifests here — caller falls back to the
+    // colored-rectangle visual.
     if spec.maps(CharacterAnim::Idle) {
         Some(spec)
     } else {
@@ -728,10 +704,6 @@ fn spec_from_record(record: &SheetRecord, tuning: &SheetTuning) -> CharacterShee
 /// the anvil; the cut-rope arena system swaps the prop sprite based on the
 /// replay cycle's selected heavy-object kind.
 
-/// Generic reusable explosion VFX sheet — one of the twelve declared in
-/// `crate::fx::FX_SHEETS`. Its rows are addressed by NAME
-/// (`crate::fx::authored_effect`), not by pose: the five aliases that used to
-/// spell `classic_burst` as *Idle* inside `CharacterAnim::from_name` are gone.
 
 /// Creator — the researcher who wakes the player. Rendered by the
 /// dedicated `creator` tack-on target (not the toon-side adapter), so

@@ -1,23 +1,13 @@
 // Portal integration test: only built with the portal mechanic + RL stepping
 // API. Compiled out (empty test binary) when `portal` is disabled.
 #![cfg(all(feature = "portal", feature = "rl_sim"))]
-//! Regression guard for "walk into a floor portal, press nothing, bounce a few
-//! times, then lose all momentum / FALL THROUGH THE FLOOR" (Jon, 2026-06-09).
-//!
 //! Station A in `portal_lab` is an authored ground↔ground pair. A body that
 //! enters the first floor portal with no further input should ping-pong between
 //! the two floor portals forever, carrying its momentum through each crossing —
 //! it must NEVER ground on the (open) portal floor and must NEVER fall through it
 //! and trip the fall-out-of-world death reset.
 //!
-//! The bug: the host-surface carve lagged a frame behind transit, so on every
-//! re-contact the floor was still SOLID when collision ran — the body thudded
-//! onto it (landing sfx), its entry velocity was zeroed, and it then re-sank from
-//! rest (popping out at only the gravity-from-rest speed, never the real entry
-//! speed). On less forgiving geometry the same grounding race let the body tunnel
-//! through. The fix opens the carve the same frame the body reaches the opening
-//! (keyed off the body's current position, before collision), so the body sinks
-//! straight through carrying its momentum.
+//! On less forgiving geometry the same grounding race let the body tunnel through.
 //!
 //! Driven through the public Platformer2dSimHarness API, asserting only on observed player
 //! position / velocity / on-ground / reset counter.
@@ -103,7 +93,6 @@ fn floor_portal_bounce_never_falls_through() {
 }
 
 /// The VARIABLE-frame-rate guard (the real game runs a jittery wall-clock dt —
-/// Jon measured 10.5ms..50ms swings). Under a large-dt frame a body can sink past
 /// the thin capture box in one step and, during the post-transit cooldown, ground
 /// at the bottom of the open carve — "stuck in the middle of the floor", momentum
 /// killed. A healthy bounce keeps TRANSITING (ping-ponging between the two floor
@@ -169,10 +158,6 @@ fn floor_portal_bounce_survives_variable_frame_rate() {
     eprintln!("transits={transits} longest_stall={longest_stall}");
 
     // A healthy floor↔floor bounce keeps ping-ponging over 600 jittered frames.
-    // The discriminating signal is `longest_stall`: with the bug the body embeds
-    // and stops transiting for a long stretch (measured ~300 frames against the
-    // pre-rescue carve fix); once it can never get stuck the max stall is just the
-    // airtime between bounces at the slow jittered rate (~35 frames).
     assert!(
         transits >= 15,
         "the body should keep ping-ponging between the floor portals under variable \
@@ -193,12 +178,7 @@ fn floor_portal_bounce_survives_variable_frame_rate() {
 /// while energy is quietly stolen. This asserts each crossing's exit speed is
 /// commensurate with its entry speed.
 ///
-/// The bug this pins (Jon, 2026-06-10 "still bleeding momentum"): the carve sweep
-/// read a STALE `SimDt` (PortalSet::Carves runs before CoreSimulation, where
-/// `mirror_sim_dt_into_runtime` writes it) and used PRE-gravity velocity, so on a
-/// dt spike the sweep undershot the body's real motion, the floor stayed solid
-/// for one frame, and the integrator grounded the body — entry speed gone. The
-/// dt-independent approach-box carve removes the whole class.
+/// The dt-independent approach-box carve removes the whole class.
 #[test]
 fn floor_portal_bounce_conserves_momentum_per_transit_under_variable_dt() {
     use ambition_platformer2d::actors::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};

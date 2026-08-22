@@ -19,13 +19,9 @@ use super::types::{
     find_portal, portal_exit_clearance, PlacedPortal, PortalHostDepths, PortalTransitCooldown,
 };
 
-/// Semantic transit message: a body's authoritative position just snapped to a
-/// portal's exit (the centroid crossed). Replaces the old one-frame
-/// `IntentionalTeleport` resource flag — consumers (the gameplay trace
-/// position-delta detector) read this instead of polling a shared mutable flag,
-/// so portal transit no longer owns trace simulation state. Carries the
-/// teleported entity so a consumer can scope to a specific body (e.g. the
-/// locally focused body).
+/// Semantic transit message: a body's authoritative position just snapped to a portal's exit
+/// (the centroid crossed). Carries the teleported entity so a consumer can scope to a specific
+/// body (e.g. the locally focused body).
 #[derive(Message, Clone, Copy, Debug)]
 pub struct BodyTeleported {
     /// The body whose position snapped to a portal exit this frame.
@@ -231,13 +227,6 @@ pub struct PortalBodyTransited {
 /// integrator does that), transfers when the centroid crosses (carrying the
 /// rotated momentum + a somersault roll per its [`PortalPolicy`]), and clears
 /// on trailing-edge out.
-///
-/// This replaces the old player-specific `portal_transit_system` and the
-/// actor-specific `portal_transit_actors`: a single query over every body that
-/// opted in, with one `&mut BodyKinematics` (no self-conflict). Identity →
-/// behavior is supplied entirely by [`PortalPolicy`]; the player-input bits and
-/// the [`BodyTeleported`] trace message moved to the Ambition adapters that read
-/// [`PortalBodyTransited`].
 ///
 /// Transiting a placed pair is INDEPENDENT of holding the
 /// [`PortalGun`](super::gun::PortalGun) — once a pair exists any opted-in body

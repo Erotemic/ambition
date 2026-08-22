@@ -1,22 +1,21 @@
 //! **FLY TO A NAMED DOOR, PRESS INTERACT, LAND IN THAT ROOM.**
 //!
-//! Jon, 2026-08-20: *"can you drive a headless simulation and fly the robot to
 //! the hall of characters door and press interact and check if it loads into the
 //! new room?"*
 //!
-//! ⭐ **this names its DESTINATION, which the sibling door tests do not.** They
+//! **this names its DESTINATION, which the sibling door tests do not.** They
 //! take whichever `Door` zone is nearest and assert the room merely CHANGED —
 //! true of a door that leads somewhere wrong, and true of a door that leads back
 //! where you started. This one asks for `hall_of_characters` by name, walks to
 //! that specific zone, and asserts she arrives THERE.
 //!
-//! ⛔ **and she FLIES, which is a different road through the movement kernel.**
+//! **and she FLIES, which is a different road through the movement kernel.**
 //! A walked approach is carried by the grounded integrator; flight is free
 //! motion with drag and no ground contact, so the two reach a zone by different
 //! code. `walking_into_a_loading_zone` covers the walk; this covers the flight,
 //! and between them a door has been entered by both ways a body can arrive.
 //!
-//! ⚠ the flight is a real toggle press through `AgentAction::fly_toggle`, not a
+//! the flight is a real toggle press through `AgentAction::fly_toggle`, not a
 //! component poked onto the body — a body given `fly_enabled` by hand would
 //! prove the transition works for a state no player can reach.
 
@@ -47,7 +46,7 @@ fn body_pos(sim: &mut Platformer2dSimHarness) -> ambition_platformer2d::engine_c
 /// **The authored `Door` zone that leads to `DESTINATION`, asked of the room
 /// graph rather than of the zone.**
 ///
-/// ⭐ **a `LoadingZone` does not carry its destination** — the edge does, keyed
+/// **a `LoadingZone` does not carry its destination** — the edge does, keyed
 /// by zone id — so the honest way to ask "where does this door go" is the
 /// production road itself: stand a probe rect inside the zone and let
 /// `transition_for_player` answer. A test that matched on the zone's NAME would
@@ -88,7 +87,7 @@ fn flying_to_the_hall_of_characters_door_and_pressing_interact_loads_the_hall() 
     }
     let from = active_room(&mut sim);
 
-    // ⚠ LOUD, never a quiet `return`: a test that skips itself when it cannot
+    // LOUD, never a quiet `return`: a test that skips itself when it cannot
     // find its subject reports green for the one reason it exists.
     let (door, offered) = the_named_door(&mut sim).unwrap_or_else(|| {
         panic!("'{from}' authors no Door zone leading to '{DESTINATION}'")
@@ -121,12 +120,10 @@ fn flying_to_the_hall_of_characters_door_and_pressing_interact_loads_the_hall() 
         let here = body_pos(&mut sim);
         closest = closest.min((target - here).length());
         let to = target - here;
-        // ⛔⛔ **INTERACT ONLY INSIDE THE TARGET ZONE, and the first version of
-        // this test got it wrong in an instructive way.** Holding interact for
-        // the whole flight means "enter the first door I brush past": the hub
-        // authors eighteen of them, and she took `pirate_cove` on the way to the
-        // hall. That is not a game defect, it is the test asking a different
-        // question — a player crossing a room does not hold the button down.
+        // **INTERACT ONLY INSIDE THE TARGET ZONE, and the first version of this test got it
+        // wrong in an instructive way.** Holding interact for the whole flight means "enter the
+        // first door I brush past": the hub authors eighteen of them, and she took
+        // `pirate_cove` on the way to the hall.
         let inside = here.x >= door.aabb.min.x
             && here.x <= door.aabb.max.x
             && here.y >= door.aabb.min.y

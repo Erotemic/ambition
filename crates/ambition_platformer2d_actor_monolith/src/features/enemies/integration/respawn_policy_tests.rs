@@ -1,12 +1,5 @@
 //! A room reset must not resurrect a corpse whose respawn policy forbids it.
 //!
-//! `reset_to_spawn` used to full-heal every actor unconditionally. The bug was
-//! invisible to end-of-frame assertions: `sync_ecs_actors_with_save` re-zeroed
-//! the HP later in the same frame, so only the *intermediate* state was wrong —
-//! a `DeadStaysDead` NPC was alive, drawable, and targetable for the rest of the
-//! frame, and "who decides a dead actor comes back" had two answers instead of
-//! one.
-//!
 //! These assert the value immediately after the reset call, which is the only
 //! place the old behavior was observable.
 
@@ -122,7 +115,7 @@ fn a_respawn_announces_a_restart_and_keeps_the_bodys_own_size() {
         "an enemy came back without the engine saying its body had restarted, so \
          every provider holding life-scoped state kept it"
     );
-    // ⚠ `BodyBaseSize::default()` is the default PLAYER size, and nothing on the
+    // `BodyBaseSize::default()` is the default PLAYER size, and nothing on the
     // enemy spawn path wrote it — so a reset that restores `base_size` would
     // silently resize every enemy in the game to a player. The respawn records
     // the identity size before resetting; without that this assertion fails.

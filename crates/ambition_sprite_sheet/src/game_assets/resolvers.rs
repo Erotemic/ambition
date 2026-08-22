@@ -65,12 +65,6 @@ pub fn entity_sprite_for_pickup(
 /// for the reason [`entity_sprite_for_runtime_chest`] does: a dropped pickup
 /// has no authored spec behind it, and sim-view must not fabricate one just to
 /// pick the same art.
-///
-/// ⚠ **a dropped heart is not a coin.** The dynamic-view row used to hardcode
-/// [`EntitySprite::PickupCurrency`] for every drop, which was invisible for as
-/// long as no Ambition drop was drawn at all (they carried no provenance, so
-/// nothing claimed them) and would have shipped a heart wearing a coin the
-/// moment they were.
 pub fn entity_sprite_for_runtime_pickup(
     kind: &ambition_interaction::PickupKind,
 ) -> Option<EntitySprite> {
@@ -205,24 +199,20 @@ pub fn chest_state_sprite(opened: bool) -> EntitySprite {
 /// **Art for a block that is a POINT, not a surface** — one whose box is its
 /// art's own shape, so drawing the art across the box distorts nothing.
 ///
-/// ⛔ **this used to answer for every kind, and that was the bug.** It was
-/// `block_sprite`, the renderer reached for it whenever a block was not
-/// IntGrid-derived, and its answers are ~92×78 props with a 4px TRANSPARENT
-/// BORDER. Stretched across an authored surface — Smash's 420×32 stage — the
-/// border stretches too, so the platform collides about 18px further than it can
-/// be seen at each end: an invisible floor you stand on and an invisible wall you
-/// hit. A surface's art has to REPEAT, and [`block_tile_sprite`] is the one that
-/// repeats, so the renderer asks that first and only lands here for a kind with
-/// no tile texture at all.
+/// Stretched across an authored surface — Smash's 420×32 stage — the border stretches too, so the
+/// platform collides about 18px further than it can be seen at each end: an invisible floor you
+/// stand on and an invisible wall you hit. A surface's art has to REPEAT, and [`block_tile_sprite`]
+/// is the one that repeats, so the renderer asks that first and only lands here for a kind with no
+/// tile texture at all.
 ///
-/// ⚠ **so a new surface kind must bring a tile texture, not a prop.** The
+/// **so a new surface kind must bring a tile texture, not a prop.** The
 /// contract is pinned by `every_surface_kind_has_a_tile_texture`; adding a kind
 /// here instead is how the invisible edge comes back.
 pub fn point_block_sprite(kind: ae::BlockKind) -> Option<EntitySprite> {
     match kind {
         ae::BlockKind::PogoOrb => Some(EntitySprite::PogoOrb),
         ae::BlockKind::Rebound { .. } => Some(EntitySprite::ReboundPad),
-        // ⚠ **`None`, and that is the kind's whole point.** A bonk-only block is
+        // **`None`, and that is the kind's whole point.** A bonk-only block is
         // hidden until it has been struck; whatever a game wants it to look like
         // once found is that game's own dresser's decision, and a default here
         // would draw the secret.
@@ -252,9 +242,7 @@ pub fn block_tile_sprite(kind: ae::BlockKind) -> Option<EntitySprite> {
         ae::BlockKind::BlinkWall {
             tier: ae::BlinkWallTier::Hard,
         } => Some(EntitySprite::HardBlinkTile),
-        // PogoOrb / Rebound are point objects, not tiled surfaces, and
-        // BonkOnly deliberately draws nothing until it is found. Listed
-        // rather than wildcarded so a new kind has to answer this question.
+        // Listed rather than wildcarded so a new kind has to answer this question.
         ae::BlockKind::PogoOrb | ae::BlockKind::Rebound { .. } | ae::BlockKind::BonkOnly => None,
     }
 }
@@ -318,7 +306,7 @@ mod tests {
 
     /// **Every kind an author can DRAG has art that repeats.**
     ///
-    /// ⛔ the invariant a stretched prop broke: art of one size covers a box of
+    /// the invariant a stretched prop broke: art of one size covers a box of
     /// another only by repeating. When it stretches instead, the transparent
     /// border every prop is generated with stretches too, and the block collides
     /// where nothing is drawn — Smash's stage was solid about 18px past each

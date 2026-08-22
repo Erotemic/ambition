@@ -6,14 +6,14 @@
 //!
 //! # WHEN something belongs here — the admission rule
 //!
-//! ⛔⛔ **the sentence above is a DEPENDENCY refusal, and it is not enough.**
+//! **the sentence above is a DEPENDENCY refusal, and it is not enough.**
 //! Nothing that respects those edges is turned away by it, so a crate named
 //! *shared tangle* will accept anything awkward to place — which is how a
-//! tangle becomes one. This is the missing half (D136, 2026-08-21): a
+//! tangle becomes one. This is the missing half: a
 //! destination that states only what it cannot depend on still accepts
 //! everything else.
 //!
-//! ⭐ **A TYPE LIVES HERE BECAUSE TWO DOMAINS SHARE IT AND THE ORPHAN RULE
+//! **A TYPE LIVES HERE BECAUSE TWO DOMAINS SHARE IT AND THE ORPHAN RULE
 //! FORBIDS IT LIVING IN EITHER.** The rule was already written down — on one
 //! type, where nobody placing a second one would look. `MountDied` (`body.rs`)
 //! says it: *"it lives HERE, below the domains, because two of them share it.
@@ -26,7 +26,7 @@
 //! ⇒ **the test is TWO REAL CONSUMERS IN DIFFERENT DOMAINS, today.** Not "this
 //! is generic", not "something might share it later", and not "it was awkward
 //! where it was". A type with one consumer belongs in that consumer's crate; a
-//! type with two consumers in the SAME domain belongs in that domain. ⛔ moving
+//! type with two consumers in the SAME domain belongs in that domain. moving
 //! something here to unblock a carve, without a second domain that reads it,
 //! launders the debt rather than paying it — the carve looks finished and the
 //! concept is now split across two crates instead of one.

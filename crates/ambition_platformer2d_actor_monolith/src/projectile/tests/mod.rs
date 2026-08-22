@@ -153,10 +153,6 @@ fn min_app() -> App {
 }
 
 /// Read-only view of the primary player's `PlayerProjectileState`.
-/// Tests previously read it as a `Res<PlayerProjectileState>`; the
-/// per-player migration moved it onto the player entity, so this
-/// helper hides the resource-vs-component difference at the test
-/// boundary.
 pub(in crate::projectile) fn projectile_state_ref(app: &App) -> &PlayerProjectileState {
     let world = app.world();
     let mut q = world.try_query::<&PlayerProjectileState>().unwrap();
@@ -282,18 +278,8 @@ fn advance_time(app: &mut App, dt_seconds: f32) {
     world_time.scaled_dt = dt_seconds;
 }
 
-/// Helper: press the projectile button (no motion) and immediately
-/// release it on the same press-release pair. Equivalent to a
-/// "tap" in the new charge model — fires a tier-0 fireball.
-/// **SHAPE THE PRIMARY SEAT'S RAW FRAME**, which is what a fixture that used to
-/// reach for the global `ControlFrame` wants.
-///
-/// ⛔ **writing `ControlFrame` moves nothing now** (D175). It stopped being the
-/// input bus when every seat gained a raw row of its own; it is a mirror of what
-/// seat zero received, published at the end. A fixture still writing it would
-/// press buttons that reach no simulation and assert its way to a green run —
-/// which is the exact failure mode `scripted_input`'s module doc was written
-/// about.
+/// It stopped being the input bus when every seat gained a raw row of its own; it is a mirror
+/// of what seat zero received, published at the end.
 fn shape_primary(app: &mut App, edit: impl FnOnce(&mut ControlFrame)) {
     app.world_mut()
         .resource_mut::<SeatRawFrames>()

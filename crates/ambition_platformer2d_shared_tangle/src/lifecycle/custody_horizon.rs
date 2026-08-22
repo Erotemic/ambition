@@ -1,7 +1,7 @@
 //! **The custody domain's share of the reset baseline: what each body was
 //! carrying when the checkpoint committed.**
 //!
-//! ⭐ **why this is not a second column in the occurrence ledger.** That ledger
+//! **why this is not a second column in the occurrence ledger.** That ledger
 //! answers *what became of this authored occurrence* — it has a row per
 //! occurrence and its `InCustody` variant says only "somebody has it", which is
 //! all reconstruction needs to know to refuse minting a second one. The question
@@ -10,7 +10,7 @@
 //! suppressed?" able to reach a body's inventory, and would put the two
 //! questions on one lifetime when they have different ones.
 //!
-//! ⭐⭐ **and it is a SNAPSHOT, never an authority.** The live authority on
+//! **and it is a SNAPSHOT, never an authority.** The live authority on
 //! custody is [`InCustodyOf`] on the occurrence, and it stays that way — a
 //! second live table of the same relation is a fork, and a fork drifts. What
 //! this holds is what that relation *was*, at one instant, expressed in
@@ -33,18 +33,13 @@ use crate::sim_id::SimId;
 /// **Which occurrence each body was carrying at the last committed
 /// checkpoint**, both sides by stable identity.
 ///
-/// ⚠ **a custodian without a [`SimId`] contributes no row, and that is correct
+/// **a custodian without a [`SimId`] contributes no row, and that is correct
 /// for a snapshot.** It would be wrong for a live authority — dropping a row
 /// there would lose the suppression that keeps a carried object from being
 /// duplicated — but this value's only job is to say what a restore should put
 /// back, and an unnameable hand is one a restore could not find again anyway.
 /// The live ledger keeps suppressing it either way, because that leg reads
 /// [`InCustodyOf`] and never asks who.
-///
-/// ⛔⛔ **rollback state with a real VALUE, not a derived projection.** Nothing
-/// republishes a baseline from live state, and a checkpoint commits mid-frame,
-/// so a rewind across the commit must restore this or the world keeps a baseline
-/// from a future that was un-happened.
 #[derive(Resource, Clone, Debug, Default, PartialEq)]
 pub struct CustodyBaseline {
     /// occurrence → the body that was carrying it.
@@ -68,7 +63,7 @@ impl CustodyBaseline {
 
     /// **Every remembered hand, occurrence first**, in identity order.
     ///
-    /// ⭐ **a restore has to ASK THE BASELINE what it is missing, and it cannot
+    /// **a restore has to ASK THE BASELINE what it is missing, and it cannot
     /// do that by walking the world.** [`Self::custodian_of`] answers the
     /// question the live-object side asks — *does the checkpoint agree with
     /// where this object is now* — and it can only be asked about an object
@@ -76,7 +71,7 @@ impl CustodyBaseline {
     /// room unloaded is invisible to every query in the world, so the only
     /// place its row can be found is here, by enumerating them.
     ///
-    /// ⚠ ordered by [`SimId`] and not by an archetype, because the walk drives
+    /// ordered by [`SimId`] and not by an archetype, because the walk drives
     /// spawns.
     pub fn rows(&self) -> impl Iterator<Item = (&SimId, &SimId)> {
         self.held.iter()
@@ -89,12 +84,12 @@ impl CustodyBaseline {
     /// **Adopt a set of remembered hands** — the one road that writes this
     /// outside a [`CheckpointCommitted`].
     ///
-    /// ⭐ **its single caller is a durable LOAD**, for the reason
+    /// **its single caller is a durable LOAD**, for the reason
     /// `OccurrenceBaseline::adopt` states: a fresh process has no checkpoint
     /// history, so what the file remembered IS the baseline, and the shipped
     /// restore road then puts those hands back exactly as a death does.
     ///
-    /// ⛔ **whole-value, never a row insert.** "Nobody was carrying anything"
+    /// **whole-value, never a row insert.** "Nobody was carrying anything"
     /// has to be expressible, and a merge cannot say it.
     pub fn adopt(&mut self, held: BTreeMap<SimId, SimId>) {
         if self.held != held {
@@ -105,7 +100,7 @@ impl CustodyBaseline {
     /// **The desync checksum for this baseline** — both sides are identities, so
     /// it is entity-free without having to be made so.
     ///
-    /// ⭐ that is the payoff for keying on [`SimId`] rather than `Entity`: an
+    /// that is the payoff for keying on [`SimId`] rather than `Entity`: an
     /// `Entity` handle would need a mapping pass to be comparable between peers
     /// at all, and a checksum over one would be noise.
     pub fn checksum(&self) -> u64 {
@@ -123,15 +118,11 @@ impl CustodyBaseline {
 
 /// **Who is carrying what RIGHT NOW**, in the shape a baseline row takes.
 ///
-/// ⭐ **extracted so the two horizons cannot fork.** The checkpoint capture below
-/// reads this at a `CheckpointCommitted`; the durable writer
-/// (`session::durable_horizon`) reads the same function every tick to decide what
-/// a save file should say. A second hand-written copy of "which body holds which
-/// occurrence" would be a fork, and the two would disagree the first time either
-/// learned about a new case — a custodian without a `SimId`, say, which this
-/// function drops and a naive copy would not.
+/// A second hand-written copy of "which body holds which occurrence" would be a fork, and the
+/// two would disagree the first time either learned about a new case — a custodian without a
+/// `SimId`, say, which this function drops and a naive copy would not.
 ///
-/// ⚠ **a `BTreeMap` and not the query's order.** This value reaches roads that
+/// **a `BTreeMap` and not the query's order.** This value reaches roads that
 /// despawn and spawn, and Bevy's iteration order is an archetype accident.
 pub fn live_custody_rows(
     carried: &Query<(&SimId, &InCustodyOf), With<RoomScopedEntity>>,
@@ -148,7 +139,7 @@ pub fn live_custody_rows(
 
 /// **Record who was carrying what, at the instant a checkpoint commits.**
 ///
-/// ⚠ **an empty capture is a real answer and is written.** "Nothing was being
+/// **an empty capture is a real answer and is written.** "Nothing was being
 /// carried at this checkpoint" is exactly what makes a later death take a
 /// picked-up object back off the player; skipping the write would leave an
 /// older checkpoint's hands in place.
@@ -173,7 +164,7 @@ pub fn capture_custody_baseline(
     }
 }
 
-/// ⛔⛔ **THE RETRACTION IS NOT HERE, AND THAT IS A LAYERING FACT RATHER THAN
+/// **THE RETRACTION IS NOT HERE, AND THAT IS A LAYERING FACT RATHER THAN
 /// AN OVERSIGHT.** Taking an object back out of a hand means retracting BOTH
 /// sides of a forked relation: `InCustodyOf` on the object, which this crate
 /// owns, and `HeldItem` on the body, which lives in `ambition_combat` — a crate
@@ -181,7 +172,7 @@ pub fn capture_custody_baseline(
 /// half it can see leaves the body permanently holding a ghost and refusing
 /// every future pickup, which is exactly what the acceptance fixture caught.
 ///
-/// ⚠ **and the tempting generic repair is WRONG**: "empty a hand whose spec
+/// **and the tempting generic repair is WRONG**: "empty a hand whose spec
 /// matches nothing in that body's custody" would disarm every authored fighter,
 /// because a character definition's `held_item` puts a `HeldItem` on a body with
 /// no world object behind it at all.
@@ -189,23 +180,17 @@ pub fn capture_custody_baseline(
 /// ⇒ `restore_custody_to_checkpoint` therefore lives with the item domain, which
 /// can see both halves. The CAPTURE stays here because it reads only identities.
 ///
-/// ⭐ **and the same boundary decides the other direction.** A baseline row whose
+/// **and the same boundary decides the other direction.** A baseline row whose
 /// occurrence has no live entity at all is put back by MATERIALIZING one — which
 /// needs the authored record, the recipe and the family's components, none of
 /// which this crate can name. Recording a custodian by identity is what makes
 /// that possible from here; performing it is not.
 ///
-/// ⭐⭐ **AND IT DECIDES WHERE THE THIRD BASELINE LIVES, 2026-08-16.**
-/// Materializing from a record is bounded by *"some room authors this id"*, and a
-/// RUNTIME-MINTED occurrence
-/// ([`SpawnOrigin::Dynamic`](crate::construction::SpawnOrigin)) is on the other
-/// side of that boundary: room-scoped and carryable, so it reaches the rows
-/// above, and describable by no record anywhere. What rebuilds one is a durable
-/// DESCRIPTION captured at the same commit — provenance plus the authored id of
-/// its item spec — and that value is
-/// `items::pickup::minted_horizon::MintedItemBaseline`, in the item domain, for
-/// exactly the reason the retraction is: this crate cannot see a `GroundItem`'s
-/// spec, and *what an item is* is not a question it may answer.
+/// What rebuilds one is a durable DESCRIPTION captured at the same commit — provenance plus the
+/// authored id of its item spec — and that value is
+/// `items::pickup::minted_horizon::MintedItemBaseline`, in the item domain, for exactly the reason
+/// the retraction is: this crate cannot see a `GroundItem`'s spec, and *what an item is* is not a
+/// question it may answer.
 ///
 /// ⇒ the baseline is a projection of DOMAINS. These rows stay identities.
 #[allow(dead_code)]
@@ -241,7 +226,7 @@ mod tests {
 
     /// **The capture names the HAND, not merely that somebody had it.**
     ///
-    /// ⭐ that distinction is the whole reason this value exists: an
+    /// that distinction is the whole reason this value exists: an
     /// `OccurrenceWhereabouts::InCustody` row already says "somebody has it",
     /// which is enough to stop the room minting a second one and not enough to
     /// put it back.
@@ -263,10 +248,6 @@ mod tests {
     }
 
     /// **A checkpoint with empty hands is a real baseline, not a missing one.**
-    ///
-    /// ⛔ the failure this pins is a capture that skips the write when nothing is
-    /// carried: the previous checkpoint's hands stay in the baseline, and a
-    /// death then returns an object the player had already legitimately given up.
     #[test]
     fn committing_with_empty_hands_overwrites_the_earlier_checkpoints_hands() {
         let mut app = horizon_world();
@@ -288,7 +269,7 @@ mod tests {
 
     /// **A custodian with no identity contributes no row.**
     ///
-    /// ⚠ this documents a real edge rather than defending one: the conservative
+    /// this documents a real edge rather than defending one: the conservative
     /// direction for a snapshot is to forget, because the alternative is a
     /// baseline claiming a hand a restore could never find. The live suppression
     /// leg is unaffected — it reads `InCustodyOf` and never asks who.

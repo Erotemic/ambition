@@ -4,7 +4,7 @@
 //! Guard". A generic role with exactly one creature in it was never a
 //! role; it was that creature's body filed under a different name.
 //!
-//! ⚠ **its policy is INLINE, and the goblin's is NAMED, and the
+//! **its policy is INLINE, and the goblin's is NAMED, and the
 //! difference is the P2.16 rule rather than an inconsistency.** A shared
 //! `autonomous_profiles` entry earns its indirection when several
 //! creatures point at it — `medium_striker` has a goblin band. This
@@ -12,7 +12,7 @@
 //! nobody shares and leave a second empty role behind exactly like the
 //! one being deleted.
 //!
-//! ⛔ `respawn: OnRoomReenter` is NOT here: it is the third authority
+//! `respawn: OnRoomReenter` is NOT here: it is the third authority
 //! (placement policy), it is the engine default for a room-scoped enemy,
 //! and the archetype stating it is the muddle this campaign removes.
 
@@ -49,7 +49,7 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
         })
         .with_autonomous_profile(BrainProfile {
             template: CharacterBrainTemplate::Smash,
-            // ⚠ 900 px is LONG — it is a corridor, and the guard is
+            // 900 px is LONG — it is a corridor, and the guard is
             // meant to notice you from the far end of it. Carried across
             // unchanged; a retune is a separate, visible decision.
             aggro_radius: 900.0,

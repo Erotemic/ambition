@@ -21,13 +21,6 @@ pub enum ShopSide {
 
 /// **Somebody asked for a transaction; the simulation runs it.**
 ///
-/// ⛔ **the Yarn commands used to call [`buy`]/[`sell`] DIRECTLY**, from a
-/// presentation system, against `OwnedItems` and `BodyWallet` — both of them
-/// rollback state. A rewind restored the balance and the bag and did not
-/// re-execute the command, because the Yarn runner is not rewound and does not
-/// run between resimulated ticks. The purchase silently un-happened, or worse,
-/// happened on a timeline that was corrected away and stayed.
-///
 /// So the command records the REQUEST in the conversation's narrative ledger and
 /// a simulation system applies it on the tick it was stamped for — every replay
 /// of that tick included.

@@ -34,9 +34,6 @@ fn fixture(sheet_root: &str) -> CharacterSpriteAsset {
 /// marked with their own id.
 fn two_character_assets() -> GameAssets {
     let mut assets = GameAssets::default();
-    // Published by id through the ONE sheet table. These used to be assignments
-    // to typed `robot` / `goblin` fields, which is exactly the privilege §7.1
-    // removed: the binder resolves both the same way it resolves anyone's.
     assets.characters.publish("robot", fixture("robot"));
     assets.characters.publish("goblin", fixture("goblin"));
     assets
@@ -228,7 +225,7 @@ fn the_sprite_baseline_records_the_bodys_own_standing_size() {
         .spawn((
             PlayerVisual,
             WornCharacter::new("robot"),
-            // ⚠ the READ-MODEL, not the sim's `BodyBaseSize`. Presentation reads
+            // the READ-MODEL, not the sim's `BodyBaseSize`. Presentation reads
             // `ambition_sim_view` (E4), and building the fixture from the live
             // cluster made this test disagree with the system it exercises the
             // moment that rule was enforced.

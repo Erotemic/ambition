@@ -1,23 +1,6 @@
-//! **How big each enemy's BODY is against the player's, measured rather than eyeballed.**
-//!
-//! Jon, twice: *"The snake and AI slop are still way too big visually, and the
-//! sprite might not match the box for the snake."* (2026-08-05, second report.)
-//!
-//! ⛔ **the earlier attempts at this measured badly TWICE**, and both failures
-//! were the same shape — a capture measures the DRAWN QUAD, which folds in the
-//! camera, the pose, the frame padding and the animation state. A colour filter
-//! ate the green warp pipes; the snake has two body states, so two captures
-//! compared different animals. The 0.35 scale that landed was arithmetic, not a
-//! derivation.
-//!
-//! ⭐ **so this asks the SHEET, at `world_per_pixel = 1.0`**, which answers in
+//! **so this asks the SHEET, at `world_per_pixel = 1.0`**, which answers in
 //! sheet pixels — the unit the generator works in, and the same choice
 //! `hall_scale_spread` makes for the same reason.
-//!
-//! ⭐ **and it reports BOTH numbers, because Jon's second clause is the lead.**
-//! `PosedBodyGeometry` carries `collision` (the authored body box) and `render`
-//! (the drawn quad). If those disagree, scaling one does not fix the other and
-//! the visual size keeps looking wrong however many times it is nudged.
 //!
 //! Run the report:
 //!
@@ -25,8 +8,8 @@
 //! cargo test -p ambition_app --test app_it enemy_body_scale -- --ignored --nocapture
 //! ```
 //!
-//! ⛔ **AND THE REPORT BELOW CANNOT ANSWER THE QUESTION IT WAS POINTED AT
-//! (2026-08-08).** `print_enemy_bodies_against_the_player` asks
+//! **AND THE REPORT BELOW CANNOT ANSWER THE QUESTION IT WAS POINTED AT
+//! .** `print_enemy_bodies_against_the_player` asks
 //! [`posed_body_geometry`] at `world_per_pixel = 1.0`, so its `collision` column
 //! is the sheet's body bbox in sheet pixels and its `render` column is the
 //! sheet's FRAME in sheet pixels. Both are facts about a generated `.ron` file.
@@ -35,12 +18,6 @@
 //! sizing code can move a single number in it** — only regenerating art can.
 //! It was cited three times as the falsifier for the bbox-quad route; it is not
 //! one.
-//!
-//! ⭐ [`print_how_the_cast_is_drawn_against_its_boxes`] is the instrument for
-//! that question. It asks the SIZING FUNCTIONS — the catalog→sheet pipeline the
-//! Hall and every spawn site actually use — and reports, in WORLD units, the
-//! drawn INK against the collision box. `ink / box = 1.00` is "the picture is
-//! the body"; anything else is the defect, per character, with a sign.
 
 use ambition_platformer2d::character_sprites::posed_body_geometry;
 use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
@@ -49,7 +26,6 @@ use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
 /// its denominator.
 const REFERENCE: &str = "player_robot_v3";
 
-/// The sheet targets Jon named, plus the reference.
 const SUBJECTS: &[&str] = &["player_robot_v3", "solid_snake", "ai_slop", "mary_o_v2"];
 
 fn measured(target: &str) -> Option<(f32, f32, f32, f32)> {
@@ -87,15 +63,9 @@ fn print_enemy_bodies_against_the_player() {
 }
 
 /// **The instrument cannot rot silently.**
-///
-/// ⛔ a measurement whose scan quietly stops finding anything reports the
-/// success condition — the failure this repo has hit with a portrait checker, a
-/// regen census and a rollback ratchet. So the population is asserted even
-/// though no ratio is: what counts as "too big" is Jon's call, and a limit here
-/// would be a taxonomy invented by a test.
 #[test]
 fn the_enemy_body_report_is_actually_measuring_something() {
-    // ⚠ SKIP, not fail, when the baked art is absent: sheets are generated and
+    // SKIP, not fail, when the baked art is absent: sheets are generated and
     // gitignored, so a clean checkout has none, and a source test that goes red
     // because a working tree was not rendered teaches people to ignore it.
     let Some((ref_w, ref_h, _, _)) = measured(REFERENCE) else {
@@ -137,13 +107,6 @@ use ambition_platformer2d::sprite_sheet::character::sprite_render_size;
 const LDTK_PLACEMENT: Vec2 = Vec2::new(28.0, 44.0);
 
 /// **The TWO independent render-size publishers, for one character.**
-///
-/// ⛔ **and asking only one of them is a tautology, which is how the first draft
-/// of this instrument was green before the fix it exists to prove.**
-/// `SpriteBodyCollision` returns a quad AND a box, and it derives the box FROM
-/// the quad (`collision = body/frame × render`) — so "is the ink the size of the
-/// box" is arithmetic it already did, and reads 1.00 under any sizing rule
-/// whatsoever.
 ///
 /// So this asks the OTHER publisher the same question about the SAME box:
 /// [`sprite_render_size`], which is what `bind_worn_character_presentation` uses
@@ -275,11 +238,10 @@ fn print_the_two_render_size_publishers() {
 
 /// **The picture is the body, and the two publishers say the same thing.**
 ///
-/// ⚠ this asserts the CORRESPONDENCE, not a size. How tall anybody should be is
-/// Jon's call, and a limit here would be a taxonomy invented by a test; that a
+/// this asserts the CORRESPONDENCE, not a size. How tall anybody should be is
 /// character's drawing and its hurtbox describe the same creature is not.
 ///
-/// ⛔ **asserted over the whole population rather than a sample**, because the
+/// **asserted over the whole population rather than a sample**, because the
 /// defect it pins was never one character: `collision_scale` was a per-sheet
 /// fudge, so a spot check on the one that happened to be tuned right reports the
 /// success condition.
@@ -322,7 +284,7 @@ fn every_characters_drawing_is_the_size_of_the_body_it_collides_with() {
             ));
         }
     }
-    // ⚠ SKIP, not fail, with no baked art: sheets are generated and gitignored,
+    // SKIP, not fail, with no baked art: sheets are generated and gitignored,
     // so a clean checkout has none.
     if measured == 0 {
         eprintln!("[skip] no baked character sheets — run ./regen_sprites.sh");

@@ -14,18 +14,18 @@
 //!
 //! ## The later arrival wins, and that is the mechanic
 //!
-//! ⭐ **the edge belongs to whoever caught it MOST RECENTLY.** That is the
+//! **the edge belongs to whoever caught it MOST RECENTLY.** That is the
 //! genre's rule and it is the one that makes an edge contested: a fighter
 //! hanging on the ledge to wait out a recovery can be taken off it by the very
 //! body they were waiting for. `LedgeGrabState::elapsed` already counts the
 //! seconds since a grab, so the trumper is simply the smaller number.
 //!
-//! ⚠ **and the trumped body loses its intangibility with the edge.** It was
+//! **and the trumped body loses its intangibility with the edge.** It was
 //! bought with airtime it no longer has — see
 //! [`ae::ledge_grab::ledge_grab_invuln_earned`] — and a body that kept the
 //! window while falling would be the safest thing on the stage.
 //!
-//! ⚠ **PARTIAL against the genre, and named rather than implied**: a trumped
+//! **PARTIAL against the genre, and named rather than implied**: a trumped
 //! body is dropped, where Ultimate pops it outward into a brief helpless state.
 //! The drop is the half that makes the edge contested; the pop is feel.
 
@@ -62,7 +62,7 @@ pub fn resolve_ledge_trumps(
         let ae::MotionModel::AxisSwept(axis) = &*model else {
             continue;
         };
-        // ⚠ HANGING, not climbing: a body already pulling itself up has left the
+        // HANGING, not climbing: a body already pulling itself up has left the
         // edge as far as this rule is concerned, and trumping it would cancel a
         // getup that is no longer contesting anything.
         let Some(hang) = axis.state.ledge_grab.as_ref().filter(|l| !l.climbing) else {
@@ -97,7 +97,7 @@ pub fn resolve_ledge_trumps(
             continue;
         };
         if ae::movement::knock_off_ledge(&mut model, &mut ledge) {
-            // ⛔ the window goes with the edge. It was bought with airtime this
+            // the window goes with the edge. It was bought with airtime this
             // body no longer has, and a falling fighter that kept it would be
             // the safest thing on the stage.
             if let ae::MotionModel::AxisSwept(axis) = &mut *model {

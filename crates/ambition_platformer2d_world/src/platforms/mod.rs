@@ -47,14 +47,8 @@ pub enum MovingPlatformMotionSpec {
     /// never reverses, which is what makes a run of them read as one elevator
     /// instead of a row of lifts.
     ///
-    /// `anchor_y` is **where the shaft starts, independent of where this
-    /// platform does**, and without it a conveyor is not authorable: `dy` alone
-    /// is measured from the platform's own position, so a run of staggered
-    /// platforms gets a run of DIFFERENT shafts and drifts into separate bands
-    /// instead of chasing each other round one. Anchored, the authored position
-    /// becomes a PHASE within a shared shaft. `None` anchors the shaft at the
-    /// platform, which is right for a lone lift and keeps that authoring to one
-    /// field.
+    /// Anchored, the authored position becomes a PHASE within a shared shaft. `None` anchors the
+    /// shaft at the platform, which is right for a lone lift and keeps that authoring to one field.
     VerticalLoop {
         dy: f32,
         anchor_y: Option<f32>,
@@ -132,8 +126,7 @@ impl AuthoredPlatformMotion {
         }
 
         if let Some(path_id) = path_id {
-            // ⭐ the path owns its speed, so a `speed` written here does
-            // nothing. That was silent before this classification existed.
+            // ⭐ the path owns its speed, so a `speed` written here does nothing.
             if self.speed.is_some() {
                 return Err(format!(
                     "follows path '{path_id}' and also authors speed, but a \
@@ -242,11 +235,7 @@ pub struct MovingPlatformState {
     pub pos: ae::Vec2,
     pub size: ae::Vec2,
     motion: MovingPlatformMotion,
-    /// Displacement applied by the most recent [`Self::update`] advance. The
-    /// platform advance is now a once-per-frame step BEFORE the per-entity player
-    /// tick (so it can't multiply when the tick iterates multiple bodies); the
-    /// per-entity ride / ledge-carry logic reads this instead of advancing the
-    /// platform itself. `ZERO` until the first advance.
+    /// Displacement applied by the most recent [`Self::update`] advance.
     last_delta: ae::Vec2,
 }
 
@@ -461,10 +450,8 @@ impl MovingPlatformState {
 
     /// The shaft a vertically-LOOPING platform runs in, as `(min_y, max_y)`.
     ///
-    /// `None` for every other motion — a sweep and a path REVERSE at their
-    /// limits, which is visible on purpose. Only a loop teleports, and a
-    /// teleport the player can see reads as a bug rather than as an elevator, so
-    /// content needs to be able to ask where the wrap happens.
+    /// `None` for every other motion — a sweep and a path REVERSE at their limits, which is
+    /// visible on purpose.
     pub fn vertical_loop_span(&self) -> Option<(f32, f32)> {
         match self.motion {
             MovingPlatformMotion::Loop { min_y, max_y, .. } => Some((min_y, max_y)),
@@ -490,16 +477,14 @@ impl MovingPlatformState {
     /// platform cannot be authored ONE-WAY even though `BlockKind::OneWay` is a
     /// first-class kind the shared sweep already resolves for static geometry.
     ///
-    /// ⛔ **it is not a `bool` away.** `one_way_landing_from_previous_feet`
-    /// compares the body's PREVIOUS feet coordinate against the block's CURRENT
-    /// anti-gravity face — sound for geometry that does not move, and a MIXED
-    /// FRAME for geometry that does. This type already knows that hazard: it
-    /// carries [`Self::previous_aabb`] precisely because "a ledge grab contact
-    /// stored from the previous tick matches this previous AABB". So a one-way
-    /// moving platform must first DECIDE which face the crossing test reads —
-    /// a rising elevator would otherwise steal a landing by sweeping its face
-    /// past a standing body's stale feet line, and a descending one would refuse
-    /// a landing it should grant. Answer that before adding the field.
+    /// ⛔ **it is not a `bool` away.** `one_way_landing_from_previous_feet` compares the body's
+    /// PREVIOUS feet coordinate against the block's CURRENT anti-gravity face — sound for
+    /// geometry that does not move, and a MIXED FRAME for geometry that does. This type already
+    /// knows that hazard: it carries [`Self::previous_aabb`] precisely because "a ledge grab
+    /// contact stored from the previous tick matches this previous AABB". So a one-way moving
+    /// platform must first DECIDE which face the crossing test reads — a rising elevator would
+    /// otherwise steal a landing by sweeping its face past a standing body's stale feet line,
+    /// and a descending one would refuse a landing it should grant.
     pub fn as_collision_block(&self) -> ae::Block {
         ae::Block {
             // The platform's LDtk iid IS its durable identity (§3.6
@@ -529,12 +514,6 @@ impl MovingPlatformState {
     /// per-body simulation phase, so a contact fact stored last tick still
     /// describes where the platform WAS. [`Self::is_supporting_body`] matches
     /// both poses for that reason.
-    ///
-    /// ⚠ **the ledge half of this note moved out with the matcher.** Contacts
-    /// composited into the collision world carry the same information as
-    /// `Block::velocity`, and `ae::ledge_grab::ledge_carry_for_frame` recovers the
-    /// previous pose as `block.aabb.translated(-block.velocity)` — this method is
-    /// the world-side sibling of that line, not its owner.
     pub fn previous_aabb(&self) -> ae::Aabb {
         self.aabb().translated(-self.last_delta)
     }

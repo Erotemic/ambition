@@ -37,10 +37,8 @@ pub use ambition_characters::boss_encounter::{
     PhaseTriggerCondition,
 };
 pub use behavior::{BossBehaviorProfileExt, BossProfileRegistry, LimbMotion, LimbRoute};
-// The boss DATA MODEL — the authoritative components + the borrow views the
-// per-tick systems mutate/read. Relocated from `features::ecs::boss_clusters`
-// (D33): boss vocabulary belongs to the boss domain, and the hub it sat in was
-// re-exporting it back to this module's own children.
+// The boss DATA MODEL — the authoritative components + the borrow views the per-tick systems
+// mutate/read.
 #[cfg(any(test, feature = "test-support"))]
 pub use catalog::test_boss_catalog;
 pub use catalog::{

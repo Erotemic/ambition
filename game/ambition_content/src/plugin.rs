@@ -77,14 +77,10 @@ impl Plugin for AmbitionContentPlugin {
         // `items_ron_matches_builtin_defaults`), so shipped items read unchanged;
         // a content game re-authors an item by editing its row in `items.ron`.
         //
-        // ⛔ **THROUGH THE COMPILER, not beside it.** This used to be
-        // `ItemCatalog::from_ron(include_str!(…))` — a second reader of a file
-        // the pack already validates, which is the split the content pack
-        // exists to close. It also meant the grid's positional invariant went
-        // unchecked at the only place that could check it: `from_ron` accepts a
-        // file with a row missing, and every later row then silently re-authors
-        // the wrong slot, with the tail falling back to built-in defaults so the
-        // grid still looks full. The `item_catalog` schema refuses that.
+        // It also meant the grid's positional invariant went unchecked at the only place that could
+        // check it: `from_ron` accepts a file with a row missing, and every later row then silently
+        // re-authors the wrong slot, with the tail falling back to built-in defaults so the grid
+        // still looks full. The `item_catalog` schema refuses that.
         ambition_items::install_item_catalog(
             ambition_items::content_schema::lowered_item_catalog(crate::pack::prepared())
                 .expect("the items schema lowers its catalog for every pack that compiles")
@@ -109,7 +105,7 @@ impl Plugin for AmbitionContentPlugin {
         // Install authored encounter wave timelines (goblin mob-lab, …) into the
         // machinery lib's wave book before the encounter loader runs — the engine
         // hard-codes no encounter's waves.
-        // ⭐ **from the PREPARED PACK, not a second parse of the same file.**
+        // **from the PREPARED PACK, not a second parse of the same file.**
         // This was `ron::from_str(include_str!(..)).expect(..)` — so the pack
         // could validate bytes the runtime never consulted, and a malformed file
         // reached a player as a serde panic at startup instead of a compile
@@ -123,7 +119,7 @@ impl Plugin for AmbitionContentPlugin {
                 .expect("the encounter schema lowers its book for every pack that compiles"),
         );
 
-        // ⭐ **THE GAME'S OWN DIFFICULTY RUNGS, handed to the sim.** Nine rows
+        // **THE GAME'S OWN DIFFICULTY RUNGS, handed to the sim.** Nine rows
         // authored in July that nothing had ever read: `FighterBrainProfile::for_level`
         // documents itself as "a FLOOR … a game that cares ships its own nine rows
         // and this is never consulted", and every call site consulted it anyway.
@@ -131,7 +127,7 @@ impl Plugin for AmbitionContentPlugin {
         // `UtilityWeights::default()`, which is `v1()`, which is the authored level
         // NINE, so a level-1 CPU priced a kill move exactly as the hardest one did.
         //
-        // ⚠ inserted rather than threaded: the pack lives here, ABOVE the crate
+        // inserted rather than threaded: the pack lives here, ABOVE the crate
         // that builds brains, and a fighter is constructed at the leaf of a spawn
         // tree whose roots include a thrown ability. `project_authored_fighter_ladder`
         // applies it at insertion.
@@ -159,10 +155,8 @@ impl Plugin for AmbitionContentPlugin {
                 .resource_mut::<ambition_dialog::YarnContentBindings>()
                 .installers
                 .push(super::duel_arena::install_duel_yarn_binding);
-            // ⭐ **the game's OWN vocabulary**, pushed through the same seam as
-            // the two content installers beside it. It lived in the engine crate
-            // until 2026-08-08, where it named this game's items, shop, brains
-            // and save flags from inside `ambition_platformer2d_actor_monolith`.
+            // **the game's OWN vocabulary**, pushed through the same seam as the two content
+            // installers beside it.
             app.world_mut()
                 .resource_mut::<ambition_dialog::YarnContentBindings>()
                 .installers

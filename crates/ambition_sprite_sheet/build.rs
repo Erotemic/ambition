@@ -1,14 +1,6 @@
 //! Embed gameplay-sheet manifests, portrait manifests, and packed-sheet
 //! catalogs from the actor-owned generated asset tree into the built binary.
 //!
-//! Why a build script: the runtime registry + the `LazyLock<CharacterSheetSpec>`
-//! statics used to load these via `std::fs::read_dir($CARGO_MANIFEST_DIR/
-//! assets/sprites)`. That works on desktop but produces an empty index on
-//! Android / wasm — the manifest path is the dev machine's absolute path,
-//! which doesn't exist on the device, and assets live inside the APK /
-//! served bundle instead. The empty index then panicked the first time
-//! `load_spec("goblin")` (or any character sheet) was forced.
-//!
 //! Mirrors the runtime scan: root `assets/sprites/` plus one level of
 //! subdirs (the boss multi-sheet packages live there), and the sibling
 //! quality-variant folders (`sprites_0_5x`, `sprites_0_25x`, `sprites_potato`)
@@ -153,9 +145,9 @@ fn bake_pack_catalogs(asset_owner_dir: &Path, out_dir: &Path) {
     }
     tiers.sort_by(|a, b| a.0.cmp(&b.0));
 
-    // ⭐⭐ **WHETHER THIS TREE HAS AN ULTRAPACK AT ALL, as a compile-time fact.**
+    // **WHETHER THIS TREE HAS AN ULTRAPACK AT ALL, as a compile-time fact.**
     //
-    // ⛔ two tests in this crate need it and both got it wrong. Pack output is
+    // two tests in this crate need it and both got it wrong. Pack output is
     // gitignored, so on a fresh checkout the table below is empty and
     // `catalog_for_scale` answers `None` at every tier — which made
     // `a_packed_target_keeps_the_facing_its_artwork_was_drawn_in` fail with *"no
@@ -164,11 +156,8 @@ fn bake_pack_catalogs(asset_owner_dir: &Path, out_dir: &Path) {
     // The second is worse: `cargo test` swallows stderr for a passing test, so a
     // green tick meant "checked" and "there was nothing to check" identically.
     //
-    // ⇒ neither test WEAKENS — the facing bug they guard is one where a
-    // character faced correctly from his own sheet and backwards from the
-    // ultrapack, so a version that passed vacuously would have been green
-    // throughout the original defect. They are `#[ignore]`d instead, which
-    // `cargo test` REPORTS with its reason and counts in its summary line.
+    // They are `#[ignore]`d instead, which `cargo test` REPORTS with its reason and counts in
+    // its summary line.
     println!("cargo::rustc-check-cfg=cfg(has_baked_packs)");
     if !tiers.is_empty() {
         println!("cargo::rustc-cfg=has_baked_packs");

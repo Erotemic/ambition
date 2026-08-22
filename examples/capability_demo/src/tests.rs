@@ -135,7 +135,7 @@ fn the_capability_registers_its_own_semantic_action() {
 
 /// **HALF 3 — rollback state the capability OFFERS and a composition installs.**
 ///
-/// ⛔ the capability does not register it itself, and that is deliberate: the
+/// the capability does not register it itself, and that is deliberate: the
 /// registration trait lives in `ambition_platformer2d_runtime`, so self-registering would
 /// drag the whole simulation into a mechanic that uses none of it. Offering is
 /// also what the other two halves already do — a schema and an action are
@@ -174,7 +174,7 @@ fn a_composition_installs_the_rollback_state_the_capability_offers() {
     );
 }
 
-/// ⚠ **and the plugin alone must NOT register it**, or the offer is a lie and
+/// **and the plugin alone must NOT register it**, or the offer is a lie and
 /// the dependency it was meant to avoid comes back the first time somebody
 /// assumes the plugin is enough.
 #[test]
@@ -264,7 +264,7 @@ fn the_capability_publishes_its_own_causal_facts() {
     );
 }
 
-/// ⚠ **"I pressed it and nothing happened" is a fact, not a silence.**
+/// **"I pressed it and nothing happened" is a fact, not a silence.**
 #[test]
 fn a_refused_pulse_says_why() {
     let mut app = App::new();
@@ -336,7 +336,7 @@ fn firing_arms_the_cooldown_and_it_ages() {
     );
 }
 
-/// ⛔ **A composition that skips the offer is CAUGHT, not left to desync.**
+/// **A composition that skips the offer is CAUGHT, not left to desync.**
 ///
 /// The offer keeps this capability's closure to foundations, and the price was
 /// that nothing forced a host to accept it. `REQUIRED_ROLLBACK` is the
@@ -396,7 +396,7 @@ fn a_composition_that_forgets_the_rollback_state_is_told_which_and_why() {
         .is_empty());
 }
 
-/// ⚠ **the OWNER is part of the requirement.** Two capabilities may both
+/// **the OWNER is part of the requirement.** Two capabilities may both
 /// reasonably want a `cooldown`; a name registered by somebody else is not this
 /// capability's state, and treating it as satisfied would be the worst kind of
 /// pass — one that reports safety while the desync is still there.
@@ -432,10 +432,6 @@ fn another_capabilitys_registration_does_not_satisfy_this_one() {
 
 /// **The capability runs in the HOST'S schedule, not in `Update`.**
 ///
-/// ⛔ this was the review's critical finding (GPT 5.6, 2026-08-01) and it landed
-/// on the crate that exists to be the correct example. `PulsePlugin` registered
-/// into bare `Update`, which is:
-///
 /// * **render-rate coupled** under a fixed-tick host — cooldowns aged once per
 ///   frame instead of once per tick;
 /// * **not resimulated** under a rollback host — GGRS replays the SIM schedule,
@@ -443,13 +439,10 @@ fn another_capabilitys_registration_does_not_satisfy_this_one() {
 ///   produced the surrounding result. Snapshotting state does not help when the
 ///   systems that move it never replay.
 ///
-/// The seam is `SimScheduleExt::sim_schedule()`: the HOST names the authoritative
-/// schedule and the capability asks. ⚠ its default IS `Update`, which is why
-/// every other test in this file still passes unchanged and why the bug was
-/// invisible — a bare `App` cannot tell the two apart.
+/// The seam is `SimScheduleExt::sim_schedule()`: the HOST names the authoritative schedule and
+/// the capability asks.
 ///
-/// So this test gives the host a schedule of its own. No GGRS, no fixed-time
-/// plumbing, no clock: just "did the systems go where the host said".
+/// So this test gives the host a schedule of its own.
 #[test]
 fn the_capability_runs_in_the_hosts_schedule_rather_than_in_update() {
     use bevy::ecs::schedule::ScheduleLabel;
@@ -458,7 +451,7 @@ fn the_capability_runs_in_the_hosts_schedule_rather_than_in_update() {
     struct HostSim;
 
     let mut app = App::new();
-    // The host chooses. This is the line a fixed-tick or rollback host runs.
+    // The host chooses.
     app.set_sim_schedule(HostSim);
     app.add_plugins(PulsePlugin::default());
 
@@ -505,7 +498,7 @@ fn the_capability_runs_in_the_hosts_schedule_rather_than_in_update() {
 /// names its own. Step each the same number of simulation ticks and the cooldown
 /// and the pushed body must agree.
 ///
-/// ⚠ what this pins is that pulse's result is a function of TICKS, not of
+/// what this pins is that pulse's result is a function of TICKS, not of
 /// frames. That is the property bare `Update` broke, and it is the one a
 /// rollback host needs in order to replay anything.
 #[test]
@@ -567,7 +560,7 @@ fn the_result_is_a_function_of_sim_ticks_not_of_which_schedule_runs_them() {
 
 /// **AUTHORED NUMBERS REACH A FIRED PULSE.**
 ///
-/// ⛔ the review's second finding, and the authority split the content-compiler
+/// the review's second finding, and the authority split the content-compiler
 /// program exists to remove: the schema was registered, packs validated and
 /// LOWERED correctly, and `PulsePlugin` then called
 /// `init_resource::<PulseProfiles>()` — the built-in defaults. A game could
@@ -684,19 +677,16 @@ fn a_pack_without_pulse_profiles_refuses_rather_than_defaulting() {
 /// **The active profile is FROZEN at composition, so a rewind cannot disagree
 /// about which one was live.**
 ///
-/// ⛔ `PulseProfiles::select(&mut self, ..)` used to exist on the live resource.
-/// That made the active selection MUTABLE SIMULATION STATE which nothing
-/// rewound and which the rollback contract never mentioned — so the radius,
-/// force and cooldown a pulse used could differ between an original tick and its
-/// resimulation, while every declared requirement was satisfied
-/// (GPT 5.6, 2026-08-01, finding 4).
+/// That made the active selection MUTABLE SIMULATION STATE which nothing rewound and which the
+/// rollback contract never mentioned — so the radius, force and cooldown a pulse used could differ
+/// between an original tick and its resimulation, while every declared requirement was satisfied .
 ///
 /// Freezing is the cheaper of the two honest answers — the other being to make
 /// the selection rollback-owned — and nothing called `select`, so nothing was
 /// lost. A game that wants to switch profiles mid-match must now decide to make
 /// that rollback-owned rather than inherit it by accident.
 ///
-/// ⚠ what this test can assert is the TYPE-LEVEL fact: choosing happens on an
+/// what this test can assert is the TYPE-LEVEL fact: choosing happens on an
 /// owned value before the resource exists. `with_active` consumes `self`, so
 /// there is no `&mut` path to the live resource at all — which is why the
 /// property needs no runtime guard.
@@ -727,9 +717,9 @@ fn the_active_profile_is_chosen_before_the_resource_exists_not_during_the_sim() 
 /// **The rollback contract names every piece of authoritative state the
 /// mechanic introduces**, which is the property the contract exists to have.
 ///
-/// A checkable restatement of finding 4: enumerate what `fire_pulses` reads or
-/// writes that can differ between an original tick and its resimulation, and
-/// require each to appear in `REQUIRED_ROLLBACK` or to have no mutable path.
+/// A checkable restatement of: enumerate what `fire_pulses` reads or writes that can differ
+/// between an original tick and its resimulation, and require each to appear in
+/// `REQUIRED_ROLLBACK` or to have no mutable path.
 #[test]
 fn every_piece_of_authoritative_pulse_state_is_in_the_contract() {
     let names: Vec<&str> = REQUIRED_ROLLBACK.iter().map(|r| r.name).collect();
@@ -768,22 +758,12 @@ fn every_piece_of_authoritative_pulse_state_is_in_the_contract() {
 /// **Reordering the profiles changes the pack's identity, because it changes
 /// which pulse the game fires.**
 ///
-/// ⛔ **it did not, and that was measured rather than reasoned about.** Two packs
-/// differing only in profile ORDER produced byte-identical canonical bytes and
-/// the same fingerprint `e060c5b64b5a0b78`, while `PulseProfiles::active()`
-/// returned `gentle` in one and `cannon` in the other — different radius, force
-/// and cooldown for every pulse the game fires. A fingerprint that cannot tell
-/// those two packs apart is useless for the four things it exists for: cache
-/// invalidation, packaging, session compatibility, and telling two peers apart.
+/// A fingerprint that cannot tell those two packs apart is useless for the four things it exists
+/// for: cache invalidation, packaging, session compatibility, and telling two peers apart.
 ///
 /// The cause is that this file is POSITIONAL — `from_prepared` pins `active: 0`
 /// — while `define` was keyed only by name, and the pack sorts definitions by
 /// content id.
-///
-/// ⭐ **the rule, since this shape has now produced the bug three times**: if
-/// the lowered artifact is a sequence and the runtime reads it BY POSITION, the
-/// position is part of the canonical form. Music track order and the item
-/// catalog's slot were the first two; both were fixed exactly this way.
 #[test]
 fn swapping_two_profiles_moves_the_fingerprint() {
     const SWAPPED: &str = r#"(

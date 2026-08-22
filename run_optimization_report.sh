@@ -5,11 +5,11 @@
 # which is ignored by git via the repo's existing /target/ rule.
 #
 # Useful options:
-#   ./run_optimization_report.sh              # normal baseline
-#   ./run_optimization_report.sh --quick      # skip release/distribution builds
-#   ./run_optimization_report.sh --clean      # cargo clean before measuring
-#   ./run_optimization_report.sh --long-tests # include slower/noisier deep probes
-#   ./run_optimization_report.sh --help
+# ./run_optimization_report.sh              # normal baseline
+# ./run_optimization_report.sh --quick      # skip release/distribution builds
+# ./run_optimization_report.sh --clean      # cargo clean before measuring
+# ./run_optimization_report.sh --long-tests # include slower/noisier deep probes
+# ./run_optimization_report.sh --help
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

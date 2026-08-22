@@ -195,11 +195,8 @@ pub fn step_snake_shell(phase: SnakeShell, dt: f32, inputs: ShellInputs) -> Shel
             just_squashed: true,
             ..shelled(Boxed(BOXED_S), CharacterAnim::ShellIdle)
         };
-        // **Landing on a RESTING shell kicks it**, exactly as a side bump does.
-        // It used to re-seat in place, and that is what let a shell under a
-        // ?-block trap her: she bounced off it, the block stopped her rise, she
-        // fell back onto it, forever. The classic never does that — you land on
-        // a still shell and it shoots out from under you.
+        // **Landing on a RESTING shell kicks it**, exactly as a side bump does. The classic never
+        // does that — you land on a still shell and it shoots out from under you.
         //
         // Only a RESTING shell. A shell already running is stopped by a stomp
         // (that is the tech), and a walker, a mid-withdraw snake or one climbing
@@ -335,27 +332,10 @@ pub fn step_snake_shell(phase: SnakeShell, dt: f32, inputs: ShellInputs) -> Shel
     }
 }
 
-/// Demo-owned hostile roster: ONE 1-HP `Wanderer` archetype. It walks forward and
-/// reverses at walls; `aggro_radius`/`attack_range` are ignored by that template.
-/// It carries no `melee`, so its only offense is the default-on body contact —
-/// which the shell state turns off (via its `body_contact_damage` tuning) while
-/// withdrawn, then back on when it walks again.
-/// The Solid Snake archetype ROW (no outer braces), so it can register on its own
-/// for a single-enemy test OR fold into the combined Mary-O roster fragment — one
-/// fragment per provider, since assembly rejects a second from the same provider.
-/// ⚠ **RESTORED 2026-08-11, hours after being deleted, and the reason is
-/// measured rather than cautious.** Solid Snake is a CHARACTER — it authors its
-/// health, top speed, contact damage and wandering policy, and its six
-/// placements name it — so this row is dead weight in any host that publishes a
-/// prepared cast.
-///
-/// ⛔ **a multi-game shell host publishes an EMPTY one.** Measured by deleting
-/// this row and watching ten shell-host tests refuse: at enemy-spawn time the
-/// `PreparedCharacterRegistry` in those compositions contains ZERO characters,
-/// so every placement falls back — and with no row to fall back TO, Mary-O's
-/// walkers became generic stand-still bodies. The registry being empty there is
-/// its own defect and is recorded as one; this row is what keeps the demo
-/// correct until that is fixed, at which point it goes.
+/// Demo-owned hostile roster: ONE 1-HP `Wanderer` archetype. It walks forward and reverses at
+/// walls; `aggro_radius`/`attack_range` are ignored by that template. It carries no `melee`, so its
+/// only offense is the default-on body contact — which the shell state turns off (via its
+/// `body_contact_damage` tuning) while withdrawn, then back on when it walks again.
 
 /// The `solid_snake` sheet TARGET (also the catalog id) — the generated sheet the
 /// enemy render resolves for a Solid Snake.
@@ -376,34 +356,18 @@ pub const SNAKE_SHEET_TARGET: &str = "solid_snake";
 ///
 /// (The paragraph above is the ORIGINAL, kept because its intent is right.)
 ///
-/// ⚠ **`0.5` did not deliver 1.8 tiles.** Jon, from play, 2026-08-05: *"the
-/// scale of solid snake increased a lot for some reason in the ldtk transition,
-/// they need to be a bit smaller in game."* It did not increase in the
-/// migration — until the enemies got their sheets back that same day they drew
-/// as 28px placeholder boxes, so this size had never actually been on screen.
+/// Mary-O's world is full of green warp PIPES; the sample had swallowed one. Halving the
+/// constant on that basis produced a snake visibly smaller than the crate beside it — which is
+/// what LOOKING at the render showed immediately and the arithmetic never would have. A colour
+/// filter is not an instrument for "how big is that thing" in a scene containing other things
+/// of that colour.
 ///
-/// ⛔ **and my first measurement of it was WRONG.** I colour-sampled "green" out
-/// of a capture and got 213x57 px, called the snake 5.8 tiles long, and wrote
-/// that number into this comment as fact. Mary-O's world is full of green warp
-/// PIPES; the sample had swallowed one. Halving the constant on that basis
-/// produced a snake visibly smaller than the crate beside it — which is what
-/// LOOKING at the render showed immediately and the arithmetic never would have.
-/// A colour filter is not an instrument for "how big is that thing" in a scene
-/// containing other things of that colour.
+/// **and the SECOND measurement was no better.** A snake has two bodies — the sprawled walker
+/// and the withdrawn box — and captures taken at different moments catch different ones, so
+/// "how long is the snake on screen" answered 213px, then 53px, then 230px across three runs at
+/// three different constants. None of those comparisons was like-for-like.
 ///
-/// ⚠ **and the SECOND measurement was no better.** A snake has two bodies — the
-/// sprawled walker and the withdrawn box — and captures taken at different
-/// moments catch different ones, so "how long is the snake on screen" answered
-/// 213px, then 53px, then 230px across three runs at three different constants.
-/// None of those comparisons was like-for-like. (It also means the tan crates
-/// visible beside the snakes in every Mary-O capture are BOXED SNAKES, not
-/// scenery and not bricks — I reported them as bricks drawing with a wooden
-/// texture, and that was wrong.)
-///
-/// So `0.35` was chosen by ARITHMETIC, honestly labelled: a 30% reduction on the
-/// value Jon asked to shrink, and nothing more.
-///
-/// ⭐ **it is no longer the knob** (2026-08-06). Turning a pixel scale is a taste
+/// **it is no longer the knob**. Turning a pixel scale is a taste
 /// call expressed in the wrong unit: nobody looking at the running game thinks
 /// *"that should be 0.31 world units per sheet pixel"*, they think *"that is too
 /// wide"*. [`snake_body_width`] is that sentence, and this is derived from it —
@@ -423,21 +387,8 @@ pub fn snake_world_per_pixel() -> f32 {
     .map_or(NO_SHEET, |sheet_width| snake_body_width() / sheet_width)
 }
 
-/// **How WIDE a Solid Snake is, in world units** — the one authored number, and
-/// the sentence Jon's complaint actually makes.
-///
-/// ⚠ **WIDTH, not height, and that is the whole point of restating it.** The
-/// snake is a 2.25:1 animal, so a scale that preserves its width fixes the only
-/// dimension a corridor cares about. Every previous attempt scaled by a number
-/// that moved both dimensions together, which is why *"still way too big"*
-/// survived three of them — the offending dimension was never the one being
-/// reasoned about.
-///
-/// ⛔⛔ **AND THE MEASUREMENT THAT USED TO SIT HERE — "41 x 18 world against
-/// Mary-O's 48 TALL" — WENT STALE THE DAY SHE BECAME ONE BRICK (2026-08-18).**
-/// This is derived from her width, she halved, and so did the snake, silently
-/// and everywhere at once. Measured through
-/// `enemy_quad_matches_its_box`:
+/// **WIDTH, not height, and that is the whole point of restating it.** The snake is a 2.25:1
+/// animal, so a scale that preserves its width fixes the only dimension a corridor cares about.
 ///
 /// ```text
 ///            world_per_pixel   collision (world)   tiles tall
@@ -445,30 +396,20 @@ pub fn snake_world_per_pixel() -> f32 {
 /// now 08-18       0.182           21.3 x 9.5         0.30
 /// ```
 ///
-/// ⚠ **that is the derivation working, not breaking** — a snake occupies the
+/// **that is the derivation working, not breaking** — a snake occupies the
 /// corridor width she does, and she got narrower. But nobody chose "a third of
 /// a tile tall", and whether an enemy this flat still reads as an enemy is a
 /// look-at-it call. ⇒ **do not re-tune this constant to restore the old
 /// number**; the number to change, if any, is hers.
 ///
-/// ⭐ **the reusable half: a value DERIVED from another character moves when
+/// **the reusable half: a value DERIVED from another character moves when
 /// that character does, and no test says so** — the ratchet beside this one
 /// pins the quad/body RATIO, which is scale-invariant and therefore silent
 /// about a halving.
 ///
-/// ⭐⭐ **AND IT IS DERIVED FROM MARY-O, not chosen** (2026-08-06). A snake
+/// **AND IT IS DERIVED FROM MARY-O, not chosen**. A snake
 /// occupies the same corridor width she does — which is what a Koopa does beside
 /// Mario, and the answer stays right when either sheet is regenerated.
-///
-/// **Before this it was 41.0 world units against her 25.6 — 1.6x her width**,
-/// while being barely a third of her height. That is the *"way too big"* Jon
-/// reported twice, and it is why the two previous answers (a 30% cut, then a
-/// restatement) did not settle it: neither had a denominator, so "too big"
-/// could not be checked, only re-guessed.
-///
-/// ⚠ **a blind draw, in its own commit.** Jon asked for smaller twice and is not
-/// here to look; this is a 37% reduction with a stated reason, which is a thing
-/// he can reject in one line rather than a number he has to re-derive.
 pub fn snake_body_width() -> f32 {
     // The value this replaced, for a composition with no baked art — so a
     // headless fixture keeps the size it had rather than acquiring Mary-O's.
@@ -529,10 +470,7 @@ pub fn register_solid_snake_sheet(
     }
 }
 
-/// **Register Solid Snake as a CHARACTER** — the body its deleted roster row
-/// used to describe.
-///
-/// ⭐ shared by `install_mary_o_content` and the stomp fixtures, so a test
+/// shared by `install_mary_o_content` and the stomp fixtures, so a test
 /// exercises the registration production uses. A fixture registering something
 /// else would be measuring itself.
 pub fn register_solid_snake_character(app: &mut App) {
@@ -577,7 +515,7 @@ fn register_mary_o_enemy_character(app: &mut App, id: &str, display: &str, run_s
             template: CharacterBrainTemplate::Wanderer,
             aggro_radius: 0.0,
             attack_range: 0.0,
-            // ⭐ **the deleted row's own pace.** A snake PACES at full speed —
+            // **the deleted row's own pace.** A snake PACES at full speed —
             // it is walking its line, not patrolling — and `BrainProfile`'s
             // default is the ordinary half-speed amble. Without this the
             // fragment's deletion would have halved every snake in the demo.
@@ -588,9 +526,9 @@ fn register_mary_o_enemy_character(app: &mut App, id: &str, display: &str, run_s
     app.register_character(definition);
 }
 
-// ⭐ `SNAKE_TILE_COLUMNS` is GONE. Where a snake patrols is authored.
+// `SNAKE_TILE_COLUMNS` is GONE. Where a snake patrols is authored.
 //
-// ⚠ its SIZE stays, and the difference is the rule: how big a snake is comes
+// its SIZE stays, and the difference is the rule: how big a snake is comes
 // from its sheet; where it patrols comes from the level.
 
 /// The half-extents a freshly staged snake spawns with.
@@ -612,7 +550,7 @@ fn snake_half_size() -> ae::Vec2 {
 
 /// **Is this actor a snake?** The one question every snake system asks.
 ///
-/// ⛔ **identity is the ARCHETYPE, not a name and not an id prefix.** This
+/// **identity is the ARCHETYPE, not a name and not an id prefix.** This
 /// answer has now been wrong twice, each time because it was reading something
 /// that merely correlated with being a snake.
 ///
@@ -621,20 +559,16 @@ fn snake_half_size() -> ae::Vec2 {
 /// inspectors."* Renaming the character in the catalog would have silently
 /// stopped every stomp.
 ///
-/// The second matched a `FeatureId` PREFIX — `mary_o_snake_<n>` — which was
-/// stable, but only because this crate minted the id itself in a staging
-/// closure. That closure was a SECOND construction path over the same authored
-/// placements, and when the level moved into LDtk the engine's own
-/// `authored_actor_requests` began building them too. Every snake existed
-/// twice: one under the raw placement id with no shell and no stomp, one under
-/// the prefixed id with both. A prefix is only identity while you control who
-/// mints it, and by then nobody did.
+/// The second matched a `FeatureId` PREFIX — `mary_o_snake_<n>` — which was stable, but only
+/// because this crate minted the id itself in a staging closure. Every snake existed twice: one
+/// under the raw placement id with no shell and no stomp, one under the prefixed id with both. A
+/// prefix is only identity while you control who mints it, and by then nobody did.
 ///
 /// `ActorConfig.brain` is the authored placement's `CharacterBrain` carried onto
 /// the entity verbatim, whichever path built it. That is the archetype key
 /// itself rather than a string that happens to contain it.
 ///
-/// ⚠ **it is a read-model, not an authority.** `ActorConfig`'s doc calls it a
+/// **it is a read-model, not an authority.** `ActorConfig`'s doc calls it a
 /// projection, and the reconcile paths in `autonomous_reconcile.rs` do write it
 /// back — but only for actors carrying a `BrainBinding`, which the peaceful-NPC
 /// and provocation paths attach and authored enemies never get. True today,
@@ -648,15 +582,11 @@ pub fn is_snake_brain(brain: &CharacterBrain) -> bool {
 /// finds its own) and with `SpritePosedBody` (so its body geometry comes from
 /// the sheet, per pose — the box a stomp shrinks).
 ///
-/// ⚠ **and give it the sheet's box on the spot**, which is not redundant with
-/// `SpritePosedBody`. The authored placement's rectangle is what the engine
-/// spawns a body at, and a snake's LDtk rect is one tile-ish while its sheet
-/// body is more than twice as wide. `SpritePosedBody` corrects that — measured,
-/// on the THIRD frame — so without this the level opens with two frames of
-/// half-width snake. The staging path this replaced never showed it, because it
-/// spawned the request at [`snake_half_size`] directly.
+/// **and give it the sheet's box on the spot**, which is not redundant with `SpritePosedBody`.
+/// The authored placement's rectangle is what the engine spawns a body at, and a snake's LDtk
+/// rect is one tile-ish while its sheet body is more than twice as wide.
 ///
-/// ⭐ **the rule is unchanged**: how big a snake is comes from its sheet, where
+/// **the rule is unchanged**: how big a snake is comes from its sheet, where
 /// it patrols comes from the level. This is only the sheet answering sooner.
 pub fn tag_mary_o_snakes(
     mut commands: Commands,
@@ -671,14 +601,7 @@ pub fn tag_mary_o_snakes(
                     SNAKE_SHEET_TARGET,
                     snake_world_per_pixel(),
                 ),
-                // ⛔ **the snake had no dormancy policy and the slop did.** Jon
-                // named the slop — *"ai slop will just walk off the edge of the
-                // level before she even gets to that part of the level"* — the
-                // engine seam was built, the slop was wired, and the OTHER
-                // patrolling enemy in the same level was left thinking for the
-                // whole course. A family is not migrated when one member is.
-                //
-                // ⚠ **a kicked shell is unaffected, which is why this is safe.**
+                // **a kicked shell is unaffected, which is why this is safe.**
                 // Dormancy sleeps the BRAIN and clears the control frame;
                 // `run_snake_shells` propels a slide by writing the body's
                 // horizontal velocity directly, on a different channel. A shell

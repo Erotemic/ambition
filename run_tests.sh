@@ -3,20 +3,20 @@
 # headlessly by default; detached developer-tool, periodic maintenance, and
 # heavy/diagnostic tests are opt-in.
 #
-#   ./run_tests.sh              BACKBONE: python suites + cargo test --workspace
-#   ./run_tests.sh --rust       Rust/Cargo lane only; no Python checkers
-#   ./run_tests.sh --tool-tests detached developer-tool tests only
-#   ./run_tests.sh --maintenance periodic repository-hygiene audits only
-#   ./run_tests.sh -p <crate>   only that crate's job (repeatable)
-#   ./run_tests.sh -k <substr>  only tests whose name contains <substr>
-#   ./run_tests.sh --list       print the job plan, run nothing
-#   ./run_tests.sh -- --nocapture   args after `--` go to libtest
-#   ./run_tests.sh --run-everything-you-probably-dont-need-this
+# ./run_tests.sh              BACKBONE: python suites + cargo test --workspace
+# ./run_tests.sh --rust       Rust/Cargo lane only; no Python checkers
+# ./run_tests.sh --tool-tests detached developer-tool tests only
+# ./run_tests.sh --maintenance periodic repository-hygiene audits only
+# ./run_tests.sh -p <crate>   only that crate's job (repeatable)
+# ./run_tests.sh -k <substr>  only tests whose name contains <substr>
+# ./run_tests.sh --list       print the job plan, run nothing
+# ./run_tests.sh -- --nocapture   args after `--` go to libtest
+# ./run_tests.sh --run-everything-you-probably-dont-need-this
 #                               the 33-job exhaustive plan (~1 HOUR)
-#   ./run_tests.sh --heavy      ALSO #[ignore]d tests + app acceptance cycles;
+# ./run_tests.sh --heavy      ALSO #[ignore]d tests + app acceptance cycles;
 #                               implies the exhaustive plan
 #
-# The default is deliberately not exhaustive (Jon, 2026-08-02): the exhaustive
+# The default is deliberately not exhaustive: the exhaustive
 # plan spends ~63 minutes to execute ~4 minutes of tests, and being the default
 # made it the thing an agent ran instead of the focused test that would have
 # answered the question. Every non-exhaustive run prints what it did not cover.

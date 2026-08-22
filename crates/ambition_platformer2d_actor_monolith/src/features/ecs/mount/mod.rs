@@ -41,16 +41,10 @@ use ambition_platformer2d_core as ae;
 // [`enforce_mount_rider_link`] announces — lives in
 // `ambition_platformer2d_shared_tangle::body`, below both of the domains that
 // share it: this coupling WRITES it and `ambition_boss_encounter` READS it.
-// ⛔ imported, never re-exported: a `pub use` here would let a caller keep
+// imported, never re-exported: a `pub use` here would let a caller keep
 // spelling it `features::MountDied` and hide whose type it is.
 use ambition_platformer2d_shared_tangle::body::MountDied;
 
-/// Physical mass of an actor, used to weight a mount+rider pair's center of
-/// gravity. A heavy mount (the shark) keeps the COG near itself so the lighter
-/// rider orbits it when the pair rolls under a gravity flip. Authored from the
-/// archetype RON (`ArchetypeSpec::mass`), defaulting to 1.0. Lives here with
-/// the mount coupling for now; promote to a shared physics location if other
-/// systems start consuming it.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct Mass(pub f32);
 
@@ -234,24 +228,21 @@ pub fn steer_mount_from_rider(
         }
         // Total grant → the mount executes the rider's locomotion intent.
         //
-        // ⚠ **`locomotion` is CONTROLLED-BODY-LOCAL, so copying it between two
+        // **`locomotion` is CONTROLLED-BODY-LOCAL, so copying it between two
         // bodies is only sound while both resolve the SAME frame.** They do
         // today, and not by accident: `sync_riders_to_mounts` zeroes the rider's
         // gravity SCALE and not its direction, so the rider keeps the room's
         // gravity — the same direction the mount resolves `control_down` from.
         // Nothing enforces that, which is why it is written here.
         //
-        // ⛔ the case it would break is named in `actors/update.rs`: *"a
-        // surface-walker's frame is its clung surface; everyone else's is
-        // gravity at their position."* A surface-walking mount would receive a
-        // vector authored in its rider's frame and drive along the wrong axis.
-        // ✔ not reachable in today's content (checked 2026-08-01): the only two
-        // authored `mount_class` archetypes are the shark (`is_aerial: true`, so
-        // it steers by `velocity_target`, which is WORLD and frame-safe) and the
-        // giant ("no motion / no AI — the carried giant just stands"). A new
-        // mount with a crawler/adhesive motion model is what makes this live;
-        // the fix then is to convert rather than copy, through each body's own
-        // basis. Queue S49.
+        // the case it would break is named in `actors/update.rs`: *"a surface-walker's frame is its
+        // clung surface; everyone else's is gravity at their position."* A surface-walking mount
+        // would receive a vector authored in its rider's frame and drive along the wrong axis. ✔
+        // not reachable in today's content: the only two authored `mount_class` archetypes are the
+        // shark (`is_aerial: true`, so it steers by `velocity_target`, which is WORLD and
+        // frame-safe) and the giant ("no motion / no AI — the carried giant just stands"). A new
+        // mount with a crawler/adhesive motion model is what makes this live; the fix then is to
+        // convert rather than copy, through each body's own basis.
         //
         // `velocity_target` below needs none of this — it is world-space, which
         // is what every OTHER cross-body hand-off in this file already uses.
@@ -260,12 +251,9 @@ pub fn steer_mount_from_rider(
         mount_frame.locomotion = rider_frame.locomotion;
         mount_frame.velocity_target = rider_frame.velocity_target;
         mount_frame.facing = rider_frame.facing;
-        // ⭐ **drop-through is NOT hand-copied here, and does not need to be**
-        // (D126.2): the rider's descend intent already rides across in
-        // `locomotion`, and the jump edge is the mount's own to decide. The
-        // dead `drop_through` boolean this line used to forward carried `false`
-        // from every rider on every tick, which is what a hand-kept cross-body
-        // list looks like when the field behind it has no producer.
+        // **drop-through is NOT hand-copied here, and does not need to be** (.2): the rider's
+        // descend intent already rides across in `locomotion`, and the jump edge is the mount's
+        // own to decide.
     }
 }
 
@@ -275,12 +263,9 @@ pub fn steer_mount_from_rider(
 /// the target from a position close to where it'll actually be
 /// after the snap.
 ///
-/// **Controller-agnostic coupling (M5, ADR 0020 §4):** the pair welds on the
-/// STRUCTURAL facts — both bodies are alive and carry their mount-role
-/// components — never on disposition. A rider a participant drives (a human
-/// piloting the vehicle through possession / the control seam) welds and rides
-/// identically to an AI rider; the mount does not care WHO is aboard. Gating on
-/// `is_hostile` here would have been exactly the player-centrism the relativity
+/// A rider a participant drives (a human piloting the vehicle through possession / the control
+/// seam) welds and rides identically to an AI rider; the mount does not care WHO is aboard.
+/// Gating on `is_hostile` here would have been exactly the player-centrism the relativity
 /// principle forbids — a mount that only obeys enemies.
 ///
 /// The mount queries are disjoint from the rider queries via
@@ -343,13 +328,9 @@ pub fn sync_riders_to_mounts(
         // next frame; gravity zeroed so a Bevy-side integrator that
         // applies gravity to all hostiles can't pull it down.
         //
-        // Rotate-as-a-unit: the saddle offset is authored in the mount's local
-        // frame, so rotate it into world space by the pair's gravity frame and
-        // pivot the rider around the mass-weighted center of gravity. A heavy
-        // mount (large `Mass`) keeps the COG near itself, so the lighter rider
-        // orbits it on a gravity flip; vertical gravity is identity
-        // (`to_world` == I, COG term cancels), so this is byte-identical to the
-        // old fixed-offset snap.
+        // Rotate-as-a-unit: the saddle offset is authored in the mount's local frame, so rotate
+        // it into world space by the pair's gravity frame and pivot the rider around the
+        // mass-weighted center of gravity.
         let frame = mount_frame.basis();
         let mass_mount = mount_mass.copied().unwrap_or_default().0.max(0.0001);
         let mass_rider = rider_mass.copied().unwrap_or_default().0.max(0.0001);
@@ -378,7 +359,7 @@ pub fn sync_riders_to_mounts(
 /// The mount/rider link is re-established here, and the frame's staged victim
 /// hits must be handed over BEFORE that happens.
 ///
-/// ⚠ ONE member, nested inside `CombatSet::Settle`. The consumer is itself in
+/// ONE member, nested inside `CombatSet::Settle`. The consumer is itself in
 /// `Settle`, so pinning the parent would be a cycle — this is the shape only a
 /// nested set can express.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -411,7 +392,7 @@ pub struct MountRiderLinkEnforced;
 pub fn enforce_mount_rider_link(
     mut commands: Commands,
     // **The prepared cast**, so a dismounted rider swings its own weapon rather
-    // than borrowing an archetype's (ledger D84).
+    // than borrowing an archetype's.
     prepared: Option<Res<crate::character_runtime::PreparedCharacterRegistry>>,
     mut mount_died: MessageWriter<MountDied>,
     mut riders: Query<
@@ -443,10 +424,8 @@ pub fn enforce_mount_rider_link(
     // state (so a snapshot restores the mount link across a rewind).
     sim_ids: Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
 ) {
-    // Build a lookup of mount alive-ness + death impact. With two-pirate
-    // fights this is O(R+M) per frame and the hashmap stays small. Liveness is
-    // the STRUCTURAL fact (the mount's HP pool), never disposition — a
-    // player-piloted mount dissolves on death the same as an enemy one (M5).
+    // Build a lookup of mount alive-ness + death impact. With two-pirate fights this is O(R+M)
+    // per frame and the hashmap stays small.
     use std::collections::HashMap;
     let mut mount_alive: HashMap<Entity, bool> = HashMap::new();
     let mut mount_death_impact: HashMap<Entity, MountDeathImpact> = HashMap::new();

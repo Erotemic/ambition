@@ -1,14 +1,4 @@
 //! The movement-policy (`MotionModel`) rollback checksum codec — ADR 0024 §9.
-//!
-//! ⚠ Moved here from `ambition_platformer2d_runtime::rollback::motion_codec` on 2026-07-30
-//! with the snapshot vocabulary: `MotionModel` is this crate's type, so this is
-//! the crate that may encode it. Explicit field order, fixed-width LE, every
-//! field present — the same discipline as every other codec.
-//!
-//! It used to read `use super::*;`, inheriting the vocabulary AND every domain
-//! type from `rollback/mod.rs`. Here the imports are explicit, which is the
-//! point: a wildcard from a crate that depends on twenty others hides what a
-//! codec actually needs.
 
 use crate::snapshot::{put_bool, put_f32, put_u32, put_u8, put_vec2, Reader, SnapshotState};
 
@@ -371,7 +361,7 @@ fn put_axis_swept_params(out: &mut Vec<u8>, p: &crate::AxisSweptParams) {
     put_f32(out, a.spot_dodge_time);
     put_f32(out, a.sdi_step);
     put_f32(out, a.parry_window_time);
-    // ⚠ a DISCRIMINANT, and the checker's `snapshot_unit_enum!` fold does not
+    // a DISCRIMINANT, and the checker's `snapshot_unit_enum!` fold does not
     // see a hand-written `put_u8` of one — so the version log carries the claim.
     put_u8(
         out,

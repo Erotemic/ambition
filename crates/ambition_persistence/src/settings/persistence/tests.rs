@@ -180,16 +180,11 @@ fn startup_with_an_unchanged_file_does_not_rewrite_it() {
 
 /// **A settings file written before the BURST rename still loads, whole.**
 ///
-/// ⛔⛔ **`dash_input_mode` is the WIRE, and moving it wipes everything.** The
-/// field was renamed to `ControlSettings::burst_input_mode` when the shared
-/// dodge/dash channel stopped being named after one of its outcomes, and the
-/// serde name is pinned to the old spelling. It has to be: the field carries no
-/// `#[serde(default)]` and `ControlSettings` has no container default, so a key
-/// this struct cannot find is a deserialize error for the WHOLE struct — and
-/// `load_settings` answers a parse error by discarding the entire file and
-/// returning `UserSettings::default()`. Video, audio, gameplay, the keyboard
-/// preset and every binding override would go with it, on a warning line
-/// nobody reads.
+/// It has to be: the field carries no `#[serde(default)]` and `ControlSettings` has no
+/// container default, so a key this struct cannot find is a deserialize error for the WHOLE
+/// struct — and `load_settings` answers a parse error by discarding the entire file and
+/// returning `UserSettings::default()`. Video, audio, gameplay, the keyboard preset and every
+/// binding override would go with it, on a warning line nobody reads.
 ///
 /// ⚠ **the assertions below are why `save_clamps_values_back_into_range_on_load`
 /// does not cover this.** That test feeds a file of the same vintage and then

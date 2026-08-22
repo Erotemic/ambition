@@ -1,6 +1,4 @@
-//! The freeze, measured through the one seam every road now takes.
-//!
-//! ⚠ **the pair is the point.** A body that never moves passes the first test
+//! **the pair is the point.** A body that never moves passes the first test
 //! for the wrong reason, so the second is its non-vacuity control: the SAME
 //! body, the SAME step, hitlag cleared, must travel. Measuring only the freeze
 //! is how you ship a body that is frozen forever.
@@ -101,7 +99,7 @@ fn stepped(
 
 /// **SDI IS THE ONE THING A FROZEN BODY MAY STILL DO.**
 ///
-/// ⛔ three assertions and each kills a different wrong version: a body with no
+/// three assertions and each kills a different wrong version: a body with no
 /// authored budget must not move (every body in Ambition), one with a budget and
 /// a held stick must, and the shift must be the STICK's direction rather than
 /// the body's own velocity — a version that nudged along `vel` would look right
@@ -113,7 +111,7 @@ fn a_frozen_body_can_still_influence_where_the_next_hit_finds_it() {
         ..BodyCombat::default()
     };
     assert!(frozen.is_in_hitlag(), "the fixture must arm the freeze");
-    // ⚠ the body travels along +x; the stick is held along -y (up), so the two
+    // the body travels along +x; the stick is held along -y (up), so the two
     // cannot be confused for each other.
     let held = ae::InputState {
         axes: ae::LocalAxes::new(0.0, -1.0),
@@ -141,7 +139,7 @@ fn a_frozen_body_can_still_influence_where_the_next_hit_finds_it() {
         "SDI did not move the frozen body one step along the held stick"
     );
 
-    // ⛔ and a null stick is still a freeze: the budget alone must not drift a
+    // and a null stick is still a freeze: the budget alone must not drift a
     // body that is asking for nothing.
     let idle = stepped(
         &mut body_travelling(),
@@ -194,11 +192,10 @@ fn and_the_same_body_travels_once_the_freeze_clears() {
 
 /// **A DEAD BODY STOPS WHERE IT DIED — velocity cleared, not merely unread.**
 ///
-/// Jon, 2026-08-21: *"when you die, the camera will still keep panning. Her
 /// death should stop her velocity to play her death animation, so the camera
 /// should stop too as a side effect."*
 ///
-/// ⛔ `OutOfPlay` only ever gated a `BodyReset`, so gravity and carried momentum
+/// `OutOfPlay` only ever gated a `BodyReset`, so gravity and carried momentum
 /// went on integrating and she slid through her own death animation — while the
 /// component's doc claimed *"nothing moves her now"*. This pins the claim.
 #[test]

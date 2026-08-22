@@ -76,15 +76,7 @@ pub(crate) fn kill_disposition(
     }
 }
 
-/// Apply one landed attacker-side hit to a single actor and emit its per-actor
-/// feedback. A PEACEFUL actor accumulates strikes + barks and emits a
-/// retaliation `ActorStimulus` (the flip to hostile lands later via
-/// `apply_actor_stimuli`); it does NOT take health damage (it has 1 HP). A
-/// HOSTILE actor takes the full damage/knockback/death path.
-///
-/// Returns `true` when the actor took the hit, so the caller drives the shared
-/// landed-hit feedback (hitstop + Hit SFX) and re-syncs the read-models. A dead
-/// hostile actor returns `false` (no-op).
+/// A dead hostile actor returns `false` (no-op).
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn apply_actor_hit(
@@ -99,9 +91,6 @@ pub(crate) fn apply_actor_hit(
     // Does a RULESET own this body's death? A match fighter's KO belongs to the
     // match, not to the world's exploration economy.
     ruleset_owns_death: bool,
-    // Is this body IN a fight right now? See `ActiveCombatant` — a different
-    // question from the one above, and the one that decides whether a landed hit
-    // takes health.
     active_combatant: bool,
     em: &mut super::super::actor_clusters::ActorMut<'_>,
     // The body's explicit movement policy, for typed policy operations (the
@@ -128,17 +117,15 @@ pub(crate) fn apply_actor_hit(
     // **Does this hit come off a HEAVY attacker?** — the heavier launch and the
     // longer hitstun (`feel.boss_*`).
     //
-    // ⛔ this used to be `matches!(event.source, BossBody | BossAttack)`, derived
-    // right here from the cause vocabulary. That is a source-specific formula
-    // for a fact about the ATTACKER, and it could only ever be true for a body
-    // the vocabulary happened to have a word for — so a heavy NPC, a
-    // possessed boss, or a match fighter with boss-class weight was
-    // unrepresentable. The caller asks the attacker entity now.
+    // That is a source-specific formula for a fact about the ATTACKER, and it could only ever be
+    // true for a body the vocabulary happened to have a word for — so a heavy NPC, a possessed
+    // boss, or a match fighter with boss-class weight was unrepresentable. The caller asks the
+    // attacker entity now.
     heavy_attacker: bool,
     writers: &mut FeatureHitWriters<'_, '_>,
 ) -> bool {
     let session_scope = writers.session_spawn_scope();
-    // ⛔ **THE QUESTION IS COMBAT STANDING, NOT SOCIAL MOOD.** This asked
+    // **THE QUESTION IS COMBAT STANDING, NOT SOCIAL MOOD.** This asked
     // `disposition.is_peaceful()`, which made
     // `ActorDisposition` answer two things at once: *how does this actor regard
     // combat* and *may this body be hurt*. A fighter somebody entered into a
@@ -146,11 +133,11 @@ pub(crate) fn apply_actor_hit(
     // participant-driven fighters hold no AI target, so both stood down and neither
     // could hurt the other.
     //
-    // ⭐ being IN a fight is the stated decision, and it outranks whatever this
+    // being IN a fight is the stated decision, and it outranks whatever this
     // body's brain currently thinks. The provoke-before-damage behaviour a town
     // NPC needs is unchanged, because a town NPC is in no fight.
     //
-    // ⚠ **and it is `ActiveCombatant`, not `RulesetOwnsDeath`** — this asked the
+    // **and it is `ActiveCombatant`, not `RulesetOwnsDeath`** — this asked the
     // death-ownership marker, which correlates and does not mean the same thing.
     // An eliminated fighter's body keeps standing, its death still belongs to
     // the match, and it is not fighting; the correlation breaks exactly there.
@@ -265,7 +252,7 @@ pub(crate) fn apply_actor_hit(
         // apply at all: the blast zone is not a hit anything can defend against.
         let left_the_world = matches!(event.source, HitSource::LeftTheWorld);
         let shield_tuning = motion_model.shield_tuning();
-        // ⚠ `Copy` reads taken before the guard borrows the velocity.
+        // `Copy` reads taken before the guard borrows the velocity.
         let victim_facing = em.kin.facing;
         let victim_pos = em.kin.pos;
         let victim_size = em.kin.size;
@@ -320,7 +307,7 @@ pub(crate) fn apply_actor_hit(
         // is suppressed. `HpDepleted` (the default) kills as before: parity.
         // Computed HERE, before the bark, so a LETHAL hit does not also speak a
         // hit line: a dying body presents its death (the Death SFX + burst +
-        // debris below), not an "ow!" (Jon 2026-07-22: dead things don't bark).
+        // debris below), not an "ow!".
         //
         // The blast zone is the OTHER half of that sentence, and it kills
         // whatever it catches. `Unbounded` says "the meter never kills me, the
@@ -405,14 +392,9 @@ pub(crate) fn apply_actor_hit(
         // `HitKnockback` (attached by hitboxes / body-contact / hazards). A hit
         // with none leaves the velocity alone.
         //
-        // ⛔ **there used to be a second arm here**, synthesizing a knockback out
-        // of `HitSource::Melee`'s own `knock_x` field — and synthesizing it
-        // WRONG, taking only the sign and substituting `FeelScale(1.0)` for
-        // whatever the producer authored. One producer used the channel (the dive
-        // corridor, at 1.4) and its magnitude never reached a victim. Both the
-        // field and this arm are deleted: a producer that wants a shove attaches
-        // a `HitKnockback`, and there is nowhere left to put a magnitude that
-        // silently evaporates.
+        // One producer used the channel (the dive corridor, at 1.4) and its magnitude never reached
+        // a victim. Both the field and this arm are deleted: a producer that wants a shove attaches
+        // a `HitKnockback`, and there is nowhere left to put a magnitude that silently evaporates.
         let knockback = event.knockback.clone();
         if let Some(k) = knockback {
             let boss_hit = heavy_attacker;
@@ -501,20 +483,17 @@ pub(crate) fn apply_actor_hit(
             //
             // Those are an exploration economy. An arena has no economy, and a
             // round that funds the player's wallet and detonates the loser is
-            // not a round (GPT 5.6, 2026-07-27).
+            // not a round.
         } else if killed && kill_disposition(&event.source, em.config.tuning.respawn).is_gone() {
             // GONE — see [`kill_disposition`]. No respawn timer, and no
             // exploration payout either: a bounty coin, a heart, or a death
             // explosion dropped at this corpse would land in the void, somewhere
             // no player can ever walk to.
             //
-            // ⚠ this branch used to re-test the local `left_the_world` bool, so
-            // `KillDisposition::is_gone` had NO CALLER and the compiler said so.
-            // The type's own doc claims it is *"a decision, extracted so it can be
-            // stated and tested rather than inferred from the order of an
-            // `if`-chain"* — and the chain went on inferring it. Asking the
-            // decision makes the extraction load-bearing instead of decorative
-            // (2026-07-29).
+            // The type's own doc claims it is *"a decision, extracted so it can be stated and
+            // tested rather than inferred from the order of an `if`-chain"* — and the chain went on
+            // inferring it. Asking the decision makes the extraction load-bearing instead of
+            // decorative.
             banner.show(format!("{} fell out of the world", em.config.name), 2.2);
         } else if killed {
             // `health.damage` already zeroed HP → `alive()` is false; no flag to
@@ -560,9 +539,6 @@ pub(crate) fn apply_actor_hit(
                         pose: ambition_vfx::FxPose::UPRIGHT,
                     });
                 }
-                // Replicating blobs divide on death into two offspring — and the
-                // CHARACTER says which (AC5.4). The engine used to hold that
-                // name itself.
                 if let Some(offspring) = caps.divides_into.as_deref() {
                     spawn_split_offspring(
                         &mut writers.commands,
@@ -589,20 +565,9 @@ pub(crate) fn apply_actor_hit(
                 // wields leaves it as a `GroundItem` the player can grab and use
                 // (e.g. a pirate's gun-sword), via the existing pickup path.
                 //
-                // ⭐ **the CHARACTER says whether, the BODY says what.** This
-                // used to read an item off `CombatCapabilities` — the archetype's
-                // INTRINSIC weapon, snapshotted at construction — so a body that
-                // picked up a different weapon dropped the one it was authored
-                // with. `held_items`' own module doc had already named this
-                // consumer: *"future item drops can read the same component
-                // without adding archetype-specific Rust branches."*
-                //
-                // ⚠ **and it drops through the same spawner as the coin and
-                // the heart.** This used to spawn the item inline here, which is
-                // how it came to be the one death drop with neither
-                // `RoomScopedEntity` nor a `SpawnOrigin` — see
-                // [`super::super::damage_drops::drop_held_weapon`] for what each
-                // of those two omissions cost.
+                // `held_items`' own module doc had already named this consumer: *"future item
+                // drops can read the same component without adding archetype-specific Rust
+                // branches."*
                 if let (true, Some(spec), Some(parent)) =
                     (caps.drops_held_item, held_at_death.clone(), &parent)
                 {
@@ -639,11 +604,8 @@ pub(crate) fn apply_actor_hit(
         // THE DEATH DRAMA, for every body that died — which arm it took decides
         // the ECONOMY, not whether anybody notices.
         //
-        // This used to live inside the defeat arm, so two kinds of death were
-        // SILENT: a body the ruleset owns (every fighter in a versus round
-        // carries `RulesetOwnsDeath`) and a body that left the world. A round
-        // that ends with no sound is a round nobody notices, and the KO is the
-        // whole payoff of a platform fighter.
+        // A round that ends with no sound is a round nobody notices, and the KO is the whole payoff
+        // of a platform fighter.
         //
         // The `RulesetOwnsDeath` arm's own comment lists what an arena must not
         // have and it is all economy — bounty coin, heart, death explosion,
@@ -661,8 +623,7 @@ pub(crate) fn apply_actor_hit(
                 pos: em.kin.pos,
                 cue: PhysicsDebrisCue::EnemyRagdoll,
             });
-            // A body dies in its OWN voice. This was the session's until G1: a
-            // Badnik and a Goomba died to the same sample even in a crossover.
+            // A body dies in its OWN voice.
             writers.sfx.write_for_body(
                 victim_source.as_ref(),
                 SfxMessage::Death { pos: em.kin.pos },

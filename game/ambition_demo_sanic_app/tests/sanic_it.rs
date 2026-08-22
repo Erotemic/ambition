@@ -7,7 +7,7 @@
 //! unchanged; filter a former target with
 //! `--test sanic_it -- <module_name>`.
 //!
-//! ⚠ `autotests = false` makes a forgotten `mod` line silently skip a whole
+//! `autotests = false` makes a forgotten `mod` line silently skip a whole
 //! file — `sanic_it_sync` is the guard that turns that into a failure.
 
 mod sanic_it_sync;

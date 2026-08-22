@@ -223,15 +223,10 @@ fn window_eye_hands_off_continuously_between_same_plane_ends() {
         }
         prev = Some(resolved);
     }
-    // The direct↔via images are 400px apart; the crossfade spreads that
-    // over the handoff band instead of one frame. 1px of eye motion moves
-    // the blend by ~400 / (2*band) ≈ 17px/step — allow modest headroom,
-    // and the old behavior's single ~400px jump fails loudly.
     assert!(
         max_step < 30.0,
         "resolved eye must crossfade, not jump: max step {max_step}"
     );
-    // Far from the midpoint the nearest end wins exactly (old behavior).
     let (near_enter, wormhole) =
         window_eye(&enter, &exit, Vec2::new(220.0, 280.0)).expect("resolves");
     assert!(!wormhole);
@@ -491,10 +486,6 @@ fn wedge_far_edge_is_continuous_through_the_plane() {
     };
     // Eye just in FRONT of the entry plane (y just < 300).
     let just_front = far_lat(&[Vec2::new(120.0, 299.0)]);
-    // The SAME eye one tick later just BEHIND, replaced by its shadow mapped
-    // from the partner (map_point(behind-entry → front-of-exit), then that
-    // shadow viewed from `enter` is its partner image) — here we approximate
-    // continuity by the near-plane limit being shared.
     let near_plane = far_lat(&[Vec2::new(120.0, 299.9)]);
     assert!(
         (just_front - near_plane).abs() < 60.0,

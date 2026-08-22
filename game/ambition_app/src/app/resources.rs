@@ -32,20 +32,13 @@ pub struct StartRoomOverride(pub String);
 /// photographs somewhere else is how a blind agent reports the wrong thing with
 /// confidence"*) and then it shipped without this.
 ///
-/// It cost exactly what that row predicted: a sweep asked for
-/// `central_hub_basement` and `hall_of_bosses_arena`, got the hub twice, and a
-/// completely invented id (`definitely_not_a_room_xyz`) wrote a valid PNG and
-/// exited 0 (2026-07-29).
-///
 /// Opt-in, so nothing else changes behaviour.
 #[derive(bevy::prelude::Resource, Debug, Clone, Copy, Default)]
 pub struct StartRoomMustResolve;
 
 /// Host composition input selecting the character for the next prepared world.
 ///
-/// This resource is consumed during sandbox preparation and never becomes
-/// gameplay authority. The selected value is moved into the exact session-root
-/// [`StartingCharacter`](ambition_platformer2d::actors::avatar::StartingCharacter) component.
+/// This resource is consumed during sandbox preparation and never becomes gameplay authority.
 #[derive(Resource, Clone, Debug, Default)]
 pub struct StartingCharacterOverride(pub ambition_platformer2d::actors::avatar::StartingCharacter);
 
@@ -57,7 +50,7 @@ pub struct StartingCharacterOverride(pub ambition_platformer2d::actors::avatar::
 /// of the same question: that one picks WHICH character the home body wears,
 /// this one says whether there is a home body at all.
 ///
-/// ⛔ not a convenience. A match's local seat and an exploration home avatar
+/// not a convenience. A match's local seat and an exploration home avatar
 /// both claim the session's control channel, and preparation refuses that
 /// combination by name rather than building two bodies that fight over it. A
 /// composition that seats fighters into this world — a rollback match fixture,
@@ -83,19 +76,13 @@ pub fn init_sandbox_resources(app: &mut App) {
     ambition_content::audio_registries::register(app);
     ambition_content::character_catalog::register(app);
     ambition_content::bosses::register(app);
-    // This provider's world declaration. Threaded by reference into every
-    // preparation-time reader below (catalog rows, the LDtk load, the room-set
-    // conversion, the hot-reload watcher) and published as a resource for the
-    // in-schedule readers. ONE value, no process global (K2a).
-    // ⭐ **ONE writer, and it is the CONTENT plugin's** (2026-08-06).
-    //
     // This inserted the same value the content plugin does — idempotent, since
     // both call `ambition_content::worlds::world_manifest()` — but two writers
     // of one global is the shape that has cost this repo a roster, a rebuild, a
     // retirement and a countdown. The provider that OWNS the worlds publishes
     // the declaration; the host reads it.
     //
-    // ⚠ the local value stays: it is threaded BY REFERENCE into every
+    // the local value stays: it is threaded BY REFERENCE into every
     // preparation-time reader below (catalog rows, the LDtk load, the room-set
     // conversion, the hot-reload watcher), which run before any schedule and so
     // cannot take a `Res`. That is the K2a shape — no process global — and it is
@@ -120,7 +107,7 @@ pub fn init_sandbox_resources(app: &mut App) {
                 .clone(),
         )
     };
-    // ⭐ **K2b edit 4: the direct-entry AUDIO branch is gone with its host.**
+    // **K2b edit 4: the direct-entry AUDIO branch is gone with its host.**
     //
     // It selected the active audio authority statically at composition, on the
     // argument that a direct-entry process runs exactly one provider. There is
@@ -129,7 +116,7 @@ pub fn init_sandbox_resources(app: &mut App) {
     // activation, and it did even while this branch existed — the branch simply
     // ran first in a composition the shell never touched.
     //
-    // ⚠ the registries above are still read here, and still needed: they are
+    // the registries above are still read here, and still needed: they are
     // what the provider's audio fragment is published FROM. Only the static
     // selection went.
     let character_catalog = app
@@ -240,10 +227,6 @@ pub fn init_sandbox_resources(app: &mut App) {
         .map(|r| r.0);
     // **A FLAG A HUMAN TYPED IS A REQUEST, NOT A PREFERENCE.**
     //
-    // These two sources deserve different answers to "the room does not exist",
-    // and collapsing them meant `--start-room` — which the README documents by
-    // example — silently booted somewhere else (2026-07-29).
-    //
     // * a PROGRAMMATIC override comes from a library caller (`Platformer2dSimHarness`, the RL
     //   harness) that may legitimately name a room outside this composition;
     //   falling back is the tolerant, correct answer.
@@ -253,7 +236,7 @@ pub fn init_sandbox_resources(app: &mut App) {
     //   silent fallback hides — and the same one that cost the room sweep two
     //   captures before `StartRoomMustResolve` existed.
     //
-    // ⚠ the tolerant case the marker's doc argues for — *"a stale `--start-room`
+    // the tolerant case the marker's doc argues for — *"a stale `--start-room`
     // in someone's shell history should not stop them playing"* — is the one this
     // does NOT change its mind about lightly. But a stale flag in history is still
     // a flag the user is passing, and booting a different room without saying so
@@ -318,18 +301,10 @@ pub fn init_sandbox_resources(app: &mut App) {
         builds_a_home_body,
     });
 
-    // ⚠ **the watcher does not resolve its own path any more** (2026-08-16,
-    // D136). Its constructor used to take the asset catalog AND the world
-    // manifest, which put an asset-profile decision inside a format adapter's
-    // resource; the watcher is a debounced mtime poll over an `Option<PathBuf>`
-    // and nothing more. The catalog, the manifest and this binary's
-    // `dev_hot_reload` feature all live HERE, so the resolution does too.
+    // **the watcher does not resolve its own path any more**. The catalog, the manifest and this
+    // binary's `dev_hot_reload` feature all live HERE, so the resolution does too.
     //
-    // ⭐ and the feature check is only truthful here. It used to sit in
-    // `ambition_platformer2d_ldtk`, which declared a `dev_hot_reload` feature
-    // NOBODY forwarded — `ambition_platformer2d` routes it to the actor
-    // monolith's `bevy/file_watcher` — so the `cfg!` was permanently false and
-    // the status line advised turning on a flag you had already turned on.
+    // and the feature check is only truthful here.
     let hot_reload = match sandbox_catalog.hot_reload_local_path(&world_manifest.primary().id) {
         Some(path) => {
             let mut state = ambition_platformer2d::dev_tools::WorldSourceHotReload::watching(path);
@@ -418,20 +393,10 @@ pub fn init_sandbox_resources(app: &mut App) {
     }
 }
 
-// **`publish_direct_prepared_session_root` was deleted 2026-08-06 (K2b edit 2).**
+// what replaced it is `shell_host::compose_ambition_gameplay_host`: the shell host booted straight
+// to the gameplay route, which is what direct entry was always supposed to be.
 //
-// It spawned a `SessionRoot(SessionScopeId(0))` with a live world, prepared
-// content and an identity at PLUGIN-BUILD time, before tick 0 — a second way to
-// start a game, whose activation path nothing else exercised. `tracks.md`'s
-// oracle for this row was one line: *"the hand-built `SessionRoot` is deleted."*
-//
-// ⭐ what replaced it is `shell_host::compose_ambition_gameplay_host`: the shell
-// host booted straight to the gameplay route, which is what direct entry was
-// always supposed to be. Nine call sites spelled the old recipe out by hand;
-// deleting the publisher turned every one into a failure at once, which is how
-// the blast radius got measured instead of estimated.
-//
-// ⚠ `SessionScopeId(0)` went with it. It was a placeholder minted because a
+// `SessionScopeId(0)` went with it. It was a placeholder minted because a
 // build-time root has no activation to mint one from, and `session_world_entity`
 // panicked with "more than one canonical SessionRoot exists" whenever a
 // composition managed to have both.

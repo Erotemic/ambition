@@ -1,10 +1,5 @@
 //! Entity-contract + moveset vocabulary — the gameplay-truth schema.
 //!
-//! This crate is the typed spine of the `EntityCatalog` target in
-//! `docs/archive/reviews/sprite-pipeline-2026-07/data-driven-sprites-and-characters.md`: entities as
-//! **contract bundles** (not categories), and abilities as **Smash-model move
-//! timelines** that every actor plays through the same system.
-//!
 //! Two rules carry the design:
 //!
 //! - **One clock per move: the owner's proper time.** Every duration in a
@@ -40,13 +35,6 @@ pub use brain_profile_ref::{BrainProfileId, BrainProfileRef};
 
 /// The reward/effect represented by a pickup, a chest, or a defeated boss.
 ///
-/// ⚠ **this lived in `ambition_interaction` until 2026-08-03, and moving it DOWN
-/// is what let the boss-profile vocabulary move at all.** A boss authors its
-/// post-defeat reward in `boss_profiles.ron`, so that vocabulary names this
-/// type; the vocabulary belongs in `ambition_characters` (light, and what the
-/// content compiler can link), but `ambition_interaction` DEPENDS on
-/// `ambition_characters` — so naming it from there was a dependency cycle.
-///
 /// The type itself is a leaf noun: `i32` and `String`, no behaviour, no Bevy. It
 /// was never interaction-specific, it was merely first needed there.
 /// `ambition_interaction` re-exports it, so every existing path still resolves.
@@ -63,13 +51,9 @@ pub enum PickupKind {
 // Ability vocabulary: the ONE effect reference + its opaque params.
 // ---------------------------------------------------------------------------
 
-/// Opaque, structured parameters for a technique or prefab. Wraps a parsed
-/// `ron::Value`; the consuming effect hydrates its OWN typed struct via
-/// [`ParamValue::hydrate`], so this crate stays ignorant of every
-/// content-owned param shape (fable review AJ1, option A). The authored RON is
-/// byte-identical to a `Reflect`-typed form, so if a visual move editor ever
-/// lands, swapping hydration to the type registry is a mechanical migration —
-/// the data survives.
+/// Opaque, structured parameters for a technique or prefab. The authored RON is byte-identical
+/// to a `Reflect`-typed form, so if a visual move editor ever lands, swapping hydration to the
+/// type registry is a mechanical migration — the data survives.
 ///
 /// `Default` is the empty table `{}` (not `Unit`): a paramless `EffectRef`
 /// hydrates cleanly into a technique's all-defaults `#[derive(Deserialize)]`
@@ -90,10 +74,8 @@ impl ParamValue {
     }
 
     /// Build params FROM a technique's own typed struct — the inverse of
-    /// [`hydrate`](Self::hydrate), for the case where code composes an effect
-    /// that an author could equally have written by hand. Round-trips through
-    /// the authored RON text so the stored value is byte-identical to the
-    /// hand-written form.
+    /// [`hydrate`](Self::hydrate), for the case where code composes an effect that an author
+    /// could equally have written by hand.
     pub fn from_typed<T: Serialize>(value: &T) -> Result<Self, ron::Error> {
         let text = ron::ser::to_string(value)?;
         ron::from_str(&text)
@@ -279,11 +261,9 @@ pub struct HitVolume {
     /// opts a row into growth to get percent-scaling launches.
     #[serde(default)]
     pub knockback_growth: f32,
-    /// Body-local launch direction override `(+x = facing, +y = gravity-down)`.
-    /// `None` = today's facing+contact derivation. The runtime mirrors x by
-    /// facing and rotates into the owner's gravity frame (frame-correct under any
-    /// gravity), then applies DI (CM2). Authored on strong-directional smash
-    /// volumes that want a fixed launch angle instead of a contact-derived one.
+    /// Body-local launch direction override `(+x = facing, +y = gravity-down)`. `None` =
+    /// today's facing+contact derivation. The runtime mirrors x by facing and rotates into the
+    /// owner's gravity frame (frame-correct under any gravity), then applies DI (CM2).
     #[serde(default)]
     pub launch_dir: Option<(f32, f32)>,
     /// A conditional technique that fires WHEN this volume lands a hit, with
@@ -644,20 +624,11 @@ pub enum MoveEventKind {
     /// otherwise — never a silent no-op. This is how a jab, a smash, and a
     /// launcher look distinct with zero code — each authors its own
     /// `Vfx { effect }`.
-    ///
-    /// ⭐ **it also says WHERE and HOW BIG, because a move that could not was
-    /// the whole of Jon's 2026-08-16 report**: *"right now we are seeing crazy
-    /// upscaled vfx and very tiny hitboxes"*. Every authored effect drew as a
-    /// fixed square at the owner's CENTRE, so a jab's spark bloomed out of the
-    /// fighter's chest at the size of a super. Both fields are serde-defaulted
-    /// to exactly the old behaviour, so no existing authored event moves.
     Vfx {
         effect: String,
-        /// WHERE, body-local — `+x` toward the facing the move committed to,
-        /// `+y` gravity-down — the same convention
-        /// [`Impulse`](Self::Impulse) and every [`HitVolume`] offset use, and
-        /// mirrored and rotated by the same two steps. `(0.0, 0.0)` is the
-        /// owner's centre, which is where every effect drew before this existed.
+        /// WHERE, body-local — `+x` toward the facing the move committed to, `+y` gravity-down
+        /// — the same convention [`Impulse`](Self::Impulse) and every [`HitVolume`] offset use,
+        /// and mirrored and rotated by the same two steps.
         ///
         /// ⭐ **so an effect can sit on the box that throws it.** A move authors
         /// its strike volume's offset and its burst's offset in the same numbers.
@@ -1050,8 +1021,6 @@ impl MoveSpec {
                 VolumeShape::Circle { offset, radius } => offset.0 + radius,
             })
             .fold(0.0_f32, f32::max);
-        // **WHERE THIS MOVE CAN HIT** — the union of every Active volume, in the
-        // same body-local frame `reach` is measured in. See [`MoveCoverage`].
         let coverage = self
             .windows
             .iter()
@@ -1104,15 +1073,11 @@ impl MoveSpec {
         // a jab with a small upward lunge cannot be mistaken here for a recovery
         // special.
         //
-        // ⭐⭐ **AND THE SIDE COMPONENT COMES WITH IT.** The commanded velocity is
-        // a VECTOR and this used to keep only its projection onto the
-        // gravity axis, which is exactly the half a vertical Up-B happens to
-        // consist of. A move that hauls its owner mostly SIDEWAYS — a grapple
-        // line, a boarding charge, a slingshot — was reported as the small rise
-        // left over after the useful half was discarded, and every reader of
-        // this table then planned a route the body would never take. Both
-        // halves are read off the SAME winning event, so `lift_side` is never
-        // some other move's number.
+        // A move that hauls its owner mostly SIDEWAYS — a grapple line, a boarding charge, a
+        // slingshot — was reported as the small rise left over after the useful half was discarded,
+        // and every reader of this table then planned a route the body would never take. Both
+        // halves are read off the SAME winning event, so `lift_side` is never some other move's
+        // number.
         let (lift_speed, lift_at_s, lift_side) = self
             .events
             .iter()
@@ -1245,12 +1210,6 @@ pub struct MoveFrameData {
     /// Cancel windows (`WindowTag::Cancelable`), for combo/chain reasoning.
     pub cancel_windows: Vec<CancelWindow>,
     /// Farthest body-local reach of any Active volume (`+x` toward facing).
-    ///
-    /// ⚠ **a PROJECTION of [`Self::coverage`], kept because it is what a lunge's
-    /// effective range is measured against** (`start_impulse` adds travel along
-    /// the same axis). ⛔ it is NOT the move's hittable region, and reading it as
-    /// one is what made every vertical move in every kit look like a short poke —
-    /// see [`MoveCoverage`].
     pub reach: f32,
     /// **A guard does not stop this move.**
     ///
@@ -1266,15 +1225,9 @@ pub struct MoveFrameData {
     /// **The region this move can hit**, body-local, `None` when it lands no
     /// Active volume at all (a buff, a summon, a pure-motion recovery).
     ///
-    /// ⭐⭐ **[`Self::reach`] is one face of this box, and a scorer that had only
-    /// that face could not see the stage in two dimensions.** Measured
-    /// 2026-08-15 in a CPU-versus-CPU match: an up-tilt whose volume sits ABOVE
-    /// the shoulder projects onto `+x` as a ~30px poke, indistinguishable from a
-    /// jab, so the option scorer priced the anti-air and the jab identically and
-    /// then broke the tie on speed — every time, in every kit. George Booul
-    /// authors sixteen moves and started five distinct ones per match; the whole
-    /// vertical game (anti-air, juggle, spike) was never selected for the reason
-    /// it exists, because nothing downstream knew the opponent was ABOVE.
+    /// George Booul authors sixteen moves and started five distinct ones per match; the whole
+    /// vertical game (anti-air, juggle, spike) was never selected for the reason it exists, because
+    /// nothing downstream knew the opponent was ABOVE.
     ///
     /// ⭐ the same lesson [`Self::lift_side`] records one field down: a 2-D
     /// authored shape summarised by a 1-D scalar describes a move that does not
@@ -1289,11 +1242,8 @@ pub struct MoveFrameData {
     /// Highest flat `knockback` any Active volume applies (the `knockback_growth`
     /// percent-scaling term is the victim's business, not the table's).
     pub max_knockback: f32,
-    /// The move's authored self-motion at trigger, body-local (`+x` toward
-    /// facing, `+y` per the authoring convention), `(0, 0)` when none. A
-    /// lunge's EFFECTIVE range is `reach` plus the travel this buys — the
-    /// fighter brain's shadow model learned that from its own fidelity
-    /// instrument on day one (FB6e: a 51px-reach swing landed from 102px).
+    /// The move's authored self-motion at trigger, body-local (`+x` toward facing, `+y` per the
+    /// authoring convention), `(0, 0)` when none.
     pub start_impulse: (f32, f32),
     /// **The against-gravity speed this move COMMANDS**, from its strongest
     /// [`ImpulseMode::Set`] impulse. `0.0` for every move that does not lift its
@@ -1340,14 +1290,11 @@ pub struct MoveFrameData {
     /// itself, and a probe that can spend a validated displacement — never a
     /// `lift_warp_x` beside these two.
     ///
-    /// ⛔ **and this pair is not "the recovery affordance" even for the moves it
-    /// does describe.** A commanded velocity is a STATIC property; whether
-    /// throwing it from where the body is right now gets it home is a question
-    /// about the current state, and the only thing that can answer it is the
-    /// movement kernel. `RecoveryLens::best_route` uses these numbers to
-    /// PROPOSE routes and lets the kernel dispose of them. Ranking moves by
-    /// [`Self::lift_speed`] and calling the winner "the recovery" is the failure
-    /// this pair exists inside of, not the thing it fixes.
+    /// **and this pair is not "the recovery affordance" even for the moves it does describe.** A
+    /// commanded velocity is a STATIC property; whether throwing it from where the body is right
+    /// now gets it home is a question about the current state, and the only thing that can answer
+    /// it is the movement kernel. `RecoveryLens::best_route` uses these numbers to PROPOSE routes
+    /// and lets the kernel dispose of them.
     pub lift_side: f32,
 }
 
@@ -1435,11 +1382,8 @@ pub fn directional_verb_chain(base: &str, dir: AttackDir, grounded: bool) -> Vec
 /// definition and many runtime actors. This id names the definition; the actor's
 /// runtime identity is its `SimId`, and the two are never the same question.
 ///
-/// ⛔ **not a display name and not a sheet id.** Presentation is a projection of
-/// a character, so which sprite a body wears must never be used to work out
-/// which character it is. A newtype so that confusion cannot survive a
-/// signature — the same reason `BrainPresetId` exists next door, and the
-/// confusion this one prevents is the more expensive of the two.
+/// A newtype so that confusion cannot survive a signature — the same reason `BrainPresetId` exists
+/// next door, and the confusion this one prevents is the more expensive of the two.
 ///
 /// Lives here, beside the placement schemas, because character identity is
 /// content vocabulary that authoring, the character domain and the runtime all
@@ -1499,9 +1443,6 @@ impl std::borrow::Borrow<str> for CharacterId {
 /// definition cannot name the verb its moveset binds without reaching up into
 /// the runtime crate. Re-exported from `ambition_combat::moveset`, so every
 /// existing path still resolves.
-///
-/// See `docs/systems/actors-brains-and-character-content.md`; historical D73
-/// rationale is archived under `docs/archive/planning-superseded/2026-08-13/`.
 pub const ATTACK_VERB: &str = "attack";
 /// Strong directional attacks use the same authored verb machinery under the
 /// distinct `smash` base. A moveset that authors no smash verb falls back to its
@@ -1528,7 +1469,7 @@ pub const TAUNT_VERB: &str = "taunt";
 /// concession — but it does make the pile of it bigger.
 ///
 /// ⇒ **the restitch point is the first character-owned `smash.fighter` facet**
-/// (queue D166). When a Smash capability owns its own schema, these move with
+/// . When a Smash capability owns its own schema, these move with
 /// it and the generic catalog stops naming a throw. Until then one definition
 /// here beats the same strings copied into a selector and an authoring module.
 pub const GRAB_VERB: &str = "grab";

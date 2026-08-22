@@ -1,9 +1,7 @@
 //! [`PreloadGroup`] — coarse "load-this-set-up-front" tag.
 //!
-//! Asset entries declare which group they belong to (or `None` for
-//! lazy/on-demand). The resolver groups entries by tag so the consumer
-//! can drive preloads with [`bevy_asset_loader`] or a hand-rolled state
-//! machine. The catalog itself does not block on loads.
+//! Asset entries declare which group they belong to (or `None` for lazy/on-demand). The catalog
+//! itself does not block on loads.
 //!
 //! The set of groups is deliberately small (~10 max). New ones land
 //! when there's a real concurrent-load decision to make, not for every

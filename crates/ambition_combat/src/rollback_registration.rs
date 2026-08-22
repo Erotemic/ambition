@@ -46,7 +46,7 @@ where
         "entity-less world-contact fired-state checksum projection",
         |on_hit| if on_hit.world_fired() { 1 } else { 0 },
     );
-    // ⭐ **the stale ring is COMBAT's, and this is where it says so.** It was
+    // **the stale ring is COMBAT's, and this is where it says so.** It was
     // registered under the ENGINE domain as `body.stale_moves` while living in
     // the movement core, so a composition with no staling rule still rewound a
     // nine-slot combat history on every body it moved.
@@ -82,10 +82,6 @@ where
         OWNER,
         "entity:fighter_eliminated",
     );
-    // ⛔ `resource.stocks_match_settled` used to be registered here, beside the
-    // stock count. It is the RULESET's verdict rather than the engine's count,
-    // it is keyed to a `MatchInstance`, and it lives beside `ActiveMatch` now —
-    // in [`super::actors`], where the receipt it names is registered (D147).
     registrar.rollback_component_canonical::<crate::components::RulesetOwnsDeath>(
         OWNER,
         "actor.ruleset_owns_death",
@@ -241,9 +237,7 @@ where
         |held| held.captor,
     );
     registrar.rollback_map_entities::<crate::capture::CapturedBy>(OWNER, "map.captured_by");
-    // ⚠ the three capture REQUESTS are same-frame transients. A resimulated tick
-    // re-derives them from the authored timeline it is replaying, so a buffer
-    // that survived the rewind would apply a pummel twice.
+    // the three capture REQUESTS are same-frame transients.
     registrar.clear_message_on_rollback::<crate::capture::CaptureAttemptRequested>(
         OWNER,
         "message.capture_attempt_requested",
@@ -360,14 +354,6 @@ fn pending_player_hits_checksum(pending: &crate::events::PendingPlayerHitEvents)
         put_vec2(&mut bytes, bounds.min);
         put_vec2(&mut bytes, bounds.max);
         put_i32(&mut bytes, event.damage);
-        // ⚠ **the tags are the CAUSE vocabulary's, and the old direction-spelled
-        // tags 5-11 are retired.** Nine variants folded into four causes when the
-        // player-versus-world half of each name stopped carrying routing, so the
-        // spread is now 0-3 plus 10. Tags are checksum input, not a persisted
-        // wire format, so renumbering costs a checksum change and nothing else —
-        // but keep `LeftTheWorld` at 10 rather than compacting it, because a
-        // gratuitous renumber of a surviving variant is a diff nobody can review.
-        //
         // The `f32` beside each tag was `PlayerSlash`'s own impulse channel. That
         // channel is gone — knockback has one representation — so it is a
         // constant here. The slot stays because the layout is shared.

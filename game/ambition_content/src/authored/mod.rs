@@ -1,21 +1,12 @@
 //! **Every character this provider AUTHORS, one file each.**
 //!
-//! ⭐⭐ **A CHARACTER'S BODY LIVES BESIDE ITS MOVESET, NOT IN A CENTRAL MATCH.**
-//! This was one 850-line `match id` in `character_catalog.rs` — nineteen arms,
-//! each a different creature's vitals, locomotion, abilities and autonomous
-//! policy, and each carrying the migration note explaining what archetype row it
-//! replaced. A creature's facts and the reasons for them belong with the
-//! creature, and a match that long is a file every migration has to edit.
+//! A creature's facts and the reasons for them belong with the creature, and a match that long
+//! is a file every migration has to edit.
 //!
-//! ⛔ **the shape this refuses is the one D73 was written to avoid**: the
-//! archetype table is nearly gone (`character_archetypes.ron` is down to
-//! `combatant` and `medium_striker`), but its AUTHORITY does not evaporate with
-//! it — it moves into whatever central structure grows to replace it. Adding a
-//! character was becoming *edit the catalog data, remember
-//! `BUILDABLE_ONLY_CAST`, add a match arm, maybe touch a roster*. That is a
-//! registry with extra steps.
+//! Adding a character was becoming *edit the catalog data, remember `BUILDABLE_ONLY_CAST`, add
+//! a match arm, maybe touch a roster*. That is a registry with extra steps.
 //!
-//! ⚠ [`AUTHORED_CAST`] is the ONE table, and it is the module list the compiler
+//! [`AUTHORED_CAST`] is the ONE table, and it is the module list the compiler
 //! already forces you to keep — a character with a file and no entry does not
 //! compile into anything, rather than registering as a body that authors
 //! nothing.
@@ -71,7 +62,7 @@ pub(crate) const AUTHORED_CAST: &[(
     (&["npc_dividing_mite"], npc_dividing_mite::author),
     (&["npc_puppy_slug"], npc_puppy_slug::author),
     (&["stochastic_parrot"], stochastic_parrot::author),
-    // ⭐ the two SNAKE-PLANE swarms left this cast 2026-08-13: Mary-O is their
+    // the two SNAKE-PLANE swarms left this cast: Mary-O is their
     // one provider now (catalog rows + definitions in `ambition_demo_mary_o`),
     // which retired her standalone build's archetype-row fallback.
     (&["npc_ai_slop"], npc_ai_slop::author),
@@ -95,9 +86,6 @@ pub(crate) const AUTHORED_CAST: &[(
     (&["npc_pirate_admiral"], npc_pirate_admiral::author),
     (&["npc_lab_raider"], npc_lab_raider::author),
     (&["npc_salvage_guard"], npc_salvage_guard::author),
-    // AC4: the six pirates and Carl Stargan, whose bodies were the whole of
-    // `REGISTERED_WITHOUT_A_BODY`. Jon's 2026-08-13 rulings unblocked both — see
-    // each module's doc for which decision it consumes.
     (
         &[
             "npc_pirate_cutlass_viper",
@@ -110,22 +98,16 @@ pub(crate) const AUTHORED_CAST: &[(
         npc_pirate_crew::author,
     ),
     (&["npc_carl_stargan"], npc_carl_stargan::author),
-    // AC5: the last characters that could not build their own body. Each was
-    // missing only locomotion — see the module doc.
-    // ⭐ Alice and Bob left that file the day they grew repertoires
-    // (2026-08-16) — the same rule, the third and fourth time this week. Same
-    // walk, same health, sixteen new answers each.
+    // AC5: the last characters that could not build their own body. Alice and Bob left that
+    // file the day they grew repertoires — the same rule, the third and fourth time this week.
+    // Same walk, same health, sixteen new answers each.
     (&["npc_alice"], npc_alice::author),
     (&["npc_bob"], npc_bob::author),
-    // ⭐ Emmy left that file the day she grew a repertoire (2026-08-16) — the
-    // second time this week the rule fired. 123 authored rows, and nothing had
-    // ever asked one of them for a hitbox.
     (&["npc_emmy_noether"], npc_emmy_noether::author),
-    // ⭐ Oiler left that file the day he grew a repertoire (2026-08-16), which is
+    // Oiler left that file the day he grew a repertoire, which is
     // the rule its own doc states. Same walk, same health, sixteen new answers.
     (&["npc_oiler"], npc_oiler::author),
     (&["goblin"], goblin::author),
-    // AC6/D102: Jon's 2026-08-13 casting of `large_brute` as a real character.
     (&["npc_goblin_brute"], npc_goblin_brute::author),
 ];
 

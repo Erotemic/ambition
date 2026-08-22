@@ -1,12 +1,7 @@
-//! Surround presentation for a fixed-aspect gameplay viewport.
-//!
 //! Design of record: `docs/planning/triage/gameplay-presentation-profiles.md`.
 //!
-//! **This is not decoration.** A Bevy camera with a `viewport` set never clears
-//! the display outside it, so a fixed-aspect profile leaves the surround
-//! undefined until something paints it. The base fill below is that something;
-//! the [`SurroundPolicy`] then decides how the surround READS, not whether it
-//! exists.
+//! The base fill below is that something; the [`SurroundPolicy`] then decides how the surround
+//! READS, not whether it exists.
 //!
 //! Render owns the drawing and nothing else — it never selects policy. It reads
 //! the one resolved layout the host published and paints what that layout says
@@ -35,10 +30,7 @@ pub struct GameplaySurroundPlugin;
 
 impl Plugin for GameplaySurroundPlugin {
     fn build(&self, app: &mut App) {
-        // After the layout this paints against is resolved. Unordered, the
-        // surround trails the resolve by a frame on every profile change —
-        // including the very first one, which is the frame a fixed-aspect game
-        // starts and the pillarboxes are at their most visible.
+        // After the layout this paints against is resolved.
         app.add_systems(
             Update,
             sync_gameplay_surround.after(

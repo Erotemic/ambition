@@ -549,13 +549,8 @@ fn allow_marker_suppresses_a_line() {
 // ── Playable-persona architecture guards (S3/S4) ─────────────────────────────
 
 /// **S3 ownership guard.** The reusable `ambition_render` binder
-/// (`bind_worn_character_presentation`) is the SOLE authority that resolves the
-/// selected/worn character's sprite from the catalog. The app layer must not
-/// re-introduce its own selected-character sprite binding: `asset_for_character_id`
-/// is the catalog resolution that duplicate authority used, so its ABSENCE from
-/// `ambition_app`'s production source is the focused, proportional regression check
-/// (a dev clone that binds a FIXED default sheet via `characters.player` is fine —
-/// it never resolves the *selected* character, so this stays narrow).
+/// (`bind_worn_character_presentation`) is the SOLE authority that resolves the selected/worn
+/// character's sprite from the catalog.
 #[test]
 fn app_layer_does_not_bind_the_selected_character_sprite() {
     let ws = Workspace::discover();

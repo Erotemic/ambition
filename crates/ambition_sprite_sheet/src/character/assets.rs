@@ -1,12 +1,9 @@
 //! Loaded character spritesheet handles shared by loaders and renderers.
 //!
-//! **No character id appears in this file.** It used to hold four typed slots —
-//! `player`, `robot`, `goblin`, `sandbag` — and `asset_for_character_id` was a
-//! hardcoded `match` on those names falling through to a map. That shape made the
-//! engine know four of Ambition's characters by name, so a second provider's
-//! protagonist could not be a hot-path character however it was authored, and it
-//! made "this id has no sheet" and "there is no such id" the same answer (`None`).
-//! One map, keyed by what content declares, answers both questions honestly.
+//! That shape made the engine know four of Ambition's characters by name, so a second provider's
+//! protagonist could not be a hot-path character however it was authored, and it made "this id has
+//! no sheet" and "there is no such id" the same answer (`None`). One map, keyed by what content
+//! declares, answers both questions honestly.
 
 use std::collections::HashMap;
 
@@ -18,14 +15,7 @@ use super::CharacterSpriteAsset;
 
 /// What the sheet table knows about one authored character token.
 ///
-/// The distinction between the last two variants is the point. `None` used to
-/// mean both "declared, sheet not decoded yet" and "no such character", so a
-/// TYPO and a pending decode were indistinguishable — a misspelled id drew the
-/// placeholder rectangle forever and looked exactly like a sheet that had not
-/// arrived. A caller that wants to wait can now tell it apart from one that
-/// should report a binding failure.
-///
-/// ⭐ **`Declared` is the NONRESIDENT state, in both directions.** It began life
+/// **`Declared` is the NONRESIDENT state, in both directions.** It began life
 /// as a one-way "not decoded yet" and is now the state a realization returns to
 /// when the active quality tier moves — see
 /// [`CharacterSpriteAssets::demote_stale_realizations`]. That is why the
@@ -65,8 +55,7 @@ impl CharacterSheetState<'_> {
     }
 }
 
-// Hand-written so the enum does not force `Debug` onto the whole sheet-spec tree
-// it points at. Diagnostics want the STATE named, not the atlas dumped.
+// Diagnostics want the STATE named, not the atlas dumped.
 impl std::fmt::Debug for CharacterSheetState<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -85,13 +74,9 @@ impl std::fmt::Debug for CharacterSheetState<'_> {
 ///
 /// ## Two facts, and they have different lifetimes
 ///
-/// A DECLARATION ("this token names character X, whose sheet the engine knows
-/// how to build") is permanent knowledge about content. A REALIZATION ("here are
-/// decoded handles for X at tier T") is a physical resource with an owner and an
-/// end. Publishing used to CONSUME the declaration, which made the two one fact
-/// and left `Ready` as a terminal state — there was no way back to `Declared`,
-/// so a resident sheet could never be retired and re-made, which is exactly why
-/// a live quality change could not converge.
+/// A DECLARATION ("this token names character X, whose sheet the engine knows how to build") is
+/// permanent knowledge about content. A REALIZATION ("here are decoded handles for X at tier T") is
+/// a physical resource with an owner and an end.
 #[derive(Resource, Default, Clone)]
 pub struct CharacterSpriteAssets {
     /// Resident realizations. Double-keyed (see above).
@@ -143,7 +128,7 @@ impl CharacterSpriteAssets {
     /// declared, so every token it was declared under is covered automatically
     /// rather than by the caller remembering to list them.
     ///
-    /// ⚠ this does NOT create a declaration, and that is what keeps such a
+    /// this does NOT create a declaration, and that is what keeps such a
     /// realization out of the quality transition: the engine has no recipe for
     /// art it did not build, so retiring it would delete a face with no way to
     /// draw it again. See [`Self::demote_stale_realizations`].
@@ -172,7 +157,7 @@ impl CharacterSpriteAssets {
 
     /// **Is anything resident whose REQUEST is no longer the active one?**
     ///
-    /// ⛔ **`requested_tier`, deliberately** — the question is "has the active
+    /// **`requested_tier`, deliberately** — the question is "has the active
     /// setting been answered for everybody", not "what is in memory". A sheet
     /// with no baked variant answers `Half` with full-resolution pixels, and
     /// asking [`CharacterSpriteAsset::resolved_tier`] here would call it stale
@@ -191,20 +176,12 @@ impl CharacterSpriteAssets {
     /// **Every tier that is PHYSICALLY resident** — the tiers the decoded bytes
     /// came from, not the tiers that were asked for.
     ///
-    /// ⭐ **the invariant this exists for: after a quality transition completes
+    /// **the invariant this exists for: after a quality transition completes
     /// there is exactly ONE active tier across the live residency set.** More
     /// than one means some body on screen is being drawn from pixels the user
     /// stopped asking for.
     ///
-    /// ⛔ **built from [`CharacterSpriteAsset::resolved_tier`], and that is the
-    /// whole point of the field.** While this read `requested_tier` it could not
-    /// see the one case it exists to report: a `Half` budget against a sheet
-    /// with no baked half variant holds FULL-resolution pixels and used to be
-    /// counted as `Half`, so a cast half of which had fallen back reported one
-    /// tier — "everything converged" — while two generations sat in memory. That
-    /// is the number an Android memory budget is decided from.
-    ///
-    /// ⚠ two tiers here is therefore NOT by itself a convergence failure: a
+    /// two tiers here is therefore NOT by itself a convergence failure: a
     /// fallback is a permanent, correct disagreement. Ask
     /// [`Self::has_stale_realizations`] whether the transition has settled.
     pub fn resident_tiers(&self) -> std::collections::BTreeSet<TextureResolutionScale> {
@@ -214,22 +191,15 @@ impl CharacterSpriteAssets {
             .collect()
     }
 
-    /// **The return edge.** Retire every resident realization that is no longer
-    /// at the active tier, leaving its declaration behind, and name the catalog
-    /// ids that must therefore be demanded again.
-    ///
     /// Dropping the [`CharacterSpriteAsset`] drops its strong `Handle<Image>`;
     /// Bevy frees the image once the last strong handle goes, which is every
     /// clone here plus whatever a live presentation still holds until it
-    /// rebinds. ⛔ **there is no evictor and there must not be one** — ownership
+    /// rebinds. **there is no evictor and there must not be one** — ownership
     /// does the whole job.
     ///
-    /// ⚠ only DECLARED tokens are retired. A realization published without a
-    /// declaration came from a host that built it itself
-    /// ([`Self::publish_under`]), and the engine has no recipe to remake it, so
-    /// retiring it would be a one-way deletion of somebody's art.
+    /// only DECLARED tokens are retired.
     ///
-    /// ⛔ staleness is [`CharacterSpriteAsset::requested_tier`] — same reason as
+    /// staleness is [`CharacterSpriteAsset::requested_tier`] — same reason as
     /// [`Self::has_stale_realizations`], and this is the half where getting it
     /// wrong costs an `asset_server.load` every frame rather than a wrong
     /// number.
@@ -289,8 +259,8 @@ impl CharacterSpriteAssets {
 
     /// **Every RESIDENT token and the realization it resolves to.**
     ///
-    /// ⛔ **added because its absence made a whole class of test unwritable**
-    /// (2026-08-21). `ready_token_count` gives a number, and
+    /// **added because its absence made a whole class of test unwritable**
+    /// . `ready_token_count` gives a number, and
     /// `declared_character_ids` is this set's COMPLEMENT — it filters to tokens
     /// with NO resident sheet, exactly as `is_declared` says. So a test asking
     /// *"after a quality change, does each resident token still resolve to the
@@ -298,7 +268,7 @@ impl CharacterSpriteAssets {
     /// reaching for `declared_character_ids` instead yields a tautology: every
     /// id in it is guaranteed to have no sheet.
     ///
-    /// ⚠ read-only and order-free. `sheets` is a `HashMap`, so a caller that
+    /// read-only and order-free. `sheets` is a `HashMap`, so a caller that
     /// needs determinism must collect and sort — this deliberately does not
     /// impose an order it would then have to promise.
     pub fn resident_sheets(&self) -> impl Iterator<Item = (&str, &CharacterSpriteAsset)> {

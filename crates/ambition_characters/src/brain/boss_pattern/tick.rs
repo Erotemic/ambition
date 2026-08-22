@@ -1,7 +1,5 @@
 //! The pure boss-pattern brain tick: scripted-step advance, cycle/macro state
 //! machines, front-wall standoff, retreat positioning, and desired-velocity emit.
-//!
-//! Split out of the former 1327-line `boss_pattern/mod.rs` (2026-06-15).
 
 use super::*;
 
@@ -183,9 +181,6 @@ fn advance_scripted(
         state.step_elapsed = 0.0;
     }
     if state.timeline.is_empty() {
-        // Every arm of every `Select` was ineligible — an authored "do nothing in
-        // this situation". Emit no attack and retry next tick, when the player may
-        // have moved into a bucket that opens one.
         attack_intent.clear();
         state.rng_seed = rng.0;
         return;
@@ -412,13 +407,9 @@ const CONTACT_SKIN: f32 = 4.0;
 /// **Lateral separation between the two BODY SURFACES**, negative once the
 /// boxes overlap.
 ///
-/// ⛔⛔ this is what "body contact" always meant and never measured. The
-/// closure test used to compare centre-to-centre distance against
-/// [`CONTACT_SKIN`], which asks a 208px-wide boss to put its centre inside its
-/// target's — a place body collision does not let it reach. The wider the body,
-/// the more permanently its contact chase stayed open, so the biggest bodies
-/// were the ones that never engaged and (under
-/// `suppress_attacks_while_moving`) never attacked.
+/// this is what "body contact" always meant and never measured. The wider the body, the more
+/// permanently its contact chase stayed open, so the biggest bodies were the ones that never
+/// engaged and (under `suppress_attacks_while_moving`) never attacked.
 ///
 /// Lateral, not planar: a contact chase is the horizontal run-in a grounded
 /// body performs, and the profiles that author it lock themselves to the arena
@@ -518,11 +509,9 @@ fn compute_retreat_pos(cfg: &BossPatternCfg, ctx: &BossPatternContext) -> ae::Ve
     if movement.world_arena_lateral_only() {
         let dx = ctx.actor_pos.x - ctx.target_pos.x;
         let dir_x = if dx.abs() < 1e-3 { 1.0 } else { dx.signum() };
-        // For world-arena-lateral bosses, retreat is a
-        // fixed-arena-lane desired velocity only. `BossRuntime::integrate_body`
-        // still runs through `step_motion`, so solid walls and platforms
-        // are the authority that stops the body if this target lies beyond
-        // reachable floor.
+        // `BossRuntime::integrate_body` still runs through `step_motion`, so solid walls and
+        // platforms are the authority that stops the body if this target lies beyond reachable
+        // floor.
         let target_x = ctx.actor_pos.x + dir_x * cfg.macro_tuning.retreat_distance.max(60.0);
         return ae::Vec2::new(target_x * 0.6 + cfg.spawn.x * 0.4, ctx.actor_pos.y);
     }
@@ -625,10 +614,8 @@ fn emit_desired_vel(
         target.y.clamp(half.y + margin, max_y),
     );
     if movement.world_arena_lateral_only() {
-        // The profile declares no authored world-arena vertical travel, so do not let the
-        // macro standoff/retreat steering add one. Preserve the
-        // current integrated y so collision remains authoritative if
-        // the boss was previously nudged by the world.
+        // The profile declares no authored world-arena vertical travel, so do not let the macro
+        // standoff/retreat steering add one.
         clamped_target.y = ctx.actor_pos.y;
     }
     target = clamped_target;
@@ -641,11 +628,9 @@ fn emit_desired_vel(
     }
 
     let delta = target - ctx.actor_pos;
-    // NOTE: the old strike-speed throttle ("the boss mustn't outrun its own
-    // strike") is no longer brain-side policy. It is the move's authored
-    // motion lock — `MoveWindow::motion_scale` on the strike's Active window,
-    // enforced at body integration for ANY controller of the body (autonomous
-    // pattern or possessing player alike).
+    // It is the move's authored motion lock — `MoveWindow::motion_scale` on the strike's Active
+    // window, enforced at body integration for ANY controller of the body (autonomous pattern
+    // or possessing player alike).
     //
     // Macro-state speed scaling. Approach commits visually with
     // `> 1.0` speed; Retreat backs off deliberately with `< 1.0`.

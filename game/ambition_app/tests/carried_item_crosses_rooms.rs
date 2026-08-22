@@ -8,14 +8,7 @@
 //! destroyed AT the door: the same destroyed identity `ItemCustody` exists to
 //! prevent, reached through the room boundary instead of through the pickup.
 //!
-//! ⛔ **the fix is not in the transition, and this test would pass either way —
-//! which is why it is worth saying here.** Teaching the room commit to walk a
-//! body's held items would make the boundary know that inventories exist. What
-//! landed instead is that CUSTODY OWNS RESIDENCY
-//! (`items::pickup::project_custody_onto_residency`): an object in a travelling
-//! body's custody is scoped to a room and resident in NONE, so the roster a room
-//! change retires (`RoomResident`) simply does not contain it. The transition is
-//! unchanged except for the word "resident".
+//! The transition is unchanged except for the word "resident".
 //!
 //! What is driven here is the real machinery end to end: the authored LDtk item,
 //! the pressed pickup, an authored `Door` loading zone held open with the real
@@ -28,7 +21,7 @@
 //! 1. the object SURVIVES the crossing — same entity, same `SimId`, still held;
 //! 2. thrown down in the destination it becomes a resident THERE;
 //! 3. so the next transition out of that room retires it, exactly like anything
-//!    else lying on that room's floor. ⭐ the third is the half that makes the
+//!    else lying on that room's floor. the third is the half that makes the
 //!    first honest: an object that stopped being retirable would also pass (1).
 
 use ambition_app::{AgentAction, Platformer2dSimHarness};
@@ -86,7 +79,7 @@ fn item_pos(sim: &Platformer2dSimHarness, item: Entity) -> (f32, f32) {
 
 /// Every live occurrence claiming one authored identity.
 ///
-/// ⭐ **the whole defect is a COUNT**, so the measurement is a count and never a
+/// **the whole defect is a COUNT**, so the measurement is a count and never a
 /// lookup: `get::<SimId>(entity)` on the object you are holding answers "still
 /// itself" and says nothing at all about the copy on the floor beside it.
 fn occurrences(sim: &mut Platformer2dSimHarness, authored: &SimId) -> Vec<Entity> {
@@ -129,12 +122,6 @@ fn walk_through_the_door_to(sim: &mut Platformer2dSimHarness, target: &str) -> S
 }
 
 /// The authored `Door` zone of the ACTIVE room that leads to `target`.
-///
-/// Split out of [`walk_through_the_door_to`] because a door is also the one
-/// position in a room a test can name without reading its geometry: it is
-/// authored, in-bounds, and stands somewhere the body can be. The relocation
-/// test stands there to put an object down somewhere the room does not author
-/// it.
 fn door_to(
     sim: &mut Platformer2dSimHarness,
     target: &str,
@@ -178,7 +165,7 @@ fn door_to(
 
 /// **THE SANDBOX RESET — the road that rebuilds the room.**
 ///
-/// ⛔ **not `reset_episode()`, and the difference is the whole reason this helper
+/// **not `reset_episode()`, and the difference is the whole reason this helper
 /// exists.** `reset_episode` presses `ControlFrame::reset_pressed`, which
 /// `apply_player_reset_input_system` turns into `reset_sandbox` plus a
 /// `ResetRoomFeaturesEvent`: the body returns to spawn and the room's FEATURE
@@ -378,12 +365,6 @@ fn an_item_carried_through_a_door_survives_and_belongs_to_the_room_it_is_dropped
 /// with it, and a body that is still a fixture of the room does not. This pins
 /// the half the room-crossing case cannot see — that the carried object is still
 /// room-SCOPED.
-///
-/// ⚠ **it pins the COMPONENT and stops there.** It used to go on to conclude
-/// that therefore "nothing has become immortal" — a claim about a SWEEP, from a
-/// test that runs no sweep. What actually collects a scoped object is asserted by
-/// executing the reset, in
-/// [`an_untouched_placement_is_authored_on_every_entry_and_a_reset_rebuilds_it`].
 #[test]
 fn a_carried_object_keeps_the_room_lifetime_it_stopped_being_resident_in() {
     let mut sim = fixed_60hz_room_sim(SOURCE_ROOM);
@@ -439,21 +420,11 @@ fn a_carried_object_keeps_the_room_lifetime_it_stopped_being_resident_in() {
 
 /// **AN AUTHORED PLACEMENT IS NOT AUTHORED TWICE.**
 ///
-/// Custody let a carried object cross a room boundary alive (the tests above).
-/// That opened the hazard `ItemCustody` recorded on the way out: the object
-/// survives, and re-entering the room it came from re-runs authored
-/// construction, which mints a SECOND occurrence stamped with the same
-/// `SimId::placement(..)`. Two live things behind one identity is precisely the
-/// failure `SimId` exists to make impossible, and nothing detected it.
-///
-/// ⭐ **the question construction now asks is WHERE, not a visit count.**
+/// **the question construction now asks is WHERE, not a visit count.**
 /// `AuthoredOccurrences` records where the occurrence a record minted actually
 /// is; re-entry authors a fresh one only for the records whose occurrence is
 /// neither alive elsewhere nor deliberately gone. This drives that end to end:
 /// the real pickup, two real transitions, and the real construction commit.
-///
-/// The measurement is a COUNT over the whole world, because "is the thing in my
-/// hands still itself" was already true while the bug was live.
 #[test]
 fn re_entering_a_room_does_not_re_author_a_placement_that_is_still_in_custody() {
     let mut sim = fixed_60hz_room_sim(SOURCE_ROOM);
@@ -477,8 +448,7 @@ fn re_entering_a_room_does_not_re_author_a_placement_that_is_still_in_custody() 
         sim.step(base());
     }
 
-    // THE CLAIM. Before the ledger, this room had just been rebuilt from its
-    // authored records and there were TWO.
+    // THE CLAIM.
     assert_eq!(
         occurrences(&mut sim, &authored),
         vec![item],
@@ -518,7 +488,7 @@ fn re_entering_a_room_does_not_re_author_a_placement_that_is_still_in_custody() 
     // pass every assertion above and produce ZERO here, which is why the count
     // is asserted rather than "no duplicate".
     //
-    // ⚠ **exactly once, and never zero — this says nothing about WHERE.** Since
+    // **exactly once, and never zero — this says nothing about WHERE.** Since
     // the whereabouts ledger, the object comes back where it was left rather
     // than where the record puts it; that is
     // [`a_relocated_placement_comes_back_where_it_was_left`]'s claim and it is
@@ -553,15 +523,12 @@ fn re_entering_a_room_does_not_re_author_a_placement_that_is_still_in_custody() 
 /// come back. The occurrence that returns must be the same one, at the place it
 /// was left.
 ///
-/// ⭐ **run against a do-nothing implementation, this fails on its last
-/// assertion and only there.** Construction that ignores the ledger's `Placed`
-/// row rebuilds the room from the authored record, which puts the object back at
-/// the coordinates LDtk gives it — so the object exists, is unique, is lying in
-/// the world, and is in the WRONG PLACE. The precondition below is what makes
-/// that a failure rather than a coincidence: it refuses to run the claim at all
-/// unless the drop actually moved the object.
+/// **run against a do-nothing implementation, this fails on its last assertion and only
+/// there.** Construction that ignores the ledger's `Placed` row rebuilds the room from the
+/// authored record, which puts the object back at the coordinates LDtk gives it — so the object
+/// exists, is unique, is lying in the world, and is in the WRONG PLACE.
 ///
-/// ⚠ **the returning occurrence is a DIFFERENT ENTITY, and must be.** The room
+/// **the returning occurrence is a DIFFERENT ENTITY, and must be.** The room
 /// unload destroyed the one that was lying there; what identifies it as the same
 /// occurrence is its `SimId`, which is the whole distinction between authored
 /// definition identity and runtime occurrence identity.
@@ -653,10 +620,7 @@ fn a_relocated_placement_comes_back_where_it_was_left() {
 /// residency from the world's DEFINITIONS plus the authoritative disposition of
 /// every occurrence, rather than from the one room in front of it.
 ///
-/// ⛔⛔ **THE TWO HALVES ARE ONE CLAIM, AND THIS TEST ASSERTS BOTH.** Suppressing
-/// the record in `blink_run` without reconstituting the occurrence in
-/// `portal_bridge` leaves the object in NO room, permanently — a deletion bug
-/// traded for a duplication bug. So:
+/// So:
 ///
 /// * a run that reinstates but forgets to suppress fails at `blink_run`, which
 ///   would hold a second live occurrence of one identity;
@@ -690,10 +654,6 @@ fn a_placement_dropped_in_another_room_stays_there() {
         "Shield+Attack puts the object back in the world"
     );
 
-    // ── LET IT COME TO REST, AND PROVE IT HAS ───────────────────────────────
-    // What the world remembers is where the object last WAS when the room
-    // unloaded, so a position measured mid-fall would make the claim below a
-    // race against the physics rather than a claim about reconstruction.
     for _ in 0..60 {
         sim.step(base());
     }
@@ -775,12 +735,7 @@ fn a_placement_dropped_in_another_room_stays_there() {
 /// something IS being carried, because a reset destroys the world those
 /// occurrences live in, hands included.
 ///
-/// ⛔ **"a reset" here means the SANDBOX reset and only that** — see
-/// [`request_sandbox_reset`]. This test first drove `reset_episode()`, which is a
-/// different product (reset the room's feature state and put the body back at
-/// spawn, in place) and correctly leaves a carried object alone; the failure that
-/// produced was the test naming a road it was not on, not the engine keeping an
-/// object it should have destroyed.
+/// **"a reset" here means the SANDBOX reset and only that** — see [`request_sandbox_reset`].
 #[test]
 fn an_untouched_placement_is_authored_on_every_entry_and_a_reset_rebuilds_it() {
     let mut sim = fixed_60hz_room_sim(SOURCE_ROOM);
@@ -801,7 +756,7 @@ fn an_untouched_placement_is_authored_on_every_entry_and_a_reset_rebuilds_it() {
         "a placement nobody has interacted with is authored on every entry"
     );
 
-    // Now carry it, and reset. ⛔ the reset road states NO dispositions on
+    // Now carry it, and reset. the reset road states NO dispositions on
     // purpose: it wipes the room AND the hand, so remembering "that one is
     // alive elsewhere" would rebuild the room permanently short of it.
     let (item, _) = authored_item(&mut sim);
@@ -820,19 +775,15 @@ fn an_untouched_placement_is_authored_on_every_entry_and_a_reset_rebuilds_it() {
         "a reset destroys a carried object: it never lost its room SCOPE, only \
          its residency"
     );
-    // ⭐ AND THE HAND WENT WITH IT. Destroying the object while leaving a
-    // `HeldItem` pointing at the hole is the failure the reset's own comment
-    // argues against ("this same function empties the hand a few lines below"),
-    // and it is invisible to a count over `SimId`. Asked of THE carrier rather
-    // than of the world, because a rebuilt room may legitimately author other
-    // bodies with something in hand.
+    // AND THE HAND WENT WITH IT. Asked of THE carrier rather than of the world, because a rebuilt
+    // room may legitimately author other bodies with something in hand.
     assert!(
         sim.world()
             .get::<ambition_platformer2d::actors::features::HeldItem>(holder)
             .is_none(),
         "the reset that destroyed the object also emptied the hand holding it"
     );
-    // ⭐ **AND THE ROOM CAME BACK WHOLE.** Counted AND identified, because a
+    // **AND THE ROOM CAME BACK WHOLE.** Counted AND identified, because a
     // count alone is satisfied by a reset that did nothing at all: the object
     // still in the hand would be the one occurrence, which is exactly how a
     // sibling assertion in this file once passed vacuously. A do-nothing reset
@@ -857,18 +808,11 @@ fn an_untouched_placement_is_authored_on_every_entry_and_a_reset_rebuilds_it() {
     );
 }
 
-// ---------------------------------------------------------------------------
-// **The three-way composition nothing exercised** (2026-08-19).
-//
 // Every test above drives the HOME AVATAR: it picks the item up, walks it
 // through the door, and the object survives because
 // `project_custody_onto_residency` makes a held object non-resident when its
 // holder is not `RoomScopedEntity` — which the session-scoped home avatar never
 // is.
-//
-// ⚠ **I predicted this would FAIL and it passed, for a reason that then turned
-// out to be a bug of its own** — the whole sequence is worth keeping because
-// each step corrected the one before it.
 //
 // 1. PREDICTED: an authored actor is room-scoped, so the projection reads it as
 //    *"a room fixture's hand"*, leaves the object resident, and the room change
@@ -884,15 +828,12 @@ fn an_untouched_placement_is_authored_on_every_entry_and_a_reset_rebuilds_it() {
 //    `an_authored_actor_carried_out_of_its_room_and_back_does_not_meet_a_copy`
 //    counted two.
 //
-// ⭐ **possession suspends RESIDENCY now, like everything else that travels**:
+// **possession suspends RESIDENCY now, like everything else that travels**:
 // it keeps `RoomScopedEntity` and adds `InCustodyOf`, and the residency
 // projection asks the `RoomResident` roster instead of restating it — which
 // makes custody TRANSITIVE, and is what carries this test's object.
 //
-// ⛔⛔ two subsystems that never name each other still agree by way of one fact,
-// and this test is what makes that agreement visible: it went RED the moment the
-// promotion was removed, and stayed red until the projection stopped asking a
-// proxy question. Neither change could land alone.
+// Neither change could land alone.
 // ---------------------------------------------------------------------------
 
 const POSSESS_TARGET_ID: &str = "carry_while_possessed";
@@ -957,12 +898,8 @@ fn place_body(sim: &mut Platformer2dSimHarness, body: Entity, at: (f32, f32)) {
 
 /// **An object carried by a POSSESSED body goes through the door with it.**
 ///
-/// ⛔ the failure this catches is silent and asymmetric: the body arrives, the
-/// room is right, the hand still says it is holding something, and the OBJECT is
-/// gone — retired by the room change because its holder was room-scoped. A test
-/// asserting only "the room changed" or only "the body arrived" passes straight
-/// through it, which is why both of those are asserted here as SETUP and the
-/// object's survival is the claim.
+/// A test asserting only "the room changed" or only "the body arrived" passes straight through it,
+/// which is why both of those are asserted here as SETUP and the object's survival is the claim.
 #[test]
 fn an_item_carried_by_a_possessed_body_survives_the_door_too() {
     use ambition_platformer2d::actors::items::pickup::ItemCustody;
@@ -1052,7 +989,7 @@ fn an_item_carried_by_a_possessed_body_survives_the_door_too() {
 /// **An authored ACTOR carried out of its room and back does not meet a second
 /// copy of itself.**
 ///
-/// ⛔⛔ **THE OCCURRENCE LEDGER IS ITEMS-ONLY, and possession makes a body
+/// **THE OCCURRENCE LEDGER IS ITEMS-ONLY, and possession makes a body
 /// travel exactly like a carried object.** `record_placed_ground_items` is the
 /// single writer of `AuthoredOccurrences`; nothing records where a POSSESSED
 /// actor went. So the actor's home room, rebuilt on re-entry, consults an outlook
@@ -1061,12 +998,12 @@ fn an_item_carried_by_a_possessed_body_survives_the_door_too() {
 /// `ActorConstructionPlan::prepare` refuses as `IdentityAlreadyLive` when it is
 /// told, and cannot refuse when it is not.
 ///
-/// ⚠ **possession is CUSTODY OF A BODY**, which is why the fix is the same
+/// **possession is CUSTODY OF A BODY**, which is why the fix is the same
 /// vocabulary and not a new one: while a participant is driving an authored
 /// actor, that occurrence is `InCustody` and its home room must not re-author it
 /// — precisely the rule a carried axe already follows.
 ///
-/// ⚠ the player is re-anchored onto the target every frame during the hold: the
+/// the player is re-anchored onto the target every frame during the hold: the
 /// enemy fights back, and a staggered player drifts out of the 150 px possession
 /// radius. That is a spacing race, not the thing under test.
 #[test]
@@ -1166,15 +1103,7 @@ fn an_authored_actor_carried_out_of_its_room_and_back_does_not_meet_a_copy() {
 /// **A checkpoint taken while possessing does not turn the driven body into an
 /// item.**
 ///
-/// ⭐ **this is a consequence of the fix above, measured rather than assumed.**
-/// A possessed body wears `InCustodyOf` now, and `capture_custody_baseline`
-/// records `(&SimId, &InCustodyOf)` for ANY room-scoped entity — so the driven
-/// actor genuinely enters the checkpoint's custody baseline, as
-/// `placement:EnemySpawn-4513 <- slot:0`. That row is TRUE (a participant does
-/// have custody of that body), and the population it joins is one the ITEM
-/// domain's restore was written for.
-///
-/// ⛔ the risk that had to be checked: `restore_custody_to_checkpoint` has a
+/// the risk that had to be checked: `restore_custody_to_checkpoint` has a
 /// materialization arm for baseline rows with no live occurrence behind them,
 /// and an actor is not a `GroundItem`, so the row looks "missing" to it. It is
 /// harmless because the arm's two describers — the checkpoint's minted
@@ -1195,7 +1124,7 @@ fn a_checkpoint_taken_while_possessing_does_not_manufacture_an_item() {
     sim.step(base());
     sim.step(base());
 
-    // ⚠ asserted, not assumed: if the row stopped forming, the reset below would
+    // asserted, not assumed: if the row stopped forming, the reset below would
     // prove nothing about what the restore does with one.
     let rows: Vec<String> = sim
         .world()
@@ -1229,7 +1158,7 @@ fn a_checkpoint_taken_while_possessing_does_not_manufacture_an_item() {
 
 /// **THE LEDGER SEES THIS TICK'S CUSTODY, NOT LAST TICK'S.**
 ///
-/// ⛔⛔ **`InCustodyOf` has two owners in different domains and they were
+/// **`InCustodyOf` has two owners in different domains and they were
 /// UNORDERED.** The item domain reprojects the marker onto objects at the tail of
 /// `ItemPickupSet::CoreHeldItems`; a separate derive owns the whole non-item body
 /// population (`body_custody::project_body_custody`, in `PlayerSimulationSet::Possession`).
@@ -1247,30 +1176,14 @@ fn a_checkpoint_taken_while_possessing_does_not_manufacture_an_item() {
 /// a body nobody is driving; a possession and a crossing on the same tick would
 /// fail to publish one for a body that is.
 ///
-/// ⚠⚠ **AND IT WAS NOT ACTUALLY BROKEN — measured, 2026-08-20, before writing the
-/// fix.** With no edge at all the body derive still ran first: unconstrained
-/// siblings come out of the topological sort in plugin-add order, and the
-/// runtime's group happens to produce the correct interleave. So this guards a
-/// LATENT defect, which is the honest claim: two `.add(...)` lines swapped in host
-/// composition would have made it live, and nothing in either domain would have
-/// said why.
+/// **the poison is the REVERSED edge, not the missing one.** Deleting the edge leaves every
+/// test green (that is the whole problem).
 ///
-/// ⭐ **the poison is the REVERSED edge, not the missing one.** Deleting the edge
-/// leaves every test green (that is the whole problem). Turning it into
-/// `.before(BodyCustodySettled)` reddens THIS test plus
-/// `a_custody_row_with_nobody_holding_it_is_retracted_before_a_room_can_act_on_it`
-/// and `the_whole_attachment_closure_is_recorded_as_being_in_custody` — three
-/// tests, one edge, which is what says the rule carries weight.
-///
-/// ⭐ **the edge names a CAPABILITY, not a feature**:
+/// **the edge names a CAPABILITY, not a feature**:
 /// `CoreHeldItems.after(BodyCustodySettled)`. Body custody does not belong in the
 /// possession ability — possession is one root reason a body stops being
 /// resident, not the law governing every attachment — so the reader is ordered
 /// against the set the derive carries, and the edge survives the derive moving.
-///
-/// ⚠ **ZERO extra steps, and that is deliberate.** The two tests either side of
-/// this one step twice before they read the ledger, so a one-tick lag would hide
-/// from both.
 #[test]
 fn the_occurrence_ledger_learns_of_a_driven_body_on_the_tick_it_is_driven() {
     use ambition_platformer2d::platformer::lifecycle::AuthoredOccurrences;
@@ -1298,31 +1211,20 @@ fn the_occurrence_ledger_learns_of_a_driven_body_on_the_tick_it_is_driven() {
 
 /// **A save taken WHILE POSSESSING cannot suppress the enemy on load.**
 ///
-/// ⛔⛔ **the LIVE half of the save/load consequence of making possession a
+/// **the LIVE half of the save/load consequence of making possession a
 /// custody.** A driven body's occurrence goes into `AuthoredOccurrences` as
 /// `InCustody` — that is the fix, it is what stops the home room authoring a
 /// second copy. If that row could outlive the possession, a room build would
 /// suppress an enemy nobody is holding and it would be gone from the world.
 ///
-/// ⚠ **THE DURABLE HALF IS A DIFFERENT TEST, and this one used to claim it.**
-/// Assigning `PossessionState::default()` into the running world is not a fresh
-/// process; the file, the mirror and the adopters are all uninvolved. Since
-/// 2026-08-20 the mirror does not write that row at all — a relationship may not
-/// cross the durable horizon without its authority — and
+/// Since the mirror does not write that row at all — a relationship may not cross the durable
+/// horizon without its authority — and
 /// `a_save_remembers_where_you_left_things::a_save_taken_mid_possession_does_not_delete_the_enemy_in_a_fresh_process`
 /// is what proves it, through the real save and the real boot.
 ///
-/// ⭐ **it does not survive, and the reason is `republish_custody`'s own
-/// contract**: *"RETRACT BY RESETTING, NEVER BY REMOVING … the whole leg is
-/// replaced by what is true now"*. `project_custody_onto_authored_occurrences`
-/// runs every tick, ungated, and republishes the custody leg from LIVE state —
-/// so a row with no live holder is dropped on the first tick, before any room
-/// build can act on it. Measured at one tick.
-///
-/// ⚠ **the assertion is the RETRACTION, not the absence.** A test that only
-/// checked "the enemy exists after loading" would pass on a world that never
-/// wrote the row in the first place — i.e. against the bug this whole change
-/// fixes.
+/// **the assertion is the RETRACTION, not the absence.** A test that only checked "the enemy
+/// exists after loading" would pass on a world that never wrote the row in the first place —
+/// i.e.
 #[test]
 fn a_custody_row_with_nobody_holding_it_is_retracted_before_a_room_can_act_on_it() {
     use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
@@ -1333,9 +1235,7 @@ fn a_custody_row_with_nobody_holding_it_is_retracted_before_a_room_can_act_on_it
     sim.step(base());
     sim.step(base());
 
-    // ⭐ **BOTH TERMS, and this is the one that matters**: the row is WRITTEN.
-    // Without it there is nothing for the retraction to retract, and this test
-    // would agree with the duplication bug.
+    // **BOTH TERMS, and this is the one that matters**: the row is WRITTEN.
     let written: Vec<String> = sim
         .world()
         .resource::<AuthoredOccurrences>()
@@ -1350,13 +1250,13 @@ fn a_custody_row_with_nobody_holding_it_is_retracted_before_a_room_can_act_on_it
          home room is free to author a second copy of it; ledger was {written:?}"
     );
 
-    // ⚠ **NOT a fresh process, and this comment said it was.** Nothing here is
+    // **NOT a fresh process, and this comment said it was.** Nothing here is
     // serialised, no second app is built and no durable adopter runs — what is
     // exercised is the LIVE projection, in one world, when possession stops being
     // true. That is a real property and it is this test's whole subject; the
     // save/load version of the question is
     // `a_save_remembers_where_you_left_things::a_save_taken_mid_possession_does_not_delete_the_enemy_in_a_fresh_process`,
-    // which uses the file and a real boot. ⛔ a test that names a road it does not
+    // which uses the file and a real boot. a test that names a road it does not
     // drive is worse than one that names none: the next reader stops looking.
     *sim.world_mut().resource_mut::<PossessionState>() = PossessionState::default();
     sim.step(base());
@@ -1382,20 +1282,12 @@ fn a_custody_row_with_nobody_holding_it_is_retracted_before_a_room_can_act_on_it
 
 /// **A MOUNT YOU ARE RIDING GOES THROUGH THE DOOR WITH YOU.**
 ///
-/// ⛔⛔ **the third population of one rule, and it was the last one still
-/// broken.** An object in a travelling body's custody rides across; a possessed
-/// body itself rides across; a MOUNT the possessed body is sitting on did not —
-/// it is an authored room actor, nothing suspended its residency, and the room
-/// change retired it at the door. Measured in `pirate_sky_lookout`: the rider
-/// arrived in `pirate_cove`, `mount_alive=false`, and the rider still carried
-/// `RidingOn` naming the dead mount.
-///
-/// ⭐ **the rule is TRANSITIVE and this is what makes it so.** The mount is in
+/// **the rule is TRANSITIVE and this is what makes it so.** The mount is in
 /// its rider's custody exactly when that rider is itself not a `RoomResident` —
 /// which is true while a participant is driving it. An AI-piloted sky rider is
 /// room furniture and stays resident, mount and all.
 ///
-/// ⚠ the fixture aims the MOUNT so the RIDER lands in the door: the transition
+/// the fixture aims the MOUNT so the RIDER lands in the door: the transition
 /// tests the controlled subject's box, and `sync_riders_to_mounts` snaps the
 /// rider to a saddle 77 px above the mount's centre. Placing the mount in the
 /// door puts the rider above it, which is why a one-shot placement never crosses.
@@ -1525,18 +1417,12 @@ fn a_mount_you_are_riding_crosses_the_door_with_you() {
 
 /// **EVERYTHING ATTACHED TO A TRAVELLER CROSSES WITH IT, THREE LINKS DEEP.**
 ///
-/// `gnu_ton_arena` authors a boss riding a mount, and that mount has hands. So
-/// possessing the boss makes the chain **rider → mount → limbs**, and each link
-/// is a separate relation (`RidingOn`, then `Limb`). Measured before this test
-/// passed: the rider and the mount crossed into `hall_of_bosses` and the mount
-/// arrived HANDLESS — `limbs_alive=[false, false]`.
-///
-/// ⭐ **this is the test that forced a FIXPOINT rather than a third ordered
+/// **this is the test that forced a FIXPOINT rather than a third ordered
 /// arm.** An ordered pass (possessed, then mounts, then limbs) happens to be
 /// right for this depth and encodes it; content chooses the depth, so the
 /// closure iterates until nothing changes.
 ///
-/// ⚠ the fixture aims the MOUNT so the RIDER lands in the door — the transition
+/// the fixture aims the MOUNT so the RIDER lands in the door — the transition
 /// tests the controlled subject's box and the rider is snapped to a saddle above
 /// the mount.
 #[test]
@@ -1664,7 +1550,7 @@ fn a_limbed_mount_crosses_the_door_with_all_of_its_parts() {
 /// **THE WHOLE ATTACHMENT CLOSURE JOINS THE OCCURRENCE LEDGER, so no part of it
 /// can be re-authored while somebody is carrying it.**
 ///
-/// ⭐ **this is the property that makes the duplication fix cover every
+/// **this is the property that makes the duplication fix cover every
 /// population at once, and it is worth pinning separately from the crossing.**
 /// `body_custody::project_body_custody` marks the closure `InCustodyOf`;
 /// `project_custody_onto_authored_occurrences` then records every marked
@@ -1677,7 +1563,7 @@ fn a_limbed_mount_crosses_the_door_with_all_of_its_parts() {
 /// FOUR identities appear, including the limbs' own
 /// `placement:EnemySpawn-6836/0` and `/1`.
 ///
-/// ⚠ the second crossing is deliberate. The door out of `hall_of_bosses` does
+/// the second crossing is deliberate. The door out of `hall_of_bosses` does
 /// not lead back, so this is not a round trip — it is two transitions while
 /// ridden, which is the stronger statement the geometry actually supports: the
 /// mount is still one occurrence after both.
@@ -1832,7 +1718,7 @@ fn the_whole_attachment_closure_is_recorded_as_being_in_custody() {
 
 /// Every authored id in a room set, with the rooms that claim it.
 ///
-/// ⚠ **`LoadingZone` ids are deliberately excluded**, matching
+/// **`LoadingZone` ids are deliberately excluded**, matching
 /// `validate.placement_id_collision`'s own exemption: a zone's `target_zone`
 /// resolves within its `target_room`, so `return_door` naming a zone in seven
 /// rooms is correct rather than a collision. Every other authored kind lands in
@@ -1861,21 +1747,19 @@ fn authored_id_owners(
 /// **NO TWO ROOMS ANYWHERE IN THE LOADED WORLD AUTHOR ONE ID — checked on the
 /// MERGED set, which is the half the file validator cannot see.**
 ///
-/// ⛔⛔ **`SimId::placement(id)` is a GLOBAL namespace and uniqueness was only
-/// ever checked PER FILE.** D125 records the gap in its own words: *"a
-/// cross-WORLD collision is possible in principle (measured 0), and checking it
-/// would need every world loaded at once, which this validator does not do."*
-/// The RUNTIME does exactly that — the boot log says
-/// `merged 11 level(s) from secondary world 'world.intro_ldtk'` — so the merged
-/// `RoomSet` is the artifact where the question is answerable, and this asks it
-/// there.
+/// **`SimId:placement(id)` is a GLOBAL namespace and uniqueness was only ever checked PER
+/// FILE.** records the gap in its own words: *"a cross-WORLD collision is possible in principle
+/// (measured 0), and checking it would need every world loaded at once, which this validator
+/// does not do."* The RUNTIME does exactly that — the boot log says `merged 11 level(s) from
+/// secondary world 'world.intro_ldtk'` — so the merged `RoomSet` is the artifact where the
+/// question is answerable, and this asks it there.
 ///
 /// What a collision would cost: `OccurrenceContinuity` keys dispositions on
 /// `SimId`, so one id claimed by two rooms means one row speaking for two
 /// things. Carry either out of its room and the ledger suppresses BOTH on
 /// rebuild — the object in your hands and a stranger two worlds away.
 ///
-/// ⚠ **the self-check below is not decoration.** A guard that is green on all
+/// **the self-check below is not decoration.** A guard that is green on all
 /// real data is indistinguishable from one that cannot fire, and this one is
 /// green on every shipped world. So the same detector is run against a synthetic
 /// pair that DOES collide, in the same test, and must report it.
@@ -1895,7 +1779,7 @@ fn no_two_rooms_in_the_merged_world_author_the_same_id() {
         (set.rooms.len(), authored_id_owners(set))
     };
 
-    // ⭐ the zero floor, in BOTH dimensions: a scan that loaded one room, or a
+    // the zero floor, in BOTH dimensions: a scan that loaded one room, or a
     // room set whose authored ids stopped being readable, would otherwise report
     // "no collisions" over almost nothing.
     assert!(
@@ -1942,18 +1826,10 @@ fn no_two_rooms_in_the_merged_world_author_the_same_id() {
 /// **Letting go of a driven body in a room that is not its own hands you back a
 /// body IN THAT ROOM, and leaves one of the actor.**
 ///
-/// ⭐ **written to catch a defect that turned out not to exist, and kept because
-/// what it measures is load-bearing and nothing else measures it.** The worry
-/// was that possession's travel story ends badly: you possess an actor, walk IT
-/// through a door, and let go over there. Two things could go wrong and neither
-/// does. Your own avatar is session-scoped, so the door does not retire it —
-/// but it also does not come along, and mid-possession it really is sitting at
-/// the PREVIOUS room's coordinates (measured: the driven body at `(970, 386)`
-/// in `central_hub_complex` while the avatar was still at `(807, 1207)`, some
-/// 820 units away in `vertical_shaft`). Letting go puts it on the body it let
-/// go of, wherever that body is. That reposition is the whole assertion below.
+/// Two things could go wrong and neither does. Letting go puts it on the body it let go of,
+/// wherever that body is. That reposition is the whole assertion below.
 ///
-/// ⭐ **`release_possession` performs the reposition ITSELF**, and it is worth
+/// **`release_possession` performs the reposition ITSELF**, and it is worth
 /// naming because this comment said the opposite for a while. Its last act is a
 /// `transit_body(.., actor_aabb.center, TransitVelocity::Zero)` on the home
 /// avatar — *"the vacate-exit is a scripted teleport arriving at rest"*, the
@@ -1961,17 +1837,17 @@ fn no_two_rooms_in_the_merged_world_author_the_same_id() {
 /// let go of, wherever that body is, and no downstream fetch or out-of-bounds
 /// rescue is involved.
 ///
-/// ⛔ **the misreading is instructive: the system's own doc says "RELEASE TOUCHES
+/// **the misreading is instructive: the system's own doc says "RELEASE TOUCHES
 /// NO SCOPE", and scope is not position.** A fixture that went looking for a
 /// "something downstream" would have found nothing, because there is nothing.
 ///
-/// ⛔ **the stale position is asserted too, and that is the point.** "The avatar
+/// **the stale position is asserted too, and that is the point.** "The avatar
 /// is near the released body" is satisfied by an avatar that was never
 /// anywhere else, so the distance it TRAVELLED is checked as well; a release
 /// that stopped repositioning would leave it 820 units away in a room that is
 /// no longer loaded, and only the second term would notice.
 ///
-/// ⛔ **it deliberately does not assert which room the ACTOR ends up in.**
+/// **it deliberately does not assert which room the ACTOR ends up in.**
 /// Residency is "scoped to whatever room is active", not to a named one, so a
 /// released actor becomes an ordinary resident of the room it was let go in and
 /// is retired when that room unloads, after which its authored record speaks for
@@ -2085,13 +1961,10 @@ fn an_actor_released_in_a_foreign_room_leaves_one_of_it_and_a_body_to_drive() {
             .map(|k| k.pos)
             .expect("a live body has kinematics")
     };
-    // ⭐ **let go somewhere the arrival point is NOT, and this is load-bearing.**
-    // Released at the door you come through, "your avatar is fetched to the body
-    // you let go of" and "your avatar is reset to the room's spawn" put you in
-    // the same place, and the assertions below cannot tell them apart. Measured
-    // both ways: released here at x=1500 the avatar arrives at x=1500, so it
-    // follows the BODY. Move this back to the arrival point and the test stops
-    // discriminating.
+    // **let go somewhere the arrival point is NOT, and this is load-bearing.** Released at the door
+    // you come through, "your avatar is fetched to the body you let go of" and "your avatar is
+    // reset to the room's spawn" put you in the same place, and the assertions below cannot tell
+    // them apart. Move this back to the arrival point and the test stops discriminating.
     place_body(&mut sim, actor, (1500.0, 386.0));
     for _ in 0..4 {
         sim.step(base());

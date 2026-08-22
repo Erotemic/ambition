@@ -1,12 +1,4 @@
 #!/usr/bin/env bash
-# Install and register the rust-analyzer-mcp server
-# (https://github.com/zeenix/rust-analyzer-mcp)
-# so Claude Code can query this repository's Rust language-server state directly.
-#
-# ⚠ **On Claude Code, prefer the native LSP plugin to this bridge.**
-#
-#     /plugin install rust-analyzer-lsp@claude-plugins-official
-#
 # It launches `rust-analyzer` directly, so it maintains real document versions
 # and sends proper change notifications. This bridge never sends `didChange`:
 # it opens a document once and answers every later position query from the
@@ -19,7 +11,7 @@
 # tell. Discard any response containing that hint and ask again.
 #
 # This script remains for clients that genuinely lack native LSP integration
-# (Codex and friends). If you are fixing it rather than replacing it, the
+#. If you are fixing it rather than replacing it, the
 # upstream changes worth making are: make check-on-save configurable and default
 # it OFF, drop the synthetic `didSave`, drop the unconditional workspace reload,
 # implement `didChange`, and pin the installed revision.
@@ -39,7 +31,7 @@ SERVER_NAME="${SERVER_NAME:-rust-analyzer}"
 MCP_BIN="${MCP_BIN:-rust-analyzer-mcp}"
 CARGO_PACKAGE="${CARGO_PACKAGE:-rust-analyzer-mcp}"
 
-# ⚠ **The server's cargo work MUST NOT share the project's target directory.**
+# **The server's cargo work MUST NOT share the project's target directory.**
 #
 # `rust-analyzer-mcp` hardcodes `checkOnSave.enable = true` and `allTargets =
 # true`, sends that config at initialize AND again via
@@ -50,12 +42,7 @@ CARGO_PACKAGE="${CARGO_PACKAGE:-rust-analyzer-mcp}"
 # work). So a `cargo check --workspace` fires on first touch of a file and holds
 # the Cargo target-dir lock.
 #
-# Measured cost on this repo, 2026-07-30: an agent's own `cargo test` sat behind
-# the server's check while ~10-minute builds ran, and killing the server was the
-# fix. `cargo.targetDir` is rust-analyzer's documented mechanism for exactly this
-# — the bridge does not expose it, but `CARGO_TARGET_DIR` in the environment
-# reaches the same cargo. The cost is duplicated artifacts, which the upstream
-# docs call the expected trade.
+# The cost is duplicated artifacts, which the upstream docs call the expected trade.
 #
 # Outside the repo on purpose, like `.cargo/config.toml`'s own target dir: a
 # second target tree inside the working copy is noise in every `git status` and
@@ -265,8 +252,6 @@ reinstall_server() {
     resolve_server_binary
 }
 
-# Build the exact command registered for one Claude launch directory.
-#
 # local/user scope intentionally use absolute executable and workspace paths.
 # project scope must be portable, so it derives the checkout root from
 # CLAUDE_PROJECT_DIR and uses the executable name from the normal Cargo PATH.
@@ -731,8 +716,6 @@ main() {
     check_cargo_artifacts
     install_server
 
-    # Validate before writing any Claude configuration, so a failed setup does not
-    # leave behind a known-broken registration.
     smoke_test
     register_server
     print_next_steps

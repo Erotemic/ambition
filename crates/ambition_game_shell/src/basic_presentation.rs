@@ -179,10 +179,7 @@ fn basic_shell_pointer(
     mut launcher_commands: MessageWriter<ShellLauncherCommand>,
     mut sfx: SfxWriter,
 ) {
-    // HOVER moves the cursor. Jon, on the title screen: "mouse over the icons in
-    // the game select title screen does nothing." It did nothing because the
-    // renderer only ever translated `Pressed` — `MenuActionPreviewed` existed,
-    // documented as the hover message, with no emitter and no reader.
+    // HOVER moves the cursor.
     //
     // Hovering is not choosing, so this is `Focus` rather than `Activate`: a
     // launcher that started a game because the pointer crossed a row on its way
@@ -513,11 +510,6 @@ fn spawn_launcher_menu(
         // The navigation cursor addresses only available entries, so map that
         // cursor onto the full list when deciding what to highlight.
         let exit_rows = usize::from(presentation.exit_label.is_some());
-        // TOUCH-SIZED rows. Jon: "Buttons need to be bigger and touch
-        // optimized." The cap was 12% of the screen height and the width 68%,
-        // which is a comfortable mouse target and a poor thumb one — a phone
-        // holds the device in the hand that has to reach the row.
-        //
         // The cap only binds when there are FEW experiences, which is the case
         // that was too small: three games shared a budget sized for eight. With
         // many rows the divisor still wins and nothing overflows, so this makes
@@ -589,10 +581,7 @@ fn spawn_launcher_menu(
             );
         }
         if !presentation.footer.is_empty() {
-            // A footer stays smaller than the rows; it is not supposed to
-            // compete with them. Nudged up from 2.6 because at 1080p that was
-            // 28px against 20px row labels, which read as competing rather than
-            // as subordinate once the units were fixed.
+            // A footer stays smaller than the rows; it is not supposed to compete with them.
             page.text(
                 50.0,
                 92.0,
@@ -604,7 +593,6 @@ fn spawn_launcher_menu(
         }
     }
 
-    // Jon: "'Play' needs to be 'Choose Game'." This tab heads the game-SELECT
     // screen, where nothing is being played yet — the verb belongs on the
     // confirm button (which still says "Play" on an experience row), and the
     // heading should say what the screen is for.
@@ -708,16 +696,12 @@ fn drive_basic_sequence_card(
 
 /// **Move the launcher highlight in place.**
 ///
-/// ⛔ the cursor used to be part of the frame key, so an arrow press respawned
-/// the entire launcher tree. That threw away hover state and any per-frame
-/// animation, and it is why a one-frame text defect read as a whole-UI blink.
-///
 /// The rows already carry their selection index — `BasicLauncherAction(i)`, put
 /// there so pointer activation lands in the same command the cursor produces —
 /// so nothing new has to be tracked. This writes `MenuVisualState`, and the
 /// menu crate's `restyle_bevy_ui_menu_controls` recolours what changed.
 ///
-/// ⚠ **writes only on a real change.** Bevy stamps the change tick on any `&mut`
+/// **writes only on a real change.** Bevy stamps the change tick on any `&mut`
 /// deref, so touching every row every frame would defeat the `Changed<..>` query
 /// this is paired with and restore the churn in a quieter form.
 fn follow_the_launcher_cursor(
@@ -745,11 +729,9 @@ fn follow_the_launcher_cursor(
         }
         visual.selected = selected;
         visual.focused = selected;
-        // ⚠ **the MARKER moves with the state.** `BevyUiMenuFocused` says "this
-        // is the cursor" and is set at spawn; a rebuild used to be the only way
-        // it changed. Nothing outside the menu crate reads it today, which is
-        // exactly why leaving it pointing at the wrong row would be a trap
-        // rather than a bug — the first reader to trust it would be wrong.
+        // Nothing outside the menu crate reads it today, which is exactly why leaving it pointing
+        // at the wrong row would be a trap rather than a bug — the first reader to trust it would
+        // be wrong.
         if selected {
             commands
                 .entity(entity)
@@ -769,7 +751,7 @@ fn shell_frame_key(
     sequence: &ActiveShellSequence,
 ) -> String {
     if launcher.active {
-        // ⛔ **`launcher.selected` is DELIBERATELY not here.** It was, and an
+        // **`launcher.selected` is DELIBERATELY not here.** It was, and an
         // arrow press therefore despawned and respawned every node in the
         // launcher — throwing away hover state and any per-frame animation, and
         // making a one-frame text defect visible as a whole-UI blink.
@@ -1007,7 +989,7 @@ mod semantic_input_tests {
         // The tap path: the card surface's pointer press flows through the
         // shared bridge into the SAME consumer command.
         //
-        // ⚠ press THEN release. The bridge activates on the way up, so a tap is
+        // press THEN release. The bridge activates on the way up, so a tap is
         // two `Interaction` states — `Pressed`, then the `Hovered` Bevy reports
         // when a pointer comes up still over the control.
         with_active_card(&mut app);
@@ -1125,9 +1107,6 @@ mod pointer_hover_tests {
             .collect()
     }
 
-    /// **Jon: "mouse over the icons in the game select title screen does
-    /// nothing."**
-    ///
     /// It did nothing because the renderer translated only `Interaction::Pressed`.
     /// `MenuActionPreviewed` was defined, documented as the hover message, and had
     /// no emitter and no reader anywhere in the tree — a vocabulary with no
@@ -1240,14 +1219,9 @@ mod cursor_moves_without_a_rebuild_tests {
 
     /// **The cursor moves and the rows are the SAME entities.**
     ///
-    /// ⛔ this is the whole row. `shell_frame_key` included `launcher.selected`,
-    /// so an arrow press despawned and respawned every node in the tree — which
-    /// throws away hover state and any per-frame animation a menu might want,
-    /// and is why a one-frame text defect was visible as a whole-UI blink.
+    /// this is the whole row.
     ///
-    /// Asserting the ENTITY IDS is the point. A test that only checked which row
-    /// reads selected would pass just as well on a tree that had been rebuilt,
-    /// which is the thing being removed.
+    /// Asserting the ENTITY IDS is the point.
     #[test]
     fn moving_the_cursor_restyles_the_existing_rows_instead_of_respawning_them() {
         let (mut app, first, second) = app_with_two_rows();
@@ -1270,11 +1244,8 @@ mod cursor_moves_without_a_rebuild_tests {
 
     /// **And the REBUILD is what actually went away.**
     ///
-    /// The two tests above prove the highlight can move in place; this proves it
-    /// has to. `shell_frame_key` is the only thing that decides whether
-    /// `render_basic_shell` despawns the tree, and `launcher.selected` used to
-    /// be part of it. If it comes back, the in-place path still works and the
-    /// churn returns silently — so the key itself is the assertion.
+    /// If it comes back, the in-place path still works and the churn returns silently — so the key
+    /// itself is the assertion.
     #[test]
     fn the_frame_key_does_not_change_when_only_the_cursor_moves() {
         use crate::{ActiveShellSequence, ShellLaunchCatalog, ShellLauncherPresentation};
@@ -1331,7 +1302,7 @@ mod cursor_moves_without_a_rebuild_tests {
 
     /// The marker that says "this is the cursor" moves with the state.
     ///
-    /// ⚠ nothing outside the menu crate reads `BevyUiMenuFocused` today, which
+    /// nothing outside the menu crate reads `BevyUiMenuFocused` today, which
     /// is exactly why a stale one would be a trap rather than a bug: the first
     /// reader to trust it would be wrong, and nothing would have told them.
     #[test]

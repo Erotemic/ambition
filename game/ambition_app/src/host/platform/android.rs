@@ -29,18 +29,12 @@ use bevy::prelude::*;
 #[cfg(target_os = "android")]
 use bevy::window::{AppLifecycle, WindowFocused, WindowOccluded};
 
-// ⭐ DELIBERATELY UN-GATED, and it used to be behind `cfg(target_os =
-// "android")`. Nothing about `GameMode` is platform-specific, and the suspend
-// DECISION below is written in terms of it, so gating this `use` would gate the
-// only part of this module a desktop test can reach.
+// Nothing about `GameMode` is platform-specific, and the suspend DECISION below is written in terms
+// of it, so gating this `use` would gate the only part of this module a desktop test can reach.
 use ambition_platformer2d::platformer::schedule::GameMode;
 
-// Bevy's CosmicFontSystem is initialized with an empty fontdb (no system
-// fonts loaded). On Android, /system/fonts/ holds Roboto etc., which
-// fontdb won't find on its own. We seed it at Startup so that cosmic-text
-// always has at least one font face before text shaping can be triggered —
-// otherwise it panics with "no default font found" during the first frame
-// before the async asset server delivers the game's custom fonts.
+// Bevy's CosmicFontSystem is initialized with an empty fontdb (no system fonts loaded). On
+// Android, /system/fonts/ holds Roboto etc., which fontdb won't find on its own.
 #[cfg(target_os = "android")]
 fn seed_android_system_fonts(mut font_system: ResMut<bevy::text::CosmicFontSystem>) {
     font_system.0.db_mut().load_fonts_dir("/system/fonts");
@@ -156,20 +150,13 @@ fn detect_android_suspend_state(
             was,
             next
         );
-        // The same edge on the marker channel, carrying the FRAME. The tracing
-        // line above is what a 2026-08-08 device log showed for a spurious
-        // 0.6s suspend/resume pair, and it could not be ordered against the
-        // menu close that happened between them because neither line knew what
-        // frame it was on.
+        // The same edge on the marker channel, carrying the FRAME.
         ambition_platformer2d::platformer::world_log::world_event(format_args!(
             "android-suspend-edge suspended {was} -> {next}"
         ));
     }
 }
 
-/// **What a suspend/resume edge decided** — the whole output of
-/// [`decide_suspend`], one variant per branch the Bevy system used to inline.
-///
 /// The variants carry only what the caller cannot already see: the observed
 /// mode is an input, so it is never repeated here.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -192,36 +179,22 @@ pub enum SuspendDecision {
 
 /// **The Android suspend/resume decision, with no Android in it.**
 ///
-/// ⭐ **extracted 2026-08-09 so the fix below could be executed at least once.**
-/// The fix landed blind — no NDK on this machine, so every
-/// `#[cfg(target_os = "android")]` item in this file is not merely untested but
-/// UNCOMPILED. The standing excuse ("this platform cannot be tested here") was
-/// true of the GLUE and false of the DECISION: `AppLifecycle`, `NextState` and
-/// `world_log` are how the decision is *delivered*, not how it is *made*. This
-/// function is un-gated, so the desktop test suite executes it.
+/// The standing excuse ("this platform cannot be tested here") was true of the GLUE and false of
+/// the DECISION: `AppLifecycle`, `NextState` and `world_log` are how the decision is *delivered*,
+/// not how it is *made*. This function is un-gated, so the desktop test suite executes it.
 ///
-/// ⚠ **`saved` is `&mut`, not a value, and that is the point.** The bug this
-/// guards was a `.take()` — a mutation of the saved slot — so a signature that
-/// left the slot in the caller would put the defect back outside the test.
-/// Peeking and clearing only on the restoring branch IS the fix; it has to live
-/// in the unit under test.
+/// Peeking and clearing only on the restoring branch IS the fix; it has to live in the unit under
+/// test.
 ///
-/// ⚠ **and the guard refuses more often than it looks, because `NextState` is
-/// DEFERRED.** The suspend edge calls `next_mode.set(GameMode::Paused)` and the
-/// transition applies later. On a spurious short suspend/resume pair — a 0.6 s
-/// one is in the 2026-08-08 device log — the resume edge can run while
-/// `observed` is still the PRE-pause mode, so the restore is refused and the
-/// deferred `Paused` lands immediately afterwards. Under `.take()` that left
-/// the game paused with the only thing that could unpause it already discarded,
-/// which matches Jon's report exactly: *"I can still do the menu … but I can't
-/// move my character."*
+/// **and the guard refuses more often than it looks, because `NextState` is DEFERRED.** The suspend
+/// edge calls `next_mode.set(GameMode::Paused)` and the transition applies later.
 ///
 /// Keeping the value is safe in the other direction: a genuinely navigated-away
 /// user either suspends again (the capture branch overwrites the slot) or
 /// eventually resumes from the forced `Paused`, which is precisely when
 /// restoring is what they want.
 ///
-/// ⚠ **THIS MAKES THE FREEZE RECOVERABLE, NOT IMPOSSIBLE.** The caller
+/// **THIS MAKES THE FREEZE RECOVERABLE, NOT IMPOSSIBLE.** The caller
 /// early-returns unless the suspended bit just changed, so a refused restore is
 /// only retried on the NEXT suspend/resume edge — background and foreground
 /// once more and the mode comes back. A player who never backgrounds again is
@@ -261,15 +234,12 @@ pub fn decide_suspend(
     }
 }
 
-/// On the suspend edge, force `GameMode::Paused` and remember the mode
-/// we came from. On the resume edge, restore that mode — but only if
-/// we're still sitting in the `Paused` we forced, so we never stomp a
-/// menu / dialogue / transition the user navigated into while the app
-/// was backgrounded. This mirrors the audio channels, which already
-/// auto-resume on the same edge; without it the game stays frozen with
-/// no visible affordance to un-pause.
+/// On the resume edge, restore that mode — but only if we're still sitting in the `Paused` we
+/// forced, so we never stomp a menu / dialogue / transition the user navigated into while the
+/// app was backgrounded. This mirrors the audio channels, which already auto-resume on the same
+/// edge; without it the game stays frozen with no visible affordance to un-pause.
 ///
-/// ⛔ **GLUE ONLY.** Every branch condition lives in [`decide_suspend`], which is
+/// **GLUE ONLY.** Every branch condition lives in [`decide_suspend`], which is
 /// un-gated and unit-tested; this reads the world, delivers the decision, and
 /// writes the world log. What is still unverifiable here is whether Android
 /// delivers the lifecycle events in the order the decision assumes — that needs
@@ -320,7 +290,7 @@ fn apply_android_suspend_to_game_mode(
             next_mode.set(restore_to);
         }
         SuspendDecision::RestoreRefused { saved } => {
-            // ⭐ THE LINE THIS WHOLE PROBE EXISTS FOR — and it no longer
+            // THE LINE THIS WHOLE PROBE EXISTS FOR — and it no longer
             // reports a loss. The guard refused, and the saved mode is KEPT for
             // the next resume edge instead of being discarded. A freeze report
             // still ordered against this line answers the same question; it
@@ -392,25 +362,13 @@ mod audio_lifecycle {
 
 /// **The Android suspend decision, executed on a machine with no Android.**
 ///
-/// ⛔ **this proves nothing about Android and must not be reported as if it
-/// did.** No NDK, no `adb`; every `#[cfg(target_os = "android")]` item in this
-/// file is still uncompiled here. What these tests establish is that the
-/// DECISION TABLE is the one the 2026-08-08 device log calls for. Whether
-/// Android delivers the lifecycle events in that order is a separate claim and
-/// needs hardware.
+/// **this proves nothing about Android and must not be reported as if it did.** No NDK, no `adb`;
+/// every `#[cfg(target_os = "android")]` item in this file is still uncompiled here. Whether
+/// Android delivers the lifecycle events in that order is a separate claim and needs hardware.
 #[cfg(test)]
 mod tests {
     use super::{decide_suspend, GameMode, SuspendDecision};
 
-    /// **THE FIX, EXECUTED.** The scenario the fix's own comment describes: a
-    /// spurious short suspend/resume pair where the resume edge runs before the
-    /// deferred `NextState(Paused)` has landed, so the guard refuses.
-    ///
-    /// ⛔ **the middle assertion is the whole test.** Under the pre-fix
-    /// `.take()` the refusal consumed the saved mode, so the third line had
-    /// nothing to restore and the player was left in a `Paused` nothing could
-    /// leave — Jon's *"I can still do the menu … but I can't move my
-    /// character."*
     #[test]
     fn a_refused_restore_keeps_the_saved_mode_for_the_next_edge() {
         let mut saved = None;

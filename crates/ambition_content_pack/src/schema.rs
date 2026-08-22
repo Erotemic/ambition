@@ -22,9 +22,7 @@ use crate::refs::{AssetRequirement, PendingRef};
 pub enum RuntimeDisposition {
     /// Lowered into runtime state by the owning capability.
     Runtime,
-    /// Consumed by tooling only (hall generators, docs, editor metadata). Says
-    /// so explicitly rather than being inferred from "nothing reads it", which
-    /// is indistinguishable from a wiring bug.
+    /// Consumed by tooling only (hall generators, docs, editor metadata).
     AuthoringOnly,
 }
 

@@ -1,6 +1,6 @@
 # mary_o_1_3's NAMED static collision — the pieces `area create` cannot author.
 #
-# ⛔ `area create` LOWERS every `Solid` / `OneWayPlatform` / `BlinkWall` in its
+# `area create` LOWERS every `Solid` / `OneWayPlatform` / `BlinkWall` in its
 # `entities:` list into IntGrid cells, and `int_grid_value_to_block`
 # (crates/ambition_platformer2d_ldtk/src/intgrid.rs) names an IntGrid-derived
 # block `"ldtk solid"` / `"ldtk one-way"`. The author's `name` is DROPPED, with
@@ -30,7 +30,7 @@ level_id: mary_o_1_3
 entities:
   # The cellar the warp tube leads into: an island of masonry hanging in the
   # void under the surface rock, the same shape 1-1's coin vault is.
-  # ⚠ THE CELLAR STARTS AT 736, NOT AT THE PIT. The surface pit is 640..736, and
+  # THE CELLAR STARTS AT 736, NOT AT THE PIT. The surface pit is 640..736, and
   # a cellar floor under it would catch the fall — which turns a death pit into a
   # one-way trip into a room whose only exit is a warp tube. Starting the masonry
   # where segment B starts leaves the pit column open to the bottom of the level,

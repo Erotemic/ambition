@@ -22,13 +22,11 @@ use ambition_app::app::{build_visible_app, VisibleRenderMode};
 
 /// The real startup composition, stepped on a PINNED timestep.
 ///
-/// Startup cards advance on a TIMELINE, so these tests are time-sensitive by
-/// nature. Under Bevy's default `TimeUpdateStrategy::Automatic`, `app.update()`
-/// advances the clock by real elapsed wall-clock — meaning how much of that
-/// timeline a `settle()` covers depends on how busy the machine is. Pinning the
-/// step makes every test here mean the same thing on any machine. (This is the
-/// same defect that made `shell_host_rendered` fail only under load; see
-/// `dev/journals/code_smells.md`.)
+/// Startup cards advance on a TIMELINE, so these tests are time-sensitive by nature. Under
+/// Bevy's default `TimeUpdateStrategy::Automatic`, `app.update()` advances the clock by real
+/// elapsed wall-clock — meaning how much of that timeline a `settle()` covers depends on how
+/// busy the machine is. Pinning the step makes every test here mean the same thing on any
+/// machine.
 fn startup_app() -> App {
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
     app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(
@@ -94,7 +92,7 @@ fn drive_synthetic_startup_input(
     // processing does for a physical pad. Leafwing computes a button's value
     // from the ANALOG side and releases any button whose value is ~0, so a
     // digital-only press is silently dead at the ActionState (see
-    // dev/journals/lessons_learned.md, 2026-07-20).
+    // dev/journals/lessons_learned.md, ).
     let controller_confirm = std::mem::take(&mut input.controller_confirm);
     for mut gamepad in &mut gamepads {
         let south = bevy::input::gamepad::GamepadButton::South;
@@ -339,7 +337,6 @@ fn the_startup_run_in_plays_the_engine_card_then_the_authorship_card() {
 
 /// **The title music plays THROUGH the handoff instead of restarting on it.**
 ///
-/// Jon, 2026-08-03: *"the music restarts when it transitions to the game menu …
 /// I want the music to play uninterrupted in the title sequence."*
 ///
 /// The track NAME cannot answer this — it is the same either way — so the
@@ -354,7 +351,7 @@ fn the_title_music_survives_the_handoff_from_the_cards_to_the_launcher() {
     shell_host::compose_ambition_startup_sequence(&mut app);
     settle(&mut app);
 
-    // ⚠ vacuity check FIRST. If the frontend never selected a track, everything
+    // vacuity check FIRST. If the frontend never selected a track, everything
     // below passes over an empty world and proves nothing.
     let playback = app.world().resource::<MusicPlaybackState>();
     let playing = playback.active_track().to_string();
@@ -383,13 +380,9 @@ fn the_title_music_survives_the_handoff_from_the_cards_to_the_launcher() {
 /// The card the run-in schedules is the one the content crate DRAWS, and it
 /// terminates on its own.
 ///
-/// ⛔ this replaced a test that drove the shell's sequence runtime with the
-/// authored image manifest. That path is gone: the startup card is no longer an
-/// image sequence, so the old test's subject stopped existing rather than
-/// stopping being covered. What still matters — the segment auto-advances and
-/// hands off — is asserted by `startup_card_plays_then_hands_off_to_the_launcher`
-/// and `startup_naturally_auto_advances_on_the_shipping_timeline` above, against
-/// the real host.
+/// What still matters — the segment auto-advances and hands off — is asserted by
+/// `startup_card_plays_then_hands_off_to_the_launcher` and
+/// `startup_naturally_auto_advances_on_the_shipping_timeline` above, against the real host.
 #[test]
 fn the_drawn_card_declares_a_length_the_run_in_can_schedule() {
     let total = ambition_content::presentation::vanity_card_made_this_meme::made_this_meme_card_duration();

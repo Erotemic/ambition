@@ -1,12 +1,9 @@
 //! Grab-bag of small feature-side helpers — not a cohesive subsystem.
 //!
-//! Collision predicates (`player_is_standing_on`, `approximately_same_aabb`),
-//! plain math (`approach` toward-target clamp, `midpoint`, the zero-safe
-//! `SignumOr`), keyword-based hazard SFX lookup (`hazard_sfx_id`), and
-//! keyword-based hazard SFX lookup. Grep here when
-//! a feature system needs a one-liner; no shared theme beyond that.
-//! (`room_spec_paths` moved to `features::ecs::spawn` — its only consumer;
-//! RoomSpec is world-IR vocabulary combat must not name.)
+//! Collision predicates (`player_is_standing_on`, `approximately_same_aabb`), plain math
+//! (`approach` toward-target clamp, `midpoint`, the zero-safe `SignumOr`), keyword-based hazard
+//! SFX lookup (`hazard_sfx_id`), and keyword-based hazard SFX lookup. Grep here when a feature
+//! system needs a one-liner; no shared theme beyond that.
 
 use super::*;
 
@@ -154,25 +151,8 @@ use ambition_platformer2d_core::BodyShieldState;
 use ambition_vfx::vfx::{SlashKind, SlashPose, VfxMessage};
 use bevy::prelude::MessageWriter;
 
-/// THE one "can this body take a hit right now?" rule, shared by every damage
-/// EMITTER that needs an early-out (hazards, enemy hitboxes, boss volumes,
-/// body-contact, enemy projectiles). Fable review 2026-07-02 §A5: this
-/// predicate was copy-pasted at five emit sites and had already drifted
-/// (the projectile site dropped the parry term). i-frames / dodge-roll /
-/// parry / invincibility gate a PLAYER-side victim; the actor-side victim
-/// consumer applies its own (shield-directional) rule at consume time.
-/// `evading` is the semantic fact (`BodyMotionFacts::evading`) covering EVERY
-/// evade window — the ground roll and the air dodge today — because the timers
-/// themselves are policy-private (ADR 0024) and because a per-maneuver argument
-/// here is an invitation for the next maneuver to reach five of six emit sites.
-/// `invulnerable` is the [`Invulnerability`] reason set off the body's
-/// `BodyHealth` — the SAME value `Health::damage` consults, so an emitter's
-/// early-out and the damage authority can never disagree.
-///
-/// It used to read `BodyOffense::invincible`, a second field meaning the same
-/// thing, and the two DID disagree: the dev inspector reconciled `BodyOffense`
-/// every frame, so a body made untouchable by gameplay was still reported
-/// vulnerable here and took the hit. One fact, one reader.
+/// THE one "can this body take a hit right now?" rule, shared by every damage EMITTER that needs an
+/// early-out (hazards, enemy hitboxes, boss volumes, body-contact, enemy projectiles).
 pub fn body_vulnerable(
     invulnerable: Invulnerability,
     evading: bool,
@@ -182,12 +162,6 @@ pub fn body_vulnerable(
     !invulnerable.any() && !evading && !shield.parrying() && combat.vulnerable()
 }
 
-/// THE one "is this body an intangible corpse?" rule (Jon 2026-07-22: "prevent
-/// intangible things from interacting or presenting in any way"). A body that
-/// carries [`BodyHealth`] and has dropped to zero HP is dead: combat treats it
-/// as absent until it revives or despawns. No swing lands on it, no impact
-/// plays at it, no bark answers it.
-///
 /// This is the SINGLE tangibility gate the damage *detection* layer consults,
 /// so a dead thing is filtered ONCE at every hit boundary rather than relying on
 /// each consume-time resolver to re-check `alive()` (those checks remain as
@@ -206,10 +180,10 @@ pub fn body_is_corpse(health: Option<&ambition_characters::actor::BodyHealth>) -
 /// the guard still covers ([`ambition_platformer2d_core::ShieldTuning::coverage_at`]);
 /// `1.0` covers everything and can never poke.
 ///
-/// ⛔ measured along the body's own gravity axis, not screen Y, so a wall-walker
+/// measured along the body's own gravity axis, not screen Y, so a wall-walker
 /// is poked at the ends of the axis it actually stands on.
 ///
-/// ⚠ **separate from [`shield_blocks_hit`] rather than folded into it.** That
+/// **separate from [`shield_blocks_hit`] rather than folded into it.** That
 /// function answers *which SIDE can this guard face*, which is a different
 /// question from *how much of me does it still cover* — one is about facing and
 /// the other about the resource. A single predicate would make a poke look like
@@ -253,33 +227,16 @@ pub fn shield_blocks_hit(
     local_side_delta.signum() == facing.signum()
 }
 
-/// ⛔ THE DRAWN EFFECT DOES NOT OVERSHOOT THE VOLUME. Ever.
+/// THE DRAWN EFFECT DOES NOT OVERSHOOT THE VOLUME. Ever.
 ///
-/// This was 1.15 — a "presentation margin" that scaled the swing shape up by
-/// 15% in every direction after deriving it from the volume, so the quad the
-/// art is stretched into was always larger than the polygon that hurts. Jon's
-/// rule runs the other way: the hitbox may slightly overreach the effect, but
-/// 100% of what is drawn must hit, because "the player should never feel like
-/// they should have hit when they didn't".
-///
-/// ⚠ It also fooled an instrument. A harness that reproduced `swing_shape` but
-/// not this line measured the art against the UNSCALED quad and reported 0.00%
-/// of the slash outside its polygon, in the same frame where a picture of the
-/// same swing plainly showed white ink past the outline. Two agreeing numbers
-/// and one disagreeing image: the image was right. If a margin is ever wanted
-/// again it belongs on the POLYGON, in the generator, where the art can be
-/// authored against it.
+/// This was 1.15 — a "presentation margin" that scaled the swing shape up by 15% in every direction
+/// after deriving it from the volume, so the quad the art is stretched into was always larger than
+/// the polygon that hurts.
 const SLASH_ART_MARGIN: f32 = 1.0;
 
 /// THE single melee-slash effect emit. EVERY body's melee — the player AND any
 /// brain-driven actor — draws its swing through this one function, so the slash
 /// visual has exactly ONE definition.
-///
-/// `volume` is the strike's resolved world volume — the SAME one that deals the
-/// damage — and `from` the striking body's position, which is what says which
-/// end of the shape is rooted at the body. The projection to a drawable swing
-/// lives in [`ae::SwingShape`], so the hull is measured once, here, rather than
-/// approximated by every consumer.
 ///
 /// ONE BODY, ONE PATH: do NOT add another `VfxMessage::Slash` site — call this.
 /// The former two-state-machine fork (the flat `MeleeSwing`/`BodyMelee` driver
@@ -313,13 +270,10 @@ pub fn emit_melee_slash(
 /// Damage at or above this value reads as a committed/heavy contact for the
 /// canonical robot blade. Ordinary jabs and default slashes remain light.
 ///
-/// ⚠ **NOT REACHABLE BY ANY SHIPPED ATTACK TODAY.** The robot player's only
-/// slash comes from `default_player_action_set` at `damage: 1` on a prefab whose
-/// `smash_charge_mult` is `1.0`, and no equipment path scales melee damage — so
-/// every strike resolves LIGHT and the rendered `…flesh.deep` / `…metal.gong`
-/// samples cannot currently play. This threshold is the hook a charged smash or
-/// a heavier authored blade lands on; until one exists, two authored sounds are
-/// visible unfinished work rather than a silent binding failure.
+/// **NOT REACHABLE BY ANY SHIPPED ATTACK TODAY.** The robot player's only slash comes from
+/// `default_player_action_set` at `damage: 1` on a prefab whose `smash_charge_mult` is `1.0`,
+/// and no equipment path scales melee damage — so every strike resolves LIGHT and the rendered
+/// `…flesh.deep` / `…metal.gong` samples cannot currently play.
 const PLAYER_ROBOT_DEEP_IMPACT_DAMAGE: i32 = 3;
 
 /// Resolve an attack-owned strike id against the victim's material profile and
@@ -596,10 +550,6 @@ mod hit_feedback_tests {
         );
     }
 
-    /// The CM8 bug: an enemy struck by another enemy used to play the player's
-    /// `PLAYER_DAMAGE` sound and the red "you got hurt" burst. The ENEMY profile
-    /// carries neither, so no `is_player`-flavored payload can leak onto a
-    /// non-player victim.
     #[test]
     fn an_enemy_victim_never_throws_the_player_hurt_burst() {
         // Unauthored enemy-vs-enemy hit (no strike sound → the victim's default).
@@ -645,9 +595,9 @@ mod hit_feedback_tests {
     }
 }
 
-/// **THE FOUR REASONS A BODY CANNOT BE HIT, each one alone.** (campaign P4.29)
+/// **THE FOUR REASONS A BODY CANNOT BE HIT, each one alone.**
 ///
-/// ⛔⛔ **`body_vulnerable` had SIX production callers and no test.** It is the
+/// **`body_vulnerable` had SIX production callers and no test.** It is the
 /// single gate every damage boundary consults — hazards, empowerment, the actor
 /// update, the damage resolver, the avatar's body integration — and the one that
 /// decides whether a PARRY works at all, because a parry is not a block: a
@@ -655,11 +605,11 @@ mod hit_feedback_tests {
 /// i-frame. That distinction is the whole of *"does the parry window read"*, and
 /// nothing asserted it.
 ///
-/// ⭐ **each term is toggled ALONE against an otherwise-vulnerable body**, which
+/// **each term is toggled ALONE against an otherwise-vulnerable body**, which
 /// is what makes this a test of the GATE rather than of one scenario: a gate
 /// that had lost any single term would still pass a test that raised two.
 ///
-/// ⚠ `parrying()` is `active && parry_window_timer > 0.0`, so the last case is
+/// `parrying()` is `active && parry_window_timer > 0.0`, so the last case is
 /// the one that separates a parry from a held shield — a shield that is up but
 /// past its window leaves the body vulnerable HERE and is caught downstream by
 /// `shield_blocks_hit` instead. Two defences, two gates, different outcomes.
@@ -702,7 +652,7 @@ mod vulnerability_gate_tests {
         );
     }
 
-    /// ⛔ THE POISON that separates the two defences: a shield held past its
+    /// THE POISON that separates the two defences: a shield held past its
     /// parry window is NOT invulnerable here. It may still block, which is
     /// `shield_blocks_hit`'s business downstream and a different outcome
     /// (`Blocked`, with a guard i-frame) from never being hit at all.
@@ -756,7 +706,7 @@ mod poke_tests {
 
     /// **A FULL GUARD COVERS EVERYTHING, A SPENT ONE EXPOSES THE ENDS.**
     ///
-    /// ⛔ the property that makes chip pressure end in a hit rather than in a
+    /// the property that makes chip pressure end in a hit rather than in a
     /// stalemate: hold a shield long enough and the head and the feet come out
     /// from behind it. `coverage >= 1.0` can never poke, which is what keeps
     /// every exploration body — none of which authors a shield resource —
@@ -795,7 +745,7 @@ mod poke_tests {
         assert!(fighter.coverage_at(0.5) < 1.0);
         assert!(fighter.coverage_at(0.5) > fighter.min_coverage);
 
-        // ⛔ the floor: a body with no shield resource is never poked, whatever
+        // the floor: a body with no shield resource is never poked, whatever
         // its integrity reads.
         assert_eq!(ae::ShieldTuning::OFF.coverage_at(0.0), 1.0);
     }

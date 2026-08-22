@@ -652,11 +652,8 @@ fn contact_chase_mode_does_not_need_too_far_trigger() {
     tick_boss_pattern(
         &cfg,
         &mut state,
-        // ⚠ this used to stand the target 20px from the boss's CENTRE and call
-        // it a gap. The boss body is 100 wide, so that target was *inside* it —
-        // the fixture only read as "a gap" while contact was measured between
-        // two points. Stand it clear of the body instead; the claim under test
-        // (no `too_far_distance` needed to start the chase) is unchanged.
+        // Stand it clear of the body instead; the claim under test (no `too_far_distance` needed to
+        // start the chase) is unchanged.
         &macro_ctx(
             ae::Vec2::new(640.0, 400.0),
             ae::Vec2::new(900.0, 400.0),
@@ -1009,9 +1006,8 @@ fn bd1_pattern(phase1: BossPattern) -> BossAttackPattern {
     }
 }
 
-/// **`Select`, through the ticker.** The player is NEAR, so only the near arm is
-/// eligible, and the boss plays it — whatever the roll. The cursor never sees a
-/// `Select`: resolution removed it before the first tick of the pass.
+/// **`Select`, through the ticker.** The player is NEAR, so only the near arm is eligible, and
+/// the boss plays it — whatever the roll.
 #[test]
 fn bd1_a_select_plays_the_only_eligible_arm_and_the_cursor_never_sees_the_select() {
     let phase1 = BossPattern {
@@ -1333,7 +1329,7 @@ fn contact_chase_cfg() -> BossPatternCfg {
     cfg
 }
 
-/// **⛔⛔ A WIDE BODY'S CONTACT IS NOT ITS CENTRE'S.**
+/// **A WIDE BODY'S CONTACT IS NOT ITS CENTRE'S.**
 ///
 /// The contact-chase closure test compared a CENTRE-TO-CENTRE distance against
 /// a 4px epsilon. A 208px-wide boss can only satisfy that by standing with its

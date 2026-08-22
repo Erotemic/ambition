@@ -83,19 +83,16 @@ pub struct Scenario {
 impl Scenario {
     /// **Where the two bodies stand — the half of a fixture that can be PLAYED.**
     ///
-    /// ⛔ **these were classification fixtures only.** Each `Scenario` states a
-    /// `WorldView` and the `Situation` L1 must read out of it, and every test
-    /// over this suite asks the classifier a question. Nothing put a FIGHTER in
-    /// one: `ladder_rig` seats its rungs at the stage's authored spawn, so a
-    /// ladder measured over "eight scenarios" measured one situation eight
-    /// times.
+    /// **these were classification fixtures only.** Each `Scenario` states a `WorldView` and the
+    /// `Situation` L1 must read out of it, and every test over this suite asks the classifier a
+    /// question.
     ///
     /// `(me, foe)` in stage coordinates. `None` when a scenario names no
     /// opponent — a fixture about terrain alone cannot be a two-fighter bout,
     /// and returning a default position would put a body somewhere the premise
     /// never described.
     ///
-    /// ⚠ **the caller must place the bodies AFTER seating.** A roster cannot say
+    /// **the caller must place the bodies AFTER seating.** A roster cannot say
     /// where its fighters stand — the stage decides — so a harness writes their
     /// positions once both seats exist. That is a measurement binary reaching
     /// into the sim, and it is not something to promote into the engine without
@@ -107,7 +104,7 @@ impl Scenario {
 
     /// **What a harness that can only PLACE BODIES fails to reproduce here.**
     ///
-    /// ⛔ **a placement is not a scenario.** `starting_positions_on` puts two
+    /// **a placement is not a scenario.** `starting_positions_on` puts two
     /// bodies where the fixture says and stops there, so a rig that ran the
     /// whole suite through it was running `juggle_escape` with nobody in
     /// hitstun, `projectile_camper` with no projectile, and `edgeguard_window`
@@ -115,11 +112,11 @@ impl Scenario {
     /// and reporting them as evidence about a recovery rollout was reporting
     /// three positional fixtures under three tactical names.
     ///
-    /// ⭐ **derived from the fixture, not from a hand-kept list.** A scenario that
+    /// **derived from the fixture, not from a hand-kept list.** A scenario that
     /// gains a velocity or a projectile tomorrow drops out of a positional
     /// harness the same day, instead of quietly starting to lie.
     ///
-    /// ⚠ **`on_ground` is deliberately NOT in here.** It is the one piece of
+    /// **`on_ground` is deliberately NOT in here.** It is the one piece of
     /// state a placement does carry: a body put over the platform lands on it
     /// within a few ticks and a body put past a blastzone stays airborne,
     /// because gravity is running. Velocity, body phase and projectiles have no
@@ -165,7 +162,7 @@ impl Scenario {
 
     /// **The same two points, placed on somebody else's stage.**
     ///
-    /// ⛔ **[`Self::starting_positions`] is in FIXTURE coordinates and pasting
+    /// **[`Self::starting_positions`] is in FIXTURE coordinates and pasting
     /// them into a real world is meaningless.** These fixtures describe an
     /// 800x600 stage ([`STAGE_SIZE`]) centred on (400, 300); a running smash
     /// stage is a different size in a different place. `ladder_rig` placed the
@@ -174,18 +171,18 @@ impl Scenario {
     /// `recovery_below` at y=640, both far outside any real platform, so both
     /// were instantly taken by the blastzone and respawned into the same state.
     ///
-    /// ⭐ **so the fixture's geometry is RELATIVE and this is the conversion.**
+    /// **so the fixture's geometry is RELATIVE and this is the conversion.**
     /// A point is mapped by its fraction of the fixture stage onto the same
     /// fraction of `stage` — which preserves *"backed against the left
     /// blastzone"* and *"offstage below"* as the premises they are, on a stage
     /// of any size.
     ///
-    /// ⚠ a scenario that puts a body OUTSIDE the fixture stage stays outside
+    /// a scenario that puts a body OUTSIDE the fixture stage stays outside
     /// this one, deliberately: the four recovery quadrants are offstage by
     /// definition, and clamping them into the platform would answer a different
     /// question from the one they ask.
     ///
-    /// ⚠ **and this is PLACEMENT ONLY** — see [`Self::unreproduced_by_placement`]
+    /// **and this is PLACEMENT ONLY** — see [`Self::unreproduced_by_placement`]
     /// for what a caller that stops here is not reproducing.
     pub fn starting_positions_on(&self, stage: ae::Aabb) -> Option<(ae::Vec2, ae::Vec2)> {
         use ae::AabbExt;
@@ -310,7 +307,7 @@ mod tests {
 
     /// **No two scenarios start from the same two points.**
     ///
-    /// ⛔ found by running them: `ladder_rig --scenarios` printed
+    /// found by running them: `ladder_rig --scenarios` printed
     /// byte-identical columns for `recovery_right` and `recovery_below`, which
     /// can only happen if the bodies start in the same places. Two fixtures that
     /// differ only in NAME make a suite look broader than it is — and the whole
@@ -340,12 +337,12 @@ mod tests {
 
     /// **Which fixtures a placement-only harness may report results for.**
     ///
-    /// ⛔ the ladder rig ran all eight through `starting_positions_on` and
+    /// the ladder rig ran all eight through `starting_positions_on` and
     /// printed a row per name, so `juggle_escape` ran with nobody in hitstun,
     /// `projectile_camper` with no projectile and `edgeguard_window` against a
     /// motionless opponent. Three tactical names over three positional fixtures.
     ///
-    /// ⚠ **the membership is asserted BOTH WAYS.** A one-sided check ("the three
+    /// **the membership is asserted BOTH WAYS.** A one-sided check ("the three
     /// are refused") stays green if the derivation starts refusing everything,
     /// which would silently empty the ladder while looking stricter.
     #[test]
@@ -387,12 +384,12 @@ mod tests {
 
     /// **Every scenario that names an opponent can be PLAYED.**
     ///
-    /// ⛔ the suite was classification-only: eight `WorldView` fixtures the
+    /// the suite was classification-only: eight `WorldView` fixtures the
     /// classifier is asked about and no fighter has ever stood in. A ladder
     /// measured "over §8's scenarios" while seating every rung at the stage's
     /// authored spawn is measuring one situation eight times.
     ///
-    /// ⚠ this asserts the two bodies are APART, because a scenario whose
+    /// this asserts the two bodies are APART, because a scenario whose
     /// positions coincide is not a situation — and a fixture that degenerated
     /// that way would produce a bout the premise never described while looking
     /// like a scenario run.

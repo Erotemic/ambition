@@ -265,19 +265,10 @@ pub fn spawn_room_visuals(
 ///   `FeatureName` (E4 slice 10).
 /// Render size + anchor for a prop's sprite, by what KIND of thing it is.
 ///
-/// Pure, because the difference is exactly the bug that shipped twice: a
-/// character's quad is the whole sheet FRAME and hangs off a FEET anchor, so a
-/// 64×32 warp-pipe piece drew larger than the collider with its lip above the
-/// surface a body actually stands on. Correct for a character, wrong for
-/// anything built.
-///
-/// ⚠ **the magnitude changed and the rule did not** (queue D44, 2026-08-08).
-/// `sprite_render_size` used to be `max(w, h) * collision_scale` widened by the
-/// frame aspect, which drew that pipe piece at 128×64 — DOUBLE the collider.
-/// It now scales the frame so the sheet's own art lands on the collider, which
-/// leaves only the crop's transparent margin (4.9% for the pipe head). Built
-/// world still needs its own path: it wants the box EXACTLY and centred, and a
-/// feet anchor slides a block off the surface at any scale.
+/// It now scales the frame so the sheet's own art lands on the collider, which leaves only the
+/// crop's transparent margin (4.9% for the pipe head). Built world still needs its own path: it
+/// wants the box EXACTLY and centred, and a feet anchor slides a block off the surface at any
+/// scale.
 pub(crate) fn prop_sprite_geometry(
     draw: PropDraw,
     spec: &ambition_sprite_sheet::character::CharacterSheetSpec,
@@ -294,14 +285,8 @@ pub(crate) fn prop_sprite_geometry(
     }
 }
 
-/// **The ONE way a prop's sprite is built.** Both the room-load spawn and the
-/// `GameAssets`-change rebuild go through here, because they must agree: the
-/// rebuild used to hardcode character sizing and a feet anchor, so it silently
-/// reverted every authored presentation fact (a structure prop's box-filling
-/// size, a mirrored prop's flip) the first time it ran. A provider that
-/// re-registers its own sheets each frame marks that resource changed
-/// constantly, so the revert landed every frame and the authored look never
-/// appeared at all.
+/// A provider that re-registers its own sheets each frame marks that resource changed
+/// constantly, so the revert landed every frame and the authored look never appeared at all.
 pub(crate) fn prop_sprite_bundle(
     draw: PropDraw,
     flip_y: bool,
@@ -493,10 +478,8 @@ fn spawn_climbable_region(
 
 /// Draw the simulation's rideable surface chains as thin, rotated strips.
 ///
-/// Surface chains were previously collision-only, which made momentum demos
-/// especially hard to read: the body could ride a loop that the player could
-/// not see. This is intentionally generic room presentation rather than
-/// Sanic-specific drawing; any game that authors a chain gets a matching visual.
+/// This is intentionally generic room presentation rather than Sanic-specific drawing; any game
+/// that authors a chain gets a matching visual.
 pub fn spawn_surface_chain_visuals(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
@@ -589,7 +572,7 @@ fn tiled_block_stretch(render: BVec2, source_px: f32) -> f32 {
 /// identity, avoiding the despawn/respawn bugs from earlier live-refresh attempts.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct BoundEntitySprite {
-    // ⚠ `pub(crate)` since 2026-08-04: `apply_block_art` REWRITES this when a
+    // `pub(crate)`: `apply_block_art` REWRITES this when a
     // game names its own art for a block, and it is the resolved binding the
     // asset-reload refresher reads back.
     pub(crate) key: game_assets::EntitySprite,
@@ -604,41 +587,25 @@ impl BoundEntitySprite {
 /// **Apply a game's own art choice for a block**, rewriting the binding the
 /// kind-derived spawn left behind. See [`BlockArt`].
 ///
-/// ⭐ **it writes `BoundEntitySprite`, not just the `Sprite`.** That component is
-/// the RESOLVED binding, and
-/// `refresh_entity_sprite_handles_on_game_assets_change` re-derives every
-/// sprite's image from it when `GameAssets` reloads. Setting only the image would
-/// look right until the next asset change quietly restored the kind's texture —
-/// the shape of bug that shows up an hour later with no edit to blame.
+/// **it writes `BoundEntitySprite`, not just the `Sprite`.** That component is the RESOLVED
+/// binding, and `refresh_entity_sprite_handles_on_game_assets_change` re-derives every sprite's
+/// image from it when `GameAssets` reloads.
 ///
-/// ⚠ **a block with no `BlockArt` is not touched at all.** The kind-derived
+/// **a block with no `BlockArt` is not touched at all.** The kind-derived
 /// texture stays the default for every block in every game; this seam exists for
 /// the ones a game has something to say about.
 ///
-/// ⛔ **it used to require a binding it could not create, and one line of CONTENT
-/// could therefore take a whole level out of this seam.** The query read
-/// `&mut BoundEntitySprite`, which `spawn_block` attaches only when the kind
-/// resolved a texture — so a block drawn as an authored flat quad
-/// (`ae::Block::art_color`) or a kind with no art at all (`BonkOnly`) simply did
-/// not match, forever. Mary-O's 1-2 paints every block in the room, and the
-/// result was a cavern whose ?-blocks could not wear a bonus plate and whose
-/// spent blocks could not look spent (queue D67). The binding is CREATED here
-/// now: an authored colour says what to draw *until* a game names art, and
-/// naming art is what ends it.
+/// Mary-O's 1-2 paints every block in the room, and the result was a cavern whose ?-blocks could
+/// not wear a bonus plate and whose spent blocks could not look spent. The binding is CREATED here
+/// now: an authored colour says what to draw *until* a game names art, and naming art is what ends
+/// it.
 ///
-/// ✔ **and a HIDDEN block does reveal itself now** (queue D69, fixed
-/// 2026-08-09). It did not until this pass could keep the entity it dresses:
-/// Mary-O promotes a discovered `BonkOnly` block to a `Solid` through
-/// `FeatureEcsWorldOverlay`, pushing the block's name into `removed_block_names`
-/// AND the promoted block into `blocks`, and `sync_removed_block_visuals` read
-/// only the first half — despawning the very entity this pass would have
-/// dressed. Observed, not inferred: the payout landed, the visual was gone, and
-/// the replacement block was collision-only. That reconcile now skips a name the
-/// same overlay is re-adding; nothing on the render side spawns a visual for the
-/// overlay's genuinely NEW blocks (only `gate_solids` has one, in
-/// `sync_lock_wall_visuals`), which is a different gap and still open.
+/// ✔ **and a HIDDEN block does reveal itself now**. That reconcile now skips a name the same
+/// overlay is re-adding; nothing on the render side spawns a visual for the overlay's genuinely
+/// NEW blocks (only `gate_solids` has one, in `sync_lock_wall_visuals`), which is a different
+/// gap and still open.
 ///
-/// ⚠ **and it clears the authored tint when it takes over.** `Sprite::color`
+/// **and it clears the authored tint when it takes over.** `Sprite::color`
 /// multiplies into the image, so leaving a placeholder colour on would stain the
 /// named art — and a fully transparent placeholder (how a hidden block is drawn
 /// before discovery) would bind the reveal texture and still draw nothing. That
@@ -666,7 +633,7 @@ pub fn apply_block_art(
                     bound.key = *art;
                 }
             }
-            // ⚠ `try_insert`, and the reason is this crate's own harness
+            // `try_insert`, and the reason is this crate's own harness
             // (`deferred_write_safety`): a block visual is room-scoped, so a room
             // transition can despawn it between this query and the frame's
             // command flush, and a plain `insert` panics inside Bevy's command
@@ -678,7 +645,7 @@ pub fn apply_block_art(
                     .try_insert(BoundEntitySprite::new(*art));
             }
         }
-        // ⛔ **a missing handle used to be a SILENT no-op**, which is how this
+        // **a missing handle used to be a SILENT no-op**, which is how this
         // seam shipped, passed its crate's tests and drew nothing: a game names
         // art the catalog does not hold and the block keeps its kind's texture,
         // saying so nowhere. "Silence is not a fallback" — the whole point of a
@@ -741,21 +708,12 @@ pub fn spawn_block(
 ) {
     let size = block.aabb.half_size() * 2.0;
     let render = BVec2::new(size.x, size.y);
-    // ⛔ **A SURFACE IS DRAWN BY REPEATING ITS TEXTURE, NEVER BY STRETCHING ONE.**
+    // **A SURFACE IS DRAWN BY REPEATING ITS TEXTURE, NEVER BY STRETCHING ONE.**
     //
-    // This used to branch on PROVENANCE — IntGrid-derived blocks tiled a 32×32
-    // texture, and everything else stretched a single ~92×78 prop across
-    // whatever footprint it had — on the stated assumption that authored blocks'
-    // "footprints match the texture aspect ratio". They do not. Smash's stage is
-    // one authored 420×32 platform, and the stretch was visible from orbit.
-    //
-    // ⚠ **and it was not only ugly, it MOVED THE COLLISION AWAY FROM THE ART.**
-    // Every entity prop is generated with a 4px fully transparent border. Stretch
-    // 92px of art across 420px and that border becomes ~18px of platform at each
-    // end that is solid and invisible — an edge you stand on with nothing under
-    // your feet, and a wall you bump into in mid-air. Jon, 2026-08-06: *"it also
-    // extends the alpha so there is an invisible wall or floor, on parts of the
-    // edge, so that is unintuitive."*
+    // **and it was not only ugly, it MOVED THE COLLISION AWAY FROM THE ART.** Every entity prop is
+    // generated with a 4px fully transparent border. Stretch 92px of art across 420px and that
+    // border becomes ~18px of platform at each end that is solid and invisible — an edge you stand
+    // on with nothing under your feet, and a wall you bump into in mid-air.
     //
     // So the kind's TILE texture wins wherever one exists, however the block was
     // authored: it repeats at native pixel scale, it is opaque to the edge of
@@ -764,15 +722,12 @@ pub fn spawn_block(
     // Rebound, which are point objects whose box IS their art's shape (see
     // `point_block_sprite`, whose name is the contract).
     //
-    // ⭐ this also deletes a fork the repo had already called a bug once: two
-    // spawn paths for one `BlockKind::Solid` drew two different textures, so a
-    // brick built from cells and a brick built from an entity did not match. See
-    // `mary_o::powerups::dress_authored_blocks`, which worked around it.
+    // See `mary_o::powerups::dress_authored_blocks`, which worked around it.
     //
     // Falls back to a coloured quad when the tile asset is missing (no-asset
     // mode, missing file).
     //
-    // ⚠ the KIND's art is the DEFAULT, not the last word: a game that has its own
+    // the KIND's art is the DEFAULT, not the last word: a game that has its own
     // name for this block's art attaches `BlockArt` and `apply_block_art` takes
     // over from here. Spawn deliberately does not consult it — the art a block
     // wears changes mid-play (a bonus block becomes a used one), so a value read
@@ -788,15 +743,9 @@ pub fn spawn_block(
     // from `BoundEntitySprite`) cannot quietly paint over it on the next asset
     // reload.
     //
-    // ⛔ **it also used to mean "and never change this block's picture again",
-    // which was an ACCIDENT of how the flat quad is implemented.** Binding no
-    // sprite key means no `BoundEntitySprite`, and `apply_block_art` — the only
-    // system that changes a block's picture mid-run — matched on that component.
-    // So `mary_o::level_1_2`, which paints its cavern from one stone in a single
-    // loop, opted every block in the room out of art updates permanently: queue
-    // D67. The colour now says what to draw UNTIL a game names art for this
-    // block; `apply_block_art` creates the binding when it takes over, so the
-    // absence below is a starting look and not a gag order.
+    // The colour now says what to draw UNTIL a game names art for this block; `apply_block_art`
+    // creates the binding when it takes over, so the absence below is a starting look and not a gag
+    // order.
     let placeholder = block
         .art_color
         .map(|c| Sprite::from_color(Color::srgba(c[0], c[1], c[2], c[3]), render));
@@ -1251,16 +1200,12 @@ pub fn sync_lock_wall_visuals(
 /// on a re-arm, so a rebuilt brick simply reappears with the room — no respawn logic
 /// **A struck block flinches, and the collision box does not move.**
 ///
-/// Consumes `BlockStruck` and drives the drawn quad out and back over
-/// `NUDGE_SECONDS`. Jon asked for "a small animation (probably an in-code position
-/// nudge up and back into place) when they are hit".
-///
-/// ⛔ **the offset lives on the VISUAL's transform and nowhere else.** Moving the
+/// **the offset lives on the VISUAL's transform and nowhere else.** Moving the
 /// block itself would lift a body standing on it, shove one beside it, and give a
 /// rollback an animation to rewind. This is presentation; the geometry is
 /// authoritative and static.
 ///
-/// ⚠ **against GRAVITY, not "up"** — resolved from the acceleration frame, so a
+/// **against GRAVITY, not "up"** — resolved from the acceleration frame, so a
 /// block struck in a flipped room flinches the way that room means it. Same
 /// relativity rule the engine applies to feet and jumps.
 pub fn flinch_struck_blocks(
@@ -1272,14 +1217,14 @@ pub fn flinch_struck_blocks(
     mut flinching: Query<(Entity, &mut Transform, &mut BlockFlinch, &BlockVisual)>,
 ) {
     for message in struck.read() {
-        // ⛔ **a RE-STRIKE resets the clock and KEEPS the home.** Inserting a
+        // **a RE-STRIKE resets the clock and KEEPS the home.** Inserting a
         // fresh `BlockFlinch` replaces the live one, and the animation pass below
         // fills a `None` home from `transform.translation` — which, mid-flinch, is
         // the DISPLACED position. So every strike during the animation adopted the
         // current offset as the new resting place and the drawn block walked away
         // from its static collider, a few pixels per hit. The comment beside the
         // component claimed this was prevented; resetting the component reset the
-        // very thing that would have prevented it (GPT 5.6 review, 2026-08-04).
+        // very thing that would have prevented it.
         let mut restruck = false;
         for (_, _, mut flinch, visual) in &mut flinching {
             if visual.geo_id == message.id {
@@ -1335,7 +1280,7 @@ pub struct BlockFlinch {
 /// is owed here. Generic over the block name, so it serves every game the reusable
 /// presentation plugin drives, not just Mary-O's bricks.
 ///
-/// # ⭐ A NAME IN BOTH LISTS IS A REPLACEMENT, AND THE REMOVAL HALF MUST NOT WIN
+/// # A NAME IN BOTH LISTS IS A REPLACEMENT, AND THE REMOVAL HALF MUST NOT WIN
 ///
 /// The overlay's two block lists are not independent. A contributor that changes
 /// what an authored block *is* — rather than deleting it — states that as a
@@ -1344,18 +1289,13 @@ pub struct BlockFlinch {
 /// to a `Solid` by pushing the block's own name into `removed_block_names` AND
 /// the promoted block into `blocks`, same name, same box, same `GeoId`.
 ///
-/// ⛔ **reading only the first half despawned the sprite the second half was
-/// asking for** (queue D69, observed 2026-08-09): a discovered hidden block paid
-/// out and then had its picture deleted, so the mechanic that exists to make a
-/// block *reveal itself by being used* made it vanish instead.
-///
 /// ⇒ so a subtracted name that the SAME overlay is re-adding is skipped. Both
 /// lists are cleared and refilled together by
 /// `rebuild_feature_ecs_world_overlay`, so the two halves are always read from
 /// one frame's answer and there is no ordering hazard here — deliberately NOT a
 /// second reconciler racing this one.
 ///
-/// ⚠ **and NOT "draw everything in `overlay.blocks`".** That list is mostly
+/// **and NOT "draw everything in `overlay.blocks`".** That list is mostly
 /// engine-contributed collision volumes that must never be drawn: pogo-bounce
 /// targets riding actors (`ecs-pogo-target …`, `BlockKind::PogoOrb`) and
 /// breakable ghosts, all carrying `GeoId::anon()` and synthesised names no
@@ -1504,20 +1444,16 @@ mod lock_wall_visual_tests {
         );
     }
 
-    /// ⭐ **THE D69 INVARIANT: a name in BOTH overlay lists is a REPLACEMENT.**
+    /// **THE INVARIANT: a name in BOTH overlay lists is a REPLACEMENT.**
     ///
     /// A contributor that re-states an authored block (Mary-O promoting a
     /// discovered hidden `BonkOnly` to a `Solid`) subtracts the name and adds the
     /// replacement in one pass. The visual must SURVIVE, because it is the thing
     /// the replacement wants dressed.
     ///
-    /// ⚠ **the poison is in the same test, and it is the one that matters**: an
-    /// added block under a DIFFERENT name — which is what every engine-contributed
-    /// pogo/breakable volume in `overlay.blocks` is — must not rescue an ordinary
-    /// removal. A fix that skipped the despawn whenever `blocks` was merely
-    /// non-empty would pass the first assertion and fail this one, and it would
-    /// have shipped: the same frame that discovers a hidden block also carries six
-    /// moving `PogoOrb` volumes.
+    /// **the poison is in the same test, and it is the one that matters**: an added block under
+    /// a DIFFERENT name — which is what every engine-contributed pogo/breakable volume in
+    /// `overlay.blocks` is — must not rescue an ordinary removal.
     #[test]
     fn a_replaced_block_keeps_its_visual_while_a_removed_one_does_not() {
         let mut app = App::new();
@@ -1600,7 +1536,6 @@ mod prop_geometry_tests {
 
     /// **A pipe's art must match the surface a body stands on.**
     ///
-    /// Jon, from a screenshot: "mary-o sinks into the pipe when she should stand
     /// on the top." The pipe pieces were sized like a CHARACTER — whose art
     /// deliberately overflows its collider and hangs off a feet anchor — so a
     /// 64×32 pipe head rendered at 128×64 with its lip drawn a whole tile ABOVE
@@ -1629,16 +1564,9 @@ mod prop_geometry_tests {
             "and centred on that box — a feet anchor would slide it off the block"
         );
 
-        // The bug, stated as the thing it broke: character sizing does NOT agree
-        // with the authored box, which is exactly why built world must not use it.
-        //
-        // ⚠ **and it no longer disagrees by 2x.** This used to require
-        // `decoration > authored * 1.5`, because character sizing was
-        // `max(box) * collision_scale` and drew a 64x32 pipe head at 128x64. The
-        // bbox-quad route (queue D44) sizes the quad so the sheet's own art lands
-        // on the box, so what is left over is the transparent margin the crop
-        // leaves — 4.9% here, not 100%. The reason built world keeps its own path
-        // is now the ANCHOR and the exactness, not the scale.
+        // The bbox-quad route sizes the quad so the sheet's own art lands on the box, so what is
+        // left over is the transparent margin the crop leaves — 4.9% here, not 100%. The reason
+        // built world keeps its own path is now the ANCHOR and the exactness, not the scale.
         let (decoration, decoration_anchor) =
             prop_sprite_geometry(PropDraw::Decoration, &spec, authored);
         assert!(

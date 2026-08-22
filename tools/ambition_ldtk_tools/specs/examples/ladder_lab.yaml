@@ -29,11 +29,8 @@
 # - Upper platform: y=160..192, x=480..672.  Stepping off the top of
 #   the ladder onto the platform is the success condition.
 #
-# The Climbable IntGrid layer needs to be added to the LDtk project's
-# layer defs (separate from Collision and Water) before this spec can
-# be applied. Tool support: `python -m ambition_ldtk_tools area create` currently
-# only handles the Collision IntGrid; extending it to also paint the
-# Climbable layer is in TODO.md.
+# Tool support: `python -m ambition_ldtk_tools area create` currently only handles the Collision
+# IntGrid; extending it to also paint the Climbable layer is in TODO.md.
 #
 # Once tooling lands:
 #   PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools area create tools/ambition_ldtk_tools/specs/examples/ladder_lab.yaml --dry-run
@@ -54,9 +51,6 @@ fill_collision: empty
 biome: lab
 connect_to:
   - target_room: central_hub_basement
-    # Lab door slot in the basement corridor (gap between
-    # basement_enemies at x=576 and basement_boss at x=788). Doors
-    # were re-spaced 2026-05-07.
     px: [700, 832]
     size: [48, 96]
     id: ladder_door
@@ -64,8 +58,6 @@ connect_to:
     activation: Door
     bidirectional: true
 
-# Climbable IntGrid cells. Tool support landed via
-# `ensure_climbable_layer_def` + `paint_climbable_layer`.
 intgrid:
   climbable:
     - kind: Ladder

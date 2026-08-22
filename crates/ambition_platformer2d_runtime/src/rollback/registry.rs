@@ -1,11 +1,9 @@
 //! Backend-neutral rollback schema metadata.
 //!
 //! Gameplay domains declare typed rollback obligations through
-//! `ambition_platformer2d_core::snapshot::RollbackRegistrar`. This module records
-//! the exact managed schema those declarations describe; concrete rollback hosts
-//! install storage/checksum machinery separately. Keeping the catalog here makes
-//! prepared-content identity available to fixed/render-frame hosts without linking
-//! a netcode backend.
+//! `ambition_platformer2d_core::snapshot::RollbackRegistrar`. This module records the exact
+//! managed schema those declarations describe; concrete rollback hosts install storage/checksum
+//! machinery separately.
 
 use std::collections::BTreeMap;
 use std::fmt;
@@ -186,20 +184,8 @@ pub enum RollbackRegistrationOutcome {
 
 /// **The part of a type's name that a CARVE leaves alone.**
 ///
-/// `std::any::type_name` spells the crate and the module path, and until v20 the
-/// whole string went into [`RollbackRegistry::schema_dump`] and therefore into
-/// the fingerprint. Moving a type then declared two peers running byte-identical
-/// snapshot logic incompatible — the same category of mistake v5 removed when it
-/// stopped hashing `owner`, except that nobody chose this one: it arrived inside
-/// a string that was being used for identity.
-///
-/// ⭐ **the final segment, and not the module path below the crate**, which is
-/// what the answer was until the diff it cited was read. D33 step 2
-/// (`24b43f93a`) moved two registered components, and the crate changed AND the
-/// path below it changed — `features::ecs::actor_clusters` → `character::anim`,
-/// `avatar::components` → `camera_ease` — because a carve puts a type where it
-/// belongs rather than merely somewhere else. Only the final segment survived
-/// either move.
+/// ⭐ **the final segment, and not the module path below the crate**, which is what the answer
+/// was until the diff it cited was read.
 ///
 /// Every path INSIDE the name is shortened, not only the outermost one, so a
 /// generic keeps its constructor: `Vec<foo::Bar>` is `Vec<Bar>` and not `Bar>`.
@@ -302,22 +288,13 @@ impl RollbackRegistry {
 
     /// **What the schema actually IS**, with every organisational label removed.
     ///
-    /// [`Self::deterministic_dump`] carries `owner` and the type's full path
-    /// because a human reading a conflict wants to know which module registered
-    /// a thing and where the type lives. Nothing else reads either — and both
-    /// were once hashed into the fingerprint, which made purely organisational
-    /// facts part of the WIRE FORMAT. Two peers running identical snapshot logic
-    /// would have been declared incompatible because one of them had moved a
-    /// registration to a different module, or moved the TYPE to a different one.
+    /// [`Self::deterministic_dump`] carries `owner` and the type's full path because a human
+    /// reading a conflict wants to know which module registered a thing and where the type
+    /// lives.
     ///
-    /// That is not hypothetical: Campaign 2 first moved every gameplay
-    /// registration into runtime-side domain adapters, and the completed
-    /// domain-owned migration then moved those declarations into their owning
-    /// crates. Both moves require the schema fingerprint to stay unchanged —
-    /// which was impossible while the fingerprint hashed who registered a row. The
-    /// decomposition campaign then hit the same wall one level out, because a
-    /// carve moves the TYPE and not only its registration. `owner` left in v5;
-    /// [`wire_type_identity`] is the second half of that decision, in v20.
+    /// Both moves require the schema fingerprint to stay unchanged — which was impossible while
+    /// the fingerprint hashed who registered a row. `owner` left in v5; [`wire_type_identity`]
+    /// is the second half of that decision, in v20.
     pub fn schema_dump(&self) -> String {
         let mut out = format!("ggrs-rollback-schema-v{GGRS_ROLLBACK_SCHEMA_VERSION}\n");
         for entry in self.entries.values() {
@@ -488,11 +465,7 @@ mod tests {
 
     /// **Where a type LIVES is not part of the wire format** (v20).
     ///
-    /// The two rows are the ones D33 step 2 actually moved (`24b43f93a`), and
-    /// they are here rather than an invented pair because they refute the
-    /// narrower answer: the crate changed AND the module path below it changed,
-    /// because a carve puts a type where it belongs rather than merely
-    /// somewhere else. Only the final segment survived either move.
+    /// Only the final segment survived either move.
     #[test]
     fn relocating_a_type_leaves_the_fingerprint_alone() {
         let before = registry_of(&[

@@ -8,10 +8,9 @@
 //! the sync-test checksum diverges (see
 //! `app_it::rollback_room_transition`).
 //!
-//! The fix is to DEFER. Instead of executing, the lifecycle consumer RECORDS a
-//! [`PendingLifecycleCommit`] and returns. This resource is **rollback-registered
-//! state** — unlike [`crate`]'s external-effect journal, whose consumers live
-//! outside the sim — so:
+//! Instead of executing, the lifecycle consumer RECORDS a [`PendingLifecycleCommit`] and
+//! returns. This resource is **rollback-registered state** — unlike [`crate`]'s external-effect
+//! journal, whose consumers live outside the sim — so:
 //!
 //! * resimulation reproduces the intent deterministically (the consumer re-reads
 //!   the same trigger and re-records the same intent);
@@ -25,15 +24,11 @@
 //! exclusive world once the originating frame can never be simulated again, and
 //! **rebases the session** so no earlier snapshot can restore the pre-op room.
 //!
-//! ⛔⛔ **AND SINCE D71 (2026-08-14) EVERY HOST RECORDS A ROOM TRANSITION.** This
-//! said non-rollback hosts *"never record: the consumers execute eagerly exactly
-//! as before"*, and for the in-place resets that is still true. It is no longer
-//! true of a transition: a crossing is described ONCE, here, on every host, and
-//! the readiness transaction is its only consumer. What still differs is WHEN
-//! the intent may be acted on — an eager host has no speculative frames, so it
-//! stamps frame `0` and its intent is confirmed on arrival, while a rollback host
-//! stamps the recording frame and waits for it. Two confirmation adapters, one
-//! description.
+//! It is no longer true of a transition: a crossing is described ONCE, here, on every host, and
+//! the readiness transaction is its only consumer. What still differs is WHEN the intent may be
+//! acted on — an eager host has no speculative frames, so it stamps frame `0` and its intent is
+//! confirmed on arrival, while a rollback host stamps the recording frame and waits for it. Two
+//! confirmation adapters, one description.
 
 use bevy::prelude::*;
 
@@ -71,16 +66,12 @@ pub enum LifecycleIntent {
 /// **WHAT A ROOM TRANSITION IS**, stated once and independently of how any host
 /// waits for it to be safe.
 ///
-/// ⭐ **one description, two confirmation adapters** (D71). Until 2026-08-14 a
-/// crossing was described twice and differently: a rollback host recorded these
-/// fields as rollback state, while an eager host wrote a `RoomTransitionRequested`
-/// message carrying a resolved zone and NO subject. Two descriptions of one event
-/// that disagreed about the body is what let the eager commit transit whoever
-/// happened to be driving several frames later. This is the surviving one; the
-/// hosts differ only in WHEN they hand it to the readiness transaction —
-/// immediately, or once its originating frame is confirmed.
+/// Two descriptions of one event that disagreed about the body is what let the eager commit
+/// transit whoever happened to be driving several frames later. This is the surviving one; the
+/// hosts differ only in WHEN they hand it to the readiness transaction — immediately, or once
+/// its originating frame is confirmed.
 ///
-/// ⛔ **every field must encode deterministically**, because the enclosing
+/// **every field must encode deterministically**, because the enclosing
 /// [`PendingLifecycleCommit`] is rollback state: the room is named by its authored
 /// id and the body by its [`SimId`], never by an index or an `Entity`.
 #[derive(Clone, Debug, PartialEq)]
@@ -100,12 +91,10 @@ pub struct RoomTransitionIntent {
     /// The door / portal cue this crossing owes, resolved from the zone's
     /// activation at DETECTION time.
     ///
-    /// ⛔ **it has to ride the intent.** The commit runs long after the zone that
-    /// named it is out of reach, and the intent deliberately stores no zone.
-    /// Without this the deferred path had no way to know which cue was owed, so
-    /// every door and every portal was SILENT under the rollback host.
+    /// **it has to ride the intent.** The commit runs long after the zone that named it is out
+    /// of reach, and the intent deliberately stores no zone.
     ///
-    /// ⚠ a `String`, like `target_room` beside it, because this is rollback state.
+    /// a `String`, like `target_room` beside it, because this is rollback state.
     pub zone_sfx: Option<String>,
 }
 
@@ -121,12 +110,9 @@ pub struct PendingIntent {
 
 /// The single pending confirmed-frame lifecycle commit (Track B, Piece 1).
 ///
-/// **Rollback-registered** (`rollback/mod.rs`), so the intent rewinds with the
-/// world. One slot, **earliest-sticky**: a consumer records only via
-/// [`Self::record`], which keeps the intent already present. That guarantees a
-/// confirmed intent is never overwritten by a later *predicted* one before the
-/// host has a chance to commit it; the host clears the slot and rebases the
-/// timeline, after which any still-pending later op is re-derived fresh.
+/// **Rollback-registered** (`rollback/mod.rs`), so the intent rewinds with the world. One slot,
+/// **earliest-sticky**: a consumer records only via [`Self::record`], which keeps the intent
+/// already present.
 #[derive(Resource, Clone, Debug, Default, PartialEq)]
 pub struct PendingLifecycleCommit {
     pub pending: Option<PendingIntent>,
@@ -154,14 +140,9 @@ impl PendingLifecycleCommit {
     /// Retract the pending room crossing owned by `subject`, if that exact body
     /// is the one waiting to transit.
     ///
-    /// The lifecycle owner is the only place allowed to spend this rollback-state
-    /// slot. Fixed-tick death handling uses this when the crossing body's attempt
-    /// ends; rollback hosts leave retirement to their confirmed lifecycle path so
-    /// speculative absence cannot tear down host-side derived state.
+    /// The lifecycle owner is the only place allowed to spend this rollback-state slot.
     ///
-    /// Returns `true` only when a transition for this subject was removed. A
-    /// different body's transition, or any non-transition lifecycle intent, is
-    /// untouched.
+    /// A different body's transition, or any non-transition lifecycle intent, is untouched.
     pub fn retract_transition_for_subject(&mut self, subject: &SimId) -> bool {
         let owned_by_subject = self.pending.as_ref().is_some_and(|pending| {
             matches!(

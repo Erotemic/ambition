@@ -89,15 +89,12 @@ impl Platformer2dSimHarness {
             options.timestep
         };
 
-        // In Fixed mode, install Bevy's `TimeUpdateStrategy::ManualDuration`
-        // BEFORE the first Startup tick. This is what tells Bevy's
-        // `time_system` to ignore wall-clock time and advance Time by
-        // exactly `dt` per `App::update`. Without this, the Startup tick
-        // pulls in the variable wall dt accumulated while
-        // `init_sandbox_resources` ran, breaking the determinism
-        // contract on tick 0. `Time::advance_by` does not survive
-        // Bevy's First-schedule time_system run; the strategy resource
-        // is the documented seam for headless / deterministic stepping.
+        // This is what tells Bevy's `time_system` to ignore wall-clock time and advance Time by
+        // exactly `dt` per `App::update`. Without this, the Startup tick pulls in the variable
+        // wall dt accumulated while `init_sandbox_resources` ran, breaking the determinism
+        // contract on tick 0. `Time::advance_by` does not survive Bevy's First-schedule
+        // time_system run; the strategy resource is the documented seam for headless /
+        // deterministic stepping.
         //
         // Under `fixed_tick` the frame dt must equal the `Time<Fixed>` timestep
         // EXACTLY (same `Duration`, so integer nanos, so no drift): the
@@ -124,7 +121,7 @@ impl Platformer2dSimHarness {
         // session root and exact content identity exist.
         app.update();
 
-        // ⚠ **the SUBJECT, not just the world.** Every caller of this
+        // **the SUBJECT, not just the world.** Every caller of this
         // constructor drives a body on the next line; a world without one is a
         // world they cannot use, and the desync canary reported exactly that as
         // `"the sandbox session has a controlled subject"` the first time the
@@ -147,27 +144,15 @@ impl Platformer2dSimHarness {
             players,
         } = rollback
         {
-            // ⭐ **DECLARE THE SEAT COUNT BEFORE THE SESSION, not after.**
+            // **DECLARE THE SEAT COUNT BEFORE THE SESSION, not after.**
             //
-            // `with_rollback_players(n)` is a statement about how many people are
-            // playing, and it has to reach the seat topology or nothing else
-            // agrees with it. The host that composes this harness freezes a
-            // topology from LIVE DEVICES — of which a headless test has none — so
-            // it froze one player while the session carried two handles, and
-            // seat two's authored frames were written into a `PendingSeatInputs`
-            // the topology said did not exist. The symptom was silent: seat two
-            // authored forty frames of right and its fighter moved 0.00px.
+            // `with_rollback_players(n)` is a statement about how many people are playing, and
+            // it has to reach the seat topology or nothing else agrees with it.
             //
-            // ⚠ **`capture_for_roster`, not `capture`.** The separate entry point
+            // **`capture_for_roster`, not `capture`.** The separate entry point
             // exists precisely so that "nobody declared a seat count" cannot look
             // like a decision somebody made — and here somebody did decide, in
             // the harness options.
-            //
-            // ⛔ this is queue G2's stronger endpoint and NOT its cheap one:
-            // *"publish the decided roster topology BEFORE installation, so no
-            // mismatch exists to detect."* The cheap remedy — compare the running
-            // settings and restart on a mismatch — was probed and removed,
-            // because restarting a live session loses the seat→handle binding.
             {
                 use ambition_platformer2d::input::{
                     LocalChannelPlan, LocalDeviceOrder, LocalInputSource, LocalSeatTopology,
@@ -180,7 +165,7 @@ impl Platformer2dSimHarness {
                         .unwrap_or_default(),
                 );
                 if let Some(mut topology) = world.get_resource_mut::<LocalSeatTopology>() {
-                    // ⚠ **the harness declares the IDENTITY mapping**: seat `n`
+                    // **the harness declares the IDENTITY mapping**: seat `n`
                     // plays on pad `n`. A headless run has no devices at all and
                     // drives its seats through the latches, so any plan of the
                     // right SIZE would size the session correctly — but the plan
@@ -206,19 +191,13 @@ impl Platformer2dSimHarness {
             .map_err(|error| format!("failed to start GGRS sync-test session: {error}"))?;
             app.update();
         } else if options.fixed_tick {
-            // Bevy's first frame has `dt == 0`, so the fixed accumulator needs
-            // one additional update to execute the same initial simulation tick.
             app.update();
         }
 
-        // ⭐ **K2b.1: settle before handing the harness back.** Every caller of
-        // this constructor then reads the world immediately — `room_ids()`, an
-        // observation, a `RoomSet` — which works today only because direct entry
-        // spawns its root at PLUGIN-BUILD time. A shell-composed host activates
-        // asynchronously, so the same read would find nothing until the load
-        // barrier reaches `Ready`.
+        // A shell-composed host activates asynchronously, so the same read would find nothing
+        // until the load barrier reaches `Ready`.
         //
-        // ⚠ **best-effort, deliberately, while the build-time root still
+        // **best-effort, deliberately, while the build-time root still
         // exists.** It returns `Ok(0)` on every path today, so this changes
         // nothing and cannot break a harness whose world genuinely arrives on a
         // later frame under rollback. It becomes a hard error in K2b.2, when the
@@ -232,11 +211,8 @@ impl Platformer2dSimHarness {
         })
     }
 
-    /// Configure the timestep policy after construction. Useful for
-    /// tests that build a sim, capture an observation, then switch to
-    /// fixed-timestep before exercising determinism-sensitive code.
-    /// Installs / removes the `TimeUpdateStrategy::ManualDuration`
-    /// resource accordingly.
+    /// Configure the timestep policy after construction. Installs / removes the
+    /// `TimeUpdateStrategy::ManualDuration` resource accordingly.
     pub fn set_timestep(&mut self, timestep: TimestepMode) {
         if self.rollback.enabled() {
             self.timestep = TimestepMode::fixed_60hz();
@@ -268,10 +244,7 @@ impl Platformer2dSimHarness {
     /// Step the simulation forward one frame with the given action.
     /// Returns the post-step observation.
     ///
-    /// In `Fixed { dt }` mode, the `TimeUpdateStrategy::ManualDuration`
-    /// resource installed in `new_with_timestep` makes Bevy advance
-    /// Time by exactly `dt` per `app.update()`. In `WallClock` mode the
-    /// strategy resource was never installed, so Bevy's default
+    /// In `WallClock` mode the strategy resource was never installed, so Bevy's default
     /// `Automatic` reads wall-clock dt.
     pub fn step(&mut self, action: AgentAction) -> AgentObservation {
         self.step_frame(action.into())
@@ -285,7 +258,7 @@ impl Platformer2dSimHarness {
     /// drives this directly: the recorded stream already IS control frames, and
     /// routing them back through `AgentAction` would silently drop every field
     /// that type does not carry.
-    /// Author a SECONDARY seat's input for the next step. (queue Y1)
+    /// Author a SECONDARY seat's input for the next step.
     ///
     /// Seat zero is `step`/`step_frame`; this is every other pad. Call it before
     /// the step it should apply to — it accumulates into the seat's latch (or
@@ -305,11 +278,7 @@ impl Platformer2dSimHarness {
     }
 
     pub fn step_frame(&mut self, frame: ControlFrame) -> AgentObservation {
-        // ONE seam, whichever host this harness was built with. The branch that
-        // used to be here is the engine's now
-        // (`rollback::drive_control_frame`), because every driver that grew its
-        // own copy grew the same bug: writing the wrong resource is silently
-        // ignored, and the sim simply never moves.
+        // ONE seam, whichever host this harness was built with.
         ambition_platformer2d::rollback::drive_control_frame(self.app.world_mut(), frame);
         self.app.update();
         self.tick = self.tick.saturating_add(1);
@@ -378,7 +347,7 @@ impl Platformer2dSimHarness {
             &ambition_platformer2d::actors::actor::BodyKinematics,
             &ambition_platformer2d::characters::actor::BodyHealth,
         )>();
-        // ⚠ IN-WORLD items only. A picked-up item keeps its entity now (it
+        // IN-WORLD items only. A picked-up item keeps its entity now (it
         // records custody instead of being despawned), so an unfiltered query
         // would report the axe in the agent's own hand as an axe lying on the
         // floor — an instrument agreeing with a state that does not exist.
@@ -498,7 +467,7 @@ impl Platformer2dSimHarness {
     /// hazards / encounters cleanly; an RL "episode reset" should
     /// usually go through this path rather than rebuilding the App.
     ///
-    /// ⛔ **this is the IN-PLACE room reset, not a new game.** The host turns the
+    /// **this is the IN-PLACE room reset, not a new game.** The host turns the
     /// pressed edge into `reset_sandbox` plus a room-feature reset: the body
     /// returns to spawn and the room's feature state is restored where it stands.
     /// It does NOT sweep room-scoped entities, empty a hand, wipe the save, or
@@ -630,7 +599,7 @@ impl Platformer2dSimHarness {
     /// Mutable access to the whole App, so a fixture can INSTALL SYSTEMS on top
     /// of a harness rather than only poke its world.
     ///
-    /// ⛔ this exists because the two halves of the couch-multiplayer question
+    /// this exists because the two halves of the couch-multiplayer question
     /// could not be asked in one place. The harness carries a rollback session;
     /// the host carries the device→seat layer (`LocalDeviceOrder`,
     /// `assign_local_seat_devices`, `SeatDeviceOwnership`). With only
@@ -642,7 +611,7 @@ impl Platformer2dSimHarness {
     /// which host systems a fixture wants, or every consumer inherits that
     /// opinion. `world_mut()` for state, this for wiring.
     ///
-    /// ⚠ add systems BEFORE the first [`Self::step`]. `step` runs a full
+    /// add systems BEFORE the first [`Self::step`]. `step` runs a full
     /// `app.update()`, and a system added mid-episode starts running against a
     /// world whose rollback baseline was taken without it — which desyncs on the
     /// next rewind rather than failing where you added it.
@@ -667,12 +636,6 @@ impl Platformer2dSimHarness {
     }
 
     /// Set the active input-frame mapping mode for scripted control.
-    ///
-    /// `AgentAction` fields are raw input axes. Symmetry/regression tests that
-    /// want to drive controlled-body-local directions can set
-    /// [`InputFrameMode::BodyRelativeStrict`], making `move_x` / `move_y` mean local
-    /// side/down directly. Other tests can select the user-facing modes and
-    /// convert local intent through `AccelerationFrame::raw_axis_for_resolved_input`.
     pub fn set_movement_frame_mode(&mut self, mode: ae::InputFrameMode) {
         let mut settings =
             self.app
@@ -795,11 +758,7 @@ impl Platformer2dSimHarness {
             .expect("boss setup frame establishes a fresh GGRS rollback baseline");
     }
 
-    // ⛔ **`spawn_enemy_at` DELETED 2026-08-14.** Its only difference from
-    // `spawn_enemy_character_at` was passing `None` for the character, and
-    // `SpawnActorKind::Enemy::character` is required now — a staged request
-    // that names no creature is not expressible, so an entry point whose whole
-    // purpose was to make one had nothing left to do. It had zero callers.
+    // It had zero callers.
 
     pub fn spawn_enemy_character_at(
         &mut self,

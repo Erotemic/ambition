@@ -37,9 +37,8 @@ use ambition_portal2d::{
 /// adapter keeps the world-side systems below — WHEN a body may take or release
 /// the gun, and what it leaves on the floor.
 ///
-/// ⛔ **the two systems below used to import these and inline them anyway**, and
-/// the drop copy was missing the catalog clear. Both call them now, so "release
-/// the gun" has one body and the roster cannot be left behind by one caller.
+/// Both call them now, so "release the gun" has one body and the roster cannot be left behind by
+/// one caller.
 pub use ambition_platformer2d_actor_monolith::items::pickup::{equip_portal_gun, unequip_portal_gun};
 
 /// On a [`DropPortalGun`] intent, drop the held portal gun: remove the
@@ -52,13 +51,6 @@ pub fn drop_portal_gun_system(
     mut drops: MessageReader<DropPortalGun>,
     mut commands: Commands,
     controlled: Option<Res<ControlledSubject>>,
-    // The body HOLDING the gun (the controlled subject); no drop if it isn't
-    // holding one, or is holding a throwable (that throw takes precedence).
-    // ⭐ `&mut ActorControl`: the drop is ACCEPTED here or nowhere, so the
-    // Attack press is spent here. The input adapter used to spend it when it
-    // merely emitted the intent — and this query's `Without<HeldItem>` is
-    // exactly the case it could not predict, so a body holding a throwable had
-    // its throw silently eaten by a drop that was refused.
     mut holders: Query<
         (
             &BodyKinematics,
@@ -69,12 +61,6 @@ pub fn drop_portal_gun_system(
         (With<PortalGun>, Without<HeldItem>),
     >,
     primary_fallback: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
-    // ⛔ **this system did not have the catalog, and that WAS the bug.** It
-    // cleared the `PortalGun` component and left `OwnedItems::equipped` still
-    // naming the gun, so the inventory screen insisted you were holding a gun
-    // lying on the floor. `throw_held_item_system` cleared its slot; this
-    // hand-written copy of the same release forgot to. Routing both through
-    // `unequip_portal_gun` is what makes forgetting impossible.
     mut owned: Option<ResMut<OwnedItems>>,
     mut sfx: ambition_sfx::SfxWriter,
 ) {
@@ -104,9 +90,6 @@ pub fn drop_portal_gun_system(
     let facing = if kin.facing >= 0.0 { 1.0 } else { -1.0 };
     commands.spawn_room_scoped((
         PortalGunPickup {
-            // Drop it a bit ahead and arm it after a short delay so this same
-            // drop press (and the immediately-overlapping next frame) can't
-            // re-grab it — that was the "can't drop the portal gun" bug.
             pos: kin.pos + Vec2::new(facing * 44.0, 0.0),
             half_extent: Vec2::splat(20.0),
             arm_timer: 0.35,
@@ -172,11 +155,7 @@ pub fn pickup_portal_gun_system(
             if let Some(owned) = owned.as_deref_mut() {
                 owned.grant(Item::PortalGun, 1);
             }
-            // CUSTODY: the ONE take-custody operation, shared with the inventory
-            // menu. Equipping the gun REPLACES the attack — it stashes the
-            // ActionSet and clears the melee swing so Attack fires portals — and
-            // this used to be a hand-written second copy of exactly that, in a
-            // file whose own `pub use` already imported the shared one.
+            // CUSTODY: the ONE take-custody operation, shared with the inventory menu.
             equip_portal_gun(&mut commands, player, &mut action_set, owned.as_deref_mut());
             commands.entity(entity).despawn();
             equipped.write(PortalGunEquipped { player });

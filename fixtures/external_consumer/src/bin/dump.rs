@@ -5,7 +5,7 @@
 //! not require engine tooling. (That no engine-side dump CLI exists is
 //! recorded leak #4.)
 //!
-//! # Composed by the builder, not by hand (campaign A4)
+//! # Composed by the builder, not by hand
 //!
 //! This binary was the LAST hand-ordered composition in the fixture. It named
 //! `add_headless_foundation`, `PlatformerEnginePlugins::fixed_tick`,

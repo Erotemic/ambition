@@ -56,13 +56,9 @@ pub(super) fn game_asset_root() -> String {
 /// The game's OWN asset source (`game://`): the content crate's assets dir in a
 /// dev checkout, layered over the shared engine tree.
 ///
-/// The reader that spans two roots used to live here, ~120 lines of it, where
-/// nothing outside this shell could reach it — which is recorded SDK leak #3:
-/// "consumer-owned art still has no home". It is
-/// `ambition_asset_manager::consumer_source` now, so a third party's game can
-/// own its art the same way Ambition's content crate owns its worlds, and there
-/// is ONE copy of the packaged-build rule about not shadowing the platform
-/// reader.
+/// It is `ambition_asset_manager::consumer_source` now, so a third party's game can own its art the
+/// same way Ambition's content crate owns its worlds, and there is ONE copy of the packaged-build
+/// rule about not shadowing the platform reader.
 #[cfg(not(target_arch = "wasm32"))]
 fn game_asset_source_builder() -> bevy::asset::io::AssetSourceBuilder {
     ambition_platformer2d::asset_manager::consumer_source::layered_asset_source(
@@ -300,7 +296,6 @@ impl std::fmt::Display for SharedHostHeadlessReport {
     }
 }
 
-/// Fixed timestep [`run_shared_host_headless`] advances per tick.
 #[cfg(not(target_arch = "wasm32"))]
 pub const SHARED_HOST_HEADLESS_TICK_HZ: f64 = 60.0;
 
@@ -318,11 +313,9 @@ pub fn shared_host_startup_ticks() -> u32 {
 
 /// **How many room preparations the neighbour prefetch has performed.**
 ///
-/// ⭐ an instrument, exposed because the cost of FILLING the cache is the one
-/// thing its own counters never described — `hits`/`misses`/`stale_misses` all
-/// answer "what did a transition get out of it". A prefetch that rebuilds its
-/// neighbourhood every frame has a perfect hit rate and is pure overhead, and
-/// nothing in the app could see the difference (D124).
+/// an instrument, exposed because the cost of FILLING the cache is the one thing its own
+/// counters never described — `hits`/`misses`/`stale_misses` all answer "what did a transition
+/// get out of it".
 pub fn prefetch_preparations(world: &bevy::prelude::World) -> u64 {
     world
         .get_resource::<super::world_flow::room_transition_assets::RoomPreparationPrefetchState>()
@@ -600,7 +593,7 @@ pub enum VisibleRenderMode {
     /// standard Bevy recipe for exercising the real presentation composition
     /// in tests/CI without a GPU or display server.
     ///
-    /// ⚠ `backends: None` OMITS THE RENDER APP. Nothing is ever drawn, so
+    /// `backends: None` OMITS THE RENDER APP. Nothing is ever drawn, so
     /// anything that needs pixels to exist — a screenshot, a readback, the
     /// tilemap spine — cannot work here and cannot be made to. That is not a
     /// limitation to route around; it is what this mode is. Use
@@ -615,7 +608,7 @@ pub enum VisibleRenderMode {
     /// for ROOMS; naming it here is what lets a shell ROUTE — the launcher, the
     /// title cards, the versus stage and its HUD — be photographed through the
     /// same composition a player runs, which is the thing the room-only capture
-    /// tool could never reach (queue Z1).
+    /// tool could never reach.
     ///
     /// Needs a working wgpu adapter, software or otherwise. A machine without
     /// one should use `NoWindow` and expect no image.
@@ -625,7 +618,7 @@ pub enum VisibleRenderMode {
 /// Assemble the visible Ambition app — the ONE composition the desktop binary
 /// runs and the rendered ownership tests drive.
 ///
-/// ⚠ **`shell_hosted` no longer means what its name says, and the name is kept
+/// **`shell_hosted` no longer means what its name says, and the name is kept
 /// on purpose.** Since K2b both arms ARE shell-hosted; the flag only chooses the
 /// INITIAL ROUTE — `true` boots the multi-game launcher, `false` boots straight
 /// to gameplay, which is what `--direct` and every `--start-room` alias mean.
@@ -644,19 +637,14 @@ pub fn build_visible_app(render: VisibleRenderMode, shell_hosted: bool) -> App {
 /// [`build_visible_app`], plus the ONE moment a caller can reach: after the App
 /// exists, before the simulation plugin builds.
 ///
-/// ⛔ **this exists because the alternative was a second app builder, and that
-/// fork cost five bugs.** `StartRoomOverride`, `StartRoomMustResolve`,
-/// `StartingCharacterOverride` and `SeatsAMatchInsteadOfAHomeBody` are
-/// COMPOSITION INPUTS: `init_sandbox_resources` removes them while the
-/// simulation plugin builds, so a caller who wants to set one has to write it
-/// into a world that already exists and has not yet built that plugin. There was
-/// no such moment. `capture_scene` therefore spelled the whole composition out
-/// by hand — and the hand-spelled copy silently lost the `--route` positional,
-/// the headless display surface, `--dev-overlays`, `--combat-overlay`, and
-/// (2026-08-06 → 08-08, for two days) *the entire room*, because
-/// `install_ambition_shell_visuals` was never added to it.
+/// **this exists because the alternative was a second app builder, and that fork cost five
+/// bugs.** `StartRoomOverride`, `StartRoomMustResolve`, `StartingCharacterOverride` and
+/// `SeatsAMatchInsteadOfAHomeBody` are COMPOSITION INPUTS: `init_sandbox_resources` removes
+/// them while the simulation plugin builds, so a caller who wants to set one has to write it
+/// into a world that already exists and has not yet built that plugin. There was no such
+/// moment.
 ///
-/// ⚠ **a closure rather than a struct of known inputs.** A struct would have to
+/// **a closure rather than a struct of known inputs.** A struct would have to
 /// enumerate the composition inputs, and the fifth one added elsewhere would not
 /// be reachable here — which is the same "a caller cannot say this" hole, one
 /// release later. The hook says *when*, and the resources say *what*.
@@ -688,35 +676,21 @@ pub fn build_visible_app_with(
         // playback-state path, but the final output side effect is recorded
         // instead of issuing Kira `play` commands to the user's speakers.
         app.insert_resource(ambition_platformer2d::audio::AudioOutputMode::Recording);
-        // ...and the SAME rule for the other side effect a non-session App must
-        // not have: writing the user's settings and save. A windowless host is a
-        // test, a capture, or a headless acceptance run — none of them is a
-        // player, and all of them used to read and write
-        // `~/.local/share/ambition/` because the path was resolved from the
-        // environment rather than owned by the App.
+        // ...and the SAME rule for the other side effect a non-session App must not have: writing
+        // the user's settings and save.
         //
-        // ⚠ that directory is per-USER, not per-checkout: every `app_it` test
+        // that directory is per-USER, not per-checkout: every `app_it` test
         // shared three mutable files with every other test, every other
         // worktree, and every concurrent session on the machine. A headless
         // acceptance run could overwrite a real save.
         app.insert_resource(ambition_platformer2d::persistence::PersistenceRoot::isolated());
-        // ⛔ **...and the clock, for the THIRD side effect of the same kind.**
-        // Bevy's default `TimeUpdateStrategy::Automatic` advances the clock by
-        // REAL elapsed time, so `app.update()` is a unit of wall clock rather
-        // than of simulation: almost no movement on an idle machine, many fixed
-        // steps under load. A windowless host has no display to pace against, so
-        // "real time" is not a thing it is synchronising to — it is just
-        // whatever the machine was doing.
+        // A windowless host has no display to pace against, so "real time" is not a thing it is
+        // synchronising to — it is just whatever the machine was doing.
         //
-        // ⚠ **this defect has now landed FOUR times**, and the fourth is why the
-        // rule moved here. `shell_host_startup` pins for it; `shell_host_rendered`
-        // was fixed for it; `smash_in_the_host` was written without it and failed
-        // only under concurrent load — two full `app_it` runs at once fail in
-        // BOTH processes, every time, while three sequential runs are green.
-        // `dev/journals/code_smells.md` already states the lesson, and stating a
-        // lesson is what a rule does instead of enforcing it.
+        // `dev/journals/code_smells.md` already states the lesson, and stating a lesson is what
+        // a rule does instead of enforcing it.
         //
-        // ⭐ **the same shape as the two above**: a non-session App must not have
+        // **the same shape as the two above**: a non-session App must not have
         // the side effect, so the HOST removes it once rather than 42 call sites
         // remembering to. A test that wants a different dt still inserts its own
         // — this is a default, not a lock.
@@ -824,7 +798,7 @@ pub fn build_visible_app_with(
             ));
         }
     }
-    // ⭐ **AND NOW THE PART THAT IS NOT DESKTOP BUSINESS.** Everything above
+    // **AND NOW THE PART THAT IS NOT DESKTOP BUSINESS.** Everything above
     // chose a render surface; everything below is the game, and it is the SAME
     // game the browser runs. See `visible_composition` for why that is one
     // function and not a passage repeated per host.
@@ -881,13 +855,7 @@ fn cli_direct_entry() -> bool {
 /// [`super::visible_composition::compose_ambition_visible_game`], the same
 /// function the desktop builder calls.
 ///
-/// ⛔⛔ **it used to compose the game itself, and that is why the browser showed
-/// a blank canvas.** The hand-spelled copy had the plugins but not
-/// `AmbitionShellHosted`, not the shell host, not an initial route, and not
-/// `install_ambition_shell_visuals` — so the wasm linked, wgpu initialized, the
-/// canvas painted, and there was no launcher, no room, and no error to read. A
-/// build gate proves *links*; nothing there proved *composes*. Reported by Jon
-/// 2026-08-14, fixed by deleting the copy rather than by patching it.
+/// A build gate proves *links*; nothing there proved *composes*.
 ///
 /// It still bypasses every desktop-only branch in [`run_visible`]: no CLI
 /// parsing (`std::env::args` is empty in the browser), no `DISPLAY` / Wayland
@@ -905,13 +873,13 @@ fn cli_direct_entry() -> bool {
 #[cfg(all(target_arch = "wasm32", feature = "web_platform"))]
 pub fn run_web() {
     let mut app = App::new();
-    // ⛔ **THE `game://` SOURCE WAS NEVER REGISTERED HERE.** The world manifest
+    // **THE `game://` SOURCE WAS NEVER REGISTERED HERE.** The world manifest
     // addresses every `.ldtk` file as `game://worlds/<file>` (and the vanity card
     // its own art the same way), so on the browser those loads resolved through
     // a source that did not exist. `static_map` hid it for the worlds — the
     // embedded fallback answered instead — and nothing hid it for anything else.
     //
-    // ⭐ **the two roots are ONE root here, and this is the platform default the
+    // **the two roots are ONE root here, and this is the platform default the
     // engine's layering rule already reduces to.** `layered_asset_source`
     // documents that equal roots return `AssetSourceBuilder::platform_default`
     // UNCHANGED, and that the equality is load-bearing rather than an
@@ -922,7 +890,7 @@ pub fn run_web() {
     // correct one. On wasm that reader is Bevy's HTTP reader, fetching
     // `/assets/<path>` from the page origin for both sources.
     //
-    // ⚠ spelled as the platform default rather than as `layered_asset_source`
+    // spelled as the platform default rather than as `layered_asset_source`
     // because that function is `not(target_arch = "wasm32")` — it is built on
     // `FileAssetReader`, which a browser does not have. The rule is the same;
     // only the half of it that needs a filesystem is absent here.
@@ -935,7 +903,7 @@ pub fn run_web() {
     app.add_plugins(
         DefaultPlugins
             .set(bevy::asset::AssetPlugin {
-                // ⛔⛔ **NEVER PROBE FOR `.meta`, AND THIS IS NOT LOG HYGIENE.**
+                // **NEVER PROBE FOR `.meta`, AND THIS IS NOT LOG HYGIENE.**
                 //
                 // Bevy's default `AssetMetaCheck::Always` asks for `<path>.meta`
                 // before every asset. **This repo contains ZERO `.meta` files** under
@@ -943,14 +911,7 @@ pub fn run_web() {
                 // is a request that cannot succeed — on the desktop a cheap failed
                 // stat, in a browser a full HTTP round trip that 404s.
                 //
-                // That DOUBLES the request count on the one platform where requests
-                // are expensive, and it buried the served-web log so completely that
-                // a maintainer reading it could not tell whether the real assets were
-                // being fetched at all (Jon, 2026-08-14: pages of `.meta` 404s and
-                // not one real GET visible among them). A diagnostic channel nobody
-                // can read is a diagnostic channel that does not exist.
-                //
-                // ⚠ the day this repo starts SHIPPING processed assets with meta
+                // the day this repo starts SHIPPING processed assets with meta
                 // sidecars, this is the line that has to change — and the absence of
                 // any `.meta` file is what makes it safe today, not a preference.
                 meta_check: bevy::asset::AssetMetaCheck::Never,

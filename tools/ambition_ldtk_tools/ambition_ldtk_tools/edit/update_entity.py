@@ -267,7 +267,7 @@ def main(argv=None) -> int:
     existing_field_ids = {f.get("identifier") for f in ent.get("fieldDefs", [])}
 
     added: list[str] = []
-    # ⭐ a REFERENCE field, not a value field: its ~30-key LDtk shape and the
+    # a REFERENCE field, not a value field: its ~30-key LDtk shape and the
     # editor scope of what it may point at belong to the relationship, so this
     # command names the relationship and `ensure_entity_ref_fielddef` writes it.
     # Idempotent by construction, which is what makes it safe in a sync script.
@@ -279,7 +279,7 @@ def main(argv=None) -> int:
         existing_field_ids.add(name)
         added.append(f"{name}:EntityRef->{made['allowedRefs']}")
 
-    # ⭐ enums first, so a `--add-field` that collides with one reports the
+    # enums first, so a `--add-field` that collides with one reports the
     # collision rather than winning the race and leaving a free-text field where
     # the author asked for a dropdown.
     for spec in args.add_enum_field:

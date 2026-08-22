@@ -1,17 +1,13 @@
 //! **Consumer-matrix row 4, standalone half: a module that PREDATES the SDK
 //! stands up through it.**
 //!
-//! Every consumer the campaign has proven so far — Outlander and the minimal
-//! game — was written or rewritten against `ambition_platformer2d::app`. Sanic was not. It
-//! is an in-tree demo with presentation profiles, a declared HUD, music,
-//! procedural SFX and packed SFX, written before `PlatformerApp` existed, and
-//! it is the closest thing available to an independent consumer.
+//! Sanic was not.
 //!
 //! That distinction is the point. §4 authorises a decomposition on a SENTINEL
 //! CONSUMER's capability footprint, and a footprint measured only against games
 //! their own API author designed answers a much weaker question.
 //!
-//! ⚠ Sanic mounts as a `capability`, not through `playable()`. `playable` does
+//! Sanic mounts as a `capability`, not through `playable()`. `playable` does
 //! not carry presentation profiles or a HUD declaration, and inventing those
 //! parameters to make this test prettier would be designing an API from one
 //! caller. The capability slot is the supported escape hatch for exactly this,
@@ -80,19 +76,13 @@ fn sanic_stands_up_standalone_through_the_public_api() {
 
 /// **Sanic standalone and Sanic embedded produce the SAME identities.**
 ///
-/// ADR 0032's deletion criteria, verbatim: *"Sanic standalone and Sanic embedded
-/// produce the same module-content and rollback-schema identities."* Nothing had
-/// ever compared them — the criterion had been on the list since the ADR was
-/// written and was unfalsifiable until slice D made two experiences able to
-/// coexist at all.
-///
 /// Two identities, because they can fail independently:
 ///
 /// * the **authored content** registry's deterministic dump — what Sanic
 ///   declared;
 /// * the **rollback schema** fingerprint — what a session would snapshot.
 ///
-/// ⚠ Compared for SANIC specifically, not for the whole composition. The
+/// Compared for SANIC specifically, not for the whole composition. The
 /// embedded app legitimately contains more (the other module's content, its
 /// routes), so asserting whole-app equality would be asserting that embedding
 /// changes nothing, which is false and uninteresting. What must not change is

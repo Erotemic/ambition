@@ -68,13 +68,6 @@ pub fn is_cut_rope_boss(id: &str) -> bool {
 // content-named replay message exists.
 
 /// **The player chose "try again".**
-///
-/// Recorded in the conversation's narrative ledger by `<<reset_cut_rope_room>>`
-/// and released to the simulation on the tick it was stamped for. ⛔ the command
-/// used to set [`PendingCutRopeRoomReplay`] directly from `Update`, which is a
-/// presentation-side write into state a sim system consumes: a rewind restored
-/// the latch and nothing re-set it, because the Yarn runner does not run between
-/// resimulated ticks.
 #[derive(bevy::prelude::Message, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct CutRopeRoomReplayRequested;
 
@@ -82,7 +75,7 @@ pub struct CutRopeRoomReplayRequested;
 /// intentionally waits until the conversation is over, so the final NPC line
 /// remains visible until the player dismisses it.
 ///
-/// ⚠ **rollback state, because it BRIDGES TICKS.** The choice is made while the
+/// **rollback state, because it BRIDGES TICKS.** The choice is made while the
 /// last line is still on screen and the reset happens whenever the player
 /// dismisses it — an unbounded number of ticks later. A latch that spans ticks
 /// and is written by the simulation is simulation state; leaving it out meant a
@@ -156,13 +149,8 @@ impl CutRopeHeavyObjectCycle {
 /// `ContentDialogueFollowupSet` slot by `AmbitionBossContentPlugin`, so the
 /// host never names this system.
 ///
-/// ⛔ **it used to wait on `DialogState::active()`, and that is a sim system
-/// branching on presentation state that rollback does not rewind.** On a
-/// resimulated tick the read returned the LIVE text box rather than the box as
-/// it was, so a replay could fire on a tick the original run had not — which for
-/// a ROOM RESET means despawning the world on a tick the other timeline did not.
-/// The conversation authority answers the same question deterministically, and
-/// it is the thing the box is a projection of.
+/// The conversation authority answers the same question deterministically, and it is the thing the
+/// box is a projection of.
 pub fn emit_cut_rope_room_replay_after_the_conversation_ends(
     conversation: Res<ambition_conversation::ActiveConversation>,
     mut chosen: MessageReader<CutRopeRoomReplayRequested>,
@@ -189,16 +177,6 @@ pub fn emit_cut_rope_room_replay_after_the_conversation_ends(
 /// helper only clears the *persisted* "cleared" record (so the revived boss
 /// isn't pre-marked defeated), re-hides the victory NPC, and restores the intro
 /// music from the read-only profile catalog.
-///
-/// ⛔ **that event does NOT despawn and respawn the boss**, which this comment
-/// claimed for a long time and which made the replay look like ordinary
-/// construction. `reset_ecs_room_features` MUTATES the surviving entity back
-/// toward a presumed spawn state — a hand-kept reconstruction ledger, and a
-/// second constructor beside the canonical `RoomConstructionPlan` that a real
-/// room transition runs. The two have already been measured disagreeing (the
-/// boss came back unable to fly; see
-/// `docs/planning/engine/same-room-replay-is-a-second-constructor.md`), so do
-/// not reason about a replay as though it rebuilt anything.
 ///
 /// R4: "cleared" is keyed by PLACEMENT (the boss's `config.id`), so the caller
 /// passes the cut-rope boss placement ids currently in the room to clear.

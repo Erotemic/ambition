@@ -1,10 +1,7 @@
 use super::*;
 use crate::actor::{PlayerEntity, PrimaryPlayer};
 
-/// The bug the S5/S6 fold found: `blink`/`grapple` act on the
-/// `ControlledSubject`, so a POSSESSED actor arms this cooldown on itself —
-/// and the old `With<PlayerEntity>, With<PrimaryPlayer>` tick filter never
-/// counted it down. The possessed body could blink exactly once, ever.
+/// The possessed body could blink exactly once, ever.
 #[test]
 fn a_possessed_body_cooldown_ticks_down_too() {
     let mut app = App::new();

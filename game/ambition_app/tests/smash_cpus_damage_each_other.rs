@@ -1,24 +1,13 @@
 //! **TWO CPUs IN THE SHIPPED COMPOSITION FIGHT EACH OTHER, AND THIS SAYS SO IN
 //! UNITS NOBODY CAN MISREAD.**
 //!
-//! ⛔⛔ **the claim this exists to keep true was FALSE IN THE LEDGER FOR DAYS,
-//! and the fighters were never the problem.** `awaiting-maintainer-decision.md`
-//! §5 recorded, as a measured finding for the maintainer:
-//!
 //! > *"In a real duel neither fighter exceeds 0.84% peak damage — they never hit
 //! > each other; the 'outlast' numbers the ladder rig reports are measuring who
 //! > walked off later."*
 //!
-//! `0.84` was **84%**. [`BodyHealth::damage_percent`] returns a RATIO — its own
-//! doc says *"`1.88` is a legal answer and is how a HUD prints `188%`"* — and
-//! `ladder_rig` printed it under a literal `%`. Every reading of that column was
-//! a hundredth of the truth, and the rig's *"BUT NEITHER LANDED A HIT"* marker
-//! was then given a threshold chosen to fit the misreading, so it fired on real
-//! duels.
-//!
-//! ⇒ **measured here, in the composition the desktop binary runs**: two level-9
-//! CPUs on a character a player can pick off the select grid reach **169 damage
-//! against a pool of 100** in sixty seconds, spending 575 ticks each in hitstun.
+//! `0.84` was **84%**. [`BodyHealth::damage_percent`] returns a RATIO — its own doc says *"`1.88`
+//! is a legal answer and is how a HUD prints `188%`"* — and `ladder_rig` printed it under a literal
+//! `%`.
 //!
 //! ## What this asserts, and why each term is needed
 //!
@@ -30,14 +19,14 @@
 //! bodies seated  both seats existed for most of the match   ← the zero floor
 //! ```
 //!
-//! ⛔ **the peak alone is not enough.** A stage hazard, a self-destruct or a
+//! **the peak alone is not enough.** A stage hazard, a self-destruct or a
 //! scripted spike would move the meter with nobody landing anything; hitstun is
-//! what a body enters when something HITS it. ⚠ and the seat count is asserted
+//! what a body enters when something HITS it. and the seat count is asserted
 //! because a match that never seated two bodies reports two peaks of zero and
 //! would fail loudly for the wrong reason — or, with the assertions inverted,
 //! pass silently.
 //!
-//! ⚠ **UNITS, stated once**: every number here is a ratio of the fighter's own
+//! **UNITS, stated once**: every number here is a ratio of the fighter's own
 //! damage pool. `1.0` is 100%. The `×100` belongs at a print site and appears
 //! nowhere in the assertions.
 
@@ -59,7 +48,7 @@ const RUNG: u8 = 9;
 /// readable against each other.
 const TICKS: usize = 3_600;
 
-/// Half a pool. ⚠ deliberately far below the 1.69 measured on 2026-08-19: this
+/// Half a pool. deliberately far below the 1.69 measured: this
 /// guards *"a fight happened"*, not the tuning, and a test that pinned the
 /// measured value would go red on every balance change.
 const A_REAL_FIGHT: f32 = 0.5;
@@ -68,7 +57,7 @@ const A_REAL_FIGHT: f32 = 0.5;
 fn two_cpus_in_the_shipped_composition_damage_each_other() {
     let mut app =
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
-    // ⚠ the frame is load-bearing: `PreparedCharacterRegistry` is filled by a
+    // the frame is load-bearing: `PreparedCharacterRegistry` is filled by a
     // `Startup` system, so a build that has never updated has a catalog and no
     // registry.
     app.update();
@@ -119,9 +108,6 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
         }
     }
 
-    // ⚠ the zero floor. Everything below is about two bodies; a match that
-    // seated one (or none) would leave the peaks at zero and the failure would
-    // name the wrong thing.
     assert!(
         both_seated_ticks > TICKS / 2,
         "the match seated two fighters on only {both_seated_ticks} of {TICKS} ticks, \

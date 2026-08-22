@@ -13,12 +13,8 @@
 //! `Completed` event). The engine names none of it; the lifecycle reducer
 //! decides everything.
 //!
-//! ⭐⭐ **and the kernel flips are no longer here at all (D127 M2).** Each of the
-//! four kernel switches authors its own `on_activate` line in `symmetry_room` —
-//! `encounter.signal encounter:symmetry_attunement gravity_down` — which the
-//! engine prepares once when the room is read and performs through the
-//! authored-command contract. The `(switch id, signal key)` const table and the
-//! system that walked it are gone; what is left of the pairing is the level.
+//! The `(switch id, signal key)` const table and the system that walked it are gone; what is
+//! left of the pairing is the level.
 
 use bevy::prelude::*;
 
@@ -42,14 +38,7 @@ pub const SYMMETRY_ATTUNEMENT_FLAG: &str = "symmetry_attunement_complete";
 
 /// **The four kernel-face facts the puzzle's win condition is made of.**
 ///
-/// ⭐⭐ **this used to be a PAIR table — `switch id → signal key` — and the
-/// switch half is gone (D127 M2).** Which switch publishes which face is now
-/// authored on the `Switch` itself, as an `on_activate` line naming
-/// `encounter.signal`, so a fifth face is a placement in the level rather than a
-/// row in another crate's Rust. The engine reads it; see
-/// `ambition_platformer2d::actors::world::authored_switch_commands`.
-///
-/// ⚠ **what survived is an encounter stating its own win condition**, which is
+/// **what survived is an encounter stating its own win condition**, which is
 /// legitimate and is a different sentence from *"this switch does that"*: the
 /// puzzle is complete when all four symmetries have been visited, and only the
 /// puzzle knows that.
@@ -60,14 +49,13 @@ const KERNEL_SIGNALS: [&str; 4] = [
     "gravity_right",
 ];
 
-/// Spawn the attunement authority once: the generic component set and nothing
-/// else — no waves, no participants, no bespoke state. A previously completed
-/// attunement (save flag) starts terminal, so the reducer refuses a restart.
+/// Spawn the attunement authority once: the generic component set and nothing else — no waves, no
+/// participants, no bespoke state.
 ///
 /// SESSION-SCOPED, like every encounter authority: the session that activated
 /// the puzzle owns it, so retirement tears it down and the next session's
-/// spawn cannot mint a duplicate `SimId::encounter` (GPT-5.6 review,
-/// 2026-07-16). A shell host at a non-gameplay route sleeps; a headless app
+/// spawn cannot mint a duplicate `SimId:encounter` (,
+/// ). A shell host at a non-gameplay route sleeps; a headless app
 /// without session lifecycle gets the unscoped legacy mode.
 pub fn spawn_symmetry_attunement(
     mut commands: ambition_platformer2d_shared_tangle::lifecycle::SessionCommands,
@@ -101,14 +89,11 @@ pub fn spawn_symmetry_attunement(
 
 /// Command EMITTER: entering the Noether Chamber starts the attunement.
 ///
-/// ⭐⭐ **the kernel-face half of this system is DELETED, not moved.** It read a
-/// `SwitchActivated` message, matched its id against a Rust const table and
-/// emitted the paired signal. The four switches now carry their own
-/// `on_activate` lines and the engine performs them through the authored-command
-/// contract, so there is no adapter here at all — the level talks to the
-/// encounter domain directly.
+/// The four switches now carry their own `on_activate` lines and the engine performs them
+/// through the authored-command contract, so there is no adapter here at all — the level talks
+/// to the encounter domain directly.
 ///
-/// ⚠ **what is left is room ENTRY**, which is a genuinely different shape: it is
+/// **what is left is room ENTRY**, which is a genuinely different shape: it is
 /// a level-triggered condition on the active room rather than an edge on a
 /// placement, and no authored surface expresses it yet. Naming that limit is
 /// better than inventing a second one to hide it.

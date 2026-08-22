@@ -1,7 +1,5 @@
 //! Cut-rope boss victory NPC — spawns the Smirking Behemoth's defeated-form
 //! NPC the player talks to after winning.
-//!
-//! Split out of the former 793-line `cut_rope.rs` (2026-06-15).
 
 use super::*;
 

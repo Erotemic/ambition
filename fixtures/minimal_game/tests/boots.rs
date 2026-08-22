@@ -34,13 +34,10 @@ fn the_minimal_game_boots_headless() {
 
 /// **The SAME module reaches the windowed face.**
 ///
-/// This is the slice-B leak, as a test. Before slice B the visible face
-/// installed `PlatformerAssetsPlugin`, which panics without a
-/// `CharacterCatalog`, and a minimal module had no way to supply one — so a
-/// game that booted headless could not boot windowed, while
-/// `api-prototype.md` §2b claimed the two faces differed only in policy. The
-/// 2026-07-30 blind agent hit exactly this and recorded that the document
-/// "actively told me the opposite would be true".
+/// This is the slice-B leak, as a test. Before slice B the visible face installed
+/// `PlatformerAssetsPlugin`, which panics without a `CharacterCatalog`, and a minimal module had no
+/// way to supply one — so a game that booted headless could not boot windowed, while
+/// `api-prototype.md` §2b claimed the two faces differed only in policy.
 #[test]
 fn the_minimal_game_boots_windowed() {
     let app = PlatformerApp::windowed(minimal_game::MINIMAL_WINDOW_TITLE)
@@ -111,12 +108,7 @@ fn preparing_art_with_no_declared_cast_is_refused_and_names_both_fixes() {
 /// **Declaring no cast AND a starting character is a contradiction, and it is
 /// caught.**
 ///
-/// This test used to assert that `no_characters()` composes. It did — until
-/// build-time validation of `starting_character` landed, and then it failed,
-/// because the module was declaring an empty roster and naming a protagonist in
-/// the same breath. The test was wrong and the new check was right.
-///
-/// ⚠ It also surfaced a real limitation, recorded rather than papered over: a
+/// It also surfaced a real limitation, recorded rather than papered over: a
 /// genuinely CASTLESS game — a menu-only app — cannot be expressed today.
 /// `playable()` requires a starting character, and without `playable()` no
 /// gameplay route is registered, so rule 7 refuses the composition. `no_characters()`
@@ -239,7 +231,7 @@ fn a_game_that_will_never_start_reports_why() {
 
 /// **A starting character nobody authored is refused at BUILD, not at tick 600.**
 ///
-/// Blind run 2 (2026-07-30) found this and named it exactly: "the exact
+/// Blind run 2 found this and named it exactly: "the exact
 /// silent-failure shape slice A closed for routes, left open for characters."
 /// It declared a `starting_character` no roster contained, and `try_build`
 /// SUCCEEDED — 120 ticks ran, the process exited 0, and the host had never
@@ -345,11 +337,6 @@ fn the_minimal_game_reports_that_it_started() {
 }
 
 /// **`is_running` is not satisfied by a route with nothing behind it.**
-///
-/// "A route is active" and "a session was prepared for it" are different facts,
-/// and the gap between them IS the empty host — an earlier draft of Outlander's
-/// headless binary "ran" 120 ticks of exactly that. A status type collapsing
-/// them would agree with the bug it exists to expose.
 #[test]
 fn a_route_with_no_prepared_session_does_not_count_as_running() {
     let live = HostStatus::Running {
@@ -381,7 +368,7 @@ fn a_route_with_no_prepared_session_does_not_count_as_running() {
 /// It does not. This game's walker carries 60+ components and not one of them
 /// is melee, combat, hitbox, health or moveset state.
 ///
-/// ⚠ **Ask this on COMPONENTS, not on the ability mask.** An earlier version
+/// **Ask this on COMPONENTS, not on the ability mask.** An earlier version
 /// asserted `AbilityBase.attack == false`, failed, and I recorded the category
 /// as FAILING. That was the wrong question, and `actor_clusters.rs` says so
 /// directly: *"A combat body HAS the attack verb (capability); WHETHER it
@@ -550,20 +537,12 @@ fn two_modules_claiming_one_experience_id_conflict_and_the_error_names_both() {
     }
 }
 
-/// **The walker LANDS.** (and the reason this test exists is worse than the bug)
+/// Every other test in this file asserted that the host was `Running`. The host WAS running.
 ///
-/// Every other test in this file asserted that the host was `Running`. The host
-/// WAS running. The game was broken: the floor was authored with a centre where
-/// `Block::solid(name, MIN, size)` wants a min corner, so it sat at x 320..960
-/// in a 640-wide room, the walker spawned at x=64, fell straight past it,
-/// blast-died, respawned, and fell again — forever, at a steady
-/// `Running { prepared: true }`.
+/// Blind run 3 found it by copying this fixture verbatim, which `docs/sdk/README.md` tells
+/// third parties to do.
 ///
-/// Blind run 3 found it by copying this fixture verbatim, which
-/// `docs/sdk/README.md` tells third parties to do. It cost that run its longest
-/// debugging episode, on a bug it had inherited from the reference.
-///
-/// ⚠ **`host_status` cannot see this and was never going to.** It answers "did
+/// **`host_status` cannot see this and was never going to.** It answers "did
 /// the engine start", which is exactly what it was built for and what slice C
 /// needed. "Is the game playable" is a different question and needs a different
 /// assertion: a POSITION, settling. A suite that only ever asks the engine about
@@ -613,7 +592,7 @@ fn the_walker_lands_on_the_floor_instead_of_falling_through_it() {
 /// guessed. It gave up and opened a fixture — the SDK's acceptance test failing
 /// by the SDK's own suggested remedy.
 ///
-/// ⚠ A published example that does not work is worse than none: it costs a
+/// A published example that does not work is worse than none: it costs a
 /// reader the build cycle AND their trust in the rest of the document. So it is
 /// used here exactly as a consumer would, with the `my_hero` id it declares.
 #[test]
@@ -674,7 +653,7 @@ fn the_published_one_character_roster_composes_and_runs() {
 /// itself. That was the last piece of host composition a real consumer still
 /// assembled for itself.
 ///
-/// ⚠ The two policies must be DISTINGUISHABLE, or this test passes on a
+/// The two policies must be DISTINGUISHABLE, or this test passes on a
 /// builder that ignores the flag. So it asserts the default lands somewhere
 /// different from the launcher policy, rather than only that the launcher
 /// policy lands somewhere.
@@ -751,7 +730,7 @@ fn a_multi_game_host_can_start_at_its_launcher() {
 
 /// **The SDK's worked room example compiles and runs.**
 ///
-/// ⚠ This test exists because the SDK has now gone stale in the expensive
+/// This test exists because the SDK has now gone stale in the expensive
 /// direction THREE times, and each time prose was the only thing holding it
 /// true:
 ///
@@ -832,8 +811,6 @@ fn the_sdk_worked_room_example_compiles_and_runs() {
     );
 }
 
-/// **A declaration refusal SAYS that later checks did not run.** (2026-07-31)
-///
 /// `CompositionError`'s own doc quotes ADR 0032 — *"a draft yields one build
 /// error listing every conflict in the experience"* — and that promise is true
 /// WITHIN a pass and cannot be true across them: the capability-dependent checks
@@ -880,12 +857,9 @@ fn a_declaration_refusal_says_the_later_checks_have_not_run() {
 /// **A consumer can drive two INDEPENDENT seats through the SDK.** (finding (g),
 /// input half)
 ///
-/// Blind run 7 recorded that no public seam drove input to a named seat, so
-/// couch-versus was not expressible through the SDK. The seam had existed in
-/// `ambition_platformer2d_runtime::rollback` since queue Y1 — it was simply never re-exported,
-/// which made the finding true of the FACADE and false of the engine. That is
-/// the harder of the two to notice, because nothing is missing and nothing
-/// fails; the capability is just unreachable from where a consumer stands.
+/// Blind run 7 recorded that no public seam drove input to a named seat, so couch-versus was not
+/// expressible through the SDK. That is the harder of the two to notice, because nothing is missing
+/// and nothing fails; the capability is just unreachable from where a consumer stands.
 ///
 /// This asserts what the finding asked for: both halves reachable, by name, from
 /// `ambition_platformer2d` alone.
@@ -915,15 +889,10 @@ fn a_consumer_can_name_both_input_seams_without_leaving_the_sdk() {
     drive_control_frame(app.world_mut(), ControlFrame::default());
     drive_slot_frame(app.world_mut(), PlayerSlot(1), ControlFrame::default());
 
-    // ⛔⛔ **SLOT ZERO GOES THROUGH THE GENERAL SEAM, and this assertion used to
-    // say the opposite.** It read: *"Slot 0 is REFUSED rather than silently
-    // redirected… asserted as a no-panic, since the refusal is a return"* — and
-    // a bare `return` on a valid slot is a silent dropped input, which is the
-    // one failure this pair of helpers exists to remove. A test whose whole
-    // content is "the call does not panic" agrees with a function that does
+    // A test whose whole content is "the call does not panic" agrees with a function that does
     // nothing.
     //
-    // ⚠ **asked of the app, not of the branch.** Which resource the frame lands
+    // **asked of the app, not of the branch.** Which resource the frame lands
     // in is the composition's business — a latching host folds it into a latch,
     // a headless one writes the frame — so this drives the two seams into two
     // identical games and holds them to the same OBSERVABLE, rather than

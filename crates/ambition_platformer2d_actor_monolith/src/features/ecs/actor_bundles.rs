@@ -1,6 +1,3 @@
-//! Spawn bundles + enemy spawn-time data (moved out of the combat kit at
-//! E2: spawn machinery is features-side; the bundles compose combat
-//! components through the legal features → combat arrow).
 
 use bevy::prelude::*;
 
@@ -142,15 +139,12 @@ pub struct EnemyActorBundle {
 }
 
 impl EnemyActorBundle {
-    /// Construct a spawn bundle, filling the four fields that are identical at
-    /// every spawn site — `target` (no target until `select_actor_targets`
-    /// runs), `damageable_volumes` (derived from the sheet), `pogo_policy =
-    /// FromDamageable`, and `pogo_target_volumes`. Each `spawn_*` site supplies
-    /// only the fields that actually vary, so adding a new defaulted bundle field
-    /// is a one-line change here instead of an edit at all six call sites
-    /// (`spawn_actors.rs` ×4, `spawn_mounts.rs` ×2). Every parameter is a
-    /// distinct type, so a mis-ordered argument is a compile error, not a silent
-    /// spawn bug.
+    /// Construct a spawn bundle, filling the four fields that are identical at every spawn site
+    /// — `target` (no target until `select_actor_targets` runs), `damageable_volumes` (derived
+    /// from the sheet), `pogo_policy = FromDamageable`, and `pogo_target_volumes`. Each
+    /// `spawn_*` site supplies only the fields that actually vary, so adding a new defaulted
+    /// bundle field is a one-line change here instead of an edit at all six call sites
+    /// (`spawn_actors.rs` ×4, `spawn_mounts.rs` ×2).
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         base: FeatureBaseBundle,

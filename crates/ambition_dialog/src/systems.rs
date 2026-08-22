@@ -281,12 +281,8 @@ enum PointerUp {
 impl PointerUp {
     /// Did a pointer come up — treating "cannot say" as yes.
     ///
-    /// ⚠ this is the direction [`ambition_ui_nav::RowPress::origin`] already
-    /// argues for: *no position is not evidence of a drag*. A missing input
-    /// resource is not evidence that the press should die, and the composition
-    /// where it is missing is a headless one that has no pointer at all — so the
-    /// permissive reading costs nothing and the strict one would silently break
-    /// clicking in any app that forgot a plugin.
+    /// ⚠ this is the direction [`ambition_ui_nav::RowPress::origin`] already argues for: *no
+    /// position is not evidence of a drag*.
     ///
     /// ⛔ the `Interaction::None` arm deliberately does NOT use this. There,
     /// "cannot say" resolves the other way, and for a reason rather than a
@@ -330,12 +326,6 @@ fn resolve_pointer_up(
 
 /// Resolve the configured pointer policy for the device that actually issued
 /// the interaction.
-///
-/// Every device now gets the policy the user configured, unchanged — see the
-/// body for why the touch promotion that used to live here is gone. What a
-/// policy answers is *how many taps a row costs*; what counts as a tap, and
-/// whether a gesture spoiled one, is decided by the press/release pair in
-/// [`dialog_pointer_input`].
 #[cfg(feature = "input")]
 fn effective_dialog_tap_mode(
     configured: MenuTapMode,
@@ -717,11 +707,8 @@ mod tests {
 
     /// **Touch keeps the configured policy — and drag safety comes from RELEASE.**
     ///
-    /// ⛔ **this test used to assert the opposite**, because the behaviour was the
-    /// opposite: touch was promoted to `TapToSelectThenConfirm`, which is two
-    /// deliberate taps per dialogue choice on a phone. That promotion existed
-    /// only because activation happened on PRESS, so a finger that landed and
-    /// slid had already chosen.
+    /// That promotion existed only because activation happened on PRESS, so a finger that
+    /// landed and slid had already chosen.
     ///
     /// ⚠ **rewritten rather than deleted, because the guarantee it protected is
     /// still owed** — a drag must not activate. That is now `RowPress`'s job, and
@@ -744,7 +731,6 @@ mod tests {
             }
         }
 
-        // The safety the promotion used to buy, where it lives now.
         let mut press = ambition_ui_nav::RowPress::default();
         press.press(2, Some(bevy::prelude::Vec2::new(100.0, 100.0)));
         assert_eq!(

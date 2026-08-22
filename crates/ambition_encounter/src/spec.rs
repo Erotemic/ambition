@@ -71,8 +71,7 @@ pub struct EncounterMobSpec {
     pub spawn: [f32; 2],
     /// Mob hitbox size; defaults to a sensible per-archetype value.
     pub size: [f32; 2],
-    /// Seconds after the wave starts before this mob spawns. `0.0`
-    /// means "with the wave".
+    /// `0.0` means "with the wave".
     pub delay: f32,
 }
 
@@ -147,9 +146,6 @@ pub struct EncounterSpec {
     /// Optional dynamic wall that spawns when the encounter goes
     /// Active and is removed when it leaves Active.
     pub lock_wall: Option<LockWallSpec>,
-    /// Seconds the encounter spends in `Starting` (intro) before the
-    /// first wave kicks off. The camera + lock + music change happen
-    /// at the start of `Starting`; enemies don't spawn until `Active`.
     pub intro_seconds: f32,
     /// Music track id to play while the encounter is Active. Empty
     /// disables the music swap.

@@ -95,10 +95,8 @@ impl ProjectileSpawnRequest {
 
 /// Lower substrate-neutral authored spawn data into the shared in-flight body.
 ///
-/// This is the one request→body mapping for open-visual shots. It used to live
-/// on the field-less `EnemyProjectileState` resource even after that resource
-/// stopped owning any projectile state. Keeping the lowering with the request
-/// makes the ownership literal and lets the dead pool resource disappear.
+/// This is the one request→body mapping for open-visual shots. Keeping the lowering with the
+/// request makes the ownership literal and lets the dead pool resource disappear.
 pub fn build_in_flight_projectile(
     request: ambition_projectile_spec::ProjectileSpawn,
 ) -> InFlightProjectile {

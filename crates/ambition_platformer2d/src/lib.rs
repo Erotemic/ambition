@@ -37,8 +37,8 @@ pub use ambition_platformer2d_provider as provider;
 ///
 /// app.add_plugins(ambition_platformer2d::causal::CausalPlugin);
 /// app.world_mut()
-///     .resource_mut::<CausalRecording>()
-///     .set_policy(RecordingPolicy::only([domains::MOVEMENT]));
+/// .resource_mut::<CausalRecording>()
+/// .set_policy(RecordingPolicy::only([domains::MOVEMENT]));
 /// // … drive the sim …
 /// println!("{}", log.explain(tick, &SubjectKey::Seat(1)).render());
 /// ```
@@ -48,7 +48,7 @@ pub mod causal {
     pub use ambition_causal::*;
     /// The host half: the plugin, the frame stamp, the publishers' ordering set.
     ///
-    /// ⚠ a game installs `CausalPlugin` and gets recording it can TURN ON. It
+    /// a game installs `CausalPlugin` and gets recording it can TURN ON. It
     /// never turns itself on: an instrument that is on by default is one
     /// somebody switches off, and then it is not there when it is needed.
     pub use ambition_platformer2d_runtime::causal::{
@@ -75,7 +75,7 @@ pub mod content {
 
     /// The schemas the ENGINE itself owns, ready for a consumer to add to.
     ///
-    /// ⚠ this is the piece a consumer cannot assemble for itself without
+    /// this is the piece a consumer cannot assemble for itself without
     /// knowing which crates own which schemas — which is exactly the internal
     /// topology the SDK is supposed to hide. A capability's own schema is added
     /// on top; nobody has to know that the character catalog lives in
@@ -95,12 +95,9 @@ pub mod content {
                 crate::characters::brain::boss_pattern::content_schema::boss_seed_library_schema(),
             )
             .expect("the engine's own schemas are registered once");
-        // ⭐ **the platform-fighter capability, named by its schema.** D166's
-        // first character-owned facet: a fighter's capture kit as authored
-        // values. The capability owns the schema even though its types still
-        // live in `ambition_characters` — which is the point of registering it,
-        // since a registration is where ownership becomes something a tool can
-        // print rather than a comment.
+        // The capability owns the schema even though its types still live in
+        // `ambition_characters` — which is the point of registering it, since a registration is
+        // where ownership becomes something a tool can print rather than a comment.
         registry
             .register(crate::characters::smash_fighter::content_schema::smash_fighter_schema())
             .expect("the engine's own schemas are registered once");
@@ -126,7 +123,7 @@ pub mod content {
         registry
             .register(ambition_audio::content_schema::sfx_registry_schema())
             .expect("the engine's own schemas are registered once");
-        // ⚠ a capability's schema follows the CAPABILITY. `ambition_items` is an
+        // a capability's schema follows the CAPABILITY. `ambition_items` is an
         // optional facade edge (slice H), so a composition without it must not
         // claim to own `item_catalog` — that is what makes "uninstalled
         // capability" a real refusal rather than a hypothetical one.
@@ -149,20 +146,12 @@ pub use ambition_asset_manager as asset_manager;
 pub use ambition_audio as audio;
 /// **Derivations from a character sheet** — the animation-row pickers, the
 /// sheet-authored body geometry, the manifest attack hitbox.
-///
-/// ⚠ this used to be reachable as `actors::character_sprites`, and it is not a
-/// rename: those names left the actor crate on 2026-08-09 and live in
-/// `ambition_character_sprites`, which the actor crate does not depend on.
 pub use ambition_character_sprites as character_sprites;
 pub use ambition_characters as characters;
 pub use ambition_combat as combat;
-// The boss-fight DOMAIN, carved out of the actor monolith 2026-08-17 (D33).
-// Named here rather than under `actors::` because it is no longer part of that
-// crate; the umbrella is how a demo or the app reaches one domain crate without
-// declaring an edge to each.
 pub use ambition_boss_encounter as boss_encounter;
 // The conversation authority — and, under `ui`, the Yarn host glue that used to
-// sit in the monolith as `actors::dialog` (D33, 2026-08-17).
+// sit in the monolith as `actors:dialog`.
 pub use ambition_conversation as conversation;
 #[cfg(feature = "ambition_cutscene")]
 pub use ambition_cutscene as cutscene;
@@ -188,10 +177,6 @@ pub use ambition_persistence as persistence;
 pub use ambition_platformer2d_actor_monolith as actors;
 pub use ambition_platformer2d_core as engine_core;
 pub use ambition_platformer2d_host as host;
-// A capability edge again since 2026-08-16 (D136). It was unconditional while
-// `game_assets` took a `WorldManifest` in an ungated signature; that type moved
-// down to `ambition_platformer2d_world::world_manifest`, so the LDtk backend is
-// now something a game asks for by name.
 #[cfg(feature = "ambition_platformer2d_ldtk")]
 pub use ambition_platformer2d_ldtk as ldtk_map;
 pub use ambition_platformer2d_runtime as runtime;
@@ -248,18 +233,16 @@ pub mod actor {
     /// a brain slot misses the CPU seat, the worn character id collides in a
     /// mirror match, and entity order is not an order.
     ///
-    /// ⚠ Exposed for blind run 7's finding (g), which is the campaign's own
-    /// Smash proof caught short. `RollbackSession::participants()` reports the
-    /// count a composition DECLARED; the run declared 1, 2 and 4 through the
-    /// public builder and got one body every time, and no consumer could see
-    /// the difference. Seats come from DEVICES — a composition with two
-    /// gamepads seats two — so a consumer needs this to check that the match
-    /// it asked for is the match it got.
+    /// `RollbackSession::participants()` reports the count a composition DECLARED; the run
+    /// declared 1, 2 and 4 through the public builder and got one body every time, and no
+    /// consumer could see the difference. Seats come from DEVICES — a composition with two
+    /// gamepads seats two — so a consumer needs this to check that the match it asked for is
+    /// the match it got.
     ///
-    /// ⚠ **the input half is CLOSED as of 2026-07-31**:
+    /// **the input half is CLOSED **:
     /// `ambition_platformer2d::sim::drive_slot_frame` drives any seat, beside
     /// `drive_control_frame` naming the primary. The seam had existed in
-    /// `ambition_platformer2d_runtime` since queue Y1 and was simply never re-exported — so
+    /// `ambition_platformer2d_runtime` since and was simply never re-exported — so
     /// the finding described the FACADE, not the engine, which is the more
     /// embarrassing of the two and the harder one to notice.
     pub use ambition_platformer2d_actor_monolith::character_runtime::MatchSeat;
@@ -267,14 +250,9 @@ pub mod actor {
     /// **Declaring a MATCH: who is in it, who drives them, and what it costs to
     /// lose.**
     ///
-    /// ⚠ Exposed 2026-07-31 because the smash demo could not be written without
-    /// them, and what it had to write instead was
-    /// `ambition_platformer2d::actors::character_runtime::MatchParticipantRoster` — reaching
-    /// through the crate re-export into an implementation module. That is the
-    /// leak `minimal-game-names-only-the-public-sdk` exists to catch, and the
-    /// only reason it went uncaught is that no consumer had ever declared a
-    /// match: the shipped versus stage lives in `ambition_app`, which is allowed
-    /// to name anything.
+    /// That is the leak `minimal-game-names-only-the-public-sdk` exists to catch, and the only
+    /// reason it went uncaught is that no consumer had ever declared a match: the shipped versus
+    /// stage lives in `ambition_app`, which is allowed to name anything.
     ///
     /// A second consumer is the only instrument that finds this class, which is
     /// the entire argument for keeping one.
@@ -303,12 +281,6 @@ pub mod actor {
     };
 
     /// How a body came to exist — ADR 0030's construction provenance.
-    ///
-    /// ⚠ A consumer used to reach this through `ambition_platformer2d::runtime::demo_fixture`,
-    /// which is a mirror of an implementation crate wearing a name that says
-    /// the opposite of "supported". A module called `demo_fixture` in a shipped
-    /// game's imports was the namespace confessing; construction is an ACTOR
-    /// concept and this is where a consumer looks for it (LEAK CLOSED, slice F).
     pub use ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry;
 
     /// Where the body is, and how it moves.
@@ -339,14 +311,7 @@ pub mod actor {
 
 /// **Characters: the cast, its art, and what it can do.**
 ///
-/// The fourth curated domain module, and the one that absorbs the largest
-/// remaining spread. Before this a consumer authoring a single character had to
-/// name FOUR mirrored crates — `ambition_platformer2d::characters` for the catalog,
-/// `ambition_platformer2d::actors` for its runtime load state, `ambition_platformer2d::sprite_sheet` for
-/// what it looks like, and `ambition_platformer2d::entity_catalog` for how it thinks —
-/// which is the namespace mirror at its most legible: the cast of one game
-/// spread across the engine's internal crate boundaries because those
-/// boundaries are what the facade published.
+/// The fourth curated domain module, and the one that absorbs the largest remaining spread.
 ///
 /// Closed list.
 pub mod character {
@@ -379,19 +344,10 @@ pub mod character {
     pub use ambition_characters::brain::ActionSet;
     pub use ambition_entity_catalog::placements::CharacterBrain;
 
-    /// **WHICH character a placement is**, and it is authoring vocabulary rather
-    /// than a mirror of our crate list. D73 split the old roster row into body,
-    /// controller and placement authorities, so a spawn now states an identity
-    /// (`CharacterId`) beside how it decides (`CharacterBrain` above) — a third
-    /// party authoring an enemy needs both, and reaching through
-    /// `ambition_platformer2d::entity_catalog` for the first one made a consumer
-    /// name our internal topology to say something the SDK already promises.
+    /// **WHICH character a placement is**, and it is authoring vocabulary rather than a mirror
+    /// of our crate list.
     pub use ambition_entity_catalog::CharacterId;
 
-    /// **A character's FACE.** The portrait road, mirroring the sheet road above:
-    /// a registered definition may name a portrait TARGET, and everything that
-    /// authors nothing keeps the catalog's derived answer. Jon's 2026-07-29
-    /// decision, in the one namespace a game can reach it from.
     pub use ambition_characters::actor::character_catalog::CharacterPortraitRef;
     /// What a provider REGISTERED, so a screen can ask what a character
     /// declared rather than only what a catalog derived.
@@ -408,11 +364,6 @@ pub mod character {
 }
 
 /// **The simulation schedule a game joins its own systems to.**
-///
-/// A game never names a literal Bevy schedule: it asks for the sim schedule and
-/// a semantic set, so the same system runs under the fixed tick and a GGRS host
-/// alike. That indirection is the engine's rule, and before this the only way
-/// to reach it was `ambition_platformer2d::platformer::schedule` — the crate mirror.
 pub mod sim {
     pub use ambition_platformer2d_shared_tangle::schedule::{
         GameMode, Platformer2dSimulationPhaseMonolith, SimSchedule, SimScheduleExt,
@@ -422,13 +373,6 @@ pub mod sim {
     pub use ambition_time::WorldTime;
 
     /// One frame of input, and the one seam that delivers it.
-    ///
-    /// ⚠ `drive_control_frame` used to live in the runtime rollback module and that is
-    /// where a consumer used to reach for it — which meant driving INPUT
-    /// required naming the ROLLBACK module even on a fixed-tick host. It is
-    /// re-exported here because it is a simulation seam, not a rollback one:
-    /// its whole purpose (LEAK CLOSED 2026-07-27) is that a consumer no longer
-    /// has to know which host it is on.
     pub use ambition_input::ControlFrame;
     #[cfg(feature = "rollback")]
     pub use ambition_platformer2d_rollback_ggrs::drive_control_frame;
@@ -438,23 +382,14 @@ pub mod sim {
     /// **Drive input to ANY seat**, and the half blind run 7's finding (g)
     /// recorded as missing.
     ///
-    /// ⚠ the seam existed in the old runtime rollback module since queue Y1; it
-    /// was never re-exported, so from a consumer's side "no public seam drives
-    /// input to a named seat" was true of the SDK while being false of the
-    /// engine. That is a worse shape than a missing feature: the capability was
-    /// built, tested, and unreachable, and the finding it produced described the
-    /// facade rather than the code.
+    /// That is a worse shape than a missing feature: the capability was built, tested, and
+    /// unreachable, and the finding it produced described the facade rather than the code.
     ///
     /// A driver that needs two independent streams — couch versus, a character
     /// select where four people press their own buttons, a two-peer replay —
     /// writes every seat through this. [`drive_control_frame`] is the same road
     /// with the primary slot filled in, kept because naming the primary seat is
     /// the common case.
-    ///
-    /// ⛔ **slot zero is accepted, and the version that refused it was a bug.**
-    /// It returned silently on `slot.0 == 0` — a dropped input, which is the
-    /// wrong-seam failure this seam exists to remove, and the fixture asserting
-    /// the refusal asserted the bug.
     ///
     /// Under a latching host it folds into that seat's latch, so a sub-tick press
     /// survives exactly as the primary seat's does; without one it writes the
@@ -485,7 +420,7 @@ pub mod sim {
     /// **WHAT EACH SEAT ACTUALLY RECEIVED** — the committed frame every body
     /// reads through its `DrivingParticipant(slot)`.
     ///
-    /// ⚠ the read side of [`SeatRawFrames`]: that table is what the local device
+    /// the read side of [`SeatRawFrames`]: that table is what the local device
     /// proposed and this is what the simulation agreed to, which under a
     /// rollback host are different frames on a resimulated tick.
     pub use ambition_characters::control::SlotControls;
@@ -537,7 +472,7 @@ pub mod rollback;
 
 /// **The authored world: rooms, geometry, placements, collision.**
 ///
-/// ⚠ A CURATED MODULE, not a crate mirror — and the difference is the whole
+/// A CURATED MODULE, not a crate mirror — and the difference is the whole
 /// point of ADR 0031. `pub use ambition_platformer2d_world as world` made the compatibility
 /// surface change whenever the crate did: a new submodule became public API by
 /// existing. This list is CLOSED, so adding one to `ambition_platformer2d_world` is an
@@ -677,7 +612,7 @@ mod causal_sdk_tests {
         );
     }
 
-    /// ⚠ **the tick is the HOST's**, even for a consumer's own fact. A game that
+    /// **the tick is the HOST's**, even for a consumer's own fact. A game that
     /// had to stamp its own would be a second clock nothing could join against.
     #[test]
     fn a_consumers_fact_carries_the_hosts_tick_without_being_told_it() {
@@ -774,7 +709,7 @@ mod content_sdk_tests {
         );
     }
 
-    /// ⚠ and the refusals are the facade's too — a consumer does not have to
+    /// and the refusals are the facade's too — a consumer does not have to
     /// reach into the compiler crate to learn WHY its content was rejected.
     #[test]
     fn a_typo_is_refused_through_the_facade_with_a_code_a_tool_can_branch_on() {

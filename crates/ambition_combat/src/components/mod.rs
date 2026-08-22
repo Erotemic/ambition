@@ -79,9 +79,6 @@ pub struct CombatCapabilities {
     /// Detonates at the corpse on death (Enemy-faction blast), so a
     /// point-blank kill is punished.
     pub explodes_on_death: bool,
-    /// The character this body splits into on death, if any. See
-    /// [`ambition_characters::actor::CharacterDeathTraits::divides_into`] — the
-    /// engine used to hold this creature name itself.
     pub divides_into: Option<String>,
     /// A fast charge stopped dead by a wall destroys this actor.
     pub charge_crash_explodes: bool,
@@ -91,7 +88,7 @@ pub struct CombatCapabilities {
     /// Whether the corpse leaves what the body was HOLDING as a wieldable
     /// `GroundItem` — the "steal the enemy's weapon" rule.
     ///
-    /// ⚠ a policy, not an item. The item comes from the body's live
+    /// a policy, not an item. The item comes from the body's live
     /// [`crate::held_items::HeldItem`] at death, so a body that changed weapons
     /// drops the one it actually has.
     pub drops_held_item: bool,
@@ -107,7 +104,7 @@ impl From<&ambition_characters::actor::CharacterDeathTraits> for CombatCapabilit
     /// `ambition_characters`), so the fact has to be stated below and lowered
     /// here. See `ambition_characters::actor::death_traits`.
     ///
-    /// ⚠ field-for-field TODAY, and deliberately written out rather than
+    /// field-for-field TODAY, and deliberately written out rather than
     /// derived: the moment either side grows a field the other does not have,
     /// this stops compiling and someone has to say which layer owns it.
     fn from(traits: &ambition_characters::actor::CharacterDeathTraits) -> Self {
@@ -150,9 +147,6 @@ pub struct BodyMovementTuning {
 }
 
 impl BodyMovementTuning {
-    /// The generic body baseline — the values every actor used to hardcode. An
-    /// archetype that authors no movement overrides resolves to exactly this, so
-    /// the data move is behavior-preserving until a row opts to differ.
     pub const BASELINE: Self = Self {
         gravity: 1450.0,
         max_fall_speed: 760.0,
@@ -259,14 +253,10 @@ pub struct CombatTuning {
     /// remains only for content-free fixtures. Combat forwards the stable id to
     /// the App-local authored-volume resolver.
     pub sprite_character_id: Option<String>,
-    /// How THIS body reacts to being struck (CM8): the victim-owned half of hit
-    /// feedback — the default hurt sound plus the spray/debris it throws. The
-    /// per-body home the survey (§8 fact 4) named, so a heavy body could later
-    /// clang where a light one squishes. Defaults to
-    /// [`ambition_vfx::HurtFeedback::ENEMY`] (plain tick, no spray), which is
-    /// what stops an enemy struck by another enemy from borrowing the player's
-    /// red "you got hurt" burst — the CM8 bug. The player is handled by its own
-    /// consumer with [`ambition_vfx::HurtFeedback::PLAYER`].
+    /// How THIS body reacts to being struck (CM8): the victim-owned half of hit feedback — the
+    /// default hurt sound plus the spray/debris it throws. The per-body home the survey (§8
+    /// fact 4) named, so a heavy body could later clang where a light one squishes. The player
+    /// is handled by its own consumer with [`ambition_vfx::HurtFeedback::PLAYER`].
     pub hurt_feedback: ambition_vfx::HurtFeedback,
 }
 
@@ -287,11 +277,9 @@ impl Default for CombatTuning {
 // `RespawnPolicy` moved to `ambition_entity_catalog::placements`
 // ([W-a]: the ADR-0022 authored schema half).
 
-/// **`DeathPolicy` moved down to sit beside `BodyHealth`** in
-/// `ambition_characters::actor::body` (S4). It has to travel WITH the health
-/// component: it was authored per-archetype on `ActorTuning` and read in exactly
-/// one place, so the player's body had no death policy at all — and a versus
-/// fighter IS the adopted player.
+/// It has to travel WITH the health component: it was authored per-archetype on `ActorTuning`
+/// and read in exactly one place, so the player's body had no death policy at all — and a
+/// versus fighter IS the adopted player.
 ///
 /// Re-exported here because this is where its consumers learned to name it.
 pub use ambition_characters::actor::DeathPolicy;

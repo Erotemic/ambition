@@ -5,13 +5,13 @@
 //! anything about the **composed** engine — a contract that works in a hand-built
 //! `App` and is wired up nowhere is vocabulary nobody speaks.
 //!
-//! ⭐ so this file drives the real host: the real plugin group, the real item
+//! so this file drives the real host: the real plugin group, the real item
 //! domain, the real save layer, a real authored occurrence, and a real pressed
-//! pickup. ⛔ **it publishes no condition of its own.** The unit tests beside the
+//! pickup. **it publishes no condition of its own.** The unit tests beside the
 //! contract prove a stranger can publish one; this proves the engine actually
 //! did.
 //!
-//! ⚠ **and it is deliberately thin on assertions about WHICH conditions exist.**
+//! **and it is deliberately thin on assertions about WHICH conditions exist.**
 //! Pinning the full catalog would make every new provider a failing test, which
 //! is the opposite of the property being built — new questions are supposed to be
 //! cheap. What is pinned is that independent domains are present and that asking
@@ -42,7 +42,7 @@ fn ask(sim: &Platformer2dSimHarness, id: &ConditionId, args: &[AuthoredArg]) -> 
 
 /// **TWO INDEPENDENT DOMAINS PUBLISHED QUESTIONS INTO ONE CATALOG.**
 ///
-/// ⭐ neither names the other, and neither is listed anywhere central: the item
+/// neither names the other, and neither is listed anywhere central: the item
 /// domain publishes from its own simulation plugin, the world-fact domain from a
 /// plugin of its own. What composed them is composition.
 #[test]
@@ -68,7 +68,7 @@ fn the_composed_engine_publishes_questions_from_more_than_one_domain() {
 
 /// **EVERY PUBLISHED QUESTION DESCRIBES ITSELF WELL ENOUGH TO BE USED.**
 ///
-/// ⭐ this is the discovery half, and it is an acceptance criterion rather than
+/// this is the discovery half, and it is an acceptance criterion rather than
 /// polish: an agent that can list the questions but cannot tell what they take
 /// has to read the engine's source, which is the thing this program exists to
 /// stop.
@@ -99,7 +99,7 @@ fn every_published_question_carries_a_schema_an_agent_could_act_on() {
 
 /// **ASKING THE ITEM DOMAIN ABOUT A REAL OCCURRENCE TRACKS REAL STATE.**
 ///
-/// ⭐⭐ **the interesting assertion is the THIRD one.** Satisfied-then-not is a
+/// **the interesting assertion is the THIRD one.** Satisfied-then-not is a
 /// property any boolean would have; the third answer — *unanswerable* about an
 /// identity this world never authored — is what stops a gate that opens on the
 /// negation from standing open in a level that has no key.
@@ -153,7 +153,7 @@ fn the_item_domain_answers_about_custody_and_says_so_when_it_cannot() {
         "the pressed pickup took custody, and the domain says so"
     );
 
-    // ⭐ the third answer.
+    // the third answer.
     let never_authored = SimId::placement("a_key_this_world_does_not_have");
     let outcome = ask(&sim, &is_held, &[AuthoredArg::Reference(never_authored)]);
     assert!(
@@ -169,7 +169,7 @@ fn the_item_domain_answers_about_custody_and_says_so_when_it_cannot() {
 
 /// **ASKING THE WORLD-FACT DOMAIN READS THE REAL SAVE.**
 ///
-/// ⚠ **an unset flag is `NotSatisfied` here, unlike the custody case**, and the
+/// **an unset flag is `NotSatisfied` here, unlike the custody case**, and the
 /// asymmetry is the point rather than an inconsistency: a flag namespace is open,
 /// so *"has this happened yet"* is a meaningful question about a fact nobody has
 /// recorded. Answering *unanswerable* would leave every flag-gated thing stuck
@@ -201,10 +201,10 @@ fn the_world_fact_domain_answers_from_the_save_layer() {
 
 /// **ASKING THE INVENTORY DOMAIN READS THE REAL BAG.**
 ///
-/// ⭐ **the third domain, and it cost one line of composition.** It is here
+/// **the third domain, and it cost one line of composition.** It is here
 /// because it is the provider that let an authored Yarn function be deleted:
 /// `inventory_has(...)` was a closure over a mirrored copy of `OwnedItems` that
-/// `ambition_content` refilled every frame. ⚠ what is pinned is that the
+/// `ambition_content` refilled every frame. what is pinned is that the
 /// composed engine answers about live inventory — not that this domain exists in
 /// some list.
 #[test]
@@ -231,7 +231,7 @@ fn the_inventory_domain_answers_about_the_live_bag() {
         .take(ambition_platformer2d::items::Item::HealthCell, u32::MAX);
     assert_eq!(carried(&sim, "healthcell"), ConditionOutcome::NotSatisfied);
 
-    // ⭐ and a kind no catalog row spells is UNANSWERABLE rather than "no",
+    // and a kind no catalog row spells is UNANSWERABLE rather than "no",
     // which is what turns an authored typo into a diagnostic.
     let outcome = carried(&sim, "a_thing_this_game_has_no_row_for");
     assert!(

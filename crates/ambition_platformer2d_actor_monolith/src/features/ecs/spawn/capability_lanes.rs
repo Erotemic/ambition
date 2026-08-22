@@ -1,18 +1,14 @@
 //! **THE CAPABILITY CONSTRUCTION LANES a room composes beside the actor lane.**
 //!
-//! ⭐⭐ **WHY THIS TYPE EXISTS: the second lane MEASURED the cost of the first.**
-//! Gravity was the right second customer for construction federation — strongly
-//! typed, service-free, relation-free, not actor vocabulary — and the extraction
-//! worked. What it also did was price the shape: enrolling one lane touched
-//! `RoomFeatureConstructionPlan` in ELEVEN places (a plan field, a receipt field,
-//! preparation, the predicted roster, the deterministic dump, the binding
-//! agreement, verification, single-root reconstruction, the commit, the committed
-//! roster union, and the accessor), and the portal lane already repeated most of
-//! that shape. Two lanes is a coincidence; three would be a pattern nobody
-//! declared. `RoomFeatureConstructionPlan` should know it HAS lanes, rather than
-//! independently reimplementing every operation once per family.
+//! What it also did was price the shape: enrolling one lane touched `RoomFeatureConstructionPlan`
+//! in ELEVEN places (a plan field, a receipt field, preparation, the predicted roster, the
+//! deterministic dump, the binding agreement, verification, single-root reconstruction, the commit,
+//! the committed roster union, and the accessor), and the portal lane already repeated most of that
+//! shape. Two lanes is a coincidence; three would be a pattern nobody declared.
+//! `RoomFeatureConstructionPlan` should know it HAS lanes, rather than independently reimplementing
+//! every operation once per family.
 //!
-//! ⛔⛔ **AND IT IS A NORMAL STRUCT WITH NAMED FIELDS. No `Any`, no `TypeId`, no
+//! **AND IT IS A NORMAL STRUCT WITH NAMED FIELDS. No `Any`, no `TypeId`, no
 //! executable registry, no service locator.** The engine has two capability
 //! lanes. Heterogeneous dispatch to solve two cases is harder to read than the
 //! two cases, and it would trade a compile error for a runtime lookup — which is
@@ -20,22 +16,13 @@
 //! per-lane repetition is not dynamism, it is that **each operation below is a
 //! generic function over `ConstructionDomain` applied once per field**.
 //!
-//! ⭐ **every method destructures `Self` EXHAUSTIVELY**, so a third lane is a
-//! compile error at each operation it has to join rather than a silent omission
-//! at the one somebody forgot. That is the whole mechanism: a carry list the
-//! compiler keeps. See `verify` for the one that would otherwise be easiest to
-//! miss — a lane absent from verification is a lane whose commit nothing checks.
+//! That is the whole mechanism: a carry list the compiler keeps. See `verify` for the one that
+//! would otherwise be easiest to miss — a lane absent from verification is a lane whose commit
+//! nothing checks.
 //!
-//! ⭐⭐ **MEASURED, both ways.** `spawn/mod.rs` named the two lanes 48 times
-//! before and names them 4 times now — a module declaration and a `cfg(test)`
-//! accessor apiece — and the file is 1209 → 1048 lines. Adding a third field to
-//! [`CapabilityLanes`] as a poison produced **seven compile errors**: one
-//! `E0063` at construction and one `E0027` at each of the six operations
-//! (`claim_planned_ids`, `write_deterministic_dump`, `debug_assert_binding`,
-//! `commit`, `verify`, `respawn`). That is the claim this type makes, executed
-//! rather than asserted.
+//! That is the claim this type makes, executed rather than asserted.
 //!
-//! ⚠ **`Services = ()` is a BOUND here, not a coincidence.** A capability lane
+//! **`Services = ()` is a BOUND here, not a coincidence.** A capability lane
 //! reads no frozen catalogs at execution time; the actor lane does
 //! (`ActorConstructionServices` — the character catalog, the hostile roster, boss
 //! profiles), which is exactly why it is NOT a member of this set and is composed
@@ -169,7 +156,7 @@ where
 /// The service-free capability lanes of one room plan.
 #[derive(Clone)]
 pub(crate) struct CapabilityLanes {
-    /// ⭐ **not optional and not feature-gated**: every composition has gravity,
+    /// **not optional and not feature-gated**: every composition has gravity,
     /// so this lane proves the federation shape works for a capability that is
     /// simply always present.
     gravity:
@@ -222,7 +209,7 @@ impl CapabilityLanes {
 
     /// Claim every lane's planned identities into the room's predicted roster.
     ///
-    /// ⭐ **composing the roster and detecting collisions are the SAME call**, so
+    /// **composing the roster and detecting collisions are the SAME call**, so
     /// a lane that is composed is a lane that is checked — see `claim` in the
     /// parent module for why that replaced a pairwise intersection.
     pub(crate) fn claim_planned_ids(
@@ -305,7 +292,7 @@ impl CapabilityLanes {
         }
     }
 
-    /// ⛔ **the operation a new lane is likeliest to be left out of**, because
+    /// **the operation a new lane is likeliest to be left out of**, because
     /// omitting it costs nothing at commit time and only shows up as a roster
     /// nobody checked. The destructure is what makes leaving it out impossible.
     pub(crate) fn verify(
@@ -375,7 +362,7 @@ impl CapabilityLanes {
         None
     }
 
-    /// ⚠ **`cfg(test)`, both of these: production never asks a room WHICH LANE
+    /// **`cfg(test)`, both of these: production never asks a room WHICH LANE
     /// built something.** It asks for the roster, and each lane verifies itself
     /// against the shared baseline. A lane accessor exists so a test can prove an
     /// identity lives in one lane and not another — a claim only a test makes.

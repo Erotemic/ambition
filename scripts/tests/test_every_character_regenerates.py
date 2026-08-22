@@ -87,7 +87,7 @@ MAIN_CONFIGS = (
     REPO / "tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/configs"
 )
 
-# ⭐ **THE SECOND DIRECTORY SURFACE, and this census could not see it.**
+# **THE SECOND DIRECTORY SURFACE, and this census could not see it.**
 # `regen_sprites.sh` builds `rig_targets` by globbing exactly this:
 #
 #     for rig in "$renderer_dir"/…/targets/characters/rigged/*.rig.json
@@ -97,7 +97,7 @@ MAIN_CONFIGS = (
 # `configs/*.yaml`, which this file already handles two lines below. Missing it
 # reported `pointed_polygon` as an orphan while the glob published it.
 #
-# ⛔ **TOP-LEVEL ONLY, mirroring the script's glob exactly.** A rig that moved
+# **TOP-LEVEL ONLY, mirroring the script's glob exactly.** A rig that moved
 # into `rigged/<name>/` is NOT matched by `*.rig.json` and must be named in the
 # roster — that is why `noether` and `oiler` are listed there by hand, and
 # claiming coverage for a subdirectory here would re-open the exact gap that
@@ -143,7 +143,7 @@ def _published_by_regen() -> str:
 
 def _names(stem: str, script: str) -> bool:
     # `<stem>` as a bare batch entry, or as one of the products the
-    # postcondition lists. ⚠ a plain substring test is wrong in both
+    # postcondition lists. a plain substring test is wrong in both
     # directions — `goblin` appears inside `goblin_brute_hammer`, and
     # `dividing_mite` only ever appears as `dividing_mite_spritesheet.png`.
     pattern = (

@@ -13,11 +13,8 @@ use ambition_dialog::DialogueContext;
 
 #[test]
 fn every_intro_dialogue_id_is_registered_with_validator() {
-    // Each intro dialogue id must be in `known_dialogue_ids` so
-    // the LDtk content validator accepts `NpcSpawn.dialogue_id`
-    // references. With the Yarn migration the dialogue content
-    // lives in `.yarn` files; the runtime body smoke-check moved
-    // to the bridge's integration tests.
+    // Each intro dialogue id must be in `known_dialogue_ids` so the LDtk content validator
+    // accepts `NpcSpawn.dialogue_id` references.
     let catalog = crate::character_catalog::load_catalog();
     let known: std::collections::HashSet<String> = crate::dialogue::known_dialogue_ids(&catalog)
         .into_iter()

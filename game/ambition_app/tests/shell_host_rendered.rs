@@ -37,13 +37,11 @@ use ambition_platformer2d::render::rendering::HudText;
 
 /// The real visible composition, stepped on a PINNED timestep.
 ///
-/// `app.update()` under Bevy's default `TimeUpdateStrategy::Automatic` advances
-/// the clock by REAL elapsed wall-clock, so the number of `FixedUpdate` steps a
-/// single `update()` runs depends on how busy the machine is. These tests count
-/// audio-playback events, and a session emits its own legitimate cues as its
-/// gameplay advances — so under `Automatic` a loaded machine silently runs more
-/// sim per frame and the counts move. That is the whole reason this family used
-/// to fail only inside the full suite (see `dev/journals/code_smells.md`).
+/// `app.update()` under Bevy's default `TimeUpdateStrategy::Automatic` advances the clock by REAL
+/// elapsed wall-clock, so the number of `FixedUpdate` steps a single `update()` runs depends on how
+/// busy the machine is. These tests count audio-playback events, and a session emits its own
+/// legitimate cues as its gameplay advances — so under `Automatic` a loaded machine silently runs
+/// more sim per frame and the counts move.
 ///
 /// Pinning the timestep makes `settle()` mean an exact number of sim frames on
 /// any machine, exactly as the sibling `shell_host_startup` module already does.
@@ -462,7 +460,6 @@ fn provider_relative_music_drives_the_base_channel() {
 
 /// **A provider's own frontend screen plays the score written for it.**
 ///
-/// Jon, 2026-08-07: *"Being able to use the same resource in different hosts is
 /// unacceptable. … This current design is not elegant if games cant share
 /// assets."*
 ///
@@ -473,7 +470,7 @@ fn provider_relative_music_drives_the_base_channel() {
 /// seven providers, six of them had no way to say what their own screens sound
 /// like.
 ///
-/// ⚠ **the assertion is the PLAYBACK, not the declaration.** Reading a profile
+/// **the assertion is the PLAYBACK, not the declaration.** Reading a profile
 /// back out of a registry passes on a singleton too; what distinguishes the two
 /// designs is which song reaches the base channel on a route the host does not
 /// own.
@@ -736,24 +733,17 @@ fn provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work() {
     );
 }
 
-/// **What a stranger reads on the first screen.** (Jon's observations, 2026-07-28)
+/// **What a stranger reads on the first screen.**
 ///
-/// Three of Jon's title-screen notes are about words and sizes, and all three
-/// are only checkable against the REAL composed launcher — a unit test over the
-/// page model would pass while the shell rendered something else entirely:
-///
-/// * *"'Play' needs to be 'Choose Game'."* The tab heads a game-SELECT screen
-///   where nothing is being played yet. The verb still belongs on the confirm
-///   button, which still says "Play" over an experience row.
-/// * *"the 'ambition' and whatever text is at the bottom is WAY too small."*
-/// * *"Buttons need to be bigger and touch optimized."*
+/// The real composed launcher must expose the intended game-selection wording and relative
+/// text/control sizing; a page-model unit test cannot verify the rendered composition.
 ///
 /// This asserts the words and the RELATIVE sizes rather than exact pixel values.
 /// Pinning "the footer is 3.8" would make a design tweak a test failure while
 /// still passing if somebody made the rows tiny too; what matters is that the
 /// footer is legible next to the thing it sits under.
 ///
-/// ⛔ **and it may never identify a text node by its STRING alone.** (2026-08-08.)
+/// **and it may never identify a text node by its STRING alone.**
 /// `"Ambition"` is on this screen TWICE and always was: it is the title of the
 /// launcher AND the label of the first game in the roster, which is the game
 /// called Ambition. The title is a `MenuNode::Text` (60.5px, carries
@@ -762,12 +752,6 @@ fn provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work() {
 /// and nothing else). A global `find(label == "Ambition")` therefore returns
 /// whichever of the two the query's archetype order reaches first, which is not
 /// a property of the launcher at all — **display text is not identity.**
-///
-/// So the title is selected by ROLE — a launcher-scoped text node carrying
-/// [`MenuTextHeightFraction`] — and the lookup asserts the match is UNIQUE, so a
-/// future duplicate label fails loudly instead of silently picking one. An
-/// unrelated plugin once shifted that archetype order and cost five days;
-/// `dev/journals/material-ui-removal-2026-08-08.md` has the account.
 ///
 /// [`MenuTextHeightFraction`]: ambition_platformer2d::menu::MenuTextHeightFraction
 #[test]
@@ -830,11 +814,7 @@ fn the_title_screen_says_choose_game_and_is_readable() {
         "'Play' is still on the select screen; it belongs on the confirm button"
     );
 
-    // Assert the LAUNCHER's own text roles by role, not a global min/max over
-    // every text node. The first version of this test did the latter and was
-    // measuring the wrong population: the touch-control overlay ("Burst",
-    // "Blink") and the FPS readout are legitimately small and are not what Jon
-    // was reading.
+    // Assert the LAUNCHER's own text roles by role, not a global min/max over every text node.
     //
     // `typography_sized` selects among the launcher's `MenuNode::Text` nodes
     // only — never a control's label — and REQUIRES the match to be unique.
@@ -869,7 +849,6 @@ fn the_title_screen_says_choose_game_and_is_readable() {
          question"
     );
 
-    // The footer. Jon: "the text at the bottom is WAY too small." It was 2.6px.
     let footer = typography_sized(&|label| label.contains("Enter launches"), "the footer");
     assert!(
         footer >= 14.0,
@@ -877,8 +856,7 @@ fn the_title_screen_says_choose_game_and_is_readable() {
          of being unreadable rather than in the sense of being a footer"
     );
 
-    // And it stays SUBORDINATE. A footer as big as the title is a different
-    // design bug, and "make everything huge" is not the fix being asserted.
+    // And it stays SUBORDINATE.
     assert!(
         footer < title,
         "the footer ({footer:.1}px) is no smaller than the title ({title:.1}px)"
@@ -887,18 +865,12 @@ fn the_title_screen_says_choose_game_and_is_readable() {
 
 /// **The title screen must not advertise verbs nobody can press.**
 ///
-/// Found 2026-07-28 while fixing the launcher's text: the game-select screen
-/// rendered the GAMEPLAY touch overlay over itself. "Dash", "Attack", "Shield",
-/// "Fly", "Blink" and "Special" were all on screen at 10-12px while a stranger
-/// chose a game, and none of them did anything — the launcher holds a CAPTURING
-/// input claim above gameplay, so every one of those verbs was already inert.
-///
 /// The prompt read-model was not wrong; it was answering a different question.
 /// It describes what the CONTROLLED SUBJECT can do, and it keeps describing that
 /// perfectly well while a menu owns input. "Can anybody drive this right now" is
 /// a question about the input context, and that is what the overlay now asks.
 ///
-/// ⚠ This asserts the buttons' own `Visibility`, NOT `ViewVisibility`. The first
+/// This asserts the buttons' own `Visibility`, NOT `ViewVisibility`. The first
 /// version read the computed flag and passed while proving nothing: this
 /// composition never runs the render app that computes it, so every button read
 /// as invisible and the check was vacuous. A test that cannot fail is worse than
@@ -925,7 +897,7 @@ fn the_title_screen_does_not_show_gameplay_touch_buttons() {
     // Start and Reset are deliberately exempt: shell-shaped verbs, and a phone
     // with no keyboard needs its way out of a game.
     //
-    // ⚠ **Jump and Interact are exempt too now, and that is a CHANGE (2026-08-04)
+    // **Jump and Interact are exempt too now, and that is a CHANGE
     // rather than a loosening.** This screen publishes
     // `ControlPrompt { context: Menu, menu_confirm: Some("Play") }` — measured —
     // and `touch_action_available`'s Menu branch has always admitted exactly the
@@ -934,11 +906,8 @@ fn the_title_screen_does_not_show_gameplay_touch_buttons() {
     // game. The test's original premise, "gameplay verbs that do nothing there",
     // was true of Attack and Dash and never of these.
     //
-    // What it asserted, meanwhile, was the opposite of what the availability rule
-    // said — and the touch overlay agreed with the TEST rather than the rule,
-    // which is the divergence Jon hit from a phone: no on-screen way to confirm,
-    // so the corner back button was the only route. The invariant kept here is
-    // the one that was always meant: **nothing is advertised that does nothing.**
+    // The invariant kept here is the one that was always meant: **nothing is advertised that does
+    // nothing.**
     let menu_functional = |action: &TouchActionButton| {
         matches!(
             action,
@@ -955,8 +924,7 @@ fn the_title_screen_does_not_show_gameplay_touch_buttons() {
         .map(|(action, _)| *action)
         .collect();
 
-    // And the other half, which the original could not state: the screen must
-    // OFFER a confirm. A launcher that advertises nothing is the phone bug.
+    // And the other half, which the original could not state: the screen must OFFER a confirm.
     let confirms: Vec<TouchActionButton> = all
         .iter()
         .filter(|(action, _)| {
@@ -982,7 +950,7 @@ fn the_title_screen_does_not_show_gameplay_touch_buttons() {
     );
 }
 
-/// **The title screen's Menu button does something now.** (Jon, 2026-07-28)
+/// **The title screen's Menu button does something now.**
 ///
 /// *"Some form of the 'Menu' probably should be available here, so you can
 /// change global engine properties like audio mute. Currently the touch menu
@@ -992,16 +960,12 @@ fn the_title_screen_does_not_show_gameplay_touch_buttons() {
 /// semantic edge — was decoration on the one screen where "how do I mute this"
 /// gets asked.
 ///
-/// Driven through the REAL composed host with REAL key presses. Writing
-/// `MenuControlFrame` directly does not work here and the failure is instructive:
-/// the frame is republished every tick from the participant's `ActionState`, so
-/// a hand-written frame is overwritten before the shell consumes it. The shell's
-/// own unit tests can write it because they run without that producer; an
-/// app-level test that did the same would be testing a value nothing reads.
+/// Driven through the REAL composed host with REAL key presses. The shell's own unit tests can
+/// write it because they run without that producer; an app-level test that did the same would be
+/// testing a value nothing reads.
 ///
-/// The other half of what this proves: the shipped host actually HAS a
-/// `UserSettings` for the menu to edit. A settings row that writes to a resource
-/// nobody installed is the same defect one layer down.
+/// The other half of what this proves: the shipped host actually HAS a `UserSettings` for the
+/// menu to edit.
 #[test]
 fn the_title_screen_menu_opens_and_mutes_the_game() {
     use ambition_platformer2d::persistence::settings::UserSettings;
@@ -1037,7 +1001,7 @@ fn the_title_screen_menu_opens_and_mutes_the_game() {
         "Escape on the title screen did not open the shell menu"
     );
 
-    // ⚠ `UserSettings` is loaded from the real settings file at startup and
+    // `UserSettings` is loaded from the real settings file at startup and
     // `save_settings_on_change` writes it back, so this test edits the
     // DEVELOPER'S actual config. The first version asserted the fixture started
     // unmuted, muted the machine it ran on, and then failed on every subsequent

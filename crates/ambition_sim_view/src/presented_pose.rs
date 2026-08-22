@@ -5,8 +5,6 @@
 //! once per RENDERED FRAME. On a display that is not exactly 60 Hz those two
 //! clocks disagree, and the disagreement is visible.
 //!
-//! # The failure this exists to prevent
-//!
 //! A subject's screen position is `subject_world - camera_world`. The camera
 //! eases every rendered frame (`camera_snapshot::resolve_camera_observation`,
 //! in `Update` — deliberately, see that module). If the subject's world
@@ -74,9 +72,7 @@ use bevy::prelude::{
 use crate::pose_view::BodyPoseView;
 use crate::view_index::FeatureViewIndex;
 
-/// Plausibility bound for the discontinuity guard — NOT a clock. Used only to
-/// ask "could a body have travelled this far under its own power in one tick?",
-/// so a fixed nominal tick is fine even when the real one differs.
+/// Plausibility bound for the discontinuity guard — NOT a clock.
 const NOMINAL_TICK_DT: f32 = 1.0 / 60.0;
 
 /// Slack on that bound, absorbing collision response and within-tick velocity
@@ -122,11 +118,8 @@ impl PresentationPhase {
 
 /// Read the exact intra-tick remainder Bevy already computed.
 ///
-/// `Time<Fixed>` accumulates real time and spends it in whole timesteps inside
-/// `RunFixedMainLoop`, which runs before `Update`; what is left over IS the
-/// phase. Deliberately not reimplemented as a hand-rolled accumulator — an
-/// approximation of this quantity produces uneven per-frame steps and reduces
-/// the shake instead of removing it.
+/// Deliberately not reimplemented as a hand-rolled accumulator — an approximation of this
+/// quantity produces uneven per-frame steps and reduces the shake instead of removing it.
 pub fn sample_fixed_overstep_phase(fixed: Res<Time<Fixed>>, mut phase: ResMut<PresentationPhase>) {
     phase.phase = fixed.overstep_fraction().clamp(0.0, 1.0);
 }
@@ -190,16 +183,6 @@ impl PresentedPose {
 
     /// Displacement the simulation actually produced across ONE tick — the
     /// per-tick step, never the whole gap the last push happened to span.
-    ///
-    /// The distinction is the difference between smooth and worse-than-nothing.
-    /// [`Self::resample`] multiplies this by a phase in `[0, 1)` meaning
-    /// "fraction of ONE tick elapsed", so the two have to agree on what a tick
-    /// is. When they did not, a frame that advanced the sim twice left a
-    /// double-width delta behind, and the next frame that advanced it zero times
-    /// — the pairing a jittery frame clock produces constantly — multiplied that
-    /// double width by a phase grown to ~0.95 and drew the body nearly TWO ticks
-    /// ahead, then snapped it back when the next tick landed. Measured at
-    /// 400 px/s: a 13 px lurch every beat, against a 6.7 px true step.
     #[inline]
     pub fn tick_delta(self) -> Vec2 {
         (self.current - self.previous) / self.spanned.max(1) as f32
@@ -212,16 +195,6 @@ impl PresentedPose {
     /// resolved against. A consumer holding tick-clock geometry for this body —
     /// its collision envelope, its hurtboxes, a strike anchored to it — moves
     /// the WHOLE rigid group by this and by nothing else.
-    ///
-    /// ⛔⛔ **the same delta, in the same frame, for every row of one body.**
-    /// Translating one row and not its neighbours does not fix a shudder, it
-    /// relocates it: the F1 overlay smoothed its red strike box and Jon
-    /// immediately saw a different box start jumping, because collision and
-    /// hurtboxes were still being drawn on the tick clock beside it. A
-    /// diagnostic that mixes clocks invites you to debug geometry that is fine.
-    ///
-    /// ⚠ world-anchored geometry takes NO delta. It is fixed in the world, not
-    /// carried by a body, and moving it would be the mirror-image lie.
     ///
     /// Shape, size and relative placement are never touched — this is a rigid
     /// translation of already-resolved geometry, never a recomputation.
@@ -264,12 +237,6 @@ pub fn draw_pos(pose: &BodyPoseView, presented: Option<&PresentedPose>) -> Vec2 
 
 /// Could a body carrying `vel` have travelled `from → to` in `ticks` ticks under
 /// its own power? A teleport answers no, and must not be extrapolated across.
-///
-/// `ticks` is not decoration: the caller observes once per rendered FRAME, and a
-/// frame that spent a banked backlog can legitimately carry a body several ticks
-/// of travel. Budgeting one tick for that gap calls honest running a teleport and
-/// silently drops the smoothing for a frame — the failure would look like an
-/// occasional stutter, i.e. exactly what this module exists to remove.
 fn travelled_under_own_power(from: Vec2, to: Vec2, vel: Vec2, ticks: u32) -> bool {
     let expected = vel.length() * NOMINAL_TICK_DT * ticks.max(1) as f32;
     from.distance(to) <= expected * TRAVEL_SLACK + TRAVEL_FLOOR_PX
@@ -278,14 +245,9 @@ fn travelled_under_own_power(from: Vec2, to: Vec2, vel: Vec2, ticks: u32) -> boo
 /// Roll every body's presented pose forward: extend the history on a new tick,
 /// then resample for THIS frame's phase.
 ///
-/// ⭐ **the population is every BODY, read from `BodyKinematics` itself.** This
-/// used to require a [`BodyPoseView`], which is rebuilt only for
-/// `With<PlayerVisual>` entities — so a boss or an actor had no presented pose
-/// at all, and every consumer that joined on one silently took its "no history"
-/// arm forever. The two facts this needs are `pos` and `vel`, and
-/// `rebuild_body_pose_views` copies both from `BodyKinematics` verbatim, so the
-/// player population's numbers are unchanged to the bit while every other body
-/// gains the smoothing it was always meant to have.
+/// The two facts this needs are `pos` and `vel`, and `rebuild_body_pose_views` copies both from
+/// `BodyKinematics` verbatim, so the player population's numbers are unchanged to the bit while
+/// every other body gains the smoothing it was always meant to have.
 pub fn advance_presented_body_poses(
     mut commands: Commands,
     tick: Res<SimTick>,
@@ -391,17 +353,13 @@ pub struct PresentedPoseSet;
 /// The two halves of [`PresentedPoseSet`], ordered — **ask the phase first, then
 /// resample every pose against it.**
 ///
-/// This exists because stating that order per-system did not survive contact with
-/// a second resampler. Both phase samplers (`Time<Fixed>`'s and the rollback
-/// driver's) were written `.before(advance_presented_body_poses)`, naming ONE of
-/// the two systems that consume the phase. [`advance_presented_feature_poses`] —
-/// which positions every actor, enemy, NPC and duel fighter — was left to race
-/// the sampler, so every id-keyed subject was resampled against whichever phase
-/// the executor happened to hand it. On the frame a tick lands the phase drops by
-/// nearly a whole tick, so reading the stale one draws the subject a full tick
-/// ahead and snaps it back: a per-frame stutter on exactly the bodies whose
-/// sprites are joined by id, while the primary player — the one system that HAD
-/// the edge — looked fine.
+/// This exists because stating that order per-system did not survive contact with a second
+/// resampler. [`advance_presented_feature_poses`] — which positions every actor, enemy, NPC and
+/// duel fighter — was left to race the sampler, so every id-keyed subject was resampled against
+/// whichever phase the executor happened to hand it. On the frame a tick lands the phase drops
+/// by nearly a whole tick, so reading the stale one draws the subject a full tick ahead and
+/// snaps it back: a per-frame stutter on exactly the bodies whose sprites are joined by id,
+/// while the primary player — the one system that HAD the edge — looked fine.
 ///
 /// A per-system `.before` is a claim each new author must remember to repeat.
 /// These two sets are a claim the schedule enforces once: join
@@ -449,13 +407,11 @@ impl bevy::prelude::Plugin for PresentedPosePlugin {
                 sample_fixed_overstep_phase.in_set(PresentedPoseStage::SamplePhase),
             );
         }
-        // When the frame-stepped host runs simulation in `Update`, Bevy needs
-        // an explicit same-schedule edge from the sim's read-model tail. Without
-        // it this set may sample yesterday's BodyPoseView/FeatureViewIndex while
-        // the portal continuity pass has already observed today's authoritative
-        // body — exactly one frame of whole-portal camera lag. Fixed-tick and
-        // GGRS hosts finish their separate sim schedules before `Update`, so the
-        // schedule boundary already supplies this ordering there.
+        // When the frame-stepped host runs simulation in `Update`, Bevy needs an explicit
+        // same-schedule edge from the sim's read-model tail. Without it this set may sample
+        // yesterday's BodyPoseView/FeatureViewIndex while the portal continuity pass has
+        // already observed today's authoritative body — exactly one frame of whole-portal
+        // camera lag.
         if app.sim_is(bevy::prelude::Update) {
             app.configure_sets(
                 Update,
@@ -529,9 +485,8 @@ mod tests {
         rows
     }
 
-    /// ~60 fps with deterministic sub-millisecond jitter — the frame clock an
-    /// unlocked or barely-keeping-up host actually produces. `xorshift` rather
-    /// than `rand` so the sequence is fixed and the crate gains no dependency.
+    /// ~60 fps with deterministic sub-millisecond jitter — the frame clock an unlocked or
+    /// barely-keeping-up host actually produces.
     fn jittery_60fps(frames: usize, jitter_ns: i64) -> Vec<u64> {
         let mut seed = 0x2545_F491_4F6C_DD1Du64;
         (0..frames)
@@ -545,17 +500,6 @@ mod tests {
             .collect()
     }
 
-    /// **The defect this module was already supposed to prevent, reached by the
-    /// other door.** Reported by Jon (2026-07-29) as `player_robot_v2` stuttering
-    /// under the rollback host, seen earlier in Mary-O.
-    ///
-    /// A jittery frame clock produces a frame that advances the sim TWICE
-    /// followed by one that advances it not at all. `previous → current` then
-    /// spanned two ticks while `resample` read it as one, so the zero-tick frame
-    /// — whose phase has grown to ~0.95 — drew the body nearly two full ticks
-    /// ahead and snapped it back on the next tick. Measured at 400 px/s: a 13 px
-    /// lurch against a 6.7 px true step, once per beat between the two clocks.
-    ///
     /// The metric is the DRAWN position against closed-form truth, because the
     /// smoothness the eye judges is a property of the drawn sequence and nothing
     /// else. Absent the fix the worst deviation here is a full tick of travel.
@@ -598,9 +542,8 @@ mod tests {
         );
     }
 
-    /// A steady clock at any rate — locked, faster than the sim, slower than it —
-    /// was already exact, and must stay exact. This is the case that made the
-    /// defect look absent: it only appears when frame durations VARY.
+    /// A steady clock at any rate — locked, faster than the sim, slower than it — was already
+    /// exact, and must stay exact.
     #[test]
     fn a_steady_frame_clock_of_any_rate_is_exact() {
         for hz in [60.0, 59.94, 144.0, 120.0, 50.0, 30.0] {
@@ -652,11 +595,9 @@ mod tests {
 
     /// **Every resampler is ordered after the phase it resamples against.**
     ///
-    /// Stated on the SETS, so it holds for the rollback host's sampler too — that
-    /// one lives in `ambition_platformer2d_runtime` (this crate must not learn about netcode)
-    /// and cannot be reached from here. What can be checked from here is the edge
-    /// it relies on, which is the thing that was missing: both samplers named one
-    /// resampler with a `.before` and the id-keyed poses raced the phase.
+    /// Stated on the SETS, so it holds for the rollback host's sampler too — that one lives in
+    /// `ambition_platformer2d_runtime` (this crate must not learn about netcode) and cannot be
+    /// reached from here.
     #[test]
     fn the_phase_is_sampled_before_every_pose_is_resampled() {
         use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt as _;
@@ -797,10 +738,6 @@ mod tests {
     /// consumer that looked one up took its "no history" fallback forever. The
     /// visible cost was a combat overlay drawing a player's strike on the frame
     /// clock beside a boss's on the tick clock.
-    ///
-    /// The poison is the SECOND body: it carries the view too, so a regression
-    /// that re-narrowed the query to `With<BodyPoseView>` would still satisfy
-    /// half of this test.
     #[test]
     fn a_body_with_no_pose_view_still_gets_a_presented_pose() {
         use ambition_platformer2d_actor_monolith::actor::BodyKinematics;
@@ -861,15 +798,10 @@ mod tests {
 
     /// **⛔⛔ WHY THE CAMERA CARRIES ITS FRAMING POSE BY THE DELTA.**
     ///
-    /// `resolve_camera_observation` used to write `pos = presented.presented()`.
-    /// That is correct only when the pose being framed IS the followed body's
-    /// own — and it silently is not when the camera frames a CAST, where the
-    /// pose is the pair's CENTRE and the presented sample comes from one anchor
-    /// seat. Assigning then throws the centre away and points the camera at that
-    /// seat. It was unreachable only while fighters published no presented pose.
-    ///
-    /// The identity below is what made the old line look safe; the second half
-    /// is what it forgot.
+    /// That is correct only when the pose being framed IS the followed body's own — and it silently
+    /// is not when the camera frames a CAST, where the pose is the pair's CENTRE and the presented
+    /// sample comes from one anchor seat. Assigning then throws the centre away and points the
+    /// camera at that seat. It was unreachable only while fighters published no presented pose.
     #[test]
     fn carrying_by_the_delta_equals_replacing_only_for_the_bodys_own_pose() {
         let mut pose = pose_at(Vec2::new(100.0, 0.0));

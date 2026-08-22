@@ -1,7 +1,3 @@
-//! Unit tests for the parent module, extracted from an inline
-//! `#[cfg(test)] mod tests` (test-organization campaign, 2026-07-10). Pure move:
-//! same test names + logic, now an adjacent child module with private access via
-//! `use super::*;`.
 
 use super::*;
 
@@ -38,11 +34,8 @@ fn catalog_hall_dialogue_ids_are_known() {
 
 #[test]
 fn every_catalog_hall_dialogue_id_has_a_yarn_node() {
-    // The dangling-id bug: a catalog row authors `hall_dialogue_id:
-    // Some("hall_x")` but `hall.yarn` has no `title: hall_x` node, so
-    // Inspecting that pedestal starts an unknown node at runtime (silent
-    // in tests, broken in the game). Pure-text cross-check — no Yarn
-    // runtime — so it runs in every config and fails at `cargo test`.
+    // Pure-text cross-check — no Yarn runtime — so it runs in every config and fails at `cargo
+    // test`.
     let yarn = YARN_SOURCES
         .iter()
         .find(|(name, _)| name.ends_with("hall.yarn"))
@@ -88,10 +81,8 @@ fn every_catalog_hall_dialogue_id_has_a_yarn_node() {
 /// Without this node the player's own pedestal would silently become
 /// un-talkable. The mirror scene is content; that it must exist is structure.
 ///
-/// ⚠ the CHARACTER id moved to `player_robot_v3` when the incarnations were
-/// versioned; the DIALOGUE id did not. `hall_player` is a conversation key, not
-/// a character, and the pedestal binds the two separately — so the branch this
-/// guards is still named for the conversation.
+/// `hall_player` is a conversation key, not a character, and the pedestal binds the two
+/// separately — so the branch this guards is still named for the conversation.
 #[test]
 fn the_player_pedestal_has_a_self_branch_because_the_default_character_is_the_player() {
     assert_eq!(

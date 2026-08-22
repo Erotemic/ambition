@@ -80,14 +80,6 @@ pub fn raycast_through_portals_tuned(
     )
 }
 
-/// The render-space roll a body picks up traveling through a portal pair: the
-/// signed on-screen angle its motion turns through — from "into the entry"
-/// (`-n_in`) to "out of the exit" (`n_out`), measured in RENDER space (y
-/// flipped). Computing it as the render-space turn directly (rather than a
-/// world rotation we then conjugate) keeps the sign unambiguous. Fully general
-/// for ANY two portal angles: floor↔floor = ±π, floor↔wall = ±π/2, slanted
-/// pairs = whatever the normals give. A body entering feet-first leaves
-/// feet-first along its new velocity.
 pub fn portal_transit_roll(n_in: Vec2, n_out: Vec2) -> f32 {
     // Approach direction (-n_in) and exit direction (n_out), each flipped into
     // render space; the body turns by the signed angle between them.
@@ -213,14 +205,11 @@ fn ray_interval(origin: Vec2, dir: Vec2, aabb: ae::Aabb) -> Option<(f32, f32)> {
     (t_near <= t_far).then_some((t_near, t_far))
 }
 
-/// How much solid host material sits directly behind `frame`'s face along
-/// `-normal`, probed at the aperture center: the merged extent of consecutive
-/// solid intervals starting at (or within [`pp::SURFACE_GRACE`] of — the
-/// authored face can sit a grid-snap off the collision edge) the face.
-/// Exactly-adjacent blocks (merged tiles) extend the material; a real gap
-/// behind the wall ends it. Returns `probe_depth` unclipped when no host
-/// material is found (e.g. a portal on a one-way platform excluded from the
-/// solid snapshot) — the clip only ever engages on measured geometry.
+/// How much solid host material sits directly behind `frame`'s face along `-normal`, probed at the
+/// aperture center: the merged extent of consecutive solid intervals starting at (or within
+/// [`pp::SURFACE_GRACE`] of — the authored face can sit a grid-snap off the collision edge) the
+/// face. Exactly-adjacent blocks (merged tiles) extend the material; a real gap behind the wall
+/// ends it.
 ///
 /// The HOST measures this each frame (it owns the collision world) and
 /// publishes it via [`PortalHostDepths`](crate::types::PortalHostDepths); the
@@ -261,10 +250,6 @@ pub fn measure_host_depth(occluders: &[ae::Aabb], frame: &PortalFrame, probe_dep
 }
 
 /// The capture box for a portal: the thin face grown by [`TRANSIT_BEGIN_MARGIN`].
-/// A body whose AABB intersects this box is "in the opening" — both the transit
-/// `Begin` decision AND the host-surface carve key off it, so the floor opens the
-/// exact frame transit begins (no one-frame lag where the body grounds on a
-/// still-solid floor before the carve appears).
 pub(crate) fn capture_box(portal: &PlacedPortal) -> ae::Aabb {
     ae::Aabb::new(
         portal.pos,
@@ -272,19 +257,12 @@ pub(crate) fn capture_box(portal: &PlacedPortal) -> ae::Aabb {
     )
 }
 
-/// How far OUTWARD of a portal face (px) the carve's approach test reaches.
-/// Must cover the largest distance any transiting body can travel in ONE frame,
-/// so the host surface is already open on the frame a fast body crosses the
-/// opening — **without knowing that frame's dt** (a dt-dependent sweep is
-/// unfixably fragile: the carve publishes before the frame's clock refresh, so
-/// any dt it reads is stale, and a frame hitch at re-entry under-sweeps and
-/// grounds the body, killing its momentum). Budget: Ambition clamps controlled
-/// actor sim steps to 1/30 s, so 1900 px/s terminal fall (`MAX_FALL_SPEED`)
-/// ⇒ ~63px/frame — 96px covers it with slack. A body even faster on a hard
-/// hitch may see the carve closed for ONE frame, but the carve-volume rescue
-/// in `transit_step` recovers the crossing regardless. Opening a few frames
-/// early is harmless: the approach carve is gated on the body MOVING INTO the
-/// portal, and a hole only ever opens where a placed, paired portal already is.
+/// Budget: Ambition clamps controlled actor sim steps to 1/30 s, so 1900 px/s terminal fall
+/// (`MAX_FALL_SPEED`) ⇒ ~63px/frame — 96px covers it with slack. A body even faster on a hard
+/// hitch may see the carve closed for ONE frame, but the carve-volume rescue in `transit_step`
+/// recovers the crossing regardless. Opening a few frames early is harmless: the approach carve
+/// is gated on the body MOVING INTO the portal, and a hole only ever opens where a placed,
+/// paired portal already is.
 pub(crate) const APPROACH_CARVE_REACH: f32 = 96.0;
 
 /// The capture box extended [`APPROACH_CARVE_REACH`] px OUTWARD along the
@@ -386,18 +364,11 @@ fn transfer_step(
     TransitStep::Transfer {
         pos: pp::map_point(center, &ef, &xf),
         vel: vel_out,
-        // The body picks up the on-screen turn it travels through (a tumble for
-        // floor/ceiling, nothing for a wall↔wall turn-around); `update_actor_roll`
-        // then eases it back to gravity-upright (feet-in → reorient).
-        // ⭐ **the convention comes from TUNING, not from a process global.**
-        // `PortalTuning::convention` is right here in the argument list, and the
-        // pure helpers already expose `*_for_convention` forms that take it. The
-        // `somersault_roll` / `portal_facing_flips` /
-        // `portal_input_warp_flips_horizontal` wrappers read
-        // `static PORTAL_MAP_ROTATION` instead — which prevents two Apps in one
-        // process from choosing independent conventions, contaminates any test
-        // that writes it, and leaves a simulation rule outside session authority
-        // (`closeout-review-followups-2026-07-20.md` §2).
+        // The body picks up the on-screen turn it travels through (a tumble for floor/ceiling,
+        // nothing for a wall↔wall turn-around); `update_actor_roll` then eases it back to
+        // gravity-upright (feet-in → reorient). **the convention comes from TUNING, not from a
+        // process global.** `PortalTuning::convention` is right here in the argument list, and the
+        // pure helpers already expose `*_for_convention` forms that take it.
         roll_delta: somersault_roll_for_convention(
             rotation,
             enter.normal,
@@ -422,12 +393,8 @@ fn transfer_step(
     }
 }
 
-/// The body's authoritative movement-kernel sample for the swept (CCD) transit
-/// tier: where the sim step started and how fast the body was moving then. The
-/// caller feeds this from the shared `SweepSample`, never from `pos - vel * dt`,
-/// because the very failure the sweep exists to fix (a high-speed fall
-/// stopped/grounded at the carve bottom) zeroes the body's live velocity, which
-/// would erase a reconstructed segment.
+/// The body's authoritative movement-kernel sample for the swept (CCD) transit tier: where the
+/// sim step started and how fast the body was moving then.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SweptSample {
     /// Authoritative body center at the previous transit step.
@@ -477,12 +444,6 @@ pub fn transit_step(
 /// arms of [`transit_step_with_tuning`]: did the prev→now SEGMENT cross a
 /// paired portal's plane front→behind through its opening? If so, the body
 /// physically fell through the aperture this frame — build its Transfer.
-///
-/// Known bound (documented, not defended): the scan resolves ONE crossing per
-/// step, so a body travelling more than a whole portal-loop's length in a
-/// single frame (e.g. > 680px/frame on the c135↔c134 pair) can out-run one
-/// transfer per frame. That is several times terminal velocity through a
-/// gameplay loop; the regression pins correctness to ~600px/frame.
 #[allow(clippy::too_many_arguments)]
 fn swept_crossing_step(
     sweep: Option<SweptSample>,
@@ -583,32 +544,27 @@ pub fn transit_step_with_tuning(
     };
     match transit {
         None => {
-            // RESCUE / commit (runs EVEN on cooldown): if the body's centroid has
-            // reached or passed a portal plane while the body still straddles its
-            // opening, it is physically in the act of falling through — transfer it
-            // NOW. The host-surface carve opens on geometric overlap (so the floor
-            // is non-solid while a body is in the opening), but the gentle Begin
-            // below is cooldown-blocked for a short window after a jump. Without
-            // this rescue, a body that falls back into an open carve DURING that
-            // cooldown (e.g. a quick floor↔floor bounce whose airtime is shorter
-            // than the cooldown) sinks to the bottom of the open hole and grounds
-            // there — "stuck in the middle of the floor", its momentum killed.
-            // The gate is the OPEN aperture volume itself (the carve hole): the
-            // body must intersect it with its centroid past the plane. This
-            // bounds the rescue to the opening — a body legitimately below the
-            // surface elsewhere is never teleported — while staying dt-robust:
-            // the old `straddles` gate required the plane to pass THROUGH the
-            // body on a sampled frame, which a fast fall (1900 px/s terminal ≈
-            // 63 px at the 1/30 s sim-step clamp, vs a ~40 px body) can skip
-            // entirely, grounding the body at the bottom of the open hole with
-            // its momentum killed. Inside the carve volume the only way in was
-            // through the aperture, so a deep crossing is still a crossing.
-            // The body must also be moving INTO the portal (`vel · normal < 0`):
-            // that distinguishes a body falling THROUGH the opening (rescue it)
-            // from one that JUST EMERGED from this portal and is moving back out
-            // (do NOT re-grab it — the transfer maps the centroid right onto the
-            // exit plane, so without the velocity gate the rescue would
-            // immediately fire again and ping-pong).
+            // RESCUE / commit (runs EVEN on cooldown): if the body's centroid has reached or
+            // passed a portal plane while the body still straddles its opening, it is
+            // physically in the act of falling through — transfer it NOW. The host-surface
+            // carve opens on geometric overlap (so the floor is non-solid while a body is in
+            // the opening), but the gentle Begin below is cooldown-blocked for a short window
+            // after a jump. a quick floor↔floor bounce whose airtime is shorter than the
+            // cooldown) sinks to the bottom of the open hole and grounds there — "stuck in the
+            // middle of the floor", its momentum killed. The gate is the OPEN aperture volume
+            // itself (the carve hole): the body must intersect it with its centroid past the
+            // plane. This bounds the rescue to the opening — a body legitimately below the
+            // surface elsewhere is never teleported — while staying dt-robust: the old
+            // `straddles` gate required the plane to pass THROUGH the body on a sampled frame,
+            // which a fast fall (1900 px/s terminal ≈ 63 px at the 1/30 s sim-step clamp, vs a
+            // ~40 px body) can skip entirely, grounding the body at the bottom of the open hole
+            // with its momentum killed. Inside the carve volume the only way in was through the
+            // aperture, so a deep crossing is still a crossing. The body must also be moving
+            // INTO the portal (`vel · normal < 0`): that distinguishes a body falling THROUGH
+            // the opening (rescue it) from one that JUST EMERGED from this portal and is moving
+            // back out (do NOT re-grab it — the transfer maps the centroid right onto the exit
+            // plane, so without the velocity gate the rescue would immediately fire again and
+            // ping-pong).
             for enter in portals {
                 if find_portal(portals, enter.channel.partner()).is_none() {
                     continue;
@@ -630,24 +586,13 @@ pub fn transit_step_with_tuning(
                     return transfer_step(center, vel, enter.clone(), exit, gravity_dir, tuning);
                 }
             }
-            // SWEPT crossing (CCD — the §7.6 high-speed tier, runs EVEN on
-            // cooldown like the rescue): at speeds past the carve budget
-            // (`APPROACH_CARVE_REACH` / `CARVE_DEPTH` are sized for ~63 px/frame;
-            // the relaxed fall cap on an accelerating portal loop exceeds that
-            // without bound) one frame's step can jump the body from
-            // in-front-of-plane to PAST the whole carve volume — the capture box
-            // is never sampled (no Begin) and the body no longer intersects the
-            // hole (no rescue), so the carve re-seals and, under the no-pushout
-            // rule, the body grounds EMBEDDED with its momentum killed. Solid
-            // blocks already sweep; this makes the transit TRIGGER swept too:
-            // if the prev→now SEGMENT crossed the entry plane front→behind and
-            // the crossing point lies within the aperture, the body physically
-            // fell through the opening this frame — transfer it, however deep it
-            // ended up. `transfer_step`'s `map_point` glue handles any depth
-            // continuously (depth past the entry plane = depth in front of the
-            // exit), so a deep crossing emerges correspondingly far along its
-            // path — momentum preserved, which is the point ("speedy thing goes
-            // in, speedy thing comes out").
+            // Solid blocks already sweep; this makes the transit TRIGGER swept too: if the
+            // prev→now SEGMENT crossed the entry plane front→behind and the crossing point lies
+            // within the aperture, the body physically fell through the opening this frame —
+            // transfer it, however deep it ended up. `transfer_step`'s `map_point` glue handles
+            // any depth continuously (depth past the entry plane = depth in front of the exit),
+            // so a deep crossing emerges correspondingly far along its path — momentum
+            // preserved, which is the point ("speedy thing goes in, speedy thing comes out").
             //
             // Two guards keep this honest:
             // * The crossing DIRECTION is the segment's own (front → behind);
@@ -727,13 +672,10 @@ pub fn transit_step_with_tuning(
                     return step;
                 }
             }
-            // Stay engaged so the carve persists long enough to sink + cross —
-            // clearing on "not straddling yet" would drop the carve every other
-            // frame and the body would never sink in (it re-grounds on the solid
-            // frame). Before the centroid crosses, stay while the body still
-            // touches the opening (the capture box); after, stay while it still
-            // straddles the exit plane (trailing edge not yet out). The cooldown
-            // latch (set on transfer) stops a re-entry.
+            // Stay engaged so the carve persists long enough to sink + cross — clearing on "not
+            // straddling yet" would drop the carve every other frame and the body would never
+            // sink in (it re-grounds on the solid frame). The cooldown latch (set on transfer)
+            // stops a re-entry.
             let still_engaged = if t.crossed {
                 pp::straddles(body, &enter.aperture())
             } else {

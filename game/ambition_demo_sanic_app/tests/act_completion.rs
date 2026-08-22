@@ -16,12 +16,8 @@
 //! runtime SKIP for it; the second never did, and failed in the gate the moment
 //! the earlier `two_rooms` failure stopped masking it.
 //!
-//! Both are fixed the same way `two_rooms` is: order the scripted write against
-//! the authority instead of guessing at the composition. `InputSet::Route` is
-//! where the pipeline declares its `ControlFrame` writers, and
-//! `accumulate_control_frame_latch` is what the sim actually consumes under a
-//! fixed-tick host. The SKIP is gone with the guard — a skipped proof is a
-//! silent pass, which is what let this rot.
+//! The SKIP is gone with the guard — a skipped proof is a silent pass, which is what let this
+//! rot.
 
 use ambition_demo_sanic::{SanicActPhase, SanicActState, GOAL_X};
 use ambition_demo_sanic_app::build_demo_app;
@@ -49,17 +45,11 @@ fn phase(app: &mut App) -> Option<SanicActPhase> {
 #[test]
 fn holding_right_reaches_the_goal_and_clears_the_act() {
     let mut app = build_demo_app();
-    // A fixed-tick host without a pinned clock runs a machine-speed-dependent
-    // number of ticks per update — the same script would then cover a different
-    // distance on every run.
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f32(1.0 / 60.0),
     ));
-    // ⭐ **the ordering lives in ONE place now** — after the participant
-    // pipeline's routing stage and before the frame→tick latch. Eight
-    // fixtures each carried their own copy of that knowledge, and five of
-    // them were still guessing `PreUpdate` on 2026-08-19, where the
-    // pipeline overwrote every scripted write before the sim saw it.
+    // **the ordering lives in ONE place now** — after the participant pipeline's routing stage and
+    // before the frame→tick latch.
     ambition_platformer2d::scripted_input::drive_the_local_participant(&mut app);
     for _ in 0..8 {
         app.update();
@@ -77,11 +67,8 @@ fn holding_right_reaches_the_goal_and_clears_the_act() {
         frame.right_pressed = true;
         frame
     };
-    // ⚠ **ARRIVAL TAKES A TICK, not a frame.** `ControlFrame` is seat zero's
-    // OUTPUT mirror since D175, so this finally measures what it says — and on a
-    // host whose sim schedule runs ahead of `Update`, a stick written in `Update`
-    // is committed on the following tick. One `app.update()` was enough only
-    // while this read the resource the scripted stage writes directly.
+    // One `app.update` was enough only while this read the resource the scripted stage writes
+    // directly.
     let mut arrived = false;
     for _ in 0..20 {
         app.update();
@@ -102,10 +89,7 @@ fn holding_right_reaches_the_goal_and_clears_the_act() {
         "the act starts before its goal ({start} vs {GOAL_X})"
     );
 
-    // Hold right, and JUMP on the approach to the authored pit. Holding right
-    // alone runs straight into it, dies, and respawns forever — which is
-    // correct level design, not a bug, and is exactly why a completion proof
-    // has to play rather than hold one button.
+    // Hold right, and JUMP on the approach to the authored pit.
     let stick = |jump: bool| {
         let mut frame = ControlFrame::default();
         frame.axis_x = 1.0;
@@ -118,9 +102,7 @@ fn holding_right_reaches_the_goal_and_clears_the_act() {
         x > ambition_demo_sanic::PIT_LEFT_X - 220.0 && x < ambition_demo_sanic::PIT_RIGHT_X
     };
 
-    // 40 seconds of sim at 60Hz. Generous: if the speedway cannot be run in
-    // that, the goal is not reachable by playing and the act cannot be
-    // finished — which is the failure this exists to catch.
+    // 40 seconds of sim at 60Hz.
     let mut cleared = None;
     let mut max_x = f32::MIN;
     for frame in 0..2400 {
@@ -171,25 +153,14 @@ fn holding_right_reaches_the_goal_and_clears_the_act() {
 /// the act neither braked him nor closed the course, so he crossed the line at
 /// speed, ran out of level, and died well inside the four-second dwell his own
 /// card was still counting down.
-///
-/// Measured while writing this, and it is worse than the triage says: the death
-/// does not disturb `SanicActPhase` at all. The card keeps counting down, the
-/// captured time and rings stay on screen, and the player is quietly back at
-/// spawn RUNNING THE ACT AGAIN underneath it. So the observable has to be his
-/// POSITION — a respawn is a jump of thousands of pixels backwards — and any
-/// proof that watched the phase would have passed throughout the bug. (The first
-/// draft of this test did exactly that, and its poison run passed.)
 #[test]
 fn clearing_the_act_does_not_kill_him_before_the_card_retires() {
     let mut app = build_demo_app();
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f32(1.0 / 60.0),
     ));
-    // ⭐ **the ordering lives in ONE place now** — after the participant
-    // pipeline's routing stage and before the frame→tick latch. Eight
-    // fixtures each carried their own copy of that knowledge, and five of
-    // them were still guessing `PreUpdate` on 2026-08-19, where the
-    // pipeline overwrote every scripted write before the sim saw it.
+    // **the ordering lives in ONE place now** — after the participant pipeline's routing stage and
+    // before the frame→tick latch.
     ambition_platformer2d::scripted_input::drive_the_local_participant(&mut app);
     for _ in 0..8 {
         app.update();
@@ -220,8 +191,6 @@ fn clearing_the_act_does_not_kill_him_before_the_card_retires() {
     }
     assert!(cleared, "never reached the goal, so this proves nothing");
 
-    // Keep HOLDING RIGHT through the dwell — the exact input that used to run
-    // him off the end. The goal is supposed to take the controls away.
     let dwell_frames = (ambition_demo_sanic::ACT_CLEAR_DWELL * 60.0).ceil() as usize;
     let mut furthest_back = f32::MAX;
     for _ in 0..dwell_frames {

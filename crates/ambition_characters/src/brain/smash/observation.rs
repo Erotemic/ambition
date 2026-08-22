@@ -39,9 +39,7 @@ pub struct ObservationFrame {
     /// stage uses this to decide whether `SpecificAction::Jump`
     /// fired in the air will actually launch a double-jump.
     pub self_air_jumps_remaining: u8,
-    /// True when the actor is mid-windup / mid-active / mid-recover
-    /// of an attack. Brains use this to refuse another commit until
-    /// the swing finishes.
+    /// True when the actor is mid-windup / mid-active / mid-recover of an attack.
     pub self_attacking: bool,
     pub attack_cooldown_remaining: f32,
     pub stun_remaining: f32,
@@ -90,11 +88,6 @@ impl ObservationFrame {
         -self.down
     }
 
-    /// Unit "side" — the gravity-perpendicular walking/strafing axis, oriented so
-    /// that under screen-down gravity it is world `+x`. Chosen so every
-    /// screen-space `x` read the brain used to make reduces to the same value
-    /// here (byte-identical under vertical gravity), while staying correct when
-    /// gravity rotates.
     pub fn side_axis(&self) -> ae::Vec2 {
         ae::Vec2::new(self.down.y, -self.down.x)
     }

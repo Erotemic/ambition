@@ -16,9 +16,6 @@ publish = false
 [lib]
 crate-type = ["rlib"]
 
-# No `#[test]` in a bin entry point, so `cargo test` was compiling and LINKING a
-# test harness for each of these against the full engine graph. Nothing was in
-# them to run. (Compile-efficiency pass, 2026-07-31.)
 [[bin]]
 name = "outlander_headless"
 path = "src/bin/headless.rs"
@@ -65,7 +62,7 @@ ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-f
 ] }
 bevy = { version = "0.18.1", default-features = false }
 
-# ⛔⛔ **`[patch]` DOES NOT CROSS A WORKSPACE BOUNDARY, and this fixture is its
+# **`[patch]` DOES NOT CROSS A WORKSPACE BOUNDARY, and this fixture is its
 # own workspace.** The engine's `bevy_ggrs` is a fork that backports a
 # `GgrsFrameTiming` accessor onto the v0.21.0 line, patched in at the repo root.
 # A separate workspace resolves the bare `bevy_ggrs = "0.21"` requirement from
@@ -74,7 +71,7 @@ bevy = { version = "0.18.1", default-features = false }
 # facade's `rollback` feature, fails to compile with
 # `cannot find type GgrsFrameTiming in crate bevy_ggrs`.
 #
-# ⚠ **this was invisible for two reasons at once**: the fixture's `Cargo.lock`
+# **this was invisible for two reasons at once**: the fixture's `Cargo.lock`
 # is gitignored, so nobody's committed state carried the wrong resolution, and
 # the lock that existed locally had been resolved against the fork — which is
 # also why the sub-workspace lockfile check was failing rather than the build.

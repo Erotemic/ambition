@@ -6,10 +6,6 @@
 //! human-only diagnostics (canonical poses, labeled previews, debug overlays).
 //! Only a subset belongs under the runtime asset roots the game loads.
 //!
-//! This module is the first slice of
-//! `docs/archive/reviews/sprite-pipeline-2026-07/data-driven-sprites-and-characters.md`: it makes the
-//! install boundary explicit without rewriting any runtime consumer.
-//!
 //! - [`classify`] — decide what a generated file *is* from its path shape.
 //! - [`manifest`] — the [`PublishManifest`], the record of what got installed.
 //! - [`publish`] — the small install step: staging in, runtime artifacts out.

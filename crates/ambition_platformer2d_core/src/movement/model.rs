@@ -100,23 +100,23 @@ pub struct AxisManeuverState {
     /// **How long this body has been OFF a ledge**, in seconds, clamped at
     /// [`crate::ledge_grab::LEDGE_INVULN_FULL_AIRTIME`].
     ///
-    /// ⭐ what a fresh grab's intangibility is bought with — see
-    /// [`crate::ledge_grab::ledge_grab_invuln_earned`]. ⚠ it starts FULL, not
+    /// what a fresh grab's intangibility is bought with — see
+    /// [`crate::ledge_grab::ledge_grab_invuln_earned`]. it starts FULL, not
     /// zero: a body that has never touched a ledge has been off one forever, and
     /// a zero would hand every first grab in a match the minimum window.
     pub time_off_ledge: f32,
     /// Buffered MOVEMENT actions (jump/burst/blink press windows). Combat
     /// buffers (attack/pogo/projectile) stay on the shared BodyActionBuffer.
     ///
-    /// ⚠ **that second sentence describes WHERE they would live, not that they
+    /// **that second sentence describes WHERE they would live, not that they
     /// exist.** `BodyActionBuffer` is declared and rollback-registered and
-    /// nothing writes it (measured 2026-08-19) — so the movement buffers here
+    /// nothing writes it — so the movement buffers here
     /// are real and their combat counterparts are not. Reading this line as a
     /// statement that combat input leniency ships is the mistake it caused
     /// once; see `BodyActionBuffer`'s own doc.
     pub buffer_jump: f32,
     /// The BURST press window — one buffer for the one button that dodge and
-    /// dash share (see [`crate::movement::abilities::BurstManeuver`]). ⛔ it was
+    /// dash share (see [`crate::movement::abilities::BurstManeuver`]). it was
     /// `buffer_dash`, and the name was load-bearing in the wrong direction:
     /// `apply_intent` filled it only for `abilities.dash`, so a body authored
     /// with the dodge and not the traversal burst could never spend an evade.
@@ -136,7 +136,7 @@ pub struct AxisManeuverState {
     pub dodge_roll_timer: f32,
     /// **The window on [`Self::dodge_roll_timer`] is a SPOT DODGE, not a roll.**
     ///
-    /// ⭐ one timer, two verbs, and the flag is what tells them apart — the
+    /// one timer, two verbs, and the flag is what tells them apart — the
     /// i-frames are the same term the damage rule reads either way, so splitting
     /// the TIMER would have made `evading()` a two-place question for no gain.
     /// What differs is only what it is DRAWN as, and that is a presentation
@@ -144,7 +144,7 @@ pub struct AxisManeuverState {
     pub spot_dodging: bool,
     /// **The AIR dodge's own clock** — seconds of the committed aerial evade.
     ///
-    /// ⛔ **not `dodge_roll_timer`, and the separation is the design.** Both
+    /// **not `dodge_roll_timer`, and the separation is the design.** Both
     /// grant i-frames, and reusing the roll's timer would have been the cheap
     /// road; they are different maneuvers with different commitments, and a
     /// body cannot animate, debug or tune them apart if the simulation cannot
@@ -161,7 +161,7 @@ pub struct AxisManeuverState {
     /// falling out of a launch, so its next landing is a knockdown unless it is
     /// teched.
     ///
-    /// ⚠ two fields because they are two facts. Ultimate's tumble works exactly
+    /// two fields because they are two facts. Ultimate's tumble works exactly
     /// this way — control comes back before the tumble does, and you either act
     /// out of it or you hit the floor — and a single timer models neither: too
     /// short and a launch that peaks high lands on its feet as if nothing
@@ -169,10 +169,7 @@ pub struct AxisManeuverState {
     pub tumble_until_landing: bool,
     /// **A launch began a tumble and the frame has not reported it yet.**
     ///
-    /// ⚠ real rollback state, not a memo: the launch arrives at the kernel's
-    /// drain (before the step) while the op channel for that tick does not exist
-    /// until the step runs, so the announcement has to survive the gap. A
-    /// resimulation that replays the launch replays this with it.
+    /// A resimulation that replays the launch replays this with it.
     pub tumble_unannounced: bool,
     /// A live tech press, waiting for a surface. Expires into a lockout.
     pub tech_press_timer: f32,
@@ -190,11 +187,11 @@ pub struct AxisManeuverState {
     /// speed. Written once at the end of the integration step and projected as
     /// `BodyMotionFacts::running`.
     ///
-    /// ⛔ **not the traversal dash** ([`Self::dash_timer`]), which is a discrete
+    /// **not the traversal dash** ([`Self::dash_timer`]), which is a discrete
     /// charge-gated burst a platform-fighter kit deliberately switches OFF. The
     /// running attack reads THIS.
     ///
-    /// ⚠ derived every tick and still SERIALIZED, for the same reason
+    /// derived every tick and still SERIALIZED, for the same reason
     /// [`Self::gliding`] and [`Self::fast_falling`] beside it are: a restore
     /// that lands mid-run must not present a standing body for the tick before
     /// the next integration rewrites it.
@@ -298,13 +295,13 @@ impl SurfaceMomentumMotion {
     /// **Set the tangential speed of a riding body.** Returns `false` when the
     /// body is airborne and there is no tangent to set.
     ///
-    /// ⭐ **the SIGN CONVENTION lives here now, not in each caller.** The kernel
+    /// **the SIGN CONVENTION lives here now, not in each caller.** The kernel
     /// integrates `v_t += run * accel * dt` with `run = locomotion.x`, so `v_t`
     /// and facing share a sign — a fact Sanic's ball dash had written out in
     /// three separate comments because it was reaching into
     /// [`SurfaceMotion::Riding`] itself.
     ///
-    /// ⚠ **returning `false` rather than doing nothing quietly is the point.** A
+    /// **returning `false` rather than doing nothing quietly is the point.** A
     /// caller that must also handle the airborne case (the ball dash's launch
     /// writes `BodyKinematics::vel` instead) is made to say so; one that has no
     /// airborne answer, like a brake, may ignore it.
@@ -517,15 +514,12 @@ pub fn switch_motion_model(model: &mut MotionModel, spec: MotionModelSpec) {
     model.apply_spec(spec);
 }
 
-/// **A footstool landed on this body** — the victim's WHOLE reaction, and the
-/// typed footstool→movement op beside [`knock_off_ledge`].
-///
 /// Returns the seconds of hard control lock the caller must record on the
 /// body's combat state; `0.0` when the tumble this started already owns
 /// control, because the floor game neutralizes input for as long as it runs and
 /// a second lock beside it would only disagree with it.
 ///
-/// ⭐ **the split is the mechanic.** Ultimate footstools two different things:
+/// **the split is the mechanic.** Ultimate footstools two different things:
 /// a GROUNDED victim has nowhere to be shoved and takes a brief flinch — which
 /// is what makes a grounded footstool a combo starter rather than a punish —
 /// while an AIRBORNE one is driven down into a tumble it cannot cancel early.
@@ -541,7 +535,7 @@ pub fn footstool_victim(
     if grounded {
         return rules.flinch_time;
     }
-    // ⚠ SET, not add: a body arriving at terminal velocity and one barely
+    // SET, not add: a body arriving at terminal velocity and one barely
     // falling must be driven down at the same speed, or being stood on costs
     // more the further your attacker fell to reach you.
     let along = kinematics.vel.dot(gravity_dir);
@@ -770,14 +764,11 @@ mod tangential_op_tests {
         assert_eq!(m.tangential_speed(), Some(120.0));
     }
 
-    /// ⭐ **the property the typed op ADDS: an airborne body says so.**
+    /// **the property the typed op ADDS: an airborne body says so.**
     ///
-    /// Before this, each caller matched on `SurfaceMotion` itself and decided
-    /// what airborne meant — and the two callers in Sanic decided differently by
-    /// accident rather than by intent. The launch has an answer (write the
-    /// kinematic velocity along the local side axis); the brake does not, and
-    /// silently doing nothing is correct for it. Both are now a visible `bool`
-    /// rather than a branch each site had to remember to write.
+    /// The launch has an answer (write the kinematic velocity along the local side axis); the
+    /// brake does not, and silently doing nothing is correct for it. Both are now a visible
+    /// `bool` rather than a branch each site had to remember to write.
     #[test]
     fn an_airborne_body_refuses_a_tangential_op_rather_than_absorbing_it() {
         let mut m = SurfaceMomentumMotion::new(MomentumParams::default());

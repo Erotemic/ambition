@@ -98,11 +98,8 @@ pub fn sync_cutscene_ui(
 
     commands
         .spawn((
-            // ⚠ the SECOND text overlay, and it had the same defect as the
-            // first. Full-screen with `SpaceBetween` puts the speaker line and
-            // the skip meter along the BOTTOM — under the movement stick and
-            // the action cluster on a phone. Fixing `dialog_ui` alone would
-            // have left this looking fixed from the other half.
+            // Full-screen with `SpaceBetween` puts the speaker line and the skip meter along
+            // the BOTTOM — under the movement stick and the action cluster on a phone.
             {
                 let mut node = Node {
                     position_type: PositionType::Absolute,

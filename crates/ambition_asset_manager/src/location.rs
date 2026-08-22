@@ -61,11 +61,9 @@ pub enum AssetLocation {
     /// `https` `AssetSource` features wrap these for runtime loads.
     HttpUrl(String),
 
-    /// IPFS gateway URL builder — `gateway` is the HTTP base
-    /// (e.g. `https://w3s.link`), `cid` is the content id, `path` the
-    /// trailing path inside the CID directory. Renders as
-    /// `https://<gateway>/ipfs/<cid>/<path>`. First-pass placeholder;
-    /// no native IPFS client is pulled in.
+    /// IPFS gateway URL builder — `gateway` is the HTTP base (e.g. Renders as
+    /// `https://<gateway>/ipfs/<cid>/<path>`. First-pass placeholder; no native IPFS client is
+    /// pulled in.
     IpfsGateway {
         gateway: String,
         cid: String,

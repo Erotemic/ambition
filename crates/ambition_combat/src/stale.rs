@@ -1,37 +1,27 @@
 //! **Move staling** — the history that makes a repeated answer worth less.
 //!
-//! ⭐ **it lives HERE and not in the movement core, because only combat can
-//! read it.** The type spent its first weeks in
-//! `ambition_platformer2d_core::body_clusters` and in the generic ancillary
-//! body bundle, so every body in every platformer composition carried — and
-//! REWOUND — a nine-slot history of landed combat moves whether or not its
-//! experience had a staling rule at all. The movement kernel never read a
-//! field of it.
+//! The movement kernel never read a field of it.
 //!
-//! ⚠ **the behaviour was already opt-in** (`DeclaredCombatRules::stale_step`
+//! **the behaviour was already opt-in** (`DeclaredCombatRules::stale_step`
 //! of `0.0` is no staling), and that is exactly why the STATE did not need to
 //! be global: a rule being switchable is not a reason for its storage to be
 //! everywhere. `ActorMoveset` now `#[require]`s it, so the bodies that carry
 //! a history are the bodies that can land a move.
 
-/// **THE LAST FEW MOVES THIS BODY LANDED**, so a repeated one can be worth less.
-///
-/// ⭐ **hashes, not ids, and that is what makes it rollback state at all.** A
+/// **hashes, not ids, and that is what makes it rollback state at all.** A
 /// `Vec<String>` of move names would be a heap allocation per body per tick to
 /// save and restore; nine `u32`s are a POD component the snapshot copies like
 /// any other. The hash is only ever compared to another hash — nothing reads it
 /// back as a name — so a collision costs one move a staleness it did not earn
 /// and nothing else.
 ///
-/// ⚠ **it records what LANDED, not what was thrown.** A whiffed move is not
+/// **it records what LANDED, not what was thrown.** A whiffed move is not
 /// stale: staling exists to stop one good answer being the only answer, and a
 /// move that missed did not answer anything.
 #[derive(bevy::prelude::Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct BodyStaleMoves {
-    /// A ring of the last nine landed move hashes, `0` for an empty slot.
     /// Nine is the genre's own queue length.
     pub recent: [u32; 9],
-    /// Where the next landed move goes.
     pub next: u8,
 }
 
@@ -89,7 +79,7 @@ mod stale_move_tests {
         }
         assert_eq!(queue.occurrences(jab), 9, "the ring did not fill");
 
-        // ⭐ nine more of something else pushes every jab out — which is the
+        // nine more of something else pushes every jab out — which is the
         // mechanic: vary your answers and the old one recovers.
         for _ in 0..9 {
             queue.record(smash);
@@ -100,7 +90,7 @@ mod stale_move_tests {
 
     /// **THE HASH IS STABLE AND NEVER COLLIDES WITH THE EMPTY SLOT.**
     ///
-    /// ⛔ FNV-1a written out rather than `DefaultHasher`, because `RandomState`
+    /// FNV-1a written out rather than `DefaultHasher`, because `RandomState`
     /// is seeded per process and a rollback comparison must give the same answer
     /// in every one of them.
     #[test]
@@ -108,7 +98,7 @@ mod stale_move_tests {
         assert_eq!(stale_move_hash("jab"), stale_move_hash("jab"));
         assert_ne!(stale_move_hash("jab"), stale_move_hash("fsmash"));
         assert_ne!(stale_move_hash(""), 0, "the empty id took the empty slot");
-        // ⚠ and an unrecorded slot is never counted.
+        // and an unrecorded slot is never counted.
         assert_eq!(BodyStaleMoves::default().occurrences(0), 0);
     }
 }

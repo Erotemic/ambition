@@ -124,9 +124,6 @@ pub struct HurtFeedback {
 }
 
 impl HurtFeedback {
-    /// The player's reaction: the `player.damage` grunt, the red shard spray,
-    /// and an impact debris puff — the rich payload that used to live
-    /// attacker-side, keyed on the victim being the player.
     pub const PLAYER: Self = Self {
         sfx: ambition_sfx::ids::PLAYER_DAMAGE,
         material: ImpactMaterial::Robot,
@@ -277,15 +274,10 @@ pub enum VfxMessage {
 /// The presentation `process_fx_requests` fans it out to [`VfxMessage`] + the
 /// SFX channel.
 ///
-/// ⭐ **`sfx` is an OVERRIDE, and `None` is the interesting case.** The shipped
-/// bank carries one `vfx.<family>.<row>` cue for every authored row, so the
-/// effect's own sound is a property of the NAME and presentation resolves it —
-/// there is nothing for a caller to remember. Set `sfx` only to say something
-/// other than what the art already says.
-/// Effect orientation in the emitter's frame. Mirroring follows committed
-/// facing and rotation follows the owner's gravity frame, matching the
-/// authorities used to place authored effect offsets. [`Self::UPRIGHT`] is the
-/// identity/default pose.
+/// **`sfx` is an OVERRIDE, and `None` is the interesting case.** The shipped bank carries one
+/// `vfx.<family>.<row>` cue for every authored row, so the effect's own sound is a property of the
+/// NAME and presentation resolves it — there is nothing for a caller to remember. Set `sfx` only to
+/// say something other than what the art already says. Effect orientation in the emitter's frame.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct FxPose {
     /// Mirror horizontally: the move's committed facing pointed left.

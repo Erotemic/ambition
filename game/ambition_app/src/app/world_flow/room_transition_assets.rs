@@ -58,7 +58,7 @@ pub(crate) struct RoomAssetManifest {
     /// Labels of presentation the room semantically REQUIRES and that has no
     /// handle to wait on — a spec naming a page its realization does not hold.
     ///
-    /// ⭐ **why this lives in the manifest instead of a `Result` out of the
+    /// **why this lives in the manifest instead of a `Result` out of the
     /// builder.** The manifest is already the artifact that travels to both
     /// parties who can refuse a reveal (the transition's contribute/poll pair
     /// and startup loading), it is already the prefetch cache's equality key —
@@ -70,7 +70,7 @@ pub(crate) struct RoomAssetManifest {
     /// site; carrying the unresolved requirement AS a dependency-shaped row
     /// keeps one artifact, one equality contract, and one refusal.
     ///
-    /// ⛔ **not the inverse of the sparse-pack fix.** A pack page no frame
+    /// **not the inverse of the sparse-pack fix.** A pack page no frame
     /// samples is not a dependency and never enters here — `used_pages()` is
     /// the semantic authority for which pages a character can actually draw
     /// from, and only a page it names can become unresolved.
@@ -128,11 +128,10 @@ pub(crate) struct RoomPreparationPrefetchState {
     pub(crate) stale_misses: u64,
     /// **How many room preparations this cache has actually performed.**
     ///
-    /// ⭐ the other three counters describe PROMOTIONS — what a transition got
-    /// out of the cache. None of them describe what putting things in it cost,
-    /// which is the question D124 asks: a prefetch that re-prepares its
-    /// neighbours every frame is a cache that is pure overhead, and it would
-    /// look identical from the hit rate.
+    /// the other three counters describe PROMOTIONS — what a transition got out of the cache.
+    /// None of them describe what putting things in it cost, which is the question asks: a
+    /// prefetch that re-prepares its neighbours every frame is a cache that is pure overhead,
+    /// and it would look identical from the hit rate.
     pub(crate) preparations: u64,
 }
 
@@ -165,7 +164,7 @@ pub(crate) struct RoomTransitionAssetContext<'w> {
     pub(crate) prepared_characters: Option<
         Res<'w, ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>,
     >,
-    /// Sheets this app's providers authored (queue U1) — the other place a
+    /// Sheets this app's providers authored — the other place a
     /// character's sheet can be named, and the only one reachable from outside
     /// this workspace.
     pub(crate) authored_sheets:
@@ -221,12 +220,8 @@ fn add_character_asset(draft: &mut RoomManifestDraft, label: &str, asset: &Chara
     // Manifest only those pages; an unused pack page is not a presentation
     // dependency of this character.
     for index in asset.spec.used_pages() {
-        // ⭐ **a page the SPEC names is REQUIRED, so its absence is a failed
-        // dependency and not a skip.** Both arms below are the same defect
-        // seen from two sides: the realization does not hold drawable art for
-        // a page some frame rect samples. Logging and continuing omitted the
-        // character from the barrier entirely, so the barrier could report
-        // Ready and reveal the room with missing presentation (queue D153).
+        // Logging and continuing omitted the character from the barrier entirely, so the
+        // barrier could report Ready and reveal the room with missing presentation.
         let page = asset.pages.get(index as usize);
         let texture = page.map(|page| &page.texture);
         match texture {
@@ -268,12 +263,8 @@ fn add_named_character(draft: &mut RoomManifestDraft, assets: &GameAssets, chara
 /// decode, before the manifest is built — so the reveal barrier waits on those
 /// sheets exactly like it waits on parallax themes.
 ///
-/// This function used to BE the materializer, which is the defect the character
-/// plan opens on: the step that turns a declared character into loaded art lived
-/// in an application crate, so `ambition_demo_mary_o_app` never ran it (Mary-O
-/// rendered as a rectangle in her own game) and `ambition_demo_sanic_app`
-/// hand-rolled a copy. All that is left here is naming what this room stages,
-/// which is content knowledge the host legitimately has.
+/// All that is left here is naming what this room stages, which is content knowledge the host
+/// legitimately has.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn demand_room_character_sheets(
     room: &RoomSpec,
@@ -286,7 +277,7 @@ pub(crate) fn demand_room_character_sheets(
     quality: &ResolvedVisualQuality,
     states: &mut ambition_platformer2d::actors::character_runtime::CharacterLoadStates,
     registry: &ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry,
-    // The provider-authored sheets (queue U1) — passed for the same reason the
+    // The provider-authored sheets — passed for the same reason the
     // catalog is: this host names what a room stages, and the ENGINE decodes it.
     authored_sheets: &ambition_platformer2d::sprite_sheet::character::sheets::AuthoredSheets,
 ) {
@@ -305,7 +296,7 @@ pub(crate) fn demand_room_character_sheets(
     // Authored enemies too: `add_room_specific_sprites` adds their sheets to
     // the manifest by name, but a sheet that is still only DECLARED is
     // invisible to that lookup — the enemy would silently render as the
-    // goblin/rectangle fallback (GPT 5.6 review finding 4).
+    // goblin/rectangle fallback.
     for enemy in &room.enemy_spawns {
         names.push(&enemy.name);
     }
@@ -521,10 +512,8 @@ pub(crate) fn inspect_room_asset_manifest(
     }
     for dependency in &manifest.dependencies {
         // `AssetServer` is authoritative only for handles it owns. A directly
-        // inserted/procedural image has no server load state; for that case the
-        // main-world `Assets<Image>` collection is the readiness authority.
-        // Treating `None` as `NotLoaded` is another permanent-barrier bug: the
-        // image can already be usable while the server will never start a load.
+        // inserted/procedural image has no server load state; for that case the main-world
+        // `Assets<Image>` collection is the readiness authority.
         match asset_server.get_load_state(dependency.asset_id) {
             Some(_) if asset_server.is_loaded_with_dependencies(dependency.asset_id) => {
                 readiness.settled += 1;
@@ -712,7 +701,7 @@ pub(crate) fn contribute_room_transition_assets_system(
         return;
     };
 
-    // ⛔ **the browser recorded NOTHING here**, and this is the burst that most
+    // **the browser recorded NOTHING here**, and this is the burst that most
     // needed measuring: `build_room_asset_manifest` materializes the whole staged
     // cast synchronously, and Hall of Characters stages 129 distinct ones.
     // `bevy::platform::time::Instant` is sub-frame on wasm and native alike.
@@ -873,15 +862,12 @@ pub(crate) fn poll_room_transition_asset_readiness_system(
         return;
     }
 
-    // ⛔ **SAY WHAT IT IS WAITING FOR.** `readiness.pending` names every
-    // activation-critical asset that has not settled, and this poll computed it
-    // and threw it away every frame while the foreground showed 99% — a number
-    // that means only *"not Ready"*, because `LoadPresentationModel` clamps an
-    // un-Ready barrier to `0.999`. Jon watched that on a Hall transition and
-    // there was no way to ask which of the room's 129 characters had not
-    // arrived.
+    // **SAY WHAT IT IS WAITING FOR.** `readiness.pending` names every activation-critical asset
+    // that has not settled, and this poll computed it and threw it away every frame while the
+    // foreground showed 99% — a number that means only *"not Ready"*, because
+    // `LoadPresentationModel` clamps an un-Ready barrier to `0.999`.
     //
-    // ⚠ **once per stall, not once per frame.** The names are stable while the
+    // **once per stall, not once per frame.** The names are stable while the
     // barrier is stuck, so repeating them is the log spam this file has been
     // burned by before; a barrier that starts moving again clears the flag above
     // and earns a fresh report if it stalls again.
@@ -920,7 +906,7 @@ pub(crate) fn poll_room_transition_asset_readiness_system(
 /// How long a room's asset barrier may sit at the SAME settled count before it
 /// owes an explanation.
 ///
-/// ⚠ **not a timeout** — nothing is cancelled and no transition fails. A slow
+/// **not a timeout** — nothing is cancelled and no transition fails. A slow
 /// connection legitimately spends this long on a large room, and the report is
 /// how a maintainer tells that apart from a barrier that will never move. Chosen
 /// well above an ordinary covered transition (sub-second on a warm desktop) so a
@@ -933,13 +919,6 @@ const ASSET_READINESS_STALL_REPORT: Duration = Duration::from_secs(5);
 /// content or quality variants are never trusted.
 #[allow(clippy::too_many_arguments)]
 /// **How many one-hop neighbours may have their preparation prefetched.**
-///
-/// ⛔ **this was unbounded, and it is the launch-time stutter.** (2026-07-30,
-/// found from Jon's desktop timeline capture.) The prefetch reaches every room
-/// ONE loading zone away and demands that room's whole cast — which is right for
-/// a corridor and catastrophic for a hub. `central_hub_main` authors 21 loading
-/// zones and `central_hub_basement` 18, so standing in the hub prefetches
-/// essentially the entire game:
 ///
 /// ```text
 /// staged cast on entering the Ambition route:  162 characters
@@ -959,7 +938,7 @@ const ASSET_READINESS_STALL_REPORT: Duration = Duration::from_secs(5);
 ///   cost of standing in the hub, and no instrument watched it: the boot budget
 ///   measures the title screen and this is entirely post-boot.
 ///
-/// ⚠ **the cap SKIPS a room outright rather than prefetching it partially**, and
+/// **the cap SKIPS a room outright rather than prefetching it partially**, and
 /// that is deliberate. A half-prefetched room would cache a manifest that does
 /// not name the art it needs, and the transition promotes cached manifests — so
 /// the room would reveal with its cast undecoded. Skipping produces an ordinary
@@ -981,7 +960,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog,
     >,
     boss_catalog: Res<ambition_platformer2d::boss_encounter::BossCatalog>,
-    // ⚠ **PAIRED with the recipes because a Bevy system stops at sixteen
+    // **PAIRED with the recipes because a Bevy system stops at sixteen
     // params**, the same reason the covered transition path groups them. The
     // authorities travel together anyway: a placement names a character and may
     // name the policy that drives it.
@@ -1103,24 +1082,18 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
                 // commits, the boundary refuses the stale prefetch — which is
                 // exactly the invalidation the cache needs.
                 //
-                // ⛔⛔ **AND THIS ROAD CARRIED NEITHER THE CAST NOR THE
-                // POLICIES**, which is what Jon's browser log was saying at
-                // frame rate: *"`goblin` … which this composition has not
-                // registered"* for a character that IS registered. An absent
-                // prepared registry is an EMPTY cast, not an exemption, so every
-                // neighbour containing a character-built body failed preflight,
-                // was forgotten, and was re-prepared from scratch on the next
-                // frame — a whole `RoomConstructionPlan` per neighbour per
-                // frame, thrown away, for as long as you stood there. It also
-                // meant the prefetch never covered exactly the rooms that cost
-                // the most to prepare.
+                // An absent prepared registry is an EMPTY cast, not an exemption, so every
+                // neighbour containing a character-built body failed preflight, was forgotten, and
+                // was re-prepared from scratch on the next frame — a whole `RoomConstructionPlan`
+                // per neighbour per frame, thrown away, for as long as you stood there. It also
+                // meant the prefetch never covered exactly the rooms that cost the most to prepare.
                 ambition_platformer2d::actors::features::ActorConstructionContext::for_room_construction(
                     &construction_recipes,
                     ambition_platformer2d::engine_core::ContentEpoch(content_epoch.get()),
                     active_binding.as_deref(),
                     prepared_characters.as_deref(),
                     brain_profiles.as_deref(),
-                    // ⚠ **THE PREFETCH DELIBERATELY REMEMBERS NOTHING**, and
+                    // **THE PREFETCH DELIBERATELY REMEMBERS NOTHING**, and
                     // the promotion check is what makes that safe: a plan
                     // states the dispositions it was prepared against, and the
                     // transition refuses to promote one prepared against
@@ -1130,18 +1103,12 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
                     // fresh one — correct, one preparation, and no cache
                     // keyed on a value that changes when somebody bends down.
                     //
-                    // ⛔ **AND THAT MISS IS NO LONGER TRANSIENT.** Cross-room
-                    // reinstatement (2026-08-15) made a `Placed` row visible to
-                    // EVERY room's outlook — `Reinstated` where the object
-                    // lies, `Suppressed` everywhere else, because those are one
-                    // decision — so an object put down anywhere disables this
-                    // cache for the whole world for the rest of the session,
-                    // not just for the room holding it. Correctness is
-                    // unaffected; what is lost is the preloading. ⭐ **the fix
-                    // is to state the continuity HERE**, so a prefetched plan is
-                    // prepared against the same ledger the door will compare it
-                    // to — deferred only because this system is already at
-                    // Bevy's parameter ceiling and needs its tuples regrouped.
+                    // **AND THAT MISS IS NO LONGER TRANSIENT.** Cross-room reinstatement made a
+                    // `Placed` row visible to EVERY room's outlook — `Reinstated` where the
+                    // object lies, `Suppressed` everywhere else, because those are one decision
+                    // — so an object put down anywhere disables this cache for the whole world
+                    // for the rest of the session, not just for the room holding it.
+                    // Correctness is unaffected; what is lost is the preloading.
                     None,
                 ),
             ) {
@@ -1312,10 +1279,7 @@ mod tests {
         build_loaded_room_asset_manifest(&room, &["d153_fighter".to_owned()], &assets)
     }
 
-    /// **A page the SPEC requires and the REALIZATION does not have must refuse
-    /// the reveal** (queue D153). Before this, `add_character_asset` logged the
-    /// mismatch and `continue`d, so the character simply left the manifest — the
-    /// barrier could report Ready and reveal a room with missing presentation.
+    /// **A page the SPEC requires and the REALIZATION does not have must refuse the reveal**.
     #[test]
     fn a_required_page_the_realization_lacks_refuses_the_room() {
         let mut app = App::new();

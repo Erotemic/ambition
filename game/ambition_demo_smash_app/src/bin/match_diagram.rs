@@ -23,7 +23,7 @@ fn main() {
     for _ in 0..30 {
         app.update();
     }
-    // ⚠ **CPU seats, not the select screen's.** `SmashSelect::roster` makes every
+    // **CPU seats, not the select screen's.** `SmashSelect::roster` makes every
     // locked seat a HUMAN — which is right for a couch game and is why a diagram
     // driven through it shows two fighters that never move: nobody is pressing
     // anything. To watch the fighter BRAIN, the roster has to ask for it.

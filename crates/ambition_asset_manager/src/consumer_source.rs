@@ -207,10 +207,6 @@ mod tests {
         std::fs::write(path, bytes).unwrap();
     }
 
-    /// **A listing is the union.** The authored tree owning a directory used to
-    /// hide the shared one entirely, so `game://sprites` showed a consumer's one
-    /// file and none of the engine's — every one of which was still individually
-    /// readable through the same source.
     #[test]
     fn listing_a_directory_shows_both_layers() {
         let (_dir, authored, shared) = roots();

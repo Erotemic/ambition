@@ -62,9 +62,7 @@ pub enum CharacterAnim {
     /// `land_anim_timer` is positive but `land_anim_hard` is false, or
     /// during the tail of a hard landing.
     LandRecovery = 19,
-    /// Brief animation-only dash pre-roll. Plays for the first ~50ms
-    /// after a dash starts so the sprite has a discrete wind-up read
-    /// before falling through to the streaking `Dash` row.
+    /// Brief animation-only dash pre-roll.
     DashStartup = 20,
     /// Grounded side-slash (Marth-style horizontal swing). Drives both
     /// the `Forward` / `Neutral` / `Back` / `DashForward` / `WallOut`
@@ -247,18 +245,11 @@ impl CharacterAnim {
         // Lowercase + strip nothing; we want exact matches against the
         // generator output strings.
         Some(match name {
-            // `rest` (boss-encounter sheets), `front_idle` / `side_idle`
-            // (girdle's facing-split sheet) — alias to Idle so the
-            // catalog can pull every character in. A fully typed
-            // CharacterAnim::Rest can land later if a consumer
-            // distinguishes them.
-            // ⛔ `classic_burst` used to alias Idle here (and `burst_round`
-            // Walk, `shockwave` Run, `smoke_burst` Hit, `starburst` Slash) so
-            // the explosion sheet could be loaded through the character path
-            // and its rows selected by pose. That was the fifth table
-            // reconstructing a naming the content already carried: effect rows
-            // are addressed by their own names now (`crate::fx`), and a body
-            // pose vocabulary has no business spelling one *Idle*.
+            // `rest` (boss-encounter sheets), `front_idle` / `side_idle` (girdle's facing-split
+            // sheet) — alias to Idle so the catalog can pull every character in. That was the fifth
+            // table reconstructing a naming the content already carried: effect rows are addressed
+            // by their own names now (`crate::fx`), and a body pose vocabulary has no business
+            // spelling one *Idle*.
             "idle" | "opening" | "rest" | "front_idle" | "side_idle" => Self::Idle,
             "walk" | "stable" | "spin" | "side_walk" => Self::Walk,
             "run" | "closing" => Self::Run,
@@ -328,10 +319,7 @@ impl CharacterAnim {
         })
     }
 
-    /// The next *less-specific* pose in the same family — the fixed structural
-    /// shape of the pose space (`AttackUp` is a refinement of `AttackSide` is a
-    /// refinement of `Slash`; `Dash`→`Run`→`Walk`; airborne→`Fall`). `None` once
-    /// `Idle` is the floor.
+    /// `None` once `Idle` is the floor.
     ///
     /// This is NOT a list of who-falls-back-to-what authored by hand, and it is
     /// NOT a second source of truth about which poses an actor *has* — that's the

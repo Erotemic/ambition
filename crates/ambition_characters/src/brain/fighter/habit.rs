@@ -54,9 +54,8 @@ pub enum Choice {
 }
 
 impl Choice {
-    /// Every choice, in a fixed order. Iterating this — rather than the model's
-    /// keys — is how a caller enumerates options without depending on what has been
-    /// observed so far.
+    /// Iterating this — rather than the model's keys — is how a caller enumerates options
+    /// without depending on what has been observed so far.
     pub const ALL: [Choice; 6] = [
         Choice::Approach,
         Choice::Retreat,

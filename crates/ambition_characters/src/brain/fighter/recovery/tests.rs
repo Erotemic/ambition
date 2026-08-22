@@ -60,7 +60,7 @@ fn with_an_air_jump() -> ae::AbilitySet {
 /// movement kernel gates the jump on the verb AND the budget together
 /// (`simulation.rs`: `abilities.double_jump && air_jumps_available > 0`).
 ///
-/// ⛔ this is what the refused *"airborne, below the lip, outside the span ⇒
+/// this is what the refused *"airborne, below the lip, outside the span ⇒
 /// already dead"* rule could not do. That predicate reads only the position, so
 /// both of these bodies would get the same answer and the answer would be wrong
 /// for one of them. If this test ever passes with both verdicts equal, the
@@ -97,9 +97,7 @@ fn the_same_position_gets_opposite_verdicts_from_two_different_kits() {
 
 /// **And the recovery came from the SURFACE, not from a permissive probe.**
 ///
-/// The poison is the shelf itself: take it away and the identical body with the
-/// identical kit from the identical place must be reported unrecovered. Without
-/// this the test above passes for a lens that answered `Regained` to everything.
+/// Without this the test above passes for a lens that answered `Regained` to everything.
 #[test]
 fn taking_the_shelf_away_takes_the_recovery_with_it() {
     let start = ae::Vec2::new(300.0, 330.0);
@@ -177,14 +175,14 @@ fn drifter() -> ae::AbilitySet {
 
 /// **THE VETO NOW CONSIDERS THE MOVE THE BODY WOULD ACTUALLY THROW.**
 ///
-/// ⛔ this is the header's own standing warning, cashed: *"a body that recovers
+/// this is the header's own standing warning, cashed: *"a body that recovers
 /// by … a recovery attack is not explored"*, which was sound only while no
 /// fighter had one. A body with no jump verb at all is below the shelf and
 /// falling — drift alone can never climb, so the buttons-only search is right to
 /// report nothing — and the SAME body with the SAME kit gets home once the
 /// search is allowed to spend the rise its repertoire commands.
 ///
-/// ⭐ both terms are observed, so a lens that answered `Regained` to everything
+/// both terms are observed, so a lens that answered `Regained` to everything
 /// would fail the first half and a burst that did nothing would fail the second.
 #[test]
 fn a_kit_that_commands_a_rise_is_probed_with_it() {
@@ -332,25 +330,18 @@ fn far_from_the_ledge() -> RecoveryQuery {
     }
 }
 
-/// ⭐⭐ **THE POISON FIXTURE: A TINY UPWARD ATTACK MUST NOT SUPPRESS A VIABLE
+/// **THE POISON FIXTURE: A TINY UPWARD ATTACK MUST NOT SUPPRESS A VIABLE
 /// RECOVERY MERELY BECAUSE IT LIFTS.**
 ///
-/// ⛔⛔ this is the failure a scalar affordance invites, and it is not
-/// hypothetical — it is what the lens did. `lift_speed` was read as *the*
-/// recovery ontology: the kit was sorted by it, the largest won, and that one
-/// move was the only route the search ever spent. A fighter whose way home is a
-/// grapple line advertises a small rise (its energy went sideways), so any
-/// rising aerial in the same kit outranks it, becomes "the recovery", fails to
-/// get anywhere, and the route that would have worked is never explored. The
-/// authoring workaround — do not put a lift on anything that is not the Up-B —
-/// is content bending around an engine defect, and it silently forbids a whole
-/// genre-standard move class.
+/// A fighter whose way home is a grapple line advertises a small rise (its energy went
+/// sideways), so any rising aerial in the same kit outranks it, becomes "the recovery", fails
+/// to get anywhere, and the route that would have worked is never explored.
 ///
-/// ⭐ **the invariant, stated as behaviour**: adding a lifting move to a kit
+/// **the invariant, stated as behaviour**: adding a lifting move to a kit
 /// that already has a working route must not change the verdict, and the verdict
 /// must still NAME the route that works.
 ///
-/// ⛔ **three terms are observed**, so this cannot pass vacuously:
+/// **three terms are observed**, so this cannot pass vacuously:
 /// 1. the grapple alone gets home (there is a route to suppress);
 /// 2. the rising aerial alone does NOT (it really is the useless one, so the
 ///    assertion is about suppression rather than about two routes that both
@@ -397,7 +388,7 @@ fn a_tiny_lifting_move_does_not_suppress_a_viable_recovery() {
         grapple_route().speed
     );
 
-    // (3) ⭐ THE INVARIANT. Both routes, aerial first.
+    // (3) THE INVARIANT. Both routes, aerial first.
     let both = lens_with(&view, drifter(), &[rising_aerial_route(), grapple_route()]);
     let verdict = both.best_route(at);
     assert!(
@@ -417,7 +408,7 @@ fn a_tiny_lifting_move_does_not_suppress_a_viable_recovery() {
 /// **AND THE LATERAL HALF IS WHAT DID THE WORK — not the rise, and not the
 /// probe being generous.**
 ///
-/// ⛔ the sharpest poison available: take the grapple's own numbers and delete
+/// the sharpest poison available: take the grapple's own numbers and delete
 /// only `side`. Same speed, same windup, same body, same stage. If that still
 /// gets home, the side component is decorative and everything above passes for
 /// the wrong reason.
@@ -442,13 +433,10 @@ fn the_grapples_lateral_half_is_the_half_that_gets_home() {
 
 /// **A BODY THAT IS ALREADY GETTING HOME IS TOLD IT NEEDS NOTHING.**
 ///
-/// ⭐ the buttons-only baseline runs FIRST, so `route: None` beside a positive
+/// the buttons-only baseline runs FIRST, so `route: None` beside a positive
 /// means *"drift and jump is enough"*. That is a real fighting-game fact —
 /// spending your recovery early is how you lose to an edgeguard — and it fell
 /// out of the search order rather than being encoded as a rule.
-///
-/// ⛔ the poison is that the routes are present and strong: a lens that always
-/// reported the first route it owned would name one here.
 #[test]
 fn a_body_that_needs_no_route_is_told_so() {
     let on_the_ledge = ae::Vec2::new(900.0, 484.0);
@@ -473,7 +461,7 @@ fn a_body_that_needs_no_route_is_told_so() {
 
 /// **THE COST IS BOUNDED BY A PREFIX, NOT BY THE KIT'S SIZE.**
 ///
-/// ⚠ every route is a whole `probe_recovery` and the lens is queried per rolled
+/// every route is a whole `probe_recovery` and the lens is queried per rolled
 /// line, so an unbounded route list would make the veto's cost a function of how
 /// many moves a character authors. The cut is a PREFIX of
 /// `lifting_candidates`' deterministic order, so which routes get probed never

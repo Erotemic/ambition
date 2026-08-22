@@ -1,24 +1,12 @@
 # The combat-feel lab's two indestructible dummies name the character they are.
 #
-# D73 / ledger D77, and D77's stated blocker was STALE: it said `is_sandbag` had
-# no authoring surface, and `CharacterDefinition::practice_target` (doc-aliased
-# `is_sandbag`) has been the surface for a while — `ActorClusterSeed` already
-# writes `is_sandbag: practice_target`. Grepping for the thing a row says is
-# missing is what found that.
-#
 #   body        -> `sandbag_infinite`'s CharacterDefinition: practice target,
 #                  155 run / Walk, 9999 health, `never_dies`, no contact damage
 #   controller  -> an inline StandStill BrainProfile (notices nobody, swings at
 #                  nobody), same as the finite sandbag's
 #   placement   -> stays here: which room, and where in it
 #
-# ⚠ this is a SECOND CREATURE, not a flag on `sandbag`. `never_dies` is a
-# `CharacterDeathTraits` field — a character fact — so "the same dummy, made
-# invincible in this room" is not expressible, and faking it would put a
-# mortality policy on a spawn point. The comment above `"sandbag"` in
-# `character_catalog.rs` reached that conclusion first; this is it being paid.
-#
-# ⚠ ONE spec per LEVEL — `entity set-field` takes a single `level_id`, and the
+# ONE spec per LEVEL — `entity set-field` takes a single `level_id`, and the
 # two dummies live in different rooms. The sibling file is
 # `lab_sandbags_name_their_character_square_arena.yaml`.
 #

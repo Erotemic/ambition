@@ -1,12 +1,12 @@
 //! **A real Yarn interpreter, driven from a test, with a chosen vocabulary.**
 //!
-//! ⭐ **shared by both authored-logic verbs**, and extracted the moment the
+//! **shared by both authored-logic verbs**, and extracted the moment the
 //! second one wanted it. Calling `install_*_binding` directly from a test would
 //! prove the function works and prove nothing about whether an authored line can
 //! reach it — the interpreter's dispatch, its arity rules and its value handling
 //! are exactly the parts that were believed impossible and were not.
 //!
-//! ⚠ **the vocabulary arrives through [`ambition_dialog::YarnContentBindings`]**,
+//! **the vocabulary arrives through [`ambition_dialog::YarnContentBindings`]**,
 //! the same installer seam the production plugin pushes into, so a change that
 //! broke the real installation breaks these tests too.
 

@@ -1,6 +1,3 @@
-//! Stable [`AssetId`] constructors for the fixed-vocabulary sandbox
-//! assets.
-//!
 //! Bulk per-enum entries (entity sprites, parallax layers) have their
 //! own id constructors in `game_assets/entity_sprite.rs`; the music
 //! helper here stays generic because music ids come from the RON

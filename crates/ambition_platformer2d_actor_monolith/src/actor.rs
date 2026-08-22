@@ -13,19 +13,9 @@
 //! never on a participant-specific component merely because one body is currently
 //! controlled. Camera/HUD/device concerns remain outside body authority; body-owned
 //! inventory, economy, capabilities, motion, and combat stay with the body.
-//!
-//! Slice 0 re-homed [`BodyKinematics`] (the single position / velocity / size /
-//! facing component the player, enemies, NPCs, and bosses all share). Slice 0b
-//! re-homes the entity markers [`PlayerEntity`] / [`PrimaryPlayer`] (already
-//! foundation types) + the [`PrimaryPlayerOnly`] filter. Subsequent slices move
-//! the combat/economy sim-state here.
 
 pub use crate::platformer_runtime::body::BodyKinematics;
 pub use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
-// Body vocabulary that used to be reachable only through `crate::avatar`, which
-// is what made that module a universal dependency sink (see the module docs
-// above). `BodyAnimFacts` re-homed DOWN to `ambition_characters::actor::body`
-// beside `BodyCombat`/`BodyHealth`; `BodyMelee` already lived in the combat kit.
 // Both surface here, on the neutral actor vocabulary, in the S5/S6 fold (R6).
 pub use ambition_characters::actor::BodyAnimFacts;
 pub use ambition_combat::BodyMelee;
@@ -37,14 +27,10 @@ pub use ambition_combat::BodyMelee;
 /// [`BodyKinematics`], form the authoritative movement aggregate the shared
 /// kernel (`ae::step_motion`) reads and writes.
 ///
-/// These were historically named `Player*` and surfaced through `crate::avatar`,
-/// which made every non-player module that names a body component import the
-/// player. They are not player-specific — enemies, NPCs, and bosses all carry
-/// them — so they are re-homed here on the neutral actor vocabulary under the
-/// `Body*` convention (matching [`BodyKinematics`] / `BodyHealth` /
-/// `BodyCombat`, which live on `ambition_characters::actor::body`). The types
-/// `#[derive(Component)]` in `ambition_platformer2d_core`; this is the single import
-/// surface for them.
+/// These were historically named `Player*` and surfaced through `crate::avatar`, which made
+/// every non-player module that names a body component import the player. The types
+/// `#[derive(Component)]` in `ambition_platformer2d_core`; this is the single import surface
+/// for them.
 pub use ambition_platformer2d_core::{
     BodyAbilities, BodyActionBuffer, BodyBaseSize, BodyBlinkState, BodyComboTrace, BodyDashState,
     BodyDodgeState, BodyEnvironmentContact, BodyFlightState, BodyGroundState, BodyJumpState,
@@ -56,10 +42,6 @@ pub use ambition_platformer2d_core::{
 /// components — everything in the movement aggregate EXCEPT [`BodyKinematics`]
 /// (the shared kinematic truth, spawned as its own component so rendering /
 /// gravity / targeting can read one position without the movement set).
-///
-/// ⛔ **the count that used to open this sentence said EIGHTEEN and the struct
-/// had twenty-three fields.** A hand-kept number in a doc comment is a ledger
-/// nobody reconciles; the struct below is the list.
 ///
 /// This is the single spawn surface for the ancillary clusters, nested by BOTH
 /// the player (`PlayerSimulationBundle`) and every actor

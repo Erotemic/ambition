@@ -30,7 +30,7 @@ fn an_invalid_slot_cannot_alter_any_real_participant() {
     let before = distinctly_filled();
     let mut after = before;
 
-    // ⚠ **the zero floor**: a `MAX_SLOTS` of 0 would make the loop below empty
+    // **the zero floor**: a `MAX_SLOTS` of 0 would make the loop below empty
     // and every assertion vacuous, and the fixture above would have written
     // nothing to compare.
     assert!(
@@ -69,8 +69,6 @@ fn an_invalid_slot_cannot_alter_any_real_participant() {
     }
 }
 
-/// The clamp's specific victim, named: the LAST valid slot is what an
-/// out-of-range write used to land on.
 #[test]
 fn the_last_valid_slot_is_not_a_dumping_ground_for_bad_indices() {
     let last = crate::control::PlayerSlot((crate::control::SlotControls::MAX_SLOTS - 1) as u8);

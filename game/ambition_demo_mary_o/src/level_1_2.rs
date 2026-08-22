@@ -1,12 +1,8 @@
 //! **World 1-2** — the underground level, and the demo's first SECOND ROOM.
 //!
-//! Until 2026-07-25 this could not exist. `RoomTransitionRequested` had exactly
-//! one consumer and only `ambition_app` registered it, so a demo host could not
-//! change rooms at all — which is why 1-1's coin vault had to be dug into the
-//! same `RoomSpec` as the surface rather than being its own room. The
-//! transaction is engine-side now (`ambition_platformer2d::runtime::room_transition`), and
-//! this level is what proves it: two authored rooms in the demo's own binary,
-//! linked both ways — by their goals, since 2026-08-06.
+//! `RoomTransitionRequested` had exactly one consumer and only `ambition_app` registered it, so a
+//! demo host could not change rooms at all — which is why 1-1's coin vault had to be dug into the
+//! same `RoomSpec` as the surface rather than being its own room.
 //!
 //! The grammar, left to right:
 //!
@@ -21,32 +17,12 @@
 //! 4. **The goal** — a pole at the far wall. Where finishing LEADS is
 //!    [`crate::exit_for_room`]'s answer rather than this room's.
 //!
-//! ⛔ **THE ROUND TRIP IS GONE (2026-08-06), and it was four zones.** Jon: *"The
-//! maryo world 1-2 needs to happen after she wins world 1-1, she doesn't just
-//! get to go there in the middle of 1-1 and come back."* 1-2 used to be a
-//! SHORTCUT — a shaft in 1-1's vault dropped you in mid-level and an alcove at
-//! this room's far wall walked you back to 1-1's surface, past the pits you
-//! skipped. So a player could visit the second level without finishing the
-//! first, and finish neither.
-//!
-//! ⭐ **the replacement was already here and is the reason this is a deletion
-//! rather than a rewrite.** `LevelDestination` + `cycle_level_on_flag_tally`
-//! have sent 1-1's pole to 1-2 and 1-2's pole back to 1-1 since 2026-08-05, and
-//! the flag route arrives at the target room's own authored spawn — so the
-//! landing pads had nothing left to catch. What is deleted is the shaft
-//! (`mary_o_1_1_descent`), its pad (`mary_o_1_2_arrival`), the alcove
+//! What is deleted is the shaft (`mary_o_1_1_descent`), its pad (`mary_o_1_2_arrival`), the alcove
 //! (`mary_o_1_2_exit`) and ITS pad (`mary_o_1_1_surface_return`).
 //!
-//! ⚠ **the vault stays, and it is not the same thing.** 1-1's coin vault is
+//! **the vault stays, and it is not the same thing.** 1-1's coin vault is
 //! inside 1-1 and its two pipes move her within that room; only the exit to
 //! ANOTHER LEVEL went.
-//!
-//! ⛔ **THE LEVEL IS `assets/worlds/mary_o.ldtk` NOW, not this file (2026-08-05).**
-//! It used to build every block from constants here, which meant Jon could lay
-//! out one of his two levels and not the other. `mary_o_1_2` is a second AREA in
-//! the same file 1-1 lives in — bootstrapped once by
-//! `tools/author_mary_o_1_2_ldtk.py`, and edited in LDtk from here on.
-//!
 
 //! The platform is authored as an ordinary `MovingPlatform` entity. Riding it is
 //! engine behavior — the platform advance runs once per frame before the body
@@ -58,22 +34,15 @@ use ambition_platformer2d::world::rooms::RoomSpec;
 /// The authored area id, and the room id the runtime knows it by.
 pub const LEVEL_1_2_ROOM_ID: &str = "mary_o_1_2";
 
-// ⛔ **`DESCENT_ZONE_ID` / `ARRIVAL_ZONE_ID` / `EXIT_ZONE_ID` /
-// `SURFACE_RETURN_ZONE_ID` ARE GONE (2026-08-06)** — see the module header. They
-// named the four mouths of the mid-1-1 round trip Jon rejected, and the zones
-// they named are no longer in `mary_o.ldtk`. Deleted rather than left pointing
-// at nothing: `authored_zone` PANICS on a missing id, so a constant that
-// survives its zone is a landmine for the next reader who uses it as one.
+// **`DESCENT_ZONE_ID` / `ARRIVAL_ZONE_ID` / `EXIT_ZONE_ID` / `SURFACE_RETURN_ZONE_ID` ARE GONE** —
+// see the module header. Deleted rather than left pointing at nothing: `authored_zone` PANICS on a
+// missing id, so a constant that survives its zone is a landmine for the next reader who uses it as
+// one.
 
 /// **The ferry's authored ID.**
 ///
-/// ⛔ **this used to be its display NAME, because there was no id to use.**
-/// `convert_moving_platform` went straight to the LDtk iid — a value the file
-/// mints, which nothing outside the file can spell — so the only handle a reader
-/// had was `name`, and a name is presentation: `FeatureName`'s own doc calls it
-/// *"human-facing … for debug overlays / inspectors"*. Renaming the platform in
-/// the editor would have silently broken every lookup, which is the same defect
-/// the snake paid for twice.
+/// Renaming the platform in the editor would have silently broken every lookup, which is the same
+/// defect the snake paid for twice.
 ///
 /// The converter reads `field_string(entity, "id")` now and the engine's
 /// `MovingPlatform` definition carries the field, so the ferry is addressed by
@@ -84,19 +53,11 @@ pub const FERRY_ID: &str = "mary_o_1_2_ferry";
 /// cannot say, since a block carries no authored colour — the same reason 1-1
 /// paints its vault masonry from Rust.
 ///
-/// ⚠ read by [`crate::authored_level`] rather than applied here, so there is one
+/// read by [`crate::authored_level`] rather than applied here, so there is one
 /// room builder and this stays the datum it is.
 pub(crate) const UNDERGROUND_STONE: [f32; 4] = [0.20, 0.17, 0.28, 1.0];
 
 /// **1-2's goal.**
-///
-/// ⭐ **the level had an exit but no END.** When this was written the far wall
-/// held an alcove that walked you back to 1-1's surface — the shortcut's other
-/// mouth, which is leaving rather than finishing. Jon: *"The end of 1-2 should
-/// transition back to 1-1."* Finishing is grabbing a pole, the same verb 1-1
-/// ends with, and the pole is read off the authored shaft by the same rule
-/// 1-1's is ([`crate::authored_pole`]). The alcove is gone (see the module
-/// header); the pole is the whole answer now.
 pub fn goal_pole() -> crate::flag::FlagPole {
     crate::authored_pole(&level_1_2())
 }
@@ -111,13 +72,12 @@ mod tests {
     use ambition_platformer2d::engine_core as ae;
     use ambition_platformer2d::engine_core::AabbExt;
 
-    /// One tile, which is the only measurement these tests still carry: it is
-    /// the grid Jon draws on, not a fact about where anything is.
+    /// One authored tile; this is a grid unit, not a placement coordinate.
     const T: f32 = crate::T;
 
     /// The IntGrid cell — half a tile, and the smallest hole an author can make.
     ///
-    /// ⛔ **the sweeps below step by CELL, not by tile, and that is not fussiness.**
+    /// **the sweeps below step by CELL, not by tile, and that is not fussiness.**
     /// The first draft walked in whole tiles and probed with a quarter-tile box,
     /// which leaves 16px of every tile unexamined: a probe that erased one roof
     /// cell left the test GREEN, because the box straddled the cell next to the
@@ -137,9 +97,7 @@ mod tests {
             .any(|block| block.aabb.strict_intersects(probe))
     }
 
-    /// **The floor's gap, measured off the room rather than named.**
-    ///
-    /// ⛔ this was a `CHASM: (f32, f32)` constant, which made the test a
+    /// this was a `CHASM: (f32, f32)` constant, which made the test a
     /// restatement of the number the level was built from. Probing the floor
     /// slab for the run of columns with nothing under them asks the LEVEL where
     /// its hole is, so dragging the far floor run in the editor moves the
@@ -192,9 +150,7 @@ mod tests {
             "the chasm has something standing in it, so the ferry is decoration",
         );
 
-        // And the ferry spans it, lip to lip. RIDDEN rather than read: the sweep
-        // range is the platform's own business, so the reach is measured by
-        // advancing it until it has been everywhere it goes.
+        // And the ferry spans it, lip to lip.
         let mut ferry = room
             .moving_platforms
             .iter()
@@ -219,25 +175,21 @@ mod tests {
 
     /// **The coin shelf has coins on it, and they rest ON it.**
     ///
-    /// ⛔ **it was bare, and only the module doc said otherwise.** This level's
+    /// **it was bare, and only the module doc said otherwise.** This level's
     /// own grammar calls the shelf *"a short raised run with coins on it, so the
     /// first thing the room teaches is that its ceiling is low enough to
     /// matter"* — and the Rust version never authored a single one, so the beat
     /// it describes did not exist. A doc comment claiming content is the easiest
     /// kind of claim to leave untrue, because nothing reads it.
     ///
-    /// ⚠ **the rest position is the assertion that matters.** A coin floating
+    /// **the rest position is the assertion that matters.** A coin floating
     /// above the shelf or sunk into it still "exists" and still collects; what
     /// it stops being is the thing the shelf teaches, which is that this run is
     /// worth the jump. So this checks they sit on its top edge, not merely that
     /// some placements are present.
     /// **Nothing authored into 1-2 is buried in the rock.**
     ///
-    /// 1-2 was a corridor with six coins and a ferry — no enemies and no reactive
-    /// blocks at all — until they were placed on 2026-08-05 by reading the
-    /// IntGrid out of the file and picking coordinates, without being able to
-    /// look at the result (the demo boots into 1-1, so a capture cannot see this
-    /// room). Blind placement needs an oracle that is not a screenshot.
+    /// Blind placement needs an oracle that is not a screenshot.
     ///
     /// A block or an enemy overlapping terrain is the failure that matters: a
     /// buried ?-block cannot be hit, and an enemy inside the floor is either
@@ -294,13 +246,13 @@ mod tests {
     #[test]
     fn the_coin_shelf_carries_coins_that_rest_on_it() {
         let room = level_1_2();
-        // ⚠ identified STRUCTURALLY, not by a constant. `floor_top()` went away
+        // identified STRUCTURALLY, not by a constant. `floor_top()` went away
         // when the level became authored, and re-deriving it here would put a
         // second copy of the room's geometry in a test of the room. The shelf is
         // the only SOLID that touches no edge of the world: the roof, the floor
         // runs and both walls each meet one.
         //
-        // ⛔ **and "the only solid that touches no edge" EXPIRED the moment 1-2
+        // **and "the only solid that touches no edge" EXPIRED the moment 1-2
         // got reactive blocks.** A `MaryOBlock` is a `BlockKind::Solid` floating
         // in mid-air too, so `find` started returning whichever came first and
         // this test failed claiming a coin hung off a shelf 300px away. The
@@ -312,9 +264,8 @@ mod tests {
         // ambiguous predicate answers confidently and wrongly — which is
         // precisely what happened.
         //
-        // ⛔ **and "the only terrain shelf clear of every wall" EXPIRED TOO**,
-        // the moment 1-2 stopped being one shelf in an empty box (2026-08-06,
-        // Jon: *"World 1-2 also needs to be built out a lot more, its very
+        // **and "the only terrain shelf clear of every wall" EXPIRED TOO**,
+        // the moment 1-2 stopped being one shelf in an empty box (,
         // plain"*). Ceiling teeth, a second shelf and a staircase are all terrain
         // clear of every wall, and the count went to eight. Its own failure
         // message asked the right question — *"this test has to say which carries
@@ -411,17 +362,11 @@ mod tests {
 
     /// **She arrives standing on something.**
     ///
-    /// ⛔ **this was `both_ends_of_the_room_are_ways_out`, and both ends stopped
-    /// being ways out on 2026-08-06** when the mid-1-1 round trip was deleted.
-    /// It probed the two `LoadingZone`s; there are none, so the old body could
-    /// only panic in `authored_zone`.
+    /// It probed the two `LoadingZone`s; there are none, so the old body could only panic in
+    /// `authored_zone`.
     ///
-    /// ⭐ **the PROPERTY it was really about survives the zones.** It checked
-    /// that a place a body materializes stands ON the floor rather than floating
-    /// in it — the bug 1-1's vault return pipe shipped with (`cbc6902d2`) — and
-    /// asked the BLOCK under it rather than a floor constant. 1-2 still has
-    /// exactly such a place: the flag route arrives at `world.spawn`, so that is
-    /// what gets asked now, and the question is the same one.
+    /// 1-2 still has exactly such a place: the flag route arrives at `world.spawn`, so that is what
+    /// gets asked now, and the question is the same one.
     #[test]
     fn the_arrival_spawn_stands_on_the_floor() {
         let room = level_1_2();

@@ -254,7 +254,7 @@ pub const SPEED_MARKER_XS: [f32; 5] = [808.0, 1608.0, 2600.0, 3608.0, 5000.0];
 /// The signage id of the speedway's control legend — the sign at the start
 /// line that tells a player which buttons do what.
 ///
-/// ⚠ **two layers prefix it**, so a reader matches the SUFFIX rather than the
+/// **two layers prefix it**, so a reader matches the SUFFIX rather than the
 /// whole string: the room prefixes its authored label ids with `sanic_`, and the
 /// renderer prefixes the spawned entity's `owner_id` with `signage:{index}:`.
 /// No other sign on the speedway ends this way (the others are `loop`, `finish`
@@ -263,17 +263,14 @@ const LEGEND_LABEL_ID: &str = "start";
 
 /// **The legend, written from whatever is actually bound.**
 ///
-/// ⭐ a legend written as a literal cannot help but drift from the controls
+/// a legend written as a literal cannot help but drift from the controls
 /// beside it, and this one did. `bindings` is the seat's LIVE projection when
 /// there is a seat; `None` is room generation, which has no settings and no
 /// participant and can only speak for the default preset.
 fn control_legend(
     bindings: Option<&ambition_platformer2d::input::ActionBindings>,
-    // ⛔ **the DEVICE, not a `GamepadStyle`.** This sign had finding 3 too: a
-    // style picks the vocabulary a BUTTON is spelled in, and the seat's map binds
-    // the keyboard half first, so the legend re-spelled `Z` as `Z` and read
-    // "Z: JUMP" to somebody holding a DualSense. A style cannot say "this seat is
-    // on a keyboard", which is why the type had to change rather than the lookup.
+    // A style cannot say "this seat is on a keyboard", which is why the type had to change
+    // rather than the lookup.
     device: ambition_platformer2d::input::ActiveDevice,
 ) -> String {
     use ambition_platformer2d::input::Platformer2dInputActionMonolith as Action;
@@ -295,7 +292,7 @@ fn control_legend(
 
 /// Rewrite the speedway's legend from the seat's live bindings.
 ///
-/// ⚠ **presentation-time, because generation-time cannot know.** The sign is
+/// **presentation-time, because generation-time cannot know.** The sign is
 /// baked into the room, and a room is built before any settings are read — so a
 /// player on a non-default preset, or one who has remapped a single key, was
 /// told to press a key that does nothing. That is the same staleness
@@ -348,7 +345,7 @@ pub fn sanic_speedway() -> RoomSpec {
     let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(SPEEDWAY_WORLD_JSON)
         .expect("sanic_speedway.ldtk parses (regen: game/ambition_demo_sanic/tools/author_speedway_ldtk.py)");
     let room_set = project
-        // ⭐ Sanic authors only ENGINE nouns — no game-specific converter — and
+        // Sanic authors only ENGINE nouns — no game-specific converter — and
         // saying so is now part of the call rather than something a global
         // decided for her.
         .to_room_set_with_entry(
@@ -363,23 +360,13 @@ pub fn sanic_speedway() -> RoomSpec {
         .expect("the world file authors the sanic_speedway area");
 
     let loop_center = graft_loop_route(&mut room.world);
-    // ⭐ **the badniks name themselves now.** This used to rewrite every enemy's
-    // `name` to the catalog display name after conversion, because the render
-    // binder resolved art by matching that string and the world file had no way
-    // to say which character an enemy wears. `EnemySpawn` authors a
-    // `character_id` as of 2026-08-06, so the speedway states its own cast and
-    // the demo stopped patching it — see `EnemySpawnSpec`.
-    // ⭐ **and the rings do too.** The same loop lived here for them: find every
-    // `currency` pickup named `"ring"` and set `pickup.sprite`. The converter
-    // has read an authored `sprite` field the whole time — the speedway's
-    // `PickupSpawn`s simply never carried one, so a Rust pass supplied it after
-    // the fact. They author `sprite: sanic_ring_prop` now.
-    // ⚠ **the DROPPED rings still name their sprite in code, and correctly so.**
-    // `scatter_rings_on_hit` mints them at runtime from a hit event — there is
-    // no authored entity to carry a field, so `RING_SPRITE_KIND` there is the
-    // spawn site stating its own identity rather than a pass repairing one.
-    // That is the line between the two: patching what a file already describes
-    // is the workaround; naming what only exists at runtime is not.
+    // The converter has read an authored `sprite` field the whole time — the speedway's
+    // `PickupSpawn`s simply never carried one, so a Rust pass supplied it after the fact. They
+    // author `sprite: sanic_ring_prop` now. **the DROPPED rings still name their sprite in code,
+    // and correctly so.** `scatter_rings_on_hit` mints them at runtime from a hit event — there is
+    // no authored entity to carry a field, so `RING_SPRITE_KIND` there is the spawn site stating
+    // its own identity rather than a pass repairing one. That is the line between the two: patching
+    // what a file already describes is the workaround; naming what only exists at runtime is not.
     room.metadata.mode = Some(SANIC_MODE.to_string());
     // Borrow Ambition's generated skybridge stack. The visible shell loads the
     // shared `GameAssets`; if those optional images are absent the renderer keeps
@@ -394,13 +381,6 @@ pub fn sanic_speedway() -> RoomSpec {
     let mut labels = vec![
         (
             LEGEND_LABEL_ID.to_string(),
-            // ⛔ **this was a hardcoded string, and it named a key nothing
-            // binds.** It read `"… D: SUPER"` while the preset binds jump Z,
-            // attack X, dash C, special G — no `D` at all. Jon reported it as
-            // *"in sanic the button text doesn't match what the controls really
-            // are"*, and that is two separate bugs: the touch button labels
-            // (queue D17) and this legend.
-            //
             // What room GENERATION can say is the DEFAULT preset's answer: it
             // has no settings and no seat. [`refresh_sanic_control_legend`]
             // replaces this the moment a seat's real bindings exist, so a
@@ -507,8 +487,6 @@ fn graft_loop_route(world: &mut ae::World) -> ae::Vec2 {
         ]);
     world.chains.insert(0, ramp_loop);
 
-    // The IntGrid-lowered ground keeps Ambition's tiled block-art fill: re-id
-    // the floor-level solids the way the old code-built room did.
     let mut ground_index = 0;
     for block in &mut world.blocks {
         if matches!(block.kind, ae::BlockKind::Solid) && (block.aabb.min.y - FLOOR_TOP).abs() < 0.5
@@ -548,34 +526,22 @@ const SANIC_CATALOG_RON: &str = r#"(
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["player"],
-            // ⛔⛔ **WHAT THIS BODY MAY DO, STATED** (Jon, 2026-08-16: *"Sanic
-            // should never have fly, blink, or wall climb in any iteration"*,
-            // and *"we need to make sure mary-o and sanic do NOT get this
-            // ability in their games"* about the ledge grab).
+            // **WHAT THIS BODY MAY DO, STATED**.
             //
             // A row that authors no grants falls back to the DEV SANDBOX set
-            // (`EditableAbilitySet::default()` is `sandbox_all`), so Sanic was
-            // quietly carrying every verb in the engine at home — flight, blink,
-            // wall climb, a ledge grab, swim, glide, dodge and a bubble shield —
-            // while his control gate resolved Attack and Utility onto his own
-            // techniques and hid it. Mary-O's row has said
-            // `abilities: Some([RunJump])` since her demo landed, for exactly
-            // this reason; his never did.
+            // (`EditableAbilitySet::default()` is `sandbox_all`), so Sanic was quietly carrying
+            // every verb in the engine at home — flight, blink, wall climb, a ledge grab, swim,
+            // glide, dodge and a bubble shield — while his control gate resolved Attack and Utility
+            // onto his own techniques and hid it.
             //
-            // ⭐ **`RunJump`, which is the whole of a classic runner's kit**:
+            // **`RunJump`, which is the whole of a classic runner's kit**:
             // steer, jump, and let go of the button to jump shorter. Everything
             // that makes this a Sanic demo is somewhere else and stays there —
             // the momentum model below is what rides the loop, and spin dash and
             // the transform are TECHNIQUES (`declare_sanic_techniques`), which
             // are named actions on the body rather than engine verbs.
             //
-            // ⛔ **an earlier pass wrote `[SaneSubset]` here and that was
-            // wrong**: it is the engine's mid-game baseline, and measured it
-            // grants fly, fly_toggle, blink, precision_blink, wall_jump,
-            // wall_cling and wall_climb. It answered the ledge question and
-            // three of the four Jon named it against.
-            //
-            // ⭐ **and it does not touch him on the SMASH grid.** A catalog grant
+            // **and it does not touch him on the SMASH grid.** A catalog grant
             // list is read by `session/setup` for a session's own avatar; a match
             // seat takes the stage's own `MatchAbilities`, which GRANTS the
             // platform-fighter kit to every fighter. So Sanic still counts in
@@ -597,14 +563,8 @@ const SANIC_CATALOG_RON: &str = r#"(
                 jump_speed: 700.0,
                 stick_factor: 4.0,
             )),
-            // ⭐ **THE RINGS ARE THE HEALTH BAR.** Jon: *"Sanic should only die
-            // after getting hit with 0 rings."* That is one number, not a
-            // system: `max_health: 1` is the engine's classic-platformer
-            // contract — whatever armor you wear absorbs the hit, and once
-            // there is none left the next one is fatal — and the wallet shield
-            // IS that armor here. On the host's standard 20-point pool a
-            // ringless spike hit cost 1 HP and Sanic walked on with 19, which
-            // is an RPG rule wearing a Sonic sprite. Authored on the row rather
+            // On the host's standard 20-point pool a ringless spike hit cost 1 HP and Sanic walked
+            // on with 19, which is an RPG rule wearing a Sonic sprite. Authored on the row rather
             // than forced on the host, so Ambition's protagonist is untouched.
             max_health: Some(1),
             barks: (
@@ -623,23 +583,18 @@ const SANIC_CATALOG_RON: &str = r#"(
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["player", "super", "transformation"],
-            // ⭐ **THE SAME KIT AS THE BASE ROW, and "any iteration" is Jon's
-            // own scope** (2026-08-16). The super form is FASTER — the momentum
-            // params below are the transformation — and a form that also gained
-            // verbs would make the D key a capability unlock. ⛔ Super Sonic
-            // flies in the games he comes from; he does not here, and this line
-            // is where that is decided rather than inherited from a sandbox
-            // default nobody wrote for him.
-            // The SUPER form is a real transformation, not a palette swap: the
-            // boosted movement is authored ON the identity row (classic Super
-            // Sonic ratios over the base row — ~2x accel, ~5/3 top speed,
-            // ~1.2x jump), so wearing the form IS the grant. A worn re-wear
-            // replaces params while PRESERVING live riding state
-            // (`sync_worn_motion_model_preserving_state`), and reverting to
-            // the base row restores the authored base exactly — one identity
-            // authority, no save/restore bookkeeping. The jump apex stays
-            // under the spring perch's 256px lift (840² / 2g ≈ 243px) so the
-            // perch remains spring-served even for a super runner.
+            // The super form is FASTER — the momentum params below are the transformation — and a
+            // form that also gained verbs would make the D key a capability unlock. Super Sonic
+            // flies in the games he comes from; he does not here, and this line is where that is
+            // decided rather than inherited from a sandbox default nobody wrote for him. The SUPER
+            // form is a real transformation, not a palette swap: the boosted movement is authored
+            // ON the identity row (classic Super Sonic ratios over the base row — ~2x accel, ~5/3
+            // top speed, ~1.2x jump), so wearing the form IS the grant. A worn re-wear replaces
+            // params while PRESERVING live riding state
+            // (`sync_worn_motion_model_preserving_state`), and reverting to the base row restores
+            // the authored base exactly — one identity authority, no save/restore bookkeeping. The
+            // jump apex stays under the spring perch's 256px lift (840² / 2g ≈ 243px) so the perch
+            // remains spring-served even for a super runner.
             abilities: Some([RunJump]),
             momentum: Some((
                 ground_accel: 1800.0,
@@ -657,18 +612,15 @@ const SANIC_CATALOG_RON: &str = r#"(
             ),
             hall_dialogue_id: Some("hall_super_sanic"),
         ),
-        // The badnik's IDENTITY row: its sprite resolves from this display
-        // name. It reuses the published `ai_slop` sheet but under Sanic's own
-        // character id + display name — NOT because a name is "owned", but
-        // because the assembled catalog requires display names to be UNIQUE
-        // across every loaded provider (validator: duplicate display names are
-        // rejected), and this badnik is a distinct character from the Hall's
-        // `npc_ai_slop`. Characters are shared by ID: any experience can spawn
-        // any character present in the merged catalog. Behavior/HP/contact come
-        // ⛔ from the `sanic_badnik` ROSTER archetype (see `badnik.rs`) — EXCEPT
-        // THAT ROW HAS NEVER EXISTED, so they come from the generic `combatant`
-        // fallback. Corrected 2026-08-12; the full note is on `badnik.rs`'s
-        // header. This row is the sprite + name, which is all it ever was.
+        // The badnik's IDENTITY row: its sprite resolves from this display name. It reuses the
+        // published `ai_slop` sheet but under Sanic's own character id + display name — NOT because
+        // a name is "owned", but because the assembled catalog requires display names to be UNIQUE
+        // across every loaded provider (validator: duplicate display names are rejected), and this
+        // badnik is a distinct character from the Hall's `npc_ai_slop`. Characters are shared by
+        // ID: any experience can spawn any character present in the merged catalog.
+        // Behavior/HP/contact come from the `sanic_badnik` ROSTER archetype (see `badnik.rs`) —
+        // EXCEPT THAT ROW HAS NEVER EXISTED, so they come from the generic `combatant` fallback.
+        // This row is the sprite + name, which is all it ever was.
         "sanic_badnik": (
             display_name: "Sanic Badnik",
             spritesheet: "sprites/ai_slop_spritesheet.png",
@@ -740,7 +692,7 @@ pub fn install_sanic_content(app: &mut App) {
         // character has no catalog row to hold bark pools, and the Hall's
         // ambient ticker skips anyone with nothing to say — so these two were
         // silent in the gallery while every catalog character chattered
-        // (Jon, 2026-07-29). These are the FLOOR: a yarn node still wins.
+        // . These are the FLOOR: a yarn node still wins.
         for (id, display, sheet, voice) in [
             (
                 SANIC_CHARACTER_ID,
@@ -763,20 +715,9 @@ pub fn install_sanic_content(app: &mut App) {
                 ],
             ),
         ] {
-            // ⭐ **AND THE SMASH TABLE, on both iterations** (2026-08-16). A
-            // census of the crossover grid found him at 0/16 with every press
-            // silent. ⚠ his spin dash and transform stay TECHNIQUES — see
-            // `declare_sanic_techniques` — and this table does not touch them.
-            //
-            // ⛔⛔ **AND IT WAS REACHABLE ON THE SPEEDWAY FOR A DAY.** This spot
-            // used to claim the ability already stopped it — his rows author
-            // `abilities: Some([RunJump])`, which has no `attack` — and nothing
-            // consulted that: the Attack / Special slots were derived from the
-            // MOVESET alone. Found in Mary-O's demo by Jon playing it; his was
-            // the identical construction and the identical break. The ability is
-            // a real ceiling now
-            // (`ambition_characters::action_scheme::combat_actions`), proved
-            // behaviourally by `persona_architecture`'s
+            // The ability is a real ceiling now
+            // (`ambition_characters::action_scheme::combat_actions`), proved behaviourally by
+            // `persona_architecture`'s
             // `the_demo_body_cannot_trigger_a_single_move_from_its_own_smash_table`.
             app.register_character(
                 CharacterDefinition::new(id, display, provider::SANIC_EXPERIENCE)
@@ -786,7 +727,7 @@ pub fn install_sanic_content(app: &mut App) {
             );
         }
     }
-    // ⭐ and the badnik itself, as a CHARACTER: its roster row is deleted and
+    // and the badnik itself, as a CHARACTER: its roster row is deleted and
     // its four placements name it.
     badnik::register_badnik_character(app);
     app.register_audio_catalog_fragment(
@@ -831,12 +772,8 @@ pub fn install_sanic_content(app: &mut App) {
     // identity) includes these rows; a non-GGRS shell records metadata only.
     {
         use ambition_platformer2d::rollback::AmbitionRollbackApp;
-        // The act-state ANCHOR comes first: the mode owner is a bare
-        // state-holder entity no engine rollback anchor reaches, and a
-        // registered-but-unanchored component silently never snapshots (the
-        // Mary-O behavioral restore test caught this class: a dirty mutation
-        // survived a GGRS rollback). `BallDash`/`BallDashInput` ride the
-        // player body, which `entity:body_kinematics` already anchors.
+        // `BallDash`/`BallDashInput` ride the player body, which `entity:body_kinematics`
+        // already anchors.
         app.require_rollback::<SanicActState>("ambition_demo_sanic", "entity:sanic_mode_owner")
             .rollback_component_clone_probed::<ball_dash::BallDash>(
                 "ambition_demo_sanic",
@@ -984,8 +921,7 @@ fn sanic_sfx_specs() -> Vec<ambition_platformer2d::audio::spec::SfxSpec> {
     ]
 }
 
-/// An open provider-local procedural cue (full control). `attack` is a short
-/// fixed onset; `release` trails a fixed fraction of the duration.
+/// An open provider-local procedural cue (full control).
 fn sanic_open(
     id: &str,
     waveform: ambition_platformer2d::audio::spec::WaveformSpec,
@@ -1170,11 +1106,9 @@ pub enum SanicActPhase {
     },
 }
 
-/// Sanic's level rules. **ONE system list; a constructor flag decides its gating**
-/// — [`SanicRulesPlugin::hosted`] when Ambition hosts the demo alongside its own
-/// rooms, [`SanicRulesPlugin::global`] when the demo IS the game. That is the D-C
-/// pattern (`docs/planning/engine/decomposition.md` §Phase D-C), and this is its
-/// first real consumer: before this, `in_mode` had no ruleset to gate.
+/// Sanic's level rules. **ONE system list; a constructor flag decides its gating** —
+/// [`SanicRulesPlugin::hosted`] when Ambition hosts the demo alongside its own rooms,
+/// [`SanicRulesPlugin::global`] when the demo IS the game.
 pub struct SanicRulesPlugin {
     hosted: bool,
 }
@@ -1210,19 +1144,12 @@ impl Plugin for SanicRulesPlugin {
         // speed game is instant, and he has no death beat authored — and the act
         // goes back when nobody is left in play.
         //
-        // ⚠ **stating this is not optional.** The engine's default is `Never`,
-        // which is correct for a versus stage and wrong for anything with a
-        // level: a pit that resets nothing leaves the body falling out of the
-        // world forever. That is exactly how this landed — `the_pit_still_
-        // swallows_him_at_any_ring_count` went red with `sent_home: false`
-        // the moment the reflex respawn was deleted and Sanic had said nothing.
+        // **stating this is not optional.** The engine's default is `Never`, which is correct for a
+        // versus stage and wrong for anything with a level: a pit that resets nothing leaves the
+        // body falling out of the world forever.
         //
-        // ⚠ **scoped by the SAME flag that gates the systems below.** Hosted,
-        // these rules govern the rooms tagged `sanic` and nothing else — the
-        // resource they used to be was a process global, so whichever provider
-        // the shell built last governed Smash, Mary-O and Ambition too.
-        // Standalone, the demo IS the game and its rules are the binary's,
-        // which is what lets a rules-only harness use an untagged fixture room.
+        // Standalone, the demo IS the game and its rules are the binary's, which is what lets a
+        // rules-only harness use an untagged fixture room.
         {
             use ambition_platformer2d::combat::death_rules::DeathRulesAppExt as _;
             app.declare_death_rules(
@@ -1246,14 +1173,9 @@ impl Plugin for SanicRulesPlugin {
         // silently make the seam a no-op in exactly the crossover stage that
         // needs it.
         app.add_observer(ball_dash::clear_ball_dash_on_restart);
-        // BEFORE the persona gate: attach the mode-local state and DECLARE both of
-        // Sanic's techniques, so the shared resolver inside
-        // `gate_worn_player_control` resolves Attack -> `Technique("spin_dash")`
-        // and Utility -> `Technique("transform")` and routes each device edge into
-        // the sanctioned `ResolvedTechniqueEdges` (clearing the raw verb behind
-        // it). Utility is D in the classic preset, and the gate's clear is what
-        // now keeps that press from ALSO toggling a host-code flight ability
-        // inherited by the control box — the demo no longer arranges that itself.
+        // Utility is D in the classic preset, and the gate's clear is what now keeps that press
+        // from ALSO toggling a host-code flight ability inherited by the control box — the demo
+        // no longer arranges that itself.
         let sanic_pre_gate = (
             ball_dash::attach_ball_dash,
             declare_sanic_techniques,
@@ -1293,19 +1215,14 @@ impl Plugin for SanicRulesPlugin {
         // removes the shield even if the same worn persona remains selected
         // elsewhere, where no ring-scatter consumer is awake.
         //
-        // ⭐ **ONE registration for both compositions.** This used to fork on
-        // `self.hosted` into a mode-aware system and an always-on one — and the
-        // always-on one was a lie about the standalone binary, which loads the
-        // same mode-tagged speedway. The fork's only real content was "does the
-        // host have other rooms to leave", which is a question about the ROOM,
-        // and the room already answers it.
+        // The fork's only real content was "does the host have other rooms to leave", which is a
+        // question about the ROOM, and the room already answers it.
         app.add_systems(
             sim,
             sync_sanic_wallet_shield
                 .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::PlayerInput)
-                // D7: the PHASE, not the leaf. A provider ordering against
-                // `apply_worn_character_gameplay` is coupled to a name the
-                // engine may rename or split; `Persona` is the contract.
+                // A provider ordering against `apply_worn_character_gameplay` is coupled to a
+                // name the engine may rename or split; `Persona` is the contract.
                 .after(ambition_platformer2d::platformer::schedule::PlayerInputSet::Persona)
                 .before(ambition_platformer2d::actors::features::ecs::damage_apply::PlayerHitResolutionSet),
         );
@@ -1341,14 +1258,7 @@ impl Plugin for SanicRulesPlugin {
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects);
         // **The super form states its TRAITS before the engine runs them.**
         //
-        // `sync_super_form_traits` inserts/removes `Empowered` from the worn
-        // identity; the engine's `EmpowermentExpiry` set projects it onto
-        // `Invulnerability`. This edge is the whole of what used to be
-        // adjacency in the chain above — donning the form on frame N has to
-        // stamp the reason on frame N, or the invulnerability arrives a frame
-        // late.
-        //
-        // ⭐ **an ORDER, not an installation.** `apply_contact_harm` is still
+        // **an ORDER, not an installation.** `apply_contact_harm` is still
         // deliberately absent from this game: `defeat_badniks` already owns the
         // destroy-on-touch reaction, including its pop and its bounce, and two
         // authorities killing the same badnik is what that choice exists to
@@ -1491,15 +1401,6 @@ const TRANSFORM_TECHNIQUE_ID: &str = "transform";
 /// Sanic's technique declarations — what the body's bespoke mechanics are CALLED
 /// and which control each lives on. ONE writer for the whole set, upserting by
 /// slot, so no two Sanic systems race to own `ActorTechniques`.
-///
-/// Declaring is not decoration. The derived scheme is what the persona gate
-/// routes and what the control prompt renders, so a mechanic that skips this
-/// step gets its edge stolen from under the engine AND leaves its control
-/// wearing whatever generic verb happened to claim the slot. That is exactly
-/// what the transformation did: it read the raw Utility edge, so Sanic's scheme
-/// still carried the engine's `fly_toggle` movement action there and the button
-/// said "Fly Toggle" — Jon, 2026-08-08: *"Sanic's transform button still reads
-/// 'fly'."*
 fn declare_sanic_techniques(
     mut commands: bevy::prelude::Commands,
     subject: Option<
@@ -1562,12 +1463,9 @@ fn transform_technique() -> ambition_platformer2d::entity_catalog::action_scheme
 
 /// Toggle the controlled body between the two catalog-authored Sanic forms.
 ///
-/// Fires from the SANCTIONED technique edge the persona gate resolves onto the
-/// Utility slot — the same seam `capture_ball_dash_input` reads for the spin
-/// dash, and no longer a raw `fly_toggle_pressed` read in a before-gate window.
-/// Because the body DECLARES `transform` there, the gate routes the press here
-/// and clears the raw verb itself, so the old hand-rolled consumption (and the
-/// ordering it depended on) is the engine's job now.
+/// Because the body DECLARES `transform` there, the gate routes the press here and clears the
+/// raw verb itself, so the old hand-rolled consumption (and the ordering it depended on) is the
+/// engine's job now.
 ///
 /// The super row authors the form's boosted movement and `sync_super_form_traits`
 /// derives the rest (invincibility, sparkles, badnik destroy-on-touch) from the
@@ -1575,12 +1473,9 @@ fn transform_technique() -> ambition_platformer2d::entity_catalog::action_scheme
 /// and `WornCharacter` stays the single gameplay + presentation authority. No
 /// timer: a future ring drain can wear the form off the same way this toggle does.
 ///
-/// ⚠ **and it sheds the speed shoes**, because a wear REPLACES the live
-/// `MomentumParams` wholesale: a shoes grant that outlives the swap would later
-/// "restore" a baseline saved from the other form's authored row. The monitor
-/// that granted the form used to own that rule; the form now arrives only from
-/// here, so the rule moved here with it rather than being deleted alongside the
-/// monitor.
+/// **and it sheds the speed shoes**, because a wear REPLACES the live `MomentumParams` wholesale: a
+/// shoes grant that outlives the swap would later "restore" a baseline saved from the other form's
+/// authored row.
 fn toggle_sanic_form(
     mut commands: bevy::prelude::Commands,
     subject: Option<
@@ -1622,42 +1517,8 @@ const SUPER_SPARKLE_RADIUS: f32 = 15.0;
 /// hover AROUND the body rather than pooling at the feet.
 const SUPER_SPARKLE_RISE: f32 = 8.0;
 
-/// Derive the super form's non-movement traits from the worn identity, every
-/// sim frame. The movement boost is authored on the `super_sanic` catalog row
-/// (the wear itself grants it); what the catalog CANNOT express lives here:
-///
-/// - **Invincibility**: `Health::invulnerable` tracks the worn identity, so
-///   badnik contact can't hurt a super Sanic — **and since 2026-08-04, neither
-///   can the speedway's spike strip.** Jon, from play: *"in super sanic mode,
-///   sanic should be invincible, even to spikes."* This used to say the kernel's
-///   hazards still reset him, and that was true for a structural reason rather
-///   than a Sanic one: an authored hazard drawn as an ECS volume asked
-///   `body_vulnerable`, while the same hazard drawn as a TILE became an
-///   unconditional teleport-to-spawn nothing could see. `integrate_home_body`
-///   now applies the one predicate to both roads.
-///   ⚠ **as of 2026-08-08 the strip is not a tile at all** — it is authored as
-///   a `DamageVolume`, because a reset was never what a spike hit should be
-///   (Jon: *"hitting the spikes should not be an insta kill. It should hurt him
-///   and knock out his rings."*). The exemption above is unchanged and now
-///   arrives by the ordinary road: `update_ecs_hazards` asks `body_vulnerable`
-///   before it writes the hit at all.
-///   ⚠ **the PIT still swallows him**, and that is the line. A hazard tile is
-///   never a collision surface, so a super Sanic falls straight through the
-///   strip at the bottom and leaves the world — and `ResetCause::LeftTheWorld`
-///   exempts nobody. Falling out is not something that HIT you.
-/// - **Sparkles**: a golden pulse trails the form, so the transformation reads
-///   on screen and not just on the spritesheet.
-///
-/// The form is NOT a timed grant: the D-toggle (or a future ring drain) wears
-/// it off, and every trait here reverts the same frame because it is derived,
-/// never stored. Badnik destroy-on-touch derives from the same identity read
-/// in `badnik::defeat_badniks`.
-/// Sanic's transformation numbers.
-///
-/// Shorter and lighter than Mary-O's: going super is a burst, not a ceremony,
-/// and this demo's whole premise is speed — a long freeze would fight it. BLIND
-/// until Jon plays it; `taunt` is the closest held pose his sheet owns until a
-/// dedicated transform row exists.
+/// Sanic's transformation beat is shorter and lighter than Mary-O's so it does not interrupt
+/// the speed-focused demo.
 fn ensure_sanic_transform_beat_policy(
     mut commands: bevy::prelude::Commands,
     bodies: bevy::prelude::Query<
@@ -1682,6 +1543,11 @@ fn ensure_sanic_transform_beat_policy(
     }
 }
 
+/// Derive super-form traits from the worn identity each simulation frame.
+///
+/// Movement speed is authored on the `super_sanic` catalog row. This system adds invulnerability
+/// to contact and spike-strip damage plus the golden sparkle trail. Pits still reset the body
+/// through `ResetCause::LeftTheWorld`. The derived traits revert when the super identity is removed.
 fn sync_super_form_traits(
     time: bevy::prelude::Res<ambition_platformer2d::time::WorldTime>,
     mut sparkle_accum: bevy::prelude::Local<f32>,
@@ -1705,14 +1571,9 @@ fn sync_super_form_traits(
     let (worn_is_super, pos, body, was_super) = match players.single_mut() {
         Ok((body, worn, kinematics, latch)) => {
             let is_super = worn.id() == SUPER_SANIC_CHARACTER_ID;
-            // Super Sanic and Mary-O's pocket quasar are the SAME fact wearing
-            // two names: a body that cannot be hurt, and that destroys what it
-            // runs through, because a star-grade power is on. So this states the
-            // TRAITS and lets the engine's empowerment run them — it used to
-            // write `Invulnerability::EMPOWERED` here by hand and leave the
-            // destroy-on-touch half to `defeat_badniks` matching on a character
-            // id, which is two authorities for one form and neither of them
-            // reusable.
+            // Super Sanic and Mary-O's pocket quasar are the SAME fact wearing two names: a body
+            // that cannot be hurt, and that destroys what it runs through, because a star-grade
+            // power is on.
             //
             // HELD, not timed: the form is true for exactly as long as he wears
             // the identity, and the identity is the authority — a monitor, the
@@ -1725,12 +1586,6 @@ fn sync_super_form_traits(
                     ),
                 );
             } else {
-                // The reason goes back with the form, and the ENGINE does that:
-                // removing `Empowered` releases `Invulnerability::EMPOWERED`
-                // through `EmpowermentLifecyclePlugin`'s observer. This used to
-                // clear the bit by hand right here, which worked and was the
-                // two-step ritual — the second step being the one the next
-                // granter forgets.
                 commands
                     .entity(body)
                     .remove::<ambition_platformer2d::actors::features::empowerment::Empowered>();
@@ -1775,10 +1630,8 @@ fn sync_super_form_traits(
             Some(body) => sfx.write_for(body, transform),
             None => sfx.write_from(provider::SANIC_EXPERIENCE, transform),
         }
-        // The transformation MOMENT, off the same edge the sound uses — Jon
-        // asked for it for Sanic too. Becoming super only: dropping the form is
-        // a loss, and a loss does not get a celebratory beat. The engine owns
-        // what the beat does; this only says it happened.
+        // Becoming super only: dropping the form is a loss, and a loss does not get a celebratory
+        // beat. The engine owns what the beat does; this only says it happened.
         if to_super {
             if let Some(body) = body {
                 commands.entity(body).try_insert(
@@ -1964,20 +1817,6 @@ const SCATTERED_RINGS_MAX: usize = 12;
 /// The classic burst throws rings roughly four 16px pixels per frame; this world
 /// runs at twice that tile scale, so the faithful conversion is ~480 px/s. It
 /// wants to read as an EXPLOSION you have to chase, not a spill at your feet.
-///
-/// ⛔ **520 was the faithful conversion and it was not what Jon asked for.** His
-/// report: *"The rings don't splash out nearly large enough."* MEASURED by
-/// driving the real integrator rather than by reading the arithmetic —
-/// `the_ring_splash_is_wide_enough_to_be_a_scramble` — 520 px/s produced a spray
-/// **10.3 tiles wide**, roughly a quarter of the 1200px gameplay viewport, which
-/// is a spill at your feet dressed as an explosion. 900 produces **~24 tiles**,
-/// about two thirds of the viewport.
-///
-/// ⚠ **the range is not linear in this number and the drag is why.** Ballistic
-/// range goes as v², so 520→900 is 3× on paper; the air drag that BOUNDS the
-/// scatter eats most of that, and the measured widening is 2.3×. Any future tune
-/// should re-run the measurement rather than scaling the constant by the ratio
-/// it wants.
 const SCATTER_BURST_SPEED: f32 = 900.0;
 
 /// How many rings make up one shell of the burst. Past this, the next shell
@@ -2007,26 +1846,17 @@ const SCATTER_GRAVITY: f32 = 1400.0;
 const SCATTER_AIR_DRAG: f32 = 0.9;
 
 /// Fraction of speed a scattered ring keeps when it bounces off geometry.
-///
-/// Well under 1, so a ring settles into a short chatter near where it landed
-/// instead of pinballing across the level — the classic read is "they hit the
-/// floor and dance", not "they escape".
 const SCATTER_RESTITUTION: f32 = 0.55;
 
-/// How long (s) a scattered ring is untouchable. The ring is already bursting
-/// and bouncing during this window; what it cannot do is be collected, so the
-/// hit costs you something even for the instant you are standing in the spray.
-/// Without it a hit would refund itself on the same frame it landed.
-/// **How long losing your rings keeps you untouchable.**
+/// How long (s) a scattered ring is untouchable. The ring is already bursting and bouncing during
+/// this window; what it cannot do is be collected, so the hit costs you something even for the
+/// instant you are standing in the spray.
 ///
-/// Jon, from play: *"he should … have a few second of recovery iframes."* The
-/// classic is about two seconds of flashing, and the number has to be read
-/// against what the hit COSTS here: the purse bursts across half a screen and
-/// the window is the whole of your chance to run it back down. The engine's own
-/// `knockback_invulnerability_time` is 0.75s — right for Ambition, and over
-/// before the rings have landed in this game.
+/// classic is about two seconds of flashing, and the number has to be read against what the hit
+/// COSTS here: the purse bursts across half a screen and the window is the whole of your chance to
+/// run it back down.
 ///
-/// ⚠ **it RAISES the running window, never replaces it.** A hazard respawn arms
+/// **it RAISES the running window, never replaces it.** A hazard respawn arms
 /// a longer one, and dropping rings inside that must not cut it short.
 pub(crate) const RING_LOSS_INVULN_S: f32 = 2.0;
 
@@ -2061,12 +1891,9 @@ pub struct ScatteredRing {
 /// This is derived state, not an input edge: rebuilding it every frame avoids a
 /// rollback latch while keeping the shared damage resolver content-agnostic.
 ///
-/// ⛔⛔ **THE POPULATION IS THE WHOLE CORRECTNESS ARGUMENT.** This used to read
-/// every `PrimaryPlayer` in the process and strip the shield off any body its
-/// `enabled` test said no to — so in a Smash match, hosted beside Sanic, this
-/// ran every tick against four fighters none of which are Sanic's. It was inert
-/// only because [`BodyWalletShield`](ambition_platformer2d::characters::actor::BodyWalletShield)
-/// has exactly one writer in the workspace: this file.
+/// It was inert only because
+/// [`BodyWalletShield`](ambition_platformer2d::characters::actor::BodyWalletShield) has exactly one
+/// writer in the workspace: this file.
 ///
 /// [`sync_sanic_wallet_shield`] states that instead of relying on it: a body is
 /// Sanic's business when it **wears a Sanic persona** (Sanic's rule speaks for
@@ -2075,7 +1902,7 @@ pub struct ScatteredRing {
 /// this*) rather than an accident. A George Booul on a Smash stage is neither,
 /// and the loop skips him before it decides anything.
 ///
-/// ⚠ the residency test cannot be a query filter — `WornCharacter` holds an id
+/// the residency test cannot be a query filter — `WornCharacter` holds an id
 /// and Bevy filters on component presence — so it is the first statement in the
 /// loop rather than part of this type.
 type SanicShieldBodies<'w, 's> = bevy::prelude::Query<
@@ -2115,7 +1942,7 @@ fn sync_sanic_wallet_shield(
     let in_sanic_rooms = active.is_some_and(|active| active.0.mode.as_deref() == Some(SANIC_MODE));
     for (entity, worn, shielded) in &bodies {
         let sanic_persona = is_sanic_persona(worn.id());
-        // ⛔ **not this ruleset's body.** See `SanicShieldBodies`: Sanic answers
+        // **not this ruleset's body.** See `SanicShieldBodies`: Sanic answers
         // for the bodies wearing his personas, plus whatever already carries a
         // shield he is the only writer of. Everything else — every fighter on a
         // Smash stage this demo is composed beside — is somebody else's.
@@ -2174,12 +2001,10 @@ pub fn scatter_rings_on_hit(
 
     for event in spent.read() {
         let Ok((player_id, mut counter, combat)) = bodies.get_mut(event.victim) else {
-            // The resolver ALREADY zeroed the wallet — survival and the spend are
-            // settled before this system runs. If the victim cannot be resolved
-            // here the currency is simply gone with no burst, no sound, and no
-            // way to run it back down: a silent robbery. It should be
-            // unreachable (`ensure_sim_id` stamps the primary player long before
-            // any hit lands), so say so loudly rather than swallowing it.
+            // If the victim cannot be resolved here the currency is simply gone with no burst,
+            // no sound, and no way to run it back down: a silent robbery. It should be
+            // unreachable (`ensure_sim_id` stamps the primary player long before any hit
+            // lands), so say so loudly rather than swallowing it.
             bevy::log::error_once!(
                 "wallet shield spent {} on {:?}, but the victim has no \
                  SimId/SimIdCounter to mint scattered rings from — the spend is \
@@ -2189,24 +2014,15 @@ pub fn scatter_rings_on_hit(
             );
             continue;
         };
-        // ⭐ **THE RECOVERY WINDOW, and it is this game's to set.** Jon, from
-        // play: *"there it seems like he is given no iframes … he should have a
-        // few second of recovery iframes."* They were never missing — the
-        // resolver arms `knockback_invulnerability_time`, 0.75s, which its own
-        // comment calls the longest window in the game. It is, for Ambition. Here
-        // the hit throws your purse across half a screen, so 0.75s is over before
-        // the rings land and the badnik you bounced off is still touching you.
+        // It is, for Ambition. Here the hit throws your purse across half a screen, so 0.75s is
+        // over before the rings land and the badnik you bounced off is still touching you.
         //
-        // ⛔ **not fixed by raising the engine default**, which Mary-O shares and
-        // whose classic feel is pinned. `WalletShieldSpent`'s contract says where
-        // it belongs: "the generic resolver owns survival; game content owns how
-        // it is expressed" — and in the classic, losing your rings IS the trigger
-        // for the flashing window.
+        // `WalletShieldSpent`'s contract says where it belongs: "the generic resolver owns
+        // survival; game content owns how it is expressed" — and in the classic, losing your rings
+        // IS the trigger for the flashing window.
         //
-        // ⚠ raised, never replaced: a longer window already running (a hazard
-        // respawn arms 1.10s) must not be cut short by dropping rings inside it.
-        // Armed before the early return below, because a spend of zero is still a
-        // hit that landed.
+        // raised, never replaced: a longer window already running (a hazard respawn arms 1.10s)
+        // must not be cut short by dropping rings inside it.
         if let Some(mut combat) = combat {
             combat.damage_invuln_timer = combat.damage_invuln_timer.max(RING_LOSS_INVULN_S);
         }
@@ -2354,10 +2170,7 @@ pub fn arc_scattered_rings(
 /// Move a ring by `delta` against the room's solid geometry, stopping at the
 /// first surface it meets.
 ///
-/// Returns the displacement actually taken and the contact normal, if any. One
-/// contact per tick: a ring that clips a corner keeps the remainder of its step
-/// rather than resolving a chain, which is invisible at these speeds and keeps
-/// the step a fixed amount of work.
+/// Returns the displacement actually taken and the contact normal, if any.
 fn ring_step(
     world: Option<&ae::World>,
     ring: ae::Aabb,
@@ -2442,13 +2255,9 @@ pub fn act_time_text(seconds: f32) -> String {
 /// result the player is already looking at.
 /// After the goal, the course drives him — not the player.
 ///
-/// Registered in `PlayerInput` AFTER `tick_controlled_brains`, which is the whole
-/// trick: the brain refills `ActorControl` from the stick every frame, so a
-/// system that zeroes it in `GameplayEffects` (where this started) is
-/// overwritten before the body ever reads it. Measured, not guessed — with the
-/// late registration he decelerated and then crept forward at a constant
-/// ~100 px/s forever, which is exactly what "held right, still accelerating"
-/// looks like under a brake.
+/// Measured, not guessed — with the late registration he decelerated and then crept forward at
+/// a constant ~100 px/s forever, which is exactly what "held right, still accelerating" looks
+/// like under a brake.
 ///
 /// Found while proving the act-clear replay (room-replay triage §1): `GOAL_X` is
 /// 400px from the right edge, and clearing neither braked him nor closed the
@@ -2457,11 +2266,9 @@ pub fn act_time_text(seconds: f32) -> String {
 /// structurally unable to assert the replay, because the death respawn rebuilt
 /// the room by itself.
 ///
-/// The fix is the classic one: the goal takes the controls away and he coasts to
-/// a stop on his own friction. Zeroing the CONTROL rather than poking velocity
-/// matters here — he rides the surface-momentum kernel, so a poked `vel` is
-/// overwritten from his surface parameter on the next tick, exactly as a poked
-/// `pos` is.
+/// Zeroing the CONTROL rather than poking velocity matters here — he rides the surface-momentum
+/// kernel, so a poked `vel` is overwritten from his surface parameter on the next tick, exactly
+/// as a poked `pos` is.
 fn take_the_controls_at_the_goal(
     subject: Option<
         bevy::prelude::Res<ambition_platformer2d::platformer::markers::ControlledSubject>,
@@ -2481,7 +2288,7 @@ fn take_the_controls_at_the_goal(
         return;
     };
     if !cleared {
-        // ⛔ the act's OWN hold. Sanic can be held by something else at the same
+        // the act's OWN hold. Sanic can be held by something else at the same
         // time, and a brake that ended is not a reason to hand him back to a
         // system that is still driving him.
         ambition_platformer2d::characters::brain::release_control_hold(
@@ -2492,11 +2299,9 @@ fn take_the_controls_at_the_goal(
         );
         return;
     }
-    // The course drives him now — the whole frame, not the three fields this
-    // used to clear. Clearing only locomotion was actively harmful: crouch is
-    // `locomotion.y`, so zeroing it looked like a crouch RELEASE to
-    // `capture_ball_dash_input`, and a spin dash charged on the approach fired
-    // itself the instant he crossed the line. The brake launched him.
+    // Clearing only locomotion was actively harmful: crouch is `locomotion.y`, so zeroing it looked
+    // like a crouch RELEASE to `capture_ball_dash_input`, and a spin dash charged on the approach
+    // fired itself the instant he crossed the line. The brake launched him.
     ambition_platformer2d::characters::brain::claim_control_hold(
         &mut commands,
         entity,
@@ -2606,14 +2411,11 @@ pub fn cycle_act_after_clear(
 
 /// **Value projections for this demo's rollback state.**
 ///
-/// Companion to Mary-O's `rollback_probes`, added in the same pass and for the
-/// same reason: every one of these registrations was PRESENCE-ONLY, and the
-/// checker that says so had never seen them. `Platformer2dSimHarness` composed
-/// `AmbitionGameSimulationPlugin` alone until the build-time `SessionRoot` was
-/// deleted (K2b edit 2, 2026-08-06); the shipped shell host composes all three
-/// demos, so eighteen content registrations arrived on the oracle at once.
+/// Companion to Mary-O's `rollback_probes`, added in the same pass and for the same reason:
+/// every one of these registrations was PRESENCE-ONLY, and the checker that says so had never
+/// seen them.
 ///
-/// ⚠ f32 goes through `to_bits`. A rounding checksum calls two timelines equal
+/// f32 goes through `to_bits`. A rounding checksum calls two timelines equal
 /// one ulp apart, and one ulp of a dash charge is one frame of launch speed.
 mod rollback_probes {
     use super::*;
@@ -2624,7 +2426,7 @@ mod rollback_probes {
             ^ ((dash.contact_grace.to_bits() as u64) << 1).rotate_left(11)
     }
 
-    /// ⚠ **captured INPUT is rollback state, and its edges are the point.** A
+    /// **captured INPUT is rollback state, and its edges are the point.** A
     /// rewind that restored the charge but not `crouch_released` re-runs the
     /// launch frame with the edge already consumed, so the two timelines
     /// disagree about whether the dash fired at all.

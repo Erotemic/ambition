@@ -22,12 +22,6 @@ use ambition_platformer2d_core::AabbExt;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use bevy::prelude::*;
 
-// Movement physics (gravity / fall cap / run accel / jump / double-jump) used to
-// be the hardcoded `ENEMY_*` constants here. They are now per-archetype DATA,
-// composed hierarchically — see `crate::combat::BodyMovementTuning` (whose
-// `BASELINE` carries these exact historical values) and the archetype `movement`
-// patch + `inherits` resolution in `features/enemies/mod.rs`. The integrator reads
-// `tuning.movement.*`.
 /// Mid-air jumps an enemy gets between landings. `1` = single
 /// double-jump (matches the player's default). Resets when the
 /// body transitions `on_ground: false → true` in `enemy.update()`.
@@ -58,10 +52,9 @@ mod npcs;
 
 // Re-export the generic combat kit so existing feature-facing paths stay stable.
 pub use crate::combat::components;
-// Body MECHANICS re-homed off `player/` in the S5/S6 fold (R6d). None of them is
-// player-only: `movement_fx` turns a frame's engine `FrameEvents` into Sfx/Vfx
-// facts for whichever body produced them; `swim` and `ledge_grab` are thin shims
-// over engine-owned water / ledge state and name no `crate::` type at all.
+// None of them is player-only: `movement_fx` turns a frame's engine `FrameEvents` into Sfx/Vfx
+// facts for whichever body produced them; `swim` and `ledge_grab` are thin shims over
+// engine-owned water / ledge state and name no `crate::` type at all.
 pub mod empowerment;
 pub mod ledge_grab;
 pub mod movement_fx;
@@ -102,19 +95,14 @@ pub(crate) use ecs::{
     spawn_boss_with_overrides_into, spawn_enemy_with_faction_into,
 };
 pub(crate) use ecs::{spawn_runtime_minion, spawn_runtime_minion_into};
-// ⭐ **the CAST half of the conversation port**: a bark line for a character in
+// **the CAST half of the conversation port**: a bark line for a character in
 // a situation. Named explicitly rather than opening the whole `npcs` module,
 // because when the conversation module is carved out this single function is
 // what answers its `ConversationCutBark`, and a `pub(crate) mod` would have
 // hidden how small the remaining coupling is.
 //
-// ⚠ **corrected 2026-08-16: this is NOT an edge `conversation` reaches back
-// through, which is what the note here claimed.** Continuity never calls it —
-// it writes the message and this reads it, so the arrow points from `features`
-// into `conversation` like every other one. Measured: `conversation/` contains
-// zero non-doc `crate::` paths. The temporal half of the same port is
-// `FeatureInteractionSet::CutBarkCast`, the phase this system is placed in
-// below.
+// Measured: `conversation/` contains zero non-doc `crate::` paths. The temporal half of the same
+// port is `FeatureInteractionSet::CutBarkCast`, the phase this system is placed in below.
 pub use npcs::speak_conversation_cut_barks;
 
 pub use components::{
@@ -204,14 +192,7 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
         app.add_systems(
             sim,
             (
-                // **What the narrative asked the simulation to do**, applied
-                // here rather than by the Yarn command that asked. Each of these
-                // used to be a presentation-side write into rollback state or
-                // into a channel the host clears on rollback; the ledger hands
-                // them over on the tick they were stamped for. See
-                // `ambition_conversation::ledger`.
-                //
-                // ⚠ ARMING a challenge is first, so the grace that
+                // ARMING a challenge is first, so the grace that
                 // `tick_pending_challenges` counts down starts on the tick the
                 // narrative asked for it rather than the one after.
                 ecs::arm_requested_challenges,
@@ -255,11 +236,8 @@ pub fn advance_gameplay_elapsed(
 /// and per-frame hazard/actor/boss ticks before player simulation reads them.
 /// Register the DAMAGE-facing publication of every body's damageable volumes.
 ///
-/// Extracted from `WorldPrepSchedulePlugin` so the ordering is expressed exactly
-/// once, and so a test can assert the production wiring instead of asserting a
-/// copy of it. A `.before`/`.after` naming an unregistered system is silently
-/// ignored by Bevy, which makes a hand-rebuilt ordering in a test the easiest
-/// possible way to prove nothing.
+/// Extracted from `WorldPrepSchedulePlugin` so the ordering is expressed exactly once, and so a
+/// test can assert the production wiring instead of asserting a copy of it.
 ///
 /// This is the SECOND invocation of `refresh_body_damageable_volumes`; the first
 /// runs in `WorldPrep` for the pogo derivation and the collision overlay. Same
@@ -272,12 +250,9 @@ pub fn register_damage_facing_volume_publication(app: &mut bevy::prelude::App) {
         sim,
         refresh_body_damageable_volumes
             .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::Combat)
-            // Victim geometry is published between the move clock and the damage
-            // pass: AFTER `Playback`, because a move's first active frame must not
-            // publish the previous frame's volumes, and BEFORE `Resolve`, because
-            // that is what reads them. Stated as PHASES — the leaf pair this used
-            // to name (`advance_move_playback` / `apply_hitbox_damage`) is the same
-            // constraint written in a way a caller cannot check.
+            // Victim geometry is published between the move clock and the damage pass: AFTER
+            // `Playback`, because a move's first active frame must not publish the previous frame's
+            // volumes, and BEFORE `Resolve`, because that is what reads them.
             .after(crate::schedule::CombatSet::Playback)
             .before(crate::schedule::CombatSet::Resolve)
             // The one intra-crate edge that is genuinely between two systems: the
@@ -308,16 +283,11 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             crate::features::combat_rules::project_combat_rules
                 .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
         );
-        // S4: spend a stock per KO. `CombatSet::Settle` is the phase for
-        // "everything that reads this tick's damage outcome rather than
-        // producing it", which is exactly what this is — the KO was decided in
-        // Resolve, and spending is bookkeeping over it.
-        // ⭐ **THE RULESET INSTALLS ITS OWN STATE** (D147). Activation used to
-        // insert this too, so that a second match would not open wearing the
-        // first's verdict; the verdict names its match now, so the only owner
-        // this resource has is the plugin that schedules the systems reading it.
+        // S4: spend a stock per KO. `CombatSet:Settle` is the phase for "everything that reads
+        // this tick's damage outcome rather than producing it", which is exactly what this is —
+        // the KO was decided in Resolve, and spending is bookkeeping over it.
         app.init_resource::<crate::features::stocks_match::StocksMatchSettled>();
-        // ⚠ **the same rule as `BodyHitResolved` below, applied to the clock.**
+        // **the same rule as `BodyHitResolved` below, applied to the clock.**
         // `state_the_matchs_pace` writes a `ClockScaleRequest` and this plugin
         // is what schedules it, so this plugin registers it — a fixture that
         // composes the ruleset without the runtime's time-control assembly
@@ -325,29 +295,17 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // idempotent, so the composition that already registers it is
         // unaffected (`transform_beat` does exactly this for the same reason).
         app.add_message::<ambition_time::time_control::ClockScaleRequest>();
-        // ⚠ REGISTERED WHERE THE WRITERS ARE SCHEDULED, not one crate up.
-        // `apply_feature_hit_events` and the player hit path both write
-        // `BodyHitResolved`, and registering it in `ambition_platformer2d_runtime` left every
-        // `ambition_platformer2d_actor_monolith` fixture panicking "Message not initialized" the
-        // moment a hit landed — the exact defect `BodyKnockedOut` already cost
-        // this repo once. A writer whose message is registered by a different
-        // plugin is a composition that works until somebody composes
-        // differently, and a test fixture IS somebody composing differently.
         #[cfg(feature = "causal")]
         app.add_message::<crate::features::ecs::damage_apply::BodyHitResolved>();
         #[cfg(feature = "causal")]
         app.add_message::<crate::causal::BodyMovementOps>();
         // **AN INSTRUMENT REGISTERS WHAT IT READS.**
         //
-        // ⛔ found by running `ladder_probe --features causal`, which panicked
-        // on the first tick with "Message not initialized". The three causal
-        // observers below read five message types and the composition only ever
-        // registered one; every other registration came from whichever gameplay
-        // plugin happened to WRITE that message, so turning the inspector on in
-        // a composition lacking one of those plugins killed the app. The
-        // inspector could not be enabled for the game it was built to inspect.
+        // found by running `ladder_probe --features causal`, which panicked on the first tick
+        // with "Message not initialized". The inspector could not be enabled for the game it
+        // was built to inspect.
         //
-        // ⚠ this is the READER half of the rule already learned on the writer
+        // this is the READER half of the rule already learned on the writer
         // side: a knockout is acted on by the SIMULATION and must fail loud, but
         // an INSTRUMENT must degrade. `add_message` is idempotent, so a
         // composition that already registers these is unaffected and one that
@@ -365,15 +323,10 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             (
                 ambition_combat::stocks::spend_fighter_stocks
                     .in_set(ambition_combat::stocks::FighterStocksSpent),
-                // AFTER the spend, in the same phase: a match decided before this
-                // tick's elimination lands would announce the previous frame's
-                // answer on the frame the last fighter goes out.
                 crate::features::stocks_match::decide_stocks_match
                     .in_set(ambition_combat::stocks::MatchOutcomeDecided),
-                // AFTER the decision, in the same phase, so the tick a match is
-                // over is the tick it stops (D140). Reading the latch on the
-                // frame BEFORE the one that sets it would let the winner play
-                // on for one tick, which is the window a final KO happens in.
+                // Reading the latch on the frame BEFORE the one that sets it would let the
+                // winner play on for one tick, which is the window a final KO happens in.
                 crate::features::stocks_match::state_the_matchs_pace,
                 // The causal OBSERVER, last in the chain so it reads this tick's
                 // decision rather than the previous one. It holds no authority
@@ -526,24 +479,18 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         );
         // ── The SECOND publication of every body's damageable volumes ──
         //
-        // Same function, same rule, later phase. The `WorldPrep` copy above feeds
-        // the pogo derivation and the feature-world collision overlay, which are
-        // rebuilt in that set; this copy exists because DAMAGE resolves in
-        // `Combat`, and a body's `CenteredAabb` is written by its own integrator —
-        // an actor's in `WorldPrep`, the PLAYER's in `PlayerSimulation`. Publishing
-        // only in `WorldPrep` would therefore hand `apply_hitbox_damage` a player
-        // silhouette one frame stale, which is the Mary-O contact defect again: a
-        // hit classifier must read the positions the contact pass reads.
+        // Same function, same rule, later phase. The `WorldPrep` copy above feeds the pogo
+        // derivation and the feature-world collision overlay, which are rebuilt in that set;
+        // this copy exists because DAMAGE resolves in `Combat`, and a body's `CenteredAabb` is
+        // written by its own integrator — an actor's in `WorldPrep`, the PLAYER's in
+        // `PlayerSimulation`.
         //
         // `in_set(CoreSimulation)` keeps it inside `GameplaySimulationRoot`, so the
         // session gate covers it like everything else.
         register_damage_facing_volume_publication(app);
-        // The decomposed per-actor pipeline: brain → intent, movement integration,
-        // read-model mirror, and contact-damage observer, as four explicit phases.
-        // Chained (they share the actor cluster + `ActorControl`/`BodyCombat`) and
-        // slotted where the old `update_ecs_actors` monolith ran (after target
-        // selection, before the NPC bark ticker). Registered separately from the big
-        // WorldPrep tuple, which is at Bevy's chain-length ceiling.
+        // The decomposed per-actor pipeline: brain → intent, movement integration, read-model
+        // mirror, and contact-damage observer, as four explicit phases. Registered separately
+        // from the big WorldPrep tuple, which is at Bevy's chain-length ceiling.
         app.init_resource::<ActorSteering>();
         // **Every solid body's contact box, resampled before every movement
         // phase.** Empty in every composition that grants no body the
@@ -573,13 +520,13 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // marker is applied by `Commands` and must be flushed before the
                 // query that filters on it runs.
                 crate::features::ecs::dormancy::assess_dormancy,
-                // ⭐ **THE GAME'S RUNGS, applied before the first decision.** A
+                // **THE GAME'S RUNGS, applied before the first decision.** A
                 // fighter is constructed with the engine FLOOR because the
                 // authored ladder lives in the content pack, above this crate and
                 // out of reach of the spawn tree's many roots. This rewrites a
                 // freshly-inserted fighter brain from the game's own rows.
                 //
-                // ⚠ before `tick_actor_brains` and immediately so: the projection
+                // before `tick_actor_brains` and immediately so: the projection
                 // rebuilds `FighterState`, and doing that after a decision would
                 // discard the habits that decision accumulated. Chained, so the
                 // brain that ticks below is the one this wrote.
@@ -588,17 +535,13 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // **IMMEDIATELY after the writer, and that placement is the
                 // whole correctness of the instrument.**
                 //
-                // ⛔ it was first registered in `PlayerInputSet::Brain`, after
-                // `tick_controlled_brains` — a WHOLE PHASE EARLIER than this one. So
-                // for every actor-brained body it read the PREVIOUS tick's
-                // `ActorControl` and printed it beside THIS tick's decision. On
-                // a level-9 ladder run that produced 378 apparent "the brain
-                // asked left and the body went right" rows, every one of them
-                // the instrument looking at a stale frame. The bug the trace
-                // exists to find has exactly that shape, so the artifact was
-                // indistinguishable from the finding — and this thread has been
-                // fooled by a measurement artifact before. Correctly ordered,
-                // `asked != holding` is 0 of 2279.
+                // it was first registered in `PlayerInputSet::Brain`, after
+                // `tick_controlled_brains` — a WHOLE PHASE EARLIER than this one. So for every
+                // actor-brained body it read the PREVIOUS tick's `ActorControl` and printed it
+                // beside THIS tick's decision. On a level-9 ladder run that produced 378 apparent
+                // "the brain asked left and the body went right" rows, every one of them the
+                // instrument looking at a stale frame. Correctly ordered, `asked != holding` is 0
+                // of 2279.
                 #[cfg(feature = "causal")]
                 crate::causal::record_body_control_frame,
                 // The kernel's own operation list — `Dash`, `DodgeRoll`,
@@ -613,17 +556,12 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // The SECOND blanking position, and the one that makes
                 // `ScriptedControl` mean the same thing for every body.
                 //
-                // The first is in `PlayerInputSet::ControlGate`, immediately
-                // after `tick_controlled_brains` — "the only position where blanking
-                // is observable", which was true of the writer it was placed
-                // against and false of this one. Actor brains write
-                // `ActorControl` HERE, in `WorldPrep`, a whole phase after that
-                // gate, so a CPU-driven body under a scripted beat had its frame
-                // blanked and then immediately refilled with the brain's own
-                // decision. The versus KO card is where that surfaced: the
-                // suspended fighter went on walking and swinging because the
-                // marker only ever suppressed human input (GPT 5.6,
-                // 2026-07-27).
+                // The first is in `PlayerInputSet:ControlGate`, immediately after
+                // `tick_controlled_brains` — "the only position where blanking is observable",
+                // which was true of the writer it was placed against and false of this one.
+                // Actor brains write `ActorControl` HERE, in `WorldPrep`, a whole phase after
+                // that gate, so a CPU-driven body under a scripted beat had its frame blanked
+                // and then immediately refilled with the brain's own decision.
                 //
                 // Before `steer_mount_from_rider` deliberately: a scripted rider
                 // must not steer its mount either.
@@ -641,7 +579,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // overwritten. Immediately after the blanking so the two control
                 // gates are adjacent and read as the pair they are.
                 //
-                // ⛔ a captor is NOT blanked — it keeps its attack press and
+                // a captor is NOT blanked — it keeps its attack press and
                 // direction, which is how a pummel and a throw are chosen. See
                 // `restrict_captor_control`.
                 ambition_combat::capture::systems::restrict_captor_control,
@@ -655,25 +593,12 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // brain tick (rider control frame fresh) and before the body
                 // integrate (mount executes the routed intent).
                 steer_mount_from_rider,
-                // Advance moving platforms ONCE before any body integrates, so every
-                // body (home + actors) rides THIS frame's platform positions — the
-                // home body used to advance them in `PlayerSimulation`, after the
-                // actors integrated, so actors read stale positions; unifying the
-                // movement phase unifies this too.
                 crate::avatar::advance_moving_platforms,
                 // The ONE movement phase for every non-boss sim body: actor bodies
                 // AND home/player bodies integrate here, through the same engine
                 // entry. (`player_body_tick` in `PlayerSimulation` is gone.)
                 //
-                // It carries `WorldPrepSet::Integrate` so a consumer — in this
-                // crate or in a game — can say "before bodies move" or "after they
-                // land" without naming this function.
-                // ⛔⛔ **ONE SAMPLE, BEFORE ANYBODY MOVES.** Body contact is
-                // resolved per body inside the integrator; a body that asked the
-                // world for its neighbours' LIVE poses would see whoever moved
-                // first already integrated, and query order would decide who won
-                // the contest. Chained, so this is not an ordering somebody has
-                // to remember.
+                // Chained, so this is not an ordering somebody has to remember.
                 snapshot_body_contact,
                 integrate_sim_bodies.in_set(crate::schedule::WorldPrepSet::Integrate),
                 sync_actor_read_model,
@@ -690,21 +615,12 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 .before(tick_npc_idle_barks)
                 .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
         );
-        // ⭐ **`sync_sprite_posed_bodies` used to be registered HERE** and is now
-        // `ambition_character_sprites::SpritePosedBodyPlugin`, added beside this
-        // plugin in `PlatformerEnginePlugins`. Same set, same schedule, same
-        // guarantee that every game gets it — but the registration lives with
-        // the system, so this crate does not depend on the crate that owns it.
-        // That direction is the entire point of the 2026-08-09 carve: with the
-        // line here, an edit to the posed-body derivation rebuilt this crate and
-        // everything above it.
+        // Same set, same schedule, same guarantee that every game gets it — but the registration
+        // lives with the system, so this crate does not depend on the crate that owns it.
         //
-        // The body-orientation righting reflex: feet toward gravity — or, for a
-        // riding momentum body, feet onto the ridden surface via the
-        // `SurfaceUpright` fact the integration just published. Host-simulation
-        // owned so EVERY game gets it (it used to ride inside the portal
-        // plugin, which the demo hosts don't add); the portal transit systems
-        // only ADD roll, and run later, in `PlayerSimulation`.
+        // The body-orientation righting reflex: feet toward gravity — or, for a riding momentum
+        // body, feet onto the ridden surface via the `SurfaceUpright` fact the integration just
+        // published.
         app.add_systems(
             sim,
             (
@@ -732,18 +648,11 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // after the mount steer, before the bodies integrate — so each limb
         // EXECUTES its routed arc the same frame it's written.
         //
-        // Frame contract: the router reads the rider's `BossAttackState`, a
-        // sim-owned READ-MODEL projected from the live `MovePlayback` in the combat
-        // phase (`project_boss_attack_state_from_move`), so it sees the PREVIOUS
-        // frame's projection — the standard one-frame read-model lag every other
-        // consumer of that projection accepts. It must NOT be ordered
-        // `.after(tick_boss_brains_system)`: the boss chain runs after
-        // `integrate_sim_bodies` (the actor chain is `.before(tick_npc_idle_barks)`,
-        // which precedes the boss tick in the WorldPrep chain), so demanding
-        // boss-tick < router < integrate is an unsatisfiable before/after CYCLE —
-        // it paniced the whole app schedule at startup (caught 2026-07-05; the
-        // rl_sim headless app tests are the regression guard for this).
-        // Registered separately — the WorldPrep chain tuple is already at Bevy's
+        // Frame contract: the router reads the rider's `BossAttackState`, a sim-owned
+        // READ-MODEL projected from the live `MovePlayback` in the combat phase
+        // (`project_boss_attack_state_from_move`), so it sees the PREVIOUS frame's projection —
+        // the standard one-frame read-model lag every other consumer of that projection
+        // accepts. Registered separately — the WorldPrep chain tuple is already at Bevy's
         // chain-length ceiling.
         app.add_systems(
             sim,
@@ -780,8 +689,8 @@ impl bevy::prelude::Plugin for FeatureCollectionSchedulePlugin {
                 crate::avatar::apply_player_heal_requests,
                 // Beside the heal apply because it is the same kind of thing: a
                 // METER MUTATOR on the controlled subject, scaled by sim dt.
-                // ⛔ it lived in the app's HUD chain in `Update` until
-                // 2026-08-02, which made a rollback-registered component
+                // it lived in the app's HUD chain in `Update` until
+                // which made a rollback-registered component
                 // (`body.mana`) move at render rate and never resimulate on a
                 // rewind -- and left every non-app composition with mana that
                 // does not refill.
@@ -797,14 +706,10 @@ impl bevy::prelude::Plugin for FeatureCollectionSchedulePlugin {
 /// and encounter switch-index rebuild — and **declares the cross-domain order
 /// the phase runs in.**
 ///
-/// ⛔ **this used to be ONE anonymous `.chain()` of ten systems across FOUR
-/// domains** (`conversation`, the interaction features, the NPC cast,
-/// `encounter`), with every interleave load-bearing and recorded only as
-/// adjacency in a tuple plus prose here. That is how `conversation` — 1,836
-/// lines with zero `crate::` imports in either direction — stayed pinned inside
-/// the monolith while every import measure said it was free.
+/// That is how `conversation` — 1,836 lines with zero `crate::` imports in either direction —
+/// stayed pinned inside the monolith while every import measure said it was free.
 ///
-/// ⭐ **the order is now
+/// **the order is now
 /// [`FeatureInteractionSet`](crate::schedule::FeatureInteractionSet)**, and each
 /// prose rationale lives on the variant it explains rather than beside the
 /// system it happened to precede. This plugin declares the total order ONCE and
@@ -818,25 +723,25 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
         use crate::schedule::FeatureInteractionSet;
         use bevy::prelude::IntoScheduleConfigs;
 
-        // ⭐ **the conversation domain installs itself**: the authority, the
+        // **the conversation domain installs itself**: the authority, the
         // cut-bark port channel, its own narrative payload, its presentation
         // pair, and its three sim systems placed by PHASE. Nothing about
         // conversation is registered here any more.
         app.add_plugins(ambition_conversation::ConversationPlugin);
-        // ⚠ **the ledger payloads that are NOT conversation's.** The ledger is
+        // **the ledger payloads that are NOT conversation's.** The ledger is
         // the record of what the narrative — which runs outside the simulation —
         // told the simulation, stamped with the tick it applies from. A rewind
         // restores what the simulation DECIDED; erasing what it was TOLD is how
         // the replay reaches a different answer.
         //
-        // ⚠ **one per payload, and the list IS the classification** — the
+        // **one per payload, and the list IS the classification** — the
         // counterpart to the table in `crate::dialog::yarn_bindings`. A
         // gameplay-bearing Yarn command has a ledger here or it has no replay
         // story; a presentation-facing one must NOT be here, because deferring
         // a sound to a simulation tick would delay it for no reason. Content
         // registers its own vocabulary the same way, so this names no content.
         //
-        // ⛔ **these stay here on purpose, and it is a seam rather than a
+        // **these stay here on purpose, and it is a seam rather than a
         // leftover.** A payload belongs to whoever CONSUMES it: three of these
         // are `features` types that a carved-out conversation crate could not
         // name at all, and the other three are applied by `features::bus` and
@@ -844,15 +749,10 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
         // and registers only `ConversationEnded`, the payload it both defines
         // and consumes.
         app.add_plugins((
-            // ⛔ **`SetFlagRequested`'s install is GONE** (D127 M1, commands).
-            // Its only narrative writer was `<<set_flag>>` / `<<clear_flag>>` in
-            // `ambition_content::yarn_vocabulary`, and both were deleted when the
-            // world-fact domain published `world.set_flag` into the command
-            // catalog. Authored flag writes now ride
-            // `RunAuthoredCommand`'s ledger, installed once by the conversation
-            // plugin. ⚠ the CHANNEL is untouched — chests, pickups and
-            // interactions still write it from inside the simulation, and
-            // `sim_core_resources` registers it.
+            // Authored flag writes now ride `RunAuthoredCommand`'s ledger, installed once by
+            // the conversation plugin. the CHANNEL is untouched — chests, pickups and
+            // interactions still write it from inside the simulation, and `sim_core_resources`
+            // registers it.
             ambition_conversation::NarrativeInputPlugin::<crate::features::ChallengeRequested>::default(),
             ambition_conversation::NarrativeInputPlugin::<crate::features::BrainCommand>::default(),
             ambition_conversation::NarrativeInputPlugin::<crate::features::ReleaseProvocation>::default(),
@@ -860,22 +760,19 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
             ambition_conversation::NarrativeInputPlugin::<ambition_items::shop::ShopTransactionRequested>::default(),
         ));
 
-        // ⭐⭐ **THE ORDER, SAID OUT LOUD.** Every reason each boundary exists is
+        // **THE ORDER, SAID OUT LOUD.** Every reason each boundary exists is
         // on the `FeatureInteractionSet` variant; the shape of the statement is
         // the part that belongs here.
         //
-        // ⛔ **`.chain()` over the whole list, deliberately** — `(A, B).before(C)`
+        // **`.chain()` over the whole list, deliberately** — `(A, B).before(C)`
         // would order both A and B before C and say nothing about A vs B, which
         // is exactly the gap that let ten systems look ordered while three of the
         // eleven pairwise contracts were unstated. A chain is a total order.
         //
-        // ⛔ **the `ApplyDeferred` boundaries survive.** The old per-system chain
-        // inserted a sync point between every pair; Bevy inserts sync points on
-        // dependency edges after sets are flattened to their members, so the
-        // set-level chain reproduces them at every phase boundary. That is load
-        // bearing at `SwitchIndex`, which is a whole-world cache of switch
-        // components and must see the spawns and despawns the phases before it
-        // queued.
+        // **the `ApplyDeferred` boundaries survive.** The old per-system chain inserted a sync
+        // point between every pair; Bevy inserts sync points on dependency edges after sets are
+        // flattened to their members, so the set-level chain reproduces them at every phase
+        // boundary.
         app.configure_sets(
             sim,
             (
@@ -902,10 +799,6 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
             sim,
             npcs::speak_conversation_cut_barks.in_set(FeatureInteractionSet::CutBarkCast),
         );
-        // ⚠ still `.chain()`, and that is not the anonymous chain this plugin
-        // used to be: all four are interaction-feature systems with no
-        // cross-domain contract between them, so the order is INTERNAL and the
-        // sync points between them are preserved verbatim from before.
         app.add_systems(
             sim,
             (
@@ -936,9 +829,6 @@ mod sim_clock_tests {
     use super::{advance_gameplay_elapsed, GameplayElapsed};
     use bevy::prelude::*;
 
-    /// `advance_gameplay_elapsed` accumulates the scaled gameplay dt: the brain's
-    /// perception clock is no longer the inert `0.0` it used to read. Bullet-time
-    /// scaling is honored because it sums `scaled_dt`, not wall-clock.
     #[test]
     fn gameplay_clock_accumulates_scaled_dt() {
         let mut app = App::new();

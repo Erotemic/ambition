@@ -71,7 +71,7 @@ pub struct WorldManifest {
     /// project (synthetic fixtures, partial checkouts).
     pub entry_room: String,
     pub worlds: Vec<WorldSource>,
-    /// Baked `ron-room` docs appended to the composed room set (W2).
+    /// Baked `ron-room` docs appended to the composed room set.
     pub ron_rooms: Vec<RonRoomSource>,
 }
 
@@ -92,10 +92,8 @@ impl WorldManifest {
         self.worlds.iter().skip(1)
     }
 
-    /// A world-less declaration — a composition that owns procedural rooms
-    /// and loads no authored world document. Distinguishes "this game ships
-    /// no worlds" from "somebody forgot to prepare one", which the old install
-    /// seam could only express as a panic.
+    /// A world-less declaration — a composition that owns procedural rooms and loads no
+    /// authored world document.
     pub fn is_world_less(&self) -> bool {
         self.worlds.is_empty()
     }

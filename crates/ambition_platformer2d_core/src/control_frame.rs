@@ -38,10 +38,6 @@ pub struct ControlFrame {
     pub jump_released: bool,
     /// Rising edge on the SHARED burst press — the dodge/dash channel. What a
     /// press BUYS is the body's answer (`BurstManeuver`), not this field's.
-    ///
-    /// ⚠ **the RECORDED key stays `dash_pressed`.** The channel was renamed to
-    /// BURST, but recordings already on disk spell it the old way, so the serde
-    /// name is pinned and `INPUT_STREAM_VERSION` does not move.
     #[serde(rename = "dash_pressed")]
     pub burst_pressed: bool,
     /// Movement-left input was newly pressed this frame in the raw input/screen
@@ -107,7 +103,7 @@ pub struct ControlFrame {
     pub shield_held: bool,
     /// **Grab button rising edge.** One press = one capture attempt.
     ///
-    /// ⚠ an EDGE and not a level, unlike [`Self::shield_held`] beside it, and
+    /// an EDGE and not a level, unlike [`Self::shield_held`] beside it, and
     /// the asymmetry is the mechanic: a shield is a state you sustain, a grab is
     /// an attempt you commit. Holding the button must not re-attempt every tick
     /// — the authored grab move owns how long the attempt stays active, and its
@@ -218,10 +214,9 @@ impl ControlFrame {
 
 /// **The frame→tick input latch** (netcode N0.1).
 ///
-/// Devices sample on the FEEL clock (once per rendered frame); the simulation
-/// consumes on the TICK clock. When the two are the same clock (frame-stepped
-/// mode) no latch is needed and none is installed. Under fixed-tick they
-/// diverge in both directions, and this resource is the bridge:
+/// Devices sample on the FEEL clock (once per rendered frame); the simulation consumes on the
+/// TICK clock. When the two are the same clock (frame-stepped mode) no latch is needed and none
+/// is installed.
 ///
 /// - **Several frames per tick** (render faster than the sim): each device
 ///   sample is [`accumulate_control_frame_latch`]d into the latch, so a press
@@ -236,16 +231,7 @@ impl ControlFrame {
 /// and no latch resource exists, so [`publish_latched_control_frame`] never
 /// runs and never clobbers them.
 ///
-/// ⛔ **and it is also the only thing that orders the device write against the
-/// sim read.** The host writes `ControlFrame` in `Update`, pinned
-/// `.before(Platformer2dSimulationPhaseMonolith::CoreSimulation)` — and that pin
-/// is VACUOUS whenever the sim schedule is not `Update`, because a Bevy set node
-/// belongs to one schedule and an unknown set is created empty in the pinning
-/// one. Worse than unenforced: `PreUpdate` → `RunFixedMainLoop` → `Update` means
-/// the fixed-tick sim has ALREADY RUN, so the raw read would take the previous
-/// frame's input every tick.
-///
-/// ⚠ so a reader who trusts that `.before` will conclude the ordering is already
+/// so a reader who trusts that `.before` will conclude the ordering is already
 /// enforced and delete this. It is not; this is the mechanism. (The rollback
 /// host solves the same problem differently — the SESSION publishes the frame
 /// GGRS confirmed, on the `ReadInputs` edge.)
@@ -265,11 +251,8 @@ pub struct ControlFrameLatch {
     /// question is "does this composition HAVE a device feeding this latch at
     /// all". Once one does, the latch speaks for the frame from then on.
     ///
-    /// A composition where nothing ever accumulates — a rollback harness that
-    /// drives its own control frame, a headless fixture — must not have that
-    /// driven input replaced by this latch's neutral default, which is what an
-    /// unconditional take does. Silence is not a request (the same rule
-    /// `drive_control_frame` learned the hard way about `PendingSeatInputs`).
+    /// Silence is not a request (the same rule `drive_control_frame` learned the hard way about
+    /// `PendingSeatInputs`).
     device_seen: bool,
 }
 
@@ -404,13 +387,7 @@ mod latch_authority_tests {
 
     /// **An untouched latch is not a request for a neutral frame.**
     ///
-    /// The latch only becomes an authority over the tick's input once a device
-    /// has fed it. Without that distinction a consumer cannot tell "the player
-    /// pressed nothing" from "nothing sampled a device at all", and it will
-    /// overwrite whatever another writer put there — which is exactly what
-    /// happened when the rollback host started installing this latch: every
-    /// harness that drives its own control frame had it replaced by a default
-    /// on each tick, and four rollback oracles went red at once.
+    /// The latch only becomes an authority over the tick's input once a device has fed it.
     #[test]
     fn a_latch_nobody_fed_is_not_an_authority() {
         let mut latch = ControlFrameLatch::default();

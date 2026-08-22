@@ -215,13 +215,12 @@ fn a_zero_tick_rate_is_refused() {
     );
 }
 
-/// ⛔ **A fingerprint that moves between processes is not a fingerprint.**
+/// **A fingerprint that moves between processes is not a fingerprint.**
 ///
 /// `canonical` is derived `Debug`, which follows iteration order, so any map in
 /// a canonicalized type must be ORDERED. `strike_geometry` was a `HashMap`:
 /// building the same overrides in a different insertion order produced a
 /// different canonical string, so two identical rosters got two fingerprints.
-/// (GPT 5.6 review, finding 4.)
 #[test]
 fn the_canonical_form_does_not_depend_on_map_construction_order() {
     let forward = seeds_with_overrides(["alpha", "beta", "gamma", "delta"]);
@@ -253,13 +252,13 @@ fn seeds_with_overrides(keys: [&str; 4]) -> String {
 /// A shipped encounter's SHAPE as the fixture — a probe whose fixture drifts
 /// from the authored shape stops testing the real schema.
 ///
-/// ⚠ **the id and display name are deliberately generic, and that costs nothing.**
+/// **the id and display name are deliberately generic, and that costs nothing.**
 /// This fixture proves the SCHEMA — which fields exist, their types, and what the
 /// validator says about them — and a schema is its field set, not its values. The
 /// shape below is still the shipped one, field for field. Naming the actual boss
 /// here made an ENGINE crate name Ambition content, which is what
 /// `engine.combat-kit-content-free`'s sibling policy forbids and what this
-/// fixture was tripping (2026-08-04).
+/// fixture was tripping.
 const ENCOUNTER: &str = r#"(
     id: "probe_encounter",
     name: "Clockwork Warden",
@@ -303,14 +302,7 @@ fn encounter_music_diagnostics(name: &str, text: &str) -> Vec<String> {
         .collect()
 }
 
-/// ⛔ **A whitespace-only music field is a REQUEST, not an absence.**
-///
-/// `phase_music` gates on `!track.is_empty()`, so `"   "` reaches the audio
-/// director as a real priority request that matches nothing and silently falls
-/// through. Both validators used to skip it on `trim().is_empty()` — accepting a
-/// value the runtime acts on. The padded case (`" name "`) is covered by the
-/// CLI probe; this is the EMPTINESS predicate, a different rule, missed when
-/// that one was fixed. (GPT 5.6 review, this round.)
+/// **A whitespace-only music field is a REQUEST, not an absence.**
 #[test]
 fn a_whitespace_only_music_field_is_refused_not_skipped() {
     let text = ENCOUNTER.replace(
@@ -349,8 +341,6 @@ fn an_exactly_empty_music_field_is_no_swap_and_makes_no_reference() {
 
 // ── the nine-files-one-book contract ─────────────────────────────────────────
 
-/// A draft of SEVERAL encounter files, which is the shape Ambition actually
-/// authors and the shape the compiler could not lower until 2026-08-04.
 fn encounters_draft(name: &str, files: &[(&str, &str)]) -> ContentPackDraft {
     let root = std::env::temp_dir().join(format!("ambition_boss_schema_test/{name}"));
     let _ = std::fs::remove_dir_all(&root);
@@ -383,7 +373,7 @@ fn refuse_encounters(name: &str, files: &[(&str, &str)]) -> CompileFailure {
         .expect_err("no boss profiles in these drafts, so they always refuse eventually")
 }
 
-/// ⛔ **Two files claiming one encounter id, caught where only the MERGE can see
+/// **Two files claiming one encounter id, caught where only the MERGE can see
 /// it.** A per-facet handler reads one file and cannot know another named the
 /// same encounter; the runtime resolves by id and would simply have used
 /// whichever won.
@@ -411,7 +401,7 @@ fn two_files_claiming_one_encounter_id_are_refused_by_the_merge() {
 /// reference resolution — which then refuses for the reason every single-source
 /// encounter draft here does, that no boss profile exists to point back.
 ///
-/// ⚠ negative space, deliberately: this crate cannot author a minimal boss
+/// negative space, deliberately: this crate cannot author a minimal boss
 /// profile (the row is the whole struct), so the positive artifact is probed
 /// where the real nine files live — `ambition_content`'s
 /// `the_encounter_book_the_runtime_loads_is_the_one_the_compiler_merged`.

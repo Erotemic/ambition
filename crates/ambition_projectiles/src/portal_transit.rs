@@ -1,10 +1,3 @@
-//! Projectile portal transit — a small, fast in-flight shot threads a portal
-//! aperture (carrying rotated momentum) instead of detonating on the portal
-//! wall. This mirrors [`ambition_portal2d::portal_teleport_ground_items`] (the
-//! "small object passes through a portal pair" precedent) for the unified
-//! projectile pipeline, fixing Jon's report that fireballs/laser bolts explode
-//! on a portal as if it were a solid wall.
-//!
 //! The core ([`try_projectile_portal_transit`]) is **pure + deterministic** —
 //! no Bevy, no RNG — so the transit geometry (does it cross? where does it pop
 //! out? which way does momentum rotate?) is headless-testable. The unified

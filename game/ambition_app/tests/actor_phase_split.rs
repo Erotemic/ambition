@@ -1,9 +1,6 @@
 //! The actor monolith is split into explicit phases — this pins the SEAM between
 //! them through the real headless schedule.
 //!
-//! `update_ecs_actors` used to fuse brain tick + movement integration + read-model
-//! sync + contact damage in one system. It is now four scheduled phases:
-//!
 //!   tick_actor_brains      — snapshot + brain → `ActorControl` (intent), no move
 //!   integrate_actor_bodies — reads that `ActorControl` → moves `BodyKinematics`
 //!   sync_actor_read_model  — mirrors integrated state onto the read-model comps
@@ -49,11 +46,9 @@ fn enemy_entity(world: &mut World) -> Entity {
 /// (the brain phase's only output), and the movement phase turns that same
 /// `ActorControl` into position change — the brain→body seam across the split.
 ///
-/// **This is half of netcode N0.1's exit check.** The body runs twice: once with
-/// the sim hosted frame-stepped in `Update`, once fixed-tick in `FixedUpdate`.
-/// Every sim plugin registers into `SimSchedule` rather than naming a schedule,
-/// so the graph is the same graph and the phase seam must hold identically. If
-/// threading the label broke an ordering edge, exactly one of these two fails.
+/// Every sim plugin registers into `SimSchedule` rather than naming a schedule, so the graph is
+/// the same graph and the phase seam must hold identically. If threading the label broke an
+/// ordering edge, exactly one of these two fails.
 fn brain_intent_seam_holds(fixed_tick: bool) {
     let mut sim = Platformer2dSimHarness::new_with_options(
         Platformer2dSimHarnessOptions::default()
@@ -64,7 +59,7 @@ fn brain_intent_seam_holds(fixed_tick: bool) {
     // Drop the enemy a stride to the player's RIGHT; a chasing brain wants to move
     // LEFT toward the player, so its intent has a definite sign we can assert.
     let p = player_pos(sim.world_mut());
-    // ⭐ **it NAMES its character** (D102). This said only
+    // This said only
 
     // `Custom("cellular_automaton_fighter")`, and that archetype row was
 

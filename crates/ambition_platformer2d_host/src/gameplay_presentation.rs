@@ -67,7 +67,7 @@ impl Plugin for HostGameplayPresentationPlugin {
             // the pure resolver, so no host->touch dependency appears.
             .init_resource::<ControlFootprints>()
             .insert_resource(resolve_presentation_environment());
-        // ⛔ **no `init_resource` here any more, and none is possible.** These
+        // **no `init_resource` here any more, and none is possible.** These
         // are components on a local view now, spawned by `CameraObservationPlugin`
         // at plugin build time — so "somewhere to write" is a row in a query, and
         // a host with no view writes to nobody instead of to a global nobody
@@ -264,12 +264,9 @@ pub fn collect_screen_occupancy(
 /// at its default — so the viewport policy, the reserved surround, the HUD
 /// regions and the on-screen control placement were ALL silently inert.
 ///
-/// The symptom was a screenshot with the touch stick in the top-left corner,
-/// which reads as a render bug and is not one: in a window the same code places
-/// it bottom-left correctly. The capture had simply never told anything how big
-/// it was (2026-07-29).
+/// The capture had simply never told anything how big it was.
 ///
-/// ⚠ a window, when there is one, still wins. This is the fallback for
+/// a window, when there is one, still wins. This is the fallback for
 /// compositions that have no window at all, not an override.
 #[derive(Resource, Debug, Clone, Copy, PartialEq)]
 pub struct HeadlessDisplaySurface(pub ae::Vec2);
@@ -329,10 +326,7 @@ fn log_resolved_layout(
 
 /// The diagnostic line itself, as a pure function.
 ///
-/// Separated from the `info!` so a test can read it. The defect this replaces
-/// was a LABEL bug — a field printed as `viewport` that actually held the
-/// surround policy — and a label bug is invisible to every test that only
-/// checks the layout resolved correctly.
+/// Separated from the `info!` so a test can read it.
 pub fn describe_resolved_layout(
     environment: PresentationEnvironment,
     layout: &ResolvedGameplayPresentation,
@@ -406,15 +400,10 @@ pub fn describe_resolved_layout(
 /// Publish the GAMEPLAY viewport — not the window — into the sim's camera
 /// observation input.
 ///
-/// This is the single line the whole fixed-aspect slice turns on: every
-/// consumer of [`CameraViewport`] (orthographic scale, visible-world extent,
-/// clamp half-extents) inherits the gameplay rectangle from here, so nothing
-/// downstream needs to learn that a viewport exists.
-///
-/// ⚠ **one display resolve, N views.** `ResolvedGameplayPresentation` describes
+/// **one display resolve, N views.** `ResolvedGameplayPresentation` describes
 /// the physical screen; each local view is told the rectangle it presents into.
 ///
-/// ⭐ **and each view may take a FRACTION of it** — `ambition_sim_view::ViewPlacement`,
+/// **and each view may take a FRACTION of it** — `ambition_sim_view::ViewPlacement`,
 /// absent on every single-view composition and therefore the whole rectangle.
 /// This is where a split layout becomes real: the placement is the composition's
 /// data, this system is the one place the display rect and that fraction meet,
@@ -489,15 +478,10 @@ fn publish_one_views_screen_framing(
 /// Apply **each view's** rectangle to the physical viewport of **the camera that
 /// presents it**, leaving the front HUD camera full-screen.
 ///
-/// ⭐ **this is what gives [`CameraViewport`] a consumer that can place a
-/// view** (D116 M2). It used to read one global `gameplay_rect` and write the
-/// same rectangle to every main camera — which is fine for one view and is
-/// precisely why two views could never occupy two screen regions no matter what
-/// the layout said. Each camera now resolves its OWN view through
-/// `PresentsView`, by the same binding rule `camera_follow` uses, and takes that
-/// view's rectangle.
+/// Each camera now resolves its OWN view through `PresentsView`, by the same binding rule
+/// `camera_follow` uses, and takes that view's rectangle.
 ///
-/// ⚠ **the single-view case is unchanged, deliberately.**
+/// **the single-view case is unchanged, deliberately.**
 /// `publish_camera_viewport` writes the whole gameplay rectangle onto any view
 /// that declares no `ambition_sim_view::ViewPlacement`, so the "full-bleed needs
 /// no viewport at all" test below still compares exactly the same two rectangles

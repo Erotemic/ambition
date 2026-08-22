@@ -51,11 +51,7 @@ impl Plugin for Platformer2dAudioPlugin {
             // Idempotent against the sync path; both insert the same
             // `SfxBankResource` and the second writer no-ops.
             .add_plugins(ambition_audio::SfxBankAssetPlugin)
-            // Browser AudioContext unlock telemetry. No-op on desktop
-            // except the one-shot "audio unlocked" log; on wasm it also
-            // emits the startup "audio locked until first gesture" line
-            // so anyone watching devtools knows why audio is silent
-            // before they click.
+            // Browser AudioContext unlock telemetry.
             .add_plugins(super::WebAudioUnlockPlugin)
             .init_resource::<super::RadioStationState>()
             .init_resource::<ambition_audio::render::ProviderSfxHandleCache>()
@@ -290,9 +286,7 @@ fn reset_audio_request_state_on_context_change(
             }
         }
     }
-    // SFX channels are activation-owned too. Stop any in-flight loop or long
-    // one-shot from the previous context before the new context's owned queue
-    // is drained later in this frame.
+    // SFX channels are activation-owned too.
     sfx_channel.stop();
     if let Some(playback) = state.sfx_playback.as_deref_mut() {
         playback.last_played = None;

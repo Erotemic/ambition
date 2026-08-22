@@ -7,7 +7,7 @@ They are deliberately two programs: one runs real cargo builds and must never
 run beside another, this one **never builds anything** and is safe to run at any
 time, including from the suite while somebody else is compiling.
 
-## Why this is not a timing threshold
+# # Why this is not a timing threshold
 
 Jon, 2026-08-08: *"I want to quantify those compile wins as we do those. And to
 guard against compile time regressions."*
@@ -25,7 +25,7 @@ counts. They do not move when the machine is busy. They move precisely when
 somebody changes the shape of the build — which is the only thing a carve is
 allowed to claim credit for.
 
-## The five guarded numbers, and why these five
+# # The five guarded numbers, and why these five
 
 Each catches a regression class the others cannot see. That is the whole
 selection rule; a sixth number that reddens on the same event as one of these is
@@ -69,7 +69,7 @@ a dashboard entry, not a guard.
    per line, so a line count is not merely imprecise here, it points the wrong
    way.
 
-## The seconds number is a WEIGHT, not a stopwatch
+# # The seconds number is a WEIGHT, not a stopwatch
 
 ⛔ **the weights come from `dev/ambition_dev_measurements/compile_units.jsonl`, a committed ledger, and
 never from timing anything at gate time.** Everything §"Why this is not a timing
@@ -104,7 +104,6 @@ Three ways to get a plausible wrong weight, each found the hard way on
   the ledger answers exactly that question. The intrinsic cost answers a
   different one.
 
-## ⭐ These four were TESTED against seconds on 2026-08-08, and three held
 
 The premise — that these numbers predict compile cost — went two days without a
 test because the seconds did not exist yet. `scripts/compile_collect.py` now
@@ -131,7 +130,7 @@ in four builds:
   and a new layer still makes the chain longer — but do not price it in seconds
   by multiplying. `dev/journals/compile-time-and-disk-2026-08-07.md`, addendum 2.
 
-## ⛔ The line numbers STAY guarded, and that is an arithmetic answer
+# # The line numbers STAY guarded, and that is an arithmetic answer
 
 The obvious reading of the above is "lines do not predict cost, so stop failing
 on lines". Measured against this tree, that would LOSE sensitivity rather than
@@ -142,7 +141,7 @@ week without any number moving. The two guards are tight in different places, on
 purpose: lines catch growth in a CHEAP crate, seconds catch growth in a DENSE one
 and every edge that changes what an edit reaches. Neither is a superset.
 
-## What is deliberately NOT guarded here
+# # What is deliberately NOT guarded here
 
 * **The set of crates a small consumer links.** Already guarded, by
   `capability-footprint-may-not-grow` in `check_absence_contracts.py`, against
@@ -151,14 +150,14 @@ and every edge that changes what an edit reaches. Neither is a superset.
 * **Wall-clock anything.** It lives in `dev/ambition_dev_measurements/compile_cost.jsonl` and
   `dev/ambition_dev_measurements/compile_units.jsonl`, is plotted, and is never a gate. See above.
 
-## ⛔ There is no `--check` flag, and that is deliberate
+# # There is no `--check` flag, and that is deliberate
 
 A guard that prints findings and exits 0 unless somebody remembered an
 enforcement flag is green by construction. So a violation here exits 1 by
 default, and the flag that makes it advisory is `--report-only`, which has to be
 typed deliberately.
 
-## The subject is `ambition_app`
+# # The subject is `ambition_app`
 
 Because AGENTS.md says the gate is `cargo check -p ambition_app`, so that is the
 graph whose rebuild anybody actually pays for. Measured on cargo's RESOLVED
@@ -200,12 +199,9 @@ from check_absence_contracts import cargo_binary, strip_comments_for  # noqa: E4
 
 ROOT = Path(__file__).resolve().parents[1]
 
-# ⛔ declared in ONE place — `scripts/lib/measurement_paths.py` — because these
-# same paths used to be spelled out here, in `compile_report.py` and in
-# `compile_cost.py` independently. The ledgers now live in the
-# `dev/ambition_dev_measurements` submodule; the BASELINE deliberately does not,
-# because it is this gate's input and a gate cannot depend on a submodule
-# somebody may not have initialised. The module docstring holds the full reason.
+# The ledgers now live in the `dev/ambition_dev_measurements` submodule; the BASELINE deliberately
+# does not, because it is this gate's input and a gate cannot depend on a submodule somebody may not
+# have initialised. The module docstring holds the full reason.
 BASELINE = measurement_paths.RATCHET_BASELINE
 GRAPH_LEDGER = measurement_paths.GRAPH_LEDGER
 UNIT_LEDGER = measurement_paths.UNIT_LEDGER
@@ -232,22 +228,17 @@ WATCHED = [
 
 # How far a line-count number may drift before it is a finding.
 #
-# ⚠ **this is a budget, not a rounding error, and it is the honest half of the
-# design.** Zero tolerance on a line count reddens on an ordinary 40-line
-# feature, which is noise, and a noisy guard gets waived — the failure mode this
-# whole file exists to avoid. 2% of the monolith is ~2,200 lines: a subsystem,
-# not a function. Growing past it is a real "this belonged in its own crate"
-# conversation.
+# 2% of the monolith is ~2,200 lines: a subsystem, not a function. Growing past it is a real "this
+# belonged in its own crate" conversation.
 #
-# ⛔ the tolerance is TWO-SIDED and the downward half is not politeness. A carve
-# that lands without re-freezing leaves the guard holding that much slack, and
-# the next 2,200 lines of growth land silently. `check_absence_contracts.py`
-# calls the same rule STALE and demands the prune in the same commit.
+# the tolerance is TWO-SIDED and the downward half is not politeness.
+# `check_absence_contracts.py` calls the same rule STALE and demands the prune in the same
+# commit.
 HEADROOM_FRACTION = 0.02
 
 # The ONE build configuration the seconds weights are read from.
 #
-# ⛔ **release, because it is the only config in which all 55 first-party crates
+# **release, because it is the only config in which all 55 first-party crates
 # share an opt level.** `Cargo.toml` pins `ambition_platformer2d_runtime`,
 # `ambition_render` and `ambition_app` to `opt-level = 0` under `[profile.dev]`
 # and has no `[profile.release]` table at all, so a `test`-profile weight table
@@ -256,7 +247,7 @@ HEADROOM_FRACTION = 0.02
 # override, so it is where the cost this guard exists to see is largest and
 # where nobody has already mitigated it by hand.
 #
-# ⚠ **this is not the profile an agent's `cargo test` runs**, and that is a real
+# **this is not the profile an agent's `cargo test` runs**, and that is a real
 # cost of the choice. It buys mutual comparability of the 55 weights, which is
 # what a SUM over a dependency closure needs; a table where three entries are
 # priced differently from the rest sums to a number that means nothing.
@@ -266,7 +257,7 @@ WEIGHT_PROFILE = "release"
 # otherwise. Derived from the build's own `fresh`/`dirty` counters — see the
 # module docstring for the build whose LABEL says the opposite of its counters.
 #
-# ⭐ **rebuild is the class that matches the question.** Blast radius is "an edit
+# **rebuild is the class that matches the question.** Blast radius is "an edit
 # to this crate forces these crates to recompile" — dependencies cached, first
 # party dirty. That is a rebuild, and the two release builds on record differ by
 # more than 4x on the monolith (68.1s rebuild, 309.0s cold) precisely because
@@ -550,7 +541,7 @@ def unit_weights(rows: list[dict] | None = None) -> dict:
             "fresh_units": sample["build_fresh_units"],
             "dirty_units": sample["build_dirty_units"],
             "wall_clock": sample["build_total_seconds"],
-            # ⚠ recorded for the reader, NEVER selected on. See `cache_class`.
+            # recorded for the reader, NEVER selected on. See `cache_class`.
             "untrusted_label": sample.get("build_label"),
         }
         for source, units in sorted(per_build.items())
@@ -568,7 +559,7 @@ def unit_weights(rows: list[dict] | None = None) -> dict:
         ),
         "builds": sorted(builds, key=lambda b: b["started_at"]),
         "crates_measured": len(table),
-        # ⛔ the fallback for a crate nobody has measured, and it is a GUESS.
+        # the fallback for a crate nobody has measured, and it is a GUESS.
         # A least-squares fit of `seconds ~ a + b*lines` over these 55 crates
         # reads R^2 = 0.12 and predicts 24.7s for a 10,000-line crate against
         # the median rate's 25.6s — the same answer, from a fitted parameter
@@ -671,17 +662,15 @@ def snapshot(
             "seconds_source": "measured" if name in rate_table else "estimated",
             "edit_cost_seconds": round(sum(crate_seconds(x) for x in closure), 3),
             "depth": height(name),
-            # DIRECT first-party dependents — not the transitive closure that
-            # `edit_cost_crates` counts. Recorded because it is what makes a
-            # `--diff` readable: "this crate's edit cost jumped" is the symptom
-            # and "this crate gained a dependent" is the cause.
+            # DIRECT first-party dependents — not the transitive closure that `edit_cost_crates`
+            # counts.
             "direct_dependents": sorted(reverse.get(name, ())),
         }
     table.setdefault(root, {}).setdefault("lines", 0)
 
     largest = max(table.items(), key=lambda kv: (kv[1]["lines"], kv[0]))
     worst = max(table.items(), key=lambda kv: (kv[1]["edit_cost_lines"], kv[0]))
-    # ⚠ maximised INDEPENDENTLY of the lines version, and it has to be: the
+    # maximised INDEPENDENTLY of the lines version, and it has to be: the
     # crate whose closure holds the most lines need not be the crate whose
     # closure costs the most seconds. When they agree that is a fact about this
     # tree, not an invariant.
@@ -699,7 +688,7 @@ def snapshot(
         "first_party_lines": sum(table[n]["lines"] for n in table),
         "first_party_seconds": round(sum(table[n].get("seconds", 0.0) for n in table), 3),
         "largest_unit": {"crate": largest[0], "lines": largest[1]["lines"]},
-        # ⚠ REPORTED, not guarded. It moves on the same events as
+        # REPORTED, not guarded. It moves on the same events as
         # `largest_unit_lines` and `worst_edit_cost_seconds` between them, and
         # the file's own selection rule says that makes it a dashboard entry.
         # It is here because it is the single most surprising number in the
@@ -795,7 +784,7 @@ def evaluate(current: dict, frozen: dict) -> list[tuple[str, str]]:
         if result:
             findings.append(result)
 
-    # ⛔ a baseline frozen before the seconds guard existed has no number to
+    # a baseline frozen before the seconds guard existed has no number to
     # compare against, and skipping it silently is precisely "a check that
     # CANNOT FAIL". Say so and go red; `--update` is one command.
     if "worst_edit_cost_seconds" not in frozen:
@@ -814,7 +803,7 @@ def evaluate(current: dict, frozen: dict) -> list[tuple[str, str]]:
             frozen["worst_edit_cost_seconds"]["seconds"],
         )
 
-    # ⚠ a crate priced by the fallback is a crate this guard cannot see, and the
+    # a crate priced by the fallback is a crate this guard cannot see, and the
     # carve that adds one is exactly the carve worth pricing. Loud on purpose.
     new_unpriced = sorted(
         set(current.get("unpriced_crates", ())) - set(frozen.get("unpriced_crates", ()))
@@ -880,11 +869,8 @@ def evaluate(current: dict, frozen: dict) -> list[tuple[str, str]]:
                 frozen_entry["seconds"],
             )
 
-    # ⛔ EXACT, both directions, and deliberately not budgeted. This number only
-    # moves when the SHAPE of the graph changes, which never happens by
-    # accident. A carve that lengthens the serial chain is the failure this
-    # whole guard exists to make visible, and it is invisible in every other
-    # number here.
+    # EXACT, both directions, and deliberately not budgeted. This number only moves when the SHAPE
+    # of the graph changes, which never happens by accident.
     if current["critical_path_crates"] != frozen["critical_path_crates"]:
         direction = (
             "LONGER — parallelism cannot compress this, so the wall clock gets "
@@ -1024,7 +1010,7 @@ def _share_of_workspace(current: dict, frozen: dict, entry: dict, crate: str) ->
     now_share = 100.0 * lines / now_total
     # The frozen side is only comparable when the baseline recorded the same
     # crate; a NEW crate has no share to move from and says so by omission.
-    # ⚠ the two shapes differ: `worst_edit_cost` is one record CARRYING its crate
+    # the two shapes differ: `worst_edit_cost` is one record CARRYING its crate
     # name, `watched_edit_cost` is a dict KEYED by it. Reading only the first is
     # why the watched crates printed no delta on the first attempt — and the
     # delta is the whole point, since it is the monolith's −1.7 pts that shows
@@ -1056,7 +1042,7 @@ def diff(current: dict, frozen: dict) -> None:
         then = frozen.get("crates", {}).get(name, {})
         moved = now.get("lines", 0) - then.get("lines", 0)
         cost = now.get("edit_cost_lines", 0) - then.get("edit_cost_lines", 0)
-        # ⚠ the seconds column is what makes the other two readable: 10,000
+        # the seconds column is what makes the other two readable: 10,000
         # lines leaving a cheap crate for a dense one shows as a wash in `lines`
         # and a win in `edit cost`, and only here as the regression it is.
         secs = now.get("edit_cost_seconds", 0.0) - then.get("edit_cost_seconds", 0.0)
@@ -1100,15 +1086,7 @@ def module_coupling(module: Path) -> tuple[set[str], set[str], int]:
         crate_src = crate_src.parent
     name = module.name if module.is_dir() else module.stem
 
-    # ⛔ TOP-LEVEL MODULES ONLY, and the refusal is the honest half of this tool.
-    #
-    # Coupling is detected by matching `crate::<segment>` after comment
-    # stripping, which sees the FIRST path segment and nothing more. For a
-    # nested module the callers write `crate::features::npcs`, so that match
-    # reports `features` and this function would confidently answer "no inward
-    # edges" — the SIBLING verdict, which is the one with the large payoff. A
-    # carve sold on a number produced that way is exactly the failure this file
-    # exists to prevent, so it refuses rather than guesses.
+    # TOP-LEVEL MODULES ONLY, and the refusal is the honest half of this tool.
     #
     # It is not a real restriction either: lifting `features/npcs.rs` alone
     # leaves `features/` behind and is not a crate carve. Resolve the nesting
@@ -1165,7 +1143,7 @@ def simulate_carve(
     new_crate = new_crate or f"ambition_{module.stem if module.is_file() else module.name}"
 
     inward, outward, lines = module_coupling(module)
-    # ⛔ the new crate's ms/line is the one number a simulation cannot measure,
+    # the new crate's ms/line is the one number a simulation cannot measure,
     # and it decides the answer. Left at the population median a carve into a
     # `relativity2d`-shaped crate (22.9 ms/line, 9x the median) reads as nearly
     # free. `--new-crate-rate` is how you ask the honest question — "and if it
@@ -1183,7 +1161,7 @@ def simulate_carve(
 
     sibling = not inward
     override = {owner: before["crates"][owner]["lines"] - lines, new_crate: lines}
-    # ⚠ the new crate's placement is DERIVED from the coupling, not chosen. If
+    # the new crate's placement is DERIVED from the coupling, not chosen. If
     # the owner names the module, the owner depends on the new crate and the new
     # crate lands BELOW it; if it does not, the new crate is a SIBLING and
     # whoever consumed the module through the owner's facade picks it up
@@ -1202,7 +1180,7 @@ def simulate_carve(
         extra = extra or {before["consumer"]: {new_crate}}
     else:
         extra = {owner: {new_crate}}
-    # ⛔ **and the new crate keeps the owner's own dependencies.** Leaving them
+    # **and the new crate keeps the owner's own dependencies.** Leaving them
     # out — which the first version did — gives the simulated crate NO
     # dependencies at all, so it falls out of every floor crate's dependent
     # closure and `worst_edit_cost` reports the carve as removing its lines from
@@ -1267,7 +1245,7 @@ def simulate_carve(
         print(f"  {label:<28} {a:>8,.1f}s -> {b:>8,.1f}s   {delta:>+8,.1f}s  ({pct:+.2f}%)")
 
     print()
-    # ⭐ the rows the four line numbers above cannot produce. Total seconds is
+    # the rows the four line numbers above cannot produce. Total seconds is
     # the one that answers "does the BUILD get faster", and it is free to
     # disagree with every percentage above it — that disagreement is the entire
     # reason this section exists.
@@ -1320,9 +1298,8 @@ def simulate_carve(
               "compile-time argument is the percentages above and nothing more.")
 
 
-# ---------------------------------------------------------------------------
-# the per-unit ledger (D9)
-# ---------------------------------------------------------------------------
+# --------------------------------------------------------------------------- the per-unit
+# ledger ---------------------------------------------------------------------------
 
 
 _UNIT_DATA = re.compile(r"const UNIT_DATA = (\[.*?\n\]);", re.S)
@@ -1408,21 +1385,13 @@ def ingest_timings(
     shared = envelope("unit", run_id=build["run_id"], label=label)
     shared.update(extra or {})
 
-    # ⚠ **`backfilled` exists because LOC is read at INGEST, not at build.** A
-    # report ingested in the commit that produced it has honest `lines` and
-    # `commit` columns; one ingested a day later describes a tree the build never
-    # saw. Rather than silently mixing the two, the row says which it is, so a
-    # regression of seconds against lines can drop the rows that would poison it.
-    # Derived rather than asked for: a flag nobody remembers to pass is a column
-    # that is wrong exactly when it matters.
+    # **`backfilled` exists because LOC is read at INGEST, not at build.** A report ingested in the
+    # commit that produced it has honest `lines` and `commit` columns; one ingested a day later
+    # describes a tree the build never saw. Derived rather than asked for: a flag nobody remembers
+    # to pass is a column that is wrong exactly when it matters.
     #
-    # ⛔ **the timestamp heuristic BREAKS when another session is committing**,
-    # which is not hypothetical: on 2026-08-08 a parallel agent landed five
-    # `docs/planning/` commits while a collection was running, so HEAD's commit
-    # time moved past the build's start and every row would have been marked a
-    # backfill despite no `.rs` file having changed. A caller that built the tree
-    # itself KNOWS the answer and passes it in `extra`; the heuristic is the
-    # fallback for a hand ingest, where it is still right.
+    # A caller that built the tree itself KNOWS the answer and passes it in `extra`; the heuristic
+    # is the fallback for a hand ingest, where it is still right.
     head_epoch = git("log", "-1", "--format=%cI")
     if "backfilled" not in shared:
         shared["backfilled"] = bool(
@@ -1434,7 +1403,7 @@ def ingest_timings(
               f"{head_epoch}); rows are marked backfilled=true and their `lines` "
               f"column describes the tree NOW, not the tree that was built.")
 
-    # ⭐ **the DAG is the dimension that turns durations into a critical path**,
+    # **the DAG is the dimension that turns durations into a critical path**,
     # and it is only in the report. `unblocked_rmeta_units` are the successors
     # cargo released when this unit's METADATA appeared — rustc's pipelined
     # compilation — and `unblocked_units` are the ones that had to wait for the
@@ -1466,7 +1435,7 @@ def ingest_timings(
                 "target": (unit.get("target") or "").strip(),
                 "mode": unit.get("mode"),
                 "first_party": name in dirs,
-                # ⚠ LOC is read at INGEST time, not at build time. It is right
+                # LOC is read at INGEST time, not at build time. It is right
                 # when the report is ingested in the commit that produced it and
                 # drifts otherwise, so `commit` is the column that makes it
                 # trustworthy — join on it, never on `unit` alone.
@@ -1492,7 +1461,7 @@ def ingest_timings(
                 )
                 or None,
                 "features": unit.get("features") or [],
-                # ⚠ successors released at RMETA vs at COMPLETION. A unit that
+                # successors released at RMETA vs at COMPLETION. A unit that
                 # emits no metadata — a proc-macro, a build script, a bin, a
                 # test, or a lib declaring a `cdylib` — appears here with an
                 # empty `unblocks_at_rmeta` and is also the unit whose
@@ -1568,8 +1537,7 @@ def package_opt_levels(profile: str = "dev") -> dict[str, str]:
     return levels
 
 
-# ---------------------------------------------------------------------------
-# lineage (D9)
+# --------------------------------------------------------------------------- lineage
 # ---------------------------------------------------------------------------
 
 
@@ -1586,10 +1554,6 @@ def record_carve(args: argparse.Namespace) -> int:
     reconstructed lineage that reads like a recorded one is worse than a gap,
     because the next reader cannot tell which is which.
     """
-    # Measured on the DESTINATION: `lines_at_split` is how much code landed in
-    # the new home, which is the number a carve is judged on. Measuring the
-    # source would report whatever is left behind — the first draft did, and
-    # recorded 233 for a 2,167-line move.
     lines = 0
     destination = ROOT / args.destination
     if destination.exists():
@@ -1605,12 +1569,8 @@ def record_carve(args: argparse.Namespace) -> int:
         "to_crate": args.to_crate,
         "lines_at_split": args.lines if args.lines is not None else lines or None,
         "why": args.why,
-        # ⚠ "live" means the carve's own commit wrote this row and the numbers
-        # were true when it did. Anything else NAMES where the claim came from,
-        # so a reader can tell a recorded lineage from a transcribed one without
-        # having to trust that they are the same. `happened_in` is the carve's
-        # commit; `commit` in the envelope is when the ROW was written, and for a
-        # live row they are the same.
+        # Anything else NAMES where the claim came from, so a reader can tell a recorded lineage
+        # from a transcribed one without having to trust that they are the same.
         "recorded_from": args.recorded_from,
         "happened_in": args.happened_in,
     }
@@ -1627,7 +1587,7 @@ def record_carve(args: argparse.Namespace) -> int:
 
 
 def freeze(current: dict) -> None:
-    # ⛔ checked BEFORE the baseline is written, not between the two writes. This
+    # checked BEFORE the baseline is written, not between the two writes. This
     # function makes TWO records — the gate's baseline in the parent repo and a
     # trend row in the submodule's ledger — and a freeze that lands the first and
     # loses the second leaves a guarded number with no snapshot behind it.
@@ -1699,7 +1659,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.update:
-        # ⚠ the ONLY path that re-reads the ledger. Everything else prices the
+        # the ONLY path that re-reads the ledger. Everything else prices the
         # graph with the weights the baseline froze, so appending a build's rows
         # cannot turn the gate red on a tree nobody touched.
         freeze(snapshot())

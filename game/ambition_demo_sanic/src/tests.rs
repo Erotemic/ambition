@@ -148,13 +148,6 @@ fn sanic_speedway_composes_through_the_umbrella() {
         one_ways >= 8,
         "the gantry, marker platforms, and the two spring perches are one-ways: {one_ways}"
     );
-    // **The two hazards are DIFFERENT KINDS OF HAZARD, and that is the point.**
-    // The pit is a reset block: falling in is not something that HIT you. The
-    // spike strip is a damage volume, so hitting it reaches the ordinary hit
-    // road and spends the rings (`spikes_spend_rings` in the app crate drives
-    // the whole contract headlessly). This used to assert `hazards >= 2` — one
-    // count over both — which is precisely how the strip came to be authored
-    // with the pit's noun and teleport a runner carrying 40 rings to the start.
     let reset_blocks: Vec<&str> = room
         .world
         .blocks
@@ -181,11 +174,6 @@ fn sanic_speedway_composes_through_the_umbrella() {
         "and the mid-course strip is a DAMAGE volume, so a hit costs rings \
          rather than the whole run"
     );
-    // ⛔ **the course offers exactly ONE monitor and it is the shoes.** Jon,
-    // 2026-08-16: *"the sanic level should not offer super form. at all. There
-    // is a key for it."* Naming the absent block by name would pass again the
-    // moment someone authored `monitor_super_v2`, so this counts them instead:
-    // any second monitor, whatever it is called, has to come past this line.
     let authored = room
         .world
         .blocks
@@ -632,15 +620,9 @@ fn crossing_a_visible_distance_marker_emits_the_standard_sfx_message() {
 /// **The transformation fires from the DECLARED Utility technique, and the
 /// declaration is what consumes the raw verb.**
 ///
-/// The demo used to read `fly_toggle_pressed` itself and clear it by hand, in a
-/// system deliberately ordered before the persona gate. Both halves are the
-/// engine's now: because the body declares `transform` on `ControlSlot::Utility`,
-/// `resolve_control_slots` routes the press to the sanctioned edge AND clears the
-/// verb, so generic flight can never see it.
-///
-/// This drives the REAL resolver rather than hand-filling the edge — otherwise it
-/// would pass with the routing arm deleted, which is precisely the half that did
-/// not exist before 2026-08-08.
+/// Both halves are the engine's now: because the body declares `transform` on
+/// `ControlSlot::Utility`, `resolve_control_slots` routes the press to the sanctioned edge AND
+/// clears the verb, so generic flight can never see it.
 #[test]
 fn the_declared_utility_technique_toggles_both_forms_and_eats_the_fly_verb() {
     use ambition_platformer2d::characters::action_scheme::{
@@ -716,14 +698,10 @@ fn the_declared_utility_technique_toggles_both_forms_and_eats_the_fly_verb() {
 
 /// **H2: Sanic's transformation sounds like Sanic, not like the host.**
 ///
-/// The engine's attribution sweep converted every ability, damage path and
-/// projectile impact, which made the infrastructure look finished while the
-/// flagship character content was still writing through the session context
-/// (GPT 5.6, 2026-07-26). In a Sanic-only game that is invisible, because the
-/// session's provider and the character's provider are the same string. This
-/// fixture makes them differ — the session belongs to `some_host`, the body to
-/// `sanic_demo` — which is the only arrangement where the bug is observable, and
-/// is exactly what a crossover session is.
+/// The engine's attribution sweep converted every ability, damage path and projectile impact, which
+/// made the infrastructure look finished while the flagship character content was still writing
+/// through the session context . In a Sanic-only game that is invisible, because the session's
+/// provider and the character's provider are the same string.
 #[test]
 fn the_super_transformation_sounds_like_sanic_and_not_like_the_session_owner() {
     let mut app = App::new();
@@ -780,7 +758,7 @@ fn the_super_transformation_sounds_like_sanic_and_not_like_the_session_owner() {
 /// **I3: the course's own sound belongs to the course, not to the host.**
 ///
 /// H2 classified every call site as body-owned or world-owned, and the
-/// world-owned half was still wrong (GPT 5.6, 2026-07-26): `write_global`
+/// world-owned half was still wrong: `write_global`
 /// reaches for the session context, so under a shell host a distance marker was
 /// credited to the launcher. A distance marker is not a body's sound — no body
 /// caused it, the ROOM did — but it is emphatically Sanic's, and the third
@@ -1147,10 +1125,7 @@ fn super_form_traits_track_the_worn_identity_both_ways() {
     // running only the first would assert that a grant was made, which is
     // exactly the half-wiring that makes an opt-in component do nothing.
     //
-    // ⭐ the second half is no longer this test's to install. The engine's
-    // lifecycle plugin brings the clock AND the projection cleanup, and this
-    // harness says only what the real composition says: the traits are stated
-    // before the engine projects them.
+    // the second half is no longer this test's to install.
     {
         use bevy::ecs::schedule::IntoScheduleConfigs as _;
         app.add_systems(bevy::prelude::Update, sync_super_form_traits);
@@ -1201,10 +1176,8 @@ fn super_form_traits_track_the_worn_identity_both_ways() {
 
 #[test]
 fn the_super_row_authors_a_real_movement_boost() {
-    // The transformation must be more than a sprite swap: the super row's
-    // authored momentum strictly dominates the base row's. Read through the
-    // same catalog hydration the runtime wear uses, so a RON edit that
-    // flattens the form (or a hydration regression) trips this.
+    // The transformation must be more than a sprite swap: the super row's authored momentum
+    // strictly dominates the base row's.
     let fragment =
         ambition_platformer2d::characters::actor::character_catalog::CharacterCatalogFragment::from_ron(
             provider::SANIC_EXPERIENCE,
@@ -1374,12 +1347,6 @@ fn the_speedway_tags_every_ring_with_the_animated_sprite() {
         "expected a field of rings; got {}",
         rings.len()
     );
-    // ⭐ **the speedway AUTHORS this now** (2026-08-06). The demo used to walk
-    // the converted room and set `pickup.sprite` on every ring, the same shape
-    // of pass that renamed the badniks — even though the converter had read an
-    // authored `sprite` field the whole time and the world file simply carried
-    // none. So this assertion is unchanged and now checks the world file rather
-    // than a Rust loop that could not fail to satisfy it.
     for record in rings {
         let PlacementSchema::Pickup(pickup) = &record.schema else {
             unreachable!("is_ring_placement guarantees a pickup");
@@ -1487,7 +1454,6 @@ fn a_hit_spends_rings_instead_of_health_and_drops_them_back_as_real_pickups() {
     // content test owns only the presentation of a successful spend.
 }
 
-/// Jon's bug: "the rings don't explode outward when sanic gets hit." A scatter
 /// that PLACES rings in a static fan looks nothing like the classic burst. So
 /// each dropped ring must launch with a real outward velocity, ARC away from the
 /// body, and only THEN hand back to the ordinary pickup economy (so the coin
@@ -1623,7 +1589,6 @@ fn ring_spread(app: &mut App, origin: ae::Vec2) -> f32 {
         .fold(0.0_f32, f32::max)
 }
 
-/// Jon's report: the rings were not visible, and they did not behave like the
 /// classic scatter. This pins the BEHAVIOUR half — a ring bounces off the floor
 /// instead of falling through the level — against real room geometry.
 #[test]
@@ -1691,10 +1656,8 @@ fn a_scattered_ring_bounces_off_the_floor_it_lands_on() {
     );
 }
 
-/// The finding-1 regression proof: the burst's uncollectible window must hold
-/// under the REAL magnet → arc → collect chain. The isolation test above ran the
-/// arc alone and so never proved the rings aren't reclaimed the instant they
-/// spawn on top of the player. Here the whole chain runs in production order.
+/// The isolation test above ran the arc alone and so never proved the rings aren't reclaimed the
+/// instant they spawn on top of the player. Here the whole chain runs in production order.
 #[test]
 fn the_ring_burst_is_not_reclaimed_on_spawn_under_the_real_chain() {
     use ambition_platformer2d::characters::actor::{BodyHealth, BodyWallet, Health};
@@ -1715,9 +1678,6 @@ fn the_ring_burst_is_not_reclaimed_on_spawn_under_the_real_chain() {
         scaled_dt: 0.1,
         ..Default::default()
     });
-    // A floor to land on. Without it the rings fall forever and "run back and
-    // grab them" is not a thing you can do — which is the shape of the bug this
-    // whole test is about.
     app.world_mut().spawn((
         ambition_platformer2d::platformer::lifecycle::SessionRoot(session),
         ae::RoomGeometry(ae::World::new(
@@ -1772,9 +1732,6 @@ fn the_ring_burst_is_not_reclaimed_on_spawn_under_the_real_chain() {
     app.update(); // the hit spends the rings → they burst (spawned via commands)
     app.update(); // the burst entities now exist; the full chain processes them
 
-    // The bug: the rings spawn ON the player, so without a real collection gate
-    // the collector credits them straight back. With the lock, the wallet stays
-    // EMPTY — the rings are not reclaimed on spawn.
     assert_eq!(wallet(&app), 0, "the burst must NOT be refunded on spawn");
     assert!(
         locked(&mut app) > 0,
@@ -1821,7 +1778,6 @@ fn the_ring_burst_is_not_reclaimed_on_spawn_under_the_real_chain() {
     );
 }
 
-/// Finding 4: a dropped ring's `FeatureId` is rollback-authoritative, so it must
 /// be DETERMINISTIC and unique — never `entity.index()`, which collides when a
 /// second burst by the SAME player lands while the first burst's rings still
 /// exist. Minting each ring from the SPAWNER's own `SimIdCounter` (one
@@ -1975,20 +1931,11 @@ fn the_act_score_pays_for_speed_and_for_rings_kept() {
 
 /// **The splash is wide enough to be a scramble.**
 ///
-/// Jon: *"The rings don't splash out nearly large enough. He needs an
 /// opportunity to recollect some of them after his hitstun wears off and before
 /// they disappear."*
 ///
-/// ⭐ **this MEASURES by driving the real integrator**, rather than re-deriving
-/// the ballistics beside it. `SCATTER_BURST_SPEED`'s doc used to reason from the
-/// classic conversion (~480 px/s) and land on 520, and the arithmetic was fine
-/// while the RESULT was a spray about ten tiles across — roughly a quarter of the
-/// 1200px gameplay viewport, which reads as a spill rather than an explosion.
-///
-/// ⚠ **the floor here is deliberately below the measured value.** Pinning the
-/// exact number would make every future feel tune a test edit, and this is a feel
-/// parameter Jon owns. What it defends is the property: a lost purse throws rings
-/// far enough that getting them back is a RUN.
+/// What it defends is the property: a lost purse throws rings far enough that getting them back is
+/// a RUN.
 #[test]
 fn the_ring_splash_is_wide_enough_to_be_a_scramble() {
     let mut app = App::new();
@@ -2046,11 +1993,8 @@ fn the_ring_splash_is_wide_enough_to_be_a_scramble() {
 
 /// **The sign at the start line names the keys the player actually has.**
 ///
-/// ⛔ it did not. The legend is baked into the room at GENERATION, which has no
-/// settings and no participant, so it could only ever name the default preset —
-/// and Jon's report was exactly that: *"in sanic the button text doesn't match
-/// what the controls really are"*. The generated text is the honest default; the
-/// presentation pass replaces it once a seat exists.
+/// it did not. The generated text is the honest default; the presentation pass replaces it once a
+/// seat exists.
 #[test]
 fn the_start_line_legend_follows_the_seats_real_bindings() {
     use ambition_platformer2d::bevy::ecs::system::RunSystemOnce as _;
@@ -2123,23 +2067,17 @@ fn the_start_line_legend_follows_the_seats_real_bindings() {
 
 /// **Losing your rings buys you a few seconds, the way it always has.**
 ///
-/// Jon, from play: *"When SANIC is hit, there it seems like he is given no
 /// iframes. He should also have some hitstun and be knocked back a bit, and then
 /// have a few second of recovery iframes."*
 ///
-/// ⭐ **the i-frames were never missing — they were 0.75s**, the engine's
-/// `knockback_invulnerability_time`, whose own comment calls it "the longest
-/// window in the game". It is, for Ambition. For a game whose hit REACTION is a
-/// scramble across half a screen to get your purse back, three quarters of a
-/// second is over before the rings have landed, and the badnik you bounced off
-/// is still touching you — which is indistinguishable from having none.
+/// **the i-frames were never missing — they were 0.75s**, the engine's
+/// `knockback_invulnerability_time`, whose own comment calls it "the longest window in the game".
+/// It is, for Ambition.
 ///
-/// ⛔ **and it is NOT fixed by raising the engine default**, which is shared with
-/// Mary-O, whose classic feel Jon has pinned elsewhere. `WalletShieldSpent`'s own
-/// contract says where this belongs: *"The generic resolver owns survival; game
-/// content owns how it is expressed."* Losing your rings IS the classic trigger
-/// for the flashing window, so Sanic extends it in the same handler that already
-/// decides what losing them means.
+/// `WalletShieldSpent`'s own contract says where this belongs: *"The generic resolver owns
+/// survival; game content owns how it is expressed."* Losing your rings IS the classic trigger for
+/// the flashing window, so Sanic extends it in the same handler that already decides what losing
+/// them means.
 #[test]
 fn losing_the_purse_buys_a_classic_length_recovery() {
     use ambition_platformer2d::characters::actor::{BodyCombat, BodyHealth, BodyWallet, Health};
@@ -2193,7 +2131,7 @@ fn losing_the_purse_buys_a_classic_length_recovery() {
          even landed yet, and the badnik that hit him is still touching him"
     );
 
-    // ⚠ and it must RAISE rather than replace: a longer window already running
+    // and it must RAISE rather than replace: a longer window already running
     // (a hazard respawn, say) is not shortened by dropping rings inside it.
     app.world_mut()
         .get_mut::<BodyCombat>(sanic)
@@ -2213,23 +2151,17 @@ fn losing_the_purse_buys_a_classic_length_recovery() {
     );
 }
 
-/// ⭐⭐ **the button says what the mechanic IS.** Jon, 2026-08-08: *"Sanic's
-/// transform button still reads 'fly'."*
-///
-/// The routing was fixed that day and is pinned above — the press reaches
-/// `transform` and generic flight never sees it. ⛔ **but nothing pinned the
-/// LABEL**, which is the half he could actually see. The two are independent:
-/// the technique could keep routing correctly while an authored `display_name`,
-/// or the engine's `fly_toggle` reclaiming the slot, put "Fly" back on the
-/// button — and every existing test would stay green.
+/// **but nothing pinned the LABEL**, which is the half he could actually see. The two are
+/// independent: the technique could keep routing correctly while an authored `display_name`, or
+/// the engine's `fly_toggle` reclaiming the slot, put "Fly" back on the button — and every
+/// existing test would stay green.
 #[test]
 fn the_utility_button_reads_transform_and_never_fly() {
     use ambition_platformer2d::characters::action_scheme::derive_action_scheme;
     use ambition_platformer2d::entity_catalog::action_scheme::ControlSlot;
 
-    // The body has WINGS, so the engine's own `fly_toggle` would claim Utility
-    // if the declared technique did not outrank it. That is the case that
-    // produced the original bug, so it is the case the label is read in.
+    // The body has WINGS, so the engine's own `fly_toggle` would claim Utility if the declared
+    // technique did not outrank it.
     let mut abilities = ae::AbilitySet::basic();
     abilities.fly = true;
     abilities.fly_toggle = true;
@@ -2244,8 +2176,7 @@ fn the_utility_button_reads_transform_and_never_fly() {
         "⛔ the transform button reads {:?}",
         utility.display()
     );
-    // The poison, stated as the symptom rather than as its cause: whatever the
-    // label is derived from, the word Jon saw must not come back.
+    // The utility label must not expose the generic flight verb.
     assert!(
         !utility.display().to_lowercase().contains("fly"),
         "the button is wearing the generic flight verb again"

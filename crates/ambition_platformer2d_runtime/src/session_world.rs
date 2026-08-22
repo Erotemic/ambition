@@ -6,19 +6,11 @@
 //! source during activation. Runtime requests are created at activation and
 //! never participate in content identity.
 //!
-//! ⛔ **an authoring FORMAT's state is not a member of the canonical session
-//! world.** Until 2026-08-16 the bundle carried `runtime_rooms:
-//! LdtkRuntimeIndex` unconditionally, so all five RON-authored games — Sanic,
-//! Mary-O, Pocket, TwinTrack, Smash — had to construct an
-//! `LdtkRuntimeIndex::default()` whose own doc calls it *"the 'no LDtk world
-//! installed' index"* for a world they never install. The measurement that
-//! decided the shape: every system that consumes the index for real work lives
-//! in `ambition_platformer2d_ldtk` and reads it through a `SessionWorldRef`, the
-//! monolith's `SimulationSetup::ldtk_index` was dead (`let _ = ldtk_index;`),
-//! and exactly ONE site in the workspace ever built a non-default index. ⇒ the
-//! index is state a FORMAT INSTALLS — see
-//! [`PreparedPlatformerSource::with_installed_ldtk_index`] — not a field every
-//! game owes.
+//! The measurement that decided the shape: every system that consumes the index for real work lives
+//! in `ambition_platformer2d_ldtk` and reads it through a `SessionWorldRef`, the monolith's
+//! `SimulationSetup::ldtk_index` was dead (`let _ = ldtk_index;`), and exactly ONE site in the
+//! workspace ever built a non-default index. ⇒ the index is state a FORMAT INSTALLS — see
+//! [`PreparedPlatformerSource::with_installed_ldtk_index`] — not a field every game owes.
 
 use bevy::prelude::*;
 
@@ -91,7 +83,7 @@ impl PreparedPlatformerSource {
     /// **A session that builds NO home body**, because the experience realizes
     /// its own cast.
     ///
-    /// ⛔ this is the constructor a MATCH wants, and until it existed the engine
+    /// this is the constructor a MATCH wants, and until it existed the engine
     /// forced one on every session. Match seating then had to reinterpret that
     /// privileged body as a fighter — an adoption path whose costume handshake
     /// could deadlock a whole match, and which made a match with nobody local in
@@ -154,7 +146,7 @@ impl PreparedPlatformerSource {
         &self.initial_body
     }
     /// The installed active-area index, or `None` when no authoring format
-    /// installed one. ⚠ read it as a question, never unwrapped: a RON-authored
+    /// installed one. read it as a question, never unwrapped: a RON-authored
     /// session legitimately has no answer.
     #[cfg(feature = "ldtk")]
     pub fn installed_ldtk_index(&self) -> Option<&LdtkRuntimeIndex> {
@@ -167,7 +159,7 @@ impl PreparedPlatformerSource {
     /// Build an off-to-the-side candidate with a replacement authored world.
     /// The active prepared object is untouched until the caller commits it.
     ///
-    /// ⚠ the installed index CARRIES OVER unchanged. A format that reloaded its
+    /// the installed index CARRIES OVER unchanged. A format that reloaded its
     /// own world states the replacement with
     /// [`Self::with_installed_ldtk_index`]; a format that did not, and a game
     /// that installed nothing, both get the honest answer without saying
@@ -238,12 +230,10 @@ pub struct PlatformerSessionRequests {
 /// Mutable components owned by the canonical live session root. This bundle is
 /// constructed only by lowering an immutable [`PreparedPlatformerSource`].
 ///
-/// ⛔ **every field here is something EVERY platformer session has.** An
-/// authoring format's own state — the LDtk active-area index is the only
-/// current example — is installed as a SEPARATE component on the same root by
-/// the road that installed the format, so a game that uses no such format
-/// carries nothing for it. Adding a field that some games would fill with an
-/// empty value is the defect this bundle was carved to remove.
+/// **every field here is something EVERY platformer session has.** An authoring format's own state
+/// — the LDtk active-area index is the only current example — is installed as a SEPARATE component
+/// on the same root by the road that installed the format, so a game that uses no such format
+/// carries nothing for it.
 #[derive(Bundle, Clone)]
 pub struct PlatformerSessionWorld {
     pub catalogs: PlatformerSessionCatalogs,

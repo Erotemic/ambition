@@ -1,14 +1,13 @@
 //! **The goblin's repertoire** — the third character in the game to state its own
 //! moves, and the first ENEMY to.
 //!
-//! ⭐ **this exists to remove an adopter from `smash_fighter_kit()`** (campaign
-//! P3.24). That floor is one `simple_melee` swipe handed to every seated fighter
-//! whose character says nothing, and its goal is DELETION: the count falls by one
-//! each time somebody writes a table. The goblin is the cheapest next one —
-//! Ambition's own, already on the grid, already authoring its body (170 px/s,
-//! 5 HP, 0.70 contact) and its controller policy (the shared `medium_striker`).
+//! That floor is one `simple_melee` swipe handed to every seated fighter whose character says
+//! nothing, and its goal is DELETION: the count falls by one each time somebody writes a table.
+//! The goblin is the cheapest next one — Ambition's own, already on the grid, already authoring
+//! its body (170 px/s, 5 HP, 0.70 contact) and its controller policy (the shared
+//! `medium_striker`).
 //!
-//! ⚠ **it is NOT the robot's table with different numbers.** A goblin is small,
+//! **it is NOT the robot's table with different numbers.** A goblin is small,
 //! fast and scrappy: it gets in, it pokes, and its punish window is short because
 //! it cannot afford a long one. Against the robot that reads as
 //!
@@ -22,7 +21,7 @@
 //! differences are the authored ones; the SHAPE is `strike`'s, which is the whole
 //! reason that helper was pulled out of the robot's file.
 //!
-//! ⛔ **the clip names are the standard vocabulary and the fallback chain does the
+//! **the clip names are the standard vocabulary and the fallback chain does the
 //! rest.** The goblin sheet does not have 132 rows; `strike` names `smash_forward`
 //! and settles for `attack_side`, then `attack`, then `slash`, then `idle`. A
 //! missing clip costs the move its picture, never its gameplay.
@@ -97,7 +96,7 @@ pub fn goblin_moveset() -> MovesetContract {
 
     // ── smashes ──────────────────────────────────────────────────────────────
     //
-    // ⚠ committed and NOT safe. The goblin's kill move costs it 0.30s of
+    // committed and NOT safe. The goblin's kill move costs it 0.30s of
     // recovery against a body that only has 5 HP to trade with — throwing this
     // and missing is how a goblin dies, which is what makes landing it exciting
     // rather than routine.
@@ -182,7 +181,7 @@ pub fn goblin_moveset() -> MovesetContract {
         None,
     );
 
-    // ⭐ the goblin's best kill option, and it faces the wrong way — the classic
+    // the goblin's best kill option, and it faces the wrong way — the classic
     // trade. Committing to a back-air means committing to not looking at them.
     let b_air = strike(
         "air_back",
@@ -214,7 +213,7 @@ pub fn goblin_moveset() -> MovesetContract {
         None,
     );
 
-    // Straight down and hard. ⚠ no `on_hit` rebound: the robot's down-air says it
+    // Straight down and hard. no `on_hit` rebound: the robot's down-air says it
     // is capable of bouncing its attacker and this one does not, because a goblin
     // that could pogo off a body would out-recover a character built around
     // recovery being its problem.
@@ -233,15 +232,8 @@ pub fn goblin_moveset() -> MovesetContract {
         None,
     );
 
-    // ── 2026-08-16: THE FIVE THAT WERE MISSING ───────────────────────────────
-    //
-    // Jon: *"Let's complete the kit for all characters … We can invent whatever
-    // special we want for oni and goblin."* Measured before writing any of it,
-    // the goblin was 11/16: no forward tilt, and NO SPECIALS AT ALL — which on a
-    // platform fighter means no way back to the stage. The up-B below is the
-    // half that is not cosmetic.
 
-    // ⛔ **a forward tilt, because without one the commonest press in the genre
+    // **a forward tilt, because without one the commonest press in the genre
     // falls down the directional chain to the jab.** A goblin's is a scrappy
     // shove — shorter and faster than anybody else's, like the rest of its kit.
     let f_tilt = strike(
@@ -284,7 +276,7 @@ pub fn goblin_moveset() -> MovesetContract {
     let n_b = sfx(n_b, 0.10, "enemy.goblin.attack");
     let n_b = on_contact(n_b, "enemy.goblin.hit");
 
-    // **SIDE — `headlong_charge`.** It runs at you. ⭐ `ImpulseMode::Set`, so a
+    // **SIDE — `headlong_charge`.** It runs at you. `ImpulseMode::Set`, so a
     // goblin already falling gets the same charge as a standing one — the
     // difference between a committed move and a suggestion — and the tail damps
     // steering to 0.1 rather than 0.0, because a scrappy fighter that could not
@@ -355,16 +347,13 @@ pub fn goblin_moveset() -> MovesetContract {
     let down_b = sfx(down_b, 0.12, "enemy.goblin.attack");
     let down_b = on_contact(down_b, "enemy.goblin.hit");
 
-    // ── 2026-08-16: THE OTHER POSTURE ────────────────────────────────────────
-    //
-    // Jon: *"A down-b that has special airborne properties should also have an
     // effect on ground. Think of bowser down b. In the air he just does a
     // downward slam, but on the ground, it causes him to jump in an arc and then
     // slam. Specials can have different effects in different contexts that
     // should be ok, and makes for a richer smash game, although in most cases
     // they shouldn't be context dependent."*
     //
-    // ⛔ a special gated to ONE posture is not answered in the other — the
+    // a special gated to ONE posture is not answered in the other — the
     // directional chain walks straight past it to the NEUTRAL special, so a
     // player pressing down-B in the air got the neutral-B. `special_air_down`
     // sits ahead of `special_down` in that chain and has the whole time; this is
@@ -394,7 +383,7 @@ pub fn goblin_moveset() -> MovesetContract {
 
     // **GOBLIN'S CAPTURE KIT.** Short reach, fast everything, weak throw: it wins the
     // grab and cannot finish with it. The flattest launch on the roster.
-    // ⚠ the grab draws `attack`, not `grab`: these sheets publish no `grab` row,
+    // the grab draws `attack`, not `grab`: these sheets publish no `grab` row,
     // and each table's own `every_clip_names_a_row_..._sheet_carries` guard says
     // so. `ClipBinding`'s fallbacks would have covered it at runtime, but a move
     // that NAMES a row nobody publishes is a lie the guard is right to refuse.
@@ -477,12 +466,11 @@ pub fn goblin_moveset() -> MovesetContract {
         neutral_special: NeutralSpecial::Authored(n_b),
         side_special: side_b,
         up_special: up_b,
-        // ⭐ **AUTHORED 2026-08-19, at Jon's ask that every fighter in the smash
-        // roster have a grab.** The transitional `None` is gone: capture was
-        // proven on George and the Pirate Admiral, and the whole point of
-        // proving it was to stop being the only two.
+        // **AUTHORED, at the rule that every fighter in the smash roster have a grab.** The
+        // transitional `None` is gone: capture was proven on George and the Pirate Admiral, and
+        // the whole point of proving it was to stop being the only two.
         //
-        // ⚠ the VALUES are per character on purpose. A roster whose grabs are
+        // the VALUES are per character on purpose. A roster whose grabs are
         // twelve copies of one number set is one grab wearing twelve names.
         capture: SmashCaptureRepertoire {
             cues: CaptureCues::GENERIC,
@@ -505,8 +493,6 @@ pub fn goblin_moveset() -> MovesetContract {
 mod tests {
     use super::*;
 
-    // ⭐⭐ **RETIRED 2026-08-16 — `every_bound_verb_names_a_move_that_exists`.**
-    //
     // Fourteen fighters each carried a copy of it: every bound verb names a move
     // this table defines, and the table binds the whole vocabulary. Both are now
     // unwritable defects rather than tested ones. `SmashRepertoire` owns the verb
@@ -519,7 +505,7 @@ mod tests {
 
     /// **The goblin is not the robot with different numbers.**
     ///
-    /// ⭐ the point of a per-character table is that the characters differ, and a
+    /// the point of a per-character table is that the characters differ, and a
     /// table copied wholesale would pass every other test in this file. This pins
     /// the identity the module doc claims: shorter reach, faster jab, weaker kill.
     #[test]

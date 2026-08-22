@@ -5,27 +5,20 @@
 //! and records useful outcomes". This is that runner's first half: everything
 //! measurable WITHOUT a match.
 //!
-//! ⛔ **survival and damage are deliberately not here.** They need two bodies
+//! **survival and damage are deliberately not here.** They need two bodies
 //! actually fighting, which is a match harness (`ambition_demo_smash_app` has
 //! one) rather than a brain rig — and a number labelled "survival %" produced
 //! without anyone dying would be worse than no number at all. What a brain alone
 //! can be asked is: *what did you decide, how often did you press, and do you do
 //! the same thing twice.*
 //!
-//! ⛔⛔ **AND THE FIRST THING IT MEASURED IS THAT IT CANNOT YET MEASURE THE
-//! LADDER.** Run across all nine rungs and every scenario, the brain emits
-//! **zero presses** and produces identical frames at every level. That is not a
-//! degenerate ladder — it is `BrainSnapshot::idle()`, which carries no attack
-//! kit, and the decision tests say so in their own words: *"no scene here can
-//! arm one"*. An empty kit means `generate_options` offers movement only, so
-//! there is no attack for a rung's scoring to differ about.
+//! That is not a degenerate ladder — it is `BrainSnapshot::idle()`, which carries no attack kit,
+//! and the decision tests say so in their own words: *"no scene here can arm one"*. An empty kit
+//! means `generate_options` offers movement only, so there is no attack for a rung's scoring to
+//! differ about.
 //!
-//! ⇒ **two checks are deliberately absent until the rig hands the brain a kit.**
-//! `apm_cap` carries the comment *"Data today; enforcement is FB4's rig"* — the
-//! enforcement actually exists (`ApmLedger::may_press` gates every press); what
-//! was missing is the measurement, and a within-cap assertion at zero presses is
-//! a check that cannot fail. Same for ladder ordering. Building the kit fixture
-//! is this rig's next slice and is what also unlocks survival/damage.
+//! Same for ladder ordering. Building the kit fixture is this rig's next slice and is what also
+//! unlocks survival/damage.
 
 use super::decision::{tick_fighter, FighterCfg, FighterState};
 use super::options::{ActionLegality, AttackBinding, AttackCandidate, AttackVerb};
@@ -44,7 +37,7 @@ pub const RIG_TICKS: u32 = (RIG_TICK_HZ as u32) * 10;
 
 /// **A kit shaped like the one production builds.**
 ///
-/// ⛔ the rig ran with `BrainSnapshot::idle()` first and every rung emitted zero
+/// the rig ran with `BrainSnapshot::idle()` first and every rung emitted zero
 /// presses, because an empty kit leaves `generate_options` offering movement
 /// only. A brain with nothing to throw cannot be told apart from another brain
 /// with nothing to throw, so the ladder read as degenerate.
@@ -147,7 +140,7 @@ pub fn play(scenario: &Scenario, profile: FighterBrainProfile, seed: u64) -> Sce
     let mut frames: Vec<ActorControlFrame> = Vec::new();
     let mut view = scenario.view.clone();
     for tick in 0..RIG_TICKS {
-        // ⛔ **THE OPPONENT HAS TO MOVE, or the ladder is invisible.** A rung's
+        // **THE OPPONENT HAS TO MOVE, or the ladder is invisible.** A rung's
         // headline difference is `reaction_ms`, and a delayed view of a world
         // that never changes IS the live view — so a static scenario makes every
         // level emit identical frames and a rig built on one would report the

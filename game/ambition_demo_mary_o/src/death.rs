@@ -1,7 +1,6 @@
 //! **The death beat.** She is hit with nothing left to lose, and the level stops
 //! to say so before it starts again.
 //!
-//! Jon: *"if mary-o is small and she takes damage she should die and use her
 //! death animation, then restart the level."*
 //!
 //! Two halves, and neither of them is a state machine any more.
@@ -16,20 +15,7 @@
 //!
 //! ## The beat is ENGINE vocabulary now (ADR 0033)
 //!
-//! ⛔ **this module used to be six counter-measures and none of them were about
-//! dying.** The engine resolved a death in the frame it happened — teleport to
-//! spawn, full heal, `BodyAnimFacts::reset()`, a room-feature reset — and then
-//! announced it. So [`MaryODeathSequence`] pinned her body back at the place she
-//! died every frame, re-armed the death row every tick because the respawn kept
-//! wiping it, carried a `life_spent` latch because a body pinned outside the
-//! world is reported dead forever, granted itself scripted control and scripted
-//! immunity, and carried a `replay_pending` debt. Measured 2026-08-09: the pin
-//! re-fired the world's blast-zone gate on 192 of the 192 frames of one dwell,
-//! and in the hosted app every one of those was a full room reset while the
-//! death music played — Jon: *"enemies respawning immediately when she dies even
-//! though the animation and music is still playing."*
-//!
-//! ⭐ **all six are gone, and Mary-O states a rule instead.** The engine holds
+//! **all six are gone, and Mary-O states a rule instead.** The engine holds
 //! the body out of play for the interlude, plays the death row, refuses hits,
 //! blanks control, and asks the ROSTER whether the level goes back. She dies
 //! where she died because nothing moves her — there is nothing left to pin.
@@ -41,12 +27,9 @@ use bevy::prelude::*;
 
 /// How long the level holds on her death before it starts again.
 ///
-/// **Sized by the music, not by taste.** `mary_o_you_died` is four bars of 2/4
-/// at 150bpm — eight beats, 3.2 seconds — and the last chord is the comic low
-/// thud the whole cue exists to land. At the old 1.6s this cut off halfway
-/// through the tumble, so the sting never resolved; Jon reported it as "death
-/// isn't long enough for the entire death music to play". If the score's tempo
-/// or bar count changes, this number changes with it.
+/// **Sized by the music, not by taste.** `mary_o_you_died` is four bars of 2/4 at 150bpm — eight
+/// beats, 3.2 seconds — and the last chord is the comic low thud the whole cue exists to land. If
+/// the score's tempo or bar count changes, this number changes with it.
 ///
 /// This is the value Mary-O hands the engine as her interlude
 /// ([`ambition_platformer2d::combat::death_rules::DeathRules`]).
@@ -60,18 +43,11 @@ pub const DEATH_DWELL: f32 = 3.2;
 /// released the frame it closes, so the level theme returns on its own with no
 /// second system to keep in sync and nothing to leak if the beat is interrupted.
 ///
-/// It CLAIMS rather than assigns. The tier used to be a bare `Option<String>`
-/// that every writer cleared when it had nothing to say, and the boss system —
-/// which runs later in the frame and has no run condition — cleared it on every
-/// frame of a demo that contains no bosses. This music was written and wiped
-/// within the same frame, forever, and the bare-`App` test could not see it
-/// because the boss system was not in that app.
-///
 /// The track is authorized by Mary-O's audio fragment
 /// ([`crate::provider::MARY_O_DEATH_MUSIC_TRACK`]); under provider-relative
 /// playback an undeclared id is gated to silence however loudly it is requested.
 ///
-/// ⚠ **it reads the BODY's window, not a level-owned flag.** In co-op the
+/// **it reads the BODY's window, not a level-owned flag.** In co-op the
 /// interlude belongs to the participant who died, and a level-owned beat could
 /// not say which of two players is dying.
 pub fn play_death_music(
@@ -108,12 +84,9 @@ pub fn voice_her_death(
     >,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
 ) {
-    // ⭐ **filter by VICTIM, not "the last death".** This used to take whatever
-    // died most recently and apply it to the controlled subject, which is right
-    // only while one body can die at all. It is still drained unconditionally so
-    // a death that landed during a load cannot be re-read and charged to the next
-    // attempt — the filter narrows what is USED, not what is consumed (GPT 5.6
-    // review, 2026-08-04).
+    // **filter by VICTIM, not "the last death".** This used to take whatever died most recently
+    // and apply it to the controlled subject, which is right only while one body can die at
+    // all.
     let mine = subject.as_deref().and_then(|subject| subject.0);
     let Some(death) = deaths
         .read()

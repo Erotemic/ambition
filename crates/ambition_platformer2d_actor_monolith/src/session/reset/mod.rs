@@ -55,15 +55,6 @@ pub struct ContentRoomReplayResetSet;
 pub struct RoomReplayRequested;
 
 /// **The reset's preflight passed and the wipe is happening.**
-///
-/// Everything that tears down state for a reset keys off THIS, not off
-/// [`NewGameResetRequested`]. The difference is the whole of the transactional
-/// claim: a request is what somebody asked for, and this is what the preflight
-/// agreed to. `clear_transient_on_sandbox_reset` used to read the request and
-/// run FIRST, so a start room that failed its boundary check produced the worst
-/// outcome available — the held items, portals, summons and portal gun were
-/// already gone, the reset was then declined, and the player stayed in the old
-/// room with half a session (GPT 5.6, 2026-07-27).
 #[derive(Message, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct NewGameResetCommitted;
 
@@ -95,9 +86,8 @@ pub struct ResetPlayState<'w> {
     /// The construction recipe table — reset re-plans the start room's planned
     /// families through the SAME recipes setup/transition/restore use.
     recipes: Res<'w, crate::construction::ActorConstructionRegistry>,
-    /// The prepared cast, so a rebuilt NPC still takes its CHARACTER's default
-    /// autonomous profile (D73 phase 1). `Option` like every other reader of
-    /// it: a composition with no registered characters is the ordinary case.
+    /// `Option` like every other reader of it: a composition with no registered characters is
+    /// the ordinary case.
     prepared_characters: Option<Res<'w, crate::character_runtime::PreparedCharacterRegistry>>,
     /// The session's live content binding, so a reset's plan states the SAME
     /// generation the session runs under instead of a default sentinel — the
@@ -114,7 +104,7 @@ pub struct ResetPlayState<'w> {
     /// **What the world remembers about the occurrences it authored** — cleared
     /// by the reset, not read by it.
     ///
-    /// ⭐ **a reset is the EMPTY BASELINE.** A relocated occurrence's row names a
+    /// **a reset is the EMPTY BASELINE.** A relocated occurrence's row names a
     /// room and a position in a world this reset is about to destroy; leaving it
     /// standing would put a moved object back at coordinates from the run that
     /// just ended, the first time the player walked into that room again. The
@@ -122,7 +112,7 @@ pub struct ResetPlayState<'w> {
     /// because "not in the world" is the ordinary condition of a row whose room
     /// is unloaded, so nothing but the reset can speak for it.
     ///
-    /// ⚠ `Option`, like every other reader: a composition without the item
+    /// `Option`, like every other reader: a composition without the item
     /// plugin remembers nothing and has nothing to clear.
     occurrences:
         Option<ResMut<'w, ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>>,
@@ -147,7 +137,7 @@ impl NewGameResetRequested {
 /// The only system that may DECLINE a new-game reset, so anything acting on the
 /// decision waits for its commitment — `.after`, deliberately, not before.
 ///
-/// ⚠ ONE member: "the reset decision is made" is a single authority, and a
+/// ONE member: "the reset decision is made" is a single authority, and a
 /// second member would mean two things can decline.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct NewGameResetDecided;
@@ -177,7 +167,7 @@ pub fn process_new_game_reset_request(
     mut respawn_visuals: MessageWriter<crate::session::RespawnRoomVisualsRequested>,
     mut commands: SessionCommands<'_, '_>,
     mut banner: ResMut<crate::features::GameplayBanner>,
-    // ⛔ **`With<RoomScopedEntity>` and NOT `RoomResident`, deliberately.** A room
+    // **`With<RoomScopedEntity>` and NOT `RoomResident`, deliberately.** A room
     // CHANGE moves the room out from under its residents, so an object in a
     // body's custody rides across with whoever holds it. A reset DESTROYS the
     // world those residents live in — and this same function empties the hand a
@@ -228,22 +218,13 @@ pub fn process_new_game_reset_request(
         &play_state.authored_sheets,
         &play_state.boss_catalog,
         session_scope,
-        // A reset rebuilds the room the ACTIVE content already defines, so it
-        // states the session's LIVE binding — stating a default sentinel here
-        // used to make every reset plan a stale-looking stranger to the epoch
-        // the session actually runs under.
-        //
-        // ⚠ **and it had the cast but not the published policies**, so a room
-        // whose enemy placement names a `brain_profile` resolved it on the way
-        // in and lost it on every reset. Found by counting the roads rather
-        // than by anything failing (2026-08-15).
         crate::features::ActorConstructionContext::for_room_construction(
             &play_state.recipes,
             ambition_platformer2d_core::ContentEpoch::default(),
             play_state.active_binding.as_deref(),
             play_state.prepared_characters.as_deref(),
             play_state.brain_profiles.as_deref(),
-            // ⛔ **A RESET STATES NO DISPOSITIONS, AND THAT IS THE WHOLE POINT
+            // **A RESET STATES NO DISPOSITIONS, AND THAT IS THE WHOLE POINT
             // OF A RESET.** The ledger says which authored occurrences are
             // alive somewhere else; a reset destroys the world those
             // occurrences live in, hands included, and rebuilds the room from
@@ -298,7 +279,7 @@ pub fn process_new_game_reset_request(
     *boss_registry = BossEncounterRegistry::default();
     *quest_registry = QuestRegistry::default();
     **music_request = EncounterMusicRequest::default();
-    // ⭐ **AND WHAT THE WORLD REMEMBERED ABOUT ITS OWN OCCURRENCES.** The plan
+    // **AND WHAT THE WORLD REMEMBERED ABOUT ITS OWN OCCURRENCES.** The plan
     // above was prepared against NO dispositions on purpose; this is the other
     // half of the same statement, and without it the rooms this reset is not
     // rebuilding would still be carrying rows that place a moved object at
@@ -307,9 +288,7 @@ pub fn process_new_game_reset_request(
         occurrences.forget_everything();
     }
 
-    // 3-5. Commit the already-prepared canonical start-room construction.
-    // Invalid authored content was rejected above, before save or registry
-    // mutation. The same artifact drives transition, hot reload, and restore.
+    // 3-5. The same artifact drives transition, hot reload, and restore.
     room_plan.retire_outgoing(
         &mut commands,
         room_visuals
@@ -346,11 +325,6 @@ pub fn process_new_game_reset_request(
     )) = player_q.single_mut()
     {
         let mut clusters = cluster_item.as_clusters_mut();
-        // The live tuning goes IN. This site used to pass none and then redo the
-        // refresh with a comment explaining why — "reset_body_clusters uses
-        // DEFAULT_TUNING for the post-reset dash/jump refresh". The comment was
-        // right, and it was load-bearing knowledge living at one of five call
-        // sites; the other four either restated it or (in one case) did not know.
         ae::reset_body_clusters(
             &mut motion_model,
             &mut clusters,
@@ -379,13 +353,12 @@ pub fn process_new_game_reset_request(
     banner.show("SANDBOX RESET", 3.0);
 }
 
-/// On a sandbox reset, despawn the transient world items **the room rebuild
-/// does not own** — placed portals + in-flight shots, a dropped weapon, a
-/// summoned puppy-slug ally — and strip the player's held state (`HeldItem` /
-/// `StashedActionSet` / `PortalGun`), restoring its base `ActionSet` (Jon:
-/// "portals and held items don't reset on sandbox reset — they should").
+/// On a sandbox reset, despawn the transient world items **the room rebuild does not own** —
+/// placed portals + in-flight shots, a dropped weapon, a summoned puppy-slug ally — and strip
+/// the player's held state (`HeldItem` / `StashedActionSet` / `PortalGun`), restoring its base
+/// `ActionSet`.
 ///
-/// ⛔ **AND NOTHING THAT IS ROOM-SCOPED, because the room is already rebuilt by
+/// **AND NOTHING THAT IS ROOM-SCOPED, because the room is already rebuilt by
 /// the time this runs.** [`process_new_game_reset_request`] retires every
 /// `RoomScopedEntity` and commits a fresh start-room plan in the same call, and
 /// `.chain()` puts an auto-inserted `ApplyDeferred` between the two systems — so
@@ -393,21 +366,17 @@ pub fn process_new_game_reset_request(
 /// spawned a sync point ago from the room's own records. A blanket
 /// `With<GroundItem>` sweep despawned exactly those, and a reset taken in a room
 /// with an authored pickup rebuilt that room permanently one pickup short of
-/// itself (Opus 5, 2026-08-15). The room plan owns ROOM scope; this system owns
+/// itself. The room plan owns ROOM scope; this system owns
 /// the residue that outlives a room and has no other retirement — an enemy's
 /// dropped weapon is `spawn_session_scoped` and nothing else takes it back.
 /// Filtering here loses nothing: `retire_outgoing` sweeps `RoomScopedEntity`
 /// unconditionally, so a room-scoped transient (a thrown item, a placed portal)
 /// is destroyed by the stricter of the two sweeps either way.
 ///
-/// Runs AFTER [`process_new_game_reset_request`] and on
-/// [`NewGameResetCommitted`], not on the request. It used to run first and read
-/// the request, which meant a reset whose preflight REFUSED had already emptied
-/// the player's hands — the refusal path advertises "the running session is
-/// untouched" and this was the system making that false. Ordering costs nothing
-/// here: every despawn and removal below is a deferred command, so it lands in
-/// the same flush either way, and the one immediate write (the `ActionSet`
-/// restore) is exactly the one that must not happen speculatively.
+/// Runs AFTER [`process_new_game_reset_request`] and on [`NewGameResetCommitted`], not on the
+/// request. Ordering costs nothing here: every despawn and removal below is a deferred command, so
+/// it lands in the same flush either way, and the one immediate write (the `ActionSet` restore) is
+/// exactly the one that must not happen speculatively.
 #[allow(clippy::type_complexity)]
 pub fn clear_transient_on_sandbox_reset(
     mut committed: MessageReader<NewGameResetCommitted>,
@@ -422,7 +391,7 @@ pub fn clear_transient_on_sandbox_reset(
                 With<crate::items::pickup::GroundItem>,
                 With<crate::abilities::thrown::puppy_slug_gun::PuppySlugAlly>,
             )>,
-            // ⛔ the rebuilt room's own contents are NOT this system's business.
+            // the rebuilt room's own contents are NOT this system's business.
             Without<RoomScopedEntity>,
         ),
     >,
@@ -433,7 +402,7 @@ pub fn clear_transient_on_sandbox_reset(
                 With<crate::items::pickup::GroundItem>,
                 With<crate::abilities::thrown::puppy_slug_gun::PuppySlugAlly>,
             )>,
-            // ⛔ the rebuilt room's own contents are NOT this system's business.
+            // the rebuilt room's own contents are NOT this system's business.
             Without<RoomScopedEntity>,
         ),
     >,

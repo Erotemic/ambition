@@ -56,31 +56,17 @@ impl Default for ShellLauncherPresentation {
         Self {
             title: "Ambition".to_owned(),
             empty_message: "No experiences registered".to_owned(),
-            // ✔ **non-ASCII is safe here again** (2026-08-01). This read
-            // `select · Enter` and drew a hollow TOFU BOX for a week, in every
-            // `ambition_menu` surface in every game, and was worked around by
-            // spelling the separator `|`.
+            // **Probed**: forcing the default handle back at every menu text spawn and
+            // re-capturing `--route ambition_launcher` puts the hollow box back on this exact
+            // string.
             //
-            // The fix is that the host now hands the menu crate the font the
-            // render side resolved (`MenuFont`), instead of `ambition_menu`
-            // setting a font SIZE and no handle and letting `TextFont::default()`
-            // resolve `Handle::<Font>::default()` — Bevy's built-in
-            // `FiraMono-subset.ttf`. **Probed**: forcing the default handle back
-            // at every menu text spawn and re-capturing `--route
-            // ambition_launcher` puts the hollow box back on this exact string.
+            // **why the default handle fails here is NOT settled.** The obvious story — "the
+            // subset has no U+00B7" — is contradicted by `ambition_demo_smash`'s select screen,
+            // which spawns `Text` with no `TextFont` AT ALL (so, the same handle) and renders
+            // `·`, `—` and `…` correctly. Same codepoint, same font asset, different result;
+            // something about the MENU's text path is the other half.
             //
-            // ⚠ **why the default handle fails here is NOT settled.** The
-            // obvious story — "the subset has no U+00B7" — is contradicted by
-            // `ambition_demo_smash`'s select screen, which spawns `Text` with no
-            // `TextFont` AT ALL (so, the same handle) and renders `·`, `—` and
-            // `…` correctly. Same codepoint, same font asset, different result;
-            // something about the MENU's text path is the other half. Ten
-            // hypotheses died before this one because each checked the fonts the
-            // REPOSITORY ships (`JetBrainsMono-Regular.ttf`,
-            // `InterDisplay-Regular.otf`, both of which carry these glyphs) and
-            // none asked what `Handle::default()` points at.
-            //
-            // ⚠ a composition that loads no font at all still falls back to the
+            // a composition that loads no font at all still falls back to the
             // subset and this string tofus again — which is the honest outcome,
             // and why the fallback is `None` rather than a guess.
             footer: "Arrow keys select · Enter launches".to_owned(),
@@ -101,8 +87,6 @@ pub enum ShellLauncherCommand {
     Next,
     LaunchSelected,
     /// Select and launch one row from the launcher's semantic selectable space.
-    /// Pointer/touch rows carry this index directly, so they do not have to
-    /// synthesize a sequence of Previous/Next commands before confirmation.
     Activate(usize),
     /// Move the cursor to one row WITHOUT launching it.
     ///

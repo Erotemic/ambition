@@ -69,17 +69,14 @@ pub fn duel_spawn_requests(center: ae::Vec2) -> [SpawnActorRequest; 2] {
                 brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
                     "cellular_automaton_fighter".to_string(),
                 ),
-                // ⭐⭐ **THE CHARACTER** (ledger D89). See the constant.
-                // ⛔ was `None`, AND THE REASON WAS MEASURED (ledger D84,
-                // 2026-08-11). `perfect_cellular_automaton` now authors its whole
-                // body — 60 HP, the swipe, the glider, the Cellular Pulse, its
-                // four capabilities and its Smash policy — so this line is one
-                // word from flipping. It does not flip yet: naming the character
-                // makes `duel_fighters_actually_enact_their_abilities_on_the_body`
-                // fail on *"PCA: shield must actually go up on the body (got 0
-                // frames)"*.
+                // See the constant. was `None`, AND THE REASON WAS MEASURED.
+                // `perfect_cellular_automaton` now authors its whole body — 60 HP, the swipe, the
+                // glider, the Cellular Pulse, its four capabilities and its Smash policy — so this
+                // line is one word from flipping. It does not flip yet: naming the character makes
+                // `duel_fighters_actually_enact_their_abilities_on_the_body` fail on *"PCA: shield
+                // must actually go up on the body (got 0 frames)"*.
                 //
-                // ⚠ **two hypotheses are already RULED OUT**, so the next session
+                // **two hypotheses are already RULED OUT**, so the next session
                 // does not repeat them: it is not the placement brain (`Passive`
                 // and `Custom("cellular_automaton_fighter")` fail identically),
                 // and it is not the special slot contending with the pulse
@@ -87,24 +84,17 @@ pub fn duel_spawn_requests(center: ae::Vec2) -> [SpawnActorRequest; 2] {
                 // pass — only the ACTIVATION count is zero — so the next probe
                 // belongs on the brain's decision, not the body's kit.
                 //
-                // ⛔ do not flip this to make the row deletable. A duel where the
+                // do not flip this to make the row deletable. A duel where the
                 // PCA never blocks is a worse game than one archetype row.
                 character: ambition_entity_catalog::CharacterId::from(DUEL_PCA_CHARACTER),
             },
         },
         SpawnActorRequest {
             id: DUEL_ROBOT_ID.to_string(),
-            // The duellist is the player's PREVIOUS build, not its current one.
-            // Fighting a former version of yourself is the point of the exhibit,
-            // and it also decouples the duel from the live protagonist's art:
-            // re-rigging the player used to silently re-body this fighter,
-            // because the sheet's per-animation bbox authors the collision box.
-            // "Player Robot v2" is its own catalog row with its own sheet, so
-            // the duel now only changes when someone changes the DUELLIST.
-            // Display name MUST match the catalog `display_name` — sprite AND
-            // authored hitbox metadata both resolve from it
-            // (`character_id_for_display_name`); a mismatch silently falls back
-            // to a placeholder.
+            // The duellist is the player's PREVIOUS build, not its current one. Display name MUST
+            // match the catalog `display_name` — sprite AND authored hitbox metadata both resolve
+            // from it (`character_id_for_display_name`); a mismatch silently falls back to a
+            // placeholder.
             name: "Player Robot v2".to_string(),
             pos: center + ae::Vec2::new(75.0, 0.0),
             half_size: ae::Vec2::new(14.0, 23.0),
@@ -114,10 +104,10 @@ pub fn duel_spawn_requests(center: ae::Vec2) -> [SpawnActorRequest; 2] {
                 brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
                     "player_robot".to_string(),
                 ),
-                // ⭐ **THE CHARACTER, so the exhibition robot is the robot.** It
+                // **THE CHARACTER, so the exhibition robot is the robot.** It
                 // was `None`, which sent this body down the archetype road and
                 // built it from `player_robot`'s eighty-line row — the row whose
-                // body half now lives on the lineage (2026-08-11). The brain key
+                // body half now lives on the lineage. The brain key
                 // stays only as the fallback for a composition that has not
                 // registered the lineage.
                 character: ambition_entity_catalog::CharacterId::from("player_robot_v2"),
@@ -156,7 +146,7 @@ fn cmd_duel(
         &ambition_platformer2d_actor_monolith::actor::BodyKinematics,
         ambition_platformer2d_actor_monolith::actor::PrimaryPlayerOnly,
     >,
-    // ⛔ **not `MessageWriter`.** Spawning two fighters is a simulation act, and
+    // **not `MessageWriter`.** Spawning two fighters is a simulation act, and
     // `SpawnActorRequest` is cleared on rollback by a host that will not re-run
     // this presentation-side command — so a rewind past the duel deleted the
     // request and the duellists never appeared.

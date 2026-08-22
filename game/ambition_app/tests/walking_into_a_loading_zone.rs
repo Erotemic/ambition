@@ -1,10 +1,9 @@
 //! **THE CHARACTER WALKS THROUGH THE DOOR. NOBODY TELEPORTS HER INTO IT.**
 //!
-//! Jon, 2026-08-20: *"In ambition I cannot go through any doors anymore. This is
 //! both interact doors and contact doors... These are huge regressions, not sure
 //! how we didn't have a test to catch these."*
 //!
-//! ⛔⛔ **and the door suite was GREEN while he could not open one.** Every
+//! **and the door suite was GREEN while he could not open one.** Every
 //! room-transition test in this tree, including `door_entry`'s shipped-host
 //! case, puts the body inside the zone by ASSIGNMENT —
 //! `kin.pos = zone.aabb.center()` — and then presses a key. That covers the
@@ -23,16 +22,12 @@
 //!     → the active room actually changes
 //! ```
 //!
-//! ⛔ **the contact half needs a HOP, and that is a content defect, not this
-//! test being lenient.** A 16px floor lip sits inside the start room's edge exit,
-//! so a walking body stalls against its side forever. See the test's own doc and
-//! D174: the geometry is unchanged since 2026-08-15, so it is standing, not new.
+//! **the contact half needs a HOP, and that is a content defect, not this test being lenient.** A
+//! 16px floor lip sits inside the start room's edge exit, so a walking body stalls against its side
+//! forever.
 //!
-//! ⚠ **the walk is asserted separately from the transition**, and that split is
-//! the diagnosis. If the body never reaches the zone, the failure says the
-//! MOVEMENT half broke and never mentions doors; if it arrives and the room does
-//! not change, the failure names the transition. One test, two distinguishable
-//! verdicts, because "I cannot go through doors" has always had those two
+//! **the walk is asserted separately from the transition**, and that split is the diagnosis. One
+//! test, two distinguishable verdicts, because "I cannot go through doors" has always had those two
 //! causes and no test could tell them apart.
 
 use ambition_app::{AgentAction, Platformer2dSimHarness};
@@ -44,7 +39,7 @@ use crate::common::{base, fixed_60hz_sim};
 
 /// How many frames a body may spend walking to a zone before we call it stuck.
 ///
-/// ⚠ a liveness backstop, not a measurement. At 60Hz this is ten seconds of
+/// a liveness backstop, not a measurement. At 60Hz this is ten seconds of
 /// walking, which is far past any authored zone in a start room; the assertions
 /// are about ARRIVAL and the ROOM, never about when.
 const WALK_CAP: usize = 600;
@@ -63,13 +58,6 @@ fn body_pos(sim: &mut Platformer2dSimHarness) -> ambition_platformer2d::engine_c
 }
 
 /// Every authored zone of this activation kind in the active room, nearest first.
-///
-/// ⛔⛔ **ALL of them, and that is not thoroughness — it is the difference
-/// between two claims.** "The nearest contact zone is unreachable" is a fact
-/// about one rectangle and some level geometry; "not one of the six is
-/// reachable" is a fact about the mechanism. Measured 2026-08-20: the nearest
-/// `EdgeExit` in the start room has something solid ~15px in front of it, and a
-/// test that stopped there would have blamed contact transitions for a wall.
 fn zones_by_distance(
     sim: &mut Platformer2dSimHarness,
     activation: LoadingZoneActivation,
@@ -121,7 +109,7 @@ fn walk_into(
     let mut arrived = false;
     for _ in 0..WALK_CAP {
         let here = body_pos(sim);
-        // ⚠ the RECTANGLE is the arrival test, not a distance threshold: "inside
+        // the RECTANGLE is the arrival test, not a distance threshold: "inside
         // it" is what the transition itself asks. This checks the body's CENTRE,
         // which is stricter than the real rule (the transition overlaps the whole
         // body box) — deliberately, because it only decides which HALF a failure
@@ -146,7 +134,7 @@ fn walk_into(
 
 /// **A CONTACT ZONE FIRES BECAUSE SHE GOT THERE UNDER HER OWN POWER.**
 ///
-/// ⚠ **`EdgeExit` IS the contact zone in this game.** A census of every authored
+/// **`EdgeExit` IS the contact zone in this game.** A census of every authored
 /// `.ldtk` finds 381 `Door` zones, 72 `EdgeExit`s and not one `Walk` — a test
 /// that asked for `Walk` would sit on its own "no such zone" guard forever.
 ///
@@ -156,19 +144,13 @@ fn walk_into(
 /// sat 32px above the floor — a window, not a door. A walking body hit the sill
 /// and stalled at x=1841 forever (held direction, 600 frames, no arrival).
 ///
-/// ⚠ **it was never a regression**: those cells were solid in every commit of
-/// `sandbox.ldtk` back to 2026-08-15. It was a standing conflict with
-/// `EdgeExit`'s own contract — *"the zone must touch a level edge so the player
-/// physically walks off the screen into it"* — and the fix was content: clear
-/// the sill so the opening reaches the floor at row 61, which is solid all the
-/// way across, so no pit appears.
+/// It was a standing conflict with `EdgeExit`'s own contract — *"the zone must touch a level edge
+/// so the player physically walks off the screen into it"* — and the fix was content: clear the
+/// sill so the opening reaches the floor at row 61, which is solid all the way across, so no pit
+/// appears.
 ///
-/// ⛔ **and the census that priced it as FIVE zones was wrong.** Three of the
-/// five — `scroll_lab`, `square_arena`, `tiny_chamber` — have solid cells in
-/// their zone's bottom row because that row IS THE FLOOR, running unbroken
-/// across the level. A zone that stopped one row above the floor could never be
-/// touched by a body standing on it. Only the hub's two exits had a sill above
-/// the floor, and only they were changed.
+/// A zone that stopped one row above the floor could never be touched by a body standing on it.
+/// Only the hub's two exits had a sill above the floor, and only they were changed.
 ///
 /// So the input is a plain WALK, and what this pins is the MECHANISM: reaching
 /// a contact zone under your own power fires it.
@@ -217,7 +199,7 @@ fn reaching_a_contact_zone_under_her_own_power_changes_the_room() {
 
 /// **AND A DOOR OPENS FOR A BODY THAT WALKED UP TO IT.**
 ///
-/// ⚠ interact is held for the WHOLE walk rather than pressed on arrival, and
+/// interact is held for the WHOLE walk rather than pressed on arrival, and
 /// that is deliberate: a door is buffered-interact, the buffer is what
 /// `door_entry` covers, and holding it here keeps this test measuring the walk
 /// and the transition rather than re-measuring the buffer's timing.

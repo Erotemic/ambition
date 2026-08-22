@@ -1,34 +1,28 @@
 #!/usr/bin/env bash
-#
 # Put THIS worktree's `target/` on guest-local disk without hardcoding a path.
 #
 # The repo is checked out on virtiofs, shared between the VM and the host.
 # Cargo's default target dir — `<worktree>/target` — therefore lands on the
 # slow, shared filesystem, and VM and host would co-mingle artifacts in it.
 #
-# The old fix was `target-dir = /home/joncrall/ambition-target` in
-# `.cargo/config.toml`: one absolute path that resolved to a different local
-# disk on each machine. It worked, and it had three costs. Every worktree
-# shared ONE target dir, so parallel agents fought over its lock and thrashed
-# each other's fingerprints. The path was a guess about the machine, baked into
-# a committed file. And an agent that overrode `CARGO_TARGET_DIR` — which is the
-# obvious thing to do when you want your own — silently stopped sharing a build
-# with anything that did not, including the goal guard, so "green here, red
-# there" became possible and did happen (2026-08-15).
+# Every worktree shared ONE target dir, so parallel agents fought over its lock and thrashed
+# each other's fingerprints. The path was a guess about the machine, baked into a committed
+# file. And an agent that overrode `CARGO_TARGET_DIR` — which is the obvious thing to do when
+# you want your own — silently stopped sharing a build with anything that did not, including the
+# goal guard, so "green here, red there" became possible and did happen.
 #
 # A bind mount fixes all three: `<worktree>/target` stays cargo's default, so
 # nothing is hardcoded and nothing needs an env override, while the bytes land
 # on ext4. Each worktree gets its own backing store keyed by its path, so two
 # agents never share a lock.
 #
-# ⭐ OPT-IN ON PURPOSE. Not running it is a working configuration — you just get
+# OPT-IN ON PURPOSE. Not running it is a working configuration — you just get
 # a slower target dir on the shared mount. This script never edits the repo.
 #
 # Usage:
 #     scripts/setup_target_bindmount.sh              # mount (idempotent)
 #     scripts/setup_target_bindmount.sh --status
 #     scripts/setup_target_bindmount.sh --unmount
-#
 set -euo pipefail
 
 STORE_ROOT="${AMBITION_TARGET_STORE:-$HOME/.cache/ambition-targets}"
@@ -39,9 +33,7 @@ worktree_root() {
     git rev-parse --show-toplevel 2>/dev/null || die "not inside a git worktree"
 }
 
-# ⚠ the KEY is the worktree path, not its basename: `.claude/worktrees/agent-*`
-# basenames are long and similar, and two checkouts of one branch must not
-# collide. The readable half is kept only so `du -sh` output is legible.
+# The readable half is kept only so `du -sh` output is legible.
 store_for() {
     local root="$1" hash slug
     hash="$(printf '%s' "$root" | sha1sum | cut -c1-10)"
@@ -83,7 +75,7 @@ cmd_mount() {
     fs="$(fstype_of "$root")"
     store="$(store_for "$root")"
 
-    # ⭐ THE VM-VERSUS-REAL-SYSTEM BRANCH, and it is the whole point of the
+    # THE VM-VERSUS-REAL-SYSTEM BRANCH, and it is the whole point of the
     # script being conditional: on a machine where the checkout is already on
     # local disk, a bind mount buys nothing and only adds a thing to forget to
     # tear down. Say so and succeed, so this is safe to run unconditionally
@@ -99,7 +91,7 @@ cmd_mount() {
         return 0
     fi
 
-    # ⛔ REFUSE rather than silently orphan bytes. A populated `target/` here is
+    # REFUSE rather than silently orphan bytes. A populated `target/` here is
     # a real build sitting on the shared mount; mounting over it hides it while
     # it keeps consuming virtiofs space, and the owner would never find it.
     if [ -d "$target" ] && [ -n "$(ls -A "$target" 2>/dev/null)" ]; then

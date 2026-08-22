@@ -126,7 +126,7 @@ pub fn load_settings_at_startup(
 /// What was last committed to disk, so the writer can ask whether the file is
 /// still correct rather than whether Bevy saw a mutation.
 #[derive(Resource, Clone, Debug, Default)]
-// ⚠ the TYPE must exist on every platform — the wasm no-op systems take it as a
+// the TYPE must exist on every platform — the wasm no-op systems take it as a
 // parameter so the schedule is identical — but only the native writer READS the
 // value. `cfg`-ing the field away would change the type per platform; this says
 // the truth instead: unread here, not unused.

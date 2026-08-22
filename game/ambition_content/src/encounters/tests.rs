@@ -1,4 +1,4 @@
-//! ⛔⛔ **the engine tests pin the FUNCTION; this pins the WIRING**, and that
+//! **the engine tests pin the FUNCTION; this pins the WIRING**, and that
 //! distinction has cost this project a session before: enemy facing was plumbed,
 //! tested and green the entire time enemies walked the wrong way, because
 //! nothing asserted the authored world ever *said* which way.
@@ -9,7 +9,7 @@
 //! faces that simply do nothing. No error, no warning; the puzzle just never
 //! completes, and the only thing that changed is a level file.
 //!
-//! ⚠ this reads the shipped `.ldtk` rather than a fixture, on purpose. A
+//! this reads the shipped `.ldtk` rather than a fixture, on purpose. A
 //! regenerate, an editor session, or a careless merge is exactly what this
 //! defends against, and none of those touch a fixture.
 
@@ -18,7 +18,7 @@ use super::{KERNEL_SIGNALS, SYMMETRY_ATTUNEMENT_ID};
 /// **THE SANDBOX WORLD SAYS WHAT EACH KERNEL FACE DOES — in the level, not in
 /// Rust.**
 ///
-/// ⭐ and it says it in the vocabulary the shared contract publishes: a command
+/// and it says it in the vocabulary the shared contract publishes: a command
 /// id, a prepared `encounter:` reference, and the signal key the encounter's own
 /// objective is built from. The last of those is checked against
 /// [`KERNEL_SIGNALS`] rather than a literal list, so a world and an objective
@@ -58,7 +58,7 @@ fn the_sandbox_world_authors_what_each_kernel_switch_does() {
         }
     }
 
-    // ⭐ the non-vacuity guard: a world that lost its Switches entirely would
+    // the non-vacuity guard: a world that lost its Switches entirely would
     // satisfy every assertion below by having nothing to check.
     assert!(
         switches >= 4,

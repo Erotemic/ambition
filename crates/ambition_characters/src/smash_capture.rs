@@ -6,15 +6,7 @@
 //! crate is where a fighter's authoring currently lands. `ForwardThrow` is no
 //! more a universal character concept than `ForwardSmash` is.
 //!
-//! ⛔ **do not move it for purity, and that ruling SURVIVED the facet landing.**
-//! The restitch point named here was *"the first real character-owned
-//! `smash.fighter` facet"*, and [`crate::smash_fighter`] is it (D166,
-//! 2026-08-18): a schema owned by `SMASH_FIGHTER_CAPABILITY`, values authored in
-//! a character package, and George's kit reaching the runtime through it. What
-//! that establishes is the OWNERSHIP, by name, in the crate the types still live
-//! in. It is not a licence to start the crate carve — the capture kit is one
-//! section of one fighter's authoring, and moving the types on the strength of
-//! it would be the migration this note has refused twice.
+//! What that establishes is the OWNERSHIP, by name, in the crate the types still live in.
 //!
 //! ## What a capture IS, and why it is not a hit
 //!
@@ -45,27 +37,10 @@
 //!
 //! ## ⚠ On startup validation, which does NOT exist here
 //!
-//! `ambition_entity_catalog::ParamSchemaRegistry` is the documented road for
-//! *"a param typo fails at startup, not mid-fight"*. **It has no production
-//! installer** — measured 2026-08-18: the type, one unit test, and zero callers
-//! of `validate` anywhere in the tree. So registering a check for these keys
-//! would register it with nobody.
-//!
-//! ⭐ **and it costs this road nothing, because a fighter never writes params by
-//! hand.** `author_standing_grab(spec, CaptureAttemptParams { … })` takes a
-//! typed struct, so a misspelled or missing field is a COMPILE error in the
-//! fighter's own file — strictly earlier than startup. The registry matters for
-//! hand-written RON, which no capture move uses.
-//!
-//! ⇒ **capture params ARE authorable now (D166, 2026-08-18) — and they are not
-//! LOOSE, which is why that precondition is met rather than skipped.** A
-//! [`crate::smash_fighter`] facet carries them as typed serde structs with
-//! `deny_unknown_fields`, read by the content compiler before a pack may reach a
-//! runtime — so a misspelled `knockback_grouth` is a diagnostic naming the file
-//! and the field at COMPILE time, which is strictly earlier and strictly more
-//! specific than the startup check `ParamSchemaRegistry` would have given. The
-//! registry is still the answer for params typed straight into a move's
-//! `EffectRef` by hand; no capture move does that.
+//! ⭐ **and it costs this road nothing, because a fighter never writes params by hand.**
+//! `author_standing_grab(spec, CaptureAttemptParams { … })` takes a typed struct, so a
+//! misspelled or missing field is a COMPILE error in the fighter's own file — strictly earlier
+//! than startup.
 
 use ambition_entity_catalog::{EffectRef, MoveSpec, ParamValue, VolumeShape};
 use serde::{Deserialize, Serialize};
@@ -350,10 +325,7 @@ pub fn author_standing_grab(mut spec: MoveSpec, params: CaptureAttemptParams) ->
 /// **The cue a capture beat carries**, owned here for the reason the effect keys
 /// are: a fighter authors VALUES, and the strings stay in one module.
 ///
-/// ⚠ **`sfx: None` is not silence.** `dispatch_move_events` asks for a paired
-/// `FxRequest` and presentation resolves the sound the effect's NAME addresses,
-/// which is why the moveset guards stopped requiring a hand-paired `Sfx` event
-/// (D149). Naming the effect is naming the cue.
+/// Naming the effect is naming the cue.
 fn burst(mut spec: MoveSpec, at_s: f32, effect: &str, scale: f32) -> MoveSpec {
     spec.events.push(ambition_entity_catalog::MoveEvent {
         at_s,
@@ -418,16 +390,9 @@ pub fn author_throw(mut spec: MoveSpec, at_s: f32, params: CaptureThrowParams) -
     spec
 }
 
-/// **WHAT A PLATFORM-FIGHTER HOLD KNOWS ABOUT ITSELF — the policy half of a
-/// capture, split off the generic relation on 2026-08-19.**
-///
-/// ⭐⭐ **why this is not on [`CapturedBy`](ambition_combat::capture::CapturedBy)
-/// any more.** That component is the RELATION: who holds whom, where, and what
-/// physical state release must give back. Every field of it is answerable
-/// without knowing what genre is being played. These three are not — the
-/// 2026-08-19 GPT review put it plainly: *"A radically different game may quite
-/// reasonably want `actor A constrains actor B` without any concept of pummels,
-/// mash escape, a four-second grab timeout, or a standing-grab grounded rule."*
+/// **why this is not on [`CapturedBy`](ambition_combat::capture::CapturedBy) any more.** That
+/// component is the RELATION: who holds whom, where, and what physical state release must give
+/// back. Every field of it is answerable without knowing what genre is being played.
 ///
 /// ⇒ they were fine on the relation while the mechanic was being proven, and
 /// they are not convincing final owners. The split is not cosmetic: it is why a
@@ -440,18 +405,12 @@ pub fn author_throw(mut spec: MoveSpec, at_s: f32, params: CaptureThrowParams) -
 /// without pummelling them.
 #[derive(bevy::prelude::Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct SmashHoldState {
-    /// How many pummels have landed on this hold. The current customer is the
-    /// CPU's capture policy (pummel, then throw) and diagnostics; it is a fact
-    /// ABOUT the hold and dies with it.
     pub pummels_landed: u8,
     /// **How long this hold has lasted**, in the same scaled seconds a move
     /// timeline advances in — so a capture does not age during hitstop.
     ///
-    /// ⛔⛔ **a capture with no clock is UNBOUNDED, and that is a gameplay bug
-    /// rather than a missing feature.** Nothing in the relation ends it on its
-    /// own: a throw is a choice its captor may never make, and an interruption
-    /// is a third party's. Without an age, a fighter who grabs and then does
-    /// nothing holds a body for the rest of the match.
+    /// Without an age, a fighter who grabs and then does nothing holds a body for the rest of
+    /// the match.
     pub held_for: f32,
     /// **What the captive's OWN input has bought toward getting out**, in the
     /// same seconds [`Self::held_for`] counts.
@@ -459,11 +418,6 @@ pub struct SmashHoldState {
     /// ⭐ **the shape matters more than the number.** A captive is not a body
     /// whose input ceased to exist — it is a body whose input reaches a
     /// restricted channel, and this is that channel's accumulator.
-    ///
-    /// ⚠ **seconds rather than a fraction of one escape, since 2026-08-20**, so
-    /// that mashing and waiting are the same currency: the hold a fighter earns
-    /// now depends on the captive's damage, and a fraction of a variable target
-    /// is a number nothing can compare against anything.
     pub mash_credit: f32,
     /// **How long THIS hold lasts**, decided when it began.
     ///
@@ -498,12 +452,9 @@ impl SmashHoldState {
 
 /// **A fighter's capture kit.**
 ///
-/// ⚠ the three throws beyond forward are `Option` DURING THE MIGRATION. The
-/// first implementation proves the relationship architecture on two fighters;
-/// forcing all fourteen to invent four throws each before that is settled would
-/// be authoring against a shape that is still moving. When the roster is
-/// migrated and capture is part of the required Smash contract, these lose their
-/// `Option` the same way any other slot would.
+/// ⚠ the three throws beyond forward are `Option` DURING THE MIGRATION. When the roster is
+/// migrated and capture is part of the required Smash contract, these lose their `Option` the
+/// same way any other slot would.
 ///
 /// ⛔ **an unauthored throw does NOTHING**, and deliberately does not fall back
 /// to a pummel. A player who presses up+attack and gets a pummel has been told

@@ -1,11 +1,7 @@
 //! **The Phase-3 exit criteria, proven against the three real families.**
 //!
 //! The pure planner's own properties are proven in
-//! `ambition_platformer2d_shared_tangle::construction`. These tests are about the
-//! actor domain: that a real authored room, a real provider stager, and a real
-//! summon all go through that planner; that the failures which used to be
-//! silent skips now stop the room before it is torn down; and that
-//! reconstruction runs the same recipe ordinary construction does.
+//! `ambition_platformer2d_shared_tangle::construction`.
 
 use ambition_characters::actor::limb::{Limb, LimbIntents, LimbRig, LimbRouteState, LimbSlot};
 use ambition_platformer2d_shared_tangle::construction::{
@@ -32,14 +28,7 @@ fn empty_room(id: &str) -> crate::rooms::RoomSpec {
 
 /// **THE FIXTURE CAST every construction test builds bodies from.**
 ///
-/// ⛔ **these tests used to name a fixture ARCHETYPE ROW** (`medium_striker`,
-/// `fixture_giant`, `fixture_mount`, `puppy_slug`) and construction resolved a
-/// body from the roster — settling for the generic `combatant` whenever the key
-/// matched nothing. The roster is deleted (AC6): a placement, a staged request
-/// and a summon each name a CHARACTER, and one that names none is refused. So
-/// the fixtures name characters, and this is where they exist.
-///
-/// ⚠ `'static` because `ActorConstructionContext` BORROWS the cast, and a
+/// `'static` because `ActorConstructionContext` BORROWS the cast, and a
 /// per-test local would not outlive the plan it is handed to.
 fn fixture_cast() -> &'static crate::character_runtime::PreparedCharacterRegistry {
     static CAST: std::sync::OnceLock<crate::character_runtime::PreparedCharacterRegistry> =
@@ -180,8 +169,7 @@ fn commit(plan: RoomFeatureConstructionPlan) -> App {
     commit_over(plan, |_| {})
 }
 
-/// As [`commit`], with `seed` run against the world FIRST — before the
-/// transaction opens, so whatever it spawns is part of the opening baseline.
+/// As [`commit`], with `seed` run against the world FIRST
 fn commit_over(plan: RoomFeatureConstructionPlan, seed: impl FnOnce(&mut World)) -> App {
     let mut app = App::new();
     app.add_message::<crate::rooms::RoomLoaded>();
@@ -207,10 +195,8 @@ fn commit_over(plan: RoomFeatureConstructionPlan, seed: impl FnOnce(&mut World))
 
 // ── All three origins, one planner ───────────────────────────────────────────
 
-/// The authored ground item and the provider-staged actors land in ONE plan,
-/// each stating the origin category it actually has. Before this, the staged
-/// pair went out as deferred `SpawnActorRequest` messages and neither family
-/// recorded where it came from at all.
+/// The authored ground item and the provider-staged actors land in ONE plan, each stating the
+/// origin category it actually has.
 #[test]
 fn a_room_plans_its_authored_and_provider_staged_families_with_real_provenance() {
     let recipes = engine_construction_registry();
@@ -326,9 +312,6 @@ fn committed_entities_carry_their_identity_and_provenance() {
     );
 }
 
-/// The staged duel's mutual grudge is wired from the plan's relations. The old
-/// path did this in a post-spawn `wire_staged_grudges` pass over one message
-/// batch; a foe in a different batch, or misspelled, was silently dropped.
 #[test]
 fn the_staged_duels_mutual_grudge_is_wired_from_the_plan() {
     let recipes = engine_construction_registry();
@@ -353,7 +336,6 @@ fn the_staged_duels_mutual_grudge_is_wired_from_the_plan() {
     );
 }
 
-// ── Failures that used to be silent ──────────────────────────────────────────
 
 /// Exit criterion: *a failed plan leaves the active world unchanged* — and the
 /// specific failure is one that used to be a bare `return` inside the spawner.
@@ -411,7 +393,7 @@ fn every_reinstatable_record_can_be_relocated() {
              room that owed it would build it at the coordinates its own record \
              names instead of where the occurrence was left",
         );
-        // ⭐ and it MOVED — `relocate_request` answering true while ignoring the
+        // and it MOVED — `relocate_request` answering true while ignoring the
         // position is the same defect wearing the other mask.
         let ActorConstructionParams::GroundItem { spec, .. } = &request.parameters else {
             panic!("a relocated ground item is still a ground item");
@@ -440,9 +422,6 @@ fn the_same_room_plans_once_its_held_item_resolves() {
     assert_eq!(items, 1, "the authored pickup reached the world");
 }
 
-/// Exit criterion: *unresolved relations fail before mutation.* A
-/// `grudge_against` naming nobody used to leave the fighter with no grudge and
-/// no complaint.
 #[test]
 fn a_grudge_against_nobody_fails_the_plan() {
     let recipes = engine_construction_registry();
@@ -605,9 +584,6 @@ fn a_summoned_minion_is_planned_as_a_dynamic_child_of_its_summoner() {
     );
 }
 
-/// Two summons from the same summoner take distinct identities even when the
-/// authored summon spec reuses one feature id. Under the old path both landed
-/// on `placement:{feature_id}` and collided outright.
 #[test]
 fn two_summons_from_one_summoner_do_not_collide() {
     let recipes = engine_construction_registry();
@@ -722,8 +698,7 @@ fn stager_registration_order_does_not_change_the_room_plan() {
 
 // ── The summon executor, end to end ──────────────────────────────────────────
 //
-// `apply_summon_effects` had no test at all before this. It is the only place
-// the runtime-dynamic family actually reaches the world, so a change there
+// It is the only place the runtime-dynamic family actually reaches the world, so a change there
 // could otherwise ride a fully green suite.
 
 /// Drive the real `apply_summon_effects` system over one summon request.
@@ -749,8 +724,6 @@ fn insert_summon_resources(world: &mut World) {
     world.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
     world.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
     world.insert_resource(engine_construction_registry());
-    // ⭐ **the CAST, because a summon names a character** (AC6). A summon that
-    // resolves none is refused where it used to become a generic `combatant`.
     world.insert_resource(fixture_cast().clone());
 }
 
@@ -772,7 +745,7 @@ fn summon_spec(id: &str) -> ambition_vfx::SummonSpec {
     }
 }
 
-/// ⛔ **The summoner is built by the REAL construction executor, not by hand.**
+/// **The summoner is built by the REAL construction executor, not by hand.**
 ///
 /// Every other test in this section spawns it as
 /// `(SimId::placement(..), SimIdCounter::default())` — the fixture hand-supplying
@@ -781,7 +754,7 @@ fn summon_spec(id: &str) -> ambition_vfx::SummonSpec {
 /// Minima Trap summons a "Puppy Slug", and on a construction-built boss
 /// `apply_summon_effects` read `counter=None`, warned, and built nothing.
 ///
-/// ⭐ the general rule this pins: *a test that constructs its subject's
+/// the general rule this pins: *a test that constructs its subject's
 /// preconditions by hand cannot detect that production never establishes them.*
 /// The only assertion that can is one whose subject came out of the shipped
 /// builder — here `RoomFeatureConstructionPlan::prepare` →
@@ -931,10 +904,9 @@ fn a_summon_from_an_unidentified_emitter_is_refused() {
 /// RELATION CLOSURE, so asking for one duellist rebuilds **both** and the grudge
 /// is wired.
 ///
-/// This used to REFUSE (the closure was not expanded, so `construct_one` hit
-/// `RelationCutBySubset`). Rebuilding the closure is the better contract: it is
-/// the only way to bring a related row back correctly, and it is exactly what the
-/// giant host + hands need. Both duellists come back with the grudge intact.
+/// Rebuilding the closure is the better contract: it is the only way to bring a related row back
+/// correctly, and it is exactly what the giant host + hands need. Both duellists come back with the
+/// grudge intact.
 #[test]
 fn rebuilding_one_duellist_rebuilds_its_grudge_partner_too() {
     let recipes = engine_construction_registry();
@@ -1006,12 +978,10 @@ fn a_relation_free_row_in_the_same_plan_still_rebuilds_alone() {
 
 /// Every parameter variant reaches a construction arm and produces its root.
 ///
-/// This is what replaced the removed `AcceptsFn` tests. The recipe is derived from the
-/// payload and construction is one exhaustive match, so a variant with no arm is
-/// a compile error rather than a mid-commit panic — but "every arm actually
-/// builds something" is still a behavioural claim, and this is it. A new
-/// `ActorConstructionParams` variant that is planned but forgotten here shows up
-/// as a missing identity, not as a green suite.
+/// The recipe is derived from the payload and construction is one exhaustive match, so a variant
+/// with no arm is a compile error rather than a mid-commit panic — but "every arm actually builds
+/// something" is still a behavioural claim, and this is it. A new `ActorConstructionParams` variant
+/// that is planned but forgotten here shows up as a missing identity, not as a green suite.
 #[test]
 fn every_parameter_variant_constructs_its_root() {
     let recipes = engine_construction_registry();
@@ -1140,10 +1110,7 @@ fn a_rejected_summon_batch_spends_no_identity() {
     );
 }
 
-/// A summoner with no `SimIdCounter` at all is refused before anything is built
-/// — not discovered afterwards, when the minions already exist.
-///
-/// ⚠ **the state is now UNREACHABLE by ordinary means**: `SimId` requires
+/// **the state is now UNREACHABLE by ordinary means**: `SimId` requires
 /// `SimIdCounter`, so an identified entity is born able to be descended from.
 /// It is stripped explicitly here because the refusal is still the correct
 /// answer if something ever tears the pair apart, and a branch nothing can enter
@@ -1270,11 +1237,6 @@ fn every_parameter_variant_matches_its_descriptor() {
     }
 }
 
-/// The counter check happens INSIDE the same exclusive-world command that
-/// builds the minions, so a mutation landing between the system running and its
-/// command applying is caught with nothing built — rather than discovered after
-/// the identities have already been handed out.
-///
 /// The window is real here, not simulated: `apply_summon_effects` queues its
 /// commit, a second system writes the counter DIRECTLY (no commands, so no sync
 /// point), and only then does the schedule reach the barrier where the commit
@@ -1300,11 +1262,8 @@ fn a_counter_mutation_before_the_commit_applies_refuses_with_nothing_built() {
     });
 
     let mut schedule = Schedule::default();
-    // Bevy auto-inserts a sync point between a command-queueing system and a
-    // later one, which would apply the summon's commit before the interloper
-    // runs and close the very window under test. Turned off here deliberately:
-    // the point is to reproduce the interleaving, not to rely on the scheduler
-    // preventing it.
+    // Turned off here deliberately: the point is to reproduce the interleaving, not to rely on
+    // the scheduler preventing it.
     schedule.set_build_settings(bevy::ecs::schedule::ScheduleBuildSettings {
         auto_insert_apply_deferred: false,
         ..Default::default()
@@ -1334,9 +1293,6 @@ fn a_counter_mutation_before_the_commit_applies_refuses_with_nothing_built() {
 // `spawn_room_feature_entities_from_plan` → the queued capture/verify pair →
 // `RoomLoaded`. Nothing here reaches into the verifier directly.
 
-/// The engine's real recipes, but with the grudge's WIRING replaced by a no-op
-/// while its metadata and its verifier stay exactly as production declares them.
-///
 fn room_loaded_count(app: &mut App) -> usize {
     app.world_mut()
         .resource_mut::<bevy::ecs::message::Messages<crate::rooms::RoomLoaded>>()
@@ -1349,17 +1305,10 @@ fn room_loaded_count(app: &mut App) -> usize {
 /// **A room that fails verification does not publish, and does not write
 /// `RoomLoaded`.**
 ///
-/// The failure here is a real production shape rather than an injected one: an
-/// entity already holds an identity this room plans, so committing the room
-/// creates a second body for it — `PlannedOverBaseline`. Nothing test-only is
-/// wired into the construction path to produce it.
+/// Nothing test-only is wired into the construction path to produce it.
 ///
-/// It used to be produced by registering deliberately broken `RelationOps` into
-/// the registry ahead of the engine's own, which worked only because the
-/// registry stored executable behaviour and treated identical metadata as
-/// idempotent — the first-wins hazard itself. That hazard is gone, so the seam
-/// is gone with it; relation-postcondition detection is proven against the toy
-/// domain in `ambition_platformer2d_shared_tangle` and, for the real limb and mount
+/// That hazard is gone, so the seam is gone with it; relation-postcondition detection is proven
+/// against the toy domain in `ambition_platformer2d_shared_tangle` and, for the real limb and mount
 /// wiring, by the poison tests further down this file.
 #[test]
 fn a_room_that_fails_verification_is_not_published() {
@@ -1644,11 +1593,6 @@ fn a_limb_whose_slot_was_rewritten_is_detected() {
 
 /// Two limbs ACCUMULATE into one rig, in the plan's canonical relation order
 /// rather than in whatever order anything happened to spawn.
-///
-/// The rig is a `Vec` and `fan_out_limb_intents` reads it positionally, so the
-/// order is content, not incident. Canonical order sorts by the limb's `SimId`,
-/// which is why the two hands file under their two distinct slots regardless of
-/// declaration order.
 #[test]
 fn two_limbs_accumulate_into_one_rig_keyed_by_slot() {
     let giant = SimId::placement("giant");
@@ -1813,11 +1757,8 @@ fn a_limb_filed_under_the_wrong_slot_is_detected() {
 
 /// **A limb whose home offset was overwritten after wiring is detected.**
 ///
-/// The offset is the limb's entire idle behaviour; a corrupted one station-keeps
-/// to the wrong place forever, which no structural check would ever notice. This
-/// is the poison counterpart to `a_limb_relation_wires_the_limb_and_the_hosts_rig`,
-/// which asserts the offset lands: it did not fail before this check existed,
-/// because nothing read the offset back.
+/// The offset is the limb's entire idle behaviour; a corrupted one station-keeps to the wrong
+/// place forever, which no structural check would ever notice.
 #[test]
 fn a_limb_with_a_corrupted_home_offset_is_detected() {
     let plan = related_actor_plan(
@@ -2100,14 +2041,7 @@ fn giant_room() -> crate::rooms::RoomSpec {
 
 /// **A CHARACTER can make a limbed host, with no archetype row saying so.**
 ///
-/// ⛔ this is the predicate that kept `giant_gnu` chained to
-/// `character_archetypes.ron` (ledger D76). Planning asked
-/// `spec_for_brain(brain).mount_class`, a roster lookup, so a character that
-/// authors `CharacterMount { class: Some("giant") }` was invisible to it and the
-/// giant lowered as a HANDLESS host — measured as 18 red tests, `left: 1, right:
-/// 3`, the moment the row was deleted.
-///
-/// ⚠ the fixture's roster deliberately answers `combatant` for this brain, so
+/// the fixture's roster deliberately answers `combatant` for this brain, so
 /// the ONLY thing that can produce three rows here is the character.
 #[test]
 fn a_character_that_authors_a_giant_mount_plans_its_hands_without_a_row() {
@@ -2433,7 +2367,7 @@ fn a_runtime_minion_giant_is_refused_before_it_spawns() {
             &mut commands,
             &catalog,
             &Default::default(),
-            // ⭐ **the giant IS in the cast**, so the refusal under test is the
+            // **the giant IS in the cast**, so the refusal under test is the
             // limb-rig one rather than "this names no character" (AC6).
             fixture_cast(),
             SessionSpawnScope::UNSCOPED,
@@ -3033,11 +2967,9 @@ fn every_authored_enemy_and_boss_is_a_plan_row() {
     }
 }
 
-/// The migrated actors are VISIBLE to the boundary verifier: identity,
-/// provenance, and transaction ownership are stamped at construction, not
-/// assigned by `ensure_sim_id` after verification has already run. The room
-/// publishes with zero violations — the families this table row used to hide
-/// are now inside the checked roster.
+/// The migrated actors are VISIBLE to the boundary verifier: identity, provenance, and transaction
+/// ownership are stamped at construction, not assigned by `ensure_sim_id` after verification has
+/// already run.
 #[test]
 fn a_committed_actor_room_is_fully_visible_at_the_boundary() {
     let mut room = empty_room("field");
@@ -3157,7 +3089,7 @@ fn placement_registry() -> crate::world::placements::PlacementLoweringRegistry {
 }
 
 fn placement_room() -> crate::rooms::RoomSpec {
-    // ⚠ `PickupKind` comes from the crate ROOT, not from `placements` — it is
+    // `PickupKind` comes from the crate ROOT, not from `placements` — it is
     // public there and re-exported privately here, which `d3bd6e95a` exposed
     // when it deleted `PickupKindSpec`.
     use ambition_entity_catalog::placements::{
@@ -3281,12 +3213,11 @@ fn a_placement_respawns_through_the_planner() {
     assert_ne!(find(world, &ring), old);
 }
 
-// ── Phase 4d: the formerly-anonymous static families ──────────────────────────
 
 /// Shrines and gravity zones always had stable authored iids; the entities now
 /// wear them as plan rows, verified at the boundary like everything else.
 ///
-/// ⭐ **and they are now plan rows in DIFFERENT LANES**, which is the whole
+/// **and they are now plan rows in DIFFERENT LANES**, which is the whole
 /// point of the second extraction: the shrine is actor-domain vocabulary and the
 /// gravity zone is the gravity capability's. One room, two independently typed
 /// lanes, one transaction — so this test asks each lane for its own row rather
@@ -3351,7 +3282,7 @@ fn shrines_and_gravity_zones_are_stamped_plan_rows() {
         "identity and the populated shrine are the SAME entity"
     );
 
-    // ⭐ **the other lane actually BUILT something**, checked the same way: the
+    // **the other lane actually BUILT something**, checked the same way: the
     // identity and the populated zone are one entity. A lane that planned a row
     // and constructed nothing would satisfy every assertion above.
     let mut zones = world.query::<(
@@ -3376,7 +3307,6 @@ fn shrines_and_gravity_zones_are_stamped_plan_rows() {
     );
 }
 
-// ── Phase 4g (slice 1): the commit boundary refuses a stale content binding ───
 
 /// A plan prepared against one content generation must not publish a room into
 /// a session live under another. Detection, not prevention — the world has
@@ -3436,16 +3366,6 @@ fn a_plan_matching_the_live_binding_publishes() {
 /// authored path that matches nothing leaves the enemy passive, silently, and
 /// nothing else objects. That is what the sweep is for.
 ///
-/// ⛔ **the staged BRAIN KEY used to be the second such reference and is not one
-/// any more.** `spec_for_brain` could not fail, so a typo'd key quietly became
-/// the generic `combatant`; AC6 deleted the ontology, and a body whose character
-/// resolves to nothing is now REFUSED by `preflight_planned_bodies` before the
-/// room is touched. A refusal is stronger than a report, so the staged half of
-/// this fixture spawns a buildable body and the sweep has one channel to report
-/// on. ⚠ this is also why both enemies here name a registered character: an
-/// unbuildable one would refuse the whole room, and this test would be measuring
-/// that refusal rather than the sweep.
-///
 /// Held items are deliberately not part of this: `authored_static_requests`
 /// already REFUSES an unknown `held_item` (`UnknownHeldItem`), which is stronger
 /// than reporting it. The sweep keeps the namespace for callers outside
@@ -3483,12 +3403,10 @@ fn prepare_hands_the_plan_what_the_room_could_not_bind() {
     let plan = prepare(&room, &staging, &engine_construction_registry())
         .expect("an unbound reference is a content defect, not a reason to refuse the room");
 
-    // ⛔ **ONE channel now** (AC6). The staged half of this sweep resolved a
-    // BRAIN KEY against the archetype roster, and a typo there was reported here
-    // because the lookup behind it could not fail. Construction now REFUSES an
-    // identifier that names no character, which is a stronger statement than a
-    // report — so the patrol path is the namespace this sweep still owns, and it
-    // is the one whose failure mode is still silent (a bad path goes passive).
+    // **ONE channel now** (AC6). Construction now REFUSES an identifier that names no
+    // character, which is a stronger statement than a report — so the patrol path is the
+    // namespace this sweep still owns, and it is the one whose failure mode is still silent (a
+    // bad path goes passive).
     let report = plan.binding_report();
     assert_eq!(report.len(), 1, "the patrol channel is swept:\n{report}");
 
@@ -3517,7 +3435,7 @@ fn prepare_hands_the_plan_what_the_room_could_not_bind() {
 
 /// **A body nothing can build REFUSES THE PLAN — it does not panic mid-commit.**
 ///
-/// ⛔⛔ **the half AC6 left late.** Deleting the archetype ontology made an
+/// **the half AC6 left late.** Deleting the archetype ontology made an
 /// unresolvable character honest: there is no generic body left to settle for.
 /// But the refusal it became lived inside `spawn_enemy_with_faction_into`, which
 /// runs as a construction RECIPE — so the honest answer arrived as a panic after
@@ -3529,7 +3447,7 @@ fn prepare_hands_the_plan_what_the_room_could_not_bind() {
 /// character at all, names one nobody registered, names one that is registered
 /// and cannot build a body.
 ///
-/// ⛔ poison, and it is the half that matters: an enemy naming a REGISTERED
+/// poison, and it is the half that matters: an enemy naming a REGISTERED
 /// character must still prepare. A preflight that refused everything would pass
 /// the three assertions above and refuse every shipping room.
 #[test]
@@ -3557,18 +3475,11 @@ fn an_unbuildable_body_refuses_the_plan_before_anything_is_built() {
         )
     };
 
-    // ⛔⛔ **the first of the three shapes is GONE, and that is the point of the
-    // 2026-08-14 change rather than a hole in this test.** It asserted that a
-    // placement naming NO character was refused with `BodyNamesNoCharacter`;
-    // `EnemySpawnSpec::character_id` is required now, so that placement cannot
-    // be constructed at all, and the LDtk lowering refuses the authored entity
-    // by name (`convert_enemy_spawn`, pinned in `conversion::mod`'s tests). The
-    // refusal moved from preparation to the type and to authoring — earlier on
-    // both counts. ⭐ and `ActorConstructionError::BodyNamesNoCharacter` is
-    // DELETED with it: the staged request's character became required in the
-    // same pass, so no road reaching the preflight can name no character, and
-    // the variant, its `Display` arm, the `PlannedBody` struct and the
-    // `named_by` field that existed only for its message all went with it.
+    // **the first of the three shapes is GONE, and that is the point of the change rather than
+    // a hole in this test.** It asserted that a placement naming NO character was refused with
+    // `BodyNamesNoCharacter`; `EnemySpawnSpec::character_id` is required now, so that placement
+    // cannot be constructed at all, and the LDtk lowering refuses the authored entity by name
+    // (`convert_enemy_spawn`, pinned in `conversion::mod`'s tests).
     assert!(
         matches!(
             prepare_room(&room_naming("iron_mary")),
@@ -3620,15 +3531,12 @@ fn an_unbuildable_body_refuses_the_plan_before_anything_is_built() {
 /// **A STAGED actor takes its mount facts from its CHARACTER**, exactly as an
 /// authored one does.
 ///
-/// ⛔ `mount_capabilities_of`'s staged arm read the archetype alone, while the
-/// authored arm beside it had asked the character since D76. `SpawnActorKind::
-/// Enemy` has carried a `character` since P1.12 and its own doc names the
-/// consequence: *"A shark spawned this way stopped being rideable and started
-/// falling out of the sky."* That was repaired at the SPAWN — so the body was
-/// built rideable and PLANNED un-rideable, and the plan is what the mount-link
-/// legality rules are checked against.
+/// `SpawnActorKind: Enemy` has carried a `character` since P1.12 and its own doc names the
+/// consequence: *"A shark spawned this way stopped being rideable and started falling out of
+/// the sky."* That was repaired at the SPAWN — so the body was built rideable and PLANNED
+/// un-rideable, and the plan is what the mount-link legality rules are checked against.
 ///
-/// ⭐ the fixture's roster answers `combatant` for this brain — a row with no
+/// the fixture's roster answers `combatant` for this brain — a row with no
 /// mount at all — so the only thing that can make this request rideable is the
 /// character, and the control below proves it by removing the cast.
 #[test]
@@ -3660,7 +3568,7 @@ fn a_staged_actor_takes_its_mount_from_the_character_it_names() {
         "the character authors a mount class and the plan must carry it"
     );
 
-    // ⛔ the control, and it is what makes the assertion above mean anything:
+    // the control, and it is what makes the assertion above mean anything:
     // with no cast the same request falls to the archetype, which states no
     // mount. If this ALSO said `shark`, the roster would be answering and the
     // character would be decorative.

@@ -1,14 +1,11 @@
 //! `SnapshotState` for this crate's own types — the rollback wire format.
 //!
-//! ⚠ These impls live HERE, beside the types they encode, because
-//! `ambition_platformer2d_core::snapshot` owns the trait and the orphan rule binds an
-//! impl to the crate owning the trait OR the type. Until 2026-07-30 the trait
-//! sat in `ambition_platformer2d_runtime`, above every domain crate, so the only place all
-//! ~100 of them could compile was one 2688-line file in `ambition_platformer2d_runtime`. The
-//! orphan rule is what proves this file is in the right crate: if a type moves,
-//! this stops compiling rather than drifting.
+//! These impls live HERE, beside the types they encode, because
+//! `ambition_platformer2d_core::snapshot` owns the trait and the orphan rule binds an impl to the
+//! crate owning the trait OR the type. The orphan rule is what proves this file is in the right
+//! crate: if a type moves, this stops compiling rather than drifting.
 //!
-//! ⚠ A field added to an encoded type is a WIRE FORMAT change. Encode and
+//! A field added to an encoded type is a WIRE FORMAT change. Encode and
 //! decode must stay in the same order, and `snapshot_unit_enum!` codes are
 //! authored per variant so inserting one never renumbers the rest.
 
@@ -30,7 +27,7 @@ snapshot_unit_enum!(crate::actor::ai::CharacterAiMode {
 });
 
 // **The platform-fighter half of a capture.** Split off
-// `ambition_combat::capture::CapturedBy` on 2026-08-19: the relation is generic
+// `ambition_combat:capture:CapturedBy`: the relation is generic
 // and these four are the ruleset's, so they rewind under this crate's ownership
 // rather than widening a row somebody else owns.
 snapshot_pod!(crate::smash_capture::SmashHoldState {
@@ -63,13 +60,8 @@ snapshot_unit_enum!(crate::actor::DeathPolicy {
     Unbounded = 1,
 });
 
-/// **A body's health is three facts, and the codec used to carry one.**
-///
-/// ⚠ **wire-format change, 2026-07-31 (GPT 5.6 review, finding 1).** `BodyHealth`
-/// gained an uncapped damage METER (the smash-percent axis) and a DEATH POLICY
-/// when the stocks loop landed. This encoding still carried only the pool, and
-/// `decode` rebuilt the component with `BodyHealth::new` — which resets the meter
-/// to 0 and the policy to `HpDepleted`.
+/// This encoding still carried only the pool, and `decode` rebuilt the component with
+/// `BodyHealth::new` — which resets the meter to 0 and the policy to `HpDepleted`.
 ///
 /// `CanonicalCodecStrategy` uses this encoding for the STORED GGRS value, so it
 /// was not a checksum omission: a fighter at 188% under `Unbounded` came back
@@ -289,12 +281,10 @@ impl SnapshotState for crate::brain::boss_pattern::BossPatternStep {
             }
             // Unreachable in a resolved timeline. Tag 4 decodes to `None`.
             //
-            // ⚠ **and if it IS reached, the release build loses state silently.**
-            // Tag 4 round-trips to `None`, so a rewind restores a timeline
-            // missing this step and the divergence surfaces later as a checksum
-            // mismatch with no name attached — the hardest kind to trace. The
-            // `debug_assert!` that used to stand alone here said so only in a
-            // debug build, which is not where the desync gets reported.
+            // **and if it IS reached, the release build loses state silently.** Tag 4 round-trips
+            // to `None`, so a rewind restores a timeline missing this step and the divergence
+            // surfaces later as a checksum mismatch with no name attached — the hardest kind to
+            // trace.
             //
             // The wire format is deliberately unchanged: this claims to be
             // unreachable, and a new tag would be a schema change made on a
@@ -415,11 +405,6 @@ impl SnapshotCursor for crate::brain::Brain {
                 put_u32(out, state.ticks_until_decision);
                 put_u32(out, state.apm.presses);
                 put_u32(out, state.apm.elapsed_ticks);
-                // ⚠ the pending press is a DECISION, not just a clock: since
-                // 2026-07-31 it carries the binding that will be pressed when it
-                // matures (GPT 5.6 finding 2), and a rewind that restored the
-                // count without the choice would resimulate the same delay into
-                // a different move.
                 match state.pending_press {
                     None => put_bool(out, false),
                     Some(pending) => {
@@ -491,10 +476,8 @@ impl SnapshotState for crate::actor::character_catalog::BrainBinding {
     fn encode(&self, out: &mut Vec<u8>) {
         use crate::actor::character_catalog::AutonomousDefault;
         use crate::actor::character_catalog::AutonomousSource;
-        // ⭐ THREE cases, not two. A tag byte: 0 = nothing to restore (a boss),
-        // 1 = a catalog preset, 2 = the character's own authored profile. The
-        // third used to be encoded as tag 1 with an EMPTY string, which is how an
-        // absent default survived a rewind still looking present.
+        // THREE cases, not two. A tag byte: 0 = nothing to restore (a boss), 1 = a catalog preset,
+        // 2 = the character's own authored profile.
         match &self.default_preset {
             AutonomousDefault::Preset(preset) => {
                 put_u8(out, 1);
@@ -509,11 +492,10 @@ impl SnapshotState for crate::actor::character_catalog::BrainBinding {
                 put_u8(out, 1);
                 put_str(out, preset.as_str());
             }
-            // ⭐ **A TAG AND NOTHING ELSE**, since 2026-08-12. This carried a
-            // `HostileArchetypeId` that was always the string `"combatant"` —
-            // one row, forever — so the rollback road resolved a roster the live
-            // road had already stopped consulting. The engine states the default
-            // provoked policy; there is nothing to look up.
+            // This carried a `HostileArchetypeId` that was always the string `"combatant"` — one
+            // row, forever — so the rollback road resolved a roster the live road had already
+            // stopped consulting. The engine states the default provoked policy; there is nothing
+            // to look up.
             AutonomousSource::ProvokedDefault => put_u8(out, 2),
             // Boss: the live brain is a `BossPattern` rebuilt from the boss
             // catalog by this id (or resumed from the suspended runtime), never a
@@ -522,7 +504,7 @@ impl SnapshotState for crate::actor::character_catalog::BrainBinding {
                 put_u8(out, 3);
                 put_str(out, archetype.as_str());
             }
-            // ⭐ A provoked CHARACTER's own combat policy, by canonical id — the
+            // A provoked CHARACTER's own combat policy, by canonical id — the
             // same shape as its three neighbours, and the reason the variant
             // names a profile instead of carrying one: a tag and a string,
             // rather than a dozen tuned floats in the rollback codec.
@@ -530,7 +512,7 @@ impl SnapshotState for crate::actor::character_catalog::BrainBinding {
                 put_u8(out, 4);
                 put_str(out, profile.as_str());
             }
-            // ⭐ **A TAG AND NOTHING ELSE.** The character's own authored policy
+            // **A TAG AND NOTHING ELSE.** The character's own authored policy
             // is the default; the character is reachable from the body's
             // identity, so there is no id to carry — and carrying the
             // `BrainProfile` itself would put a dozen tuned floats in the

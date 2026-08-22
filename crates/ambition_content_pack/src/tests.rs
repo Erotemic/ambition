@@ -448,8 +448,6 @@ fn an_unknown_schema_fails_before_assembly_and_offers_the_installed_ones() {
         rendered.contains("did you mean `critter`?"),
         "a typo is answered, not only rejected:\n{rendered}"
     );
-    // Everything after schema resolution genuinely could not run, and the
-    // failure says so rather than letting a partial list look complete.
     assert!(
         failure
             .stopped_before()
@@ -500,9 +498,8 @@ fn an_uninstalled_required_capability_fails_before_any_facet_is_read() {
 
 #[test]
 fn a_capability_only_the_authored_content_needs_is_still_refused() {
-    // The manifest is honest and the CONTENT is not: a row asks for a
-    // capability nobody declared. Only the handler can see this, so it is
-    // caught after facet validation — and still before anything is assembled.
+    // The manifest is honest and the CONTENT is not: a row asks for a capability nobody
+    // declared.
     let pack = Pack::valid("facet_capability");
     pack.write(
         "critters.ron",
@@ -771,7 +768,6 @@ fn an_unchecked_asset_source_says_so_instead_of_looking_verified() {
 /// runtime representation — "validated and then ignored", which is the one thing
 /// a content compiler must never certify. `AuthoringOnly` is how a schema says
 /// it deliberately reaches no runtime, and saying it explicitly is the point.
-///
 #[test]
 fn a_runtime_schema_that_lowers_nothing_is_refused() {
     struct Inert;

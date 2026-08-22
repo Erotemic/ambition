@@ -15,7 +15,7 @@ use super::*;
 pub fn sync_ecs_actors_with_save(
     mut commands: Commands,
     // **The prepared cast**, so a provoked body can take its own CHARACTER's
-    // answer instead of one matched out of its display name (ledger D84).
+    // answer instead of one matched out of its display name.
     prepared: Option<Res<crate::character_runtime::PreparedCharacterRegistry>>,
     save: Res<ambition_persistence::save::AmbitionGameSave>,
     // A persisted-hostile NPC re-establishes its grudge against a stable player
@@ -36,7 +36,7 @@ pub fn sync_ecs_actors_with_save(
             super::actor_clusters::ActorClusterQueryData,
             // Is this body in a fight? A loaded save restores a body's read
             // model, and a combatant's attack state is part of it.
-            // ⭐ **WHICH CHARACTER THIS BODY IS** — gameplay identity, not the
+            // **WHICH CHARACTER THIS BODY IS** — gameplay identity, not the
             // sprite's. See `provoke_actor_in_place`.
             Option<&ambition_characters::actor::WornCharacter>,
             // **Is this body a practice target** — the authored flag lives on

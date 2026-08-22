@@ -6,7 +6,7 @@
 //! HOST adapter: the plugin, the tick stamp, and the one fact only a host can
 //! publish.
 //!
-//! ⚠ **the resource itself lives in `ambition_causal`** (behind its `bevy`
+//! **the resource itself lives in `ambition_causal`** (behind its `bevy`
 //! feature, which is `bevy_ecs` alone), not here. A movement fact published from
 //! `ambition_platformer2d_actor_monolith` must not require the runtime crate, and a `CausalRecording`
 //! owned by a host would have forced exactly that.
@@ -42,7 +42,7 @@ pub enum RecordingSet {
 
 /// Install causal recording.
 ///
-/// ⚠ **`RecordingPolicy::Off` is the default and the plugin does not change
+/// **`RecordingPolicy::Off` is the default and the plugin does not change
 /// it.** Installing the plugin makes recording POSSIBLE; a caller turns it on
 /// for the domains it is investigating. An instrument that is on by default is
 /// an instrument somebody turns off, and then it is not there when needed.
@@ -50,11 +50,6 @@ pub struct CausalPlugin;
 
 impl Plugin for CausalPlugin {
     fn build(&self, app: &mut App) {
-        // ⛔ **The stamp does NOT go in `Last`.** That is where it started and
-        // where the parallel-schedule proof caught it: it ran AFTER every
-        // publisher, so a fact published during `Update` carried the PREVIOUS
-        // frame's tick.
-        //
         // It goes in `First`, and that is the plugin's whole job beyond the
         // resource: a consumer who adds `CausalPlugin` to a plain `App` and
         // publishes a fact must get a stamped one. The first version installed
@@ -63,7 +58,7 @@ impl Plugin for CausalPlugin {
         // silently. An SDK entry point that only works inside this engine's own
         // schedule is not an entry point.
         //
-        // ⚠ `player_schedule` ALSO stamps, at the head of the sim phase, and
+        // `player_schedule` ALSO stamps, at the head of the sim phase, and
         // that is not redundant: `SimulationReplayState` is only meaningful
         // there, so the sim-phase stamp is the one that can tell an original
         // tick from a resimulated one. Both are idempotent writes of the same
@@ -86,7 +81,7 @@ pub fn stamp_causal_frame(
     time: Option<Res<ambition_time::SimTick>>,
     replay: Option<Res<ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>>,
     boundary: Option<Res<ambition_platformer2d_core::confirmed_frame::ConfirmedFrameBoundary>>,
-    // ⛔ `Option`, because the FEATURE and the PLUGIN are two switches. Turning
+    // `Option`, because the FEATURE and the PLUGIN are two switches. Turning
     // `causal` on registers these systems; only `CausalPlugin` creates the
     // resource — and a host may legitimately compile the publishers without
     // installing an inspector. This was `ResMut` and killed six tests in
@@ -95,11 +90,11 @@ pub fn stamp_causal_frame(
     log: Option<ResMut<CausalRecording>>,
     // **The ROLLBACK EPOCH**, kept here because only the host can see it.
     //
-    // ⛔ rollback can execute one tick more than once inside a generation, and
+    // rollback can execute one tick more than once inside a generation, and
     // two attempts can produce DIFFERENT facts — which is precisely when
     // somebody opens an inspector. Grouped by `(generation, execution)` alone
     // they merged into one explanation and no query could say which attempt
-    // produced a result (GPT 5.6, 2026-08-01, finding 6).
+    // produced a result.
     //
     // Bumped on the RISING EDGE of `replaying_history`: one rollback request
     // batch is one attempt, however many ticks it replays. A per-tick counter
@@ -148,7 +143,7 @@ pub struct RollbackEpoch {
 /// Published with no subject, so it explains every body on that tick —
 /// a resimulated frame is resimulated for all of them.
 ///
-/// ⚠ **the fact records the generation as well as the flag.** Frames restart at
+/// **the fact records the generation as well as the flag.** Frames restart at
 /// zero on every session, so a tick number alone cannot tell a restart from a
 /// rewind — the same reason `RollbackHealth` had to start carrying one.
 pub fn record_execution_identity(log: Option<ResMut<CausalRecording>>) {

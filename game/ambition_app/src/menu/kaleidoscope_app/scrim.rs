@@ -1,18 +1,11 @@
 //! The cube-menu scrim (dimming backdrop): its display camera, spawn, target,
 //! and the open/close alpha fade.
 //!
-//! Split out of the kaleidoscope menu host (2026-06-15).
-//!
-//! # ⛔⛔ A FULL-SCREEN SCRIM IS A DISPLAY FACT, NOT A VIEW FACT
+//! # A FULL-SCREEN SCRIM IS A DISPLAY FACT, NOT A VIEW FACT
 //!
 //! The scrim dims THE WORLD so the cube's text reads, and it must draw BEHIND
 //! the order-8 cube. The default UI camera is the order-9 front HUD camera, so
 //! it cannot simply inherit that; it needs a target with a lower order.
-//!
-//! It used to borrow the gameplay camera through the `MainCameraEntity` resource
-//! — the last process-global "THE main camera" in the tree — and that was wrong
-//! in two ways `bevy_ui` makes silent, because a node is laid out against its
-//! TARGET camera's rect:
 //!
 //! - under any fixed-aspect presentation profile the gameplay camera already
 //!   carries a `Camera::viewport` (`apply_gameplay_camera_viewport`), so the
@@ -31,7 +24,7 @@ use super::*;
 
 /// The scrim's own UI camera — full-screen, one order behind the cube.
 ///
-/// ⚠ **it deliberately carries `RenderLayers::none()`.** Node→camera resolution
+/// **it deliberately carries `RenderLayers::none()`.** Node→camera resolution
 /// in `bevy_ui` is by `IsDefaultUiCamera` / `UiTargetCamera` and is independent
 /// of sprite render layers, so the scrim still renders here while nothing in the
 /// world can. That is the same trick the front HUD camera uses to avoid
@@ -54,7 +47,7 @@ const SCRIM_CAMERA_ORDER_FALLBACK: isize = 7;
 /// [`fade_kaleidoscope_scrim`] drives the alpha.
 pub(crate) fn spawn_kaleidoscope_scrim(
     mut commands: Commands,
-    // ⚠ the cube's order is a knob (`KaleidoscopeMenuConfig::camera_order`), and
+    // the cube's order is a knob (`KaleidoscopeMenuConfig::camera_order`), and
     // "behind the cube" is the whole requirement — so the scrim's order is
     // DERIVED from it rather than hardcoded next to it and left to drift. The
     // config is inserted at plugin build time, so it is here by `Startup`;
@@ -72,7 +65,7 @@ pub(crate) fn spawn_kaleidoscope_scrim(
                 order,
                 // Clearing here would wipe the world the scrim exists to dim.
                 clear_color: ClearColorConfig::None,
-                // ⛔ **never a viewport.** The absence is the feature: an
+                // **never a viewport.** The absence is the feature: an
                 // unclipped camera is what makes this the DISPLAY rect rather
                 // than a gameplay pane.
                 ..default()
@@ -143,14 +136,6 @@ mod tests {
     use super::*;
 
     /// **THE SCRIM TARGETS THE DISPLAY, NOT A GAMEPLAY PANE.**
-    ///
-    /// ⛔ **the poison is a gameplay camera that is NOT full-screen**, which is
-    /// not a hypothetical: `apply_gameplay_camera_viewport` puts a
-    /// `Camera::viewport` on the main camera under every fixed-aspect
-    /// presentation profile, and a split layout gives one to each of several. A
-    /// scrim that resolved through "the main camera" would target this one and
-    /// be laid out against its rectangle — a full-screen dimmer covering part of
-    /// the screen, which renders as a picture rather than as a failure.
     ///
     /// The assertion is on the OUTPUT: whatever camera the scrim ends up
     /// targeting must be unclipped and must not be a gameplay rig.

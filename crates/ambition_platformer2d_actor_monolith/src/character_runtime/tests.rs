@@ -1,9 +1,6 @@
 //! The engine-owned character load pipeline, tested without any application.
 //!
-//! Every fixture here builds a bare `App` and adds ENGINE pieces only. That is
-//! deliberate and it is the actual regression bar: the defect this module exists
-//! to kill was invisible precisely because the only test coverage ran through the
-//! one application that happened to install the missing step.
+//! Every fixture here builds a bare `App` and adds ENGINE pieces only.
 
 // Stepping a fixture is `finalize_and_update`, not `update`. Bevy's RUNNERS
 // close the plugin-composition barrier; `App::update` does not, and character
@@ -75,9 +72,6 @@ fn a_declared_character_is_a_different_answer_from_an_unknown_one() {
 
 #[test]
 fn no_character_id_is_privileged_by_the_sheet_table() {
-    // The four ids that used to have typed slots resolve through exactly the same
-    // lookup as anyone else's protagonist, and neither is reachable without being
-    // declared first. If a `match` on names ever comes back, this fails.
     let sprites = declared_sprites(&[("sanic", "Sanic")]);
     for privileged in ["player", "robot", "goblin", "sandbag"] {
         assert!(
@@ -182,9 +176,7 @@ fn the_engine_plugin_installs_the_pipeline_without_any_application() {
 
 #[test]
 fn every_worn_body_demands_its_own_art_not_just_the_primary_player() {
-    // The regression this closes: the host watched `With<PrimaryPlayer>`, which is
-    // correct for exactly one game mode. A versus match is several worn bodies and
-    // only player one would ever have had a sheet.
+    // A versus match is several worn bodies and only player one would ever have had a sheet.
     let mut app = App::new();
     app.add_plugins(CharacterRuntimePlugin);
     app.world_mut()
@@ -244,13 +236,9 @@ use super::staging::{
 /// **The composition-parity test.** Three semantically different entry routes,
 /// one materialized result.
 ///
-/// This is deliberately NOT "boot two apps and diff their resources". That test
-/// asserts implementation details, goes red on every unrelated resource, and can
-/// pass while two apps still stage characters differently. What matters is that
-/// the same character reaches the same outcome no matter which door it came in
-/// through — and there is no host-application module in this fixture, because the
-/// defect being guarded was invisible precisely while the only coverage ran
-/// through the one app that happened to work.
+/// This is deliberately NOT "boot two apps and diff their resources". That test asserts
+/// implementation details, goes red on every unrelated resource, and can pass while two apps still
+/// stage characters differently.
 #[test]
 fn every_entry_route_materializes_the_same_character() {
     let routes: Vec<(&str, Vec<String>)> = vec![
@@ -419,12 +407,11 @@ fn an_app_that_stages_no_characters_reports_no_gaps() {
 /// **A1.** A character declared ONLY through `register_character` is known to the
 /// art pipeline.
 ///
-/// This was the sharp end of the review finding. `register_character` accepted a
-/// `sheet`, published a `PreparedCharacterDefinition`, and then the materializer
-/// consulted `CharacterCatalog` and nothing else — so a character that existed
-/// solely on the new seam came back `UnknownCharacter`, which means "no loaded
-/// content declares this character; waiting will never fix it". Content had just
-/// declared it. The ledger was reporting a typo about a provider's own protagonist.
+/// `register_character` accepted a `sheet`, published a `PreparedCharacterDefinition`, and then
+/// the materializer consulted `CharacterCatalog` and nothing else — so a character that existed
+/// solely on the new seam came back `UnknownCharacter`, which means "no loaded content declares
+/// this character; waiting will never fix it". Content had just declared it. The ledger was
+/// reporting a typo about a provider's own protagonist.
 ///
 /// Two facts are asserted, and the second is the one that matters: `Declared`
 /// versus `Unknown` is the difference between "a decode has not happened yet" and
@@ -550,7 +537,7 @@ mod live_quality_apply {
 
     /// A composition with a REAL asset pipeline, at `profile`.
     ///
-    /// ⚠ `AssetProfile::AndroidBundle`, on purpose: its load gate *trusts the
+    /// `AssetProfile::AndroidBundle`, on purpose: its load gate *trusts the
     /// packager* and never pre-checks the host filesystem, so the materializer
     /// runs its production path end to end without the fixture depending on
     /// which gitignored PNGs happen to be on this machine. The one thing that
@@ -675,7 +662,7 @@ mod live_quality_apply {
     /// that matters: after Apply, do the pixels behind a character that was
     /// ALREADY resident come from the new tier?
     ///
-    /// ⭐ **the red, before the fix (2026-08-08):**
+    /// **the red, before the fix:**
     /// ```text
     /// assertion `left != right` failed: the running game must converge to the
     /// applied quality: `goblin` is still drawn from
@@ -766,13 +753,12 @@ mod live_quality_apply {
         );
     }
 
-    /// ⛔ **A DIFFERENT PROFILE IS NOT A DIFFERENT TIER, and this is the guard
+    /// **A DIFFERENT PROFILE IS NOT A DIFFERENT TIER, and this is the guard
     /// that says so.**
     ///
-    /// `Low` and `Medium` both realize sheets at `Half`. A transition keyed on
-    /// "the participant applied something" would retire and re-decode the whole
-    /// cast to arrive at byte-identical pixels — a visible hitch, on a setting
-    /// that changed nothing about sheets. The poison for the fix above.
+    /// `Low` and `Medium` both realize sheets at `Half`. A transition keyed on "the participant
+    /// applied something" would retire and re-decode the whole cast to arrive at byte-identical
+    /// pixels — a visible hitch, on a setting that changed nothing about sheets.
     #[test]
     fn a_profile_change_that_keeps_the_tier_retires_nothing() {
         let Some(cid) = a_character_with_a_scaled_variant() else {
@@ -807,7 +793,7 @@ mod live_quality_apply {
         );
     }
 
-    /// ⭐ **The invariant: after Apply completes there is exactly ONE active
+    /// **The invariant: after Apply completes there is exactly ONE active
     /// quality generation across the live residency set** — including a
     /// character that was materialized only AFTER the transition.
     ///
@@ -865,7 +851,7 @@ mod live_quality_apply {
         }
     }
 
-    /// ⛔⛔ **`resident_tiers()` answers PHYSICAL residency, and a fallback is
+    /// **`resident_tiers()` answers PHYSICAL residency, and a fallback is
     /// the only case it exists for.**
     ///
     /// Its own docstring promises that more than one tier in the set means
@@ -876,7 +862,7 @@ mod live_quality_apply {
     ///
     /// Two characters, one budget. One has a baked half variant and holds half
     /// pixels; the other's variant lookup cannot resolve and it holds FULL
-    /// pixels. ⭐ **the image paths are the second, independent route to the same
+    /// pixels. **the image paths are the second, independent route to the same
     /// fact** — the test reads them and asserts the tier set agrees with them,
     /// so it cannot pass by the two answers being wrong together.
     #[test]
@@ -941,7 +927,7 @@ mod live_quality_apply {
     /// under a scaled budget. `try_load_spec_for_character_id` still answers for
     /// the id, so the character does materialize.
     ///
-    /// ⚠ constructed rather than found: every character in the shipped roster
+    /// constructed rather than found: every character in the shipped roster
     /// currently has every variant baked, so a fixture that went looking for a
     /// gap would pass vacuously on this checkout — and describe a state a fresh
     /// clone (no variants generated at all) is entirely made of.
@@ -956,16 +942,10 @@ mod live_quality_apply {
         ambition_characters::actor::character_catalog::CharacterCatalog::from_data(data)
     }
 
-    /// ⛔ **A TIER WITH NO BAKED VARIANT MUST SETTLE, NOT THRASH.**
+    /// **A TIER WITH NO BAKED VARIANT MUST SETTLE, NOT THRASH.**
     ///
-    /// Not every sheet has every variant generated, so a `Half` budget
-    /// legitimately loads the authored full-res PNG for some characters. Stamp
-    /// that realization with the tier its BYTES came from and it is permanently
-    /// unequal to the active tier — so the transition retires it, remakes it
-    /// identically, and does that again next frame, forever. A loop that
-    /// re-issues an `asset_server.load` at 60Hz is a worse bug than the one
-    /// being fixed, and it is invisible in a fixture whose every character
-    /// happens to have variants.
+    /// Not every sheet has every variant generated, so a `Half` budget legitimately loads the
+    /// authored full-res PNG for some characters.
     #[test]
     fn a_character_with_no_baked_variant_settles_at_the_requested_tier() {
         // A character whose catalog row names a manifest target nothing baked,
@@ -973,7 +953,7 @@ mod live_quality_apply {
         // forced down its fallback arm — while `goblin` still resolves a base
         // spec by id, so the character does materialize.
         //
-        // ⚠ constructed rather than found: every character in the shipped roster
+        // constructed rather than found: every character in the shipped roster
         // currently has every variant baked, and a fixture that goes looking for
         // a gap would pass vacuously on this checkout and describe a state a
         // fresh clone (no variants generated at all) is entirely made of.
@@ -1023,7 +1003,7 @@ mod live_quality_apply {
         }
     }
 
-    /// ⛔ **Art the engine did not build is not the engine's to delete.**
+    /// **Art the engine did not build is not the engine's to delete.**
     ///
     /// A host that publishes its own realization
     /// ([`CharacterSpriteAssets::publish_under`]) leaves no declaration behind,
@@ -1082,21 +1062,11 @@ mod live_quality_apply {
 
     /// **THE CACHE ALREADY EXISTS, AND THIS IS WHERE THAT IS WRITTEN DOWN.**
     ///
-    /// D124 asks whether entering a room re-does preparation another room
-    /// already paid for — the Hall stages 129 distinct characters and its
-    /// manifest frame measures 18ms, so a repeat would be 18ms per visit
-    /// forever. The answer is no: `materialize_declared_character_sprite` opens
-    /// with `CharacterSheetState::Ready(_) => return`, before any sheet lookup,
-    /// atlas build or handle request.
+    /// The answer is no: `materialize_declared_character_sprite` opens with
+    /// `CharacterSheetState:Ready(_) => return`, before any sheet lookup, atlas build or handle
+    /// request.
     ///
-    /// ⭐ **so the finding is a NEGATIVE one, and it is the useful kind.** The
-    /// portable-preparation plan says to establish existing cache semantics
-    /// before adding a cache; they are correct, and the remaining Hall cost is
-    /// genuinely FIRST-VISIT work. That points the design at budgeting the first
-    /// visit, not at memoizing repeats — opposite fixes, and picking the wrong
-    /// one costs a campaign.
-    ///
-    /// ⚠ **counted in ATLAS LAYOUTS, not in wall time.** A timing assertion here
+    /// **counted in ATLAS LAYOUTS, not in wall time.** A timing assertion here
     /// would be a flaky performance test; a layout that gets built twice is the
     /// actual work, and it is countable. If a future change reintroduces repeat
     /// preparation this grows and says so.

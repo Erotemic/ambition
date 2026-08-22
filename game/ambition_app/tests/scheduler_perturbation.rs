@@ -13,14 +13,12 @@
 //! expensive: every run agrees, so nothing looks broken until the day the graph
 //! changes and every run agrees on a different answer.
 //!
-//! ⭐ **so this compares two GRAPHS, not two runs of one graph.** The desync
-//! canary next door already proves a graph is self-consistent: `SyncTestSession`
-//! saves, advances, rewinds and resimulates with the same inputs, and the
-//! checksums match. It cannot see this defect at all, because both sides of its
-//! comparison are the same schedule. Here, side B is the same simulation plus
-//! benign systems that read real state and mutate nothing.
+//! **so this compares two GRAPHS, not two runs of one graph.** The desync canary next door already
+//! proves a graph is self-consistent: `SyncTestSession` saves, advances, rewinds and resimulates
+//! with the same inputs, and the checksums match. Here, side B is the same simulation plus benign
+//! systems that read real state and mutate nothing.
 //!
-//! ⚠ **what the perturbation systems must be, and why each clause matters:**
+//! **what the perturbation systems must be, and why each clause matters:**
 //!
 //! - they must ACTUALLY EXECUTE — a system filtered out by a run condition
 //!   perturbs nothing, and the comparison would then be two identical graphs
@@ -33,19 +31,13 @@
 //! - they must NOT be ordered against the writers they probe, because the
 //!   ordering is exactly the thing under test.
 //!
-//! ⚠ **what the falsification below does and does not establish, stated plainly
-//! because the difference matters.** `the_comparison_can_actually_see_a_divergence`
-//! proves the DIGEST is live: a system that nudges every body's velocity makes
-//! the two runs differ, so the comparison is reading the simulation and not
-//! comparing two empty strings. It does NOT prove that these three particular
-//! probes are capable of flipping any specific pair of systems — nothing can
-//! prove that except a real ordering defect, and the graph is currently clean.
-//! ⇒ so read a GREEN result as *"no implicit ordering was disturbed by this
-//! perturbation"*, which is a real claim and a weaker one than *"the graph
-//! contains no implicit ordering"*. The value grows as AC3 moves state: the same
-//! probes then run against a graph whose writers have changed owners.
+//! **what the falsification below does and does not establish, stated plainly because the
+//! difference matters.** `the_comparison_can_actually_see_a_divergence` proves the DIGEST is
+//! live: a system that nudges every body's velocity makes the two runs differ, so the
+//! comparison is reading the simulation and not comparing two empty strings. The value grows as
+//! AC3 moves state: the same probes then run against a graph whose writers have changed owners.
 //!
-//! ⛔ **if this goes red, the repair is the semantic dependency, not the leaf.**
+//! **if this goes red, the repair is the semantic dependency, not the leaf.**
 //! Ordering the benign probe against whatever it perturbed would make the test
 //! green while leaving the real pair of systems as unordered as they were. The
 //! fix belongs in the phase/set membership or the dataflow of the two systems
@@ -62,8 +54,6 @@ use bevy::prelude::*;
 /// take damage — the reaction timers are where an ordering flip shows up first.
 const FRAMES: usize = 180;
 
-/// Counts each perturbation system's executions, so "they ran" is measured
-/// rather than assumed. Not simulation state: nothing reads it back.
 #[derive(Resource, Default, Debug, Clone, Copy, PartialEq, Eq)]
 struct ProbeRuns {
     early: u64,
@@ -96,11 +86,9 @@ fn scripted(frame: usize) -> AgentAction {
 
 /// **The authoritative-state digest.**
 ///
-/// Every body's position, velocity, health and reaction timers, keyed by a
-/// stable identity and SORTED — so the digest is a function of the simulation's
-/// state and not of the order a query happened to visit it in. (An
-/// order-sensitive digest would report a divergence for a difference that is not
-/// one, which is the failure mode that makes a guard like this get deleted.)
+/// Every body's position, velocity, health and reaction timers, keyed by a stable identity and
+/// SORTED — so the digest is a function of the simulation's state and not of the order a query
+/// happened to visit it in.
 ///
 /// The reaction timers are in deliberately: they are the facts AC3 is about to
 /// move, and a fact whose owner changes is exactly where an implicit ordering
@@ -148,7 +136,7 @@ fn run(mut sim: Platformer2dSimHarness) -> (Vec<String>, Platformer2dSimHarness)
 /// Install the benign readers. Each takes a real query or resource, counts
 /// itself, and writes nothing the simulation reads.
 ///
-/// ⚠ **no `.before`/`.after` against anything.** They are placed by PHASE only —
+/// **no `.before`/`.after` against anything.** They are placed by PHASE only —
 /// which is the coarsest placement that puts them inside the region under test,
 /// and leaves the executor free to interleave them with the phase's own systems
 /// however it likes. That freedom is the perturbation.
@@ -235,7 +223,7 @@ fn inserting_unrelated_readers_does_not_change_the_simulation() {
 
 /// **The instrument can move.**
 ///
-/// ⛔ a guard that compares two things which cannot differ is a guard that will
+/// a guard that compares two things which cannot differ is a guard that will
 /// pass forever, including on the day it should not. This drives the same
 /// comparison with a perturbation system that WRITES — the one property the real
 /// probes are forbidden — and requires the digests to diverge. It is the

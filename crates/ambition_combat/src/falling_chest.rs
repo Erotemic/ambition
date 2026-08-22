@@ -1,10 +1,7 @@
 //! Falling-chest physics for ECS reward chests.
 //!
-//! Reward chests spawned mid-air by `sync_boss_reward_chests_ecs`
-//! carry a [`FallingChest`] until they land on a solid floor. This
-//! module owns both the per-frame tick and the headless precomputed
-//! settle used when a save says the chest has already been looted
-//! (so it can be drawn pre-landed without ever animating).
+//! Reward chests spawned mid-air by `sync_boss_reward_chests_ecs` carry a [`FallingChest`] until
+//! they land on a solid floor.
 
 use super::*;
 use super::{CHEST_FALL_GRAVITY, CHEST_FALL_MAX_SPEED};
@@ -88,9 +85,8 @@ pub fn settled_chest_center(world: &ae::World, start: ae::Vec2, size: ae::Vec2) 
 
 #[cfg(test)]
 mod falling_chest_tests {
-    //! settled_chest_center drops a reward chest under gravity until its
-    //! body would overlap a solid, then returns the last clear position.
-    //! Used to place a chest that was looted before it finished falling.
+    //! settled_chest_center drops a reward chest under gravity until its body would overlap a
+    //! solid, then returns the last clear position.
     use super::*;
 
     fn world_with_floor() -> ae::World {

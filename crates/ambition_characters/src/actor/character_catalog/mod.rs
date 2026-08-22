@@ -196,20 +196,15 @@ impl CharacterCatalog {
         let Some(name) = authored_override.map(str::trim).filter(|s| !s.is_empty()) else {
             return Ok(None);
         };
-        // ⭐ **the character's OWN provider first** (D81). Falling back to the
-        // `default_brain` inference keeps an UNASSEMBLED fragment working, where
-        // `provider` is empty because nothing has registered it yet — and that
-        // fallback is what the assembled catalog no longer needs.
-        // ⭐ the character's OWN provider, when the catalog it came from filled
-        // one in. ⚠ not every path does: the ASSEMBLY sets it, and a catalog
-        // lowered straight from compiled pack bytes carries whatever was
+        // Falling back to the `default_brain` inference keeps an UNASSEMBLED fragment working,
+        // where `provider` is empty because nothing has registered it yet — and that fallback
+        // is what the assembled catalog no longer needs. not every path does: the ASSEMBLY sets
+        // it, and a catalog lowered straight from compiled pack bytes carries whatever was
         // serialized — so this degrades rather than assuming.
         //
-        // ⇒ the fallbacks are both "a neighbouring key that is namespaced the
-        // same way", which is the smell `qualify_preset_like`'s doc names. They
-        // are ORDERED so the one that can be absent is last:
-        // `default_action_set` is still required of every row, `default_brain` no
-        // longer is (D81). Each disappears as its authority arrives.
+        // ⇒ the fallbacks are both "a neighbouring key that is namespaced the same way", which
+        // is the smell `qualify_preset_like`'s doc names. Each disappears as its authority
+        // arrives.
         let namespace_carrier = if !entry.provider.is_empty() {
             format!("{}::_", entry.provider)
         } else if !entry.default_action_set.is_empty() {
@@ -287,14 +282,14 @@ impl CharacterCatalog {
     /// The character an AUTHORED PLACEMENT names — **id first, display name
     /// second.**
     ///
-    /// ⛔ **an authored enemy's art identity is a display-name string.**
+    /// **an authored enemy's art identity is a display-name string.**
     /// `ActorClusterSeed` resolves an enemy's sprite by scanning for a matching
     /// `display_name`, so RENAMING a character silently un-arts every level that
     /// placed it — and two demos carry the same hand-written workaround (a brain
     /// → display-name map applied after conversion) to feed this lookup the
     /// string it wants.
     ///
-    /// ⭐ **preferring the id is the seam, and it is purely additive**: a
+    /// **preferring the id is the seam, and it is purely additive**: a
     /// placement carrying a display name keeps resolving through the fallback,
     /// while one naming a `character_id` — which `NpcSpawn` has always been able
     /// to author — resolves directly and survives a rename. Identity over
@@ -333,14 +328,6 @@ impl CharacterCatalog {
     }
 
     /// **Does this catalog know `character_id`?**
-    ///
-    /// ⛔ **this was `playable_kit_source`, returning `Option<PlayableKitSource>`**
-    /// (AC6.3). That enum had exactly one variant, `Authored`, and `#[default]`
-    /// — so every row answered the same thing and every caller was really
-    /// asking whether there was a row at all. Its second variant, `HostCode`,
-    /// was deleted in 2026-08 when no character claimed any more that engine
-    /// code owned its kit; what survived was a selector with nothing to select,
-    /// and an `Option` doing the work.
     pub fn knows(&self, character_id: &str) -> bool {
         self.get(character_id).is_some()
     }
@@ -401,19 +388,16 @@ impl CharacterCatalog {
     /// authors momentum params, axis-swept seeded with its own axis feel
     /// otherwise.
     ///
-    /// ⛔⛔ **this lived in the actor monolith as
-    /// `avatar::starting_character::motion_model_spec_for_character_id`**, and
-    /// its only inputs were this catalog and `ambition_platformer2d_core` — both
-    /// visible from here. Nothing about it was avatar-domain; it was a
-    /// projection of a catalog row that happened to be written next to its first
-    /// caller. Campaign P1.7's graph check found it as one of exactly TWO
-    /// monolith reach-ins made from INSIDE character preparation, which is what
-    /// keeps the authoritative character model stuck above this crate.
+    /// **this lived in the actor monolith as
+    /// `avatar::starting_character::motion_model_spec_for_character_id`**, and its only inputs were
+    /// this catalog and `ambition_platformer2d_core` — both visible from here. Nothing about it was
+    /// avatar-domain; it was a projection of a catalog row that happened to be written next to its
+    /// first caller.
     ///
-    /// ⭐ the catalog answers a question about its own rows now, which is the
+    /// the catalog answers a question about its own rows now, which is the
     /// shape every other accessor here already has.
     ///
-    /// ⚠ an un-authored character starts from the shared default; a character
+    /// an un-authored character starts from the shared default; a character
     /// that authors its own axis feel seeds the model so the FIRST frame is
     /// already correct (the live integrator then refreshes from the body's
     /// `AuthoredMovementTuning` each tick).

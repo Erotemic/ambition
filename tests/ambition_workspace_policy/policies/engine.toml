@@ -261,12 +261,12 @@ rationale = "ambition_encounter source must not reach into sim/content/render/ho
 source_doc = "docs/planning/engine/decomposition.md#E-enc"
 severity = "error"
 roots = ["crates/ambition_encounter/src"]
-# ⚠ `ambition_content::` with the PATH SEPARATOR, not the bare crate name. A bare
+# `ambition_content::` with the PATH SEPARATOR, not the bare crate name. A bare
 # `ambition_content` is a substring of `ambition_content_pack`, which is a
 # different crate — the engine's content COMPILER, which `ambition_characters`
 # and `ambition_items` already depend on to own their schemas. Forbidding it here
 # by accident blocked this capability from owning `encounter_waves` at all
-# (2026-08-04). The terminator convention is the same one
+# . The terminator convention is the same one
 # `engine.actor-monolith-*` uses for `ambition_portal2d::` below.
 forbid = ["ambition_platformer2d_actor_monolith", "ambition_characters", "ambition_platformer2d_ldtk", "ambition_sim_view", "ambition_platformer2d_runtime", "ambition_render", "ambition_content::", "ambition_content;", "ambition_app"]
 
@@ -441,7 +441,7 @@ rationale = "ambition_items source stays free of forbidden refs"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 roots = ["crates/ambition_items/src"]
-# ⚠ `ambition_content::`, not `ambition_content` — the bare form also matches
+# `ambition_content::`, not `ambition_content` — the bare form also matches
 # `ambition_content_pack`, which is the ENGINE's schema/compile
 # infrastructure that engine crates legitimately define their own content
 # schemas through (combat, characters and items each have a
@@ -474,11 +474,9 @@ watch_paths = ["crates/ambition_inventory_ui/Cargo.toml"]
 rationale = "ambition_inventory_ui is reusable menu-navigation state over ambition_ui_nav. It also DECLARES that an open inventory owns the seat's input (ambition_input::participant), which is why the vocabulary is allowed here."
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-# ⚠ PROVISIONAL, on Jon's word (2026-08-07): "add it to the allowlist for now
-# just to prevent agents from going nuts on it. I'll think about it in more
-# detail later." The open question is what this crate IS — a pure view crate
-# that never participates in input arbitration, in which case the claim belongs
-# in whatever composes the inventory rather than here.
+# I'll think about it in more detail later." The open question is what this crate IS — a pure view
+# crate that never participates in input arbitration, in which case the claim belongs in whatever
+# composes the inventory rather than here.
 #
 # The case for allowing it, so the later decision starts from the facts:
 # * it adds NOTHING to the dependency graph. `ambition_ui_nav` already depends
@@ -497,7 +495,7 @@ severity = "error"
 #   still routing underneath it, so navigation keys also drove the actor behind
 #   it — and no router could be told otherwise.
 #
-# ⛔ the two alternatives are both worse: re-export the vocabulary through
+# the two alternatives are both worse: re-export the vocabulary through
 # `ambition_ui_nav` to launder the same edge, or go back to deriving ownership
 # from `GameMode`, which is the bug.
 allow = ["ambition_ui_nav", "ambition_input"]
@@ -842,7 +840,7 @@ watch_paths = ["crates/ambition_portal2d/src/lib.rs"]
 rationale = "portal exposes a drop-in PortalPlugin"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-# ⛔⛔ this required the literal `pub use plugin::{PortalPlugin`, which pinned
+# this required the literal `pub use plugin::{PortalPlugin`, which pinned
 # `PortalPlugin`'s POSITION IN A BRACE LIST rather than the fact it is exported.
 # The moment the crate gained `PortalGunPlugin` and `PortalSimulationPlugin` the
 # list sorted alphabetically, `PortalGunPlugin` took the front, and a policy whose
@@ -1063,11 +1061,8 @@ scope = "engine"
 kind = "required-path"
 owners = ["ambition_time"]
 watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/time", "crates/ambition_combat/src"]
-# ⚠ `feel.rs` moved out of the monolith's `time/` into `ambition_combat` and this
-# row kept naming the old home, so the check had been RED rather than absent —
-# which is its own kind of useless: a gate that always fails is one nobody reads.
-# The claim is unchanged (a game-specific time/feel policy exists somewhere a
-# composition can reach); only the address was stale.
+# The claim is unchanged (a game-specific time/feel policy exists somewhere a composition can
+# reach); only the address was stale.
 rationale = "sandbox game-specific time policy exists"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
@@ -1139,13 +1134,8 @@ scope = "engine"
 kind = "forbidden-path"
 owners = ["ambition_persistence"]
 watch_paths = ["crates/ambition_platformer2d_actor_monolith/src"]
-# ⭐ this used to assert that `actors::persistence::settings` RE-SURFACED
-# `controls` — a layering claim about a compatibility adapter. D33
-# (2026-08-17) deleted the adapter: its `settings::model` pause-menu
-# vocabulary had no consumer left in the workspace, and every remaining
-# `crate::persistence::settings::…` path was repointed at
-# `ambition_persistence::settings`. The guard therefore changed SIDES instead
-# of being deleted — the re-surfacing must not come back.
+# The guard therefore changed SIDES instead of being deleted — the re-surfacing must not come
+# back.
 rationale = "the actor monolith re-surfaces no persistence facade; consumers name ambition_persistence"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
@@ -1395,12 +1385,6 @@ rationale = "ambition_characters must stay content-free with no upward imports"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 roots = ["crates/ambition_characters/src"]
-# ⚠ WHOLE IDENTIFIERS, not substrings. `ambition_content_pack` is a foundation
-# crate — no Bevy, no domain types, no content — and a bare `contains` match on
-# `ambition_content` flagged it as an upward import into the game content crate.
-# The policy was right about the rule and wrong about the test; a substring match
-# on crate names produces a fresh false positive every time somebody adds a crate
-# whose name extends an existing one. (2026-07-31)
 whole_ident = true
 forbid = ["ambition_platformer2d_actor_monolith", "ambition_content", "ambition_app", "GnuTon", "gnu_ton", "Mockingbird", "mockingbird", "cut_rope", "CutRope", "Pirate", "BurningFlyingShark", "PuppySlug", "clockwork_warden", "CharacterArchetype"]
 
@@ -1417,14 +1401,12 @@ source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 roots = ["crates/ambition_platformer2d_actor_monolith/src"]
 forbid = ["crate::presentation"]
-# ⛔ THREE of the four exemptions here named files that NO LONGER EXIST —
-# `dialog/ui.rs`, `runtime/setup.rs`, `runtime/reset/` — killed by the crate
-# reorganisation and never removed. They exempted nothing, and they lied about
-# the rule's real shape: they implied three gameplay files legitimately import
-# presentation, when none does. Removed 2026-08-02 after checking the rule still
-# passes without them.
+# THREE of the four exemptions here named files that NO LONGER EXIST — `dialog/ui.rs`,
+# `runtime/setup.rs`, `runtime/reset/` — killed by the crate reorganisation and never removed. They
+# exempted nothing, and they lied about the rule's real shape: they implied three gameplay files
+# legitimately import presentation, when none does.
 #
-# ⚠ `presentation/` is KEPT even though it also matches no offending file today.
+# `presentation/` is KEPT even though it also matches no offending file today.
 # It is the module this rule is about, and presentation code referring to
 # `crate::presentation` is the one case that would be legitimate — a
 # forward-looking exemption, not a fossil. That is the distinction worth drawing:
@@ -1737,13 +1719,9 @@ watch_paths = ["crates/ambition_platformer2d_runtime/Cargo.toml"]
 rationale = "runtime composes sim/mechanic/model/dev-state crates, not app/content/host/render"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-# `ambition_load` joined when room transitions moved into the engine
-# (835bade2c): the transition IS a load plan — barrier, work items, one-shot
-# commit authorization — so `RoomTransitionComposerPlugin` owes the coordinator
-# rather than every host remembering it. It is a mechanic/model crate, not
-# app/content/host/render, so it fits the rationale above; the list simply
-# lagged the decision, and this gate only caught it once an earlier failure
-# stopped masking the whole job.
+# It is a mechanic/model crate, not app/content/host/render, so it fits the rationale above; the
+# list simply lagged the decision, and this gate only caught it once an earlier failure stopped
+# masking the whole job.
 allow = ["ambition_platformer2d_actor_monolith", "ambition_projectiles", "ambition_combat", "ambition_encounter", "ambition_dialog", "ambition_characters", "ambition_portal2d", "ambition_sim_view", "ambition_vfx", "ambition_time", "ambition_input", "ambition_platformer2d_core", "ambition_sfx", "ambition_persistence", "ambition_menu", "ambition_items", "ambition_platformer2d_shared_tangle", "ambition_dev_tools", "ambition_platformer2d_world", "ambition_load",
     # Structured causal facts: a FOUNDATION crate with no Bevy beyond `bevy_ecs`,
     # no domain types and no content. The runtime owns the host-side half of
@@ -1755,70 +1733,35 @@ allow = ["ambition_platformer2d_actor_monolith", "ambition_projectiles", "ambiti
     # as `ambition_dialog` and `ambition_items`, no content, no host, no render.
     # The runtime owns its rollback domain (`ActiveCutscene` is optional-canonical
     # session state), so the edge is downward and fits the rationale above.
-    #
-    # ⛔ this list lagged the decision AGAIN — the dependency landed in
-    # `ab3a931be` and the gate has been red since, which is the second time the
-    # note above describes. The lesson is not about cutscenes: adding a runtime
-    # dependency means editing TWO files, and the second one is here.
     "ambition_cutscene",
-    # Sheet vocabulary (`AuthoredSheets`). ⭐ this edge is not new — it is newly
+    # Sheet vocabulary (`AuthoredSheets`). this edge is not new — it is newly
     # VISIBLE. The combat schedule has always snapshotted the provider-authored
     # sheet registry; it reached the type through
     # `ambition_platformer2d_actor_monolith::character_sprites`, a facade whose
     # own comment justified 22 `ambition_sprite_sheet` re-exports as sparing
     # consumers "a new dependency edge to name it". Deleting the facade
-    # (2026-08-08) turned the laundered edge into a declared one. It is a leaf
+    # turned the laundered edge into a declared one. It is a leaf
     # asset/vocabulary crate — no Bevy beyond assets, no domain, no content, and
     # already linked transitively under the monolith — so it fits the rationale
     # above and adds no graph depth.
     "ambition_sprite_sheet",
-    # Sheet DERIVATIONS (`authored_attack_volume_resolver`, the posed-body sim
-    # pass). ⭐ this edge is not new either — it is the SAME code the runtime
-    # already called, reached until 2026-08-09 through
-    # `ambition_platformer2d_actor_monolith::character_sprites`. The carve made
-    # it a sibling crate of the actor crate rather than a layer under it, so
-    # this manifest names one more crate and the build's serial chain is
-    # unchanged. It is a leaf derivation over `ambition_sprite_sheet` /
-    # `ambition_combat` / `ambition_platformer2d_core` — no host, no render, no
-    # content — so it fits the rationale above.
     "ambition_character_sprites",
-    # The LDtk authoring-format ADAPTER (`LdtkRuntimeIndex`, `LdtkRuntimeSpinePlugin`).
-    # ⭐ **the third time this list has learned the same lesson, and the first time
-    # the edge also had to leave a DENYLIST** — see the long note on
-    # `engine.runtime-manifest-deny` for the `cargo tree` evidence that it is a
-    # downward edge, and for the wart (a format-specific field on the canonical
-    # session world) that the deny row was standing in for, fixed by D135 on
-    # 2026-08-16 without this edge moving at all. In this list's own
-    # terms: it sits at the same graph depth as `ambition_platformer2d_world`
-    # above, it names no app/content/host/render crate, and
-    # `ambition_platformer2d_actor_monolith` — already allowed — has linked it all
-    # along, so this adds no graph depth either. The runtime owns the rollback
-    # domain for `LdtkRuntimeIndex` and installs the room-load spine, which is
+    # In this list's own terms: it sits at the same graph depth as `ambition_platformer2d_world`
+    # above, it names no app/content/host/render crate, and `ambition_platformer2d_actor_monolith` —
+    # already allowed — has linked it all along, so this adds no graph depth either. The runtime
+    # owns the rollback domain for `LdtkRuntimeIndex` and installs the room-load spine, which is
     # composition, the job this tier is for.
     "ambition_platformer2d_ldtk",
-    # Conversation continuity (`ActiveConversation`, `ConversationEnded`,
-    # `ConversationCutBark`). ⭐ **not a new edge — a newly NAMED one**, and the
-    # fourth time this list has learned the identical lesson. The runtime has
-    # rollback-registered the conversation authority and cleared its two message
-    # buffers since those systems existed; it reached them through
-    # `ambition_platformer2d_actor_monolith::conversation`, a module that carved
-    # out into its own crate on 2026-08-17 (D33 step 2). It is a leaf domain over
-    # `ambition_dialog` / `ambition_characters` / `ambition_combat` /
-    # `ambition_platformer2d_core` — no app, content, host or render — sits at
-    # the same depth as `ambition_dialog` above, and the already-allowed monolith
-    # has linked it all along, so it adds no graph depth.
+    # Conversation continuity (`ActiveConversation`, `ConversationEnded`, `ConversationCutBark`).
+    # **not a new edge — a newly NAMED one**, and the fourth time this list has learned the
+    # identical lesson. It is a leaf domain over `ambition_dialog` / `ambition_characters` /
+    # `ambition_combat` / `ambition_platformer2d_core` — no app, content, host or render — sits at
+    # the same depth as `ambition_dialog` above, and the already-allowed monolith has linked it all
+    # along, so it adds no graph depth.
     "ambition_conversation",
-    # The boss-fight DOMAIN (`BossConfig`, `BossEncounter`, `BossOverrides`,
-    # `EncounterDef`, `BossCatalog`). ⭐ **the FIFTH time this list has learned the
-    # identical lesson, and again not a new edge.** The runtime has
-    # rollback-registered the boss components and ordered the `Progression` phase
-    # around the boss tick since those systems existed; it reached them through
-    # `ambition_platformer2d_actor_monolith::boss_encounter`, a module that carved
-    # out into its own crate on 2026-08-17 (D33). It is a leaf domain over
-    # `ambition_characters` / `ambition_combat` / `ambition_encounter` /
-    # `ambition_cutscene` / `ambition_platformer2d_core` — no app, content, host or
-    # render — and the already-allowed monolith has linked it all along, so it
-    # adds no graph depth.
+    # It is a leaf domain over `ambition_characters` / `ambition_combat` / `ambition_encounter` /
+    # `ambition_cutscene` / `ambition_platformer2d_core` — no app, content, host or render — and the
+    # already-allowed monolith has linked it all along, so it adds no graph depth.
     "ambition_boss_encounter"]
 manifest = "crates/ambition_platformer2d_runtime/Cargo.toml"
 
@@ -1831,26 +1774,18 @@ watch_paths = ["crates/ambition_platformer2d_runtime/Cargo.toml"]
 rationale = "runtime is headless composition, not app/content/host/render/backend ownership"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-# ⛔⛔ **`ambition_platformer2d_ldtk` LEFT THIS LIST (2026-08-16) AND JOINED THE
-# ALLOWLIST — the row was denying the wrong thing.**
+# It was here on the reading that the LDtk crate is a BACKEND the headless runtime sits under, so
+# naming it would be an UPWARD reach. `cargo tree` says otherwise, and says it conclusively:
+# `ambition_platformer2d_ldtk`'s entire transitive closure contains ZERO occurrences of
+# `ambition_platformer2d_runtime` or `ambition_platformer2d_actor_monolith`. Its own dependencies
+# are `ambition_asset_manager`, `ambition_entity_catalog`, `ambition_platformer2d_core`,
+# `ambition_platformer2d_shared_tangle` and `ambition_platformer2d_world` — the same depth as
+# `ambition_platformer2d_world`, which this policy's sibling allowlist has permitted all along. That
+# is the third instance of the story the allowlist already records twice, for
+# `ambition_sprite_sheet` and `ambition_character_sprites`: a laundered edge becoming a declared one
+# reads as a new violation and is not one.
 #
-# It was here on the reading that the LDtk crate is a BACKEND the headless
-# runtime sits under, so naming it would be an UPWARD reach. `cargo tree` says
-# otherwise, and says it conclusively: `ambition_platformer2d_ldtk`'s entire
-# transitive closure contains ZERO occurrences of `ambition_platformer2d_runtime`
-# or `ambition_platformer2d_actor_monolith`. Its own dependencies are
-# `ambition_asset_manager`, `ambition_entity_catalog`, `ambition_platformer2d_core`,
-# `ambition_platformer2d_shared_tangle` and `ambition_platformer2d_world` — the
-# same depth as `ambition_platformer2d_world`, which this policy's sibling
-# allowlist has permitted all along. And `ambition_platformer2d_actor_monolith`,
-# which the runtime unquestionably composes, has depended on it directly the whole
-# time. ⇒ the edge is DOWNWARD and always was; declaring it on 2026-08-15 is what
-# let the monolith's `ldtk_world` compatibility facade be deleted. That is the
-# third instance of the story the allowlist already records twice, for
-# `ambition_sprite_sheet` and `ambition_character_sprites`: a laundered edge
-# becoming a declared one reads as a new violation and is not one.
-#
-# ✔ **the real concern the row was groping at is FIXED (D135, 2026-08-16), and it
+# ✔ **the real concern the row was groping at is FIXED, and it
 # was never a manifest edge.** `PlatformerSessionWorld` carried `runtime_rooms:
 # LdtkRuntimeIndex` as a mandatory bundle field, so every RON-only game — Sanic,
 # Mary-O, Pocket, TwinTrack, Smash — constructed an `LdtkRuntimeIndex::default()`
@@ -1860,32 +1795,23 @@ severity = "error"
 # beside the canonical bundle rather than inside it, so a RON-authored session
 # root carries no such component at all.
 #
-# ⛔ **and the fix did NOT move this manifest edge, which is the lesson.** The
-# runtime still declares `ambition_platformer2d_ldtk` — it installs the room-load
-# spine and owns the rollback domain — and `capability-footprint-may-not-grow`
-# still reads 42/15 with `ambition_platformer2d_ldtk` among the fifteen, because
-# what holds it in a movement-only game's closure is the MONOLITH. ⚠ that list
-# has SHRUNK twice since and the count is worth re-measuring, not quoting:
-# `WorldManifest` moved to `ambition_platformer2d_world` and
-# `LdtkHotReloadState`/`poll_ldtk_file_changes` moved to `ambition_dev_tools` as
-# `WorldSourceHotReload` (D136, 2026-08-16). What is left is five production
-# files (encounter loading/systems, the map menu, gated lock walls, `world/mod`)
-# naming `LdtkProject`, `LdtkLevel`, `ActiveLdtkProject`, `LdtkVocabulary` and
-# the `field_*` readers — all genuinely LDtk, and the encounter half is the
-# large remaining work. ⇒ a
-# dependency-denylist row could not have stated the wart, and removing the wart
-# does not move a dependency count. Two different instruments, two different
-# facts — which is exactly why leaving this row here to gesture at the wart
-# turned one deleted facade into seven red sites across three policies.
+# **and the fix did NOT move this manifest edge, which is the lesson.** The runtime still
+# declares `ambition_platformer2d_ldtk` — it installs the room-load spine and owns the rollback
+# domain — and `capability-footprint-may-not-grow` still reads 42/15 with
+# `ambition_platformer2d_ldtk` among the fifteen, because what holds it in a movement-only
+# game's closure is the MONOLITH. What is left is five production files (encounter
+# loading/systems, the map menu, gated lock walls, `world/mod`) naming `LdtkProject`,
+# `LdtkLevel`, `ActiveLdtkProject`, `LdtkVocabulary` and the `field_*` readers — all genuinely
+# LDtk, and the encounter half is the large remaining work. ⇒ a dependency-denylist row could
+# not have stated the wart, and removing the wart does not move a dependency count. Two
+# different instruments, two different facts — which is exactly why leaving this row here to
+# gesture at the wart turned one deleted facade into seven red sites across three policies.
 #
-# ⭐ `bevy_ecs_ldtk` STAYS DENIED, and that is the half with teeth: the runtime
-# may compose the adapter crate; it may not name the third-party backend the
-# adapter exists to contain.
-# 2026-08-19: concrete rollback hosting moved out as well. The generic runtime
-# owns backend-neutral schema/composition metadata; selecting a concrete rollback
-# backend is an upper composition decision. Naming either the dedicated backend
-# crate or `bevy_ggrs` here would recreate the dependency inversion the carve
-# removed.
+# `bevy_ecs_ldtk` STAYS DENIED, and that is the half with teeth: the runtime may compose the adapter
+# crate; it may not name the third-party backend the adapter exists to contain. The generic runtime
+# owns backend-neutral schema/composition metadata; selecting a concrete rollback backend is an
+# upper composition decision. Naming either the dedicated backend crate or `bevy_ggrs` here would
+# recreate the dependency inversion the carve removed.
 deny = ["ambition_app", "ambition_content", "ambition_platformer2d_host", "ambition_render", "ambition_touch_input", "ambition_inventory_ui", "ambition_platformer2d_rollback_ggrs", "bevy_ecs_ldtk", "bevy_ggrs"]
 manifest = "crates/ambition_platformer2d_runtime/Cargo.toml"
 
@@ -1899,12 +1825,12 @@ rationale = "runtime source composes without reaching into app/content/host/rend
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 roots = ["crates/ambition_platformer2d_runtime/src"]
-# ⛔ `ambition_platformer2d_ldtk::` left this list with the manifest row above, on
+# `ambition_platformer2d_ldtk::` left this list with the manifest row above, on
 # the same evidence and for the same reason — a source rule and a manifest rule
 # stating one wrong fact twice is still one wrong fact. `bevy_ecs_ldtk::` STAYS:
 # the runtime may name the adapter, never the backend the adapter contains.
 #
-# ⛔ **and its `allow_lines` waiver went with it, which was dead before it was
+# **and its `allow_lines` waiver went with it, which was dead before it was
 # obsolete.** The waiver exempted lines containing the QUOTED string
 # `"ambition_platformer2d_ldtk::` — a type-name literal, not a path — and no file
 # under `crates/ambition_platformer2d_runtime/src` has contained one for as long
@@ -2058,7 +1984,7 @@ id = "engine.actor-dialog-no-runtime-reexport"
 scope = "engine"
 kind = "file-omits"
 owners = ["ambition_conversation"]
-# ⭐ **the file MOVED, so the watch moved with it (D33, 2026-08-17).** The host
+# **the file MOVED, so the watch moved with it.** The host
 # glue left the actor monolith for `ambition_conversation`, the crate that owns
 # the conversation authority this dialogue runtime is driven by. Re-pointing is
 # the only correct edit: a `file-omits` policy whose file does not exist is not a
@@ -2068,7 +1994,7 @@ watch_paths = ["crates/ambition_conversation/src/dialog.rs"]
 rationale = "actor dialog does not re-export reusable dialog runtime vocabulary"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-# ⚠ **the three system NAMES came out on 2026-08-03, and this is a narrowing of
+# **the three system NAMES came out, and this is a narrowing of
 # the rule rather than an exemption for a file.** The rationale is about
 # RE-EXPORTING vocabulary; `kind = "file-omits"` is a flat substring search and
 # cannot tell `pub use ambition_dialog::dialog_input` — the thing forbidden —
@@ -2078,43 +2004,33 @@ severity = "error"
 # composition installed dialogue and got no input handling and no typewriter
 # reveal). `pub use ambition_dialog` still catches every actual re-export,
 # including of these three, because a re-export must name the module path.
-# ⛔ the alternative — adding `dialog.rs` to an exemption list — would have
+# the alternative — adding `dialog.rs` to an exemption list — would have
 # switched the whole policy off for the one file it watches.
 forbid = ["pub use ambition_dialog", "DialogChoice", "DialogChoiceSlot", "DialogueRunnerEntity"]
 file = "crates/ambition_conversation/src/dialog.rs"
 
-# ⛔ `engine.actor-yarn-no-runtime-reexport` was RETIRED on 2026-08-08 and should
-# not be re-added at a new path. It watched
-# `…/src/dialog/yarn_bindings.rs` and forbade `pub use ambition_dialog` there.
-# `73873491b` moved this game's Yarn vocabulary — give_item, buy_item,
-# sell_item, challenge, use_brain, restore_brain and the save-state mirror — out
-# to `ambition_content` through `ambition_dialog`'s `YarnContentBindings`
-# installer seam, and `dialog/` is now empty of content. **A file-omits policy
-# whose file does not exist is not a passing guard, it is a panic**, which is how
-# this surfaced: `every_watch_path_exists` and `engine_policies` both failed on
-# the one missing path.
-# ⭐ the boundary it defended is now STRUCTURAL and stronger than the rule: an
-# engine crate cannot re-export vocabulary it no longer contains. Nothing in
-# `crates/` or `game/` re-exports `ambition_dialog` except the umbrella facade
-# (`ambition_platformer2d`), which is deliberately the public API surface.
-# Re-pointing it at `ambition_content` would be a DIFFERENT policy — different
+# It watched `…/src/dialog/yarn_bindings.rs` and forbade `pub use ambition_dialog` there.
+# `73873491b` moved this game's Yarn vocabulary — give_item, buy_item, sell_item, challenge,
+# use_brain, restore_brain and the save-state mirror — out to `ambition_content` through
+# `ambition_dialog`'s `YarnContentBindings` installer seam, and `dialog/` is now empty of content.
+# **A file-omits policy whose file does not exist is not a passing guard, it is a panic**, which is
+# how this surfaced: `every_watch_path_exists` and `engine_policies` both failed on the one missing
+# path. the boundary it defended is now STRUCTURAL and stronger than the rule: an engine crate
+# cannot re-export vocabulary it no longer contains. Nothing in `crates/` or `game/` re-exports
+# `ambition_dialog` except the umbrella facade (`ambition_platformer2d`), which is deliberately the
+# public API surface. Re-pointing it at `ambition_content` would be a DIFFERENT policy — different
 # scope, different owner, and guarding a game crate rather than an engine one.
 
 
-# ⛔ `engine.actor-persistence-no-dev-tools-alias` was RETIRED on 2026-08-17
-# (D33) and must not be re-added at a new path. It forbade
-# `DeveloperPersistenceSchedulePlugin` inside
-# `…/src/persistence/mod.rs` — an eleven-line compatibility adapter that
-# re-exported `ambition_persistence::{save, save_data, PersistenceSchedulePlugin}`
-# on the historical path. **The whole module is deleted**: its only real content,
-# the `settings::model` pause-menu vocabulary, had no consumer anywhere in the
-# workspace (all eight of its public names were referenced only by doc
-# comments), and every `crate::persistence::settings::…` path was repointed at
-# `ambition_persistence::settings`.
-# ⭐ the boundary it defended is now STRUCTURAL and stronger than the rule: a
-# module that does not exist cannot alias anything. What replaces it is
-# `engine.actors-persistence-facade-gone`, which forbids the DIRECTORY, so the
-# adapter cannot come back under a different filename either.
+# It forbade `DeveloperPersistenceSchedulePlugin` inside `…/src/persistence/mod.rs` — an eleven-line
+# compatibility adapter that re-exported `ambition_persistence::{save, save_data,
+# PersistenceSchedulePlugin}` on the historical path. **The whole module is deleted**: its only real
+# content, the `settings::model` pause-menu vocabulary, had no consumer anywhere in the workspace
+# (all eight of its public names were referenced only by doc comments), and every
+# `crate::persistence::settings::…` path was repointed at `ambition_persistence::settings`. the
+# boundary it defended is now STRUCTURAL and stronger than the rule: a module that does not exist
+# cannot alias anything. What replaces it is `engine.actors-persistence-facade-gone`, which forbids
+# the DIRECTORY, so the adapter cannot come back under a different filename either.
 
 
 # was: architecture_boundaries_touch_input_crate_is_extracted
@@ -2477,24 +2393,17 @@ severity = "error"
 contains = ["PlayerSlot", "AMBITION_REVIEW(determinism)"]
 file = "crates/ambition_platformer2d_actor_monolith/src/features/ecs/save_sync.rs"
 
-# ⛔⛔ **`engine.player-fallback-update-documented` WAS HERE AND IS DELETED
-# (2026-08-16) — ITS SUBJECT WAS DELETED FIRST.**
+# **`engine.player-fallback-update-documented` WAS HERE AND IS DELETED
+# — ITS SUBJECT WAS DELETED FIRST.**
 #
-# It required `actors/update.rs` to contain `PlayerSlot` and
-# `AMBITION_REVIEW(determinism)`, documenting the deterministic slot-ordered
-# fallback that system used to run. `333c48376` ("D117: delete the combat slot
-# board, and the primary player it anchored on") removed the fallback, the
-# anchor, and the review marker together: the system chose an anchor position
-# from `PrimaryPlayer`, or the lowest `PlayerSlot` when a build had no primary,
-# and handed it to a slot board no production reader ever consumed. The file now
-# carries the tombstone for that deletion and nothing that needs a determinism
+# The file now carries the tombstone for that deletion and nothing that needs a determinism
 # waiver.
 #
 # ⇒ this is the DELETE case, not the fix case. A `file-contains` rule cannot say
 # "document it IF you have one", so demanding the marker meant re-adding a
 # review note about machinery that no longer exists — a marker asserting a
 # property of absent code, which is the shape of a check that cannot fail
-# usefully. ⚠ the actual hazard in that file is still covered:
+# usefully. the actual hazard in that file is still covered:
 # `engine.player-fallbacks-no-raw-query` above watches `update.rs` for
 # `player_query.iter().next()` and is green, and
 # `engine.player-fallback-save-sync-documented` still guards the ONE surviving
@@ -2578,13 +2487,10 @@ severity = "error"
 roots = ["crates/ambition_platformer2d_actor_monolith/src", "crates/ambition_audio/src", "game/ambition_content/src", "game/ambition_app/src", "game/ambition_demo_sanic/src", "game/ambition_demo_mary_o/src"]
 forbid = ["install_music_registry", "install_sfx_registry", "authored_music_registry", "authored_sfx_registry", "MUSIC_REGISTRY_OVERRIDE", "SFX_REGISTRY_OVERRIDE"]
 
-# ── One frame-aware movement kernel (ADR 0024) ──
-# Every integrated movable body carries exactly ONE explicit `MotionModel`;
-# absence is never a policy. An `Option<&MotionModel>` or `Without<MotionModel>`
-# query is the "missing model means axis-swept" convention returning — the exact
-# ambiguity the unified kernel removed. Policy-specific whole-tick solvers are
-# `pub(crate)` (visibility is the guard there); this rejects the QUERY-side
-# regression rustc cannot see.
+# ── One frame-aware movement kernel (ADR 0024) ── Every integrated movable body carries exactly ONE
+# explicit `MotionModel`; absence is never a policy. An `Option<&MotionModel>` or
+# `Without<MotionModel>` query is the "missing model means axis-swept" convention returning — the
+# exact ambiguity the unified kernel removed.
 [[policy]]
 id = "engine.movement-model-is-never-optional"
 scope = "engine"
@@ -2647,14 +2553,14 @@ forbid = [
     "kin.pos = ", "kin.pos += ", "kin.pos -= ",
     "kinematics.pos = ", "kinematics.pos += ", "kinematics.pos -= ",
     "kin.pos.x = ", "kin.pos.y = ", "kinematics.pos.x = ", "kinematics.pos.y = ",
-    # ⛔ `body.` TOO. This rule matches the RECEIVER'S NAME, not its type, so a
+    # `body.` TOO. This rule matches the RECEIVER'S NAME, not its type, so a
     # `BodyKinematics` bound to any other identifier is invisible to it. The
     # TwinTrack demo bound one as `body` and relocated the traveler with a bare
     # `body.pos = ` for two days; a human reviewer found it, this did not.
     # `body` is the one other name actually in use — every non-test hit is
     # already inside a sanctioned skip path below — but see the rationale: the
     # blind spot is the shape of the check, and closing one name is not closing it.
-    # ⚠ LEADING SPACE, deliberately. Bare `body.pos` also matches the TAIL of
+    # LEADING SPACE, deliberately. Bare `body.pos` also matches the TAIL of
     # `player_body.pos`, which is how `camera_snapshot.rs` — writing a SimView
     # snapshot, not a body — turned up as two violations on the first run. An
     # indented statement always has whitespace before it; a suffix never does.
@@ -2677,34 +2583,29 @@ skip_paths = [
     "ambition_platformer2d_actor_monolith/src/items/pickup/",
     # Dev tooling body-profile resize (feet-planted recenter).
     "ambition_dev_tools/src/dev_tools/editable.rs",
-    # ⚠ A PRESCRIBED CONTENT WORLDLINE, and the one file that is allowed to be
+    # A PRESCRIBED CONTENT WORLDLINE, and the one file that is allowed to be
     # one. TwinTrack's chase beacon is a marker + `BodyKinematics` + `SimId`: no
     # `MotionModel`, no contact clusters, so there is nothing for `transit_body`
     # to reconcile and it cannot be called on the entity at all. Its position is
     # evaluated analytically from the pursuit's start event because the optics
     # solver's null tolerance is a measurement OF THE SOLVER only while the
     # worldline is exactly the line the solver assumes.
-    # ⛔ scoped to this file rather than to the demo ON PURPOSE: `lib.rs` moves
+    # scoped to this file rather than to the demo ON PURPOSE: `lib.rs` moves
     # the TRAVELER, a full actor, and has lost its `transit_body` fix twice to
     # successive SR overlays. It stays covered.
     "ambition_demo_twintrack/src/chase_beacon.rs",
 ]
 
-# ⛔ A SECOND DOC COMMENT THAT CLAIMED ENFORCEMENT AND HAD NONE (2026-08-02).
-#
 # `ResolvedMotionFrame::publish`'s doc said "ONLY the frame resolution phase may
 # call this (guarded by workspace policy, not just convention)". No such policy
 # existed. The invariant happened to hold — two production callers, both in
 # `gravity/resolve.rs` — but nothing was checking, and ADR 0024's frame law is
 # built on the resolved frame being published exactly once per tick by one phase.
 #
-# ⚠ **the method's NAME is why no rule could exist.** A forbidden-source rule
-# matches text, and `.publish(` collides with `sprites.publish`,
-# `damageable.publish`, `sessions.publish` and `registry.publish` — so any rule
-# naming it would have fired on four unrelated seams. It was renamed to
-# `publish_resolved_frame` in the same commit, which is what makes this rule
-# expressible at all. A claim of enforcement that cannot be written down is a
-# claim nobody can keep.
+# **the method's NAME is why no rule could exist.** A forbidden-source rule matches text, and
+# `.publish(` collides with `sprites.publish`, `damageable.publish`, `sessions.publish` and
+# `registry.publish` — so any rule naming it would have fired on four unrelated seams. A claim
+# of enforcement that cannot be written down is a claim nobody can keep.
 [[policy]]
 id = "engine.only-the-frame-phase-publishes-the-resolved-frame"
 scope = "engine"
@@ -2725,32 +2626,26 @@ skip_paths = [
     "ambition_platformer2d_shared_tangle/src/frame_env.rs",
 ]
 
-# ⛔ THE OTHER HALF OF THE SAME CONTRACT, added 2026-08-02.
-#
 # `authority.rs`'s own module doc says "every production write to authoritative
 # body pose/VELOCITY belongs to exactly one named authority", and lists impulses
 # as authority #4. The rule above enforced `pos` and nothing enforced `vel` — so
 # half a documented contract was a habit, and the sentence "guarded by workspace
 # policy" was true of one noun in it.
 #
-# That gap is why "who wrote this velocity" was expensive to answer: the 2026-08-01
+# That gap is why "who wrote this velocity" was expensive to answer: the
 # ladder investigation spent six wrong readings on a `-99`/tick ramp whose author
 # was a `vel -=` the log could not see, and the eventual answer (the fighter's own
 # slash recoil) came from an operation the kernel already emitted rather than from
 # anything a velocity write announced.
 #
-# ⚠ AGENTS.md's "avoid bullshit guardrails" bar, answered rather than assumed:
-# this is not a new CATEGORY of machinery, it is the missing half of a policy that
-# already exists and is already sanctioned. The failure is concrete and recurring
-# (the 2026-08-01 ladder investigation burned six wrong readings on a velocity
-# write nothing could attribute), and it found a real duplicated authority on its
-# first run. The more natural enforcement — making `BodyKinematics.vel` private
-# behind authority-only setters — is genuinely better and genuinely bigger: the
-# field is READ across the whole engine, so it is accessor churn on a scale this
-# does not justify alone. If that refactor ever happens, DELETE this rule rather
-# than keep both.
+# AGENTS.md's "avoid bullshit guardrails" bar, answered rather than assumed: this is not a new
+# CATEGORY of machinery, it is the missing half of a policy that already exists and is already
+# sanctioned. The more natural enforcement — making `BodyKinematics.vel` private behind
+# authority-only setters — is genuinely better and genuinely bigger: the field is READ across the
+# whole engine, so it is accessor churn on a scale this does not justify alone. If that refactor
+# ever happens, DELETE this rule rather than keep both.
 #
-# ⚠ the skip list is deliberately the SAME set as the pose rule. Those are the
+# the skip list is deliberately the SAME set as the pose rule. Those are the
 # named authorities of ADR 0024; if a path is a sanctioned pose authority it is a
 # sanctioned velocity authority, and any divergence between the two lists would be
 # a claim that a site may move a body but not change how it is moving, which the
@@ -2804,7 +2699,7 @@ skip_paths = [
     # Domain integrator: a projectile reflecting off a surface, mirroring its own
     # velocity. The same class as the projectile paths already listed above.
     "ambition_platformer2d_actor_monolith/src/projectile/systems.rs",
-    # ⚠ GAME bodies with their own motion rules, not engine bodies: Mary-O's
+    # GAME bodies with their own motion rules, not engine bodies: Mary-O's
     # snake segments and Sanic's ball dash. Listed individually rather than
     # skipping `game/`, so a NEW game reaching for a bare velocity write still
     # fails and has to argue for itself.
@@ -2951,18 +2846,9 @@ forbid = [
     "Option<Res<ambition_audio::AudioCatalogRegistry>>",
 ]
 
-# ⛔ **the ordinary back-edge is already impossible, and this rule is NOT about
-# it.** `ambition_platformer2d_actor_monolith` depends on `ambition_conversation`
-# since the 2026-08-17 carve, so `[dependencies]
-# ambition_platformer2d_actor_monolith` here is a cycle cargo refuses to resolve
-# by name — probe-falsified rather than reasoned about.
-# ⭐ **`[dev-dependencies]` is the hole, and cargo allows it on purpose** — the
-# monolith relies on that itself, its manifest saying "cyclic dev-deps are fine".
-# So a test in the carved crate could reach back into the monolith for a fixture,
-# compile green, and quietly restore the coupling the carve removed: this crate's
-# own tests would then build the whole monolith and its ~40-crate closure. That
-# is the failure this row exists for, and the parsed check reads
-# `dev-dependencies` and `build-dependencies`, which is what lets it see one.
+# So a test in the carved crate could reach back into the monolith for a fixture, compile green, and
+# quietly restore the coupling the carve removed: this crate's own tests would then build the whole
+# monolith and its ~40-crate closure.
 [[policy]]
 id = "engine.conversation-does-not-depend-on-what-it-left"
 scope = "engine"

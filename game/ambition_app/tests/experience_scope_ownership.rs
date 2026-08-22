@@ -9,7 +9,7 @@
 //! that removed it unconditionally would be one game deleting another's
 //! match."*
 //!
-//! ⛔ **the claim is unfalsifiable from inside one declaration.** Versus says
+//! **the claim is unfalsifiable from inside one declaration.** Versus says
 //! "the match ends WITH its route" and removes `ActiveMatch` by type; Smash says
 //! "a match that ended with the route it ran on" and removes `ActiveMatch` by
 //! type. Each file reads as correct. Both are registered into the SAME host
@@ -18,7 +18,7 @@
 //! visible at all. That is why this lives in a test over the composed registry
 //! rather than in a reviewer's head.
 //!
-//! ⚠ **this is the roster's lesson, one resource later — for the fourth time.**
+//! **this is the roster's lesson, one resource later — for the fourth time.**
 //! `MatchParticipantRoster` learned `published_by` across three separate
 //! incidents, the last one a stage opening with one fighter instead of two. Both
 //! files here carry a comment explaining that very lesson, correctly, on the
@@ -35,11 +35,7 @@ use bevy::prelude::*;
 
 /// Compose the shipped multi-game host and hand back its scope registry.
 ///
-/// Build-time only: scopes are declared in plugin `build`, so no frame has to
-/// run and none does. A test that had to drive the router to see this would be
-/// asking a much narrower question — whether the contradiction fires on some
-/// particular transition — when the defect is that the declarations disagree at
-/// all.
+/// Build-time only: scopes are declared in plugin `build`, so no frame has to run and none does.
 fn compose_the_shipped_host() -> App {
     use ambition_app::app::shell_host;
     use bevy::asset::AssetPlugin;
@@ -65,7 +61,7 @@ fn compose_the_shipped_host() -> App {
 /// Every REMOVAL in the composed host, keyed by the resource and naming the
 /// owner and the ownership claim it made.
 ///
-/// ⚠ **removals only — a `Reset` is not evidence of publishing.** Putting a
+/// **removals only — a `Reset` is not evidence of publishing.** Putting a
 /// resource back to its default is a claim about staleness, not about who owns
 /// it, and counting it here would make two experiences sharing a cursor look
 /// like two experiences owning a match.
@@ -91,17 +87,8 @@ fn removals(app: &App) -> BTreeMap<&'static str, Vec<(String, ReleaseKind)>> {
 
 /// **A resource more than one experience removes may not be removed BY TYPE.**
 ///
-/// ⭐ **the rule is not "two experiences must not both claim sole ownership".**
-/// That was this test's first form, and poisoning the fix proved it too weak:
-/// regressing ONE side to `releasing` left the other owner-scoped, so there was
-/// only one sole claim, nothing was "contested", and the assertion stayed green
-/// while versus deleted smash's live match in the unit test next door.
-///
-/// The rule that holds: **a second experience declaring a removal is itself the
-/// evidence that a second experience publishes.** Nobody writes a giveback for
-/// state they never create. So once two scopes remove one resource, every one of
-/// those removals has to ask whose it is — and a single `SoleRemoval` among them
-/// is a defect no matter how polite the others are.
+/// The rule that holds: **a second experience declaring a removal is itself the evidence that a
+/// second experience publishes.** Nobody writes a giveback for state they never create.
 #[test]
 fn a_resource_two_experiences_remove_is_never_removed_by_type() {
     let app = compose_the_shipped_host();
@@ -140,21 +127,10 @@ fn a_resource_two_experiences_remove_is_never_removed_by_type() {
     );
 }
 
-/// ⚠ **the probe for the probe.** An invariant over a registry is worth exactly
+/// **the probe for the probe.** An invariant over a registry is worth exactly
 /// as much as the registry's contents, and a composition that registered one
 /// experience — or none — would satisfy the assertion above by having nothing to
 /// contest.
-///
-/// ⛔ **the floor is NOT "somebody still makes a sole-ownership claim".** That
-/// was this test's first draft and it went red the moment the fix landed, which
-/// is correct behaviour for an assertion that demands the bug stay: converting
-/// smash's two claims to owner-scoped removals is exactly the repair, and a
-/// floor that forbids it is pinning the defect rather than the coverage.
-///
-/// What actually has to hold is that BOTH match experiences are in the composed
-/// registry with givebacks declared. If smash's plugin ever stops being listed
-/// in `shell_host.rs`, the assertion above goes green because it stopped
-/// looking — and that is the failure this catches.
 #[test]
 fn the_host_composes_both_match_experiences_with_givebacks() {
     let app = compose_the_shipped_host();

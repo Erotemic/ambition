@@ -1,8 +1,7 @@
 //! Puppy-slug gun — a held item that summons **player-allied** puppy slugs.
 //!
-//! Jon's design (TODO "Puppy slug gun"): a held item whose `Attack` fires
 //! friendly puppy slugs that harm the player's enemies but never the player.
-//! Decided (Jon): the slugs **don't target — they just move** (their normal
+//! Decided: the slugs **don't target — they just move** (their normal
 //! surface-walker wander); they're simply player-allied now.
 //!
 //! Implementation: the slug spawns through the existing runtime-minion path
@@ -35,15 +34,11 @@ pub const MAX_ALLIES: usize = 3;
 
 /// **The CHARACTER the gun summons.**
 ///
-/// ⛔⛔ **this said `"puppy_slug"`, and that archetype row is DELETED** — the
-/// creature became `npc_puppy_slug` in the D73 group-A migration. An id that
-/// resolves nothing lands on the generic `combatant` fallback, so the ally a
-/// player summoned with their own weapon was not a puppy slug at all: wrong
-/// health, wrong speed, no crawl, no cling. Third instance of the same defect
-/// found this week (ledger D93/D94), after the Gradient Sentinel's two summons
-/// and twenty engine tests.
+/// An id that resolves nothing lands on the generic `combatant` fallback, so the ally a player
+/// summoned with their own weapon was not a puppy slug at all: wrong health, wrong speed, no
+/// crawl, no cling.
 ///
-/// ⭐ the summon road resolves the prepared cast first now, so naming the
+/// the summon road resolves the prepared cast first now, so naming the
 /// character is all this takes.
 const SLUG_ARCHETYPE: &str = "npc_puppy_slug";
 
@@ -57,7 +52,7 @@ pub fn fire_puppy_slug_gun_system(
     controlled: Res<ControlledSubject>,
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
     authored_sheets: Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
-    // ⭐ the summoned ally IS a character (`npc_puppy_slug`), so this road needs
+    // the summoned ally IS a character (`npc_puppy_slug`), so this road needs
     // the cast to build it as one. `Option`: a composition that registers nobody
     // is ordinary, and the empty registry is the honest value there.
     prepared: Option<Res<crate::character_runtime::PreparedCharacterRegistry>>,
@@ -145,8 +140,6 @@ mod tests {
         // Summoned bodies size themselves from their sheets (U1 stage B); a
         // fixture authors none, and empty resolves as it always did.
         app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
-        // ⭐ **the ally the gun summons is a CHARACTER**, and a summon that names
-        // none is refused (AC6) where it used to become a generic `combatant`.
         app.insert_resource(crate::character_runtime::fixture_cast(&[SLUG_ARCHETYPE]));
         app.add_systems(Update, fire_puppy_slug_gun_system);
         app

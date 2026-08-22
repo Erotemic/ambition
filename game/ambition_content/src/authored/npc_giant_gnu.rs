@@ -2,13 +2,13 @@
 //! RIDER is the threat — GNU-ton, who stays a boss and is not touched
 //! here.
 //!
-//! ⭐ **the first migrated body that authors `is_hostile: false`**,
+//! **the first migrated body that authors `is_hostile: false`**,
 //! and it could not have migrated a day earlier: the character-first
 //! constructor wrote that flag as the literal `true`, so a migrated giant
 //! would have started hunting the player it exists to carry. The row's
 //! hostility half is controller policy and now says so.
 //!
-//! ⚠ `default_size` does NOT come across, and the placement is why: the
+//! `default_size` does NOT come across, and the placement is why: the
 //! sandbox's giant is authored as a 220x220 LDtk box, exactly the
 //! envelope the row was restating, so the size survives without a second
 //! authority stating it. Its `respawn: OnRoomReenter` moves to the

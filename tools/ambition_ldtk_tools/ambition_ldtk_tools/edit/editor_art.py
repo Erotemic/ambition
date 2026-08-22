@@ -44,7 +44,7 @@ and records where each landed. It is written next to the sprites it is made of
 (and gitignored with them, like `editor_icons.png`), so a fresh clone rebuilds
 it from `regen_sprites.sh` rather than carrying a binary in git.
 
-## Usage
+# # Usage
 
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools \\
@@ -87,20 +87,19 @@ from ambition_ldtk_tools.edit.visual_manifest import (
     upsert_tilesets,
 )
 
-#: The atlas's cell size. It matches the IntGrid grid every Ambition world is
-#: authored on, which is what lets a rule address half of a 32px texture.
+# : The atlas's cell size. It matches the IntGrid grid every Ambition world is
+# : authored on, which is what lets a rule address half of a 32px texture.
 CELL = 16
 
-#: How wide the generated atlas is, in cells. Fixed so a tile id
-#: (`row * width + col`) is stable across regenerations.
+# : How wide the generated atlas is, in cells.
 ATLAS_COLS = 32
 
-#: IntGrid VALUE identifier -> the engine sprite the game draws for it.
-#:
-#: Keyed by the value's name rather than its number: the number is per-layer
-#: (`Collision` 1 is Solid, `Water` 1 is ClearWater) and the name is what an
-#: author reads. A value with no entry keeps its flat editor colour, which is
-#: the honest look for a concept with no art yet.
+# : IntGrid VALUE identifier -> the engine sprite the game draws for it.
+# :
+# : Keyed by the value's name rather than its number: the number is per-layer
+# : (`Collision` 1 is Solid, `Water` 1 is ClearWater) and the name is what an
+# : author reads. A value with no entry keeps its flat editor colour, which is
+# : the honest look for a concept with no art yet.
 ENGINE_INTGRID_ART: dict[str, str] = {
     "Solid": "solid_tile",
     "OneWayUp": "one_way_tile",
@@ -112,25 +111,19 @@ ENGINE_INTGRID_ART: dict[str, str] = {
     "MurkyWater": "water_surface_tile",
 }
 
-#: Entity def identifier -> the engine sprite the game spawns for it.
-#:
-#: ⚠ **only where the mapping is 1:1.** `EnemySpawn`/`NpcSpawn`/`BossSpawn` name
-#: a CHARACTER through a field, so one representative sprite would claim a
-#: specific enemy stands there; they get the engine's generic actor art, which
-#: says "a body spawns here" and nothing more. Per-instance art needs the
-#: field's values to carry tiles, which is a schema change and a separate job.
+# : Entity def identifier -> the engine sprite the game spawns for it.
+# :
+# : **only where the mapping is 1:1.** `EnemySpawn`/`NpcSpawn`/`BossSpawn` name
+# : a CHARACTER through a field, so one representative sprite would claim a
+# : specific enemy stands there; they get the engine's generic actor art, which
+# : says "a body spawns here" and nothing more. Per-instance art needs the
+# : field's values to carry tiles, which is a schema change and a separate job.
 ENGINE_ENTITY_ART: dict[str, Any] = {
     # The one spawner that IS 1:1 — every world starts the same body.
     "PlayerStart": {"sheet": "player_robot_v3", "frame": 0},
     "Solid": "solid_block",
     "OneWayPlatform": "one_way_platform",
     "BlinkWall": "soft_blink_wall",
-    # ⛔ **`HazardBlock` draws the flat reset TILE, not spikes** — and it drew
-    # spikes here until 2026-08-08, which is the visual half of the same lie the
-    # runtime told. It lowers to IntGrid `Hazard`, which this table two entries
-    # up already maps to `hazard_tile`, and the game draws `EntitySprite::HazardTile`
-    # for the block it becomes. So the editor promised damage that neither the
-    # lowering nor the renderer delivers. Spikes belong to the thing that hurts.
     "HazardBlock": "hazard_tile",
     "DamageVolume": "hazard_spikes",
     "PogoOrb": "pogo_orb",
@@ -152,10 +145,10 @@ ENGINE_ENTITY_ART: dict[str, Any] = {
     "MorphBallSpawn": "morph_ball",
 }
 
-#: `tileRenderMode` per entity. The default (`Cover`) fills the authored box,
-#: which is right for a wall or a platform whose box IS the shape. A spawner's
-#: box is a region rather than a silhouette, so its art is fitted instead of
-#: stretched.
+# : `tileRenderMode` per entity. The default (`Cover`) fills the authored box,
+# : which is right for a wall or a platform whose box IS the shape. A spawner's
+# : box is a region rather than a silhouette, so its art is fitted instead of
+# : stretched.
 FIT_INSIDE = {
     "PlayerStart",
     "EnemySpawn",
@@ -202,7 +195,7 @@ class ArtSource:
             if box is not None:
                 image = image.crop(box)
         if self.flip_y:
-            # ⭐ a pipe hanging from a ceiling wears its lip UNDERNEATH, which
+            # a pipe hanging from a ceiling wears its lip UNDERNEATH, which
             # is the whole difference a `mouth: Down` makes and is one flip of
             # the art the game already ships.
             image = image.transpose(Image.FLIP_TOP_BOTTOM)
@@ -525,30 +518,20 @@ def auto_rules_for_layer(
     return rules
 
 
-#: The rule group this tool owns. Anything an author adds by hand lives in a
-#: group with another name and survives every re-run untouched.
+# : The rule group this tool owns. Anything an author adds by hand lives in a
+# : group with another name and survives every re-run untouched.
 RULE_GROUP_NAME = "Engine art"
 
-#: Suffix for the AutoLayer that draws a source IntGrid layer's art.
+# : Suffix for the AutoLayer that draws a source IntGrid layer's art.
 ART_LAYER_SUFFIX = "Art"
 
-#: ⛔ **the first shape of this tool put the rules on the IntGrid layer itself,
-#: and that HID THE COLLISION.** Jon: *"I can't see the collision surfaces."* A
-#: matched rule replaces the cell's colour with its tile, so the layer whose one
-#: job is to say where the walls are stopped saying it the moment it started
-#: looking good — and which value a cell holds (Solid vs OneWayUp vs Hazard)
-#: went invisible exactly where it matters. The art belongs on a layer of its
-#: own, and LDtk has the two knobs that make the pair readable:
-#:
-#: * `displayOpacity` — the layer's own alpha. Left at 1.0, so SELECTING the
-#:   collision layer to paint shows exactly the cells, crisply, art hidden.
-#: * `inactiveOpacity` — what it fades to while another layer is current, which
-#:   is the state you read the level in: a tint saying Solid here, Hazard there,
-#:   over art you can still see.
-#:
-#: ⚠ written only when the art layer is CREATED. These are editor preferences
-#: that live in the file, so re-running must not argue with an author who has
-#: since dragged the sliders.
+# The art belongs on a layer of its : own, and LDtk has the two knobs that make the pair readable: :
+# : * `displayOpacity` — the layer's own alpha. Left at 1.0, so SELECTING the : collision layer to
+# paint shows exactly the cells, crisply, art hidden. : * `inactiveOpacity` — what it fades to while
+# another layer is current, which : is the state you read the level in: a tint saying Solid here,
+# Hazard there, : over art you can still see. : : written only when the art layer is CREATED. These
+# are editor preferences : that live in the file, so re-running must not argue with an author who
+# has : since dragged the sliders.
 COLLISION_OPACITY = 1.0
 COLLISION_INACTIVE_OPACITY = 0.35
 
@@ -630,17 +613,11 @@ def build_art_layer_instance(
         "optionalRules": [],
         "seed": level.get("uid", 0),
         "overrideTilesetUid": None,
-        # ⛔ **filled in, because LDtk does NOT re-evaluate rules on open.** The
-        # first version left this empty on the theory that a cache is a second
-        # copy that can go stale — and Jon opened the project to a flat grey
-        # slab: the rules were right, the layer was right, and the editor drew
-        # the cache it was given, which was nothing. `autoLayerTiles` is the
-        # editor's own cache format; writing it is how a generated auto-layer
-        # arrives visible. LDtk recomputes and overwrites the moment the source
-        # is edited, so the staleness window is "until the first edit", and the
-        # tiles are a pure function of cells the file already carries.
+        # LDtk recomputes and overwrites the moment the source is edited, so the staleness window is
+        # "until the first edit", and the tiles are a pure function of cells the file already
+        # carries.
         "autoLayerTiles": [],
-        # ⚠ required by the schema on EVERY layer instance whatever its type —
+        # required by the schema on EVERY layer instance whatever its type —
         # an AutoLayer holds no cells, tiles or entities of its own and still
         # has to say so. The schema check is what said so; the first version of
         # this omitted all three.
@@ -985,7 +962,7 @@ def apply_field_art(
         enum_identifier = str(field.get("__type") or "").removeprefix("LocalEnum.")
         enum = next((e for e in enums if e.get("identifier") == enum_identifier), None)
         if enum is None and spec.get("enum"):
-            # ⭐ **a field with no vocabulary manifest can declare its enum
+            # **a field with no vocabulary manifest can declare its enum
             # here.** `MaryOBlock.kind` is owned by `mary_o.entities.json`,
             # which is where a GAME's own noun belongs; `EnemySpawn.brain` is an
             # ENGINE def that no per-world manifest declares, and its useful
@@ -1103,7 +1080,7 @@ def dress(
     messages = upsert_tilesets(project, ldtk, manifest)
     tileset = find_tileset(project, atlas_identifier)
     assert tileset is not None  # upsert_tilesets just wrote it
-    # ⚠ `rel_to_ldtk` resolves symlinks, so an atlas named through this world's
+    # `rel_to_ldtk` resolves symlinks, so an atlas named through this world's
     # own `assets/sprites` mount comes back addressed through the OTHER game
     # that happens to own the shared tree. Say it the neighbourly way when the
     # world has its own mount — the editor reads either, but a world reaching

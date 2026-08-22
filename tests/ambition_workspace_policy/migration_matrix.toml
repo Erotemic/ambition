@@ -7,12 +7,9 @@
 # that the matrix cannot lie: a `legacy-pending` entry's fn must STILL be in the
 # legacy file, and a migrated/removed/retained entry's fn must be GONE from it.
 #
-# disposition ∈ { declarative, custom, retained, removed, legacy-pending }
-#   declarative     — moved to policies/*.toml; `policies` lists the IDs.
-#   custom          — moved to a src/custom/*.rs scanner; `policies` names its ID.
-#   retained        — deliberately kept as a crate-local behavioral test; see note.
-#   removed         — obsolete; see note for justification.
-#   legacy-pending  — not yet migrated; still lives in the legacy file.
+# retained        — deliberately kept as a crate-local behavioral test; see note. removed
+# — obsolete; see note for justification. legacy-pending  — not yet migrated; still lives in the
+# legacy file.
 
 
 [[entry]]
@@ -188,11 +185,9 @@ policies = ["game.menu-map-state-home", "game.actor-menu-map-model-gone", "game.
 [[entry]]
 old_test = "architecture_boundaries_actor_dialog_keeps_only_game_bindings"
 disposition = "declarative"
-# ⚠ this listed a second policy, `engine.actor-yarn-no-runtime-reexport`, until
-# 2026-08-08. It was retired with the file it watched — `73873491b` moved this
-# game's Yarn vocabulary out to `ambition_content`, so the actor dialog module
-# now keeps NOT ONLY game bindings but none at all, which is what the old test
-# was reaching for. engine.toml carries the full reasoning.
+# It was retired with the file it watched — `73873491b` moved this game's Yarn vocabulary out to
+# `ambition_content`, so the actor dialog module now keeps NOT ONLY game bindings but none at all,
+# which is what the old test was reaching for. engine.toml carries the full reasoning.
 policies = ["engine.actor-dialog-no-runtime-reexport"]
 
 [[entry]]
@@ -313,10 +308,7 @@ policies = ["engine.clock-resets-owner-only", "engine.runtime-applies-clock-rese
 [[entry]]
 old_test = "architecture_boundaries_player_fallbacks_are_slot_ordered"
 disposition = "declarative"
-# `engine.player-fallback-update-documented` was the third destination here and
-# was deleted 2026-08-16 with its subject (the slot board removed in 333c48376);
-# see the tombstone in policies/engine.toml. The old test's other two halves
-# still land, so this entry stays `declarative`.
+# The old test's other two halves still land, so this entry stays `declarative`.
 policies = ["engine.player-fallbacks-no-raw-query", "engine.player-fallback-save-sync-documented"]
 
 [[entry]]

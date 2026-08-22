@@ -1,6 +1,3 @@
-//! **The hit-response kernel** — the pure math of what a landed hit does to a
-//! body: launch velocity, directional influence, and hitstun duration.
-//!
 //! Carved down from `ambition_platformer2d_actor_monolith::features::ecs::damage_apply` (FB6b,
 //! fighter-brain.md §12.3 route 1) so ONE formula answers both callers:
 //!
@@ -64,16 +61,6 @@ pub struct HitKnockback {
     /// same `y` [`AccelerationFrame`](crate::reference_frame::AccelerationFrame)
     /// uses everywhere else — so an up-launcher authors `(0, -1)` and a spike
     /// authors `(0, 1)`. `None` = the feel-tuned default diagonal.
-    ///
-    /// ⛔⛔ **this doc used to say `y` = upward, and the resolver negated `y` to
-    /// match it — which inverted EVERY authored launch in the game** (D155). The
-    /// authoring contract is
-    /// [`HitVolume::launch_dir`](../../ambition_entity_catalog/struct.HitVolume.html)
-    /// — *"(+x = facing, +y = gravity-down)"* — and all ~100 authored literals
-    /// wrote against it, so every up-tilt, up-air and up-smash in the tree
-    /// spiked its victim into the floor while every down-air lifted them.
-    /// Jon, playing: *"up tilts just keep the character on the ground"*. Keeping
-    /// ONE meaning for local `y` is what makes that unrepresentable.
     pub launch_dir: Option<Vec2>,
 }
 
@@ -110,20 +97,13 @@ pub struct HitResponseTuning {
     /// hard stuns twice as long. This is the dial that decides how combo-heavy
     /// the game feels — raise it and every hit stuns less.
     ///
-    /// ⚠ **`0.0` disables launch scaling**, restoring the flat behaviour, which
+    /// **`0.0` disables launch scaling**, restoring the flat behaviour, which
     /// is what a build with no authored launch speeds wants.
     pub hitstun_reference_launch: f32,
     /// Ceiling on the reaction scale, so a launch at kill percent cannot stun
     /// for seconds. Applied after the reference division.
     pub hitstun_max_scale: f32,
     /// **Hitlag at reaction scale `1.0`: the shared freeze a connect buys.**
-    ///
-    /// ⛔ **ONE number for both bodies.** Attacker and victim used two —
-    /// `attack_hitstop_time` (0.055) and `player_damage_hitstop_time` (0.070) —
-    /// applied at two sites, neither scaled by how hard the hit was. A landed
-    /// strike is one event and the pause it buys is one duration; two constants
-    /// that can drift apart are two chances for the connect to read as mushy on
-    /// one side of it.
     pub hitlag_time: f32,
     /// DI budget (radians). `0.0` disables directional influence entirely.
     pub di_max_angle: f32,
@@ -144,7 +124,7 @@ pub struct HitResponseTuning {
 /// **SMASH DIRECTIONAL INFLUENCE** — how far a frozen body shifts itself this
 /// tick of hitlag, in world px.
 ///
-/// ⭐ **the defensive half of the mechanic [`di_adjust`] is the offensive half
+/// **the defensive half of the mechanic [`di_adjust`] is the offensive half
 /// of.** DI bends the launch you are about to take; SDI moves you out of the
 /// NEXT hit's way while the current one is still frozen. It is what makes a
 /// combo answerable rather than a sentence, and it is the reason hitlag is a
@@ -158,7 +138,7 @@ pub struct HitResponseTuning {
 /// PARITY: `step <= 0.0` or a null input returns `ZERO`, so SDI is inert until a
 /// body authors a budget. Every body in Ambition does not.
 ///
-/// ⚠ **the throttle is CLAMPED, not normalised.** A half-deflected stick buys
+/// **the throttle is CLAMPED, not normalised.** A half-deflected stick buys
 /// half the shift, which is the whole point of an analogue input here; a
 /// normalised direction would make a nudge worth a slam.
 pub fn smash_di_shift(input_local: Vec2, gravity_dir: Vec2, step: f32) -> Vec2 {
@@ -203,17 +183,10 @@ pub fn di_adjust(launch: Vec2, di_input_local: Vec2, gravity_dir: Vec2, max_angl
 /// A `FeelScale` explicitly scales the whole standard reaction, including
 /// hitstun.
 ///
-/// ⭐⭐ **an absolute launch speed scales it too, against
-/// [`HitResponseTuning::hitstun_reference_launch`] — and THAT is the mechanic
-/// combos are made of.** This arm used to return a flat `1.0`, so a jab and a
-/// fully-grown smash armed identical hitstun: a launched fighter recovered just
-/// as fast at 150% as at 0%, nothing could ever be followed up, and the
-/// knockback growth the strike had already computed reached the victim's
-/// VELOCITY and stopped there. Bigger launch, longer stun, follow-up connects —
-/// that is the whole platform-fighter loop, and it is standard, documented
-/// behaviour rather than a taste call.
+/// Bigger launch, longer stun, follow-up connects — that is the whole platform-fighter loop, and it
+/// is standard, documented behaviour rather than a taste call.
 ///
-/// ⚠ a `0.0` reference disables the scaling and restores the flat answer, which
+/// a `0.0` reference disables the scaling and restores the flat answer, which
 /// is right for a build authoring no launch speeds.
 pub fn reaction_scale(knockback: Option<&HitKnockback>, tuning: &HitResponseTuning) -> f32 {
     let Some(knockback) = knockback else {
@@ -230,9 +203,7 @@ pub fn reaction_scale(knockback: Option<&HitKnockback>, tuning: &HitResponseTuni
     }
 }
 
-/// THE hitstun a landed hit arms: the standard duration, reaction-scaled, with
-/// the floor that keeps even a soft hit a readable beat. One expression, two
-/// callers — the authoritative victim path and the shadow rollout.
+/// One expression, two callers — the authoritative victim path and the shadow rollout.
 pub fn hitstun_duration(knockback: Option<&HitKnockback>, tuning: &HitResponseTuning) -> f32 {
     tuning.hitstun_time * reaction_scale(knockback, tuning).max(0.35)
 }
@@ -240,23 +211,18 @@ pub fn hitstun_duration(knockback: Option<&HitKnockback>, tuning: &HitResponseTu
 /// **The weakest connect the hitlag law admits**, as a fraction of
 /// [`HitResponseTuning::hitlag_time`].
 ///
-/// It was an inline `0.5` inside [`hitlag_duration`], which was fine while that
-/// function was the only thing that had an opinion about "the softest possible
-/// hit". It is not any more: the camera's hit shake needs the same number for
-/// its dead zone (a shake that starts above the WEAKEST connect is the shape
-/// that makes a poke silent and everything above it proportional), and a second
-/// `0.5` written over there would be two literals agreeing by coincidence — the
-/// exact shape this campaign has already paid for twice.
+/// It is not any more: the camera's hit shake needs the same number for its dead zone (a shake
+/// that starts above the WEAKEST connect is the shape that makes a poke silent and everything
+/// above it proportional), and a second `0.5` written over there would be two literals agreeing
+/// by coincidence — the exact shape this campaign has already paid for twice.
 pub const MIN_HITLAG_SCALE: f32 = 0.5;
 
-/// **THE hitlag a landed hit buys — the same freeze for attacker and victim.**
-///
 /// Scales with the hit exactly as hitstun does, so a jab taps and a smash
 /// *lands*; the perceived weight of a connect is mostly this. Floored at
 /// [`MIN_HITLAG_SCALE`] so even the weakest connect is a readable beat rather
 /// than nothing, and it rides the same [`reaction_scale`] ceiling.
 ///
-/// ⚠ **both sides freeze for the SAME duration**, which is what makes a connect
+/// **both sides freeze for the SAME duration**, which is what makes a connect
 /// read as one event rather than two things happening near each other.
 pub fn hitlag_duration(knockback: Option<&HitKnockback>, tuning: &HitResponseTuning) -> f32 {
     tuning.hitlag_time * reaction_scale(knockback, tuning).max(MIN_HITLAG_SCALE)
@@ -266,11 +232,9 @@ pub fn hitlag_duration(knockback: Option<&HitKnockback>, tuning: &HitResponseTun
 /// side away from the hit's source (falling back to the stored event dir, then
 /// away from facing), launched with a rise against the body's gravity.
 ///
-/// `FeelScale` magnitudes preserve the standard per-source feel vector used by
-/// contact damage, hazards, and projectiles. `LaunchSpeed` magnitudes preserve
-/// the absolute engine-unit speed authored by melee move volumes. The latter is
-/// deliberately NOT multiplied by the feel vector: doing so was the goblin-hit
-/// teleport regression (`120 px/s` was interpreted as a `120x` multiplier).
+/// `FeelScale` magnitudes preserve the standard per-source feel vector used by contact damage,
+/// hazards, and projectiles. `LaunchSpeed` magnitudes preserve the absolute engine-unit speed
+/// authored by melee move volumes.
 pub fn knockback_velocity(
     victim_pos: Vec2,
     victim_facing: f32,
@@ -296,12 +260,11 @@ pub fn knockback_velocity(
     let magnitude = knockback
         .map(|k| k.magnitude)
         .unwrap_or(HitKnockbackMagnitude::FeelScale(0.0));
-    // CM1: a volume-authored launch DIRECTION (smash-style fixed angles)
-    // replaces the default feel diagonal. Its magnitude is resolved according
-    // to the event's explicit unit: feel-scaled contacts preserve the standard
-    // feel speed, while authored melee preserves its absolute launch speed.
+    // Its magnitude is resolved according to the event's explicit unit: feel-scaled contacts
+    // preserve the standard feel speed, while authored melee preserves its absolute launch
+    // speed.
     //
-    // ⭐ the authored vector IS the local launch direction — `n * speed`, with
+    // the authored vector IS the local launch direction — `n * speed`, with
     // only `x` mirrored by the away-from-source side. No `y` negation: local `y`
     // means toward the feet here exactly as it does in every other local vector
     // the engine passes around (see [`HitKnockback::launch_dir`]).
@@ -362,20 +325,14 @@ mod hitlag_tests {
         }
     }
 
-    /// ⭐⭐ **A connect is ONE event, so it buys ONE freeze.**
-    ///
-    /// Attacker and victim call this same function with the same landed hit, so
-    /// there is no arrangement of tuning that lets the two sides of a connect
-    /// pause for different lengths. Before it there were two unscaled constants
-    /// at two call sites — 0.055 and 0.070 — which is two chances for a hit to
-    /// read as mushy on one side of itself.
+    /// **A connect is ONE event, so it buys ONE freeze.**
     #[test]
     fn hitlag_is_one_duration_for_both_bodies_and_scales_with_the_hit() {
         let t = tuning();
         let reference = hitlag_duration(Some(&launch(STANDARD_LAUNCH_SPEED)), &t);
         assert!((reference - t.hitlag_time).abs() < 1e-6);
 
-        // ⭐ a heavier connect freezes longer — this is most of what "weight"
+        // a heavier connect freezes longer — this is most of what "weight"
         // feels like, and a flat constant cannot express it.
         let heavy = hitlag_duration(Some(&launch(STANDARD_LAUNCH_SPEED * 3.0)), &t);
         assert!(heavy > reference * 2.5, "a big launch lands hard: {heavy}");
@@ -384,7 +341,7 @@ mod hitlag_tests {
         let poke = hitlag_duration(Some(&launch(1.0)), &t);
         assert!(poke >= t.hitlag_time * 0.5 - 1e-6 && poke < reference);
 
-        // ⛔ the poison: hitlag and hitstun read the SAME scale off the SAME
+        // the poison: hitlag and hitstun read the SAME scale off the SAME
         // hit. If one grows and the other does not, the pause and the stun have
         // drifted apart and the connect stops reading as a single event.
         for speed in [40.0_f32, STANDARD_LAUNCH_SPEED, 600.0] {
@@ -416,7 +373,7 @@ mod di_tests {
         (a.x * b.y - a.y * b.x).atan2(a.x * b.x + a.y * b.y)
     }
 
-    /// ⭐⭐ **you cannot DI along your own launch line** — and that is the whole
+    /// **you cannot DI along your own launch line** — and that is the whole
     /// shape of the mechanic, not a detail. A victim launched away who holds
     /// straight away steers NOTHING; the influence is the PERPENDICULAR part of
     /// the stick. Without this, DI would be a speed dial and holding away from
@@ -445,7 +402,7 @@ mod di_tests {
         assert!(turned > 0.0, "the launch turns TOWARD the held direction");
     }
 
-    /// DI changes the ANGLE and nothing else. ⛔ a launch whose speed moved
+    /// DI changes the ANGLE and nothing else. a launch whose speed moved
     /// would make holding a direction a damage-mitigation dial, and survival
     /// would stop being about the angle to the blast zone.
     #[test]
@@ -471,7 +428,7 @@ mod di_tests {
         }
     }
 
-    /// ⛔ **POISON: an unauthored budget is inert.** Ambition's PvE answers
+    /// **POISON: an unauthored budget is inert.** Ambition's PvE answers
     /// `0.0` on purpose — being hit there is a punishment, not the opening of a
     /// negotiation — so every body in every non-fighter game rides this path
     /// with a zero budget and must come out byte-identical.
@@ -495,7 +452,7 @@ mod di_tests {
         );
     }
 
-    /// ⭐ **frame-agnostic, and the C4 law is what makes that testable.** Under
+    /// **frame-agnostic, and the C4 law is what makes that testable.** Under
     /// flipped gravity the same body-local hold against the same body-local
     /// launch must produce the same body-local trajectory — the whole thing
     /// conjugates. A DI that read world axes would steer the wrong way the
@@ -552,18 +509,13 @@ mod launch_direction_tests {
         )
     }
 
-    /// ⛔⛔ **THE CONVENTION, and it is the whole of D155.**
+    /// **THE CONVENTION, and it is the whole of.**
     ///
-    /// `launch_dir` is a plain vector in the victim's acceleration frame, where
-    /// `y` points TOWARD THE FEET — the authoring contract's own words
-    /// (`HitVolume::launch_dir`: *"(+x = facing, +y = gravity-down)"*), which
-    /// every authored volume in the tree wrote against. The resolver used to
-    /// negate `y` to satisfy a doc comment that claimed the opposite, so every
-    /// up-tilt, up-air and up-smash spiked its victim into the floor and every
-    /// down-air lifted them. Jon, playing: *"up tilts just keep the character on
-    /// the ground"*.
+    /// `launch_dir` is a plain vector in the victim's acceleration frame, where `y` points TOWARD
+    /// THE FEET — the authoring contract's own words (`HitVolume::launch_dir`: *"(+x = facing, +y =
+    /// gravity-down)"*), which every authored volume in the tree wrote against.
     ///
-    /// ⭐ the poison is the SPIKE half. A test that only checked the up-launcher
+    /// the poison is the SPIKE half. A test that only checked the up-launcher
     /// would also pass on a resolver that ignored `launch_dir`'s sign entirely
     /// and always launched up.
     #[test]
@@ -613,10 +565,9 @@ mod launch_direction_tests {
     /// materially different trajectories at the SAME speed. `di_max_angle == 0`
     /// is the parity arm, so a game that authors no budget is untouched.
     ///
-    /// ⭐ live-verified too (D155): in the composed smash host a CPU victim
-    /// steered a `3269 px/s` up-tilt launch by `0.308 rad` against the declared
-    /// `SMASH_DI_MAX_ANGLE` of `0.31` — essentially the whole budget — with the
-    /// speed preserved to four figures.
+    /// live-verified too: in the composed smash host a CPU victim steered a `3269 px/s` up-tilt
+    /// launch by `0.308 rad` against the declared `SMASH_DI_MAX_ANGLE` of `0.31` — essentially
+    /// the whole budget — with the speed preserved to four figures.
     #[test]
     fn opposite_held_directions_steer_one_launch_two_ways() {
         let down = Vec2::new(0.0, 1.0);
@@ -651,8 +602,7 @@ mod launch_direction_tests {
         );
     }
 
-    /// An UNAUTHORED launch still rises — the feel diagonal is the default and
-    /// this fix must not have moved it. (Ambition's PvE hits are all this arm.)
+    /// (Ambition's PvE hits are all this arm.)
     #[test]
     fn an_unauthored_launch_still_rises_away_from_the_source() {
         let vel = launched(None, Vec2::new(0.0, 1.0), 300.0);

@@ -19,7 +19,7 @@
 //! pixel), and anything worse than one boundary miss means the model is
 //! telling the brain fights that do not happen.
 //!
-//! ⚠ The `WorldView` here is hand-filled from the fighters' real components —
+//! The `WorldView` here is hand-filled from the fighters' real components —
 //! the test is standing in for the perception pass, whose per-body view is
 //! transient. `Perceived::cheating` is the designated fixture door (FB4a).
 
@@ -93,16 +93,10 @@ fn hp(app: &mut App, body: Entity) -> i32 {
 /// (±8 px), then release the stick and let it come to rest.
 /// Returns whether the requested gap was actually ESTABLISHED.
 ///
-/// ⛔ **it did not used to return anything, and that is the defect this signature
-/// fixes.** The walker can fail — the comment below records one instance, and on
-/// 2026-08-03 two of four cases missed by a factor of four (target 113, arrived
-/// 29; target 219, arrived 96). The caller then asked the shadow model about a
-/// gap of 113 and MEASURED it at 29, scoring the answer as if the question had
-/// been the one it asked. Two cases at the same arrived gap and different real
-/// outcomes then read as the model contradicting itself, when the model had
-/// never been asked the same question twice.
+/// Two cases at the same arrived gap and different real outcomes then read as the model
+/// contradicting itself, when the model had never been asked the same question twice.
 ///
-/// ⚠ the far gaps may be unreachable BY CONSTRUCTION: opening distance means
+/// the far gaps may be unreachable BY CONSTRUCTION: opening distance means
 /// walking away from an opponent whose brain is chasing, so the retreat and the
 /// pursuit cancel. That is a fact about the fixture, not about the model, and it
 /// has to be reported as one.
@@ -172,15 +166,10 @@ fn walk_to_gap(
 /// pursuit cancel and the walker burns its budget arriving somewhere else. The
 /// instrument's question is *"does this swing land from HERE"*, and HERE is the
 /// fixture's to choose.
-///
-/// `transit_body` is the engine's authority for discretely relocating a body
-/// (ADR 0024) — poking `BodyKinematics.pos` would leave the motion model's
-/// private attachment state describing the old position, which is the bug
-/// `room_replay.rs` documents from the other side.
 fn place_at_gap(app: &mut App, attacker: Entity, victim: Entity, target_gap: f32) -> bool {
     let victim_pos = kin(app, victim).pos;
     let attacker_pos = kin(app, attacker).pos;
-    // ⛔ **THE SIDE IT FACES, not the side it stands on**, and the difference is
+    // **THE SIDE IT FACES, not the side it stands on**, and the difference is
     // the whole question this fixture asks. The intent was always "nothing has
     // to turn around" — but that only holds if the attacker is placed where its
     // CURRENT facing points at the victim. Reading its x instead worked only
@@ -189,9 +178,6 @@ fn place_at_gap(app: &mut App, attacker: Entity, victim: Entity, target_gap: f32
     // leaving seat zero wherever the session's home body already stood: the
     // attacker was staged 34px from a victim it was facing directly away from,
     // swung backwards, and the test reported the shadow model lying.
-    //
-    // Measured before the repair: attacker at x=549 facing -1, victim at x=576,
-    // strike volume spanning x 436..554 — entirely BEHIND the attacker.
     let facing = kin(app, attacker).facing;
     let side = if facing >= 0.0 { -1.0 } else { 1.0 };
     let destination = ae::Vec2::new(victim_pos.x + side * target_gap, attacker_pos.y);
@@ -229,8 +215,6 @@ fn place_at_gap(app: &mut App, attacker: Entity, victim: Entity, target_gap: f32
 }
 
 /// Hand-fill the view a perception pass would build for the attacker.
-/// `BodyKinematics::size` is the FULL box; the view's contract is a HALF
-/// extent (FB1's own recorded bug — do not reintroduce it here).
 fn view_of(app: &mut App, attacker: Entity, victim: Entity) -> WorldView {
     let a = kin(app, attacker);
     let v = kin(app, victim);
@@ -348,15 +332,12 @@ fn the_shadow_model_agrees_with_the_real_sim_about_what_lands() {
     assert_eq!(seated.len(), 2, "the arena did not seat two players");
     let (attacker, victim) = (seated[0].1, seated[1].1);
 
-    // ── calibration: learn the swing from the sim's own move in flight ──
-    // The frame data comes from the REAL MovePlayback the button starts, so
-    // the shadow model predicts the move the fighter actually throws — no
-    // hand-typed table, exactly like L2.
-    // Walked rather than placed, and the return is deliberately ignored: this
-    // one only needs the two close enough for a swing to be worth throwing, and
-    // whether it arrived at exactly 30px does not change what `MovePlayback`
-    // reports about the move. The four MEASURED gaps below are placed, because
-    // there the exact distance is the question.
+    // ── calibration: learn the swing from the sim's own move in flight ── The frame data comes
+    // from the REAL MovePlayback the button starts, so the shadow model predicts the move the
+    // fighter actually throws — no hand-typed table, exactly like L2. Walked rather than placed,
+    // and the return is deliberately ignored: this one only needs the two close enough for a swing
+    // to be worth throwing, and whether it arrived at exactly 30px does not change what
+    // `MovePlayback` reports about the move.
     let _ = walk_to_gap(&mut app, pad_one, attacker, victim, 30.0);
     pad_set(&mut app, pad_one, GamepadButton::West, 1.0);
     let mut frames: Option<MoveFrameData> = None;
@@ -413,12 +394,8 @@ fn the_shadow_model_agrees_with_the_real_sim_about_what_lands() {
         let predicted = shadow_predicts_a_hit(&view, &frames);
         let landed = real_swing_lands(&mut app, pad_one, victim, &frames);
         let agree = predicted == landed;
-        // ⛔ **a case the fixture could not stage is NOT evidence about the
-        // model**, in either direction. Scoring it as agreement would hide a
-        // broken fixture behind a green test; scoring it as disagreement is what
-        // this test did until 2026-08-03, and it is why the model looked like it
-        // was contradicting itself at two identical gaps that were never the same
-        // question.
+        // **a case the fixture could not stage is NOT evidence about the model**, in either
+        // direction.
         if established {
             scored += 1;
             agreements += agree as u32;

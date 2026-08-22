@@ -10,12 +10,7 @@
 //! DEFINITION's provider rather than borrowing a namespace off the character's
 //! catalog row. That is only correct if the two id spaces are the same one.
 //!
-//! ⚠ **this was previously "assumed equal, never checked", and the assumption
-//! was load-bearing enough to block the change.** A fixture that skipped catalog
-//! assembly turned `patrol_peaceful` into `test::patrol_peaceful`, a key that
-//! existed nowhere, which read as evidence against qualifying by provider — when
-//! it was evidence the fixture was not modelling production. This test is what
-//! replaces the assumption, so the fixture repair rests on something.
+//! This test is what replaces the assumption, so the fixture repair rests on something.
 //!
 //! It is a claim only the assembled app can make: every provider plugin in the
 //! shipped composition registers both authorities, and this asks whether they
@@ -55,7 +50,7 @@ fn character_definitions_and_catalog_fragments_share_one_provider_namespace() {
         prepared.len(),
     );
 
-    // ⛔ **the membership test must be able to say NO.** Without this the
+    // **the membership test must be able to say NO.** Without this the
     // assertion below is only as strong as the set being non-empty, and a set
     // that answered `true` for everything would look identical.
     assert!(

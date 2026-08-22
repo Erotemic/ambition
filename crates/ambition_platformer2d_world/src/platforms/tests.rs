@@ -464,11 +464,8 @@ fn an_authored_vertical_loop_wraps_instead_of_reversing() {
 
 /// **A staggered run of platforms shares ONE shaft.**
 ///
-/// ⛔ this is the difference between a conveyor and three unrelated lifts, and
-/// it is invisible on the first frame. Anchoring each platform's shaft at its own
-/// position gives three platforms three shafts — they start looking evenly
-/// spaced and slowly separate into their own bands, which is a bug you notice
-/// late and hate diagnosing.
+/// ⛔ this is the difference between a conveyor and three unrelated lifts, and it is invisible
+/// on the first frame.
 ///
 /// ⭐ **the assertion is that every platform stays inside the SHARED shaft**, not
 /// that they are evenly spaced. Even spacing is what the author wrote; staying

@@ -16,8 +16,6 @@ crate-type = ["rlib"]
 # This crate re-exports it for compatibility; authoritative spawn requests are
 # owned by `ambition_projectiles`, not by the VFX domain.
 ambition_projectile_spec = { path = "../ambition_projectile_spec" }
-# The binding boundary, which USED to be a module in this crate. See
-# `src/binding.rs` for why it left and why the re-export stays.
 ambition_binding = { path = "../ambition_binding" }
 # Only the ECS/state/input surface is needed: Component / Bundle / Commands /
 # EntityCommands / Entity / SystemSet / States / Reflect (via bevy::prelude). No render,
@@ -30,10 +28,8 @@ bevy = { version = "0.18.1", default-features = false, features = [
     "bevy_input_focus",
 ] }
 
-# The content-free pure-logic foundation (geometry / world / movement / the
-# shared BodyKinematics body component). The runtime layer sits directly above
-# it (ADR 0019); the generic ECS systems moved here operate on engine_core
-# bodies/world. Foundation-only — still NEVER ambition_platformer2d_actor_monolith.
+# The content-free pure-logic foundation (geometry / world / movement / the shared BodyKinematics
+# body component). Foundation-only — still NEVER ambition_platformer2d_actor_monolith.
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 
 # Logging facade (bevy logs through tracing). The binding report is the ONE sink

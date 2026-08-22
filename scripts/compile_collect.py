@@ -11,7 +11,7 @@ compile … debug vs release, optimization mode … so we can build statistics a
 gain more insights into how to optimize compile time in maybe non obvious
 ways."* The ratchet froze the graph numbers; this fills in the seconds.
 
-## ⛔ One cargo build at a time, and its OWN target dir
+# # One cargo build at a time, and its OWN target dir
 
 Every configuration below changes a rustc fingerprint (`--release`,
 `CARGO_INCREMENTAL`), so two of them sharing `CARGO_TARGET_DIR` would each
@@ -21,7 +21,7 @@ which reads like a slow machine rather than a mistake. So each configuration
 gets `--target-root/<config>` and the phases run strictly in sequence. This
 script never backgrounds a build.
 
-## ⚠ Two dimensions this repo has already recorded WRONG, and how they are read here
+# # Two dimensions this repo has already recorded WRONG, and how they are read here
 
 1. **`opt-level` is not what the manifest says.** `[profile.dev.package."*"]`
    applies to DEPENDENCIES ONLY — workspace members inherit `[profile.dev]`.
@@ -38,7 +38,7 @@ script never backgrounds a build.
    for every build and records the value it set, and cross-checks it against
    `-C incremental=` on the rustc line.
 
-## The phases, and why there are two
+# # The phases, and why there are two
 
 * **`cold`** — a fresh target dir. Every unit in the graph compiles, third-party
   included, so this is the only phase that can say what a dependency costs.
@@ -90,9 +90,7 @@ UNIT_LEDGER = ratchet.UNIT_LEDGER
 # the same device the configured `target-dir` is.
 DEFAULT_TARGET_ROOT = Path.home() / "ambition-telemetry-target"
 
-# The marker is a real edit, not a `touch`. An mtime-only touch measured 4.4s
-# where a real edit measured 8.1s (2026-08-07) — under incremental the two are
-# different questions, and the touch flatters the cache.
+# The marker is a real edit, not a `touch`.
 MARKER = "\n#[allow(dead_code)]\nfn _compile_collect_probe(x: u32) -> u32 {{ x.wrapping_add({salt}) }}\n"
 
 
@@ -103,11 +101,6 @@ class Config:
     incremental: bool
     cargo_args: list[str] = field(default_factory=list)
     why: str = ""
-    # `{repo-relative path: (exact old text, new text)}` applied for the whole
-    # configuration and reverted by writing the original bytes back. ⚠ this is
-    # for pricing a MANIFEST knob — a crate-type, an opt-level override — which
-    # is a dimension Jon named and which no cargo flag can express. It is not a
-    # place to park a patch.
     manifest_edits: tuple[tuple[str, str, str], ...] = ()
     # Which target dir to build in. A variant that differs only by a manifest
     # knob shares its base configuration's dir on purpose: the comparison is
@@ -116,10 +109,8 @@ class Config:
     target_key: str = ""
 
 
-# ⚠ **deliberately three, not a matrix.** Each cold phase is a full build of the
-# workspace and its dependency tree; a 2x2x2 nobody finishes is worse than three
-# configurations that land. `dev` is what the suite runs, `dev-incremental` is
-# what the edit loop runs, and `release` is the opt-level question Jon asked.
+# **deliberately three, not a matrix.** Each cold phase is a full build of the workspace and its
+# dependency tree; a 2x2x2 nobody finishes is worse than three configurations that land.
 CONFIGS: dict[str, Config] = {
     c.name: c
     for c in (
@@ -142,14 +133,10 @@ CONFIGS: dict[str, Config] = {
             cargo_args=["--release"],
             why="the optimization-mode axis: opt-level 3 everywhere, no debug-assertions",
         ),
-        # ⭐ prices ONE manifest knob against the `dev` configuration it shares a
-        # target dir with. `ambition_app` is the only crate in the workspace
-        # declaring a `cdylib` (it is how the Android build gets its `.so`), and
-        # a unit that emits a cdylib emits no rmeta — so cargo cannot pipeline
-        # it in either direction. Measured rather than argued: the timing report
-        # shows `ambition_app` as the only unit in the build with no
-        # frontend/codegen split and the only one whose successors wait for
-        # COMPLETION rather than rmeta.
+        # prices ONE manifest knob against the `dev` configuration it shares a target dir with.
+        # `ambition_app` is the only crate in the workspace declaring a `cdylib` (it is how the
+        # Android build gets its `.so`), and a unit that emits a cdylib emits no rmeta — so cargo
+        # cannot pipeline it in either direction.
         Config(
             name="dev-app-rlib-only",
             profile="test",
@@ -167,10 +154,7 @@ CONFIGS: dict[str, Config] = {
     )
 }
 
-# The command every configuration runs. The app's test binary rather than the
-# app itself, because that is the artifact an agent waits on before one test
-# runs, and because it is the same command the 2026-08-07 report measured — the
-# rows are comparable only if the command is.
+# The command every configuration runs.
 BASE_COMMAND = ["cargo", "test", "-p", "ambition_app", "--test", "app_it", "--no-run"]
 
 
@@ -218,7 +202,7 @@ def rustc_invocations(stderr: str, member_dirs: dict[str, Path]) -> dict[tuple, 
         package = None
         source = _SOURCE_PATH.search(line)
         if source:
-            # ⚠ cargo prints a workspace member's source path RELATIVE to the
+            # cargo prints a workspace member's source path RELATIVE to the
             # workspace root and a registry crate's absolutely. Resolving both
             # against ROOT is right for the first and harmless for the second.
             path = Path(source.group(1))
@@ -385,7 +369,7 @@ def run_build(config: Config, target_dir: Path, *, verbose_argv: bool) -> tuple[
     env = {
         **os.environ,
         "CARGO_TARGET_DIR": str(target_dir),
-        # ⛔ SET, never inherited. `run_tests.py` copies the env and then
+        # SET, never inherited. `run_tests.py` copies the env and then
         # setdefaults this to "0" for its children, so a collector that read its
         # own environment would report `true` for exactly the runs that are off.
         "CARGO_INCREMENTAL": "1" if config.incremental else "0",
@@ -462,7 +446,7 @@ def collect(
     try:
         rows = _phases(config, target_dir, phases, roots, member_dirs, run_id, record)
     finally:
-        # ⛔ written back from memory, never `git checkout --`. Same rule as
+        # written back from memory, never `git checkout --`. Same rule as
         # `compile_cost.py`: a checkout here deletes whatever uncommitted work
         # was in the manifest.
         restore(manifest_original)
@@ -488,10 +472,6 @@ def _phases(config, target_dir, phases, roots, member_dirs, run_id, record) -> l
               f"{contention['cores']} cores, foreign cargo peak "
               f"{contention['foreign_cargo_peak']}", flush=True)
 
-        # ⛔ NOT the timestamp heuristic. A parallel session landing doc commits
-        # moves HEAD's commit time past the build's start and would mark every
-        # row a backfill; what makes `lines` untrue is a changed COMPILED INPUT,
-        # so that is what is asked. Observed on 2026-08-08, five commits deep.
         moved = [
             path
             for path in git("diff", "--name-only", f"{head_before}..HEAD").splitlines()
@@ -774,11 +754,8 @@ def analyze() -> int:
 
         dag = {key_of(r): r for r in group if "unblocks_at_rmeta" in r}
         if not dag:
-            # ⚠ rows written before `unblocks_*` existed (2026-08-08, mid-session)
-            # can still be analysed, because every row names the report it came
-            # from. Re-parsed rather than back-filled: rewriting an append-only
-            # ledger is the failure this repo's own baselines rail against, and
-            # the fallback withers on its own as those runs age out.
+            # rows written before `unblocks_*` existed can still be analysed, because every row
+            # names the report it came from.
             source = Path(group[0].get("build_source") or "")
             if not source.exists():
                 continue
@@ -848,7 +825,7 @@ def analyze() -> int:
 
         total = sum(row["seconds"] for row in dag.values())
         front = sum(parts(row)[0] for row in dag.values())
-        # ⚠ edges are recorded as unit NAMES, and a cold build compiles some
+        # edges are recorded as unit NAMES, and a cold build compiles some
         # packages twice (host vs target, or two feature sets). Those collapse
         # onto one key, so a cold DAG is approximate and says by how much. The
         # first-party phase has no collisions and is exact.
@@ -873,7 +850,7 @@ def analyze() -> int:
               f"   ⚠ what counting hops models — and it exceeds the wall clock")
         print(f"     ... floor if CODEGEN were free             {makespan(1.0, 0.0):8.1f}s")
         print(f"     ... floor if the FRONTEND were free        {makespan(0.0, 1.0):8.1f}s")
-        # ⚠ **both bounds, not just the floor.** Halving one half also halves
+        # **both bounds, not just the floor.** Halving one half also halves
         # the work, so the packing bound moves too and can become the binding
         # one. Quoting the floor alone overstates the win — which is the shape
         # of mistake this whole file exists to avoid.
@@ -954,7 +931,7 @@ def main(argv: list[str] | None = None) -> int:
     if shutil.which("cargo") is None:
         raise SystemExit("⛔ cargo not on PATH; this measures cargo and cannot proxy it")
 
-    # ⛔ checked HERE, before a cold build that costs 9 minutes. `ingest_timings`
+    # checked HERE, before a cold build that costs 9 minutes. `ingest_timings`
     # checks again at the append — this one exists so the refusal arrives before
     # the wait rather than after it.
     if not args.no_record:

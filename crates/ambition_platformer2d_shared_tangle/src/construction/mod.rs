@@ -13,16 +13,11 @@
 //!
 //! ## Why this sits beside `SimId`
 //!
-//! [`SimId`](crate::sim_id::SimId) is *identity*: which entity this is.
-//! [`SpawnOrigin`] is *provenance*: where it came from and what would make it
-//! again. They were the same fact for as long as the id's spelling encoded its
-//! family — `placement:duel_pca/0` says "the duellist's zeroth child" to a human
-//! and, until this module existed, to `heal_projectile_owners` as well, by way
-//! of `rsplit_once('/')`. That coupling means the id grammar cannot change
-//! without silently changing reconstruction, and it means an entity whose
-//! spelling lies about its family (every summoned minion, which lands in the
-//! authored `placement:` namespace) is unreconstructable in principle. Splitting
-//! the two is the whole point: ids stay legible, provenance stays *readable*.
+//! [`SimId`](crate::sim_id::SimId) is *identity*: which entity this is. That coupling means the
+//! id grammar cannot change without silently changing reconstruction, and it means an entity
+//! whose spelling lies about its family (every summoned minion, which lands in the authored
+//! `placement:` namespace) is unreconstructable in principle. Splitting the two is the whole
+//! point: ids stay legible, provenance stays *readable*.
 //!
 //! ## What a domain supplies
 //!
@@ -102,9 +97,7 @@ pub enum SpawnOrigin {
         room: String,
         instance: String,
     },
-    /// The running simulation minted this: a projectile, a summoned minion, a
-    /// dropped item. `parent` is the spawner's identity — the fact that used to
-    /// be recoverable only by splitting the child's own id string.
+    /// The running simulation minted this: a projectile, a summoned minion, a dropped item.
     ///
     /// **`parent` is not optional.** A dynamic entity states which spawner it
     /// descends from or it is unreconstructable, so "dynamic, parent unknown"
@@ -172,15 +165,8 @@ pub trait ConstructionDomain: Send + Sync + 'static + Sized {
     /// relation is wired, which is the same shape of mistake as a `parent` field
     /// beside a `SpawnOrigin::Dynamic`.
     ///
-    /// **This used to be a payload sitting BESIDE a caller-supplied
-    /// `RelationKind`**, and that pair was exactly the mistake this module keeps
-    /// finding: two halves of one fact stored where they can disagree. A request
-    /// naming `ambition.limb` while carrying a `Grudge` payload passed
-    /// preparation, passed validation, passed the registry check — and reached
-    /// `unreachable!` inside the wiring function, mid-commit, with the outgoing
-    /// room already retired. The kind is now DERIVED from this value by
-    /// [`ConstructionDomain::dispatch_relation`], so the mismatch is not a state
-    /// that can be written down.
+    /// The kind is now DERIVED from this value by [`ConstructionDomain::dispatch_relation`], so
+    /// the mismatch is not a state that can be written down.
     type Relation: Clone + Send + Sync + 'static;
     /// Frozen services recipes read at execution time. Whatever a domain puts
     /// here is captured before the plan commits, so execution has no fallible
@@ -238,7 +224,6 @@ pub trait ConstructionDomain: Send + Sync + 'static + Sized {
 pub struct RelationDispatch<D: ConstructionDomain> {
     /// Stable identity for the dump, the registry check, and the fingerprint.
     pub kind: RelationKind,
-    /// How to install it, and how to prove it landed — see [`RelationOps`].
     pub ops: RelationOps<D>,
 }
 
@@ -270,7 +255,7 @@ pub type ConstructFn<D> = for<'w, 's, 'a> fn(
 /// parent deliberate child entities — but only [`ConstructionPlan`] can mint
 /// one, so a recipe cannot nominate a pre-existing entity as a row's root.
 ///
-/// ⚠ **This is the executor invariant, and it is narrower than "one planned
+/// **This is the executor invariant, and it is narrower than "one planned
 /// row, one authoritative root".** What is mechanically guaranteed is that the
 /// executor allocates each nominal planned root and freezes its constructor.
 /// What is NOT guaranteed is that the recipe leaves that root alone or refrains
@@ -317,8 +302,7 @@ pub struct ConstructionScope {
 /// built on a sentinel that three unrelated callers spell the same way.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ContentBinding {
-    /// Prepared against one exact generation of prepared content. A commit must
-    /// refuse this plan if the active generation has moved on.
+    /// Prepared against one exact generation of prepared content.
     Content(ambition_platformer2d_core::ContentEpoch),
     /// Not derived from prepared content at all — a summon, a projectile, a
     /// dropped item. Built and committed inside a single tick, so it cannot
@@ -357,7 +341,7 @@ impl ConstructionScope {
     /// simulation requires, and what makes a same-room reconstruction recognise
     /// its own previous roots instead of calling them foreign.
     ///
-    /// ⚠ **The session is part of the key, and it has to be.** This was
+    /// **The session is part of the key, and it has to be.** This was
     /// `binding + room` alone, which is a CONSTRUCTION-SCOPE identity, not a
     /// transaction identity: the shell host runs two gameplay sessions in one
     /// process, so two sessions committing the same room at the same content
@@ -483,11 +467,8 @@ impl std::fmt::Display for TransactionId {
 /// Declares an identity-bearing entity to be deliberately NOT authoritative:
 /// a presentation child, a helper body, a visual double.
 ///
-/// Opt-out rather than opt-in, and that asymmetry is the point. If scope
-/// membership required a positive marker, every entity a recipe invented
-/// without one would fall silently outside verification — which is precisely
-/// the failure being hunted. An identity-bearing entity is authoritative until
-/// something says otherwise, so forgetting to classify is a loud violation
+/// Opt-out rather than opt-in, and that asymmetry is the point. An identity-bearing entity is
+/// authoritative until something says otherwise, so forgetting to classify is a loud violation
 /// instead of a quiet exemption.
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PresentationOnly;
@@ -517,13 +498,9 @@ pub struct ConstructionRequest<D: ConstructionDomain> {
 /// A declared relation from the requesting entity onto another identity.
 ///
 /// **There is no `kind` field.** It is derived from `relation` by
-/// [`ConstructionDomain::dispatch_relation`], for the same reason
-/// [`ConstructionRequest`] has no `recipe`: a request that names one kind while
-/// carrying another's facts is not a thing that can be written down. It used to
-/// be, and the mismatch was caught nowhere — preparation checked the kind
-/// against the registry, the registry knew nothing about payloads, and the
-/// disagreement surfaced as an `unreachable!` inside the wiring function during
-/// commit, after the outgoing room was already gone.
+/// [`ConstructionDomain::dispatch_relation`], for the same reason [`ConstructionRequest`] has no
+/// `recipe`: a request that names one kind while carrying another's facts is not a thing that can
+/// be written down.
 pub struct RelationRequest<D: ConstructionDomain> {
     pub to: SimId,
     /// What this relation IS — see [`ConstructionDomain::Relation`].
@@ -603,11 +580,8 @@ impl<D: ConstructionDomain> PlannedEntity<D> {
 /// One validated relation with **both** its wiring function and its
 /// postcondition check already resolved.
 ///
-/// Frozen at preparation for the same reason [`PlannedEntity::construct`] is:
-/// commit runs what the plan validated, not whatever a later lookup returns.
-/// The pair travels together because a relation is two halves of one fact, and
-/// this module's recurring bug has been letting two halves of one fact live in
-/// places that can disagree.
+/// Frozen at preparation for the same reason [`PlannedEntity::construct`] is: commit runs what
+/// the plan validated, not whatever a later lookup returns.
 pub struct PlannedRelation<D: ConstructionDomain> {
     from: SimId,
     /// Derived at preparation by [`ConstructionDomain::dispatch_relation`] and
@@ -693,14 +667,11 @@ pub enum ConstructionError {
     /// A partial commit would have cut a relation: exactly one of its two ends
     /// is being rebuilt.
     ///
-    /// **Both directions are refused, and the reason is that a relation is an
-    /// `Entity` handle.** Rebuilding the SOURCE alone leaves it unwired, which
-    /// is obvious. Rebuilding the TARGET alone is worse and was briefly allowed
-    /// here on the reasoning that the relation "belongs to" the untouched
-    /// source: it does, but what the source holds is a handle to the entity
-    /// that just died, so the source is left pointing at a corpse. In both
-    /// cases the roster is the right length and only the wiring is wrong, which
-    /// is the failure mode that survives every count-based check.
+    /// **Both directions are refused, and the reason is that a relation is an `Entity` handle.**
+    /// Rebuilding the SOURCE alone leaves it unwired, which is obvious. Rebuilding the TARGET alone
+    /// is worse and was briefly allowed here on the reasoning that the relation "belongs to" the
+    /// untouched source: it does, but what the source holds is a handle to the entity that just
+    /// died, so the source is left pointing at a corpse.
     ///
     /// [`ConstructionPlan::relation_closure`] turns a seed set into one that
     /// cannot be refused for this reason.
@@ -993,7 +964,7 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
 
     /// The identities this plan NOMINATES.
     ///
-    /// ⚠ **Not "the exact committed roster".** It is what the plan asked for,
+    /// **Not "the exact committed roster".** It is what the plan asked for,
     /// which is a different thing from what the world ends up holding: a recipe
     /// can despawn its root, duplicate an identity onto a second body, or spawn
     /// authoritative entities of its own, and none of that moves this set.
@@ -1089,13 +1060,11 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
     /// reconstruction cannot drift because there is nothing for them to drift
     /// between.
     ///
-    /// Every refusal happens before the first recipe runs, so a rejected subset
-    /// leaves the world exactly as it found it. A subset containing exactly ONE
-    /// end of a planned relation is such a refusal, in either direction:
-    /// rebuilding the source alone leaves it unwired, and rebuilding the target
-    /// alone leaves the untouched source holding a handle to the entity that
-    /// just died. See [`ConstructionError::RelationCutBySubset`], and
-    /// [`ConstructionPlan::relation_closure`] for the set that cannot be cut.
+    /// A subset containing exactly ONE end of a planned relation is such a refusal, in either
+    /// direction: rebuilding the source alone leaves it unwired, and rebuilding the target
+    /// alone leaves the untouched source holding a handle to the entity that just died. See
+    /// [`ConstructionError::RelationCutBySubset`], and [`ConstructionPlan::relation_closure`]
+    /// for the set that cannot be cut.
     pub fn commit_subset(
         &self,
         ids: &BTreeSet<SimId>,
@@ -1143,9 +1112,7 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
             receipt.committed.insert(planned.sim_id.clone(), entity);
         }
         for relation in self.relations.iter().filter(|r| included(&r.from)) {
-            // Both ends are rows in this subset — the refusal above guarantees
-            // it — and every row is now committed, so a miss here is a planner
-            // bug rather than a content error. It must not be swallowed.
+            // It must not be swallowed.
             let (Some(from), Some(to)) = (
                 receipt.committed.get(&relation.from).copied(),
                 receipt.committed.get(&relation.to).copied(),
@@ -1168,14 +1135,10 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
     /// Allocate this row's authoritative root, stamp it, and hand it to the
     /// domain to populate.
     ///
-    /// **The executor creates the entity; the recipe never does.** This
-    /// previously ran the recipe and trusted whatever `Entity` came back,
-    /// guarded only by a deferred check that the returned entity did not
-    /// already hold a `SimId`. That guard was weak in three ways a redesign
-    /// removes rather than patches: a pre-existing entity WITHOUT a `SimId`
-    /// passed it and was silently commandeered; the check ran at flush, so it
-    /// was a panic after other rows had queued their mutations rather than a
-    /// refusal; and nothing tied the returned entity to this commit at all.
+    /// That guard was weak in three ways a redesign removes rather than patches: a pre-existing
+    /// entity WITHOUT a `SimId` passed it and was silently commandeered; the check ran at flush, so
+    /// it was a panic after other rows had queued their mutations rather than a refusal; and
+    /// nothing tied the returned entity to this commit at all.
     ///
     /// Allocating here makes freshness structural. `spawn_empty` yields an
     /// entity that by definition nothing else holds, so one planned row is one
@@ -1251,7 +1214,7 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
 /// giant hand limbs already do the last of these. None of that is structurally
 /// prevented today, so a transaction that intends to publish a room must ask.
 ///
-/// ⚠ **Bevy commands do not roll back.** By the time this can run, the
+/// **Bevy commands do not roll back.** By the time this can run, the
 /// construction commands have applied. A violation here therefore cannot be
 /// undone — it can only stop the transaction being PUBLISHED as successful, and
 /// leaves the world in whatever state the offending recipe produced. That is
@@ -1275,10 +1238,7 @@ pub fn verify_committed_roster<D: ConstructionDomain>(
     let mut violations = Vec::new();
     let live = |entity: Entity| world.get_entity(entity).is_ok();
 
-    // Counted, not set-compared: a duplicate identity is invisible to a set,
-    // and "the identity set is exactly right while two bodies answer to one of
-    // them" is the failure this whole function exists for. Presentation-only
-    // entities are excluded by classification, not by their spelling.
+    // Presentation-only entities are excluded by classification, not by their spelling.
     let mut occupants: BTreeMap<&SimId, Vec<Entity>> = BTreeMap::new();
     for member in scope.members() {
         if member.classification != ScopeClassification::PresentationOnly {
@@ -1294,12 +1254,9 @@ pub fn verify_committed_roster<D: ConstructionDomain>(
 
     // ── Baseline preservation ────────────────────────────────────────────────
     //
-    // Every identity that was live when the transaction opened, and that the
-    // transaction did not declare it was retiring or reconstructing, must come
-    // out the far side untouched: same identity, one occupant, the SAME entity
-    // it started on, and the same provenance. Checking the identity alone would
-    // accept a baseline root despawned and replaced by a look-alike, which is
-    // the case that motivated capturing entities in the first place.
+    // Every identity that was live when the transaction opened, and that the transaction did not
+    // declare it was retiring or reconstructing, must come out the far side untouched: same
+    // identity, one occupant, the SAME entity it started on, and the same provenance.
     for (sim_id, entry) in baseline.entries() {
         if baseline.is_retired(sim_id) {
             if !occupants_of(sim_id).is_empty() {
@@ -1401,8 +1358,6 @@ pub fn verify_committed_roster<D: ConstructionDomain>(
                     sim_id: planned.sim_id.clone(),
                 });
             } else {
-                // The executor stamped this before the recipe ran; a recipe that
-                // overwrote or removed it produced a body no restore can place.
                 let found = world.get::<SpawnOrigin>(root).cloned();
                 if found.as_ref() != Some(&planned.origin) {
                     violations.push(RosterViolation::ProvenanceChanged {
@@ -1475,9 +1430,6 @@ pub fn verify_committed_roster<D: ConstructionDomain>(
             continue;
         };
         if !receipt.relations_wired().contains(&key) {
-            // In scope and not wired. This used to `continue`, which meant the
-            // postcondition pass inspected every relation EXCEPT the ones the
-            // executor had failed to attempt.
             violations.push(RosterViolation::RelationMissingFromReceipt {
                 from: relation.from.clone(),
                 kind: relation.kind.clone(),
@@ -1538,18 +1490,13 @@ pub enum RosterViolation {
     /// A transaction-scoped authoritative root exists that no plan row named.
     /// Recipes that create authoritative entities internally land here.
     Unplanned { sim_id: SimId },
-    /// An identity-bearing entity appeared during this transaction carrying no
-    /// ownership stamp and no explicit classification. Every production
-    /// construction family is planned now, so this is unambiguously a defect: a
-    /// recipe or integration road created an authoritative root outside the plan.
+    /// An identity-bearing entity appeared during this transaction carrying no ownership stamp
+    /// and no explicit classification.
     UnownedIdentity { sim_id: SimId },
     /// A planned root does not carry this transaction's ownership stamp.
     ///
-    /// The executor stamps it before the recipe runs, so this means a recipe
-    /// removed it, overwrote it, or moved the identity onto a body that never
-    /// had it. An unowned planned root is invisible to the next transaction's
-    /// scope gathering, so it would be counted as somebody else's problem
-    /// forever.
+    /// An unowned planned root is invisible to the next transaction's scope gathering, so it
+    /// would be counted as somebody else's problem forever.
     OwnershipLost {
         sim_id: SimId,
         expected: TransactionId,
@@ -1615,13 +1562,9 @@ pub enum RosterViolation {
         expected: Entity,
         check: RelationCheck,
     },
-    /// The plan was prepared against a content generation that is not the one
-    /// the session is live under. Committing it would stamp roots with a
-    /// transaction token derived from a binding the world has moved past —
-    /// invisible to the next transaction's scope gathering, and a plan-id that
-    /// names content nobody is running. **Fatal.** Detected at the room
-    /// boundary because commit cannot be prevented yet (no staging world); the
-    /// room is refused publication instead.
+    /// The plan was prepared against a content generation that is not the one the session is
+    /// live under. **Fatal.** Detected at the room boundary because commit cannot be prevented
+    /// yet (no staging world); the room is refused publication instead.
     ContentBindingMismatch {
         planned: ContentBinding,
         live: ContentBinding,
@@ -1765,9 +1708,7 @@ impl std::error::Error for RosterViolation {}
 /// What one baseline identity was sitting on when the transaction opened.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BaselineEntry {
-    /// The exact entity. **Not just the identity** — a baseline root despawned
-    /// and replaced by another entity carrying the same `SimId` leaves the
-    /// identity set untouched, so an identity-only baseline cannot see it.
+    /// The exact entity.
     pub entity: Entity,
     /// Its provenance at capture, so a transaction that quietly rewrites an
     /// untouched entity's origin is a finding rather than a surprise later.
@@ -1793,10 +1734,6 @@ pub struct TransactionBaseline {
 /// Why a baseline could not be captured.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum BaselineCaptureError {
-    /// Two live entities already held one identity before the transaction even
-    /// started. Captured as a refusal rather than silently collapsed, because
-    /// every later multiplicity check would be measured against a baseline that
-    /// had already lost the duplicate.
     DuplicateIdentity {
         sim_id: SimId,
         entities: Vec<Entity>,

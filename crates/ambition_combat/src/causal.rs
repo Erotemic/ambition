@@ -14,7 +14,7 @@
 //! * and it stays correct when the rules change, because it observes what the
 //!   rules DECIDED rather than re-deriving how.
 //!
-//! ⚠ the one thing it cannot do is explain a knockout that was never announced.
+//! the one thing it cannot do is explain a knockout that was never announced.
 //! That is the right limitation: a consequence no message carries is a
 //! consequence no ruleset could act on either.
 //!
@@ -38,21 +38,17 @@ fn seat_of(bodies: &Query<&DrivingParticipant>, body: Entity) -> Option<u8> {
 
 /// **The strongest stable subject this body has** — and never `None`.
 ///
-/// ⛔ a body-specific fact with no subject is treated by `explain` as a WORLD
+/// a body-specific fact with no subject is treated by `explain` as a WORLD
 /// fact and returned for EVERY subject. So a CPU fighter losing a stock on tick
 /// 400 appeared in seat 0's causal chain, and the inspector answered the wrong
 /// question precisely where it is needed most: a Smash match or a boss fight,
-/// where several bodies act on the same tick (GPT 5.6, 2026-08-01, finding 5).
-///
-/// The old code returned no subject for an unseated body and its test said the
-/// fact "explains the WORLD on that tick". A knockout does not explain the
-/// world; it explains a body.
+/// where several bodies act on the same tick.
 ///
 /// Order is strongest-first:
 /// 1. the SEAT, which survives death and respawn;
 /// 2. the actor's stable id, for a CPU / boss / NPC;
 /// 3. an explicitly UNSTABLE entity key, which the variant exists to mark as a
-///    recorded API leak. ⚠ that is still better than global: a recycled index
+///    recorded API leak. that is still better than global: a recycled index
 ///    can mislead one later query, while a world fact misleads every query
 ///    forever.
 fn subject_of(
@@ -84,7 +80,7 @@ pub fn record_stock_lifecycle(
     identities: Query<&crate::components::ActorIdentity>,
 ) {
     let Some(mut log) = log else {
-        // ⚠ still DRAIN the readers. A reader that only advances while
+        // still DRAIN the readers. A reader that only advances while
         // recording would hand a backlog of stale messages to the first frame
         // somebody turned the instrument on — an explanation of a knockout that
         // happened minutes ago, stamped with this tick.

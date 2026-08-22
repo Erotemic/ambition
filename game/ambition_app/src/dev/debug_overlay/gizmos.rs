@@ -6,20 +6,12 @@
 //! opts into those via `DebugVizPlugin`; this overlay imports them back
 //! through the parent module's re-export and composes them with the layers
 //! here.
-//!
-//! Split out of the former 1001-line `debug_overlay.rs` (2026-06-15).
 
 use super::*;
 
 /// Draw each in-flight held-item shot (gun-sword bolt / Fireball): its solid
 /// **contact box** (the box that registers a hit — `HeldProjectile::contact_aabb`)
 /// and, for a Fireball, the fainter **splash box** it detonates with on contact.
-///
-/// These were previously invisible: the shot rendered as a thin lasersword
-/// sprite while a wider contact box (and a much wider splash) did the hitting,
-/// so a Fireball read as "hitting gnuton before the bolt touches him". Sharing
-/// `contact_aabb` / `splash_aabb` with the collision system keeps the drawn box
-/// identical to the box that hits.
 #[cfg(feature = "input")]
 pub(crate) fn draw_held_projectiles<'a>(
     gizmos: &mut Gizmos,
@@ -143,13 +135,10 @@ pub struct FeatureDebugQueries<'w, 's> {
     /// `presentation_deltas` performs that join and the shared draw applies it.
     /// One component, every body: a boss answers here exactly as a player does.
     pub body_deltas: Query<'w, 's, &'static ambition_platformer2d::sim_view::PresentedPose>,
-    /// In-flight held-item shots (gun-sword bolt / Fireball). Their
-    /// contact + splash boxes were previously undrawn, so a Fireball
-    /// read as "hitting before it touches the visible box". Lives in
-    /// this bundle (not a top-level param) to keep `draw_debug_overlay`
-    /// under Bevy's 16-system-param ceiling.
-    /// `Without<PlayerEntity>` keeps this read of `BodyKinematics` disjoint from
-    /// the `&mut` player query (a held shot is never the player) — B0001.
+    /// In-flight held-item shots (gun-sword bolt / Fireball). Lives in this bundle (not a top-level
+    /// param) to keep `draw_debug_overlay` under Bevy's 16-system-param ceiling.
+    /// `Without<PlayerEntity>` keeps this read of `BodyKinematics` disjoint from the `&mut` player
+    /// query (a held shot is never the player) — B0001.
     pub held_projectiles: Query<
         'w,
         's,
@@ -257,14 +246,11 @@ pub(crate) fn draw_player_debug(
     // **Where the body is DRAWN this frame** — the frame-clock presented
     // position, not `clusters.kinematics.pos`.
     //
-    // The overlay is drawn through a camera that eases every RENDERED frame,
-    // while the cluster pose advances only on SIM TICKS. Placing the box at the
-    // tick pose therefore makes it a step function sampled by a smoothly moving
-    // observer: the box shakes at the tick rate while the simulation behind it is
-    // perfectly regular, and while the SPRITE beside it — which does read the
-    // presented pose — sits still. Reported by Jon (2026-07-29) as the player
-    // collision box stuttering; the engine's own `draw_debug_viz` had already
-    // been moved onto this clock, and this richer app-side overlay had not.
+    // The overlay is drawn through a camera that eases every RENDERED frame, while the cluster pose
+    // advances only on SIM TICKS. Placing the box at the tick pose therefore makes it a step
+    // function sampled by a smoothly moving observer: the box shakes at the tick rate while the
+    // simulation behind it is perfectly regular, and while the SPRITE beside it — which does read
+    // the presented pose — sits still.
     //
     // It costs no truthfulness. The box's size, shape, and relationship to the
     // art are unchanged — only its sub-tick sampling phase now matches its
@@ -274,14 +260,8 @@ pub(crate) fn draw_player_debug(
     // Dev-tool read: the overlay draws the policy's private internals (the
     // ledge anchor/climb-target, the live blink aim) straight off the model.
     motion_model: &ae::MotionModel,
-    // ⛔⛔ **THE COLLISION WORLD, not the platform roster.** This used to take
-    // the roster and compose `world_with_moving_platforms` itself for the blink
-    // preview — base + platforms only — while the blink RESOLVES inside
-    // `step_motion` against `world_with_sandbox_solids`, which also carries the
-    // ECS overlay (gate lock-walls, falling-sand pools, broken-brick
-    // subtractions) and the portal carves. The reticle could therefore point
-    // through a wall the blink stops at. The caller passes the one collision
-    // read-API's answer now, so the preview and the action cannot disagree.
+    // The reticle could therefore point through a wall the blink stops at. The caller passes the
+    // one collision read-API's answer now, so the preview and the action cannot disagree.
     blink_world: &ae::World,
     attack: Option<&ambition_platformer2d::actors::MeleeSwing>,
     actions: Option<&ActionState<Platformer2dInputActionMonolith>>,
@@ -393,10 +373,8 @@ pub(crate) fn draw_player_debug(
             draw_combat_volume(gizmos, world, &volume, color);
             label_box(labels, volume.bounds(), "atk", color, LabelSpot::TopRight);
         }
-        // (The old yellow "where the swing WOULD land" preview that drew while
-        // merely HOLDING attack between swings was removed — it dealt no damage
-        // and read as a confusing stray box. The active swing above draws its real
-        // gravity-correct hitbox, which is the only box that matters.)
+        // The active swing above draws its real gravity-correct hitbox, which is the only box
+        // that matters.)
     }
 
     // Ledge grab / climb debug (anchor + climb target are policy-private

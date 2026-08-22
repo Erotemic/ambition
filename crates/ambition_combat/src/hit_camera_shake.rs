@@ -13,9 +13,6 @@ use bevy::prelude::*;
 
 use ambition_platformer2d_shared_tangle::camera_ease::{hit_shake_amplitude, CameraShakeRequest};
 
-/// Kick the camera by the hardest hitlag any body in the world is currently
-/// serving, measured against the route's reference connect.
-///
 /// Runs in `CombatSet::Settle` — the phase that reads the frame's resolved
 /// damage — so the hitstop it reads is this frame's.
 ///
@@ -189,12 +186,9 @@ mod tests {
     /// **The simulation half writes an INTENT and touches nothing the player can
     /// see.** (P0.1)
     ///
-    /// ⛔ this is the property that makes the quarantine capable of holding the
-    /// shake at all. The system used to `kick` the live resource, and no
-    /// mechanism downstream could take that back once a predicted hit turned out
-    /// not to have happened. Here the applier is deliberately NOT installed: an
-    /// armed hit runs the producer alone, and the camera must still be perfectly
-    /// still while exactly one request stands waiting.
+    /// this is the property that makes the quarantine capable of holding the shake at all. Here the
+    /// applier is deliberately NOT installed: an armed hit runs the producer alone, and the camera
+    /// must still be perfectly still while exactly one request stands waiting.
     #[test]
     fn the_simulation_half_only_requests_the_shake_and_never_moves_the_camera() {
         let mut app = App::new();

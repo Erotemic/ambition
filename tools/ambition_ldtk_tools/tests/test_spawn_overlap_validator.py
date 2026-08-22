@@ -143,7 +143,6 @@ def test_spawn_overlap_exempts_a_rider_sitting_on_its_mount():
     # The sky levels author every shark-riding pirate this way. Before the
     # exemption this fired on all seven of them, and that warning is what
     # talked a session into reaching for `entity delete` on the very content
-    # Jon had already reported missing once.
     project = {
         "levels": [make_level("mount_room", make_mount_pair("rider", "shark", (192, 240)))]
     }

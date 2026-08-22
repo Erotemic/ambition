@@ -1,11 +1,5 @@
 //! **One registration per character.** (§4.1, §4.6, §5)
 //!
-//! A character used to be declared through six seams keyed three different ways —
-//! a catalog fragment by `character_id`, a roster fragment by `brain_id`, an audio
-//! fragment by `provider_id`, world-item art, projectile visuals, and art
-//! materialization that was not registered at all. None of them was the character,
-//! and nothing checked that they agreed.
-//!
 //! [`register_character`] is the single seam. What it accepts is **decomposable** —
 //! sheets, hurtboxes, movesets, and gameplay numbers have different load times,
 //! headless requirements, and replacement frequencies, so any substantial section
@@ -24,18 +18,11 @@
 //!                              string search in authoritative gameplay paths
 //! ```
 //!
-//! The middle row is the 2026-07-29 change and the reason the arrows are two.
-//! Preparation used to publish the partial value directly, so each construction
-//! path resolved `None` against the catalog itself — and the SEATED path could
-//! not, because the workspace policy `engine.character-authority-is-app-local`
-//! puts the catalog beyond an engine-side projection's reach. A worn player and
-//! a seated fighter wearing the same character therefore disagreed about that
-//! character's kit. See `docs/archive/planning-superseded/2026-08-13/character-preparation-finalization-plan.md`.
+//! A worn player and a seated fighter wearing the same character therefore disagreed about that
+//! character's kit.
 //!
 //! ## What is DERIVED rather than registered again
 //!
-//! ⛔ The failure mode this must not become is *six registries behind one
-//! function* — that would improve ergonomics and keep the consistency problem.
 //! So preparation derives, from the one definition:
 //!
 //! * the **cue dependency inventory** (§4.6) — read off `MoveEvent::Sfx`, hit
@@ -63,11 +50,6 @@ use crate::actor::definition::{BodySource, CharacterDefinition, Lineage, Vitals}
 use ambition_binding::{BindingLedger, BindingReport, Namespace, Resolver};
 use ambition_entity_catalog::{HurtboxDoc, MoveEventKind, MovesetContract};
 
-// ⭐ **THE NAMESPACES MOVED DOWN** (campaign P1.7, 2026-08-12): seven marker
-// types that need nothing but `Namespace`, so they were the first slice of this
-// file that could go, and the one that proves the direction works. Re-exported
-// so every `character_runtime::{MoveId, PortraitTarget, ...}` path in the
-// workspace is unchanged. See `crate::binding_namespaces`.
 pub use crate::binding_namespaces::{
     MoveId, PortraitTarget, RangedPayload, SfxCueId, SheetTarget, VerbId, VfxTag,
 };
@@ -81,17 +63,8 @@ pub use crate::binding_namespaces::{
 ///
 /// # This type is deliberately unnameable outside this module
 ///
-/// Not `pub`, not `pub(crate)`, and that visibility is the entire mechanism.
-/// Preparation used to publish this partial value AS the runtime authority, so
-/// both body-construction paths had to re-resolve `None` against the catalog
-/// themselves — and only one of them did. A seated fighter and a worn player
-/// wearing the same character disagreed about that character's kit for a day
-/// (campaign H1, 2026-07-28).
-///
-/// Two types with the same visibility would just be that bug with a longer name.
-/// Because `presentation`, `seating`, and `avatar::starting_character` are
-/// siblings of this module rather than children, they *cannot* read a partial
-/// value: the phase split is checked by the compiler instead of by review.
+/// Not `pub`, not `pub(crate)`, and that visibility is the entire mechanism. A seated fighter and a
+/// worn player wearing the same character disagreed about that character's kit for a day.
 #[derive(Debug, Clone, PartialEq)]
 struct PreparedCharacterOverrides {
     id: String,
@@ -179,16 +152,12 @@ struct PreparedCharacterOverrides {
 /// The one honest answer to "what does this character reach for", decided ONCE
 /// at finalization instead of re-decided by each construction path.
 ///
-/// Two variants and not one, because exactly one case is genuinely undecidable
-/// before a body exists: the host's code-side protagonist kit is built from that
-/// body's own persisted `AbilitySet`, so no per-character value can hold it.
-/// Naming that case is the point — the alternative is a "complete" definition
-/// that quietly is not, which is the bug class this whole split exists to close.
+/// Two variants and not one, because exactly one case is genuinely undecidable before a body
+/// exists: the host's code-side protagonist kit is built from that body's own persisted
+/// `AbilitySet`, so no per-character value can hold it.
 #[derive(Debug, Clone, PartialEq)]
 pub enum PreparedKit {
-    /// Content decided: this action set, these moves. Whether the decision came
-    /// from the definition or from the catalog row it inherited is finalization's
-    /// business and nobody else's.
+    /// Content decided: this action set, these moves.
     ///
     /// The moveset is never `None` here. An authored one wins; otherwise it is
     /// DERIVED from the winning action set, which is what a body that authored
@@ -200,15 +169,11 @@ pub enum PreparedKit {
     /// **NOBODY AUTHORED A KIT FOR THIS CHARACTER**, so the body's own
     /// `AbilitySet` rebuilds one — the host's code-side kit.
     ///
-    /// ⛔ **this was called `HostCode`, after a `PlayableKitSource` variant, and
-    /// AC6.3 deleted that whole enum.** A row used to select the host kit by
-    /// name; when the last row stopped doing so the selector was left with ONE
-    /// variant and an `Option` that only ever answered *is there a row*. What
-    /// reaches this arm is exactly that absence: an id the catalog does not
-    /// know, or no catalog at all.
+    /// What reaches this arm is exactly that absence: an id the catalog does not know, or no
+    /// catalog at all.
     ///
     /// ⭐ **MEASURED, so the reachability is a fact rather than a guess**
-    /// (2026-08-14): of the 32 characters Ambition's own registration publishes,
+    /// of the 32 characters Ambition's own registration publishes,
     /// **zero** land here — every one has a catalog row. This arm is not
     /// migration residue for all that: it names the one case a per-character
     /// value structurally CANNOT hold, because the host's protagonist kit is
@@ -229,12 +194,6 @@ pub enum PreparedKit {
 
 /// **Everything construction needs to build this character's body**, gathered
 /// once so a constructor never has to rediscover what a character is.
-///
-/// ⭐ **the answer to Jon's redirect §4**: `ActorClusterSeed::new_character_in`
-/// took eleven pre-unpacked parallel arguments and then asked the catalog again
-/// for physical facts — "a hand-assembled projection", not
-/// `prepared definition + context → body`. Every field here is already resolved
-/// on the prepared definition; borrowing rather than cloning keeps that literal.
 ///
 /// ⚠ **presentation and authoring metadata are deliberately absent** (sheet,
 /// portrait, voice, cue/vfx dependency inventories, the checked/unresolved
@@ -279,13 +238,7 @@ pub struct CharacterBodyBlueprint<'a> {
 /// **Why this character cannot build a body on its own**, named rather than
 /// counted.
 ///
-/// ⛔ **this replaces `is_complete_body() -> bool`** (Jon's redirect §5). That
-/// method inferred completeness from `locomotion.is_some()`, which is a
-/// MIGRATION HEURISTIC wearing the shape of an engine contract: it happened to
-/// be true that a character stating its top speed had also stated everything
-/// else, and nothing would have said so when it stopped being true. Post-D73
-/// there is no alternate archetype construction road: an incomplete prepared
-/// character is a content error and should explain exactly what is missing.
+/// ⛔ **this replaces `is_complete_body -> bool`**.
 ///
 /// Naming the facts costs one struct and buys the diagnostic: "goblin is not
 /// character-complete: locomotion" is a sentence somebody can act on.
@@ -409,13 +362,8 @@ impl PreparedKit {
 /// not "sharing must live in a generator", but that nothing downstream re-derives
 /// a character from parents, patches, or a string search.
 ///
-/// Complete is the word that changed on 2026-07-29. This value used to be the
-/// output of [`prepare_character`], carrying `Option` kit fields whose `None`
-/// meant "ask the catalog" — so every construction path had to hold the catalog
-/// and perform the same fold, and the seated path could not (the workspace policy
-/// `engine.character-authority-is-app-local` puts the catalog out of an
-/// engine-side projection's reach). Now the fold happens ONCE, at the
-/// finalization barrier, and what a body reads has no questions left in it.
+/// Now the fold happens ONCE, at the finalization barrier, and what a body reads has no questions
+/// left in it.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PreparedCharacterDefinition {
     pub id: ambition_entity_catalog::CharacterId,
@@ -448,13 +396,9 @@ pub struct PreparedCharacterDefinition {
     /// **The POLICY this character runs when nothing else drives it** — the
     /// controller authority, carried as a value rather than as a name.
     ///
-    /// ⭐⭐ **the ONLY half, since D97.** The prepared sibling that named a catalog
-    /// `brain_presets` key is deleted — it had zero authors and one consumer, and
-    /// its absence is what produced the empty-string default that crashed two
-    /// shipped rooms. Every road that needs to know what this body does when
-    /// nobody drives it reads THIS, and lowers it against the body
-    /// (`enemy_default_brain`): spawn, rewind and live restore all make the same
-    /// call, which is why they cannot disagree.
+    /// Every road that needs to know what this body does when nobody drives it reads THIS, and
+    /// lowers it against the body (`enemy_default_brain`): spawn, rewind and live restore all
+    /// make the same call, which is why they cannot disagree.
     ///
     /// `None` leaves the archetype's projection in charge, which is every
     /// character that has not migrated.
@@ -563,7 +507,7 @@ impl PreparedCharacterDefinition {
 
     // ⛔ `checked_namespaces()` was here — the plural twin of `was_checked()`
     // below, written for symmetry and never called (compiler-verified,
-    // 2026-08-12). `was_checked` asks the question consumers actually have.
+    // ). `was_checked` asks the question consumers actually have.
 
     /// Was this namespace actually verified for this character?
     ///
@@ -673,10 +617,6 @@ impl CharacterBindings {
         self
     }
 
-    /// ⛔⛔ **NOTHING CALLS THIS, WHICH MEANS PORTRAIT TARGETS ARE NEVER
-    /// CHECKED** (found 2026-08-12 by `scripts/probe_dead_public_fns.py`; ledger
-    /// D106).
-    ///
     /// It is the ONLY way to populate `self.portraits`, so the field is `None`
     /// in every composition, `PortraitTarget::NAME` never joins
     /// `checked_namespaces`, and preparation's report says *"we did not look"*
@@ -699,12 +639,10 @@ impl CharacterBindings {
 
     /// Whether a caller already supplied a SHEET vocabulary.
     ///
-    /// ⛔⛔ **this exists because the two `with_engine_*_vocabulary` methods had
-    /// to stop being INHERENT** (P1.7 sub-case (a)). They filled these resolvers
-    /// from `ambition_sprite_sheet`, and that crate DEPENDS ON
-    /// `ambition_characters` — so an inherent method on a type living there
-    /// would be a cycle the moment the model moves down. The orphan rule
-    /// adjudicating placement, as it has twice before in this campaign.
+    /// ⛔⛔ **this exists because the two `with_engine_*_vocabulary` methods had to stop being
+    /// INHERENT** (P1.7 sub-case (a)). They filled these resolvers from
+    /// `ambition_sprite_sheet`, and that crate DEPENDS ON `ambition_characters` — so an
+    /// inherent method on a type living there would be a cycle the moment the model moves down.
     ///
     /// ⇒ they are free functions at the REGISTRATION SEAM now
     /// (`with_engine_vocabularies`), which is also where the doc always said
@@ -739,13 +677,9 @@ impl CharacterBindings {
         // Everything else is only checked when a resolver was supplied, and its
         // absence from this list is the honest report of "we did not look".
         //
-        // NOT listed, deliberately: `BodySource` is an inline enum, not a
-        // reference — `SpriteAuthored { world_per_pixel }` and
-        // `Explicit { half_extents }` name nothing outside the character — so
-        // there is no "body" namespace to resolve. GPT-5.6's review listed bodies
-        // alongside sheets and portraits; that part of the finding does not apply,
-        // and inventing a namespace to satisfy it would be a resolver that always
-        // succeeds.
+        // NOT listed, deliberately: `BodySource` is an inline enum, not a reference —
+        // `SpriteAuthored { world_per_pixel }` and `Explicit { half_extents }` name nothing outside
+        // the character — so there is no "body" namespace to resolve.
         let mut out = vec![MoveId::NAME];
         if self.cues.is_some() {
             out.push(SfxCueId::NAME);
@@ -785,12 +719,9 @@ impl PreparedCharacter {
 
 /// Validate and flatten one authored definition.
 ///
-/// Not fatal on an unresolved reference: the report is what makes the degradation
-/// loud, and a character that draws a placeholder and says why beats a session
-/// that refuses to boot. Where a defect genuinely should refuse publication —
-/// malformed movement inheritance (§4.4) — that refusal lives at the seam that
-/// owns it and names the whole chain.
-/// Every input verb the moveset runtime resolves.
+/// Not fatal on an unresolved reference: the report is what makes the degradation loud, and a
+/// character that draws a placeholder and says why beats a session that refuses to boot. Every
+/// input verb the moveset runtime resolves.
 ///
 /// The four bases the trigger path asks for, each with the directional and
 /// airborne suffixes `directional_verb_chain` produces. Built rather than
@@ -798,9 +729,7 @@ impl PreparedCharacter {
 /// or a fifth direction is added, this is the one place that has to learn about
 /// it, and every character's registration starts checking against it for free.
 fn runtime_verb_vocabulary() -> Vec<String> {
-    // ⭐ the CONTRACT's crate, not the runtime's: a verb name is authoring
-    // vocabulary. One of the couplings that kept this file out of
-    // `ambition_characters` (D73 appendix C).
+    // ⭐ the CONTRACT's crate, not the runtime's: a verb name is authoring vocabulary.
     use ambition_entity_catalog::{ATTACK_VERB, RANGED_VERB, SMASH_VERB, SPECIAL_VERB};
     let mut vocabulary = Vec::new();
     for base in [ATTACK_VERB, SMASH_VERB, RANGED_VERB, SPECIAL_VERB] {
@@ -820,19 +749,10 @@ fn runtime_verb_vocabulary() -> Vec<String> {
     }
     // ⭐⭐ **THE REPERTOIRE'S OWN VOCABULARY, ASKED FOR RATHER THAN RESTATED.**
     //
-    // What used to be here was a hand-written list of the flat verbs — grab,
-    // the pummel, the four throws — kept in agreement with
-    // `SmashRepertoire::into_contract` by memory alone. That doc says it is
-    // *"the ONE place the verb strings exist"*, and this list is what made it
-    // false.
-    //
     // ⛔ **the cost of the second list was two shipped defects in three days.**
-    // `prepare_character` reports an unresolved verb and PUBLISHES ANYWAY, so a
-    // verb the table binds and this list has never heard of is a move authored
-    // onto a button the runtime says does not exist — visible only in the
-    // binding report until somebody presses it. `taunt` went that way and
-    // nineteen characters shipped naming *"unknown input verb `taunt`"*;
-    // `attack_dash` repeated it from a branch based before the repair.
+    // `prepare_character` reports an unresolved verb and PUBLISHES ANYWAY, so a verb the table
+    // binds and this list has never heard of is a move authored onto a button the runtime says
+    // does not exist — visible only in the binding report until somebody presses it.
     //
     // ⚠ **still FLAT, and that is the repertoire's shape rather than an
     // exemption here.** A throw is not `grab_forward` and a taunt has no
@@ -875,13 +795,6 @@ fn prepare_character(
         // does not exist, and the move is simply never triggered — the same
         // "this character has no attack" outcome as a dangling move id, reached
         // from the other side and just as silent.
-        //
-        // The failure this exists for was worse than unreachable: the arena's
-        // first hand-authored fighter swung, spawned a hitbox and made a sound,
-        // and the hitbox was inert, because a downstream reader inferred
-        // melee-ness from the move's ID rather than its verb. That coupling is
-        // gone, but the class is not — content and runtime agreeing about a
-        // string is exactly what a resolver is for.
         let verb_vocabulary = runtime_verb_vocabulary();
         let verbs = Resolver::<VerbId>::new(verb_vocabulary.iter().map(String::as_str));
         for (verb, target) in &moveset.verbs {
@@ -901,11 +814,8 @@ fn prepare_character(
         // ranged payload, and the two are individually valid: the verb is real,
         // the move is real, the set is real. The button does nothing.
         //
-        // This is preparation's job precisely because neither half is wrong on
-        // its own; only the PAIR is, and preparation is the only place both are
-        // in hand (GPT 5.6, 2026-07-28). Reported as a binding failure so it
-        // travels the same route every other content disagreement does — named,
-        // non-fatal, and visible to the guard.
+        // This is preparation's job precisely because neither half is wrong on its own; only
+        // the PAIR is, and preparation is the only place both are in hand.
         //
         // Only checked when the definition authored a set. Falling through to
         // the catalog is the migration path, and its rows are resolved
@@ -922,11 +832,9 @@ fn prepare_character(
                         namespace: RangedPayload::NAME,
                         id: target.clone(),
                         declared_by: format!("{declared_by} verb `{verb}`"),
-                        // Nothing WAS available, and saying so is the whole
-                        // report: the character authored an action set and left
-                        // `ranged` empty, so there is no candidate to suggest
-                        // and no typo to find. The fix is authoring, not
-                        // spelling.
+                        // Nothing WAS available, and saying so is the whole report: the
+                        // character authored an action set and left `ranged` empty, so there is
+                        // no candidate to suggest and no typo to find.
                         available: Vec::new(),
                         did_you_mean: None,
                     });
@@ -1041,18 +949,6 @@ fn prepare_character(
 
 /// **Fold one character's overrides against the catalog into a complete value.**
 ///
-/// The whole campaign in one function. Precedence, unchanged from what the worn
-/// path used to do inline: an explicitly authored value outranks the catalog row;
-/// `None` means the author said nothing and the row stands; and `Some(empty)` is
-/// an authoring DECISION that outranks the row exactly as a filled one does.
-///
-/// What CHANGED is where it happens. This used to run per body, in
-/// `apply_worn_character_kit`, which meant a construction path without a catalog
-/// could not do it — and `project_prepared_character_definitions`, the path that
-/// serves every SEATED fighter, is exactly such a path. So a seated fighter
-/// inherited nothing while a worn player wearing the same character inherited
-/// everything.
-///
 /// `catalog: None` is a real composition, not a degraded one: a bare engine App
 /// that registers characters and installs no catalog has nothing to inherit FROM,
 /// which is the same answer as "this id is not in the catalog" — the case the
@@ -1148,20 +1044,8 @@ fn finalize_character(
         // `RangedExecution::ChargedProjectile` exists to prevent, arriving through
         // the one door it does not watch.
         //
-        // The finalization plan recorded that there was no contradictory
-        // authored HostCode configuration to reject, and that a validator
-        // would therefore be a test of itself. There is one (GPT 5.6,
-        // 2026-07-29).
-        //
-        // Decided HERE and not in `prepare_character`'s binding ledger,
-        // because deciding this needs the CATALOG and the catalog is
-        // deliberately not in scope until finalization — the Phase A split.
-        //
-        // ⚠ **and REPORTING it was not enough**, which is the second half of
-        // the same finding. A diagnostic left the contradictory kit intact and
-        // published it, so runtime still installed both owners and the log line
-        // was a description of a bug rather than a fix for one. Invalid
-        // ownership must not reach a body at all (GPT 5.6, second pass).
+        // ⚠ **and REPORTING it was not enough**, which is the second half of the same finding.
+        // Invalid ownership must not reach a body at all.
         _ => PreparedKit::Unauthored {
             authored_moveset: moveset.map(|mut moveset| {
                 let revoked = revoke_host_owned_ranged(&mut moveset);
@@ -1188,7 +1072,7 @@ fn finalize_character(
         // and `session::setup` read it directly — so a registered character's
         // authored pool and a catalog row's authored pool were two authorities
         // that never met. Folding here is what lets ONE applier serve the worn
-        // player and the seated fighter (GPT 5.6, 2026-07-29).
+        // player and the seated fighter.
         //
         // Mass has no catalog counterpart to fold against; it carries through.
         vitals: Vitals {
@@ -1209,24 +1093,16 @@ fn finalize_character(
         // Carried, not folded: nothing else in the engine can state a body's
         // verbs, so there is no second authority to reconcile with.
         abilities,
-        // ⭐ **GRAVITY-FREEDOM IS FOLDED HERE, not asked at construction**
-        // (Jon's redirect §14). `new_character_in` used to answer
-        // `locomotion.baseline_free_flight || catalog.body_kind(id) == Floating` — a
-        // constructor rediscovering what the character is from the catalog, for
-        // a fact preparation had every input to settle. A prepared definition
-        // that still needs the catalog to say whether a body flies is only
+        // A prepared definition that still needs the catalog to say whether a body flies is only
         // partly prepared.
         //
-        // ⚠ **the catalog does NOT fill it** — this line said *"the catalog's
-        // answer may fill it and never overrule it"* and D89 (below) cut that
-        // edge entirely rather than demoting it. `Option<bool>` still carries the
-        // distinction the field's own doc names, and preparation is where silence
-        // becomes an ANSWER: `None` resolves to `Some(false)`, so a prepared
-        // character is never mute about flight and no constructor downstream has
-        // a second authority to consult.
+        // `Option<bool>` still carries the distinction the field's own doc names, and
+        // preparation is where silence becomes an ANSWER: `None` resolves to `Some(false)`, so
+        // a prepared character is never mute about flight and no constructor downstream has a
+        // second authority to consult.
         locomotion: locomotion.map(|locomotion| crate::actor::CharacterLocomotion {
-            // ⛔⛔ **`body_kind` IS NOT LOCOMOTION AUTHORITY** (ledger D89,
-            // 2026-08-11). This read
+            // ⛔⛔ **`body_kind` IS NOT LOCOMOTION AUTHORITY** (,
+            // ). This read
             // `locomotion.baseline_free_flight || body_kind(&id) == Floating`, so a
             // presentation/footprint enum decided whether a body flies — and
             // the character had no way to disagree, because `flies` was a
@@ -1246,10 +1122,8 @@ fn finalize_character(
             ..locomotion
         }),
         contact_damage,
-        // ⭐ **the NAMED profile, resolved here** — a prepared definition holds a
-        // canonical value, never a reference somebody still has to look up
-        // (ledger D80). See `resolve_autonomous_profile`: provider-relative,
-        // inline XOR named, and a name nobody authored is a refusal.
+        // See `resolve_autonomous_profile`: provider-relative, inline XOR named, and a name nobody
+        // authored is a refusal.
         autonomous_profile: resolve_autonomous_profile(
             &id,
             &provider,
@@ -1316,8 +1190,7 @@ fn finalize_character(
 /// **Which policy this character runs**, from at most one of the two ways to say
 /// it.
 ///
-/// ⛔⛔ **three refusals, and each replaces a silent fallback** (Jon's redirect
-/// §§8–9):
+/// ⛔⛔ **three refusals, and each replaces a silent fallback**:
 ///
 /// * **inline AND named** — replacement documented as specialization. Nothing
 ///   merges, so "the inline one wins" is the more specific statement quietly
@@ -1426,17 +1299,10 @@ fn revoke_host_owned_ranged(moveset: &mut MovesetContract) -> Vec<String> {
 /// prefab builder, and a body that got the capability without the timeline
 /// advertises an attack it cannot perform.
 ///
-/// ⚠ **`special` used to be deliberately NOT folded in, and that was H2 again one
-/// field over.** The reasoning said it is a capability marker on the host compat
-/// kit (`bubble_shield`) with no authored move behind it, and that an authored
-/// persona drives its special through its own path — true only when that persona
-/// authored a MOVESET. The public API does not require one: a definition may
-/// carry `action_set.special = Some(..)` and no moveset at all, and `ActionSet
-/// ::special`'s own doc says the brain reads `special.is_some()` to decide
-/// whether to press it while the execution "is a data-driven move in the body's
-/// `ActorMoveset`". So that character advertised a signature move with no
-/// timeline behind it — the exact defect H2 closed for `ranged` (GPT 5.6,
-/// 2026-07-29).
+/// The public API does not require one: a definition may carry `action_set.special = Some(..)`
+/// and no moveset at all, and `ActionSet ::special`'s own doc says the brain reads
+/// `special.is_some()` to decide whether to press it while the execution "is a data-driven move
+/// in the body's `ActorMoveset`".
 ///
 /// Folding it here cannot double-fire: this branch runs ONLY when there is no
 /// authored moveset, so there is no second declaration to collide with. A
@@ -1445,7 +1311,7 @@ fn derive_moveset(
     action_set: &crate::brain::ActionSet,
     authored: Option<MovesetContract>,
 ) -> MovesetContract {
-    // ⭐ **THE LOW CRATE'S, not this monolith's** (P1.7, 2026-08-12). This read
+    // ⭐ **THE LOW CRATE'S, not this monolith's**. This read
     // `crate::combat::moveset::build_actor_moveset`, and `ambition_combat`
     // depends on `ambition_characters` — so preparation calling UP was the last
     // thing keeping the authoritative character model from following the model
@@ -1464,13 +1330,6 @@ fn derive_moveset(
     // ⭐⭐ **AUTHORED MOVES OVERLAY THE KIT'S, they do not REPLACE it** — the same
     // rule `derive_persona_moveset` learned two hours earlier, in the sibling
     // this pass forgot.
-    //
-    // ⛔ measured: Robot v2 authors ONE move (the theorem chain, bound to
-    // `special`) and takes its melee and its Hadouken from `robot_duelist_kit`.
-    // Under `authored.unwrap_or(derived)` the one authored move deleted both, so
-    // the exhibition robot stopped swinging entirely — `melee_swing_frames: 0`
-    // over three hundred frames, with nothing in the log to say a kit had been
-    // discarded.
     //
     // ⚠ authored wins on collision, in both halves: naming a move id or a verb
     // the kit also produces is a deliberate statement about that one thing.
@@ -1513,14 +1372,12 @@ impl FinalizedCharacter {
 /// fold early would be choosing to inherit from whatever happened to be
 /// installed so far — which is the ordering hazard `Plugin::finish` removes.
 ///
-/// ⛔⛔ **AND THE COMING CRATE MOVE IS NOT A REASON TO WIDEN IT.** Campaign
-/// P1.7's own plan said this and [`FinalizedCharacter`] "must become plain `pub`
-/// test seams in the low crate", because `#[cfg(test)]` items do not cross a
-/// crate boundary and the monolith's suite leans on them. That is the easiest
-/// mechanical relocation deciding the public architecture, and it would put the
-/// early-fold hazard back on the production surface to save a test import
-/// (GPT 5.6 review of `1579ab3`, finding 2 — corrected in the plan before any of
-/// it ran).
+/// ⛔⛔ **AND THE COMING CRATE MOVE IS NOT A REASON TO WIDEN IT.**.7's own plan said this and
+/// [`FinalizedCharacter`] "must become plain `pub` test seams in the low crate", because
+/// `#[cfg(test)]` items do not cross a crate boundary and the monolith's suite leans on them.
+/// That is the easiest mechanical relocation deciding the public architecture, and it would put
+/// the early-fold hazard back on the production surface to save a test import ( of `1579ab3`, —
+/// corrected in the plan before any of it ran).
 ///
 /// ⇒ **split the TESTS by what they actually test**: preparation/finalization
 /// tests move DOWN with this code and keep using private `cfg(test)` support;
@@ -1569,9 +1426,8 @@ pub fn prepare_and_finalize_against_for_test(
 
 /// The prepared authority: one entry per character, keyed by stable id.
 ///
-/// ⚠ §4.1's end state is that subsystem read models are DERIVED from this rather
-/// than registered beside it. Where that stands today, checked against the code
-/// on 2026-07-28 rather than inherited from the last time somebody wrote it down:
+/// §4.1's end state is that subsystem read models are DERIVED from this rather than registered
+/// beside it.
 ///
 /// * **Derived from here:** sprite declarations, cue authorization, each body's
 ///   presentation source, and the authored MOVESET, HURTBOX DOC, ACTION SET and
@@ -1580,7 +1436,7 @@ pub fn prepare_and_finalize_against_for_test(
 ///   `project_prepared_character_definitions` for a seated or spawned body, and
 ///   `avatar::starting_character`'s one construction for a worn one — because
 ///   wiring only the worn path left seated fighters without their action set for
-///   a day (2026-07-28).
+/// a day.
 /// * **Still the catalog's, and legitimately:** display names, sheet targets,
 ///   default brains, tiers, tags, aggro and attack ranges, and the remaining
 ///   movement TUNING. Those are not the KIT, which is what C3 was about — the
@@ -1593,13 +1449,6 @@ pub fn prepare_and_finalize_against_for_test(
 /// the row stands; and `Some(empty)` is an authoring DECISION that outranks the
 /// row exactly as a filled one does. That last distinction is the load-bearing
 /// one — collapsing it hands an intentionally weaponless character a punch.
-///
-/// This comment previously said registering a character "does not yet cause a
-/// production-spawned body to receive what that character authored — the §7.10
-/// fight test projects it by hand". That stopped being true when the projection
-/// landed and the hand-projection was deleted; nothing re-read the comment,
-/// because a doc comment describing an ABSENCE has no citation to rot (queue W1).
-/// Tracked as C3.
 #[derive(bevy::prelude::Resource, Debug, Clone, Default)]
 pub struct PreparedCharacterRegistry {
     by_id: BTreeMap<ambition_entity_catalog::CharacterId, PreparedCharacterDefinition>,
@@ -1608,19 +1457,9 @@ pub struct PreparedCharacterRegistry {
 
 /// Which version of the cast a value was built from.
 ///
-/// Nothing downstream could say WHICH cast a body's kit came from, so "this body
-/// was built before the cast changed" was not a question the code could ask — it
-/// could only compare the values and guess. That is the shape of every
-/// stale-derivation bug in this repo.
-///
-/// ⚠ this used to open "the registry is a live resource: a room transition
-/// builds a fresh one, and registration mutates it in place". That stopped being
-/// true when the finalization barrier landed (2026-07-29): the registry is
-/// PUBLISHED once, whole, at `Plugin::finish` or the `PreStartup` backstop, and a
-/// registration arriving after the barrier closes PANICS rather than mutating it.
-/// One generation per publication, carried across rebuilds — a counter that
-/// restarted would republish generation 1 over a body stamped with generation 1
-/// from the previous cast, and every staleness check would read "still current".
+/// One generation per publication, carried across rebuilds — a counter that restarted would
+/// republish generation 1 over a body stamped with generation 1 from the previous cast, and every
+/// staleness check would read "still current".
 ///
 /// A monotonic counter, not a hash: two registries with identical contents
 /// assembled at different times are legitimately different generations, and a
@@ -1736,11 +1575,6 @@ impl PreparedCharacterRegistry {
 
     /// **Stamp this registry as the publication that follows `previous`.**
     ///
-    /// One generation per PUBLICATION, not one per character — the barrier
-    /// assembles the whole cast and publishes it once, so "how many characters
-    /// were inserted" stopped being a meaningful clock the day the fold moved
-    /// (2026-07-29).
-    ///
     /// It takes the previous generation rather than starting from its own zero,
     /// and that is the load-bearing part: a rebuilt registry is a fresh
     /// `Default`, so without this a hot reload would republish generation 1 over
@@ -1765,16 +1599,6 @@ pub enum CharacterRegistrationError {
         second_provider: String,
     },
     /// Two DIFFERENT characters present under the same display name.
-    ///
-    /// Rooms, LDtk entities, and roster entries all legitimately name characters
-    /// by the label a designer typed, so a display name is an addressing key
-    /// whether or not it was meant to be one — and three authorities resolve it
-    /// independently. `PreparedCharacterRegistry::id_for_display_name` takes the
-    /// first match in id order; `CharacterSpriteAssets::declare` inserts the alias
-    /// into a map, so the LAST declaration wins. With `alpha` and `zeta` both
-    /// presenting as "Hero", a demand for "Hero" could stage `alpha`, authorize
-    /// `alpha`'s provider, and decode `zeta`'s sheet — a fighter with one
-    /// character's sounds and another's body (GPT 5.6, 2026-07-26).
     ///
     /// Rejected rather than disambiguated, for the same reason as a duplicate id:
     /// picking a winner means two authorities can pick differently.
@@ -1898,13 +1722,8 @@ fn finalize_cast(
 // ─────────────────────────────────────────────────────────────────────────────
 // THE LIFECYCLE. Staging, the barrier, and the fold it closes over.
 //
-// ⛔⛔ **this lives beside the private fold on purpose, and moving it up is the
-// regression.** It was in the actor monolith until 2026-08-12, which forced
-// `prepare_for_registration` and `finalize_cast` to be `pub` so the App layer
-// could reach them — and a public mint plus a public consumer is a public fold,
-// however opaque the value in between. The only structure that makes early
-// folding unspellable by ordinary production code is the one where the fold and
-// the thing that decides WHEN to fold are the same module's private business.
+// The only structure that makes early folding unspellable by ordinary production code is the one
+// where the fold and the thing that decides WHEN to fold are the same module's private business.
 //
 // What crosses the boundary instead is intent: `stage_authored_character` (a
 // contribution) and `PreparedCharacterRegistry` (the finished read). A host that
@@ -1922,23 +1741,9 @@ fn finalize_cast(
 ///
 /// # Registration is DECLARATIVE — it does not load anything
 ///
-/// This used to end by requesting the character's art, on the reasoning that a
-/// provider should not need a second call. That reasoning was wrong, and the
-/// mistake gets worse the better the plan works: as more characters migrate onto
-/// this seam, merely *installing* a provider's plugin would demand every one of
-/// its characters' art — the startup decode storm §7.1 deleted, rebuilt from the
-/// other end. Loading is driven by a PROJECTION of what a session actually
-/// stages. Registration says *what exists*; staging says *what is needed now*.
-///
 /// The binding report is logged rather than returned as an error: see
 /// `prepare_character` for why an unresolved reference degrades loudly instead of
 /// refusing.
-///
-/// ⚠ **it installs its own barrier.** Deliberately not a composition
-/// requirement: this is callable on a bare `App`, and a finalizer that only runs
-/// when the caller also remembered a plugin is a finalizer most callers will not
-/// have — the same shape as every other "the app forgot the step" defect this
-/// module exists because of.
 pub fn stage_authored_character(
     app: &mut bevy::app::App,
     definition: CharacterDefinition,
@@ -2006,11 +1811,9 @@ pub fn stage_authored_character(
 /// The preparation-phase half of the registry. Holds partial values and is
 /// consumed by [`CharacterPreparationPlugin::finish`].
 ///
-/// ⛔ PRIVATE, and that is the barrier's second half. A resource this crate does
-/// not export cannot be read, taken, or reconstructed by a host — so there is no
-/// route to a `StagedCharacter` at all outside this module, let alone to folding
-/// one. It was `pub`-visible in shape (an App-layer type over a `pub` staged
-/// value) until the review that closed this hole.
+/// ⛔ PRIVATE, and that is the barrier's second half. A resource this crate does not export
+/// cannot be read, taken, or reconstructed by a host — so there is no route to a
+/// `StagedCharacter` at all outside this module, let alone to folding one.
 #[derive(bevy::ecs::resource::Resource, Debug, Clone, Default)]
 struct StagedCharacterOverrides {
     by_id: BTreeMap<ambition_entity_catalog::CharacterId, StagedCharacter>,
@@ -2035,8 +1838,6 @@ impl StagedCharacterOverrides {
     }
 }
 
-/// **The finalization barrier.** (H1, 2026-07-29)
-///
 /// Bevy runs every plugin's `build` during registration and every `finish` once
 /// all of them are ready. That ordering is the whole reason this is a plugin
 /// rather than a startup system or an eager fold at registration time: a provider
@@ -2059,15 +1860,9 @@ impl bevy::app::Plugin for CharacterPreparationPlugin {
         app.init_resource::<StagedCharacterOverrides>();
         // THE BACKSTOP, for the apps Bevy's runner never touches.
         //
-        // `App::update` does not run `finish` — runners do — and this repository
-        // drives `update` by hand almost everywhere: every headless test, the
-        // external-consumer fixture, the rollback harnesses, the tools. Without
-        // this, all of them would register a cast and publish none, and the
-        // symptom is the worst kind: every character silently falls back to the
-        // host's compatibility kit, so a consumer's peaceful wanderer comes out
-        // swinging the protagonist's sword. That is not hypothetical — it is
-        // what the outlander fixture reported within an hour of the barrier
-        // landing.
+        // `App::update` does not run `finish` — runners do — and this repository drives
+        // `update` by hand almost everywhere: every headless test, the external-consumer
+        // fixture, the rollback harnesses, the tools.
         //
         // Not a second authority: it calls the SAME finalizer, guarded by the
         // same `finalized` flag, so whichever trigger fires first wins and the
@@ -2076,13 +1871,6 @@ impl bevy::app::Plugin for CharacterPreparationPlugin {
         // `finish` exists to remove. What `finish` still buys is that the
         // registry exists before ANY system runs, including `Startup`.
         app.add_systems(bevy::app::PreStartup, close_preparation_barrier);
-        // ⚠ **a `PreUpdate` re-close was TRIED for queue D75 and does not fix
-        // it** (2026-08-11). The hypothesis was a cast arriving after the
-        // barrier latched; the measurement says otherwise — those hosts read a
-        // registry of ZERO at spawn time whether the barrier can re-close or
-        // not, so the cast is not late, it is absent from whatever world the
-        // spawn is reading. Recorded rather than left as a plausible fix nobody
-        // re-measured.
     }
 
     fn finish(&self, app: &mut bevy::app::App) {
@@ -2100,12 +1888,6 @@ fn finalize_prepared_cast(world: &mut bevy::ecs::world::World) {
     let Some(mut staged) = world.get_resource_mut::<StagedCharacterOverrides>() else {
         return;
     };
-    // ⚠ **`App::finish` re-runs EVERY plugin's `finish`, every time it is
-    // called.** It does not track which ones already ran — it walks the whole
-    // registry and sets `plugins_state = Finished` (read in `bevy_app` 0.18.1
-    // after this bit us, 2026-07-29). The `PreStartup` backstop is a second
-    // trigger on top of that.
-    //
     // Without a guard, a second call republished an EMPTY registry: the staged
     // overrides had already been consumed, so the whole cast silently vanished on
     // the fixture's second step. The barrier has to be idempotent itself;

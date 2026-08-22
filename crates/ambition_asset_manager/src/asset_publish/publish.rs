@@ -21,8 +21,6 @@ pub struct PublishOptions<'a> {
     /// Opaque timestamp/hash stamped into the manifest (kept clock-free).
     pub generated_at: &'a str,
     pub quality: Quality,
-    /// The runtime root path as it should be recorded in the manifest's
-    /// `runtime_roots` and used to prefix each `destination`.
     pub runtime_root_label: &'a str,
 }
 

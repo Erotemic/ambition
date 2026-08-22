@@ -54,11 +54,7 @@ pub enum HitMode {
     SafeRespawn,
 }
 
-// The hit-model VALUE types (`HitKnockback`, `HitKnockbackMagnitude`) moved to
-// the floor (`ambition_platformer2d_core::hit_response`, FB6b) beside the pure
-// response math that consumes them, so the fighter brain's shadow rollout and
-// the authoritative victim path share ONE kernel. Combat remains the event
-// vocabulary's front door; producers keep naming them from here.
+// Combat remains the event vocabulary's front door; producers keep naming them from here.
 pub use ambition_platformer2d_core::hit_response::{HitKnockback, HitKnockbackMagnitude};
 
 /// Relationship/AI stimuli observed by actors.
@@ -203,12 +199,6 @@ pub struct NpcDialogueRequest {
 
 /// **What KIND of thing hit this body.** A cause, and nothing else.
 ///
-/// ⛔ **this used to be a direction, wearing the clothes of a cause.**
-/// `PlayerSlash`, `EnemyAttack`, `BossAttack`, `PlayerProjectile`,
-/// `EnemyProjectile`, `EnemyBody`, `BossBody`, `EnemyChargeCrash`,
-/// `ContactHarm` — nine spellings for four things, and the half of each name
-/// that said *who* was carrying routing decisions that belong to identity:
-///
 /// * a "player's" slash meant *a slash filed under the player-side spelling*,
 ///   so a possessed enemy's swing was the player's and an empowered ally's was
 ///   not, and the outgoing damage slider reached the wrong strikes both ways;
@@ -263,13 +253,13 @@ pub enum HitSource {
 impl HitSource {
     /// **Is this an unresolved strike still hunting for whom it hit?**
     ///
-    /// ⚠ **only ask this of an event whose target is NOT resolved.** Every
+    /// **only ask this of an event whose target is NOT resolved.** Every
     /// victim-side producer in the tree stamps [`HitTarget::Body`] now, and a
     /// named victim is the whole answer — the three sites that consult this all
     /// reach it only on a `Volume` / `UnresolvedFeatures` / `OrbMatch` event,
     /// where "who is this broadcast FOR" is a real question.
     ///
-    /// ⛔ so it is NOT "attacker-side", which is what it was called, and that
+    /// so it is NOT "attacker-side", which is what it was called, and that
     /// name is why it read as a fact about the player-versus-world direction of
     /// combat. It is a fact about the event's RESOLUTION state.
     pub fn seeks_victims(&self) -> bool {
@@ -299,14 +289,9 @@ pub enum HitTarget {
     /// body. Explicit victim identity outranks
     /// [`HitSource::seeks_victims`]'s legacy broadcast direction.
     ///
-    /// ⛔ **this was two variants, `Player(Entity)` and `Actor(Entity)`, and the
-    /// split was a routing artifact rather than a fact about the hit.** The
-    /// producers all computed it the same way — `if victim.is_player { Player }
-    /// else { Actor }` — so the stamp said nothing the victim entity did not
-    /// already say, and it said it at the moment a producer is least entitled to
-    /// care. Its real job was telling two consumers which one owned the event,
-    /// which is a question each consumer can answer by asking whether the victim
-    /// is in ITS population. A controller kind is not a damage route.
+    /// Its real job was telling two consumers which one owned the event, which is a question
+    /// each consumer can answer by asking whether the victim is in ITS population. A controller
+    /// kind is not a damage route.
     Body(bevy::prelude::Entity),
     /// Orb-AABB match (pogo). Only the breakable whose AABB
     /// approximately equals `volume` is hit; actors / bosses are
@@ -322,14 +307,14 @@ pub enum HitTarget {
     /// entity the resolver can name, so they stay UNRESOLVED and the geometry
     /// has to be broadcast for them.
     ///
-    /// ⛔ **This is not [`Self::Volume`], and the difference is load-bearing.**
+    /// **This is not [`Self::Volume`], and the difference is load-bearing.**
     /// `Volume` means "nothing here is resolved — scan everything", and the
     /// wielded world-AOE primitive still means exactly that. This variant means
     /// "the bodies are ALREADY resolved; scan only what a body resolver cannot
     /// see". A consumer that treats the two alike damages every combat body a
     /// second time, on top of the identified hit it already took.
     ///
-    /// ⚠ so it exists to keep an unresolved broadcast from masquerading as a
+    /// so it exists to keep an unresolved broadcast from masquerading as a
     /// body hit, which is the shape the combat campaign is removing. When
     /// bosses and breakables become resolvable victims in their own right, this
     /// variant goes away with them; it does not become the general answer.
@@ -358,7 +343,7 @@ pub enum HitTarget {
 /// write and the victim's read silently un-hits the player), and reader
 /// cursors are `Local`s no snapshot can see. Cross-frame combat truth
 /// therefore lives in this rollback-registered FIFO — the
-/// `SwitchActivationQueue` pattern (deep review 2026-07-19 §2.2), found by the
+/// `SwitchActivationQueue` pattern, found by the
 /// Phase-5 exit oracle when an enemy hit on the player failed to survive
 /// resimulation.
 #[derive(bevy::prelude::Resource, Clone, Debug, Default)]
@@ -390,18 +375,6 @@ pub struct HitEvent {
     pub damage: i32,
     /// Who or what dealt the hit.
     pub source: HitSource,
-    /// Attacker entity, if the producer knows it. Player-attacker
-    /// sources (slash, pogo, player projectile) stamp the player whose
-    /// attack landed — `apply_feature_hit_events` uses it to attribute
-    /// hitstop / flash to the correct player. Hostile sources stamp the
-    /// attacking entity symmetrically where one exists: `BossAttack`
-    /// carries the boss, `EnemyBody` / `EnemyChargeCrash` the
-    /// enemy — so the victim's `DeathCause` records who killed it (the
-    /// compact causality seam for replay / RL / future netcode). Sources
-    /// with no entity attacker stay `None`, such as an environmental `Hazard`
-    /// or an ownerless authored projectile. Projectiles with a firing body stamp
-    /// that body's entity through `ProjectileOwner`, regardless of presentation
-    /// family or allegiance.
     pub attacker: Option<bevy::prelude::Entity>,
     /// Hint for how the consumer resolves the victim. See
     /// [`HitTarget`].
@@ -411,7 +384,7 @@ pub struct HitEvent {
     pub mode: HitMode,
     /// Knockback impulse to apply to the victim, and **the only channel that
     /// carries one**. `None` means this hit genuinely does not push its target
-    /// (pogo, player projectile). ⛔ a source-specific impulse field is not an
+    /// (pogo, player projectile). a source-specific impulse field is not an
     /// alternative spelling — see [`HitSource::Melee`] for the one that
     /// existed and what it cost.
     pub knockback: Option<HitKnockback>,
@@ -436,13 +409,10 @@ mod resolution_direction_tests {
     /// hunting for whom it hit — and the split is between a cause that goes
     /// LOOKING for a body and one that happens TO whoever is standing there.
     ///
-    /// ⚠ `Contact` sits on the hunting side, and two of the three causes it
-    /// absorbed used to answer the other way. That mattered only because the
-    /// player FIFO staged on the COMPLEMENT of this predicate; it stages on
-    /// whether the named victim is in its own population now, so the answer
-    /// gates nothing for a resolved hit — and every contact producer in the tree
-    /// resolves its victim. A body whose footprint harms what it touches
-    /// genuinely is out looking.
+    /// That mattered only because the player FIFO staged on the COMPLEMENT of this predicate; it
+    /// stages on whether the named victim is in its own population now, so the answer gates nothing
+    /// for a resolved hit — and every contact producer in the tree resolves its victim. A body
+    /// whose footprint harms what it touches genuinely is out looking.
     #[test]
     fn a_strike_seeks_victims_and_the_world_does_not() {
         for hunting in [

@@ -66,12 +66,8 @@ fn ui_node_count(app: &mut App) -> usize {
 /// UI nodes the ENGINE'S presentation face brought in — every `bevy_ui` node
 /// that is NOT part of a HUD this demo itself declared.
 ///
-/// The distinction is the whole point of the guard after the declared-HUD seam
-/// landed. "Zero UI nodes" used to be a fine proxy for "the engine dragged in no
-/// game UI", because a demo could not have a HUD at all. Now it can, by
-/// DECLARING one on its provider — so the guard has to name what it forbids
-/// (engine-owned UI) instead of forbidding all UI and thereby forbidding the
-/// demo's own feature.
+/// Now it can, by DECLARING one on its provider — so the guard has to name what it forbids
+/// (engine-owned UI) instead of forbidding all UI and thereby forbidding the demo's own feature.
 fn engine_owned_ui_node_count(app: &mut App) -> usize {
     let mut query = app
         .world_mut()
@@ -82,14 +78,11 @@ fn engine_owned_ui_node_count(app: &mut App) -> usize {
 /// Nodes belonging to the HUD this demo declared.
 /// How many READOUTS the demo draws.
 ///
-/// Counts `DeclaredHudSlot`, not `DeclaredHudRoot`. Both ride the nodes the
-/// declared-HUD pass owns and they answer different questions:
-/// `DeclaredHudRoot` is the LIFETIME marker (the retire sweep keys on it, and a
-/// gauge bar carries one so it dies with its slot), while a slot is one declared
-/// readout. Counting roots made a demo that declared two readouts and published
-/// gauges look like four — a gauge is presentation OF a readout, not another
-/// one. Twin of the Mary-O shell's counter; both broke when health bars landed
-/// and neither was compiled by `cargo test --workspace`.
+/// Counts `DeclaredHudSlot`, not `DeclaredHudRoot`. Both ride the nodes the declared-HUD pass owns
+/// and they answer different questions: `DeclaredHudRoot` is the LIFETIME marker (the retire sweep
+/// keys on it, and a gauge bar carries one so it dies with its slot), while a slot is one declared
+/// readout. Counting roots made a demo that declared two readouts and published gauges look like
+/// four — a gauge is presentation OF a readout, not another one.
 fn declared_hud_node_count(app: &mut App) -> usize {
     let mut query = app
         .world_mut()
@@ -273,11 +266,8 @@ fn the_demo_spawns_a_main_camera_and_publishes_it() {
 /// future change drags the game's HUD or menus into it, a demo's dependency wall
 /// grows silently. This is the guard.
 ///
-/// It asserts on `bevy_ui` nodes rather than on named resources, because the
-/// naming test I first wrote was WRONG: `DeveloperRuntimeState` looked app-local and is
-/// in fact ENGINE state (the room-transition commit writes it, and `ambition_platformer2d_runtime`
-/// re-exports it as a host seam). A demo carrying it is correct. A demo carrying
-/// Ambition's HUD is not, and a UI node is what a HUD is made of.
+/// A demo carrying it is correct. A demo carrying Ambition's HUD is not, and a UI node is what
+/// a HUD is made of.
 #[test]
 fn the_presentation_plugin_adds_no_hud_and_no_menu() {
     let mut app = drawn_demo();
@@ -471,12 +461,8 @@ fn the_speedway_backdrop_follows_the_camera() {
     use ambition_platformer2d::view::ParallaxLayerVisual;
 
     let mut app = drawn_demo();
-    // ⚠ **PIN THE CLOCK.** A fixed-tick host without one runs a
-    // machine-speed-dependent number of ticks per `update()`, so the same script
-    // covers a different distance on every run — `act_completion` carries the
-    // same two lines for the same reason. Without it this test passed alone and
-    // FAILED inside the full suite binary, which is the flake shape this run
-    // already paid for once today in `shell_host_lifecycle`.
+    // Without it this test passed alone and FAILED inside the full suite binary, which is the
+    // flake shape this run already paid for once today in `shell_host_lifecycle`.
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f32(1.0 / 60.0),
     ));
@@ -514,7 +500,7 @@ fn the_speedway_backdrop_follows_the_camera() {
     // Hold right. The body accelerates down the speedway, the camera follows it,
     // and each layer follows the camera at its own factor.
     //
-    // ⛔ **SAMPLE THE WHOLE RUN, not the endpoints.** This test compared `before`
+    // **SAMPLE THE WHOLE RUN, not the endpoints.** This test compared `before`
     // against `after` alone and failed for four months' worth of wrong reasons —
     // it was read as a missing `sync_parallax_layers`, then as an unregistered
     // `camera_follow`, then as a broken camera clamp, then as Sanic being slow.

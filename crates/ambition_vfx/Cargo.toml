@@ -19,7 +19,7 @@ bevy = { version = "0.18.1", default-features = false }
 # Geometry (Vec2 / Aabb) — the pure-logic foundation.
 ambition_geometry = { path = "../ambition_geometry" }
 
-# SfxId for FxRequest's OPTIONAL cue override. ⚠ the effect's OWN cue is no
+# SfxId for FxRequest's OPTIONAL cue override. the effect's OWN cue is no
 # longer named here: it is derived from the authored effect name by the
 # presentation layer, because the bank already ships one `vfx.<family>.<row>`
 # cue per authored row and a Rust table restating that could only drift.

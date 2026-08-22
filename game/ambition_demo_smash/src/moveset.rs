@@ -1,14 +1,6 @@
 //! **A platform fighter's actual moves**, authored on the character.
 //!
-//! ⛔ **what this replaces.** Every seat in this demo carried
-//! `smash_fighter_kit()` — one `simple_melee` swipe, 4 damage, flat 120
-//! knockback, `knockback_growth: 0.0` — so a jab, a forward smash and a back air were
-//! the same swing, the same commitment and the same launch. Jon reported the
-//! consequence directly: the stage reads as *"generic characters walking around
-//! an arena"*, and the percent meter next to a launch that never grows is a
-//! promise the moves do not keep.
-//!
-//! ⭐ **none of this needed engine work, and that is the finding.** The move
+//! **none of this needed engine work, and that is the finding.** The move
 //! runtime already resolves a directional verb chain
 //! (`attack_air_forward → attack_forward → attack_air → attack`), already reads
 //! a Smash-strength gesture off a directional flick, already falls back from
@@ -32,20 +24,16 @@
 //! attack_air_down     d-air          spike; the heaviest landing lag
 //! ```
 //!
-//! ⚠ **the numbers are a first authored pass and are meant to be tuned by
+//! **the numbers are a first authored pass and are meant to be tuned by
 //! play.** They follow the genre's proportions rather than any one game's
 //! frame data: a jab is ~3 frames of startup and a forward smash ~18, a smash
 //! launches 3–4× a jab, and an aerial's landing lag is roughly its recovery.
 //!
-//! ⛔ **`knockback_growth` here is ABSOLUTE px/s per point of damage, and the stage's
-//! `SMASH_KNOCKBACK_GROWTH` is a FRACTION OF THE MOVE'S BASE** — two different
-//! units for the same mechanic, and an authored move wins outright. The first
-//! pass wrote growths that looked like fractions (a jab at `0.30`), so every
-//! move in this table grew ~40× slower than the stage it was authored for: a
-//! jab at 100% launched 58 px/s instead of 165, which is the "there does not
-//! seem to be any knockback" Jon reported AGAIN after the ruleset fix landed.
-//! Every growth below is now exactly `base * SMASH_KNOCKBACK_GROWTH`, so
-//! authoring a move no longer silently opts it OUT of the stage's own loop.
+//! **`knockback_growth` here is ABSOLUTE px/s per point of damage, and the stage's
+//! `SMASH_KNOCKBACK_GROWTH` is a FRACTION OF THE MOVE'S BASE** — two different units for the same
+//! mechanic, and an authored move wins outright. Every growth below is now exactly `base *
+//! SMASH_KNOCKBACK_GROWTH`, so authoring a move no longer silently opts it OUT of the stage's own
+//! loop.
 
 use ambition_platformer2d::entity_catalog::{
     CancelCondition, ClipBinding, EffectRef, HitVolume, ImpulseMode, MoveEvent, MoveEventKind,
@@ -60,12 +48,7 @@ pub(crate) fn grounded_only() -> MoveGates {
     }
 }
 
-// ⭐ **`either_posture` retired 2026-08-16.** Its only callers were the SPECIALS
-// of the fighters that have since moved onto `SmashRepertoire`, where the SLOT
-// owns the posture gate. `fighter_moveset` below authors no specials — the
-// duelists take theirs from the kit their body derives — so nothing here needs
-// it. The two helpers that remain have callers in this file and only in this
-// file.
+// The two helpers that remain have callers in this file and only in this file.
 
 /// Aerials are airborne-only for the mirror reason: a grounded press must not
 /// reach a move whose whole design is that landing costs you.
@@ -243,25 +226,19 @@ pub(crate) fn committed_tail(mut m: MoveSpec, to_s: f32, motion_scale: f32) -> M
 
 /// **WHAT A MOVE FEELS LIKE, as six named classes rather than per-move art.**
 ///
-/// ⭐ the brief this answers is *"differentiate feedback for normal strike,
+/// the brief this answers is *"differentiate feedback for normal strike,
 /// heavy strike, launcher, special, recovery activation, impactful hit"* — six
 /// kinds, not one asset per move. So the vocabulary is the ROLE, and every move
 /// in every table picks one; a jab and a forward smash are heard and seen apart
 /// because they claim different roles, and adding a move costs no new asset.
 ///
-/// ⚠ **the ids name shipped ART, and are checked against it.** A `Vfx` effect
-/// is the NAME of a row on one of the published FX spritesheets — any of 189,
-/// not the five a closed enum used to allow — and `MoveSpec::presentation_problems`
-/// asks the sheets themselves whether it exists. An SFX cue the bank never
-/// rendered is silence: safe, but silent. The list below is short because six
-/// ROLES is the vocabulary, not because the art is.
+/// An SFX cue the bank never rendered is silence: safe, but silent. The list below is short because
+/// six ROLES is the vocabulary, not because the art is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Feel {
     /// The fast, cheap one. A swing sound and nothing else — a jab that flashed
     /// would make the smash below it look like nothing.
     Poke,
-    /// A committed kill move: a windup you can HEAR, a shockwave, and a heavy
-    /// contact sound so a landed one reads across the stage.
     Heavy,
     /// Sends them upward. A round burst and a light contact — the juggle starts
     /// here, so it must read as a beginning rather than an ending.
@@ -291,7 +268,7 @@ pub(crate) fn feel(m: MoveSpec, feel: Feel) -> MoveSpec {
             "player.slash",
             Some("burst_round"),
         ),
-        // ⭐ `sonic_boom` lives on `generic_exotic_fx`, one of the eleven sheets
+        // `sonic_boom` lives on `generic_exotic_fx`, one of the eleven sheets
         // no app could reach until the engine started shipping its own effect
         // art. A signature special is exactly the move that should get a look
         // the shared explosion sheet does not have.
@@ -416,7 +393,7 @@ pub fn fighter_moveset() -> MovesetContract {
 
     // ── the smashes ──────────────────────────────────────────────────────────
     //
-    // ⭐ **the move the demo did not have.** A forward smash is eighteen frames
+    // **the move the demo did not have.** A forward smash is eighteen frames
     // of startup you cannot take back, and the reason anybody accepts that is
     // the launch at the end of it: three times the jab's, growing with the
     // victim's percent, so at 120% it is the thing that ends the stock. The
@@ -481,7 +458,7 @@ pub fn fighter_moveset() -> MovesetContract {
 
     // ── aerials ──────────────────────────────────────────────────────────────
     //
-    // ⭐ **landing lag and auto-cancel are what make an aerial a DECISION**, and
+    // **landing lag and auto-cancel are what make an aerial a DECISION**, and
     // both were engine features with no adopter. The pair reads: throw this one
     // early in a jump and land clean; throw it late and pay for it.
     let mut n_air = strike(
@@ -579,16 +556,12 @@ pub fn fighter_moveset() -> MovesetContract {
     d_air.autocancel_after_s = Some(0.40);
     moves.push(d_air);
 
-    // ⭐⭐ **A GRAB, BECAUSE EVERY FIGHTER IN THE GENRE HAS ONE.**
+    // **A GRAB, BECAUSE EVERY FIGHTER IN THE GENRE HAS ONE.**
     //
-    // ⛔ measured 2026-08-18, and it is why this exists: a CPU-versus-CPU match
-    // on the default roster produced ZERO grabs in sixty seconds, and the cause
-    // was not the AI, the eligibility rules or the acquisition — it was that the
-    // two fighters standing on the stage had no grab to press. Only George
-    // authored one, and the default seats are the STAND-INS. A rock-paper-
-    // scissors triangle with one leg on one character is not the game.
+    // Only George authored one, and the default seats are the STAND-INS. A rock-paper- scissors
+    // triangle with one leg on one character is not the game.
     //
-    // ⚠ a middleweight's numbers, deliberately between the two fighters that
+    // a middleweight's numbers, deliberately between the two fighters that
     // already author one: slower than the admiral's `0.07` snatch, faster than
     // George's `0.16` commitment, and its throw sits below both a smash and his.
     let capture = ambition_platformer2d::characters::smash_capture::SmashCaptureRepertoire {
@@ -707,11 +680,6 @@ mod tests {
     /// **A forward smash is a different move from a jab**, by every measure that
     /// makes it one: it commits longer, hurts more, throws harder, and scales
     /// with the victim's damage.
-    ///
-    /// ⛔ this is the assertion the old generic kit could not pass. One
-    /// `simple_melee` answered every direction and every strength, so "smash"
-    /// was the jab under another name — exactly what Jon's brief forbids:
-    /// *"rather than merely naming the normal swipe differently"*.
     #[test]
     fn the_forward_smash_is_a_real_smash_and_not_the_jab_renamed() {
         let set = fighter_moveset();
@@ -754,14 +722,11 @@ mod tests {
     /// **Every authored growth equals the stage's own declaration**, in the
     /// stage's units.
     ///
-    /// ⛔ **the guard for a UNIT MISMATCH that green tests cannot see.** A
-    /// volume's `knockback_growth` is absolute px/s per point; the ruleset's
-    /// `knockback_growth` is a fraction of the move's base. Both are plain
-    /// `f32`, both are "growth", and an authored move outranks the ruleset — so
-    /// the first pass's fraction-shaped numbers made every move in this table
-    /// grow ~40× slower than the stage declared, and nothing anywhere failed.
-    /// Percent accumulated and the launch barely moved, twice reported as no
-    /// knockback at all.
+    /// **the guard for a UNIT MISMATCH that green tests cannot see.** A volume's
+    /// `knockback_growth` is absolute px/s per point; the ruleset's `knockback_growth` is a
+    /// fraction of the move's base. Both are plain `f32`, both are "growth", and an authored
+    /// move outranks the ruleset — so the first pass's fraction-shaped numbers made every move
+    /// in this table grow ~40× slower than the stage declared, and nothing anywhere failed.
     ///
     /// A move MAY deliberately differ — that is what authoring is for — but it
     /// has to differ by a factor a reader can see, not by a unit.
@@ -787,7 +752,7 @@ mod tests {
 
     /// **The aerials commit, and the auto-cancel window is real.**
     ///
-    /// ⛔ the trap this pins: `autocancel_after_s` is IGNORED unless
+    /// the trap this pins: `autocancel_after_s` is IGNORED unless
     /// `landing_lag_s` is authored, so an aerial with a window and no lag reads
     /// as tuned and is inert.
     #[test]

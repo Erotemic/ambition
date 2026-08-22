@@ -215,11 +215,9 @@ fn a_challenge_flips_a_peaceful_npc_hostile_with_zero_strikes() {
     );
 }
 
-/// Regression: a SECOND stimulus on an already-hostile actor must NOT rebuild
-/// its brain. Re-deriving the brain on every stimulus zeroed all of its
-/// `SmashState` cadences (ranged / dash / blink / footsies timers, mode-dwell
-/// hysteresis) each hit — which is what turned the Perfect Cell-ular Automaton
-/// into a per-tick glider spammer that never got to duel. The live brain (and
+/// Re-deriving the brain on every stimulus zeroed all of its `SmashState` cadences (ranged / dash /
+/// blink / footsies timers, mode-dwell hysteresis) each hit — which is what turned the Perfect
+/// Cell-ular Automaton into a per-tick glider spammer that never got to duel. The live brain (and
 /// its accumulated state) must persist across repeat stimuli.
 #[test]
 fn a_repeat_stimulus_preserves_an_already_hostile_brain_state() {
@@ -334,33 +332,16 @@ fn spawn_flying_npc(app: &mut App) -> bevy::prelude::Entity {
 
 /// **A FLYING BODY STAYS FLYING WHEN IT IS PROVOKED.**
 ///
-/// ⛔⛔ **this test used to demand the opposite**, and its name said so:
-/// *`a_floating_npc_grounds_when_provoked_into_a_grounded_archetype`*. It pinned
-/// `em.surface.gravity_scale = 1.0` inside the generic provoke flip — a body
-/// change, the last one left after the tuning / sprite / capability assignments
-/// went, and the one `ProvokedArchetype::gravity_scale` was documented as "a
-/// MISMATCH being patched rather than a fact".
+/// But the engine's default provoked policy is `CharacterBrainTemplate::Smash`, and the Smash brain
+/// branches on `obs.self_aerial` with **no `can_fly` gate** (`smash/mod.rs`: *"Flyer: the grounded
+/// motor outputs don't apply — discard them and steer a 2D velocity"*). `cfg.can_fly` gates only
+/// the hybrid TAKE-OFF/LANDING toggle, which is exactly right: a baseline flyer never toggles, it
+/// simply flies. And `can_fly` itself is read off the body's own `AbilitySet`
+/// (`smash_cfg_from_spec`), which `ActorBody::from_kit` forces true for an aerial body.
 ///
-/// ⭐ **the premise it was defending has been false since 2026-08-11.** The claim
-/// was that a grounded policy never writes `velocity_target`, so an aerial
-/// integrator reading one would freeze the body. But the engine's default
-/// provoked policy is `CharacterBrainTemplate::Smash`, and the Smash brain
-/// branches on `obs.self_aerial` with **no `can_fly` gate**
-/// (`smash/mod.rs`: *"Flyer: the grounded motor outputs don't apply — discard
-/// them and steer a 2D velocity"*). `cfg.can_fly` gates only the hybrid
-/// TAKE-OFF/LANDING toggle, which is exactly right: a baseline flyer never
-/// toggles, it simply flies. And `can_fly` itself is read off the body's own
-/// `AbilitySet` (`smash_cfg_from_spec`), which `ActorBody::from_kit` forces true
-/// for an aerial body.
-///
-/// ⛔ **and the old fixture could not have caught that**, because it built a body
-/// production never builds: it poked `gravity_scale = 0.0` onto a grounded seed
-/// and left `flight.fly_enabled` false. The brain read that half-body as aerial
-/// (`gravity_scale <= 0.001 || fly_enabled`) while the integrator read it as
-/// grounded (`fly_enabled` alone) — so it really did freeze, from the fixture's
-/// own disagreement rather than from provocation. The three assertions before the
-/// stimulus below are what stop that recurring: they state that this body agrees
-/// with itself about flying BEFORE anybody hits it.
+/// The brain read that half-body as aerial (`gravity_scale <= 0.001 || fly_enabled`) while the
+/// integrator read it as grounded (`fly_enabled` alone) — so it really did freeze, from the
+/// fixture's own disagreement rather than from provocation.
 #[test]
 fn a_flying_npc_stays_flying_when_it_is_provoked() {
     use crate::features::enemies::ActorSurfaceState;
@@ -447,21 +428,15 @@ fn a_flying_npc_stays_flying_when_it_is_provoked() {
 /// **A PROVOKED BODY KEEPS THE HEALTH POOL ITS CHARACTER AUTHORED — AND THE
 /// DAMAGE IT HAD ALREADY TAKEN.**
 ///
-/// ⛔⛔ the flip used to run
-/// `*em.health = fresh_health_pool(DEFAULT_PROVOKED_HEALTH)`: a whole new
-/// `BodyHealth`, so a struck body was resized to 4 AND silently healed to full.
-/// It existed because a peaceful placement spawned at `max_health: 1` and a
-/// provoked one that kept its own pool died to the next hit.
+/// It existed because a peaceful placement spawned at `max_health: 1` and a provoked one that kept
+/// its own pool died to the next hit.
 ///
-/// ⭐ the `1` was the defect. An undescribed body is undescribed before anybody
-/// hits it, so the number moved to `DEFAULT_UNAUTHORED_BODY_HEALTH` at the two
-/// spawn seeds and provocation stopped writing health. The value did not change,
-/// so nothing about how tough a provoked NPC is changed either — which is what
-/// makes this a repair of the authority rather than a rebalance.
+/// The value did not change, so nothing about how tough a provoked NPC is changed either —
+/// which is what makes this a repair of the authority rather than a rebalance.
 ///
-/// ⚠ the DAMAGE half is the sharper assertion: a pool the right SIZE would
-/// satisfy a max-only check while still having healed a wounded creature mid-
-/// fight, which is the same divergence class the D104 reconciler would have shipped.
+/// ⚠ the DAMAGE half is the sharper assertion: a pool the right SIZE would satisfy a max-only
+/// check while still having healed a wounded creature mid- fight, which is the same divergence
+/// class the reconciler would have shipped.
 #[test]
 fn a_provoked_body_keeps_the_health_pool_its_character_authored() {
     use ambition_characters::actor::BodyHealth;
@@ -517,20 +492,10 @@ fn a_provoked_body_keeps_the_health_pool_its_character_authored() {
 
 /// **PROVOKING A BODY SOMEBODY IS DRIVING DOES NOT TAKE IT AWAY FROM THEM.**
 ///
-/// ⛔⛔ the flip inserted the provoked `Brain` unconditionally, and for a body
-/// under player control that is a silent seizure: the first hit a SEATED FIGHTER
-/// took replaced its own policy with the Smash state machine, in
-/// place and permanently — activation is one-shot and never rebinds — so a
-/// human's fighter became a CPU mid-fight and the couch test read it as input
-/// crosstalk. Measured at the time: both seats opened as `Player(0)`/`Player(1)`
-/// and seat one flipped 28 frames after its pad went quiet, which is when it
-/// traded its first blows.
-///
-/// ⚠ **the fix landed with no test, which is why this is here.** Every other
-/// brain writer already skipped a driven body; this was the one
-/// path that did not, and it was unreachable until a player-driven body could
-/// also be a provokable actor. Seating one made that ordinary, and nothing was
-/// stopping it from becoming ordinary again.
+/// the flip inserted the provoked `Brain` unconditionally, and for a body under player control that
+/// is a silent seizure: the first hit a SEATED FIGHTER took replaced its own policy with the Smash
+/// state machine, in place and permanently — activation is one-shot and never rebinds — so a
+/// human's fighter became a CPU mid-fight and the couch test read it as input crosstalk.
 ///
 /// ⇒ what a provocation may do to a driven body: change its RELATIONSHIP, land
 /// its action set (what a body fights with is part of what it is), and record

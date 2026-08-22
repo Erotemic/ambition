@@ -45,7 +45,7 @@ fn run_random_walk(steps: u32, seed: u64) {
             std::process::exit(1);
         }
     };
-    // ⭐ **the unclaimed-velocity detector, in the composition the S51 ramp was
+    // **the unclaimed-velocity detector, in the composition the S51 ramp was
     // actually observed in.** That trace was taken on `Seat(0)` — the SANDBOX's
     // own player — and the first detector was wired into the smash ladder, which
     // has two seated duelists and no sandbox player. It could never have seen the
@@ -170,7 +170,7 @@ fn main() {
     run_random_walk(steps, seed);
 }
 
-/// ⛔ **what a ZERO from this detector must be able to mean.**
+/// **what a ZERO from this detector must be able to mean.**
 ///
 /// A run that reports no unclaimed steps is indistinguishable from a run where
 /// the recorder published nothing at all — and this session has already produced
@@ -212,7 +212,7 @@ fn report_vacuity() {
 /// Feed this tick's velocities to the detector and print anything no operation
 /// claimed.
 ///
-/// ⚠ **the bound is derived from the kernel's own constants**, never written
+/// **the bound is derived from the kernel's own constants**, never written
 /// down as a number: a hardcoded threshold was wrong twice — once 5.8× too low
 /// from a grep that missed `pub const RUN_ACCEL`, once too HIGH from a safety
 /// margin for per-character tuning that does not exist in the tree, which put the
@@ -287,7 +287,7 @@ fn report_unclaimed_steps(
     for line in findings {
         eprintln!("{line}");
     }
-    // ⛔ **CLEAR IT, every tick.** The first version did not, and the vacuity
+    // **CLEAR IT, every tick.** The first version did not, and the vacuity
     // counter caught it: 5,850,752 facts summed across 2,000 ticks, because the
     // log grows without bound and every tick re-counts the whole of it. A fuzz
     // harness is meant to run for a hundred thousand steps; an instrument that

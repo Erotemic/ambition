@@ -1,19 +1,13 @@
 //! **A CAMERA SAYS WHICH VIEW IT PRESENTS.**
 //!
-//! `camera_follow` used to read the view as `Single<…, With<LocalView>>` beside a
-//! query for the main camera, pairing them by the coincidence that there is one
-//! of each. That is not a pairing — it is a uniqueness assumption at both ends,
-//! and D116 M2 exists because the second view is coming: a second view turns the
-//! `Single` into a panic, and a second camera turns the pair into two cameras
-//! fighting over one snapshot.
+//! That is not a pairing — it is a uniqueness assumption at both ends, and exists because the
+//! second view is coming: a second view turns the `Single` into a panic, and a second camera
+//! turns the pair into two cameras fighting over one snapshot.
 //!
-//! ⚠ **the fallback is why this test has to exist.** A camera carrying no
-//! `PresentsView` takes the only view, because every fixture in the tree spawns
-//! a bare `MainCamera` and a single-view composition has exactly one honest
-//! answer. That fallback is also what would hide the binding being dropped: the
-//! game would keep working, and the link would quietly have no producer until
-//! the day a split layout landed and picked a view at random. So the thing
-//! asserted here is that the SHIPPED host binds it.
+//! **the fallback is why this test has to exist.** A camera carrying no `PresentsView` takes the
+//! only view, because every fixture in the tree spawns a bare `MainCamera` and a single-view
+//! composition has exactly one honest answer. So the thing asserted here is that the SHIPPED host
+//! binds it.
 
 use bevy::prelude::*;
 
@@ -41,7 +35,7 @@ fn the_shipped_hosts_main_camera_names_the_view_it_presents() {
         );
     };
 
-    // ⛔ and it must name a REAL view. An `Entity` is just a number; a link to a
+    // and it must name a REAL view. An `Entity` is just a number; a link to a
     // despawned or wrong entity reads as a valid binding and resolves to nothing.
     let names_a_view = {
         let world = app.world_mut();
@@ -56,15 +50,13 @@ fn the_shipped_hosts_main_camera_names_the_view_it_presents() {
 
 /// **THE VIEW OWNS ITS FRAMING, AND SOMETHING WRITES IT.**
 ///
-/// `CameraViewState` was a process-global `Resource` describing *"the gameplay
-/// view"* — the sixth of that shape, after D116 M2a deleted five. Four readers
-/// took it as `Res`: label layout, nameplates, the actor draw's sprite-size
-/// `eprintln`, and the debug overlay. With two views a global cannot answer
-/// *whose* framing it is, so all four would have drawn one view's framing over
-/// both. (A fifth, `rendering/foreground.rs`, was counted by the migration and
-/// turned out to be an orphaned file no `mod` declaration ever compiled.)
+/// Four readers took it as `Res`: label layout, nameplates, the actor draw's sprite-size
+/// `eprintln`, and the debug overlay. With two views a global cannot answer *whose* framing it
+/// is, so all four would have drawn one view's framing over both. (A fifth,
+/// `rendering/foreground.rs`, was counted by the migration and turned out to be an orphaned
+/// file no `mod` declaration ever compiled.)
 ///
-/// ⚠ **the non-vacuity half is the point.** Asserting the component EXISTS proves
+/// **the non-vacuity half is the point.** Asserting the component EXISTS proves
 /// nothing on its own: it is spawned with the view, so it would be present even
 /// if `camera_follow` never wrote it and every overlay drew a default frame
 /// forever. What is asserted is that the presented view's state has been
@@ -72,7 +64,7 @@ fn the_shipped_hosts_main_camera_names_the_view_it_presents() {
 /// freshly spawned view starts with.
 #[test]
 fn the_presented_view_carries_camera_state_that_is_actually_written() {
-    // ⚠ **the DIRECT-GAMEPLAY persona, not the launcher.** `camera_follow` reads
+    // **the DIRECT-GAMEPLAY persona, not the launcher.** `camera_follow` reads
     // the session's `RoomGeometry`, so on a launcher route it does not run at all
     // and the view's state stays exactly `Default` — which the assertion below
     // caught on the first run, correctly, by refusing to accept a component that
@@ -114,24 +106,15 @@ fn the_presented_view_carries_camera_state_that_is_actually_written() {
     );
 }
 
-/// **A SINGLETON THAT MOVED FROM A RESOURCE INTO A LOOKUP IS STILL A SINGLETON.**
+/// That is fine while one main camera exists and is exactly wrong the moment split-screen
+/// lands: two cameras each correctly naming a DIFFERENT view do not produce two views, they
+/// produce whichever camera the archetype iteration happened to yield first, handed to all five
+/// presentation consumers.
 ///
-/// Moving `CameraViewState` onto the view deleted the sixth process-global "the
-/// gameplay view" — and the resolver that replaced it opened with
-/// `cameras.iter().next()`. That is fine while one main camera exists and is
-/// exactly wrong the moment split-screen lands: two cameras each correctly
-/// naming a DIFFERENT view do not produce two views, they produce whichever
-/// camera the archetype iteration happened to yield first, handed to all five
-/// presentation consumers. Same defect as the resource, one indirection deeper,
-/// and it would only surface the day the second view arrived (GPT 5.6,
-/// 2026-08-15).
+/// So the interim contract is loudly single-view-only rather than quietly arbitrary: with
+/// several main cameras the resolver REFUSES.
 ///
-/// So the interim contract is loudly single-view-only rather than quietly
-/// arbitrary: with several main cameras the resolver REFUSES. The consumers are
-/// not view-keyed yet — that is the rest of D116 M2 — and until they are, `None`
-/// with a reason beats a confidently wrong frame.
-///
-/// ⚠ **this is a poison, and it is built to be one.** The two views carry
+/// **this is a poison, and it is built to be one.** The two views carry
 /// deliberately different states, so a resolver that picks either one returns a
 /// value that IS one of them and looks entirely healthy. Only the refusal
 /// distinguishes "keyed by view" from "picked one".
@@ -164,7 +147,7 @@ fn the_presented_view_refuses_to_pick_between_two_cameras_that_name_different_vi
          consumers are keyed by view."
     );
 
-    // ⭐ **and the refusal must be about AMBIGUITY, not about the resolver being
+    // **and the refusal must be about AMBIGUITY, not about the resolver being
     // broken.** Drop one camera and the same population resolves cleanly to the
     // view that camera names — so the `None` above is a decision, not a failure.
     let sole_camera = {
@@ -200,7 +183,7 @@ fn the_presented_view_refuses_to_pick_between_two_cameras_that_name_different_vi
     );
 }
 
-/// **⛔⛔ HOW MANY VIEWS THERE ARE IS A PROPERTY OF THE LIVE SESSION, NOT OF WHAT
+/// **HOW MANY VIEWS THERE ARE IS A PROPERTY OF THE LIVE SESSION, NOT OF WHAT
 /// THE BINARY LINKS.**
 ///
 /// TwinTrack seats two participants and splits its screen between them. It is
@@ -208,14 +191,9 @@ fn the_presented_view_refuses_to_pick_between_two_cameras_that_name_different_vi
 /// the launcher — so composing that split at PLUGIN BUILD time gave the whole
 /// host two local views from the first frame, at every route, forever.
 ///
-/// ⚠ **and the symptom was nowhere near the cause.** With two views the shared
-/// camera-spawn site correctly declines to bind a rig it cannot honestly pair,
-/// TwinTrack's own two rigs appeared instead, and `bevy_egui` — which attaches
-/// its primary context to the first camera it sees and panics if a second one
-/// claims the same pass — took down 95 tests with a message about schedules.
 /// Nothing in that chain mentions a view.
 ///
-/// ⭐ **the honest rule is the one this asserts**: the launcher has one observer,
+/// **the honest rule is the one this asserts**: the launcher has one observer,
 /// so it has one view and no layout at all. A second view appears when a second
 /// participant does, which is also what couch co-op will need.
 #[test]

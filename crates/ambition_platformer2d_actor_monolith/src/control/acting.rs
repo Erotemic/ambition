@@ -1,27 +1,15 @@
 //! **Which participant is acting THROUGH this body — and what did they press?**
 //!
-//! The interaction systems each used to answer this twice and differently: they
-//! took reach geometry from the controlled subject (right) and the buffered
-//! press from slot 0 (wrong the moment a second seat exists), then applied the
-//! resulting animation to whichever entity carried `PrimaryPlayer` (wrong under
-//! possession, where the acting body is not the home avatar at all). The visible
-//! version of that bug is **a possessed body opening a chest while the vacated
-//! home avatar plays the reach-and-open pose.**
-//!
-//! ⭐ **it reads [`DrivingParticipant`], which is the fact by itself.** A seat
+//! **it reads [`DrivingParticipant`], which is the fact by itself.** A seat
 //! that possessed an actor and walked it up to a chest holds that body's
 //! authority, which is why this needs to know nothing about possession to get
 //! possession right — the same reason `DialogueDispatch::driving_slot` gives for
 //! attributing a conversation.
 //!
-//! ⚠ **it used to read `Brain::Player(slot)` directly, and the answer has not
-//! changed.** That variant is gone: possession now moves `DrivingParticipant`
-//! and leaves every body's own policy alone, and — exactly as this note
-//! predicted — nothing here changed when it did. What moved is the DEPENDENCY:
-//! this asks who is driving, and it never has to know how the answer is
-//! spelled.
+//! What moved is the DEPENDENCY: this asks who is driving, and it never has to know how the answer
+//! is spelled.
 //!
-//! ⛔ **this is not a new participant model.** It is the one place the two
+//! **this is not a new participant model.** It is the one place the two
 //! interaction systems agree on the question, so the primary-seat fallback below
 //! is stated ONCE instead of being re-decided at four call sites.
 
@@ -49,7 +37,7 @@ impl ActingParticipant<'_, '_> {
 
     /// The slot whose gestures answer for this body.
     ///
-    /// ⚠ **the fallback is the STARTUP frame, and it is stated here so the call
+    /// **the fallback is the STARTUP frame, and it is stated here so the call
     /// sites do not each invent one.** The controlled subject resolves from the
     /// seat, so a subject without one is a world that has not finished being
     /// built; answering `PRIMARY` there preserves the behaviour every existing
@@ -72,7 +60,7 @@ impl ActingParticipant<'_, '_> {
 
     /// **Spend this body's driver's buffered interact.**
     ///
-    /// ⭐ an interaction consumes the press of the seat that MADE it, so a
+    /// an interaction consumes the press of the seat that MADE it, so a
     /// second participant standing at the same door still has theirs.
     pub fn consume_interact(&mut self, body: Entity) {
         let slot = self.acting_slot(body);

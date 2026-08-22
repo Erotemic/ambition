@@ -82,15 +82,12 @@ visible_web_base = [
     "portal",
     "portal_render",
     "bevy_ui_menu",
-    # ⛔⛔ **A SHELL HOST ROUTES; IT DOES NOT PAINT.** `MinimalShellPlugins` adds
-    # `BasicShellPresentationPlugin` only under this feature, so without it the
-    # browser composes a perfectly correct host, boots to the launcher route, and
-    # renders NOTHING — a blank canvas with a live simulation behind it. That was
-    # the second half of the 2026-08-14 web-parity bug: the first half was
-    # `run_web` not composing a shell host at all, and fixing it moved the app
-    # from "no route" to "a route nothing can draw".
+    # **A SHELL HOST ROUTES; IT DOES NOT PAINT.** `MinimalShellPlugins` adds
+    # `BasicShellPresentationPlugin` only under this feature, so without it the browser composes a
+    # perfectly correct host, boots to the launcher route, and renders NOTHING — a blank canvas with
+    # a live simulation behind it.
     #
-    # ⚠ this is the SIMPLE UI, which is what the web build wants: kaleidoscope
+    # this is the SIMPLE UI, which is what the web build wants: kaleidoscope
     # stays excluded (`KALEIDOSCOPE_MENU_BACKEND_ENABLED` is false on wasm) and
     # this is the plain-Bevy-UI shell that replaces it.
     "basic_shell_presentation",
@@ -102,25 +99,14 @@ web_served_assets = ["visible_web_served", "web_platform"]
 web_served = ["ambition_platformer2d/web_served"]
 web_audio = ["audio", "ambition_platformer2d/web_audio"]
 
-# The ONE real rl_sim switch: pulls the programmatic harness and gates the
-# rl_sim-only integration tests + `rl_*`/`trace_replay` binaries. (It used to
-# forward `ambition_platformer2d/rl_sim` → `ambition_platformer2d_actor_monolith/rl_sim`; both gated nothing once
-# the RL surface moved to `ambition_sim_harness`, so the chain was deleted.)
+# The ONE real rl_sim switch: pulls the programmatic harness and gates the rl_sim-only integration
+# tests + `rl_*`/`trace_replay` binaries.
 rl_sim = ["dep:ambition_sim_harness"]
-# ⛔ **The causal instrument had no way in.** The feature chain is complete from
-# the facade down (`ambition_platformer2d/causal` → runtime → monolith + combat →
-# characters), and NOTHING enabled it: measured 2026-08-01, `causal` resolves
-# false for every crate in the default workspace build, and this crate had no
-# such feature at all. So the domain recorders — the brain's decision fact, the
-# body's control frame, damage and lifecycle — are compiled OUT of every build
-# the app produces, and an `explain(tick, subject)` against the real composition
-# was not something anyone could run.
-#
 # The per-crate feature jobs kept the unit tests honest, which is why this looked
 # fine: `ambition_causal --features bevy` and the monolith's `causal` job both
 # pass. They exercise the substrate, never the app.
 #
-# ⚠ opt-in, not default. Recording costs work per tick and the shipped game has
+# opt-in, not default. Recording costs work per tick and the shipped game has
 # no use for it; what it needed was a DOOR, not a default.
 causal = ["ambition_platformer2d/causal", "dep:ambition_causal"]
 headless = ["ambition_platformer2d/headless", "ldtk_runtime", "input"]
@@ -145,11 +131,8 @@ audio = [
     "ambition_content/audio",
     "dep:bevy_kira_audio",
 ]
-# `ui` is the DIALOGUE/YARN umbrella, not a widget-framework switch. It stopped
-# pulling `bevy_material_ui` on 2026-08-08: nothing named a type from that crate
-# and the one thing believed to depend on its plugins (the launcher title's font
-# size) was measured identical without them. What `ui` still buys is the Yarn
-# runtime and `ambition_dialog/ui` downstream. Ambition's own UI is plain Bevy UI.
+# `ui` is the DIALOGUE/YARN umbrella, not a widget-framework switch. What `ui` still buys is the
+# Yarn runtime and `ambition_dialog/ui` downstream. Ambition's own UI is plain Bevy UI.
 ui = ["ambition_platformer2d/ui", "ambition_content/ui", "dep:bevy_yarnspinner"]
 physics_debris = ["ambition_platformer2d/physics_debris"]
 input = ["ambition_platformer2d/input", "dep:leafwing-input-manager"]
@@ -201,7 +184,7 @@ image = { version = "0.25", default-features = false, features = ["png"] }
 mimalloc = { version = "0.1", default-features = false, optional = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
-# ⛔ **The app died before a line of Rust ran, and the allocator was why.**
+# **The app died before a line of Rust ran, and the allocator was why.**
 #
 # `libmimalloc-sys` compiles mimalloc with `-ftls-model=initial-exec` unless
 # `local_dynamic_tls` is set (its build.rs picks one or the other). That is the
@@ -216,7 +199,7 @@ mimalloc = { version = "0.1", default-features = false, optional = true }
 # where initial-exec is both safe and the faster access path, and speed is the
 # entire reason `mimalloc_alloc` exists (see the note on the dep below).
 #
-# ⚠ this entry exists to ADD a feature to the dependency declared in
+# this entry exists to ADD a feature to the dependency declared in
 # `[dependencies]`; Cargo unifies the two. Keep `optional` on both or
 # `mimalloc_alloc`'s `dep:mimalloc` stops controlling whether it is linked.
 mimalloc = { version = "0.1", default-features = false, features = ["local_dynamic_tls"], optional = true }
@@ -235,27 +218,20 @@ oboe = { version = "0.6", features = ["shared-stdcxx"] }
 # features here makes Cargo feature-unify the already-pinned versions for the
 # wasm target without affecting native builds.
 #
-# ⛔⛔ **`getrandom_02` USED TO BE HERE AND WAS THE WRONG HALF OF A FIX.** `ggrs`
-# publishes `wasm-bindgen = ["instant/wasm-bindgen", "getrandom/js"]` — one
-# feature, two browser needs, owned by the crate that needs them. This file
-# supplied the `getrandom/js` half from the top of the graph and nothing supplied
-# the `instant/wasm-bindgen` half, so the RNG worked and the CLOCK did not: the
-# web build compiled and then died at `rust-lld: undefined symbol: now`. The
-# dedicated rollback-backend crate that owns `bevy_ggrs` enables the whole
-# feature through the facade's weak `web_platform` forwarding, which supplies
-# both when rollback is selected — so this line's job is done by its rightful
-# owner and the line is gone.
+# This file supplied the `getrandom/js` half from the top of the graph and nothing supplied the
+# `instant/wasm-bindgen` half, so the RNG worked and the CLOCK did not: the web build compiled and
+# then died at `rust-lld: undefined symbol: now`. The dedicated rollback-backend crate that owns
+# `bevy_ggrs` enables the whole feature through the facade's weak `web_platform` forwarding, which
+# supplies both when rollback is selected — so this line's job is done by its rightful owner and the
+# line is gone.
 #
-# ⚠ the 0.3/0.4 entries stay: their `wasm_js` comes from deps that publish no
+# the 0.3/0.4 entries stay: their `wasm_js` comes from deps that publish no
 # equivalent forwarding feature, so this IS their nearest owner. That they read
 # like the deleted line is the smell worth remembering, not a licence to delete
 # them too.
 getrandom_03 = { package = "getrandom", version = "=0.3.4", features = ["wasm_js"] }
 getrandom_04 = { package = "getrandom", version = "=0.4.2", features = ["wasm_js"] }
 
-# No `#[test]` in a bin entry point, so `cargo test` was compiling and LINKING a
-# test harness for each of these against the full engine graph. Nothing was in
-# them to run. (Compile-efficiency pass, 2026-07-31.)
 [[bin]]
 name = "ambition_game_bin"
 path = "src/bin/ambition_game_bin.rs"

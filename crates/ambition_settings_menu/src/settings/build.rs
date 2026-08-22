@@ -1,5 +1,3 @@
-//! The `settings_menu_model` builder — assembles the live `SettingsMenuModel`
-//! from `UserSettings`. Split out of the settings IR god-module.
 
 use super::*;
 use ambition_persistence::settings::audio::AudioSettings;
@@ -335,11 +333,6 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
         label: SettingsCategoryId::Controls.label().to_string(),
         options: vec![
             {
-                // The pause menu labels this with the raw preset index and cycles
-                // it modulo `KeyboardPreset::presets().len()` (a fixed 4). Model it
-                // as a Cycle over that fixed count, with the index itself as the
-                // value label — byte-identical to the pause menu's
-                // `format_cycle("Keyboard Preset", keyboard_preset_index)`.
                 let count = ambition_input::KeyboardPreset::presets().len();
                 cycle(
                     SettingsOptionId::KeyboardPreset,
@@ -534,7 +527,7 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
                      your body, so the two frame options below stop applying.",
                 )
             },
-            // ⭐ the two rows below sit AFTER the camera frame because it governs
+            // the two rows below sit AFTER the camera frame because it governs
             // them: under player-relative every mode collapses onto body-relative,
             // so the label says so rather than letting a player cycle a dead value.
             {
@@ -613,7 +606,7 @@ mod camera_frame_row_tests {
         assert_eq!(row.label, "Camera Frame");
     }
 
-    /// ⭐ **the menu TELLS the player the frame rows went inactive.**
+    /// **the menu TELLS the player the frame rows went inactive.**
     ///
     /// Without this the collapse is invisible: the movement row would keep
     /// displaying "screen-directed" while the game resolved body-relative, which

@@ -1,9 +1,9 @@
 //! **The Patent Clerk's repertoire** — the heavyweight, written from the row's own
 //! `gameplay_description` rather than from taste.
 //!
-//! ⭐ **the third adopter removed from `smash_fighter_kit()`** (campaign P3.24).
+//! **the third adopter removed from `smash_fighter_kit()`**.
 //!
-//! ⚠ **the character had already been designed and nobody had read it back.** Its
+//! **the character had already been designed and nobody had read it back.** Its
 //! catalog row carries a `gameplay_description` in full:
 //!
 //! > *A high-mastery heavyweight controller who classifies bodies as MASS,
@@ -22,35 +22,24 @@
 //! * *finishers* → and then the smashes are the hardest in the game, because a
 //!   body this slow only ever gets the one.
 //!
-//! ⛔ **the CLASSIFICATION mechanic is NOT in here** — MASS/ENERGY/MOVING/AT REST,
-//! the reference-frame manipulation. Those are systems, not swings. A moveset
-//! says what a hit IS; a mechanic that changes what a body's velocity MEANS
-//! belongs to the character's abilities and the ruleset. Writing them as move
-//! windows would be the wholesale-migration failure mode wearing a content
-//! commit.
+//! **the CLASSIFICATION mechanic is NOT in here** — MASS/ENERGY/MOVING/AT REST, the
+//! reference-frame manipulation. Those are systems, not swings. A moveset says what a hit IS; a
+//! mechanic that changes what a body's velocity MEANS belongs to the character's abilities and
+//! the ruleset.
 //!
-//! ## 2026-08-16: the five that were missing, and the effects
-//!
-//! Jon: *"We need to make sure they also have full smash movesets."* Eleven of
-//! the sixteen were here, and the five that were not are the ones a fighter
-//! cannot do without — **a forward tilt and the four specials, one of which is
-//! his only way back to the stage.** A body with no recovery loses every stock
-//! to the blast zone, which is the defect the whole showcase is currently
-//! blocked on.
-//!
-//! ⚠ **that does not reopen the paragraph above.** An elevator that RISES is a
+//! **that does not reopen the paragraph above.** An elevator that RISES is a
 //! swing with an authored impulse — the vocabulary every recovery in this repo
 //! is built from. What stays out is the part that would redefine velocity for
 //! everybody: `reference_frame` here displaces HIM, and says nothing about what
 //! anybody else's motion means.
 //!
-//! ⛔ **the eleven original moves are untouched.** Their damage, timing, volumes
+//! **the eleven original moves are untouched.** Their damage, timing, volumes
 //! and launch angles are exactly as the heavyweight/controller/finisher reading
 //! set them; a retune riding a "make it complete" commit is how a design gets
 //! lost. What they gained is their own art: fourteen rendered effects that were
 //! bound to nothing.
 //!
-//! ⛔ three cues carry a `.loop` suffix their sprite rows do not
+//! three cues carry a `.loop` suffix their sprite rows do not
 //! (`reference_frame_grid`, `proper_time_tick`, `simultaneity_slice`), so the
 //! derived `vfx.<family>.<row>` name misses the bank for those three.
 
@@ -66,9 +55,6 @@ use ambition_characters::moveset_authoring::{
     committed_tail, impulse, on_contact, strike, vfx_at, vfx_cued,
 };
 
-/// Burst sizes, as multiples of the presentation default. Jon, 2026-08-16:
-/// *"try to make the hitboxes and vfx placement make sense, right now we are
-/// seeing crazy upscaled vfx"*. A stamp is small; a light cone is not.
 const STAMP_FX: f32 = 0.55;
 const SWING_FX: f32 = 0.80;
 const PROOF_FX: f32 = 1.35;
@@ -79,7 +65,7 @@ const PROOF_FX: f32 = 1.35;
 /// standing one does.
 pub const ELEVATOR_SPEED: f32 = 920.0;
 pub const ELEVATOR_AT_S: f32 = 0.22;
-/// ⛔ not a feel number: the tail must outlast the arc or repeated presses gain
+/// not a feel number: the tail must outlast the arc or repeated presses gain
 /// height, which is flight. `the_elevator_is_a_save_and_not_a_flight` holds it.
 pub const ELEVATOR_ENDS_S: f32 = 1.18;
 
@@ -95,7 +81,7 @@ pub fn tightest_lock(spec: &MoveSpec) -> f32 {
 pub fn patent_clerk_moveset() -> MovesetContract {
     // ── grounded ─────────────────────────────────────────────────────────────
     //
-    // ⚠ the slowest jab in the game, and it is supposed to be. A heavyweight's
+    // the slowest jab in the game, and it is supposed to be. A heavyweight's
     // fast option is still a decision — 0.08s is long enough that a goblin can
     // walk into it, hit twice and leave.
     let jab = strike(
@@ -169,7 +155,7 @@ pub fn patent_clerk_moveset() -> MovesetContract {
 
     // ── smashes: the FINISHERS ───────────────────────────────────────────────
     //
-    // ⚠ the hardest hits in the game, on the longest commitments in the game. A
+    // the hardest hits in the game, on the longest commitments in the game. A
     // body this slow gets one of these per stock if it is playing well, so it has
     // to be the one that ends things.
     let mut f_smash = strike(
@@ -311,7 +297,7 @@ pub fn patent_clerk_moveset() -> MovesetContract {
     let u_air = vfx_at(u_air, 0.10, "light_cone", (2.0, -32.0), SWING_FX);
     let u_air = on_contact(u_air, "player.hit");
 
-    // ⭐ the exception, and the one place *AT REST* shows up as a swing: it stops
+    // the exception, and the one place *AT REST* shows up as a swing: it stops
     // dead and drops. Straight down, no drift, the heaviest spike in the game.
     let d_air = strike(
         "air_down",
@@ -330,9 +316,8 @@ pub fn patent_clerk_moveset() -> MovesetContract {
     let d_air = vfx_at(d_air, 0.16, "mass_energy_exchange", (4.0, 30.0), SWING_FX);
     let d_air = on_contact(d_air, "player.hit");
 
-    // ── 2026-08-16: THE FIVE THAT WERE MISSING ───────────────────────────────
 
-    // ⛔ **a forward tilt, because without one the commonest press in the genre
+    // **a forward tilt, because without one the commonest press in the genre
     // falls down the directional chain to the jab.** The same hole George Booul
     // and Oiler both had. A margin correction: he reaches out and rewrites what
     // you just did.
@@ -374,12 +359,12 @@ pub fn patent_clerk_moveset() -> MovesetContract {
     let n_b = vfx_at(n_b, 0.22, "light_cone", (36.0, -6.0), PROOF_FX);
     let n_b = on_contact(n_b, "player.hit");
 
-    // **SIDE — `reference_frame`.** He declares a frame and moves in it. ⭐ the
+    // **SIDE — `reference_frame`.** He declares a frame and moves in it. the
     // impulse fires on the ACTIVE frame rather than the press, and the tail is
     // fully locked, so the pass goes exactly as far as it was going to — which
     // is the heavyweight's version of a dash: no take-backs.
     //
-    // ⚠ it displaces HIM and says nothing about anybody else's motion. The
+    // it displaces HIM and says nothing about anybody else's motion. The
     // reference-frame MECHANIC the module header keeps out stays out.
     let side_b = strike(
         "reference_frame",
@@ -474,16 +459,13 @@ pub fn patent_clerk_moveset() -> MovesetContract {
     let down_b = vfx_at(down_b, 0.33, "known_result_stamp", (0.0, 4.0), STAMP_FX);
     let down_b = on_contact(down_b, "player.hit");
 
-    // ── 2026-08-16: THE OTHER POSTURE ────────────────────────────────────────
-    //
-    // Jon: *"A down-b that has special airborne properties should also have an
     // effect on ground. Think of bowser down b. In the air he just does a
     // downward slam, but on the ground, it causes him to jump in an arc and then
     // slam. Specials can have different effects in different contexts that
     // should be ok, and makes for a richer smash game, although in most cases
     // they shouldn't be context dependent."*
     //
-    // ⛔ a special gated to ONE posture is not answered in the other — the
+    // a special gated to ONE posture is not answered in the other — the
     // directional chain walks straight past it to the NEUTRAL special, so a
     // player pressing down-B in the air got the neutral-B. `special_air_down`
     // sits ahead of `special_down` in that chain and has the whole time; this is
@@ -510,7 +492,7 @@ pub fn patent_clerk_moveset() -> MovesetContract {
     let air_down_b = on_contact(air_down_b, "player.hit");
 
     // **CLERK'S CAPTURE KIT.** Unassuming and competent, which is the character.
-    // ⚠ the grab draws `attack`, not `grab`: these sheets publish no `grab` row,
+    // the grab draws `attack`, not `grab`: these sheets publish no `grab` row,
     // and each table's own `every_clip_names_a_row_..._sheet_carries` guard says
     // so. `ClipBinding`'s fallbacks would have covered it at runtime, but a move
     // that NAMES a row nobody publishes is a lie the guard is right to refuse.
@@ -593,12 +575,11 @@ pub fn patent_clerk_moveset() -> MovesetContract {
         neutral_special: NeutralSpecial::Authored(n_b),
         side_special: side_b,
         up_special: up_b,
-        // ⭐ **AUTHORED 2026-08-19, at Jon's ask that every fighter in the smash
-        // roster have a grab.** The transitional `None` is gone: capture was
-        // proven on George and the Pirate Admiral, and the whole point of
-        // proving it was to stop being the only two.
+        // **AUTHORED, at the rule that every fighter in the smash roster have a grab.** The
+        // transitional `None` is gone: capture was proven on George and the Pirate Admiral, and
+        // the whole point of proving it was to stop being the only two.
         //
-        // ⚠ the VALUES are per character on purpose. A roster whose grabs are
+        // the VALUES are per character on purpose. A roster whose grabs are
         // twelve copies of one number set is one grab wearing twelve names.
         capture: SmashCaptureRepertoire {
             cues: CaptureCues::GENERIC,
@@ -655,8 +636,6 @@ mod tests {
             .fold(0.0f32, f32::max)
     }
 
-    // ⭐⭐ **RETIRED 2026-08-16 — the per-file verb-map test.**
-    //
     // Fourteen fighters each carried a copy of it: every bound verb names a move
     // this table defines, and the table binds the whole vocabulary. Both are now
     // unwritable defects rather than tested ones. `SmashRepertoire` owns the verb
@@ -668,10 +647,6 @@ mod tests {
     // `smash_roster_movesets::report_the_smash_kit_every_selectable_fighter_has`.
 
     /// **The row said HEAVYWEIGHT and FINISHERS, and the table has to mean it.**
-    ///
-    /// Measured against the admiral — the next-heaviest body with a table — so the
-    /// claim stays comparative. A heavyweight that is merely *big numbers* is a
-    /// balance patch; a heavyweight is slower AND harder than the thing below it.
     #[test]
     fn the_clerk_is_slower_and_hits_harder_than_the_admiral() {
         let clerk = patent_clerk_moveset();
@@ -693,7 +668,7 @@ mod tests {
 
     /// **CONTROLLER: the tilts set up, they do not finish.**
     ///
-    /// ⭐ the word in the row that is easiest to lose while writing numbers. A
+    /// the word in the row that is easiest to lose while writing numbers. A
     /// tilt that launches as hard as a smash makes the smash pointless and the
     /// character a brawler — so the gap between them IS the design, and it is
     /// asserted rather than remembered.

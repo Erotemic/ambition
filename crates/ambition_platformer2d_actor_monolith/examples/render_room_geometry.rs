@@ -41,20 +41,10 @@ use ambition_sim_view::camera_snapshot::{
     CameraSnapshotResolveMode,
 };
 use image::{Rgba, RgbaImage};
-// ⚠ **`sb::persistence` is gone; these come from the crate directly.** The monolith
-// used to re-export `ambition_persistence` as a facade module, this example was the
-// last thing reaching through it, and the re-export went without it (the boss carve,
-// `725de8c26`). Fixed 2026-08-17 — the house convention everywhere else in this
-// crate is the full path, not a facade.
-//
-// ⛔⛔ **AND IT ROTTED FOR DAYS WITH A CHECK THAT COULD NOT FAIL — same shape as
-// D103 and D160.** The project gate is `cargo check -p ambition_app --all-targets`,
-// which never builds ANOTHER crate's examples, so it is blind to this by
-// construction. CI *does* compile every target in the workspace — but as
-// `cargo clippy --workspace --all-targets … || true`, deliberately non-blocking
-// while ~14 known warnings stand — so the one command that would have caught a hard
-// compile error here is the one that discards its own exit code.
-// ⇒ **an example is a target nothing gates**: whoever removes a re-export should
+// CI *does* compile every target in the workspace — but as `cargo clippy --workspace
+// --all-targets … || true`, deliberately non-blocking while ~14 known warnings stand — so the
+// one command that would have caught a hard compile error here is the one that discards its own
+// exit code. ⇒ **an example is a target nothing gates**: whoever removes a re-export should
 // grep `examples/` by hand, because no suite will.
 use ambition_persistence::settings::video::{CameraAspectPolicy, CameraFramingPreset};
 
@@ -598,10 +588,8 @@ fn run_anomaly_report(room_set: &sb::rooms::RoomSet) {
 /// The sandbox world this tool renders, read cross-crate from the content
 /// crate's checked-in assets.
 ///
-/// Before K2a this example loaded through a process-global manifest it never
-/// installed, so `world_manifest()` panicked the moment it ran — a runtime
-/// failure nothing could catch at build time. With the manifest an explicit
-/// argument the omission became a compile error, which is how it was found.
+/// With the manifest an explicit argument the omission became a compile error, which is how it
+/// was found.
 fn sandbox_world_manifest() -> ambition_platformer2d_world::world_manifest::WorldManifest {
     use ambition_platformer2d_world::world_manifest::{WorldManifest, WorldSource};
     let worlds_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))

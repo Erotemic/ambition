@@ -46,8 +46,7 @@ pub struct AudioBackendState {
 
 /// Installs either the real Kira backend or a non-device recording foundation.
 ///
-/// The output mode must be inserted before this plugin is added. If it is not,
-/// normal device playback is selected for backwards-compatible visible hosts.
+/// If it is not, normal device playback is selected for backwards-compatible visible hosts.
 #[cfg(feature = "kira")]
 pub struct AmbitionAudioBackendPlugin;
 

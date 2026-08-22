@@ -156,12 +156,12 @@ pub fn brain_from_preset(preset: &BrainPreset, spawn_world_x: f32) -> Brain {
             cfg.decision_interval_ticks = *decision_interval_ticks;
             let state = crate::brain::fighter::FighterState::new(
                 &cfg,
-                // ⚠ **level-only, and that is correct HERE and nowhere else.**
+                // **level-only, and that is correct HERE and nowhere else.**
                 // This builds a catalog PREVIEW brain — there is no live runtime,
                 // no match and therefore no PARTICIPANT to key a stream on, so
                 // the rung is the only stable identity available.
                 //
-                // ⛔ **do not copy this into a construction path.** The identical
+                // **do not copy this into a construction path.** The identical
                 // expression on the real road made every CPU on one rung the SAME
                 // MIND, so a same-character CPU-vs-CPU match played as a perfect
                 // reflection; the live seam is

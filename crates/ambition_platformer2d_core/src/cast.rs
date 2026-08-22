@@ -1,11 +1,7 @@
 //! `cast` — the swept-primitive library (docs/concepts/movement-collision.md).
 //!
-//! THE SWEEP LAW: anything that changes state as a function of a body's path
-//! evaluates against the continuous swept path `pos → pos + vel·dt`, never
-//! sampled endpoints. To make that enforceable, the primitive queries every
-//! kernel and every trigger reader calls live behind ONE module — this one —
-//! so no system rolls its own overlap/step check (the disease behind every
-//! historical OOB/tunneling bug).
+//! THE SWEEP LAW: anything that changes state as a function of a body's path evaluates against
+//! the continuous swept path `pos → pos + vel·dt`, never sampled endpoints.
 //!
 //! What lives here / is surfaced here:
 //! - **Swept AABB vs AABB** — [`AabbExt::sweep_hit`] (Parry-backed), the base
@@ -155,13 +151,10 @@ pub fn raycast_solids<W: SolidWorldQuery + ?Sized>(
     }
 }
 
-/// Recursive, portal-aware raycast — THE portal-aware cast family entry
-/// (docs/concepts/movement-collision.md, landed with CC5). Cast from `origin`
-/// along `dir`; if the ray crosses an aperture's PLANE within its opening,
-/// entering from the front (`dir · normal < 0`), before any solid hit, it
-/// re-anchors at the mapped point on the exit and continues along the mapped
-/// direction. Bounded by `max_depth` so two facing apertures can't loop
-/// forever; ONE `max_dist` budget decrements across hops.
+/// Cast from `origin` along `dir`; if the ray crosses an aperture's PLANE within its opening,
+/// entering from the front (`dir · normal < 0`), before any solid hit, it re-anchors at the mapped
+/// point on the exit and continues along the mapped direction. Bounded by `max_depth` so two facing
+/// apertures can't loop forever; ONE `max_dist` budget decrements across hops.
 ///
 /// Pinned semantics (§3.5): the aperture is a SEGMENT on its plane — the
 /// crossing point must lie within `half_length` along the tangent; a ray

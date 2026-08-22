@@ -71,7 +71,7 @@ impl RoomConstructionPlanPrefetch {
     /// was prepared under identity that still holds AND still describes the
     /// target spec. A same-id hot reload or a session change is a miss.
     ///
-    /// ⭐ **and so is a plan prepared against different DISPOSITIONS.** A room
+    /// **and so is a plan prepared against different DISPOSITIONS.** A room
     /// build asks where the occurrences it minted before actually are, and a
     /// plan froze that answer: one prepared while an authored object was being
     /// carried deliberately OMITS it, and committing that plan after the object
@@ -79,11 +79,6 @@ impl RoomConstructionPlanPrefetch {
     /// thing it authors. `outlook` is what the world remembers NOW; a plan that
     /// was prepared against anything else is a miss, which costs one preparation
     /// and is what the miss path is for.
-    ///
-    /// ⚠ **the outlook and not a suppressed-identity set, because the answer now
-    /// carries a POSITION.** A plan that reinstated a relocated object where it
-    /// used to lie names the same identity as one that reinstates it where it
-    /// lies now; comparing identities alone would promote the stale one.
     pub fn promote(
         &mut self,
         content_epoch: u64,

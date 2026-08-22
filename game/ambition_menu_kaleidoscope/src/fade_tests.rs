@@ -73,11 +73,9 @@ fn amount_drives_material_alpha() {
     assert_eq!(m.alpha_mode, AlphaMode::Opaque, "shut solid is Opaque");
 }
 
-/// A TEXTURED plane (text glyph atlas / item icon — any material with a
-/// `base_color_texture`) must STAY `Blend` when the menu is fully open, even
-/// though solid planes go `Opaque`. Drawing a mostly-transparent texture Opaque
-/// renders its transparent texels as the base-colour box — the "text is just
-/// squares" / "icons look weird" regression. Pins the per-element split.
+/// A TEXTURED plane (text glyph atlas / item icon — any material with a `base_color_texture`) must
+/// STAY `Blend` when the menu is fully open, even though solid planes go `Opaque`. Pins the
+/// per-element split.
 #[test]
 fn textured_planes_stay_blend_when_open() {
     let mut app = App::new();

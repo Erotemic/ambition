@@ -138,9 +138,6 @@ pub enum SettingsOptionId {
     /// controlled body's local frame. Independent of [`Self::MovementFrameMode`];
     /// defaults to screen-directed.
     AimFrameMode,
-    /// Which frame the local view presents the world in — world-fixed, or
-    /// player-relative so a gravity flip rotates the world around an upright body.
-    ///
     /// ⭐ it also decides what the sticks mean: a player-relative view collapses
     /// [`Self::MovementFrameMode`] and [`Self::AimFrameMode`] onto body-relative,
     /// which is why both read as inactive while it is on.

@@ -33,8 +33,8 @@ from ambition_ldtk_tools.ldtk import (
     path_from_ldtk,
 )
 
-#: The editor's own backdrop, so the preview reads as the editor rather than as
-#: the game (which draws its own sky).
+# : The editor's own backdrop, so the preview reads as the editor rather than as
+# : the game (which draws its own sky).
 BACKDROP = (38, 42, 56, 255)
 GRID = (54, 60, 78, 255)
 
@@ -201,14 +201,11 @@ def render_preview(
                         if rule.get("breakOnMatch", True):
                             break
             if definition.get("type") == "IntGrid":
-                # ⭐ **the collision colours, drawn over their own art.** This is
-                # the half Jon could not see when the rules lived on this layer:
-                # which cells are Solid, which are OneWayUp, where a surface
-                # actually ends. `displayOpacity` is the editor's own slider, so
-                # the preview reads the same number the editor will.
+                # `displayOpacity` is the editor's own slider, so the preview reads the same
+                # number the editor will.
                 cell = int(instance.get("__gridSize") or definition.get("gridSize") or 16)
                 c_wid = int(instance.get("__cWid") or 0)
-                # ⚠ the INACTIVE alpha, because that is the state you look at a
+                # the INACTIVE alpha, because that is the state you look at a
                 # level in — some other layer is current while you place things
                 # and read the shape. Selecting the collision layer in the
                 # editor takes it to `displayOpacity` and the art disappears

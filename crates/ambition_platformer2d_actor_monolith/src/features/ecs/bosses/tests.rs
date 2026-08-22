@@ -5,22 +5,12 @@ use super::*;
 use ambition_boss_encounter::behavior::BossBehaviorProfileExt;
 use ambition_platformer2d_core as ae;
 
-/// The extracted pure metrics derivation (`boss_sprite_metrics_from_registry`)
-/// reproduces GNU-ton's metrics without the ECS system, via
-/// `ambition_sprite_sheet::baked_sheet_registry()` (no Bevy `App`). It pins a
-/// non-obvious structural fact discovered while extracting it:
-/// GNU-ton's combat geometry comes entirely from its **per-animation
-/// hurtboxes** (the `animations` map), not from static
-/// `body_pixel_parts`/`bbox` — so the derivation finds no body bbox,
-/// leaves `combat_offset` at zero, and derives no combat size. A
-/// regression that started emitting static body parts for GNU-ton
-/// (changing its combat envelope + pogo zone) would trip this.
-/// Boss-fold pin (fable review §A1): a live boss strike now spawns its Boss-faction
-/// `Hitbox` through the SHARED moveset runtime — `trigger_boss_attack_moves` starts the
-/// active profile's move and `advance_move_playback` spawns the strike hitbox from its
-/// Active-window hit volume — retiring the bespoke `sync_boss_strike_hitboxes` poll. A
-/// subtly-broken wiring (no move, wrong faction, no geometry) would deal no strike
-/// damage and escape the contact-only `boss_contact_iframes` test; this guards it.
+/// It pins a non-obvious structural fact discovered while extracting it: GNU-ton's combat
+/// geometry comes entirely from its **per-animation hurtboxes** (the `animations` map), not
+/// from static `body_pixel_parts`/`bbox` — so the derivation finds no body bbox, leaves
+/// `combat_offset` at zero, and derives no combat size. A subtly-broken wiring (no move, wrong
+/// faction, no geometry) would deal no strike damage and escape the contact-only
+/// `boss_contact_iframes` test; this guards it.
 #[test]
 fn boss_strike_spawns_a_boss_hitbox_through_the_moveset() {
     use ambition_characters::brain::{BossAttackIntent, BossAttackProfile, BossCapability};
@@ -119,12 +109,8 @@ fn boss_spawn_hurtboxes_resolves_without_panicking() {
 /// `boss_sprite_metrics_from_registry` as an animation map with no static parts
 /// — the opposite of the mockingbird's single alpha-bbox below.
 ///
-/// The subject moved with the ADR-0020 split (E6 teardown): the per-animation
-/// hurtboxes belong to the `giant_gnu` MOUNT's sheet, which is where they came
-/// from all along — the fused `gnu_ton` sheet this test used to name was the
-/// giant and the scholar drawn together. The scholar's own trimmed
-/// `gnu_ton_rider` sheet authors no body metrics at all, which the second half
-/// pins: a boss can be a rider whose hurtboxes live on the body it rides.
+/// The scholar's own trimmed `gnu_ton_rider` sheet authors no body metrics at all, which the second
+/// half pins: a boss can be a rider whose hurtboxes live on the body it rides.
 #[test]
 fn a_per_animation_hurtbox_sheet_yields_animation_metrics_not_static_parts() {
     use crate::features::bosses::BossBehaviorProfile;
@@ -196,15 +182,6 @@ fn a_per_animation_hurtbox_sheet_yields_animation_metrics_not_static_parts() {
     );
 }
 
-/// End-to-end guard for Jon's "attacks on the mockingbird whiff" bug
-/// (2026-06-21). The mockingbird's sprite RON now carries `body_metrics`
-/// (a static alpha-bbox hurtbox), and `sprite_target_for_boss` maps the
-/// "mockingbird" behavior to its `"mockingbird_boss"` sheet target — so
-/// the full chain (behavior id → sheet target → baked registry →
-/// body_metrics → derived combat geometry) resolves the body box instead
-/// of falling back to the bare, frame-unaligned `combat_size` box. Both
-/// pieces are required: drop the RON body_metrics OR the target mapping
-/// and the lookup misses again.
 #[test]
 fn mockingbird_resolves_a_body_hurtbox_from_the_baked_registry() {
     use crate::features::bosses::BossBehaviorProfile;

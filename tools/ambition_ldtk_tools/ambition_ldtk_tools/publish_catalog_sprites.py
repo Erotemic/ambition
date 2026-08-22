@@ -156,7 +156,6 @@ def publish_target(
         if verbose:
             sys.stderr.write(result.stderr)
         return False, f"publish exit {result.returncode}"
-    # Verify the expected outputs landed.
     missing = [
         rel
         for rel in expected_outputs(target, subdir=subdir)

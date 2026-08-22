@@ -12,7 +12,7 @@ use bevy::prelude::*;
 /// Marker for **a body in the player population**. Use it when a query wants
 /// every such body regardless of locality or which slot drives it.
 ///
-/// ⛔ **it does not mean "one", and it does not mean "the protagonist".** An
+/// **it does not mean "one", and it does not mean "the protagonist".** An
 /// exploration session lowers a home avatar carrying `PlayerSlot(0)`,
 /// [`PrimaryPlayer`] and `LocalPlayer` together, which made "the only
 /// `PlayerEntity` is *the* player" look like an invariant for a long time. It is
@@ -21,7 +21,7 @@ use bevy::prelude::*;
 /// wants [`PrimaryPlayer`] or `ControlledSubject`, and must still be correct when
 /// there is none.
 ///
-/// ⚠ **generic simulation should not filter on this at all.** A body decides,
+/// **generic simulation should not filter on this at all.** A body decides,
 /// moves, fights and rides because of its capabilities and control authority; the
 /// six overlapping "player" names and what each is really for are laid out in
 /// `docs/concepts/one-body-one-path.md`.
@@ -39,14 +39,12 @@ pub struct ControlledSubject(pub Option<Entity>);
 
 /// **The bodies to frame when no local authority is driving one.**
 ///
-/// ⛔ **the answer to "what does a CPU-versus-CPU match look like", and until
-/// this existed the answer was NOTHING.** The camera resolved its subject from
-/// [`ControlledSubject`] and returned without one — correct for exploration,
-/// where a session always has a driven body, and silently fatal for a match
-/// that legitimately has no local participant. Jon's own run: *"when I seated 2
-/// CPUs and pressed start, nothing shows up. No stage."*
+/// **the answer to "what does a CPU-versus-CPU match look like", and until this existed the answer
+/// was NOTHING.** The camera resolved its subject from [`ControlledSubject`] and returned without
+/// one — correct for exploration, where a session always has a driven body, and silently fatal for
+/// a match that legitimately has no local participant. No stage."*
 ///
-/// ⭐ **a DECLARATION, not a guess.** Whoever knows what the session is about
+/// **a DECLARATION, not a guess.** Whoever knows what the session is about
 /// publishes the cast; the resolver frames it. That is the difference between
 /// this and the camera scanning for bodies on its own — a scan would have to
 /// decide which bodies matter, which is exactly the question the publisher
@@ -60,11 +58,6 @@ pub struct ControlledSubject(pub Option<Entity>);
 #[derive(Resource, Default, Clone, Debug, PartialEq, Eq)]
 pub struct FramedCast(pub Vec<Entity>);
 
-/// Marks the **home avatar** / respawn identity — the ORIGINAL body, its save
-/// identity, respawn anchor, and inventory owner. At most one entity carries it,
-/// and a session may lower none — see the steady-state note below, which the
-/// "exactly one" this line used to claim directly contradicts.
-///
 /// IMPORTANT: `PrimaryPlayer` does NOT mean "the currently controlled body". The
 /// controlled body is whichever entity holds `DrivingParticipant(PlayerSlot::PRIMARY)`
 /// — during possession that is a DIFFERENT entity (the possessed actor). Input,
@@ -73,8 +66,6 @@ pub struct FramedCast(pub Vec<Entity>);
 /// marker. Reserve `PrimaryPlayer` for genuinely home-body concerns: respawn,
 /// sandbox reset, save sync, spawn-clone-relative-to, heal fallback, and the HUD /
 /// debug subject (which still show the home avatar's stats by design).
-///
-/// ## ⚠ ZERO OF THESE IS A LEGITIMATE STEADY STATE (2026-08-07)
 ///
 /// "There is exactly one primary player" was never an engine invariant, only an
 /// unexamined habit — and `InitialBodyPolicy::NoInitialBody` is what turned it
@@ -89,26 +80,25 @@ pub struct FramedCast(pub Vec<Entity>);
 ///   item persistence, dialogue. The overwhelming majority.
 /// * **already migrated to `ControlledSubject`.** `rebuild_player_hud_facts`
 ///   and `rebuild_nameplate_index` both prefer the controlled subject and keep
-///   this only as a startup-frame fallback. ⭐ `rebuild_nameplate_index` was
+///   this only as a startup-frame fallback. `rebuild_nameplate_index` was
 ///   recorded as a defect in the plan and is NOT one: with no subject it simply
 ///   marks no plate as "self" and every other plate still draws — which is why
-///   Jon saw a name over a fighter in a match that had no player at all.
 /// * **fixed here.** `camera_snapshot` (a `single()` that returned without one,
 ///   so a match had no camera) and `rebuild_hostile_wielded_items_view` (a
 ///   whole-system `return`, and the aim target it published was the PLAYER's
 ///   position rather than each wielder's own target).
-/// * **fixed since (2026-08-14).** `advance_moving_platforms` — the world's
+/// * **fixed since.** `advance_moving_platforms` — the world's
 ///   moving geometry advanced only if a home avatar existed to be asked about
 ///   its hitstop, so a match ran with every platform frozen. The hitstop read was
 ///   a duplicate of the global clock that same body already drives.
-/// * ⚠ **known and deliberately out of scope:** the player-victim damage path
+/// * **known and deliberately out of scope:** the player-victim damage path
 ///   (`damage_apply`) is slot-0 by design and says so — hitstop, the death
 ///   banner and the safe-position rewind are "the feel/save consequences the
 ///   local human is owed". A local participant's FIGHTER is an actor, so it
 ///   gets none of them. Whether a fighter should have hitstop is a design
 ///   question for the match, not a marker bug.
 ///
-/// ⛔ the shape to watch for is not `With<PrimaryPlayer>` itself but
+/// the shape to watch for is not `With<PrimaryPlayer>` itself but
 /// `single()` + `else { return }` around it: a run condition or a system-wide
 /// guard on this marker disables its whole subsystem for every entity. Four have
 /// been removed so far, the most recent the world's moving platforms — frozen in

@@ -51,12 +51,6 @@ mod live_refresh;
 
 /// **AN AUTHORED CHARGE SURVIVES ITS AUTHORED KIT.**
 ///
-/// ⛔⛔ **the poison for GPT 5.6 §4.** The Authored arm returned
-/// `RangedExecution::MovesetVerb` unconditionally, on the reasoning that the
-/// charge belonged to the code-side compat kit — so the moment Robot v3 authors
-/// its own `ActionSet` (§5) it would silently stop charging, and "delete
-/// `HostCode`" would have deleted the Hadouken with it.
-///
 /// Two terms, because one alone proves nothing: a character that authors
 /// `ChargedProjectile` charges even with a fully authored kit, and one that
 /// authors nothing does NOT — the default has to stay `MovesetVerb` or every
@@ -79,7 +73,7 @@ fn an_authored_character_decides_whether_it_charges() {
          marker that installs `ChargesProjectiles` will never be set"
     );
 
-    // ⚠ the poison: the DEFAULT must remain the ordinary verb.
+    // the poison: the DEFAULT must remain the ordinary verb.
     let plain = CharacterDefinition::new("plain", "Plain", "test");
     assert_eq!(
         plain.ranged_execution,
@@ -211,12 +205,9 @@ fn gameplay_derives_from_worn_identity_at_add_and_on_change() {
         "the display name is derived from the worn identity"
     );
 
-    // Re-wear the protagonist through the supported path (mutate the
-    // identity). Downstream observes the change: the stale momentum model is
-    // replaced by the explicit axis-swept policy and the name follows.
     *app.world_mut().get_mut::<WornCharacter>(e).unwrap() = WornCharacter::new("player_robot_v3");
-    // ⭐ **AND ASK FOR IT.** Writing the identity stopped rebuilding the
-    // body (Jon's second redirect, P0): a re-wear is an explicit request, the
+    // **AND ASK FOR IT.** Writing the identity stopped rebuilding the
+    // body: a re-wear is an explicit request, the
     // way Mary-O's powerup already made it. A fixture that mutated the id and
     // expected a rebuild was encoding the contract that split.
     app.world_mut()
@@ -285,8 +276,8 @@ fn rewearing_an_equivalent_momentum_profile_preserves_live_ride_state() {
     // Assigning the equivalent identity still creates a real Changed edge. The
     // derive must refresh name/kit without replacing the matching motion model.
     *app.world_mut().get_mut::<WornCharacter>(entity).unwrap() = WornCharacter::new("sanic");
-    // ⭐ **AND ASK FOR IT.** Writing the identity stopped rebuilding the
-    // body (Jon's second redirect, P0): a re-wear is an explicit request, the
+    // **AND ASK FOR IT.** Writing the identity stopped rebuilding the
+    // body: a re-wear is an explicit request, the
     // way Mary-O's powerup already made it. A fixture that mutated the id and
     // expected a rebuild was encoding the contract that split.
     app.world_mut()
@@ -357,17 +348,12 @@ fn derive_system_only_fires_on_identity_or_ability_change() {
 
 /// **WRITING THE IDENTITY IS NOT A RE-TEMPLATE REQUEST.**
 ///
-/// ⛔⛔ **the second half of Jon's P0 invariant, and the one that could only be
-/// proved by ASKING TWICE.** `WornCharacter` used to mean both *this body is an
-/// instance of X* and *please rebuild this body as X* — the first through the
-/// component, the second through `stale_cast`'s `baseline.id != id`. Splitting
-/// the component was not enough while that comparison stood: an id write still
-/// rebuilt the body, so ordinary construction could still be finished by an
-/// observation rather than by a constructor.
+/// Splitting the component was not enough while that comparison stood: an id write still rebuilt
+/// the body, so ordinary construction could still be finished by an observation rather than by a
+/// constructor.
 ///
-/// Two steps, and the pair is the proof: change the id and NOTHING happens; then
-/// ask, and the replacement runs. One alone proves neither — an inert derive
-/// passes the first, and the old behaviour passes the second.
+/// Two steps, and the pair is the proof: change the id and NOTHING happens; then ask, and the
+/// replacement runs.
 #[test]
 fn changing_the_worn_identity_alone_does_not_rebuild_the_body() {
     use bevy::prelude::*;
@@ -467,8 +453,8 @@ fn worn_kit_fully_follows_a_known_character_rewear() {
 
     // Re-wear a DIFFERENT known character: the kit fully swaps — no stale pistol.
     *app.world_mut().get_mut::<WornCharacter>(e).unwrap() = WornCharacter::new("goblin");
-    // ⭐ **AND ASK FOR IT.** Writing the identity stopped rebuilding the
-    // body (Jon's second redirect, P0): a re-wear is an explicit request, the
+    // **AND ASK FOR IT.** Writing the identity stopped rebuilding the
+    // body: a re-wear is an explicit request, the
     // way Mary-O's powerup already made it. A fixture that mutated the id and
     // expected a rebuild was encoding the contract that split.
     app.world_mut()
@@ -500,14 +486,6 @@ fn worn_kit_fully_follows_a_known_character_rewear() {
     );
 }
 
-/// **Closed gap (reviewer 2026-07-11):** a runtime re-wear FROM a known
-/// character TO another REBUILDS from the destination — it does NOT leave the
-/// prior character's kit. The kit is a function of identity + persisted
-/// abilities, not of mutation history, so this is also the snapshot-restore
-/// contract: restoring a `WornCharacter` onto a survivor rebuilds.
-///
-/// ⚠ renamed 2026-08-11: it said `..._to_a_host_code_protagonist_rebuilds_the_
-/// code_kit`, and there is no host-code protagonist any more.
 #[test]
 fn runtime_rewear_rebuilds_from_the_destination_character() {
     use crate::combat::moveset::ActorMoveset;
@@ -554,8 +532,8 @@ fn runtime_rewear_rebuilds_from_the_destination_character() {
     // Bolt + bubble_shield from sandbox_all abilities) is rebuilt — NO stale
     // pistol.
     *app.world_mut().get_mut::<WornCharacter>(e).unwrap() = WornCharacter::new("player_robot_v3");
-    // ⭐ **AND ASK FOR IT.** Writing the identity stopped rebuilding the
-    // body (Jon's second redirect, P0): a re-wear is an explicit request, the
+    // **AND ASK FOR IT.** Writing the identity stopped rebuilding the
+    // body: a re-wear is an explicit request, the
     // way Mary-O's powerup already made it. A fixture that mutated the id and
     // expected a rebuild was encoding the contract that split.
     app.world_mut()
@@ -567,19 +545,16 @@ fn runtime_rewear_rebuilds_from_the_destination_character() {
         "Player Robot v3"
     );
     let set = app.world().get::<ActionSet>(e).unwrap();
-    // ⭐⭐ **THE INVARIANT, WHICH IS ABOUT STALENESS AND NOT ABOUT THE ROBOT.**
+    // **THE INVARIANT, WHICH IS ABOUT STALENESS AND NOT ABOUT THE ROBOT.**
     // The pistol must be GONE: a kit is a function of identity plus persisted
     // abilities, never of mutation history, and that is also the snapshot-restore
     // contract — restoring a `WornCharacter` onto a survivor must rebuild rather
     // than inherit.
     //
-    // ⛔ **what this used to assert instead was that the CODE KIT came back** —
-    // Swipe, Bolt, bubble_shield, synthesised by `default_player_action_set` from
-    // a row saying `playable_kit: HostCode`. Robot v3 authors its repertoire on
-    // its definition in `ambition_content` now, and this crate cannot depend on
-    // content to build it. That is the correct outcome, not a gap: the engine
-    // does not know the protagonist's moves. What it must still guarantee is that
-    // nothing of the PREVIOUS character survives the change.
+    // Robot v3 authors its repertoire on its definition in `ambition_content` now, and this crate
+    // cannot depend on content to build it. That is the correct outcome, not a gap: the engine does
+    // not know the protagonist's moves. What it must still guarantee is that nothing of the
+    // PREVIOUS character survives the change.
     assert!(
         !matches!(
             set.ranged,
@@ -633,8 +608,8 @@ fn runtime_rewear_to_an_unknown_id_is_a_defined_fallback_not_stale_state() {
 
     *app.world_mut().get_mut::<WornCharacter>(e).unwrap() =
         WornCharacter::new("ghost_not_in_catalog");
-    // ⭐ **AND ASK FOR IT.** Writing the identity stopped rebuilding the
-    // body (Jon's second redirect, P0): a re-wear is an explicit request, the
+    // **AND ASK FOR IT.** Writing the identity stopped rebuilding the
+    // body: a re-wear is an explicit request, the
     // way Mary-O's powerup already made it. A fixture that mutated the id and
     // expected a rebuild was encoding the contract that split.
     app.world_mut()
@@ -793,13 +768,11 @@ fn peaceful_worn_kit_gates_direct_player_combat_verbs() {
         ambition_platformer2d_core::LocalAxes::ZERO
     );
     assert!(gated.fire.is_none());
-    // ⚠ **the SHIELD is not one of them, and that is deliberate** (D146 slice 2).
-    // Peaceful is a claim about ATTACKING; a guard is defensive, and this body's
-    // `BodyAbilities` grants `shield`, which is what puts the Shield slot on its
-    // scheme. A body that lacks the ability still loses the verb — that is
-    // `a_body_without_the_shield_ability_loses_its_guard_verb` below, and keeping
-    // the strip here would have been the gate asking about the wrong authority
-    // again.
+    // Peaceful is a claim about ATTACKING; a guard is defensive, and this body's `BodyAbilities`
+    // grants `shield`, which is what puts the Shield slot on its scheme. A body that lacks the
+    // ability still loses the verb — that is
+    // `a_body_without_the_shield_ability_loses_its_guard_verb` below, and keeping the strip here
+    // would have been the gate asking about the wrong authority again.
     assert!(
         gated.shield_held,
         "a peaceful persona that OWNS the shield ability lost its guard — the \
@@ -812,15 +785,11 @@ fn peaceful_worn_kit_gates_direct_player_combat_verbs() {
 
 /// **A CHARACTER THAT CHARGES KEEPS ITS PROJECTILE PRESS.**
 ///
-/// ⛔⛔ **the regression for a bug this campaign SHIPPED for one commit**
-/// (2026-08-11). `gate_worn_player_control` asked whether the catalog row said
-/// `playable_kit: HostCode` and cleared every projectile press if it did not.
-/// The hour Robot v3 started authoring its own kit — the row flipping to
-/// `Authored` — that gate began silently disabling the Hadouken. Nothing failed:
-/// **pressing the projectile button as the protagonist was covered nowhere**, so
-/// a full green suite said the protagonist could still fire.
+/// The hour Robot v3 started authoring its own kit — the row flipping to `Authored` — that gate
+/// began silently disabling the Hadouken. Nothing failed: **pressing the projectile button as the
+/// protagonist was covered nowhere**, so a full green suite said the protagonist could still fire.
 ///
-/// ⭐ the gate asks the CHARACTER how it fires now (`ranged_execution`), which is
+/// the gate asks the CHARACTER how it fires now (`ranged_execution`), which is
 /// what §4 made an authored fact for. Two terms, because the permissive half
 /// alone would pass with the gate deleted: a charging character keeps the press,
 /// and a `MovesetVerb` character still loses it.
@@ -906,7 +875,7 @@ fn an_authored_charging_character_keeps_its_projectile_press() {
         "a character that AUTHORS a charged projectile lost its press — this is \
          the Hadouken going quiet the moment the robot stopped saying `HostCode`"
     );
-    // ⛔ the poison: the gate must still strip the press from a character that
+    // the poison: the gate must still strip the press from a character that
     // does not charge, or it is not a gate.
     assert!(
         !read(&app, swordfighter),
@@ -987,7 +956,7 @@ fn malformed_authored_resolution_is_safe_peaceful_not_host_code() {
     assert_eq!(execution, RangedExecution::MovesetVerb);
 }
 
-/// Gate 1 (GPT-5.6 review): the canonical player's `Special("bubble_shield")` was
+/// Gate 1: the canonical player's `Special("bubble_shield")` was
 /// a PHANTOM — `default_player_action_set` declared it, but the player's moveset
 /// was built melee-only, so `trigger_moveset_moves` (which fires `special_pressed`
 /// only when the moveset carries the `"special"` verb) started nothing. This is
@@ -1121,11 +1090,8 @@ fn the_bubble_shield_special_move_holds_the_guard_up() {
 
 /// **C3: the ONE persona construction consults the prepared registry.**
 ///
-/// A worn body's `ActionSet`, moveset and `IdentityKit` are built together here,
-/// and `reconcile_equipment_grants` then overlays equipment onto that baseline. The
-/// C3 projection first landed AFTER both and overwrote only the moveset, which
-/// erased equipment-granted moves and left an action set that did not authorize the
-/// verbs of the moveset beside it (GPT 5.6, 2026-07-27).
+/// A worn body's `ActionSet`, moveset and `IdentityKit` are built together here, and
+/// `reconcile_equipment_grants` then overlays equipment onto that baseline.
 ///
 /// The fix is that this construction reads the registry itself, so the prepared
 /// moves ARE the identity baseline — which is what makes the equipment overlay
@@ -1198,12 +1164,9 @@ fn a_registered_characters_moveset_becomes_the_identity_baseline() {
 
     // ── The other half of the identity swap ──────────────────────────────────
     //
-    // Wearing a quieter character must REPLACE the moves, not merge with them.
-    // This is the claim the prepared-character projection used to make by
-    // removing `ActorMoveset` — which was worse than useless, because the removal
-    // took the body out of this very system's query and cost it its whole persona
-    // (GPT 5.6, 2026-07-27). Pinned HERE because this is the single writer for a
-    // worn body, and a guarantee belongs at the authority that provides it.
+    // Wearing a quieter character must REPLACE the moves, not merge with them. Pinned HERE because
+    // this is the single writer for a worn body, and a guarantee belongs at the authority that
+    // provides it.
     let mut registry = registry;
     let unarmed = crate::character_runtime::prepare_and_finalize_for_test(
         crate::character_runtime::CharacterDefinition::new("monk", "Monk", "demo"),
@@ -1238,10 +1201,7 @@ fn a_registered_characters_moveset_becomes_the_identity_baseline() {
 
 // ── C3: the definition's action set outranks the catalog row's ───────────────
 //
-// The moveset already outranked it. The action set did not, and the split was
-// the identity bug: a definition could author what moves EXIST while the catalog
-// separately decided what the body and the AI believed the body could reach for
-// (GPT 5.6, 2026-07-28).
+// The moveset already outranked it.
 
 /// A catalog whose row hands `id` a real melee kit.
 fn catalog_granting_melee(id: &str) -> CharacterCatalog {
@@ -1295,12 +1255,9 @@ fn wear(
         &mut identity,
         None,
         id,
-        // ⛔ **A BODY THAT MAY ACT**, and this was `AbilitySet::default()` — which
-        // is `basic()`, whose `attack` and `shield` are BOTH false. An authored
-        // kit is narrowed by the body's abilities since 2026-08-11 (GPT 5.6 §5),
-        // so a fixture handing over an incapable body was asserting that a
-        // character keeps verbs its body cannot use. Every persona these tests
-        // derive is a fighter; production gives a fighter a body that fights.
+        // **A BODY THAT MAY ACT**, and this was `AbilitySet::default()` — which is `basic()`, whose
+        // `attack` and `shield` are BOTH false. Every persona these tests derive is a fighter;
+        // production gives a fighter a body that fights.
         ambition_platformer2d_core::AbilitySet {
             attack: true,
             shield: true,
@@ -1381,7 +1338,7 @@ fn an_action_set_authored_on_the_definition_beats_the_catalog_row() {
 #[test]
 fn an_authored_empty_action_set_is_not_the_same_as_authoring_nothing() {
     // Sanic. His kit IS the momentum ride and the ball dash; giving him a punch
-    // to fill a slot would be authoring against the design (queue C3).
+    // to fill a slot would be authoring against the design.
     //
     // So `Some(ActionSet::default())` has to survive as a DECISION. A resolver
     // that asks "does this set look empty?" instead of "did anybody author one?"
@@ -1432,12 +1389,11 @@ fn a_definition_with_no_action_set_still_falls_through_to_the_catalog() {
 
 #[test]
 fn a_prepared_action_set_with_no_prepared_moveset_derives_from_the_winning_set() {
-    // The precise bug GPT 5.6 named. Precedence alone is not enough: if the
-    // action set is resolved and the moveset is then derived from the value the
-    // resolution DISPLACED, the body reaches for capabilities its own definition
-    // removed. Empty authored set + catalog melee is the case that tells the two
-    // implementations apart — deriving from the winner yields no moves, deriving
-    // from the loser yields the row's swipe.
+    // Precedence alone is not enough: if the action set is resolved and the moveset is then derived
+    // from the value the resolution DISPLACED, the body reaches for capabilities its own definition
+    // removed. Empty authored set + catalog melee is the case that tells the two implementations
+    // apart — deriving from the winner yields no moves, deriving from the loser yields the row's
+    // swipe.
     let catalog = catalog_granting_melee("minimalist");
     let registry = prepared(
         crate::character_runtime::CharacterDefinition::new("minimalist", "Minimalist", "demo")
@@ -1456,19 +1412,17 @@ fn a_prepared_action_set_with_no_prepared_moveset_derives_from_the_winning_set()
 
 /// **An authored RANGED action set must derive a ranged MOVE.**
 ///
-/// The mirror of the test above, and the half that was broken. Precedence put
-/// the definition's action set in charge, and then the derivation threw away
-/// its ranged payload: `build_actor_moveset(None, melee, None, special)` passed
-/// a hard-coded `None` where `set.ranged` lives.
+/// Precedence put the definition's action set in charge, and then the derivation threw away its
+/// ranged payload: `build_actor_moveset(None, melee, None, special)` passed a hard-coded `None`
+/// where `set.ranged` lives.
 ///
 /// The result is worse than a missing move, because the body still ADVERTISES
 /// the capability — the brain and the input bridge both read `ActionSet` to
 /// decide whether the ranged verb may be pressed — so it reaches for a verb
 /// with no timeline behind it. A gun the character does not believe in.
 ///
-/// Preparation never caught it: it validates the REVERSE mismatch only (an
-/// explicit ranged move whose action set supplies no payload). Found by
-/// GPT 5.6, 2026-07-28.
+/// Preparation never caught it: it validates the REVERSE mismatch only (an explicit ranged move
+/// whose action set supplies no payload).
 #[test]
 fn an_authored_ranged_action_set_derives_a_ranged_move() {
     use ambition_characters::brain::action_set::{RangedActionSpec, RangedStyle};
@@ -1555,13 +1509,6 @@ fn an_authored_special_action_set_derives_a_special_move() {
 /// fold happens at the preparation barrier. Most of the cast is not registered —
 /// it lives in the catalog and nothing else — and that path derives its moves
 /// separately, in `derive_persona_moveset`.
-///
-/// ⚠ found by RED-PROBING the `RangedExecution` unification rather than by
-/// reading: replacing the `MovesetVerb` arm's `set.ranged.as_ref()` with `None`
-/// — reinstating the exact defect H2 closed — left all 1101 actors tests green.
-/// The row read as covered because a test with the right name existed; it
-/// covered the other path. Being tested somewhere is not being tested here
-/// (2026-07-29).
 #[test]
 fn an_unregistered_authored_persona_derives_its_ranged_move() {
     let catalog = catalog_granting_melee_and_ranged("drifter");
@@ -1704,15 +1651,11 @@ fn a_spawned_player_body_receives_the_prepared_action_set_on_its_first_tick() {
     );
 }
 
-/// **A worn character brings its BODY, not only its kit.** (GPT 5.6)
+/// **A worn character brings its BODY, not only its kit.**
 ///
-/// Health, mass and the collision box used to be seating's alone: a fighter
-/// spawned into a match got the character's authored numbers, and the same
-/// character worn by the exploration player got the catalog's health, the mount
-/// system's default mass, and the player's own box. Three construction paths,
-/// three answers, one character.
+/// Three construction paths, three answers, one character.
 ///
-/// ⚠ and the damage stays. A re-wear is character REPLACEMENT, not construction
+/// and the damage stays. A re-wear is character REPLACEMENT, not construction
 /// — the maximum moves to the new identity's and the current value is clamped
 /// under it, because refilling would make swapping characters mid-round a free
 /// heal.
@@ -1860,10 +1803,6 @@ fn the_spawned_and_the_rewarn_host_kit_are_one_construction() {
         None,
     );
 
-    // ⚠ VACUITY FIRST. Two empty contracts compare equal, and a probe showed this
-    // test passing while the construction was un-shared AND altered — because
-    // `AbilitySet::basic()` grants no combat, so both sides were producing nothing
-    // and agreeing about it (2026-07-29).
     assert!(
         !spawned.moveset.0.moves.is_empty(),
         "the host kit produced NO moves, so comparing the two constructions \
@@ -1872,12 +1811,12 @@ fn the_spawned_and_the_rewarn_host_kit_are_one_construction() {
 
     // The WHOLE contract, not just ids and verbs.
     //
-    // ⚠ the first version of this compared `moves[].id` and `verbs`, and a probe
+    // the first version of this compared `moves[].id` and `verbs`, and a probe
     // showed it could not go red: un-sharing the construction and dropping
     // `apply_player_robot_slash_sfx` left ids and verbs identical, because that
     // stamp writes CUE names onto the moves. A guard that cannot fail on the
     // divergence it exists to catch is not a guard — the same lesson this session
-    // learned twice on the touch overlay (2026-07-29).
+    // learned twice on the touch overlay.
     assert_eq!(
         spawned.moveset.0, rewarn,
         "a player that SPAWNED with the host kit and one that RE-WORE it have \
@@ -1893,7 +1832,7 @@ fn the_spawned_and_the_rewarn_host_kit_are_one_construction() {
 /// which is the outgoing persona's contribution, not the body's. Wear a heavy,
 /// high-health duelist and then a persona that authors neither and the body kept
 /// 2.0 / 60 forever, with nothing in the world claiming to have decided that
-/// (GPT 5.6, 2026-07-30). The same shape appeared when a hot reload dropped an
+/// . The same shape appeared when a hot reload dropped an
 /// authored override from `Some` to `None`.
 ///
 /// The retraction target is the body's OWN answer, captured once on the first
@@ -1978,8 +1917,6 @@ fn a_silent_character_gives_back_the_bodys_own_mass_and_health() {
 
     assert_eq!(health_max(&app), DUELIST_MAX_HEALTH);
     assert_eq!(mass(&app), Some(DUELIST_MASS));
-    // The record of what to go back to, captured from the BODY before the
-    // duelist's numbers landed on it.
     assert_eq!(
         app.world().get::<PersonaBaseline>(body).unwrap().displaced,
         crate::character_runtime::DisplacedPhysicals {
@@ -1992,8 +1929,8 @@ fn a_silent_character_gives_back_the_bodys_own_mass_and_health() {
     );
 
     *app.world_mut().get_mut::<WornCharacter>(body).unwrap() = WornCharacter::new("silent_persona");
-    // ⭐ **AND ASK FOR IT.** Writing the identity stopped rebuilding the
-    // body (Jon's second redirect, P0): a re-wear is an explicit request, the
+    // **AND ASK FOR IT.** Writing the identity stopped rebuilding the
+    // body: a re-wear is an explicit request, the
     // way Mary-O's powerup already made it. A fixture that mutated the id and
     // expected a rebuild was encoding the contract that split.
     app.world_mut()
@@ -2083,8 +2020,8 @@ fn a_body_with_no_mass_of_its_own_loses_the_component_again() {
     );
 
     *app.world_mut().get_mut::<WornCharacter>(body).unwrap() = WornCharacter::new("silent_persona");
-    // ⭐ **AND ASK FOR IT.** Writing the identity stopped rebuilding the
-    // body (Jon's second redirect, P0): a re-wear is an explicit request, the
+    // **AND ASK FOR IT.** Writing the identity stopped rebuilding the
+    // body: a re-wear is an explicit request, the
     // way Mary-O's powerup already made it. A fixture that mutated the id and
     // expected a rebuild was encoding the contract that split.
     app.world_mut()
@@ -2167,8 +2104,8 @@ fn a_field_no_persona_authored_is_left_to_whoever_else_writes_it() {
     }
 
     *app.world_mut().get_mut::<WornCharacter>(body).unwrap() = WornCharacter::new("quiet_two");
-    // ⭐ **AND ASK FOR IT.** Writing the identity stopped rebuilding the
-    // body (Jon's second redirect, P0): a re-wear is an explicit request, the
+    // **AND ASK FOR IT.** Writing the identity stopped rebuilding the
+    // body: a re-wear is an explicit request, the
     // way Mary-O's powerup already made it. A fixture that mutated the id and
     // expected a rebuild was encoding the contract that split.
     app.world_mut()
@@ -2199,18 +2136,8 @@ fn a_field_no_persona_authored_is_left_to_whoever_else_writes_it() {
 
 /// **A HOT RELOAD that drops an override from `Some` to `None` retracts it.**
 ///
-/// The other half the review named (GPT 5.6), and the one no test covered: the
-/// body never changes which character it wears, so nothing about the swap path
-/// fires. What changes is the CAST — the same id, re-prepared with the mass and
-/// health lines deleted — and the derive re-runs because the registry
-/// generation moved, not because `WornCharacter` did.
-///
-/// The record is what makes this work: `displaced` was captured at the first
-/// projection, from the BODY, and it does not move when the definition behind
-/// the id does. Without it, editing an override out of a RON file would leave
-/// its value on every live body until the next room load, which is precisely
-/// the "I deleted the line and nothing happened" that makes authors distrust
-/// hot reload.
+/// The record is what makes this work: `displaced` was captured at the first projection, from
+/// the BODY, and it does not move when the definition behind the id does.
 #[test]
 fn deleting_an_override_in_a_hot_reload_gives_the_body_its_own_numbers_back() {
     use crate::combat::moveset::ActorMoveset;
@@ -2303,22 +2230,6 @@ fn deleting_an_override_in_a_hot_reload_gives_the_body_its_own_numbers_back() {
 }
 
 /// **A worn body with NO moveset must still get its persona — and get a moveset.**
-///
-/// `apply_worn_character_gameplay` required `&mut ActorMoveset` until
-/// 2026-08-10, which made membership in the persona derive accidental: a worn
-/// body carrying no moveset silently failed the query and received NOTHING — no
-/// name, no motion model, no health. Every other reader of `ActorMoveset` in the
-/// workspace already treats it as optional, so this query was the sole exception.
-///
-/// ⚠ **no production body reaches that case today**; the avatar bundle carries a
-/// moveset unconditionally. It is fixed now because D73 is about to widen who
-/// wears a character to bodies whose moveset is inserted CONDITIONALLY
-/// (`spawn_actors.rs`'s `if let Some(moveset)`), and the failure would have
-/// arrived as "some enemies ignore their character" with nothing pointing here.
-///
-/// ⛔ the poison is the old signature: make the query member required again and
-/// this reds on the NAME assertion, because the body drops out of the system
-/// entirely rather than merely missing its moves.
 #[test]
 fn a_worn_body_carrying_no_moveset_is_still_given_its_persona() {
     use crate::combat::moveset::ActorMoveset;
@@ -2381,11 +2292,9 @@ fn a_worn_body_carrying_no_moveset_is_still_given_its_persona() {
 /// in one update would each observe `None`, queue two inserts, and the second
 /// would silently discard the first's derivation.
 ///
-/// ⭐ **the fix is structural, not a test**: one `minted` binding per body,
-/// `take`n at whichever exit inserts it. Two mints are now unrepresentable
-/// however the control flow is later rearranged.
+/// Two mints are now unrepresentable however the control flow is later rearranged.
 ///
-/// ⚠ **and this test does NOT prove that, which is worth stating plainly.** I
+/// **and this test does NOT prove that, which is worth stating plainly.** I
 /// wrote it as a falsifier and it failed to falsify twice. A goblin cannot
 /// express the scenario at all — an ordinary authored character fails the
 /// `HostCode`-or-unknown gate, so the ability branch never runs for it. And for
@@ -2458,24 +2367,18 @@ fn a_minted_moveset_is_singular_and_carries_the_real_repertoire() {
     );
 }
 
-/// **THE PROBE FOR D146 SLICE 2 — A BODY'S SHIELD IS ITS OWN CAPABILITY, NOT A
-/// PROPERTY OF ITS SPECIAL.**
+/// **THE PROBE FOR — A BODY'S SHIELD IS ITS OWN CAPABILITY, NOT A PROPERTY OF ITS SPECIAL.**
 ///
-/// ⛔⛔ **seen RED, and the defect was a clearing policy asking the wrong
-/// question.** `gate_worn_player_control` kept `shield_held` alive only for a
-/// body whose `ActionSet.special` was literally `Special("bubble_shield")` — the
-/// protagonist's folded bubble. So *which special do you carry* stood where *can
-/// you shield at all* belongs, and any persona holding `AbilitySet::shield`
-/// alongside an ordinary special had its guard erased every single frame. Jon:
-/// *"Shield is not a special move. It is an independent participant
-/// control/action."*
+/// So *which special do you carry* stood where *can you shield at all* belongs, and any persona
+/// holding `AbilitySet::shield` alongside an ordinary special had its guard erased every single
+/// frame. It is an independent participant control/action."*
 ///
 /// Three bodies, because one proves nothing on its own:
 /// * a shield-capable body with an ORDINARY special keeps the verb (the case the
 ///   old gate refused);
 /// * a shield-capable body with the BUBBLE special keeps it too (the behaviour
 ///   that must not regress);
-/// * ⛔ the poison — a body with NO shield ability loses it, so this is a gate and
+/// * the poison — a body with NO shield ability loses it, so this is a gate and
 ///   not a deletion.
 #[test]
 fn the_shield_verb_follows_the_ability_not_the_special() {
@@ -2488,9 +2391,6 @@ fn the_shield_verb_follows_the_ability_not_the_special() {
         frame.shield_held = true;
         frame
     };
-    // The two authorities the gate consults, varied one at a time: the shield
-    // CAPABILITY (which is what should decide) and the special KEY (which is what
-    // used to).
     let kit = |special: Option<&str>, shield: bool| {
         let mut abilities = ambition_platformer2d_core::AbilitySet::sandbox_all();
         abilities.shield = shield;

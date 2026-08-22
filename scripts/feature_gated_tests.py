@@ -17,7 +17,7 @@ The hand table names WHICH features gate a crate; it never says HOW MANY tests
 are behind them, which is the figure that decides whether a bare run is
 worthless or merely incomplete.
 
-## What it counts, exactly
+# # What it counts, exactly
 
 Every `#[test]` (and `#[tokio::test]`) in a crate's `src/` and `tests/`, split by
 whether it is reachable without extra features:
@@ -33,7 +33,6 @@ behind one is counted as gated here and is actually run. That over-counts, which
 is the safe direction for this tool: the failure it exists to prevent is
 believing a bare run covered everything.
 
-## Calibrated against cargo, and the calibration found a bug
 
 ⭐ **an estimate nobody checked against the real thing is the same species of
 claim this tool exists to correct.** Measured 2026-08-10, scan vs
@@ -121,7 +120,7 @@ def scan_file(path: Path) -> tuple[int, int, set[str]]:
             continue
         if token.startswith('mod'):
             if token.rstrip().endswith('{'):
-                # ⛔ the token regex SWALLOWS this brace, so it must be counted
+                # the token regex SWALLOWS this brace, so it must be counted
                 # here or depth never rises: the first `}` inside the module
                 # then popped the gate and every test after the first read as
                 # ungated. Caught by the brace-tracking test, which is why that

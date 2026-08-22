@@ -1,9 +1,5 @@
 //! **The boss-sprite wiring, pinned as far as it can be pinned headlessly.**
 //!
-//! tracks.md's bug queue carries *"all bosses render the generic sheet"* with the
-//! diagnosis path *"do a RUN with `boss_sprites.len()` logging, and do NOT apply
-//! the disproven `sprite_target` dispatch."*
-//!
 //! `upgrade_boss_sprites` draws the generic gradient-sentinel body for a boss
 //! exactly when `GameAssets::boss_sprite(&boss_key)` misses, where `boss_key` is
 //! the boss's lowercased BEHAVIOR ID. There are three ways to miss, and only the
@@ -14,12 +10,6 @@
 //!    behavior id a live boss carries;
 //! 3. **the image is still loading** — `images.get(...)` is `None` this frame, so
 //!    the system skips and retries. Benign; the boss upgrades a frame later.
-//!
-//! This file rules out (1) and (2) for every boss the game actually spawns, in
-//! the gate, so a future report of the bug means (3) or a render-side ordering
-//! problem — and nobody re-litigates the key. The permanent
-//! `[boss_sprites] N dedicated sheet(s) loaded: …` line in `load_game_assets` is
-//! the counterpart for a live run.
 
 #![cfg(feature = "rl_sim")]
 
@@ -32,9 +22,6 @@ fn content_boss_catalog() -> ambition_platformer2d::boss_encounter::BossCatalog 
     ambition_content::bosses::authored_boss_catalog()
 }
 
-/// (1) Every dedicated boss sheet the renderer will look for resolves to a real
-/// path under the desktop-dev profile. A `None` here IS the bug, and it names the
-/// boss.
 #[test]
 fn every_dedicated_boss_sheet_resolves_a_catalog_path() {
     let boss_catalog = content_boss_catalog();
@@ -69,20 +56,16 @@ fn every_dedicated_boss_sheet_resolves_a_catalog_path() {
 
 /// (2) The registry's keys and the renderer's lookup key are the same vocabulary.
 ///
-/// `upgrade_boss_sprites` computes `boss_key = behavior.id.to_ascii_lowercase()`.
-/// So every authored boss profile that HAS art must appear in
-/// the provider boss catalog under its own id — not under its `sprite_target`,
-/// which is a different key the simulation uses for hurtbox metrics. That divergence is
-/// the "disproven `sprite_target` dispatch" the bug note warns against; this test
-/// is why it stays disproven.
+/// `upgrade_boss_sprites` computes `boss_key = behavior.id.to_ascii_lowercase()`. So every authored
+/// boss profile that HAS art must appear in the provider boss catalog under its own id — not under
+/// its `sprite_target`, which is a different key the simulation uses for hurtbox metrics.
 #[test]
 fn the_render_key_is_the_behavior_id_not_the_sprite_target() {
     let boss_catalog = content_boss_catalog();
 
     let sheet_keys: BTreeSet<&str> = boss_catalog.authored_sheet_keys().collect();
 
-    // Bosses that ship their own art. The rest deliberately draw the generic
-    // gradient-sentinel body, which is a design choice, not this bug.
+    // Bosses that ship their own art.
     for id in [
         "mockingbird",
         "gnu_ton_rider",
@@ -107,10 +90,8 @@ fn the_render_key_is_the_behavior_id_not_the_sprite_target() {
     }
 }
 
-/// The generic fallback is deliberate, and stays: a boss with no authored sheet
-/// draws the gradient-sentinel body rather than nothing. Pinning it keeps someone
-/// from "fixing" the bug by registering every boss id against the generic sheet,
-/// which would make the real regression invisible.
+/// The generic fallback is deliberate, and stays: a boss with no authored sheet draws the
+/// gradient-sentinel body rather than nothing.
 #[test]
 fn a_boss_with_no_authored_sheet_is_absent_from_the_registry_on_purpose() {
     let boss_catalog = content_boss_catalog();
@@ -205,8 +186,6 @@ fn every_authored_boss_placement_resolves_the_profile_the_sim_will_spawn() {
     );
 }
 
-/// **(3) THE BUG. Found 2026-07-10, in the real sim, on the real rooms.**
-///
 /// A boss is also an actor — post-unification there is one body vocabulary — so
 /// every boss's id appears in **both** `ActorRenderIndex` and `BossRenderIndex`.
 /// `upgrade_actor_sprites` runs first. It resolved no character sheet for
@@ -277,7 +256,6 @@ fn the_actor_sprite_path_yields_every_boss_to_the_boss_sprite_path() {
             .expect("the sim publishes the actor render index");
 
         for id in &boss_ids {
-            // (1) The collision that made this bug possible.
             assert!(
                 actors.get(id).is_some(),
                 "room `{room}`: boss `{id}` is NOT in the actor index. The arbitration \

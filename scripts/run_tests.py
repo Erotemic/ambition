@@ -90,20 +90,13 @@ REPO = Path(__file__).resolve().parent.parent
 # still going. See the module docstring: process-scanning for the answer is
 # what hangs, because the scan matches the shell doing the scanning.
 STATUS_NAME = "run_tests_status.json"
-# ⭐ the disk guard lives in `check_disk_headroom.py`, not here, and is IMPORTED
-# rather than copied. It was local to this file until 2026-08-02, which is
-# exactly how the disk filled a third time: the refusal below works, but a bare
-# `cargo test --workspace` typed directly never reaches it. A guard only one
-# caller can run is a guard for one caller.
+# the disk guard lives in `check_disk_headroom.py`, not here, and is IMPORTED rather than copied. A
+# guard only one caller can run is a guard for one caller.
 from check_disk_headroom import MIN_FREE_GB, free_gb_on_target, target_dir  # noqa: E402
 
-# ⭐ the cost ledger's PATH is imported for the same reason the disk guard is:
-# it was inlined here, declared again in three other scripts, and the ledgers
-# have since moved into the `dev/ambition_dev_measurements` submodule.
-# ⚠ `scripts/lib/measurement_paths.py` imports nothing but `pathlib`, which is
-# what makes it importable from the suite's own entry point — the telemetry
-# ENVELOPE below still stays hand-copied, because that would mean importing a
-# 1,500-line checker.
+# `scripts/lib/measurement_paths.py` imports nothing but `pathlib`, which is what makes it
+# importable from the suite's own entry point — the telemetry ENVELOPE below still stays
+# hand-copied, because that would mean importing a 1,500-line checker.
 sys.path.insert(0, str(REPO / "scripts" / "lib"))
 import measurement_paths  # noqa: E402
 
@@ -132,10 +125,8 @@ DENY_EXACT = {
     # single test, so `--list` and a filter matching nothing fail identically.
     # Nothing in the repo gates a test on it, so denying it loses no coverage.
     #
-    # Added 2026-07-31 when `ambition_platformer2d_actor_monolith` left SKIP_FEATURE_JOB (it gained
-    # `#[cfg(feature = "causal")]` tests). That set's own comment predicted this
-    # exact requirement: "if you remove this skip, expect to deny `profile` in
-    # the same commit."
+    # That set's own comment predicted this exact requirement: "if you remove this skip, expect to
+    # deny `profile` in the same commit."
     "profile",
 }
 DENY_PREFIX = ("android", "web", "visible_web", "static_")
@@ -156,20 +147,15 @@ PYTEST_TIMING_ARGS = ["--durations=20", "--durations-min=0.05"]
 #
 # RULE: adding a `#[cfg(feature = ...)]` test to a skipped crate must remove
 # the skip in the same commit -- a stale entry here silently un-runs tests.
-# ambition_platformer2d_host left this set 2026-07-19: its portal_render seam tests are
+# ambition_platformer2d_host left this set: its portal_render seam tests are
 # feature-gated, and the portal feature now forwards ambition_platformer2d_runtime/portal
 # so the composition is complete.
 #
-# `ambition_platformer2d` JOINED it 2026-07-31 on the reasoning that its 17 extra features
+# `ambition_platformer2d` JOINED it on the reasoning that its 17 extra features
 # are all FORWARDERS and "the facade's own tests gate on no feature".
 #
-# ⛔ It LEFT again 2026-08-01, because that last clause stopped being true: the
-# facade gained `causal` and a `#[cfg(feature = "causal")]` SDK test module, so
-# the entry had become "silently un-runs 7 tests" — the exact failure this set's
-# own rule names. The cost was MEASURED rather than assumed, because the comment
-# above implied it would be ruinous: **6m59s and 2.1 GB** for the 17-feature
-# variant. Real, and not the "tens of GB" that phrase suggests — that figure
-# belonged to `ambition_platformer2d_actor_monolith`' `profile` feature, which is denied above.
+# Real, and not the "tens of GB" that phrase suggests — that figure belonged to
+# `ambition_platformer2d_actor_monolith`' `profile` feature, which is denied above.
 #
 # It appeared at all only because the facade gained its first `#[cfg(test)]`
 # module that day — `crate_has_tests` is what admits a crate to this pass — and
@@ -178,22 +164,14 @@ PYTEST_TIMING_ARGS = ["--durations=20", "--durations-min=0.05"]
 #
 #   Tracy Profiler initialization failure: CPU doesn't support invariant TSC.
 #
-# The `profile` feature forwards `bevy/trace_tracy`, whose static initializer
-# ABORTS the test binary on a CPU without an invariant TSC — before libtest lists
-# a single test, so `--list` and a filter matching nothing fail identically.
-# Nothing in the repo gates a test on `profile`. If you remove this skip, expect
-# to deny `profile` (or set `TRACY_NO_INVARIANT_CHECK=1`) in the same commit —
-# and to pay a full-graph feature-variant rebuild, measured at 488s.
-# `ambition_platformer2d_actor_monolith` LEFT this set 2026-07-31 for the same reason and by the same
-# rule: it gained `#[cfg(feature = "causal")]` tests (`actors::causal`, the
-# movement-intent publisher). Its `profile` feature is denied above rather than
-# built, which is what the entry below always said would be needed.
+# The `profile` feature forwards `bevy/trace_tracy`, whose static initializer ABORTS the test binary
+# on a CPU without an invariant TSC — before libtest lists a single test, so `--list` and a filter
+# matching nothing fail identically. Nothing in the repo gates a test on `profile`. Its `profile`
+# feature is denied above rather than built, which is what the entry below always said would be
+# needed.
 #
-# `ambition_platformer2d_runtime` LEFT this set 2026-07-31, under the rule stated above: it
-# gained `#[cfg(feature = "causal")]` tests (`runtime::causal`, the ECS side of
-# the causal recorder), so the entry stopped being "no added coverage" and
-# became "silently un-runs three tests". Removing it is what the rule requires;
-# the cost is a feature-variant build of the runtime graph, paid once per suite.
+# Removing it is what the rule requires; the cost is a feature-variant build of the runtime graph,
+# paid once per suite.
 SKIP_FEATURE_JOB = {
     "ambition_app",
     "ambition_menu",
@@ -419,26 +397,20 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
         jobs.append(Job("workspace (default features)",
                         [CARGO, "test", "--workspace", *libtest()]))
 
-    # ⭐ **the RENDER composition, which nothing else boots.** Every app-boot
+    # **the RENDER composition, which nothing else boots.** Every app-boot
     # job in this plan is `--headless`, and so is every app-boot test in the
     # workspace: the suite proves the SIMULATION composes and has never once
     # proved the presentation does.
     #
-    # That hole is the exact shape of the defects. On 2026-08-04 four
-    # param-validation panics sat in a row in `Update` systems of the render
-    # composition — a `Res<ResolvedVisualQuality>` with no owner installed, a
-    # `Res<ActiveShellSequence>` with no shell, a `MessageWriter` for an
-    # unregistered message — and the whole suite was green through all of them,
-    # because the shipped app installs everything and every acceptance cycle runs
-    # headless. They were found by hand, by someone who happened to want a
-    # picture (queue D16).
+    # That hole is the exact shape of the defects. They were found by hand, by someone who happened
+    # to want a picture.
     #
     # `capture_scene` already builds that composition and already exits non-zero
     # when a param fails to validate, so this needs no new test infrastructure —
     # only for something to RUN it. It asks whether the app COMPOSES, not what it
     # looks like, hence 320x180 and 20 warmup ticks.
     #
-    # ⚠ **in the DEFAULT plan, not behind `--heavy`.** Opt-in coverage is what
+    # **in the DEFAULT plan, not behind `--heavy`.** Opt-in coverage is what
     # let `modules_md.py` sit with a check mode nothing ever called, and this
     # repo's conclusion from that was "a guard nobody executes is not a guard."
     # The class bit during ordinary work, so it runs during ordinary work; the
@@ -475,16 +447,10 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
                            if not is_denied(f) and f not in default)
             if not extra or not crate_has_tests(crate):
                 continue
-            # ⭐ **FRONT 1: PROVE IT COMPILES HERE, RUN IT ONCE BELOW.**
+            # **FRONT 1: PROVE IT COMPILES HERE, RUN IT ONCE BELOW.**
             #
-            # This used to be `cargo test -p <crate> --features <extra>`, and
-            # that job did two different things at once: proved the feature
-            # combination COMPILES, and RAN the tests those features gate. Only
-            # the first needs its own build graph — and a distinct feature set IS
-            # a distinct build graph, which is why 23 of these cost 23 dependency
-            # builds at opt-level 3 (measured 2026-08-02: 1858 compile events,
-            # 400 of 454 crates built more than once, ~7% of the hour executing
-            # tests).
+            # Only the first needs its own build graph — and a distinct feature set IS a distinct
+            # build graph, which is why 23 of these cost 23 dependency builds at opt-level 3.
             #
             # `cargo check` keeps the compile guarantee without codegen or
             # linking; the union job below runs every gated test in ONE graph.
@@ -493,17 +459,9 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
                                    "--features", ",".join(extra)]))
             union_features.extend(f"{name}/{f}" for f in extra)
 
-    # ⭐⭐ **AN OPTIONAL DEPENDENCY THAT CANNOT BE TURNED OFF IS A FICTION.**
+    # **AN OPTIONAL DEPENDENCY THAT CANNOT BE TURNED OFF IS A FICTION.**
     #
-    # `ambition_platformer2d_actor_monolith` declares `bevy_ecs_ldtk` and
-    # `bevy_asset_loader` OPTIONAL, gated behind `ldtk_runtime` — and until
-    # 2026-08-18 exactly one module (`assets/loading.rs`) named both
-    # UNCONDITIONALLY. So turning the feature off did not produce a smaller
-    # crate; it produced a crate that would not compile, and had not compiled
-    # that way for long enough that nobody knew. The manifest stated a boundary
-    # the code did not honour, which is D136's thesis in one file.
-    #
-    # ⚠ this guards the CONDITION, not a proxy for it: the boundary IS "the
+    # this guards the CONDITION, not a proxy for it: the boundary IS "the
     # crate builds without the feature", so the check is that build. A grep for
     # unconditional `bevy_ecs_ldtk` would pass the day someone reaches for a
     # different LDtk-shaped type through a re-export.
@@ -516,20 +474,15 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
             [CARGO, "check", "-p", "ambition_platformer2d_actor_monolith",
              "--no-default-features"]))
 
-    # ⛔ **THE CAUSAL INSTRUMENT AGAINST THE REAL APP.** `ambition_app` is in
+    # **THE CAUSAL INSTRUMENT AGAINST THE REAL APP.** `ambition_app` is in
     # SKIP_FEATURE_JOB, and that set's own rule says adding a
     # `#[cfg(feature = ...)]` test to a skipped crate must remove the skip in the
     # same commit. This is the narrower form of that: one targeted job instead of
     # a full all-non-default-features variant of the biggest crate in the repo.
     #
-    # It exists because `causal` was enabled NOWHERE (measured 2026-08-01: false
-    # for every crate in the default workspace resolve, and `ambition_app` had no
-    # such feature at all), so every domain recorder was compiled out of every
-    # build the app produces while the substrate's own per-crate tests stayed
-    # green. A feature with no consumer is a feature that has quietly stopped
-    # working.
+    # A feature with no consumer is a feature that has quietly stopped working.
     #
-    # ⚠ this is a second feature variant of the app graph, so it is deliberately
+    # this is a second feature variant of the app graph, so it is deliberately
     # non-fast. If it ever costs more than it catches, the honest alternative is
     # folding `causal` into `desktop_dev` — recording is policy-gated `Off` by
     # default, so the cost would be code size and a per-tick policy check, not
@@ -539,24 +492,18 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
         # not build should say so before an hour of test running.
         jobs.extend(check_jobs)
 
-        # ⭐ **AND THE ONE GRAPH THAT RUNS EVERY GATED TEST.** (Front 1)
+        # **AND THE ONE GRAPH THAT RUNS EVERY GATED TEST.** (Front 1)
         #
-        # The union of every feature job's extras, package-qualified. Measured
-        # 2026-08-03 rather than assumed: `cargo check --workspace` with all 55
-        # entries resolves, and the test run takes 5m54s of wall clock for the
-        # whole workspace — against 23 separate graphs, each rebuilding shared
-        # dependencies at opt-level 3.
-        #
-        # ⚠ **the union SEES MORE than the per-crate jobs, which is the finding
+        # **the union SEES MORE than the per-crate jobs, which is the finding
         # that justifies it.** Compiling everything at once surfaced three
         # `causal` message channels that both rollback oracles had been green
         # over because the default job never compiled them.
         #
-        # ⚠ `--no-fail-fast` is load-bearing: cargo otherwise stops at the first
+        # `--no-fail-fast` is load-bearing: cargo otherwise stops at the first
         # failing target, so one red crate hides every later one — measured, and
         # it is why this must not be a plain `cargo test`.
         #
-        # ⚠ feature unification means a crate here is compiled with features its
+        # feature unification means a crate here is compiled with features its
         # own job would not enable. That is exactly what the check lane above
         # exists to cover: each combination still gets its own resolution proof.
         if union_features:
@@ -574,22 +521,10 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
                  "--test", "app_it", *libtest(["causal_explains_the_real_app"])],
             ))
 
-    # The external-consumer fixture (Phase 6): its own [workspace], lockfile,
-    # and target dir, driven through --manifest-path so its INDEPENDENT
-    # dependency resolution is exactly what a third party gets from the
-    # `ambition_platformer2d` umbrella. Whole-suite, non-fast only — an umbrella API break
-    # can land while every in-repo job stays green (workspace feature
-    # unification hides it), and this job is the only gate that can see it.
-    # ⛔⛔ **THE CHECK RUNS ALWAYS, AND THAT IS A REPAIR (2026-08-12, ledger
-    # D110).** The whole-suite job below is real and has been here since Phase 6,
-    # and the comment above it is correct that it is "the only gate that can see
-    # it" — but a gate that only runs on an unfiltered whole-suite invocation is
-    # a gate a campaign of `cargo test -p <crate>` never fires. Outlander stopped
-    # COMPILING for some time and nothing said so: it named
-    # `CharacterRosterFragment::from_ron_at`, deleted as dead by a census whose
-    # own words were "no call site in the WORKSPACE" (this fixture is `exclude`d
-    # from it), and `PlayableKitSource::HostCode`, removed without its only
-    # external consumer being updated. TWO public-API regressions, invisible.
+    # The external-consumer fixture (Phase 6): its own [workspace], lockfile, and target dir,
+    # driven through --manifest-path so its INDEPENDENT dependency resolution is exactly what a
+    # third party gets from the `ambition_platformer2d` umbrella. TWO public-API regressions,
+    # invisible.
     #
     # ⇒ `cargo check` is seconds and catches exactly that class, so it is
     # unconditional; the full suite stays whole-suite-only because its VALUE is
@@ -610,16 +545,13 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
                         [CARGO, "test"],
                         cwd=str(REPO / "fixtures" / "external_consumer")))
 
-        # ⚠ ADDED 2026-07-30. `minimal_game` is the campaign's SECOND sentinel
+        # . `minimal_game` is the campaign's SECOND sentinel
         # consumer and it had never run here — for the same structural reason
         # Outlander needs its own job (own workspace, own lockfile, outside
         # `cargo test --workspace`), minus the job.
         #
-        # Two consumer-matrix rows rest on its 16 tests:
-        # `movement-only-minimal-game` and `noncombat-actor`. Both were recorded
-        # as PROVEN, and the proofs were never executed by the suite — a row
-        # naming a test nobody runs is the same defect as a row naming no test,
-        # and the matrix cannot tell them apart.
+        # Two consumer-matrix rows rest on its 16 tests: `movement-only-minimal-game` and
+        # `noncombat-actor`.
         #
         # It was ratcheted the whole time (`minimal-game-names-only-the-public-sdk`,
         # baseline zero), which is what made the gap easy to miss: a green
@@ -629,13 +561,11 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
                         [CARGO, "test"],
                         cwd=str(REPO / "fixtures" / "minimal_game")))
 
-        # ⚠ ADDED 2026-08-01, in the SAME COMMIT that moved this crate out of
-        # `crates/` to `examples/capability_demo`. Leaving the workspace drops a
-        # crate from `cargo test --workspace` silently, and its 19 tests are the
-        # only proof that a capability can contribute a schema, an action,
-        # rollback state and causal facts without editing anything central.
+        # Leaving the workspace drops a crate from `cargo test --workspace` silently, and its 19
+        # tests are the only proof that a capability can contribute a schema, an action, rollback
+        # state and causal facts without editing anything central.
         #
-        # ⛔ moving it also broke it, which is the argument for the job: an
+        # moving it also broke it, which is the argument for the job: an
         # outside workspace does not inherit the engine's `[patch.crates-io]`,
         # so the rollback backend compiled against the RELEASED `bevy_ggrs` and
         # failed on a missing `GgrsFrameTiming`. Invisible for as long as the
@@ -648,22 +578,18 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
     # docs/archive/repair_wasm.md) because nothing in the suite compiled it —
     # every native job stayed green while `--features web` had four errors in it.
     #
-    # ⛔⛔ **ONE PERSONA LINKS, AND THAT IS THE POINT.** This was two `cargo
+    # **ONE PERSONA LINKS, AND THAT IS THE POINT.** This was two `cargo
     # check`s, which never invoke `rust-lld` — so a whole class of browser
     # failure was structurally invisible: a dependency whose wasm feature is
     # missing compiles perfectly and then dies at the link with `undefined
     # symbol`. `ggrs` reaches `instant`, whose `now()` on wasm32 has no body
     # unless `instant/wasm-bindgen` is on, and the `web_platform` feature chain
-    # stopped one crate short of the rollback backend that owns `bevy_ggrs` (2026-08-14).
+    # stopped one crate short of the rollback backend that owns `bevy_ggrs`.
     # A check cannot see that. A build can.
     #
-    # ⚠ **RELEASE, and only the primary persona.** Release because that is what
-    # `build_for_web.sh` builds and what Jon's failure was — and because the same
-    # DCE/inlining that decides whether a bad extern survives to the link differs
-    # by profile, so a debug link is a weaker contract than the observed failure.
-    # One persona because a linked wasm artifact is expensive; the served persona
-    # differs in ASSET TRANSPORT, not in its dependency graph, so it stays a
-    # check — if that ever stops being true, this is the line to change.
+    # One persona because a linked wasm artifact is expensive; the served persona differs in ASSET
+    # TRANSPORT, not in its dependency graph, so it stays a check — if that ever stops being true,
+    # this is the line to change.
     if not only and everything:
         if wasm_target_installed():
             jobs.append(Job(
@@ -677,15 +603,12 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
                  "--target", "wasm32-unknown-unknown",
                  "--no-default-features", "--features", "web_served_assets"]))
         else:
-            # LOUD, not silent. A skipped coverage that says nothing reads
-            # exactly like coverage that passed, which is the failure this job
-            # exists to end.
             print("run_tests: SKIPPING the web build check — the "
                   "wasm32-unknown-unknown target is not installed "
                   "(`rustup target add wasm32-unknown-unknown`). "
                   "The web build is UNCHECKED in this run.")
 
-    # ⛔⛔ **LINKS IS NOT BOOTS, AND THE BROWSER PROVED IT TWICE.**
+    # **LINKS IS NOT BOOTS, AND THE BROWSER PROVED IT TWICE.**
     #
     # The two jobs above compile and link the browser artifact. Both stayed green
     # through a week in which the browser showed a blank canvas for THREE
@@ -694,13 +617,13 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
     # `grid_menu_nav` panicked on its first tick because `RebindCapture` was
     # initialised behind the Lunex feature while the FLAT backend required it.
     #
-    # ⭐ **and none of them needed a browser to find.** Every one is a fact about
+    # **and none of them needed a browser to find.** Every one is a fact about
     # composing and stepping the app under the web persona's CARGO FEATURES,
     # which a native host can do. That is what this runs — no wasm toolchain, no
     # headless Chrome, ~1 minute — and it is the only job here that would have
     # caught any of the three.
     #
-    # ⚠ it deliberately uses `visible_web_base` rather than `web_served_assets`:
+    # it deliberately uses `visible_web_base` rather than `web_served_assets`:
     # the latter pulls `web_platform`, whose wasm-bindgen entry points do not
     # belong in a native run. The features that decide COMPOSITION are all in the
     # base.
@@ -853,12 +776,9 @@ def telemetry_envelope() -> dict:
         "label": os.environ.get("RUN_TESTS_LABEL", ""),
         "profile": "test",
         "opt_level": opt_level,
-        # ⚠ the suite forces this OFF for itself while the dev loop runs with it
-        # ON (`.cargo/config.toml` vs `run()`'s env), and until now no row said
-        # which of the two it was. That is the single largest confounder in this
-        # ledger's own numbers.
+        # That is the single largest confounder in this ledger's own numbers.
         #
-        # ⛔ **the default is "0", not the config file, and the first draft got
+        # **the default is "0", not the config file, and the first draft got
         # this backwards.** `run()` builds `env = dict(os.environ)` — a COPY —
         # and then `setdefault`s `CARGO_INCREMENTAL=0` on it, so the PARENT
         # process this function runs in has the variable UNSET on every ordinary
@@ -889,11 +809,11 @@ def append_cost_ledger(results: list[JobResult], exhaustive: bool,
     ledger = Path(os.environ.get("RUN_TESTS_COST_LEDGER",
                                  measurement_paths.JOBS_LEDGER))
 
-    # ⛔ the ledger lives in a submodule, and on a clone without `--recursive`
+    # the ledger lives in a submodule, and on a clone without `--recursive`
     # its directory exists and is EMPTY — so `open("a")` would succeed, write a
     # real row into a file inside an uninitialised submodule mount, and lose it
     # to the next `git submodule update` without ever appearing in `git status`.
-    # ⚠ this is the one writer that must NOT hard-fail: a cost record is worth
+    # this is the one writer that must NOT hard-fail: a cost record is worth
     # having and never worth failing a suite over (same rule as the `OSError`
     # below). It refuses to write and says why; it does not raise.
     unavailable = measurement_paths.unavailable_reason(ledger)
@@ -903,14 +823,9 @@ def append_cost_ledger(results: list[JobResult], exhaustive: bool,
         return None
 
     row = {
-        # The shared compile-telemetry envelope — `dev/compile_telemetry_schema.md`
-        # §1. Added 2026-08-08 because the first 75 rows carry no commit, no
-        # profile and no opt-level, so a year of them cannot answer "did that
-        # change help" or "was this the incremental config". ⚠ these are the
-        # columns that CANNOT be back-filled; `finished` stays for the rows that
-        # already have it.
+        # The shared compile-telemetry envelope — `dev/compile_telemetry_schema.md` §1.
         #
-        # ⛔ copied by hand rather than imported from `compile_ratchet.py`: this
+        # copied by hand rather than imported from `compile_ratchet.py`: this
         # is the suite's own entry point and must not gain an import of a module
         # that itself imports a 1,500-line checker.
         **telemetry_envelope(),
@@ -1017,12 +932,8 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
     env = dict(os.environ)
     env.setdefault("RUST_BACKTRACE", "1")
     env.setdefault("CARGO_TERM_COLOR", "always")
-    # ⚠ **No incremental cache for suite runs, and the number is why.** On
-    # 2026-07-31 a long autonomous run filled the disk — 387G, 100%, builds
-    # failing with ENOSPC mid-suite — and `target/debug/incremental` alone was
-    # **110G**. This runner is the main producer: every feature job is its own
-    # variant, each variant keeps its own incremental tree, and a suite that runs
-    # a dozen times a day never reuses most of them.
+    # This runner is the main producer: every feature job is its own variant, each variant keeps its
+    # own incremental tree, and a suite that runs a dozen times a day never reuses most of them.
     #
     # Incremental buys nothing here either. A job either recompiles from a
     # feature set nothing else shares (no cache to hit) or is already fresh (no
@@ -1031,19 +942,9 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
     # wants it back exports `CARGO_INCREMENTAL=1`.
     env.setdefault("CARGO_INCREMENTAL", "0")
 
-    # ⛔ **REFUSE ON A FULL DISK RATHER THAN DYING HALFWAY THROUGH IT.**
+    # **REFUSE ON A FULL DISK RATHER THAN DYING HALFWAY THROUGH IT.**
     #
-    # `CARGO_INCREMENTAL=0` above fixed the 110G half of the 2026-07-31 disk
-    # fill. It did NOT fix the other half: every feature job is a full variant of
-    # the graph and cargo never garbage-collects the previous ones, so a suite
-    # run costs ~10G/job in `target/debug/deps` and 28 jobs refilled a 387G
-    # volume the same day the incremental fix landed.
-    #
-    # The failure mode is what makes this worth a check rather than a note: a
-    # suite that runs out of space mid-way reports a wall of unrelated compile
-    # errors from whichever job was unlucky, and the actual cause (ENOSPC) is
-    # nowhere in the output. One refusal up front, naming the remedy, is worth
-    # more than any amount of diagnosing that.
+    # One refusal up front, naming the remedy, is worth more than any amount of diagnosing that.
     free_gb = free_gb_on_target()
     if not (tool_tests_only or maintenance_only) and free_gb < MIN_FREE_GB:
         print(
@@ -1075,12 +976,7 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
             print(f"\n\033[1m==> {j.name}\033[0m")
             print("    " + " ".join(j.argv))
             start = time.monotonic()
-            # ⭐ **WHICH job, and since WHEN** — written BEFORE the job runs.
-            #
-            # The status file used to carry a count and nothing else, so an agent
-            # waiting on a suite could see "7 of 33 done" and had no way to tell a
-            # slow job from a wedged one. The two facts that answer it are the
-            # name of what is running now and the time it started.
+            # **WHICH job, and since WHEN** — written BEFORE the job runs.
             write_status(status, {**base, "state": "running",
                                   "finished_jobs": len(results),
                                   "current_job": j.name,
@@ -1136,13 +1032,9 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
 
     # **What this run COST in disk**, as a number rather than as a surprise.
     #
-    # The suite is the repo's largest disk consumer and its cost is invisible
-    # until it is fatal: every feature job builds its own variant of the graph,
-    # cargo never prunes the previous one, and the failure mode is a mid-run
-    # ENOSPC that surfaces as unrelated compile errors. A figure printed every
-    # run is what lets somebody notice the trend BEFORE the volume is full — and
-    # it is a measurement that moves when the job plan changes, which is the only
-    # kind worth having.
+    # A figure printed every run is what lets somebody notice the trend BEFORE the volume is full —
+    # and it is a measurement that moves when the job plan changes, which is the only kind worth
+    # having.
     free_after = free_gb_on_target()
     spent = free_gb - free_after
     print(f"  disk: {free_after:.0f} GB free "
@@ -1172,20 +1064,13 @@ def main() -> int:
     ap.add_argument("--heavy", action="store_true",
                     help="also run #[ignore]d tests and app acceptance cycles "
                          "(implies the exhaustive plan)")
-    # ⭐ The NAME is the feature. An agent reading `--help` or a stale command
+    # The NAME is the feature. An agent reading `--help` or a stale command
     # line should be talked out of it by the flag itself, because being the
     # default is exactly how the exhaustive plan became the reflex.
     ap.add_argument("--run-everything-you-probably-dont-need-this",
                     dest="run_everything", action="store_true",
                     help="the exhaustive plan: a cargo test -p per crate with "
                          "its feature-gated tests, the external-consumer "
-                         # ⚠ `%%`, not `%`. argparse runs every action help
-                         # string through `%`-formatting, and it read "7% of"
-                         # as the octal conversion `% o` — so `--help` itself
-                         # died with `TypeError: %o format: an integer is
-                         # required, not dict`. A runner whose --help crashes
-                         # is a runner nobody asks, which is how the exhaustive
-                         # sweep stays the reflex. (2026-08-03, C2.)
                          "fixtures, the wasm check. ~33 jobs, ~25 MINUTES, "
                          "~17%% of it actually executing tests. There is no "
                          "CI and Jon "

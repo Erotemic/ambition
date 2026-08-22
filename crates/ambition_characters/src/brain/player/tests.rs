@@ -296,9 +296,6 @@ fn shield_and_special_pass_through() {
 
 #[test]
 fn blink_and_special_are_separate_actions() {
-    // The retired `special_pressed = blink_pressed` alias, asserted surgically
-    // and positively (review): the Special slot fires special and NOT blink;
-    // the Blink slot fires blink and NOT special.
     let s = BrainSnapshot::idle();
 
     let special_only = input_with(|c| c.special_pressed = true);

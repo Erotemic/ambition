@@ -1,19 +1,12 @@
-//! Smoke test: visit every room in the sandbox via Platformer2dSimHarness and run
-//! a small random-walker policy for a fixed number of steps. Catches
-//! regressions where a specific room panics on construction (LDtk
-//! validation, encounter/boss registry init, IntGrid layer parsing,
-//! …) or under any random input combination.
+//! Catches regressions where a specific room panics on construction (LDtk validation,
+//! encounter/boss registry init, IntGrid layer parsing, …) or under any random input
+//! combination.
 //!
 //! For each room id (returned by `Platformer2dSimHarness::room_ids`):
 //! 1. Build a fresh `Platformer2dSimHarness` starting in that room (fixed-60Hz).
 //! 2. Run an LCG-seeded random policy for `steps` ticks.
 //! 3. Assert: HP stays in [0, hp_max], position stays finite + bounded.
 //! 4. Report per-room max distance from spawn + final HP.
-//!
-//! On the first failure the binary exits non-zero with the room id in
-//! the message so the regression is reproducible. Useful as a CI
-//! check (mirrors `cargo run --bin headless` but exercises every
-//! room rather than just the start).
 //!
 //! Usage:
 //!
@@ -34,12 +27,9 @@ fn smoke_room(room_id: &str, steps: u32, seed: u64) -> Result<RoomReport, String
     .map_err(|e| format!("room '{room_id}': Platformer2dSimHarness::new failed: {e}"))?;
     let initial = sim.observation();
     if initial.active_room != room_id {
-        // ⭐ the id came from `room_ids()` and is now asked for with
-        // `with_required_start_room`, so an UNRESOLVED id refuses to boot above
-        // rather than landing here. Reaching this line therefore means something
-        // else: the room resolved and the sim still reported a DIFFERENT active
-        // room on frame zero (an active area carrying another name in LDtk, or
-        // an immediate transition). Still a soft report — the sim ran.
+        // Reaching this line therefore means something else: the room resolved and the sim
+        // still reported a DIFFERENT active room on frame zero (an active area carrying another
+        // name in LDtk, or an immediate transition). Still a soft report — the sim ran.
         eprintln!(
             "  [{room_id}] resolved, but the first observation is in '{}' (likely id-vs-active-area mismatch)",
             initial.active_room

@@ -18,9 +18,7 @@ pub fn record_simulation_frame(
     clusters: &ae::BodyClustersMut<'_>,
     facts: &ae::BodyMotionFacts,
     combat: &ambition_characters::actor::BodyCombat,
-    // AC3.1.B: the melee AUTHORITY. The trace used to read a
-    // `BodyCombat.attacking` mirror maintained beside it; a mirror in an
-    // instrument is worse than elsewhere, because a trace exists to be believed.
+    // AC3.1.B: the melee AUTHORITY.
     melee: &crate::actor::BodyMelee,
     clock: &ambition_time::ClockState,
     safety: &crate::avatar::PlayerSafetyState,
@@ -168,7 +166,7 @@ pub fn record_frame_system(
         ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<crate::rooms::RoomSet>,
     >,
     mode: Res<State<ambition_platformer2d_shared_tangle::schedule::GameMode>>,
-    // The composed collision read-API. ⚠ `platform_set` stays a separate param:
+    // The composed collision read-API. `platform_set` stays a separate param:
     // the trace records the platform STATES themselves, which is a different
     // question from what a body collides against.
     collision: ambition_platformer2d_world::collision::CollisionWorld,

@@ -1,5 +1,3 @@
-//! Portal mechanic tests. These were previously inline in the monolithic portal
-//! module; they exercise the public portal surface through the facade.
 
 use bevy::prelude::*;
 
@@ -917,12 +915,7 @@ fn transit_is_gradual_centroid_crossing_flags_the_teleport_then_clears() {
 /// The two host-side bridges the presentation chain needs, restated locally.
 ///
 /// They live in `ambition_platformer2d_host::portal` — a crate ABOVE this one, so a content
-/// test cannot call them. (They were once reachable as `ambition_portal2d::*`,
-/// which is where this test imported them from; the E-track carve moved them and
-/// never updated this `portal_render`-gated test, so it had not compiled since.
-/// Fixed while landing R3.) Each is a five-line field copy / marker insert, and
-/// the host owns testing them; what THIS test exercises is
-/// `sync_portal_body_pieces`, which presentation owns.
+/// test cannot call them.
 #[cfg(feature = "portal_render")]
 mod host_bridges {
     use super::*;
@@ -1038,9 +1031,7 @@ fn partial_render_keeps_the_sprite_and_adds_the_exit_copy() {
         Visibility::Inherited,
         "the real character sprite is NOT hidden"
     );
-    // Exactly one transient piece now: the exit copy of the sprite. The opaque
-    // "feet in, feet out" mask boxes were removed — the view windows show the
-    // emerging slice and the copy overlays it.
+    // Exactly one transient piece now: the exit copy of the sprite.
     let pieces = {
         let mut q = app.world_mut().query::<&PortalBodyPiece>();
         q.iter(app.world()).count()
@@ -1432,14 +1423,10 @@ fn floor_floor_round_trip_returns_to_drop_height_below_terminal() {
     );
 }
 
-/// Energy round trip WITHOUT a terminal velocity: with `max_fall_speed`
-/// effectively unbounded, a fall from ANY height returns to that height.
-/// This pins the fix for Jon's "fall from a tall distance, don't come all the
-/// way back up" — the loss was never the portal (the transfer is an isometry);
-/// it was the fall cap turning the down-leg into a drag zone. Per the Round 5
-/// carried-momentum principle (the WORLD has no air drag; assists belong to
-/// the controller), world-imparted fall speed is conserved when the cap is
-/// out of the way — the player's shipped tuning keeps it out of the way.
+/// Energy round trip WITHOUT a terminal velocity: with `max_fall_speed` effectively unbounded, a
+/// fall from ANY height returns to that height. Per the Round 5 carried-momentum principle (the
+/// WORLD has no air drag; assists belong to the controller), world-imparted fall speed is conserved
+/// when the cap is out of the way — the player's shipped tuning keeps it out of the way.
 #[test]
 fn floor_floor_round_trip_conserves_any_height_without_terminal_velocity() {
     use ambition_platformer2d_core::movement::DEFAULT_TUNING;

@@ -383,13 +383,8 @@ pub(crate) fn spawn_pickup_into(
 
 /// Spawn one authored ground item from an ALREADY-RESOLVED held-item spec.
 ///
-/// Resolution moved to construction planning
-/// ([`authored_ground_item_requests`](crate::construction::authored_ground_item_requests)):
-/// an unregistered or feature-gated held-item id used to be swallowed here with
-/// a bare `return`, so an authored pickup naming a bad item produced no entity
-/// and no diagnostic. It is now a planning failure, which is detected while the
-/// live room is still intact.
-/// Populate a ground item onto a root the construction executor allocated.
+/// It is now a planning failure, which is detected while the live room is still intact. Populate a
+/// ground item onto a root the construction executor allocated.
 pub(crate) fn spawn_ground_item_resolved_into(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
@@ -578,9 +573,7 @@ pub(crate) fn spawn_breakable_into(
     if breakable.pogo_refresh
         || (breakable.collision.blocks_movement() && breakable.trigger.allows_stand())
     {
-        // This feature explicitly contributes WORLD rebound geometry. Body pogo
-        // never uses this marker: bodies keep their entity identity and resolve
-        // through the shared landed-hit fact instead of becoming collision blocks.
+        // This feature explicitly contributes WORLD rebound geometry.
         entity.insert(PogoTargetContributor);
     }
 }

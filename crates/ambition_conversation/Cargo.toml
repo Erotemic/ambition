@@ -28,7 +28,7 @@ ambition_combat = { path = "../ambition_combat" }
 # projects the live conversation onto. THE edge that justifies the crate — see
 # `docs/planning/engine/actor-monolith-decomposition.md` C4b/C4e.
 ambition_dialog = { path = "../ambition_dialog" }
-# `ParticipantId`, the seat a conversation's input owner is named by. ⚠ this
+# `ParticipantId`, the seat a conversation's input owner is named by. this
 # crate must never re-derive the ParticipantId <-> PlayerSlot correspondence
 # (`opening` takes the owner as a parameter for exactly that reason); that
 # correspondence stays with the monolith's `participant_seat`.
@@ -39,7 +39,7 @@ ambition_interaction = { path = "../ambition_interaction" }
 # `CenteredAabb` / `Vec2` / `ConfirmedFrameBoundary`.
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 # `SimId`, `SimScheduleExt`, and `FeatureInteractionSet` — the named phase
-# vocabulary this crate's systems place themselves in. ⭐ it lives here, BELOW
+# vocabulary this crate's systems place themselves in. it lives here, BELOW
 # the monolith, precisely so this crate could leave: a set enum in `features`
 # would have re-pinned this module by the SCHEDULE the moment it stopped
 # importing `features`.

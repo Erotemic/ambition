@@ -45,13 +45,13 @@ impl KinematicPath {
 /// roads degrades to "no motion", so the NPC simply stands still and the level
 /// looks finished.
 ///
-/// ⛔ **the disagreement was not a bug in any one road, it was three roads.** So
+/// **the disagreement was not a bug in any one road, it was three roads.** So
 /// the rule is stated once, here, next to the type being referenced, and the
 /// roads call it instead of re-deciding: **an authored reference is trimmed, and
 /// an empty reference names nothing.** A road cannot forget a rule it does not
 /// implement.
 ///
-/// ⚠ this does not trim the KEYS. A key comes from an authored path's own id or
+/// this does not trim the KEYS. A key comes from an authored path's own id or
 /// display name, which the room IR owns; a reference comes from a different
 /// entity's field, which is where the padding has actually been observed. The
 /// asymmetry is deliberate — normalising both sides here would quietly paper

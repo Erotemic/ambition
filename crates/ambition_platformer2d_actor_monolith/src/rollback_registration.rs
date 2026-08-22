@@ -1,8 +1,7 @@
 //! Rollback declaration owned by the actor runtime.
 //!
-//! The actor runtime names only state defined in this crate. Cross-domain rows
-//! that used to share the runtime adapter now live with their actual owners.
-//! The host supplies GGRS machinery through [`RollbackRegistrar`].
+//! The actor runtime names only state defined in this crate. The host supplies GGRS machinery
+//! through [`RollbackRegistrar`].
 
 use ambition_platformer2d_core::snapshot::RollbackRegistrar;
 use ambition_platformer2d_core::snapshot::{checksum_bytes, put_str, put_u64};
@@ -14,12 +13,10 @@ pub fn register_rollback_state<R>(registrar: &mut R)
 where
     R: RollbackRegistrar,
 {
-    // ⭐ **THE INSTRUMENT'S OWN CHANNELS REWIND TOO** — and they were invisible
-    // until the whole workspace was compiled with every feature at once. These
-    // three exist only under `causal`, so the default job never sees them and
-    // both rollback oracles reported green over channels that did not exist in
-    // their build. The union graph (Front 1 of the test-cost campaign) is what
-    // surfaced them, which is the argument for that job in one example.
+    // **THE INSTRUMENT'S OWN CHANNELS REWIND TOO** — and they were invisible until the whole
+    // workspace was compiled with every feature at once. The union graph (Front 1 of the
+    // test-cost campaign) is what surfaced them, which is the argument for that job in one
+    // example.
     //
     // Clearing is the right answer rather than a waiver: a reader's cursor is
     // `Local` state GGRS never rewinds, so a recorder resuming after a load
@@ -49,17 +46,17 @@ where
     );
     registrar.require_rollback::<crate::rooms::RoomSet>(OWNER, "root:room_set");
     registrar.require_rollback::<crate::items::pickup::GroundItem>(OWNER, "entity:ground_item");
-    // ⚠ **a MOVING world item is the same kind of thing as a ground item, and
+    // **a MOVING world item is the same kind of thing as a ground item, and
     // was not registered.** `spawn_moving_world_item` uses `spawn_room_scoped`,
     // and `RoomScopedEntity` is a LIFETIME marker — it says when the entity
     // dies with its room, and nothing about whether a rewind can reproduce it.
     // A block bonked on a mispredicted frame therefore left an item standing in
-    // a future that was abandoned. (GPT review of 5cc4337..47d7de3, finding 1.)
+    // a future that was abandoned.
     registrar.require_rollback::<crate::items::world_item::WorldItem>(OWNER, "entity:world_item");
     registrar
         .require_rollback::<crate::gravity::GravityFlipSwitch>(OWNER, "entity:gravity_flip_switch");
-    // ⚠ **the heal shrine, for the same reason as the portal gun pickup**
-    // (2026-08-06, K2b edit 2). It carries `SimId`, `SpawnOrigin` and
+    // **the heal shrine, for the same reason as the portal gun pickup**
+    // . It carries `SimId`, `SpawnOrigin` and
     // `TransactionId`, had no anchor, and so those registrations were inert on
     // it. Its own component is waived as authored geometry — the heal reads it
     // and never writes it — but the anchor is not about the shrine's data; it is
@@ -75,10 +72,9 @@ where
         OWNER,
         "root.active_room_metadata",
     );
-    // ⛔ `root.ldtk_runtime_index` used to be registered here. It is not an
-    // actor fact and not an every-game fact — it is an authoring format's. Its
-    // declaration now lives in `ambition_platformer2d_ldtk`; the runtime's
-    // opt-in `LdtkWorldPlugin` installs that domain offer only for LDtk games.
+    // It is not an actor fact and not an every-game fact — it is an authoring format's. Its
+    // declaration now lives in `ambition_platformer2d_ldtk`; the runtime's opt-in `LdtkWorldPlugin`
+    // installs that domain offer only for LDtk games.
     registrar.rollback_component_clone::<crate::rooms::RoomMusicRequest>(
         OWNER,
         "root.room_music_request",
@@ -97,10 +93,9 @@ where
         OWNER,
         "resource.active_match",
     );
-    // ⭐ **BESIDE THE RECEIPT IT NAMES** (D147). The stocks ruleset's verdict is
-    // *the outcome for match X*, stamped with the `MatchInstance` the receipt
-    // above publishes — so a rewind that restores one and not the other would
-    // restore a verdict about a match that is not running. Registered together,
+    // The stocks ruleset's verdict is *the outcome for match X*, stamped with the
+    // `MatchInstance` the receipt above publishes — so a rewind that restores one and not the
+    // other would restore a verdict about a match that is not running. Registered together,
     // they rewind together.
     registrar.rollback_resource_canonical::<crate::features::stocks_match::StocksMatchSettled>(
         OWNER,
@@ -193,7 +188,7 @@ where
     registrar.rollback_map_entities::<crate::features::RidingOn>(OWNER, "map.riding_on");
     // **An ARMED challenge, counting down to a fight.**
     //
-    // ⛔ **it was not rollback state, and it is the `SaveRestored` failure
+    // **it was not rollback state, and it is the `SaveRestored` failure
     // in another domain.** `tick_pending_challenges` REMOVES it in the sim
     // schedule; a rewind past that removal restored everything the removal
     // implied and left the removal itself standing, so the fight the narrative
@@ -269,7 +264,7 @@ where
     registrar.rollback_component_clone::<crate::features::PickupArt>(OWNER, "feature.pickup_art");
     registrar
         .rollback_component_clone::<crate::items::pickup::GroundItem>(OWNER, "item.ground_item");
-    // ⚠ **CUSTODY IS SIMULATION STATE, not a cache.** It decides on every later
+    // **CUSTODY IS SIMULATION STATE, not a cache.** It decides on every later
     // frame whether the item is drawn, stepped by `ground_item_physics`, and
     // grabbable — so a rewind that restored the wrong value leaves the same axe
     // both in a hand and on the floor, or makes a carried axe fall out of it.
@@ -298,7 +293,7 @@ where
     // you. Authored at spawn and never mutated — but "never mutated" is not
     // "never needs restoring" when the entity itself is rollback state.
     //
-    // ⚠ caught by `rollback_exit_oracle`'s PER-FRAME census within an hour of
+    // caught by `rollback_exit_oracle`'s PER-FRAME census within an hour of
     // the component existing, because a dropped coin is transient — spawned and
     // despawned inside the route — and the one-shot sweep in `rollback_coverage`
     // cannot see it. That is B3b's first blind spot, demonstrating itself.
@@ -313,63 +308,32 @@ where
             hasher.finish()
         },
     );
-    // ⚠ PROBED, not merely cloned. A presence-only probe satisfies the coverage
-    // sweep while seeing nothing of the value, so a restore that put the item
-    // back at the wrong PLACE would checksum identical.
-    // ⛔ this used to add *"and where a pickup is is the entire content of a
-    // pickup"*, which was never true — a pickup is also WHAT IT GRANTS and, when
-    // it moves, the PLAN it is following, and the probes below omitted both
-    // (found in review, 2026-08-03). The sentence read as a justification for
-    // stopping at position, which is exactly how a probe ends up narrower than
-    // the value it certifies. (`rollback_exit_oracle` refuses a bare
-    // presence probe by name, which is how these three were caught the hour they
-    // were added.)
-    // WHO SPAWNED IT — a marker, so presence IS the value. A rewind that
-    // recreates a dropped coin must recreate the fact that the attempt produced
-    // it, or a later reset leaves loot standing that should have gone with the
-    // attempt. (Flagged by the coverage sweep the same run the marker landed.)
-    // ⛔ **WHO IS ASLEEP IS ROLLBACK STATE, because falling asleep has an EDGE.**
-    // `Dormant`'s own doc said "derived every tick; never authored, never
-    // persisted", and that was true right up until dormancy started RETRACTING
-    // the brain's last intent on the transition — `ActorControl` is restored by a
-    // rewind, and the marker that decides whether the retraction fires was not.
+    // PROBED, not merely cloned. The sentence read as a justification for stopping at position,
+    // which is exactly how a probe ends up narrower than the value it certifies.
+    // (`rollback_exit_oracle` refuses a bare presence probe by name, which is how these three were
+    // caught the hour they were added.) WHO SPAWNED IT — a marker, so presence IS the value. A
+    // rewind that recreates a dropped coin must recreate the fact that the attempt produced it, or
+    // a later reset leaves loot standing that should have gone with the attempt.
     //
-    // So a rewind across the moment an actor fell asleep restored a body that was
-    // already marked dormant, the transition did not re-fire, the retraction never
-    // happened, and the resimulated timeline drove an actor the original had
-    // stopped. `mary_o_it` reported it as a sync-test checksum mismatch at frames
-    // [2, 3, 4] and a `git bisect` over 160 commits named the dormancy commit —
-    // after seven one-at-a-time reverts had failed to.
+    // So a rewind across the moment an actor fell asleep restored a body that was already
+    // marked dormant, the transition did not re-fire, the retraction never happened, and the
+    // resimulated timeline drove an actor the original had stopped.
     //
-    // ⭐ the general rule this is an instance of: **a derived marker stops being
+    // the general rule this is an instance of: **a derived marker stops being
     // derived the moment something EDGE-TRIGGERS off it.** "Recomputed every tick"
     // is only safe while nothing remembers the previous tick's answer.
     registrar.rollback_component_clone::<crate::features::ecs::dormancy::Dormant>(
         OWNER,
         "actor.dormant",
     );
-    // ⛔ **the POLICY beside the marker, and its absence was invisible until a
-    // third game used it.** `Dormant` was registered here the day dormancy
-    // landed; `DormancyPolicy` was not, because nothing in any `app_it` room
-    // carried one — Mary-O and Sanic declare theirs in their own demo binaries,
-    // which the coverage sweep does not visit. The moment `ambition_content`
-    // declared stances for its bosses and cast, seven sweep populations went red
-    // at once and named it.
+    // The moment `ambition_content` declared stances for its bosses and cast, seven sweep
+    // populations went red at once and named it.
     //
-    // ⚠ it is content's DECLARATION, written once at spawn and never mutated by
-    // simulation — so a waiver could be argued. Registering is cheaper than the
-    // argument: it is a `Copy` enum, and the alternative is a waiver whose
-    // reasoning has to be re-checked every time the tagger's schedule moves.
-    // ⭐ this is the lesson the comment above already records, one level out: a
-    // family is not covered when its principal member is.
-    // ⚠ **PROBED, not presence-only, and a second guard insisted.** Registering
-    // it with `rollback_component_clone` satisfied the coverage sweep and the
-    // exit oracle immediately refused it: *"a presence probe satisfies the
-    // coverage test above while seeing nothing of the value"*. That is exactly
-    // right here — the value IS a radius, and a rewind that restored the
-    // component's presence while losing its distance would put a different world
-    // to sleep. Two guards, one shallower than the other, and the deeper one
-    // caught a registration that looked complete.
+    // it is content's DECLARATION, written once at spawn and never mutated by simulation — so a
+    // waiver could be argued. That is exactly right here — the value IS a radius, and a rewind that
+    // restored the component's presence while losing its distance would put a different world to
+    // sleep. Two guards, one shallower than the other, and the deeper one caught a registration
+    // that looked complete.
     registrar.rollback_component_clone_probed::<crate::features::ecs::dormancy::DormancyPolicy>(
         OWNER,
         "actor.dormancy_policy",
@@ -409,7 +373,7 @@ where
             // Two pickups can sit in the same place looking the same and equip
             // different rows, and only this tells them apart.
             //
-            // ⚠ the ROW IDENTITY, not the row's authored numbers. `EquipmentRow`
+            // the ROW IDENTITY, not the row's authored numbers. `EquipmentRow`
             // carries modifiers, grants and an on-hit rule, and those are
             // CONTENT — read from the same files, identical for a given id in
             // one build, and therefore incapable of differing between two
@@ -424,7 +388,7 @@ where
             hasher.finish()
         },
     );
-    // ⛔ **AN ENGINE COMPONENT IS REGISTERED ONCE, BY THE ENGINE.** `Empowered`
+    // **AN ENGINE COMPONENT IS REGISTERED ONCE, BY THE ENGINE.** `Empowered`
     // lives in `features::empowerment`, and Mary-O and Sanic each registered it
     // from their own plugin — which is fine in a composition holding one demo
     // and a PANIC in the app, which holds both: bevy_ggrs refuses a second

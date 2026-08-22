@@ -34,7 +34,7 @@ import sys
 REPO = pathlib.Path(__file__).resolve().parent.parent
 BASELINE = REPO / "scripts" / "authored_levels_baseline.json"
 
-# ⚠ a world reachable by several paths (a submodule, the symlink into it, and a
+# a world reachable by several paths (a submodule, the symlink into it, and a
 # packaged web copy) is ONE world. Keying on the file's own `iid` would be
 # tempting and wrong — a regenerate can mint a new one — so key on the world
 # file's NAME, which is what every consumer already calls it.
@@ -55,9 +55,7 @@ def worlds() -> dict[str, set[str]]:
         levels = {
             level["identifier"] for level in data.get("levels", []) if "identifier" in level
         }
-        # ⭐ a world seen twice must AGREE. A submodule and its packaged copy
-        # drifting apart is its own defect, and this is the cheapest place it
-        # ever shows up.
+        # a world seen twice must AGREE.
         found.setdefault(path.name, set()).update(levels)
     return found
 

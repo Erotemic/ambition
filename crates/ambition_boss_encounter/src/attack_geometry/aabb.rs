@@ -59,9 +59,6 @@ pub(super) fn world_aabb_from_pixel_rect(
 /// Map one sprite-frame pixel point into world space, on exactly the terms
 /// [`world_aabb_from_pixel_rect`] maps a rectangle: frame centre to
 /// `world_center`, scaled by the rendered size, y growing downward in both.
-///
-/// This exists because an authored `poly` is written in the SAME pixel space as
-/// the `bbox` beside it, and until now only the rectangle had a way across.
 pub(super) fn world_point_from_pixel(
     px: f32,
     py: f32,
@@ -142,9 +139,6 @@ pub fn world_space_body_aabbs_from_metrics(
     )
 }
 
-/// Tight bounding box around a list of AABBs. Used to collapse
-/// multi-part body AABBs into a single `combat_size` for movement
-/// + soft world-bounds clamping. `None` for empty input.
 pub fn bounding_aabb(parts: &[ae::Aabb]) -> Option<ae::Aabb> {
     let mut iter = parts.iter();
     let first = iter.next()?;

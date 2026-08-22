@@ -29,7 +29,7 @@ pub struct AmbitionPreparedWorld {
     /// session's control channel, and `prepare_match` refuses that outright
     /// rather than building two bodies that fight over it.
     ///
-    /// ⚠ a different question from `starting_character`, deliberately — see
+    /// a different question from `starting_character`, deliberately — see
     /// `PreparedPlatformerSource::for_match`, which takes both for the same
     /// reason.
     pub builds_a_home_body: bool,

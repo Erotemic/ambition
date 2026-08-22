@@ -80,13 +80,8 @@ pub fn setup_capture_target(
 
 /// Point every camera that exists at the capture target, every frame.
 ///
-/// ⛔ **this used to happen once, inside `setup_capture_target`, and that was
-/// wrong for anything shell-composed.** A demo boots a shell, resolves a route
-/// and only then builds its cameras, so a `Startup` pass matches ZERO of them —
-/// the texture is created, nobody draws into it, and the readback returns 960x540
-/// pixels of `(0,0,0,0)`. The PNG is transparent and the tool reports success.
-/// That is exactly what Mary-O's first capture produced (2026-08-04), and it
-/// took reading the pixel values to tell it apart from "the scene is white".
+/// The PNG is transparent and the tool reports success. That is exactly what Mary-O's first capture
+/// produced, and it took reading the pixel values to tell it apart from "the scene is white".
 ///
 /// ⭐ **WHEN a camera appears is composition-specific and therefore not knowable
 /// here** — which is the same reason readiness belongs to the caller. So this
@@ -159,11 +154,8 @@ pub fn request_capture(
 
 /// Copy the GPU readback into a PNG on disk.
 ///
-/// ⚠ **the row padding is not optional.** wgpu pads every row to a 256-byte
-/// boundary, so the buffer is wider than the image for any width that is not a
-/// multiple of 64 pixels. Writing it straight out produces a picture that
-/// shears progressively down the frame — which reads as a rendering bug rather
-/// than a readback one.
+/// ⚠ **the row padding is not optional.** wgpu pads every row to a 256-byte boundary, so the
+/// buffer is wider than the image for any width that is not a multiple of 64 pixels.
 fn save_readback_to_disk(
     event: On<ReadbackComplete>,
     mut commands: Commands,

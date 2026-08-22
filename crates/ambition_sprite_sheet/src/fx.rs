@@ -6,7 +6,7 @@
 //! together, in the data. What the engine owes is a single mapping — *which
 //! sheet holds the row called `sonic_boom`* — and [`authored_effect`] is it.
 //!
-//! ⛔⛔ **the engine could not ship the art it draws.** `spawn_explosion` reached
+//! **the engine could not ship the art it draws.** `spawn_explosion` reached
 //! for `GameAssets.characters.props["generic_explosions"]` — a map keyed by the
 //! LDtk `Prop.kind` field — and the only things that ever populated it were
 //! *game* systems (Ambition's intro table, Sanic's one ring sheet). An FX sheet
@@ -16,7 +16,7 @@
 //! declared HERE, loaded by the engine's own `load_game_assets`, and stored in
 //! their own [`GameAssets`](crate::game_assets::GameAssets) slot.
 //!
-//! ⭐ **the index is built from the BAKED records, not from loaded assets.**
+//! **the index is built from the BAKED records, not from loaded assets.**
 //! `build.rs` embeds every `*_spritesheet.ron` into the binary, so "which
 //! effects exist" is answerable with no Bevy world, no asset server and no
 //! decode — which is what lets a roster validator that runs at install time ask
@@ -30,7 +30,7 @@ use crate::character::sheets::{record_for_target, CharacterSheetSpec, SheetTunin
 /// One published FX spritesheet: its manifest target, and the SFX cue family
 /// its rows' sounds were packed under.
 ///
-/// ⚠ the family is NOT always the target minus a suffix (`generic_explosions`
+/// the family is NOT always the target minus a suffix (`generic_explosions`
 /// packs under `vfx.explosion.*`), which is exactly why it is declared beside
 /// the target instead of derived by string surgery.
 pub struct FxSheet {
@@ -43,7 +43,7 @@ pub struct FxSheet {
 /// **The effect art the engine ships.** Four generic sheets plus the per-
 /// character effect sheets, in the order they are searched.
 ///
-/// ⚠ generic first: a name that appears on a generic sheet and on a character
+/// generic first: a name that appears on a generic sheet and on a character
 /// sheet resolves to the generic one. No such collision exists today (all 189
 /// row names are distinct across all twelve sheets, pinned by
 /// `every_authored_effect_row_is_reachable_by_name`), so the order is a
@@ -112,7 +112,7 @@ pub struct AuthoredEffect {
     /// Its index in that sheet's rows — resolved through
     /// [`SheetRecord::first_bound_row`](crate::SheetRecord::first_bound_row),
     /// the seam built so an authored clip can be drawn without an engine enum
-    /// variant. ⛔ never `unwrap_or(0)`: a name with no row answers `None`.
+    /// variant. never `unwrap_or(0)`: a name with no row answers `None`.
     pub slot: usize,
     /// The packed-bank cue name paired with this row, `vfx.<family>.<name>`.
     pub cue: String,
@@ -176,7 +176,7 @@ pub fn is_authored_effect(name: &str) -> bool {
 
 /// The sheet spec for an FX target, addressed by ROW rather than by pose.
 ///
-/// ⛔ **not [`try_load_spec_for_target`](crate::character::sheets::try_load_spec_for_target)**,
+/// **not [`try_load_spec_for_target`](crate::character::sheets::try_load_spec_for_target)**,
 /// which refuses a sheet with no `idle` row — correctly, because the character
 /// path indexes by [`CharacterAnim`](crate::character::CharacterAnim) and a
 /// sheet it cannot ask for an idle pose is one it cannot draw. Eleven of the

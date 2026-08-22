@@ -1,18 +1,7 @@
 //! **How a puppy slug's crawl READS**, measured — the adhesive crawler judged by
 //! the shape of its trajectory rather than only by where it ends up.
 //!
-//! Reported by Jon (2026-07-29): slugs in the sandbox `vertical_shaft` "get stuck
-//! on corners and jerk around wildly". No existing assertion could see that. The
-//! slug is inside the world, on a surface, at plausible coordinates, with a
-//! plausible velocity, every tick — a body can satisfy every bound a test
-//! normally checks and still look broken, because what is wrong is the SHAPE of
-//! the path. [`crate::motion_quality`] turns that shape into numbers, and these
-//! tests bound them.
-//!
 //! # The situations are the level's, not invented
-//!
-//! Dimensions are read off `sandbox.ldtk`'s `vertical_shaft` (1008 x 2400 px on a
-//! 16 px grid) so a regression here is a regression in a place a player stands:
 //!
 //! * 48 px side walls (3 cells) the full height, and a full-height 48 px pillar
 //!   at x 464–512 — the shaft's two sources of CONCAVE corners where the floor
@@ -200,16 +189,11 @@ fn a_slug_crawling_a_flat_ledge_moves_perfectly_evenly() {
     );
 }
 
-/// ⚠ **A CONVEX 90° transit is discontinuous by construction, and this budget
+/// **A CONVEX 90° transit is discontinuous by construction, and this budget
 /// admits it rather than hiding it.**
 ///
-/// The crawler's AABB does not rotate with its attachment, so a 48 x 22 body
-/// lying along a ledge's top cannot also lie along the ledge's END: the two
-/// placements share no position. Any wrap must therefore move the centre, by
-/// roughly `half.x - half.y` on each axis — 25 px measured for a slug, against a
-/// 0.67 px crawl step. Every other situation is held to `CRAWLING`, which is
-/// tight; only the pivot itself is allowed this, and the ceiling is set just
-/// above the measured value so a REGRESSION still fails.
+/// The crawler's AABB does not rotate with its attachment, so a 48 x 22 body lying along a ledge's
+/// top cannot also lie along the ledge's END: the two placements share no position.
 ///
 /// Removing the pop needs a decision this test cannot make: orient the crawler's
 /// collision box by its attachment (the sprite already rotates — `rotation_rad`),
@@ -323,10 +307,8 @@ fn a_slug_crawling_a_one_way_platform_treats_it_as_ground_not_wall() {
 /// FULL delta (both axes, unlike a gravity-resting body) — and that carry must not
 /// read as a lurch on top of the crawl.
 ///
-/// The window keeps the slug aboard on purpose: it starts at the platform's right
-/// end and crawls left, so nothing here is a corner transit and the only jerk
-/// measured is the CARRY's own. It does include the platform's turnaround, which
-/// is where a rider would be dropped or double-counted.
+/// It does include the platform's turnaround, which is where a rider would be dropped or
+/// double-counted.
 #[test]
 fn a_slug_riding_a_moving_platform_is_carried_smoothly() {
     const PLATFORM_TOP: f32 = 1792.0;
@@ -375,12 +357,8 @@ fn a_slug_riding_a_moving_platform_is_carried_smoothly() {
         "riding a moving platform",
         &track,
         MotionBudget {
-            // The PLATFORM's own turnaround is an instantaneous direction flip
-            // (`sweep_dx` reverses in one tick), so its rider inherits a jerk of
-            // twice the platform's per-tick step. That is the authored feature's
-            // discontinuity, not the crawler's — the bound is stated as exactly
-            // that quantity plus one crawl step, so a crawler-side regression
-            // still fails while the platform's own snap does not masquerade as one.
+            // The PLATFORM's own turnaround is an instantaneous direction flip (`sweep_dx` reverses
+            // in one tick), so its rider inherits a jerk of twice the platform's per-tick step.
             max_jerk: 2.0 * PLATFORM_SPEED * DT + 40.0 * DT + 0.01,
             max_jerk_ratio: 4.0,
             // One turnaround in the window, and the ride is a there-and-back — so

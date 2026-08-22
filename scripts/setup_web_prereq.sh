@@ -10,9 +10,9 @@ set -euo pipefail
 # common cause of a "version mismatch" runtime error in the browser.
 #
 # Usage:
-#   ./scripts/setup_web_prereq.sh
-#   ./scripts/setup_web_prereq.sh --doctor
-#   ./scripts/setup_web_prereq.sh --with-server   # also install basic-http-server
+# ./scripts/setup_web_prereq.sh
+# ./scripts/setup_web_prereq.sh --doctor
+# ./scripts/setup_web_prereq.sh --with-server   # also install basic-http-server
 #
 # Environment overrides:
 #   WASM_BINDGEN_VERSION=0.2.x   Pin a specific wasm-bindgen-cli version

@@ -7,7 +7,7 @@
 //! systems without naming anything in `features` — but a vocabulary only helps
 //! if the edges are really there.
 //!
-//! ⚠ **these read the SCHEDULE GRAPH the real plugin built, not a list retyped
+//! **these read the SCHEDULE GRAPH the real plugin built, not a list retyped
 //! from the plugin.** A test that hand-lists a chain pins the function, not the
 //! wiring: if it asserted "these ten systems appear in this order" by observing
 //! an execution, an unordered pair could satisfy it by luck of the topological
@@ -84,7 +84,7 @@ fn composed_app() -> App {
 /// The seven phases are chained head to tail, as SEVEN individually asserted
 /// edges.
 ///
-/// ⛔ the distinction this pins is the one `(A, B).before(C)` gets wrong:
+/// the distinction this pins is the one `(A, B).before(C)` gets wrong:
 /// that form orders A before C and B before C and says NOTHING about A vs B.
 /// Six consecutive edges is the total order; anything weaker would let the
 /// cut bark run before the break rule that decided who speaks.
@@ -160,7 +160,7 @@ fn every_feature_interaction_phase_is_nested_in_the_containing_set() {
 ///
 /// The chain is only a real ordering if the members are where they claim to be:
 /// a system that quietly left its set would keep the edges above green while
-/// running anywhere in the phase. ⭐ this is also the assertion that catches the
+/// running anywhere in the phase. this is also the assertion that catches the
 /// carve going wrong — `conversation` places three of these from its OWN plugin
 /// now, and `features` places the other seven.
 #[test]
@@ -208,7 +208,7 @@ fn every_feature_interaction_system_is_in_its_named_phase() {
     }
 }
 
-/// ⛔ **the plugin schedules NOTHING into the phase outside a named set.**
+/// **the plugin schedules NOTHING into the phase outside a named set.**
 ///
 /// The whole point of the vocabulary is that no interleave is positional any
 /// more. A system added straight to

@@ -1,12 +1,5 @@
 //! **Per-component checksum localization across the save/load boundary.**
 //!
-//! A GGRS sync test reports ONE aggregate checksum per frame. When it disagrees it
-//! can say "frames [149, 150, 151] differ" and nothing more, so every divergence
-//! becomes a bisection: remove an entity class, re-walk a 150-frame route, guess
-//! again. The triage doc for the equipment oracle
-//! (`docs/archive/planning-superseded/2026-08-13/triage/rollback-equipment-oracle-divergence.md`) ends by naming
-//! this module as the tool that would have answered it in minutes.
-//!
 //! ## What it measures, and why that is the right question
 //!
 //! Not "do two runs agree" — that reproduces the aggregate's blindness with more
@@ -15,11 +8,6 @@
 //! it again immediately after bevy_ggrs loads frame `F`. A component whose census
 //! changed across that boundary is a component the snapshot did not put back, and
 //! it is named.
-//!
-//! That catches the failure class the aggregate hides best: state that IS
-//! registered but whose restored value differs, which is where the equipment
-//! divergence was narrowed to after registration gaps and coverage gaps were both
-//! ruled out.
 //!
 //! ## Order independence
 //!
@@ -59,14 +47,10 @@ pub struct ComponentCensus {
 
 /// **How much of a component's state a probe can actually see.**
 ///
-/// The distinction is load-bearing and was invisible until GPT 5.6 named it: the
-/// forcing test that closed F3 compares TYPE NAMES, so a presence-only probe
-/// satisfies "this registration owns a probe" while reporting nothing about the
-/// value. `ProjectileOwner` is the case that matters — snapshotted by clone, remapped
-/// as an entity reference, and probed by counting carriers. A restore that put back
-/// the right NUMBER of owners and pointed one of them at the wrong body was
-/// indistinguishable from a correct one, on exactly the state the equipment
-/// divergence turned on.
+/// `ProjectileOwner` is the case that matters — snapshotted by clone, remapped as an entity
+/// reference, and probed by counting carriers. A restore that put back the right NUMBER of owners
+/// and pointed one of them at the wrong body was indistinguishable from a correct one, on exactly
+/// the state the equipment divergence turned on.
 ///
 /// So strength is recorded, [`RollbackChecksumProbes::presence_only_type_names`]
 /// enumerates the weak ones, and the guard compares that enumeration against an
@@ -105,13 +89,8 @@ pub struct ChecksumProbe {
     census: std::sync::Arc<dyn Fn(&mut World) -> ComponentCensus + Send + Sync>,
     /// True for state declared DERIVED rather than snapshotted.
     ///
-    /// Derived state is legitimately absent or stale immediately after a load —
-    /// that is what "derived" means. Its promise is that the named system rebuilds
-    /// it before anything reads it, and the boundary that tests THAT promise is
-    /// resimulation, not restore. Comparing derived state across a restore reports
-    /// the contract working as designed; the first version of this module did
-    /// exactly that and accused `ProjectileView`, a presentation read model, of
-    /// being a determinism defect.
+    /// Derived state is legitimately absent or stale immediately after a load — that is what
+    /// "derived" means.
     derived: bool,
     strength: ProbeStrength,
 }
@@ -129,17 +108,12 @@ impl ChecksumProbe {
 /// point: the two holes in the previous instrument were both "the sweep did not
 /// know to look here".
 ///
-/// ⚠ That sentence was written before it was true. `record_probe` was called from
-/// five of the ten state-bearing registration arms, so the plain-clone and
-/// custom-checksum arms installed GGRS machinery and no probe — `RoomSet`,
-/// `LdtkRuntimeIndex`, `EncounterParticipants`, `PendingPlayerHitEvents` and
-/// `ProjectileOwner` among them, the last being the very state the equipment
-/// divergence turned on. The claim is now enforced rather than asserted, by
+/// The claim is now enforced rather than asserted, by
 /// `rollback_exit_oracle::every_state_bearing_rollback_registration_owns_a_localization_probe`,
 /// which compares `type_names` against every descriptor whose
 /// `RollbackEntryKind::carries_state`. A comment is not a coupling.
 ///
-/// ⚠ And "owns a probe" is still weaker than it reads, which is why
+/// And "owns a probe" is still weaker than it reads, which is why
 /// [`ProbeStrength`] exists. That test compares type NAMES, so a probe that counts
 /// carriers satisfies it while seeing nothing of the value —
 /// `every_presence_only_probe_is_named_with_its_reason` is the second half, and it
@@ -424,10 +398,7 @@ where
     let count = pairs.len();
     let mut sum: u64 = 0;
     for (carrier, target) in pairs {
-        // HASH THE PAIR. Summing target identities alone cannot see a permutation:
-        // swap two bolts' owners and the multiset of targets is unchanged, so the
-        // census matched while every association was wrong — the precise failure
-        // this probe exists to catch (GPT 5.6, 2026-07-26).
+        // HASH THE PAIR.
         //
         // And it has to be a hash of the two together, not an arithmetic blend of
         // two hashes: any `a*K + b` mixture decomposes back into
@@ -450,7 +421,7 @@ where
 /// fallbacks are deliberately DIFFERENT constants because they are different facts:
 /// a live body that carries no authored identity, and a reference into nothing.
 ///
-/// ⚠ A carrier with no `SimId` degrades the pairing above back toward target-only:
+/// A carrier with no `SimId` degrades the pairing above back toward target-only:
 /// every such carrier contributes the same constant, so a permutation among
 /// identity-less carriers is still invisible.
 ///
@@ -460,12 +431,6 @@ where
 /// degrades to redirect-only for a bolt whose firer has no authored identity. Stated
 /// rather than assumed, because the whole point of `ProbeStrength` is that an
 /// instrument's reach should be written down and not inferred from its name.
-///
-/// Strike volumes USED to be the worst case here — `Hitbox`/`StrikeVolume`/
-/// `HitboxHits` all ride on them, and they spawned anonymous, so every one folded
-/// to the same constant and the pair projection collapsed for exactly the carriers
-/// it was added for. They now derive `SimId::strike_volume(owner, move, window,
-/// volume)` at spawn; a bare test body with no owner id still mints nothing.
 fn stable_identity(world: &World, entity: Entity) -> u64 {
     match world.get::<ambition_platformer2d_shared_tangle::sim_id::SimId>(entity) {
         Some(id) => super::checksum_bytes(id.as_str().as_bytes()),
@@ -514,20 +479,10 @@ where
 
 /// **Census a component holding a KEYED MAP of entity references.**
 ///
-/// [`census_entity_set`] is the wrong instrument for a map, and `LimbRig` was
-/// measured with it: the rig projected `limbs.values()` into a set, the set fold
-/// is a commutative SUM (correct for `HitboxHits`, whose victims genuinely have
-/// no order), and so
-///
 /// ```text
 /// hand_left → limb A          hand_left → limb B
 /// hand_right → limb B         hand_right → limb A
 /// ```
-///
-/// were the same multiset of targets and therefore the same digest. The slot
-/// association — the entire content of a map — was discarded before the probe
-/// ran, which is exactly the left-hand-on-the-right-shoulder restore the
-/// registration claimed to catch (GPT 5.6, 2026-07-27).
 ///
 /// So the KEY is folded into each entry's hash, not merely its target: an entry
 /// digests `hash(key ++ target identity)`, and a swap changes both entries'
@@ -603,10 +558,6 @@ where
 
 /// Census PRESENCE only, for state registered with NO checksum projection at all.
 ///
-/// Weaker on purpose, and worth having: population change is exactly the failure
-/// `PlayerVisual` had — the tag was simply absent after bevy_ggrs recreated the
-/// entity — and a count catches that without knowing anything about the value.
-///
 /// This is the honest answer for `rollback_component_clone`, whose whole contract is
 /// "snapshotted here, checksummed by some other authoritative projection". A probe
 /// that cannot see the value can still see the carrier disappear, and `ProjectileOwner`
@@ -624,11 +575,8 @@ where
 
 /// Census a rollback-registered RESOURCE through the canonical state projection.
 ///
-/// Resources were the blind spot the first version of this module shipped with:
-/// the component census cleanly named `MovePlayback` as recomputed-differently, and
-/// the input it reads that a rollback might not restore — `WorldTime` — is a
-/// resource, so the tool could name the symptom and not the cause. `count` is 0 or
-/// 1, which also distinguishes "absent after a load" from "present but different".
+/// `count` is 0 or 1, which also distinguishes "absent after a load" from "present but
+/// different".
 pub fn census_resource_state<T>(world: &mut World) -> ComponentCensus
 where
     T: Resource + super::SnapshotState,
@@ -846,9 +794,8 @@ pub fn record_saved_census(world: &mut World) {
             audit.resimulations += 1;
         }
         audit.divergences.extend(found);
-        // Keep the FIRST pass as the baseline: comparing every replay against the
-        // original is what localizes the defect. Overwriting would compare replay
-        // N against replay N-1 and go quiet once the error became consistent.
+        // Overwriting would compare replay N against replay N-1 and go quiet once the error became
+        // consistent.
         audit.saved.entry(frame).or_insert(census);
     }
 }
@@ -949,12 +896,6 @@ mod tests {
     }
 
     /// **H4: a PERMUTATION is a wrong restore too.**
-    ///
-    /// Two bolts, two owners, swapped. The carrier count is unchanged and so is the
-    /// multiset of targets, so a census that summed target identities alone reported
-    /// these two worlds as identical — which is exactly the "right number of owners,
-    /// wrong bolt-to-owner association" case the probe was added for (GPT 5.6,
-    /// 2026-07-26).
     #[test]
     fn swapping_two_carriers_owners_changes_the_census() {
         let mut world = World::new();

@@ -8,7 +8,7 @@
 //! render target to disk. It intentionally knows nothing about portals; portals
 //! can later reuse the same "snapshot -> render target" seam.
 //!
-//! ⭐ **ONE APP, built by [`ambition_app::app::build_visible_app_with`]** — the
+//! **ONE APP, built by [`ambition_app::app::build_visible_app_with`]** — the
 //! same function the desktop binary and every rendered test call. A room and a
 //! route differ by the INITIAL ROUTE and by which capture systems get installed,
 //! and by nothing else. Read `build_capture_app` before adding anything to this
@@ -20,7 +20,7 @@
 //!   # center on the player, spawned AS the pirate admiral:
 //!   cargo run -p ambition_app_tools --bin capture_scene -- central_hub_main player /tmp/p.png --character npc_pirate_admiral --warmup 40
 //!
-//! ⭐ **A TWO-FIGHTER CPU-vs-CPU SMASH MATCH, from the lobby.** The state this
+//! **A TWO-FIGHTER CPU-vs-CPU SMASH MATCH, from the lobby.** The state this
 //! tool exists to photograph is usually behind a lobby, and a lobby steered by
 //! a CURSOR cannot be worked by key edges alone — see [`PressStep::Touch`]. The
 //! taps below are the select screen's own rectangles at 1280x720, in order:
@@ -31,26 +31,6 @@
 //!       --route smash_select /tmp/match.png 1280x720 --warmup 420 --include-ui \
 //!       --press touch:167x523,touch:167x523,touch:482x523,touch:482x523,\
 //! touch:559x446,touch:479x121,touch:613x446,touch:801x121,touch:1191x446
-//!
-//! ⚠ **the portrait taps are the two that can rot** — `479x121` and `801x121`
-//! are grid cells, and the grid re-flows when the host's roster changes size
-//! OR ORDER. ⛔ they rotted on 2026-08-20, from `532x121`/`855x121`, when ONE
-//! fighter was appended to the end of the roster: 15 cells became 16, the grid
-//! re-flowed to six columns, and both taps landed on nothing. **Appending does
-//! not preserve cell 1.** The role buttons, tokens and START do not depend on the roster at
-//! all.
-//!
-//! ⚠ **THE TOKEN TAPS MOVED TOO, on 2026-08-21** — `586`/`622` became
-//! `559`/`613`. Not because the roster changed: the home tokens are spaced by
-//! the TOUCH pitch now rather than by their drawn width, so a thumb-sized
-//! target does not overlap its neighbour. ⇒ these numbers depend on what a
-//! token IS as well as on how many fighters there are, and
-//! `the_capture_tools_documented_taps_seat_two_cpus_on_two_fighters` is what
-//! catches either drift.
-//!
-//! ⭐ **RE-DERIVE THEM BY PHOTOGRAPHING THE SCREEN**, which is cheaper than
-//! reading the roster: `--route smash_select --warmup 120 --include-ui` with NO
-//! presses draws the whole grid with its names. Measured 2026-08-18, 1280x720:
 //!
 //! ```text
 //!            x=425          x=532        x=640        x=747       x=855
@@ -69,19 +49,15 @@
 //! drives exactly these numbers through the real host and fails when one stops
 //! landing on the widget it names.
 //!
-//! ⛔⛔ **THEY HAD ROTTED, AND FOR MONTHS, AND THE GUARD STAYED GREEN**
-//! (fixed 2026-08-16, queue D128). They read `747x121` and `425x121` — grid
-//! cells 3 and 0, **Sanic and Player Robot v3** — and the guard only asserted
-//! the two picks DIFFER, which stays true however far the grid slides under
-//! them. So the one command this repo points at to ask *"do the two AUTHORED
-//! kits read differently on screen"* seated Sanic, who has no authored
-//! repertoire at all, and two capture passes answered that question against the
-//! wrong match. ⚠ what moved was the ROSTER ORDER, not the layout — the warning
-//! above was right and the check under it was not measuring the thing the
-//! warning was about. The guard now asserts both seats wear a fighter with an
+//! **THEY HAD ROTTED, AND FOR MONTHS, AND THE GUARD STAYED GREEN** . They read `747x121` and
+//! `425x121` — grid cells 3 and 0, **Sanic and Player Robot v3** — and the guard only asserted
+//! the two picks DIFFER, which stays true however far the grid slides under them. So the one
+//! command this repo points at to ask *"do the two AUTHORED kits read differently on screen"*
+//! seated Sanic, who has no authored repertoire at all, and two capture passes answered that
+//! question against the wrong match. The guard now asserts both seats wear a fighter with an
 //! `authored_moveset`, which is the property the command exists to photograph.
 //!
-//! ⭐ the current cells: `479x121` is **George Booul** (cell 1, the demo's own
+//! the current cells: `479x121` is **George Booul** (cell 1, the demo's own
 //! fighter) and `801x121` is the **Pirate Admiral** (cell 4, Ambition's). With
 //! those two seated a watcher sees two mechanically different bodies inside four
 //! seconds — different silhouettes, different effects, 36% traded.
@@ -116,14 +92,10 @@ struct SceneCaptureConfig {
     include_ui: bool,
     /// **Frame the whole ROOM instead of a point** (`--fit-room`).
     ///
-    /// ⭐ the focus positional answers *"what is happening here"*; this answers
-    /// *"what does this room LOOK like"*, which is a different question and the
-    /// one a scale problem is visible in. Jon's *"the humanoid characters are all
-    /// dramatically out of scale with each other"* is obvious in one framed hall
-    /// and invisible in any single focused shot — a measurement can rank them,
-    /// but only a picture shows the cast standing together.
+    /// the focus positional answers *"what is happening here"*; this answers *"what does this room
+    /// LOOK like"*, which is a different question and the one a scale problem is visible in.
     ///
-    /// ⚠ it BYPASSES the camera snapshot rather than feeding it a wider focus:
+    /// it BYPASSES the camera snapshot rather than feeding it a wider focus:
     /// that resolver clamps to the room and to camera zones, which is exactly
     /// right for gameplay and exactly wrong for a portrait of the room.
     fit_room: bool,
@@ -134,14 +106,6 @@ struct SceneCaptureConfig {
     /// the live player entity's position after warmup (no coordinate hunting).
     follow_player: bool,
     /// Keep the DEVELOPER overlays in the shot (`--dev-overlays`).
-    ///
-    /// Off by default, and that default is the point: this tool exists to show
-    /// what is actually on screen, and a `desktop_dev` build puts a debug banner,
-    /// an FPS counter and per-entity nameplates on top of the product. Reading
-    /// those as product is a mistake I made for a whole session — the Ambition
-    /// route's `military_tower_door` / `hall_of_bosses_door` labels look exactly
-    /// like raw identifiers leaking into player UI, and are debug nameplates
-    /// (2026-07-29).
     ///
     /// A verification screenshot should show the PRODUCT. The debugging use that
     /// genuinely wants nameplates asks for them.
@@ -162,32 +126,22 @@ struct SceneCaptureConfig {
     /// Input to deliver after reaching the route and before the shutter —
     /// key taps and glass taps (`--press touch:167x523,touch:167x523`).
     ///
-    /// ⛔ The state anybody actually wants to photograph is often behind a
-    /// lobby. `--route smash_gameplay` photographs a stage with ONE fighter,
-    /// correctly — navigating straight to a route decides no roster — so the
-    /// two-fighter state Jon needs to check couch multiplayer was reachable by
-    /// neither the headless suite (blind to rendering by construction) nor this
-    /// tool. That is an instrument gap, not a gameplay bug.
-    ///
     /// Deliberately a generic input vocabulary rather than a `--smash-cpu`
     /// flag, so any route with a lobby gets it for free.
     ///
-    /// ⛔⛔ **KEY TAPS ALONE CANNOT WORK A POINTER SCREEN, and this comment
-    /// used to claim they were what the tests do. They are not** (measured
-    /// 2026-08-16, queue D130). `smash_in_the_host.rs` seats a fighter with
-    /// `click(app, rect)`, which is `SelectCursor::move_to(rect.center())` and
-    /// THEN `tap(Enter)` — the POSITION is the load-bearing half. A bare
-    /// `Enter` from here commits wherever the cursor happens to sit, so
-    /// `--press Down,Enter,Enter` left all four slots reading `NOT PLAYING`
-    /// and `--route smash_gameplay` photographed an empty stage.
+    /// They are not**. `smash_in_the_host.rs` seats a fighter with `click(app, rect)`, which is
+    /// `SelectCursor::move_to(rect.center())` and THEN `tap(Enter)` — the POSITION is the
+    /// load-bearing half. A bare `Enter` from here commits wherever the cursor happens to sit, so
+    /// `--press Down,Enter,Enter` left all four slots reading `NOT PLAYING` and `--route
+    /// smash_gameplay` photographed an empty stage.
     ///
-    /// ⭐ **`touch:X x Y` is the step that carries a position**, and it carries
+    /// **`touch:X x Y` is the step that carries a position**, and it carries
     /// it down the road a phone uses: two real `TouchInput` messages folded by
     /// Bevy's own `touch_screen_input_system`. `select_screen::touch_tests`
     /// already pins that road, so the tool and the suite drive the same seam
     /// rather than two that can disagree. See [`PressStep::Touch`].
     ///
-    /// ⚠ arrow keys are still the right tool for a LIST — the launcher rows,
+    /// arrow keys are still the right tool for a LIST — the launcher rows,
     /// the menus — and for gameplay. They just cannot name a rectangle.
     press: Vec<PressStep>,
     /// Photograph a SHELL ROUTE rather than a room (`--route <id>`).
@@ -195,7 +149,7 @@ struct SceneCaptureConfig {
     /// The surfaces a stranger sees first — the launcher, the startup cards,
     /// the versus stage and its HUD — are routes, and this tool could only ever
     /// reach rooms. Asking for one by room id silently captured the sandbox
-    /// instead, which is the worst thing a verification tool can do (queue Z1).
+    /// instead, which is the worst thing a verification tool can do.
     route: Option<String>,
 }
 
@@ -243,17 +197,10 @@ struct SceneCaptureRuntime {
     cameras_adopted: usize,
     /// **Has the world this capture photographs finished being BUILT?**
     ///
-    /// Warmup used to count from frame zero, and the world is constructed
-    /// asynchronously — assets stream, the room stages, the player spawns. So
-    /// `--warmup 60` meant "sixty frames after BOOT", of which an unpredictable
-    /// number happened before there was anything to simulate. The body ended up
-    /// on a slightly different tick of its own idle each run, and because
-    /// nameplate opacity is ranked by DISTANCE from the focus, a few pixels of
-    /// player drift re-ordered the labels and rewrote their text.
-    ///
-    /// That is the whole of the ~130px noise floor two identical runs used to
-    /// show (AC6). Counting from readiness makes N frames mean N ticks of a
-    /// world that exists.
+    /// So `--warmup 60` meant "sixty frames after BOOT", of which an unpredictable number happened
+    /// before there was anything to simulate. The body ended up on a slightly different tick of its
+    /// own idle each run, and because nameplate opacity is ranked by DISTANCE from the focus, a few
+    /// pixels of player drift re-ordered the labels and rewrote their text.
     world_ready: bool,
 }
 
@@ -298,36 +245,22 @@ fn main() {
 
 /// **THE ONE APP THIS TOOL BUILDS.**
 ///
-/// ⛔ **there used to be two, and the second one cost five bugs.** A room
-/// capture spelled the whole composition out by hand — `DefaultPlugins`, the
-/// window, the state, the asset config, the plugin trio, the shell, its visuals,
-/// the asset source — because the three composition inputs it needs
-/// (`StartRoomOverride`, `StartRoomMustResolve`, `StartingCharacterOverride`)
-/// are consumed by `init_sandbox_resources` at PLUGIN-BUILD time and
-/// `build_visible_app` built the plugins for you. There was no moment to insert
-/// them in, so the tool built its own app instead, and that copy silently lost
-/// the `--route` positional, the headless display surface, `--dev-overlays`,
-/// `--combat-overlay`, and — for two days — **the entire room**, because nothing
-/// added `install_ambition_shell_visuals` to it.
+/// There was no moment to insert them in, so the tool built its own app instead, and that copy
+/// silently lost the `--route` positional, the headless display surface, `--dev-overlays`,
+/// `--combat-overlay`, and — for two days — **the entire room**, because nothing added
+/// `install_ambition_shell_visuals` to it.
 ///
-/// ⭐ `build_visible_app_with` is the moment that did not exist. With it, a ROOM
-/// and a ROUTE differ by one boolean (which route the shell boots into) and by
-/// which capture systems get installed. Everything a player's composition gains
-/// from here on, both capture modes gain with it — including the two side
-/// effects a capture must not have, which this function no longer states: the
-/// host redirects audio away from the speakers and the save away from
-/// `~/.local/share/ambition/` for every windowless build it makes, and it pins
-/// `Time` to a fixed 1/60 step so N warmup frames mean N ticks rather than N
-/// units of whatever the CPU managed (two identical runs used to differ by ~132
-/// pixels of idle-bob, measured 2026-07-29).
+/// `build_visible_app_with` is the moment that did not exist. With it, a ROOM and a ROUTE
+/// differ by one boolean (which route the shell boots into) and by which capture systems get
+/// installed.
 fn build_capture_app(config: &SceneCaptureConfig) -> App {
     // The offscreen-GPU mode, always. The older no-window one sets
     // `backends: None` and therefore has no render app at all — a readback under
     // it can never complete, which is what three eliminated hypotheses were
-    // circling (queue Z1).
+    // circling.
     let mut app = ambition_app::app::build_visible_app_with(
         ambition_app::app::VisibleRenderMode::OffscreenGpu,
-        // ⚠ this boolean chooses the INITIAL ROUTE, not whether a shell exists —
+        // this boolean chooses the INITIAL ROUTE, not whether a shell exists —
         // since K2b both arms are shell-hosted. `true` boots the launcher, which
         // is where a `--route` capture navigates from; `false` boots straight to
         // the gameplay route, which is what `--direct` and every `--start-room`
@@ -342,10 +275,7 @@ fn build_capture_app(config: &SceneCaptureConfig) -> App {
                 // writing a valid PNG and exiting 0.
                 app.insert_resource(ambition_app::app::StartRoomMustResolve);
             }
-            // Optional "play as this character" override. Set for BOTH modes:
-            // it is the same composition input either way, and route mode
-            // accepting `--character` and silently ignoring it was the fork's
-            // sixth free gift waiting to be found.
+            // Optional "play as this character" override.
             if let Some(character_id) = config.character.clone() {
                 eprintln!("capture_scene: player wears character '{character_id}'");
                 app.insert_resource(ambition_app::app::StartingCharacterOverride(
@@ -355,14 +285,6 @@ fn build_capture_app(config: &SceneCaptureConfig) -> App {
         },
     );
     // **THE SURFACE THIS RUN DRAWS TO.** (queue Z′8)
-    //
-    // A windowless host has no `Window` for the layout resolver to find, so
-    // `ResolvedGameplayPresentation` keeps its DEFAULT — whose display rect is
-    // `WINDOW_W x WINDOW_H`, 1600x900. Every HUD slot then lays out for a
-    // 1600x900 screen and is rendered into whatever the capture size is: a card
-    // declared `.centered()` centres at x=800 and lands right of centre in a
-    // 960-wide image, on top of a fighter. It reads as a game bug that a real
-    // window does not have (measured 2026-07-29).
     //
     // A capture that cannot show a layout is worse than no capture, because it
     // shows a DIFFERENT layout convincingly.
@@ -380,13 +302,6 @@ fn build_capture_app(config: &SceneCaptureConfig) -> App {
     // for a reason that is true of tests and false of this binary: *"tests build
     // several Apps per process; the tracing subscriber is process-global."* A
     // capture builds exactly one App and then exits.
-    //
-    // ⚠ measured, not assumed: composing through the shared builder silenced
-    // `room 'central_hub_complex' has 38 neighbours…`, `encounter registry: 1
-    // encounter entit(ies) spawned from LDtk` and the presentation layout line —
-    // every engine `INFO`/`WARN` a room capture used to print. A verification
-    // tool that stops reporting what the engine complained about is a worse tool,
-    // and ROUTE mode had been running without them since it was written.
     //
     // Added after the group rather than by un-disabling it, so it applies to both
     // capture modes at once and cannot be half-wired the way five flags were.
@@ -416,13 +331,8 @@ fn install_room_capture(app: &mut App) {
 
 /// One step of a `--press` sequence.
 ///
-/// ⚠ `Wait` exists because presses fire two frames apart — one to press, one to
-/// release, because the surfaces read EDGES — and a ROUTE CHANGE takes far
-/// longer than that. Driving the launcher into Smash and then into the select
-/// screen with taps alone lands the select-screen keys on the launcher, and the
-/// photograph that comes back looks like a product bug rather than a mistimed
-/// script. Measured: `Down,Down,Down,Down,Enter,Down,Enter,Enter` through the
-/// launcher produced the same image as pressing nothing.
+/// `Wait` exists because presses fire two frames apart — one to press, one to release, because
+/// the surfaces read EDGES — and a ROUTE CHANGE takes far longer than that.
 #[derive(Clone, Copy, Debug)]
 enum PressStep {
     Tap(KeyCode),
@@ -442,14 +352,14 @@ enum PressStep {
     /// with a top-left origin — the space `HitRect` and `Node { left, top }`
     /// are already in, and the space a capture's own pixels are in at scale 1.
     ///
-    /// ⭐ **this is the step that can work a POINTER screen, and a key tap
+    /// **this is the step that can work a POINTER screen, and a key tap
     /// cannot.** A key is an EDGE with no position, so `Enter` commits wherever
     /// the cursor already sits; the select screen's headless drivers commit at
     /// a rectangle's centre, and the position is the load-bearing half. A
     /// finger carries both, which is why one step type reaches every widget
     /// while no number of arrow taps reliably does.
     ///
-    /// ⚠ **a real `TouchInput` message, not a poke at `Touches`** — the same
+    /// **a real `TouchInput` message, not a poke at `Touches`** — the same
     /// pair of messages winit emits, folded by Bevy's own
     /// `touch_screen_input_system`. So this drives the phone road the product
     /// ships, and any route that answers a finger gets it for free.
@@ -494,7 +404,7 @@ fn parse_press_sequence(text: &str) -> Result<Vec<PressStep>, String> {
 
 /// `167x523` — one point in the `--press` vocabulary.
 ///
-/// ⚠ `x` and not a comma, because the comma is already the STEP separator:
+/// `x` and not a comma, because the comma is already the STEP separator:
 /// `touch:167,523` would arrive here as two steps and the second one would be
 /// parsed as a key name. `WIDTHxHEIGHT` is the spelling this tool's own size
 /// argument already uses, so there is one separator convention rather than two.
@@ -526,17 +436,12 @@ fn parse_key(name: &str) -> Result<KeyCode, String> {
         "z" => Ok(KeyCode::KeyZ),
         "x" => Ok(KeyCode::KeyX),
         "c" => Ok(KeyCode::KeyC),
-        // ⛔ **the rest of the default preset's action row, and its absence had a
-        // cost.** `z`/`x`/`c` are jump/attack/dash; the preset also binds
-        // secondary=A, quick_action=E, special=G and **interact=F**. Interact is
-        // the verb that opens a DIALOGUE — and dialogue on a small screen is the
-        // surface Jon has been reporting bugs on since 2026-08-03, blind,
-        // because he can only test on an Android device.
+        // **the rest of the default preset's action row, and its absence had a cost.** `z`/`x`/`c`
+        // are jump/attack/dash; the preset also binds secondary=A, quick_action=E, special=G and
+        // **interact=F**.
         //
-        // So the repo's only way to LOOK at a visual change could not reach the
-        // one screen most in need of looking at. Found 2026-08-04 while trying to
-        // photograph the dialogue reading-rect carve (queue D18) and discovering
-        // there was no key for it.
+        // So the repo's only way to LOOK at a visual change could not reach the one screen most in
+        // need of looking at.
         "a" => Ok(KeyCode::KeyA),
         "e" => Ok(KeyCode::KeyE),
         "f" => Ok(KeyCode::KeyF),
@@ -565,24 +470,10 @@ impl SceneCaptureConfig {
         let mut press: Vec<PressStep> = Vec::new();
         let mut i = 0usize;
         while i < args.len() {
-            // **THE ARM SAYS HOW MANY ARGUMENTS IT ATE; THE LOOP DOES THE
-            // ADVANCING.** (2026-08-03)
-            //
-            // Every arm used to end with its own `i += 1` or `i += 2`, and
-            // `--combat-overlay` — the newest one — did not. So the loop saw the
-            // same flag forever and the binary HUNG before the app was even
-            // constructed: the documented `capture_scene ... --combat-overlay`
-            // command could never have been run once. Reported by a review; the
-            // missing line was there to read.
-            //
-            // Restoring the line would have fixed this instance and left the
-            // class, and the class is the "authority that requires a follow-up
-            // call" shape this repository keeps rediscovering: a step every
-            // future arm has to remember. A cursor the arms cannot write cannot
-            // be forgotten — an arm that ate one argument and says nothing is a
-            // compile error, not a hang.
+            // A cursor the arms cannot write cannot be forgotten — an arm that ate one argument
+            // and says nothing is a compile error, not a hang.
             let consumed = match args[i].as_str() {
-                // ⚠ it does NOT imply `--dev-overlays`. It did, and that made
+                // it does NOT imply `--dev-overlays`. It did, and that made
                 // `silence_dev_overlays` return early, so a capture asking for
                 // combat VOLUMES also kept the FPS counter, the debug HUD and
                 // the nameplates that read like raw identifiers leaking into
@@ -607,14 +498,9 @@ impl SceneCaptureConfig {
                     fit_room = true;
                     1
                 }
-                // ⛔ **`--show-window` was DELETED with the second app builder
-                // (2026-08-08), and it had never worked.** It made a window and
-                // then `setup_capture_target` pointed every camera at the
-                // offscreen image, so the window it opened rendered nothing —
-                // a blank rectangle for the whole run. Keeping it would have
-                // forced this tool to keep TWO render modes, which is the fork
-                // that ate five features; a flag that shows an empty window is
-                // not worth the composition that has to branch for it.
+                // Keeping it would have forced this tool to keep TWO render modes, which is the
+                // fork that ate five features; a flag that shows an empty window is not worth
+                // the composition that has to branch for it.
                 "--character" => {
                     let Some(value) = args.get(i + 1) else {
                         return Err("--character requires a catalog id".to_string());
@@ -681,14 +567,6 @@ impl SceneCaptureConfig {
         // flag ends up documented as "pass anything here".
         if let Some(route) = route.clone() {
             // **A ROUTE'S POSITIONALS ARE CLASSIFIED, NOT COUNTED.**
-            //
-            // Route mode takes no room id and no focus point, so its first
-            // positional is the OUTPUT — and a caller who reasonably typed the
-            // room-mode form (`<ROOM> <FOCUS> <OUT.png> <WxH> --route ...`) had
-            // the room id silently adopted as the output path. The tool then
-            // rendered the whole scene and failed at the very end with "the image
-            // format could not be determined", naming nothing the caller had
-            // typed. Found by running it (2026-07-29).
             //
             // Classifying instead of counting means an unexpected argument is
             // NAMED, and named before any work happens rather than after.
@@ -773,23 +651,13 @@ impl SceneCaptureConfig {
 
 /// Photograph a shell ROUTE through the player's own composition.
 ///
-/// Fails LOUDLY on an unknown route, naming the ones that exist: a capture that
-/// silently photographs somewhere else is how a blind agent reports the wrong
-/// thing with confidence, and that is the defect this whole mode exists to
-/// remove.
-/// **RESTART THE CAPTURE CLOCK when the press sequence is spent** — whichever
-/// step type happened to be last.
+/// A confirmation starts a ROUTE CHANGE, and the route it starts has its own load, its own
+/// cameras and its own readiness. So the presses end one capture and begin another — zeroing
+/// the frame count and un-setting readiness re-runs the machinery that already knows how to
+/// wait for a route ("warmup is a duration, readiness is a FACT"), and the deadline is
+/// recomputed with it rather than eaten by it.
 ///
-/// A confirmation starts a ROUTE CHANGE, and the route it starts has its own
-/// load, its own cameras and its own readiness. A fixed post-press count cannot
-/// express that: raising it to 600 made the tool time out on texture readback
-/// after 691 frames, because the readback deadline is computed from the same
-/// budget the settle spends. So the presses end one capture and begin another —
-/// zeroing the frame count and un-setting readiness re-runs the machinery that
-/// already knows how to wait for a route ("warmup is a duration, readiness is a
-/// FACT"), and the deadline is recomputed with it rather than eaten by it.
-///
-/// ⛔ **this lived inside the deferred-release branch of a TAP**, so it ran only
+/// **this lived inside the deferred-release branch of a TAP**, so it ran only
 /// when the last step was a tap. `Hold`, `Release` and `Wait` advance the cursor
 /// through a different path and none of them completed the sequence — and BOTH
 /// shaped-volume examples this tool ships end in `release:`, so neither ever got
@@ -825,14 +693,7 @@ fn complete_press_sequence_if_spent(
 
 /// Silence the developer overlays unless the caller asked for them.
 ///
-/// A `desktop_dev` build draws a debug banner, an FPS counter and per-entity
-/// nameplates on top of the product, and this tool exists to show what is on
-/// screen. Reading that scaffolding as product is a mistake worth engineering
-/// against: on the Ambition route the nameplates read `military_tower_door` and
-/// `hall_of_bosses_door`, which look exactly like raw identifiers leaking into
-/// player UI (2026-07-29).
-///
-/// ⚠ a SYSTEM, not a one-shot insert at build time. Settings are loaded and
+/// a SYSTEM, not a one-shot insert at build time. Settings are loaded and
 /// re-applied during startup, so a value written before the first update is
 /// overwritten by the load — which is exactly what the first version of this did,
 /// silently, leaving every overlay on screen. Forcing it each frame is
@@ -902,12 +763,8 @@ fn force_combat_overlay(
 /// The systems a ROUTE capture adds on top of [`build_capture_app`], plus the
 /// two things only a route needs to be told.
 fn install_route_capture(app: &mut App, route_id: String) {
-    // **THE STARTUP RUN-IN IS COMPOSED BY THE GAME BINARY, NOT BY
-    // `build_visible_app`** — so `--route ambition_startup` reported "unknown
-    // route", and the FIRST surface a player sees was the one frontend surface
-    // this tool could not photograph. Found while trying to look at the
-    // programmatic vanity card, which is exactly the kind of change that must
-    // be looked at rather than compiled.
+    // Found while trying to look at the programmatic vanity card, which is exactly the kind of
+    // change that must be looked at rather than compiled.
     //
     // Composed only when it is the route being asked for: `compose_..._sequence`
     // also makes startup the INITIAL route, which is correct here and would put
@@ -950,14 +807,6 @@ fn install_route_capture(app: &mut App, route_id: String) {
 
 /// Drive the shell to the requested route — **unless it is already there.**
 ///
-/// ⚠ this sent the `GoTo` unconditionally on the first update, and for the HOME
-/// route that photographed a surface a player never sees: the shell's own
-/// `initialize_shell` activates home, then this navigated to it AGAIN, so the
-/// launcher tree was torn down and rebuilt a second time
-/// (`ShellActivationId` 1 → 2) before the shutter. A capture tool that stages a
-/// state the game does not reach is the same defect class as one that
-/// photographs the wrong room silently — this row's whole subject.
-///
 /// Found while instrumenting rebuild counts for an unrelated question.
 ///
 /// It WAITS for the router to settle rather than firing on frame one: before
@@ -996,16 +845,8 @@ fn go_to_route(
 
 /// Create the image a route capture draws into, and nothing else.
 ///
-/// ⚠ this used to be documented as *"Retarget EVERY camera, not the gameplay
-/// markers"* and carried a `Query<(Entity, &mut Camera)>` it never touched. The
-/// retargeting is [`adopt_route_cameras`]' job — it has to run EVERY frame,
-/// because a shell route has no cameras at `Startup` — and this function makes
-/// the target they get pointed at.
-///
-/// The unused query was the compiler saying so: a doc comment describing a
-/// neighbour's behaviour reads as a second implementation of it, and the next
-/// person to debug a blank route capture would have looked here first
-/// (2026-07-29).
+/// The retargeting is [`adopt_route_cameras`]' job — it has to run EVERY frame, because a shell
+/// route has no cameras at `Startup` — and this function makes the target they get pointed at.
 fn setup_route_capture_target(
     mut commands: Commands,
     config: Res<SceneCaptureConfig>,
@@ -1034,11 +875,8 @@ fn setup_route_capture_target(
 
 /// Adopt a route's cameras AS THEY APPEAR, every frame.
 ///
-/// A shell route has no cameras at `Startup` — it spawns them when the route
-/// composes, several frames in. Retargeting once at startup therefore adopted
-/// ZERO cameras and produced a blank image that was written successfully and
-/// reported as a capture, which is the same silent-wrong-answer this whole mode
-/// exists to remove, three levels down. The count is printed for that reason.
+/// A shell route has no cameras at `Startup` — it spawns them when the route composes, several
+/// frames in. The count is printed for that reason.
 fn adopt_route_cameras(
     mut commands: Commands,
     target: Option<Res<SceneCaptureTarget>>,
@@ -1051,12 +889,9 @@ fn adopt_route_cameras(
     let target = RenderTarget::Image(ImageRenderTarget::from(target_res.image.clone()));
     // ONE target, several cameras — so only the FIRST may clear it.
     //
-    // A shell route composes a stack (world, then UI, then overlays). Point
-    // them all at one image with their default clear config and each wipes the
-    // one before it, so the file that lands is whatever the LAST camera drew
-    // over a fresh clear: a blank rectangle, written successfully, reported as
-    // a capture. Ordering by `Camera::order` and clearing only on the lowest is
-    // what makes the stack composite instead of compete.
+    // A shell route composes a stack (world, then UI, then overlays). Ordering by
+    // `Camera::order` and clearing only on the lowest is what makes the stack composite instead
+    // of compete.
     let mut ordered: Vec<(Entity, isize)> = cameras
         .iter()
         .map(|(entity, camera)| (entity, camera.order))
@@ -1148,10 +983,6 @@ fn apply_capture_snapshot(
     // the query never matched, `player` focus fell back to `config.focus` — which
     // is `Vec2::ZERO` in that mode — and every room capture photographed the origin
     // while the player stood elsewhere.
-    //
-    // That is the whole of the "room mode renders an empty image" defect: the
-    // room stages fine (138 room visuals, a player body at (950, 904)) and the
-    // camera sat at (0, 120). Measured, after three wrong guesses (2026-07-29).
     player_q: Query<
         &ambition_platformer2d::platformer::body::BodyKinematics,
         ambition_platformer2d::actors::actor::PrimaryPlayerOnly,
@@ -1161,8 +992,6 @@ fn apply_capture_snapshot(
     let active_spec = room_set.active_spec();
     let (base_view_w, base_view_h) = user_settings.video.camera_zoom.base_view();
     let base_view = ae::Vec2::new(base_view_w, base_view_h);
-    // `player` focus mode: center on the live player body (falls back to the
-    // fixed focus if the player isn't spawned yet).
     let focus_center = if config.follow_player {
         player_q
             .iter()
@@ -1176,12 +1005,10 @@ fn apply_capture_snapshot(
     // can produce this — the resolver below clamps to the room and to camera
     // zones, so asking it for a wide shot gives back a gameplay shot.
     if config.fit_room {
-        // ⛔ **the projection's own SCALING MODE, not a multiplier on the base
-        // view.** The first version computed `scale = max(room / base_view)` and
-        // framed the hall at about a fifth of the image: `scale` multiplies an
-        // extent that depends on the mode and on the viewport's aspect, so the
-        // arithmetic only holds when those agree. Asking for a FIXED extent of
-        // exactly the room's size is the same request with nothing to get wrong.
+        // **the projection's own SCALING MODE, not a multiplier on the base view.** The first
+        // version computed `scale = max(room / base_view)` and framed the hall at about a fifth
+        // of the image: `scale` multiplies an extent that depends on the mode and on the
+        // viewport's aspect, so the arithmetic only holds when those agree.
         for (mut transform, mut projection) in &mut cameras {
             if let Projection::Orthographic(orthographic) = &mut *projection {
                 orthographic.scale = 1.0;
@@ -1221,7 +1048,7 @@ fn apply_capture_snapshot(
             mode: CameraSnapshotResolveMode::Instant,
             extra_clamp_center_world: None,
             chart_transit: None,
-            // ⚠ this is the `--fit-room` / focus-point path, which deliberately
+            // this is the `--fit-room` / focus-point path, which deliberately
             // BYPASSES the live resolve; a captured MATCH goes through
             // `resolve_camera_observation` and gets the cast's box from there.
             must_frame_world: None,
@@ -1249,9 +1076,6 @@ fn apply_capture_snapshot(
     }
 }
 
-/// How long a route gets to produce a camera AFTER warmup, before this is called
-/// a failure rather than a slow start.
-///
 /// Generous on purpose: a route that loads assets can legitimately take a while,
 /// and a false failure in a verification tool is as bad as a false success.
 const ROUTE_CAMERA_GRACE_FRAMES: u32 = 600;
@@ -1300,11 +1124,6 @@ fn request_capture(
         &ambition_platformer2d::platformer::body::BodyKinematics,
         ambition_platformer2d::actors::actor::PrimaryPlayerOnly,
     >,
-    // ⛔⛔ **A CPU MATCH HAS NO PRIMARY PLAYER, so the pose line above printed
-    // NOTHING and the capture read as fine** (D128 defect 8). Silence from the
-    // one measurement that says "these two captures should match" is the failure
-    // this tool exists to prevent, and it was reporting it by omission.
-    // ⇒ the seated bodies are the subjects when nobody is driving.
     seated_q: Query<(
         &ambition_platformer2d::actor::MatchSeat,
         &ambition_platformer2d::platformer::body::BodyKinematics,
@@ -1339,13 +1158,10 @@ fn request_capture(
     }
     // **Drive the route's own lobby before the shutter.**
     //
-    // Runs AFTER warmup, so the surface exists and has settled, and holds the
-    // shutter until the sequence is spent — a capture taken mid-sequence would
-    // photograph a half-made decision and look like a product bug.
-    // ⚠ **`press_wait` belongs in this condition.** Without it a trailing
-    // `wait:N` left the sequence "inactive" the moment its cursor passed the
-    // last step, so the wait was never counted down and never completed —
-    // a step type that silently did nothing when it happened to be last.
+    // **`press_wait` belongs in this condition.** Without it a trailing `wait:N` left the
+    // sequence "inactive" the moment its cursor passed the last step, so the wait was never
+    // counted down and never completed — a step type that silently did nothing when it happened
+    // to be last.
     if runtime.press_cursor < config.press.len()
         || runtime.press_held.is_some()
         || runtime.touch_held.is_some()
@@ -1435,19 +1251,13 @@ fn request_capture(
         }
         return;
     }
-    // **WHERE THE SUBJECT ACTUALLY IS**, printed once, at the tick the image is
-    // taken. A capture tool that reports the room and not the pose can tell you
-    // an image was written and nothing about whether two images should match —
-    // and comparing two captures is what this tool is FOR. It is also the
-    // measurement that separates a simulation difference from a rendering one
-    // (AC6, 2026-07-29).
     if let Some(kin) = player_q.iter().next() {
         println!(
             "capture_scene: subject at ({:.4}, {:.4}) after {} warmup tick(s)",
             kin.pos.x, kin.pos.y, runtime.frames
         );
     } else {
-        // ⭐ **SEAT ORDER, not query order.** Bevy iterates by archetype, so an
+        // **SEAT ORDER, not query order.** Bevy iterates by archetype, so an
         // unsorted list would compare two captures of the same match and find
         // them different because the rows moved.
         let mut seated: Vec<_> = seated_q
@@ -1456,7 +1266,7 @@ fn request_capture(
             .collect();
         seated.sort_by_key(|(seat, _)| *seat);
         if seated.is_empty() {
-            // ⛔ SAY SO. "No pose line" and "no subject" were indistinguishable,
+            // SAY SO. "No pose line" and "no subject" were indistinguishable,
             // and this tool's whole job is to stop a verification photographing
             // the wrong thing quietly.
             println!(
@@ -1473,7 +1283,7 @@ fn request_capture(
             }
         }
     }
-    // **A ROUTE CAPTURE WAITS FOR A CAMERA, not for a clock.** (GPT 5.6, 2026-07-29)
+    // **A ROUTE CAPTURE WAITS FOR A CAMERA, not for a clock.**
     //
     // Warmup is a duration; readiness is a fact. With only the duration, a route
     // that is slow, broken, or never builds a camera at all let this tool read
@@ -1580,19 +1390,12 @@ fn save_readback_to_disk(
     runtime.completed = true;
 }
 
-/// The backstop for a capture that never finishes, DERIVED from what the run was
-/// asked to wait for rather than fixed at 600.
-///
-/// ⚠ this was a flat `runtime.frames > 600`, which quietly preempted every
+/// this was a flat `runtime.frames > 600`, which quietly preempted every
 /// policy above it. The route-readiness check allows `warmup + 600` frames for a
 /// camera to appear, so for ANY warmup above zero the generic timeout fired
 /// first: the route-specific diagnostic — the one that says *which* route never
 /// produced a camera — was unreachable, and a `--warmup` above 600 could not
-/// complete at all (GPT 5.6, 2026-07-29).
-///
-/// It never produced a false SUCCESS, which is why it survived a session of use.
-/// A backstop that fires before the thing it is backstopping is still just a
-/// shorter timeout wearing a policy's name.
+/// complete at all.
 fn fail_after_timeout(
     mut commands: Commands,
     runtime: Res<SceneCaptureRuntime>,
@@ -1624,10 +1427,7 @@ fn parse_vec2(text: &str) -> Option<ae::Vec2> {
 
 /// Does this argument name an image file the encoder can actually write?
 ///
-/// Checked at PARSE time. The encoder infers its format from the extension, so a
-/// path without one fails only after the scene has rendered and the readback has
-/// come back — the most expensive possible moment to learn that an argument was
-/// wrong, and the error names the extension rather than the argument.
+/// Checked at PARSE time.
 fn looks_like_image_path(value: &str) -> bool {
     std::path::Path::new(value)
         .extension()
@@ -1645,9 +1445,6 @@ fn parse_image_size(text: &str) -> Option<UVec2> {
     Some(UVec2::new(w.trim().parse().ok()?, h.trim().parse().ok()?))
 }
 
-// **`desktop_asset_root` was DELETED here on 2026-08-08, and the Z′14 bug it
-// carried is why the deletion matters more than the function did.**
-//
 // This file kept its own copy of the asset-root rule, and the copy said
 // `crates/ambition_platformer2d::actors/assets` — a `::` where the crate name
 // has a `_`. No such directory can exist, `canonicalize` failed every time, and
@@ -1656,9 +1453,7 @@ fn parse_image_size(text: &str) -> Option<UVec2> {
 // sounds. Room-mode capture wrote a valid PNG of a room whose art never
 // resolved, and exited 0. Route mode went through the visible app and its own
 // correct root, which is exactly why `--route` looked fine while rooms did not
-// (GPT 5.6, 2026-07-29).
+// .
 //
-// ⭐ **the lesson was always the duplication, not the typo**, and the copy
-// survived the fix for ten days because room mode had its own `App` to feed.
-// It has no app of its own now: `build_visible_app_with` resolves the root, and
-// there is nothing here left to disagree with it.
+// It has no app of its own now: `build_visible_app_with` resolves the root, and there is
+// nothing here left to disagree with it.

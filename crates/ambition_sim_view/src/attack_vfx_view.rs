@@ -1,11 +1,10 @@
 //! **Whether a body's character authors its own attack art** — resolved
 //! sim-side, so presentation never asks the catalog.
 //!
-//! Two render systems used to take `Option<Res<CharacterCatalog>>` and call
-//! `catalog.attack_vfx(worn.id())` themselves. `engine.character-authority-is-app-local`
-//! forbids exactly that shape, and the reason is not tidiness:
+//! `engine.character-authority-is-app-local` forbids exactly that shape, and the reason is not
+//! tidiness:
 //!
-//! ⛔ **an ABSENT catalog read as an EMPTY one.** `Option<Res<_>>` is `None` in
+//! **an ABSENT catalog read as an EMPTY one.** `Option<Res<_>>` is `None` in
 //! every headless and test composition that does not install the catalog — the
 //! compositions the `Option` was added for — and `None.and_then(…)` is
 //! indistinguishable from *"this character authors no attack VFX"*. So
@@ -13,11 +12,9 @@
 //! drawn over **every** attack, including the ones whose characters author their
 //! own art. Silent, and backwards.
 //!
-//! The fix is not to make the resource required — that panics the very
-//! compositions the `Option` exists for. It is that **presentation should not
-//! consult the catalog at all**: *does this character author its own attack VFX*
-//! is a static per-character fact, and a static per-body fact is what this
-//! read-model is for. It already carries the sprite quad for the same reason.
+//! It is that **presentation should not consult the catalog at all**: *does this character
+//! author its own attack VFX* is a static per-character fact, and a static per-body fact is
+//! what this read-model is for. It already carries the sprite quad for the same reason.
 //!
 //! # Absent means UNKNOWN, and that is the whole point
 //!
@@ -26,9 +23,6 @@
 //! | component absent | the publisher did not run — no catalog in this composition | nothing: it does not know, so it neither draws art nor a stand-in |
 //! | [`AttackVfxView::sheet`] `None` | resolved: this body authors no attack art (no worn character, or a character that names no sheet) | draw the stand-in volume |
 //! | [`AttackVfxView::sheet`] `Some` | resolved: the character names this sheet | draw its own art |
-//!
-//! The middle row is the one the old code could not express, and it is the one
-//! the stand-in pass exists to make visible.
 
 use bevy::prelude::{Commands, Component, Entity, Query, Res};
 
@@ -51,7 +45,7 @@ impl AttackVfxView {
 
 /// Publish [`AttackVfxView`] for every body that can swing.
 ///
-/// ⚠ **the catalog is `Res`, not `Option<Res>`, and that is deliberate**: a
+/// **the catalog is `Res`, not `Option<Res>`, and that is deliberate**: a
 /// composition without a catalog must leave the component ABSENT rather than
 /// write `None` into it, because `None` is a positive claim that the character
 /// authors nothing. Bevy skips a system whose required resource is missing,

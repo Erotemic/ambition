@@ -27,11 +27,8 @@ pub fn complete_blink_clusters(
     events: &mut FrameEvents,
 ) {
     kinematics.pos = to;
-    // Post-blink cleanup happens in the body's LOCAL frame: damp the side
-    // (run) velocity, clamp runaway FALL velocity, damp a rising one. The old
-    // world-X/Y form never clamped the true fall axis under sideways gravity,
-    // so chained blinks inherited unbounded fall speed (fable review
-    // 2026-07-02 §B3).
+    // Post-blink cleanup happens in the body's LOCAL frame: damp the side (run) velocity, clamp
+    // runaway FALL velocity, damp a rising one.
     let damping = if precision { 0.35 } else { 0.55 };
     let max_downward = if precision {
         tuning.abilities.precision_blink_max_downward_speed

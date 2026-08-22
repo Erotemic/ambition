@@ -1,7 +1,7 @@
 //! **THIS DEMO'S CHARACTER PACKAGE — George's values, as content.**
 //!
-//! ⭐⭐ **D166's first facet, from the consuming side.** The queue's row draws
-//! three layers and says the middle one does not exist yet:
+//! ** first facet, from the consuming side.** The queue's row draws three layers and says the
+//! middle one does not exist yet:
 //!
 //! ```text
 //! Smash capability   defines the facet's semantics    ambition_characters::smash_fighter
@@ -16,24 +16,14 @@
 //! uses, reached through the facade rather than through the game crate — and
 //! hands the prepared kit to [`crate::george_booul_moveset`].
 //!
-//! ## ⚠ The E9 oracle still holds, and it is what shaped this
+//! ## The E9 oracle still holds, and it is what shaped this
 //!
-//! This crate's manifest says *"`ambition_platformer2d` + `bevy` and nothing
-//! else. If authoring a STOCKS match needs a type the umbrella does not
-//! re-export, that is an engine leak and it fails to compile HERE."* Compiling a
-//! pack needed one: parsing `pack.ron` was a `ron::from_str` at every pack
-//! owner, and `ron` is not a facade re-export. The leak was closed at the
-//! FACADE — [`ContentPackDraft::from_manifest_ron`] parses the manifest and
-//! reports a diagnostic where two call sites used to parse it and panic — rather
-//! than by adding a dependency here.
+//! This crate's manifest says *"`ambition_platformer2d` + `bevy` and nothing else. If authoring a
+//! STOCKS match needs a type the umbrella does not re-export, that is an engine leak and it fails
+//! to compile HERE."* Compiling a pack needed one: parsing `pack.ron` was a `ron::from_str` at
+//! every pack owner, and `ron` is not a facade re-export.
 //!
-//! ## ⛔ A missing facet is LOUD
-//!
-//! [`capture_kit`] refuses rather than returning `None`. An absent capture kit
-//! is not a fighter without a grab — every road that reaches it is downstream of
-//! this pack being embedded in this binary, so absence means the manifest and
-//! [`embedded_sources`] disagree, and the fighter losing his grab silently is
-//! exactly the failure the content compiler exists to convert into a sentence.
+//! ## A missing facet is LOUD
 
 use ambition_platformer2d::characters::smash_capture::SmashCaptureRepertoire;
 use ambition_platformer2d::characters::smash_fighter::content_schema::lowered_smash_fighters;
@@ -48,16 +38,14 @@ const PACK_MANIFEST_RON: &str = include_str!("../assets/pack.ron");
 /// silently absent fighter.
 const GEORGE_FACET_PATH: &str =
     "../../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/data/characters/george_booul/smash_fighter.ron";
-/// ⭐⭐ **embedded from the CHARACTER-AUTHORING SUBMODULE, not from this demo.**
-/// The 2026-08-19 GPT review: *"Smash should select George; it should not own
+/// **embedded from the CHARACTER-AUTHORING SUBMODULE, not from this demo.**
+/// The: *"Smash should select George; it should not own
 /// George's values."* The values moved to
 /// `tools/ambition_sprite2d_renderer/.../characters/george_booul/smash_fighter.ron`,
 /// whose repository claims that material by name; this crate keeps the SELECTION
 /// and the schema/preparation stay in Rust.
 ///
-/// ⚠ the honest cost, stated rather than discovered: this binary no longer
-/// compiles from a checkout whose submodule is uninitialised. That is what
-/// "George's values live with George" means.
+/// That is what "George's values live with George" means.
 const GEORGE_FACET_RON: &str = include_str!(
     "../../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/data/characters/george_booul/smash_fighter.ron"
 );
@@ -69,7 +57,7 @@ fn embedded_sources() -> impl IntoIterator<Item = (String, String)> {
 
 /// Compile this demo's embedded pack.
 ///
-/// ⚠ assets are UNCHECKED here for the same reason they are in Ambition's own
+/// assets are UNCHECKED here for the same reason they are in Ambition's own
 /// pack: a shipped binary's art may legitimately be absent on a fresh clone, and
 /// refusing to boot over a missing sheet would make the content compiler the
 /// thing that stops the game rather than the thing that explains it.
@@ -107,10 +95,6 @@ pub fn fighter_facet(character: &str) -> Option<&'static SmashFighterFacet> {
 /// **The prepared capture kit for a character this pack authors.**
 ///
 /// # Panics
-///
-/// If no facet names `character`. See the module note: absence here is a
-/// build-artifact bug, not a content decision, and the message lists what the
-/// pack does define so the answer is in the failure.
 pub fn capture_kit(character: &str) -> SmashCaptureRepertoire {
     let Some(facet) = fighter_facet(character) else {
         let authored: Vec<&str> = lowered_smash_fighters(prepared())

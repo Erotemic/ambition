@@ -1,34 +1,16 @@
 //! **Sanic's repertoire, for the stage he visits rather than the one he lives
 //! on.**
 //!
-//! ⭐ **written 2026-08-16** (Jon: *"Let's complete the kit for all
-//! characters."*). A census of the smash grid found him at **0/16** — no table,
-//! no action set, and no unarmed floor reaching his body, so every press was
-//! silence. He was one of four in that state.
+//! A move table is *what the attack IS*; the ability is *whether this body may attack at all*. At
+//! home the answer is no and these sixteen moves are unreachable; on a stage that GRANTS the verb
+//! (`MatchAbilities::levelled`) they are what he swings.
 //!
-//! ⛔⛔ **AND IT CHANGES NOTHING ON THE SPEEDWAY.** His catalog rows author
-//! `abilities: Some([RunJump])` — Jon, the same day: *"Sanic should never have
-//! fly, blink, or wall climb in any iteration"* — and `RunJump` carries no
-//! `attack`. A move table is *what the attack IS*; the ability is *whether this
-//! body may attack at all*. At home the answer is no and these sixteen moves are
-//! unreachable; on a stage that GRANTS the verb (`MatchAbilities::levelled`)
-//! they are what he swings.
-//!
-//! ⚠ **and it is not his spin dash.** `declare_sanic_techniques` puts spin dash
+//! **and it is not his spin dash.** `declare_sanic_techniques` puts spin dash
 //! and the transform on his body as TECHNIQUES — named actions his own game
 //! resolves Attack and Utility onto — and they stay exactly where they are. The
 //! side special below is a different object that happens to look like one, which
 //! is the honest way to give a crossover stage a signature move without two
 //! authorities owning it.
-//!
-//! ⛔⛔ **THE CLAIM ABOVE WAS AN INTENT, NOT AN IMPLEMENTATION, FOR ITS FIRST
-//! DAY.** Nothing read the ability: `combat_actions` derived the Attack and
-//! Special slots from the MOVESET alone, so this table answered presses on the
-//! speedway. `persona_architecture`'s kit test went red at seventeen moves and
-//! was rewritten to agree with the seventeen, reasoning from exactly the
-//! paragraph above; Jon then hit the identical break playing Mary-O. The ceiling
-//! is now really `AbilitySet::attack`, and what proves it is
-//! `the_demo_body_cannot_trigger_a_single_move_from_its_own_smash_table`.
 //!
 //! ## The character
 //!
@@ -130,7 +112,7 @@ pub fn sanic_moveset() -> MovesetContract {
     let d_tilt = on_contact(d_tilt, "player.hit");
 
     // **FORWARD SMASH — `sonic_boom`.** The one moment he stops being quick and
-    // becomes hard. ⚠ still the second-weakest forward smash on the grid.
+    // becomes hard. still the second-weakest forward smash on the grid.
     let f_smash = strike(
         "sonic_boom",
         "smash_forward",
@@ -293,7 +275,7 @@ pub fn sanic_moveset() -> MovesetContract {
         Some((0.9, -0.40)),
         None,
     );
-    // ⚠ **either posture, and it has to be**: gated to the ground, an airborne
+    // **either posture, and it has to be**: gated to the ground, an airborne
     // neutral-B walked the chain past it and found NOTHING — the last candidate
     // for `special_air` is `special` itself. A spin charge in the air is a spin
     // charge; there is nothing about it that needs a floor.
@@ -371,26 +353,11 @@ pub fn sanic_moveset() -> MovesetContract {
     let down_b = vfx_at(down_b, 0.07, "sonic_ripple", (0.0, 12.0), RUSH_FX);
     let down_b = on_contact(down_b, "player.hit");
 
-    // ── 2026-08-16: THE OTHER POSTURE ────────────────────────────────────────
-    //
-    // Jon: *"A down-b that has special airborne properties should also have an
     // effect on ground. Think of bowser down b. In the air he just does a
     // downward slam, but on the ground, it causes him to jump in an arc and then
     // slam. Specials can have different effects in different contexts that
     // should be ok, and makes for a richer smash game, although in most cases
     // they shouldn't be context dependent."*
-    //
-    // ⛔ a special gated to ONE posture is not answered in the other — the
-    // directional chain walks straight past it to the NEUTRAL special, so a
-    // player pressing down-B in the air got the neutral-B. `special_air_down`
-    // sits ahead of `special_down` in that chain and has the whole time; this is
-    // the two-form move it exists for.
-    // **DOWN, ON THE GROUND — `ball_hop`. THE BOWSER SHAPE, and Jon named it**:
-    // *"In the air he just does a downward slam, but on the ground, it causes
-    // him to jump in an arc and then slam."* With a floor already under him the
-    // drop has nowhere to go, so he leaves it first — a short hop, then the same
-    // curl. ⚠ the impulse carries him UP and slightly forward; the slam is the
-    // same shape as `ball_drop` and lands later for it.
     let ground_down_b = strike(
         "ball_hop",
         "attack_down",
@@ -405,7 +372,7 @@ pub fn sanic_moveset() -> MovesetContract {
         Some((0.0, 1.0)),
         None,
     );
-    // ⚠ **`Add` for the hop, `Set` for the slam** — the same split George's
+    // **`Add` for the hop, `Set` for the slam** — the same split George's
     // grounded down-B needs and for the same reason: `lift_speed` is derived
     // from `Set` impulses, so a hop written that way would advertise this move
     // to the recovery policy as a way home. `spring_launch` is his way home.
@@ -420,7 +387,7 @@ pub fn sanic_moveset() -> MovesetContract {
     // **SANIC'S CAPTURE KIT.** Fastest startup, shortest reach, weakest throw and the
     // longest recovery. He gets there first and cannot do much with it, which is the
     // joke and also the balance.
-    // ⚠ the grab draws `attack`, not `grab`: these sheets publish no `grab` row,
+    // the grab draws `attack`, not `grab`: these sheets publish no `grab` row,
     // and each table's own `every_clip_names_a_row_..._sheet_carries` guard says
     // so. `ClipBinding`'s fallbacks would have covered it at runtime, but a move
     // that NAMES a row nobody publishes is a lie the guard is right to refuse.
@@ -505,10 +472,9 @@ pub fn sanic_moveset() -> MovesetContract {
         neutral_special: NeutralSpecial::Authored(n_b),
         side_special: side_b,
         up_special: up_b,
-        // ⭐ **AUTHORED 2026-08-19, at Jon's ask that every fighter in the smash
-        // roster have a grab.** The transitional `None` is gone: capture was
-        // proven on George and the Pirate Admiral, and the point of proving it
-        // was to stop being the only two.
+        // **AUTHORED, at the rule that every fighter in the smash roster have a grab.** The
+        // transitional `None` is gone: capture was proven on George and the Pirate Admiral, and
+        // the point of proving it was to stop being the only two.
         capture: SmashCaptureRepertoire {
             cues: CaptureCues::GENERIC,
             grab,
@@ -531,8 +497,6 @@ mod tests {
     use super::*;
     use ambition_platformer2d::entity_catalog::WindowTag;
 
-    // ⭐⭐ **RETIRED 2026-08-16 — the per-file verb-map test.**
-    //
     // Fourteen fighters each carried a copy of it: every bound verb names a move
     // this table defines, and the table binds the whole vocabulary. Both are now
     // unwritable defects rather than tested ones. `SmashRepertoire` owns the verb

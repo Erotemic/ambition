@@ -9,11 +9,10 @@
 #   - preserve normal host and windowed-demo builds
 #
 # Examples:
-#   ./scripts/sweep_cargo_target.sh
-#   ./scripts/sweep_cargo_target.sh --apply
-#   ./scripts/sweep_cargo_target.sh --apply --deep
-#   ./scripts/sweep_cargo_target.sh --full --with-tests
-#
+# ./scripts/sweep_cargo_target.sh
+# ./scripts/sweep_cargo_target.sh --apply
+# ./scripts/sweep_cargo_target.sh --apply --deep
+# ./scripts/sweep_cargo_target.sh --full --with-tests
 set -euo pipefail
 
 repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"

@@ -10,14 +10,11 @@
 //! Both are closed, so this asks the question directly: can the host this
 //! engine actually ships be described by the API a third party gets?
 //!
-//! ⚠ **This composes the shipped host's EXPERIENCES, not the shipped binary.**
-//! `ambition_app`'s real composer also installs dev tools, a settings menu,
-//! kaleidoscope menus, load presentation and the versus stage — a whole app
-//! shell around the games. Claiming row 6 on a test that quietly dropped all of
-//! that would be the overclaim this campaign has caught itself in three times.
-//! What is proven here is that the four games it ships compose and route
-//! through `PlatformerApp`; the surrounding shell is named in the row's record
-//! as what remains.
+//! **This composes the shipped host's EXPERIENCES, not the shipped binary.** `ambition_app`'s
+//! real composer also installs dev tools, a settings menu, kaleidoscope menus, load
+//! presentation and the versus stage — a whole app shell around the games. What is proven here
+//! is that the four games it ships compose and route through `PlatformerApp`; the surrounding
+//! shell is named in the row's record as what remains.
 
 use ambition_platformer2d::app::prelude::*;
 
@@ -99,14 +96,10 @@ fn the_shipped_games_compose_through_the_public_api() {
 
 /// **Can the SECOND mounted experience be launched, with its own content?**
 ///
-/// The narrow acceptance test the 2026-07-31 review asked for, and it is
-/// deliberately narrow: entry room, one character visual, one audio mapping,
-/// one logical asset path. The suspicion it tests is specific — the facade
-/// installs `PlatformerAssetsPlugin::for_experience(experiences[0])` and
-/// `.with_room(experiences[0].room)`, so everything that plugin resolves PER
-/// EXPERIENCE is resolved for the primary and handed to every other one.
-///
-/// What the answer turned out to be, measured rather than reasoned:
+/// The suspicion it tests is specific — the facade installs
+/// `PlatformerAssetsPlugin::for_experience(experiences[0])` and `.with_room(experiences[0].room)`,
+/// so everything that plugin resolves PER EXPERIENCE is resolved for the primary and handed to
+/// every other one.
 ///
 /// * the CAST is shared and correct — catalog fragments merge, so Mary-O's
 ///   sheet is in the asset catalog of a host whose primary is Sanic;
@@ -115,7 +108,7 @@ fn the_shipped_games_compose_through_the_public_api() {
 ///   secondary experience's declared tracks have no entry in it;
 /// * the SFX bank is published attributed to the PRIMARY's id.
 ///
-/// ⚠ **the music limit is a PATH POLICY limit, not silence**, and the difference
+/// **the music limit is a PATH POLICY limit, not silence**, and the difference
 /// is worth stating where the assertion is: `AudioLibrary` resolves a track the
 /// catalog does not carry through the track's own `asset_path`, or the
 /// `audio/music/generated/{id}/full.ogg` convention. What a secondary experience
@@ -190,18 +183,9 @@ fn the_second_mounted_experience_launches_and_its_asset_policy_is_the_primarys()
          route and id"
     );
 
-    // ⭐ **BOTH GAMES' CASTS ARE PUBLISHED** (queue D75, fixed 2026-08-11).
+    // **BOTH GAMES' CASTS ARE PUBLISHED**.
     //
-    // ⛔ this host reached enemy construction with a `PreparedCharacterRegistry`
-    // of ZERO characters, measured by probe. The preparation barrier latched
-    // itself shut at `PreStartup`, and a shell that mounts an experience
-    // afterwards staged its registrations into a resource nobody ever folded —
-    // so every placement fell back to its archetype, and a migrated creature
-    // whose row was deleted came out as a generic combatant wearing its name.
-    //
-    // ⚠ asserted for BOTH games on purpose. The barrier merges now instead of
-    // replacing, and a version that replaced would pass an "is it non-empty"
-    // check while having deleted the first game's cast.
+    // asserted for BOTH games on purpose.
     {
         use ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry;
         let registry = app
@@ -239,7 +223,7 @@ fn the_second_mounted_experience_launches_and_its_asset_policy_is_the_primarys()
 
     // ── One audio mapping: the KNOWN limit, pinned ──
     //
-    // ⚠ asserted as a limit rather than left unmeasured. A secondary
+    // asserted as a limit rather than left unmeasured. A secondary
     // experience's music is declared (its audio fragment registers a real
     // `MusicRegistry`) and has no path in the asset catalog, because the
     // catalog folds the PRIMARY's registry only.
@@ -265,21 +249,10 @@ fn the_second_mounted_experience_launches_and_its_asset_policy_is_the_primarys()
     );
 }
 
-/// **WHAT CAST DOES A TWO-DEMO HOST ACTUALLY PUBLISH?** — the measurement ledger
-/// row D75 named, taken out of the finished world instead of inferred from a
-/// silent log.
+/// **WHAT CAST DOES A TWO-DEMO HOST ACTUALLY PUBLISH?** — the measurement ledger row named,
+/// taken out of the finished world instead of inferred from a silent log.
 ///
-/// ⛔⛔ **a green run is not evidence here and this row has already been fooled
-/// by one.** `bevy::log::warn!` prints nothing without a `LogPlugin`, so the
-/// composition-gap warning `report_unprepared_character` emits for an empty cast
-/// is invisible to a test — exactly the shape that once made three reverted
-/// changes look like a fix (libtest captures a passing test's stdout).
-///
-/// ⇒ so this asks the registry directly. What it pins is the RULING, not a
-/// number: a host that mounts demos rather than Ambition publishes the cast
-/// those demos register and nothing else, and "no Ambition cast" is a correct
-/// description of a host that never mounted Ambition — not the composition bug
-/// D75 first read it as.
+/// ⇒ so this asks the registry directly.
 #[test]
 fn a_two_demo_host_publishes_exactly_the_cast_its_demos_register() {
     use ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry;
@@ -303,10 +276,6 @@ fn a_two_demo_host_publishes_exactly_the_cast_its_demos_register() {
         .get_resource::<PreparedCharacterRegistry>()
         .map(|registry| registry.ids().map(str::to_string).collect())
         .unwrap_or_default();
-    // ⭐ MEASURED 2026-08-12: eight ids — `ai_slop`, four Mary-O bodies, three
-    // Sanic bodies. D75 recorded "registry has 0 ids: []" for this host on
-    // 08-11; that is no longer true, and the row said so rather than being
-    // closed on a silent run.
     assert!(
         !ids.is_empty(),
         "this host publishes NO prepared cast at all, so every character-named \
@@ -320,7 +289,7 @@ fn a_two_demo_host_publishes_exactly_the_cast_its_demos_register() {
              protagonist: {ids:?}"
         );
     }
-    // ⭐ THE OTHER HALF, and it is the ruling: this host never mounted Ambition,
+    // THE OTHER HALF, and it is the ruling: this host never mounted Ambition,
     // so Ambition's cast is correctly ABSENT. Without this the test would pass on
     // a host that published everything in the workspace, which would make
     // "exactly the cast its demos register" a sentence about nothing.

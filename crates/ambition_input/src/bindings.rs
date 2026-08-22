@@ -1,12 +1,7 @@
 //! **One authority for "which physical control is this action on".**
 //!
-//! Routing, remapping, controller glyphs, touch affordances, action prompts and
-//! help displays are five readers of one fact. Before this they had none: the
-//! prompt read-model carried the VERB ("Continue", "Equip") and
-//! `control_prompt.rs` said so in a comment — *"per-slot glyphs (the physical
-//! binding) land with the `ActiveBindings` source"* — while
-//! `KeyboardPreset::action_label` built one big string for a debug overlay and
-//! the gamepad map had no label producer at all.
+//! Routing, remapping, controller glyphs, touch affordances, action prompts and help displays
+//! are five readers of one fact.
 //!
 //! ## Derived, never parallel
 //!
@@ -15,11 +10,7 @@
 //! nothing to keep in step, because a rebind changes the map and the projection
 //! follows on the next frame.
 //!
-//! That is the whole design, and it is the difference between this and the
-//! thing it replaces. A hand-maintained "what does Jump say on screen" table is
-//! correct on the day it is written and wrong the first time somebody remaps,
-//! and the symptom — a prompt telling a player to press a key that does nothing
-//! — is indistinguishable from a broken binding.
+//! That is the whole design, and it is the difference between this and the thing it replaces.
 //!
 //! ## Per seat, because a binding is
 //!
@@ -39,14 +30,10 @@ use crate::{InputParticipant, Platformer2dInputActionMonolith};
 
 /// What a participant's `InputMap` is BUILT from.
 ///
-/// The map itself is WORKING STATE, not a source: the seat-device pass
-/// restricts it to one pad, the touch overlay inserts its virtual controls,
-/// and a remap will mutate it live. None of that can be re-derived from the
-/// map alone — which is why "apply the new preset" used to be a wholesale
-/// replacement that exactly one caller (one app, one seat) knew how to
-/// perform. The recipe is the declared starting point every rebuild returns
-/// to; the layers on top re-apply themselves through their own
-/// `Changed<InputMap>` hooks.
+/// The map itself is WORKING STATE, not a source: the seat-device pass restricts it to one pad, the
+/// touch overlay inserts its virtual controls, and a remap will mutate it live. The recipe is the
+/// declared starting point every rebuild returns to; the layers on top re-apply themselves through
+/// their own `Changed<InputMap>` hooks.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BindingBase {
     /// A keyboard-and-gamepad preset — the primary seat's shape.
@@ -62,7 +49,7 @@ pub enum BindingBase {
 /// about ONE seat: the settings menu changes the primary's recipe and the
 /// primary's map follows; a couch seat's gamepad-only recipe does not care
 /// what preset the keyboard player picked.
-/// ⚠ **`Clone`, not `Copy`** — [`Self::overrides`] is a `Vec`. The two spawn
+/// **`Clone`, not `Copy`** — [`Self::overrides`] is a `Vec`. The two spawn
 /// sites and the settings-sync system each take one `.clone()`; nothing else
 /// held it by value.
 #[derive(Component, Clone, Debug, PartialEq, Eq)]
@@ -116,7 +103,7 @@ impl BindingRecipe {
     /// The map this recipe declares. Pure, so a spawn site and the rebuild
     /// system cannot drift: both call this.
     ///
-    /// ⭐ **THREE layers, and the ORDER is the precedence rule.** Base, then the
+    /// **THREE layers, and the ORDER is the precedence rule.** Base, then the
     /// GAME's layout, then the USER's overrides — so a player who remapped a
     /// button still gets their remap inside a mode that ships its own pad. A
     /// mode's layout is a better default; it is not an override of the person
@@ -136,19 +123,17 @@ impl BindingRecipe {
 
 /// Layer one override onto a built map.
 ///
-/// ⛔ **not `clear_action`**, which drops an action's keyboard AND gamepad
+/// **not `clear_action`**, which drops an action's keyboard AND gamepad
 /// bindings together — so remapping Jump to `J` on a keyboard would silently
 /// unbind the controller, and the player would find out mid-jump. The removal
 /// is restricted to the override's own device class, enumerated through
 /// [`ActionBindings`] — the same projection a prompt reads, so "what this
 /// override replaces" is by construction what the screen was showing.
 ///
-/// ⚠ **the override lands IN THE DISPLACED BINDING'S PLACE, not on the end.**
-/// [`ActionBindings::label`] is the first binding, so an appended override left
-/// a remapped Jump still printing the gamepad button it did not touch: the
-/// player remaps to `J` and the prompt keeps saying `A`. That is precisely the
-/// lie this module exists to make impossible, and it survived the
-/// "does the map bind the new key" check — only asking for the LABEL caught it.
+/// **the override lands IN THE DISPLACED BINDING'S PLACE, not on the end.**
+/// [`ActionBindings::label`] is the first binding, so an appended override left a remapped Jump
+/// still printing the gamepad button it did not touch: the player remaps to `J` and the prompt
+/// keeps saying `A`.
 ///
 /// Two things are quietly ignored rather than enforced, both because a settings
 /// file outlives the build that wrote it:
@@ -208,16 +193,9 @@ fn device_class_of(control: &PhysicalControl) -> Option<OverrideDeviceClass> {
 /// The action a settings-file name refers to, or `None` if this build has no
 /// such action.
 ///
-/// **Derived, like everything else here.** The name is the enum's own variant
-/// spelling — the string [`action_name`] publishes and a settings file stores —
-/// and the resolution runs through `Reflect`, which the action enum already
-/// derives. So a new action is nameable the moment it is declared; a
-/// hand-written `"Jump" => Jump` table would have to be remembered, and the
-/// symptom of forgetting is a remap that silently does nothing.
-/// ⚠ **the variant is checked BEFORE it is built.** `FromReflect` on a
-/// `DynamicEnum` naming a variant that does not exist PANICS rather than
-/// answering `None` — so the obvious three-line version turned "a settings file
-/// from a newer build" into a crash on load.
+/// **Derived, like everything else here.** The name is the enum's own variant spelling — the
+/// string [`action_name`] publishes and a settings file stores — and the resolution runs
+/// through `Reflect`, which the action enum already derives.
 pub fn action_named(name: &str) -> Option<Platformer2dInputActionMonolith> {
     use bevy::reflect::{DynamicEnum, DynamicVariant, FromReflect, TypeInfo, Typed, VariantInfo};
     let TypeInfo::Enum(info) = Platformer2dInputActionMonolith::type_info() else {
@@ -284,7 +262,7 @@ pub enum PhysicalControl {
     Button(GamepadButton),
     /// Something the projection could not name.
     ///
-    /// ⚠ **it carries the debug form rather than being dropped.** A prompt that
+    /// **it carries the debug form rather than being dropped.** A prompt that
     /// silently omits an unrecognised binding tells a player the action has no
     /// control at all, which is a worse lie than an ugly label — and it hides
     /// the fact that this projection needs a new arm.
@@ -354,23 +332,11 @@ impl ActionBindings {
     /// **THE selection primitive: which bound control this seat should be SHOWN,
     /// given the device in its hands.**
     ///
-    /// ⛔ **this used to be `.first()`, and `.first()` cannot be right on a mixed
-    /// map.** `KeyboardPreset::input_map` inserts the keyboard half
-    /// (`presets.rs:257`) before the gamepad half (`:258`), so for every action
-    /// both halves bind — Jump, Attack, Burst — the first control is a KEY. A
-    /// caller that then re-spelled it in a controller vocabulary got `Z`, not
-    /// `Cross`: picking a vocabulary cannot turn a `KeyCode` into a button.
-    /// (GPT 5.6 review through `c32e690`, finding 3.)
+    /// A caller that then re-spelled it in a controller vocabulary got `Z`, not `Cross`: picking a
+    /// vocabulary cannot turn a `KeyCode` into a button.
     ///
-    /// ⚠ **it is the PRIMARY seat that was wrong**, because secondary seats get
-    /// `gamepad_only_map()` where the first control is already a button. The seat
-    /// showing the wrong prompt is the one most likely to be at a docked machine
+    /// The seat showing the wrong prompt is the one most likely to be at a docked machine
     /// holding a pad.
-    ///
-    /// ⭐ **one primitive, shared by the text label and the glyph**, so the two
-    /// cannot drift into naming one physical button two ways on one frame — the
-    /// exact failure `glyphs::button_label` was written to end for vendor
-    /// spellings.
     ///
     /// Returns `None` when this seat has no binding of the device's class.
     /// Callers choose their own miss policy: a glyph draws nothing (honest — it
@@ -393,7 +359,7 @@ impl ActionBindings {
     /// The label a prompt should show — the FIRST binding, which is the one a
     /// preset lists first and therefore the one the author considered primary.
     ///
-    /// ⚠ **device-blind, so gamepad buttons come out Xbox-style and a mixed map
+    /// **device-blind, so gamepad buttons come out Xbox-style and a mixed map
     /// answers with its keyboard half.** That is only right for a caller with no
     /// seat to ask about (a docs generator, a rebind list). Anything drawing a
     /// prompt for a SEAT wants [`Self::label_for`].
@@ -404,12 +370,6 @@ impl ActionBindings {
     /// The label for the device this seat is actually holding — so a DualSense
     /// reads "Cross", an Xbox pad reads "A", and a keyboard reads "Z", from one
     /// binding map.
-    ///
-    /// ⚠ **`ActiveDevice`, not `GamepadStyle`, and the type IS the fix.** A style
-    /// cannot represent "this seat is on a keyboard" —
-    /// `SeatActiveDevices::gamepad_style_for` collapses every non-pad device to
-    /// the Xbox default and says so in its own doc — so the old signature could
-    /// not have expressed the right answer even with correct selection logic.
     ///
     /// Falls back to the other device class rather than to `None`: an action
     /// bound only on the keyboard should still NAME its key to somebody holding
@@ -439,7 +399,7 @@ impl ActionBindings {
 
 /// **Which action drives an ability slot.**
 ///
-/// ⛔ **this did not exist, and two hand-maintained maps stood in for it.**
+/// **this did not exist, and two hand-maintained maps stood in for it.**
 /// `ambition_touch_input` carried `TouchActionButton → ControlSlot` and
 /// `TouchActionButton → Platformer2dInputActionMonolith` fifteen lines apart, agreeing only
 /// because somebody kept them agreeing — the same shape as the gamepad glyph
@@ -496,7 +456,7 @@ impl SeatBindings {
     /// The label for an ability SLOT — what a prompt actually wants to ask.
     /// Composes [`action_for_slot`] rather than carrying its own table.
     ///
-    /// ⚠ **`devices` is a PARAMETER, not a second call.** The seat's device
+    /// **`devices` is a PARAMETER, not a second call.** The seat's device
     /// decides both WHICH binding to name and how to spell it, so a caller that
     /// asked for the label and then re-spelled it from the device fact would be
     /// two steps where one is correct — and the second step is the one a new
@@ -570,7 +530,7 @@ pub(crate) fn physical_control_of(
     PhysicalControl::Other(format!("{input:?}"))
 }
 
-/// ⚠ **`presets::key_name` returns `"?"` for a key it does not list**, which on
+/// **`presets::key_name` returns `"?"` for a key it does not list**, which on
 /// a prompt tells a player nothing at all — and after a rebind to any unlisted
 /// key, that is what they would see. So an unnamed key falls through to the
 /// `KeyCode`'s own debug form (`F13`, `NumpadAdd`), which is ugly and TRUE.
@@ -642,7 +602,7 @@ mod tests {
 
     #[test]
     fn the_published_label_is_the_binding_the_router_reads() {
-        // ⚠ the property that makes this ONE authority rather than a second
+        // the property that makes this ONE authority rather than a second
         // table: the projection is derived, so a rebind moves it with no
         // synchronisation step for anybody to forget.
         let preset = KeyboardPreset::arrows_zxc();
@@ -696,7 +656,7 @@ mod tests {
 
     /// **A prompt names the device that is actually in the seat's hands.**
     ///
-    /// ⛔ **the fixture above cannot catch this and that is the point.** It uses
+    /// **the fixture above cannot catch this and that is the point.** It uses
     /// `gamepad_only_map()`, where the first bound control IS a button, so
     /// `.first()` looks correct. The PRIMARY seat's map is the mixed one —
     /// `input_map()` inserts the keyboard half at `presets.rs:257` and the
@@ -704,11 +664,11 @@ mod tests {
     /// both halves bind. Picking a controller vocabulary and then re-spelling a
     /// `KeyCode` with it cannot turn `Z` into `Cross`.
     ///
-    /// ⚠ **it is the primary seat specifically**, because secondary seats get
+    /// **it is the primary seat specifically**, because secondary seats get
     /// `gamepad_only_map()`. The seat that shows the wrong prompt is the one
     /// most likely to be sitting at a docked machine holding a pad.
     ///
-    /// ⭐ **both directions, or this is not a test.** An implementation that
+    /// **both directions, or this is not a test.** An implementation that
     /// always preferred the gamepad binding would satisfy the first assertion
     /// and be exactly as wrong; the keyboard case is the poison.
     #[test]
@@ -801,11 +761,8 @@ mod tests {
 
     #[test]
     fn every_published_action_name_resolves_back_to_its_action() {
-        // The round trip is the whole reason `action_named` goes through
-        // `Reflect` instead of a hand-written table: a table is correct until
-        // somebody adds an action, and the symptom of forgetting is a remap
-        // that silently does nothing. Driving this from the map's OWN action
-        // list means a new action is covered the day it is bound.
+        // Driving this from the map's OWN action list means a new action is covered the day it
+        // is bound.
         let map = KeyboardPreset::arrows_zxc().input_map();
         let listing = ActionBindings::from_map(&map);
         assert!(!listing.is_empty(), "the preset binds something");
@@ -833,7 +790,7 @@ mod tests {
         );
     }
 
-    /// ⭐ **PRECEDENCE, proven rather than asserted about the field order.**
+    /// **PRECEDENCE, proven rather than asserted about the field order.**
     ///
     /// The three layers are base → the GAME's layout → the USER's overrides, and
     /// that order is a product decision: a mode's shipped pad is a better
@@ -873,7 +830,7 @@ mod tests {
 
     #[test]
     fn an_override_moves_the_key_and_leaves_the_pad_alone() {
-        // ⛔ the reason this is not `clear_action`: that drops an action's
+        // the reason this is not `clear_action`: that drops an action's
         // keyboard AND gamepad bindings together, so remapping Jump on a
         // keyboard would silently unbind the controller — and the player would
         // find out mid-jump.
@@ -943,7 +900,7 @@ mod tests {
 
     #[test]
     fn an_override_on_an_axis_action_is_refused() {
-        // ⚠ inserting a buttonlike into a dual-axis action's map corrupts it in
+        // inserting a buttonlike into a dual-axis action's map corrupts it in
         // a way nothing downstream checks: the action reads as bound, and the
         // stick reads as dead.
         let recipe = BindingRecipe::preset(PresetId::ArrowsZxc)

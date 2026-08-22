@@ -14,13 +14,6 @@ use crate::participant::ParticipantId;
 /// while it stays plugged in. This one is what a lobby chose and a session
 /// froze, so it has to outlive a disconnect: the Nth pad in arrival order, or
 /// the keyboard.
-///
-/// ⭐ **the keyboard is a VARIANT, not a hole in the numbering.** It used to be
-/// expressed by absence: a seat that owned no device row, compensated for by
-/// subtracting one from every seat above it (`slot.saturating_sub(1)`) at two
-/// call sites. That arithmetic silently produced `None` when it was wrong — a
-/// player who is simply inert — and it could not express a keyboard player in
-/// any seat but the first.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum LocalInputSource {
     /// The keyboard-and-mouse bundle. Exactly one exists, and it is a source
@@ -152,8 +145,6 @@ impl LocalChannelPlan {
 mod tests {
     use super::*;
 
-    /// **The defect this type exists for**, in its smallest reachable form.
-    ///
     /// A lobby seats one CPU and one human, and the human is holding the second
     /// controller. The channel is ZERO — there is one person playing — while the
     /// source stays pad 1, because that is the pad in their hands.

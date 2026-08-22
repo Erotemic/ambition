@@ -5,20 +5,20 @@ version = "0.1.0"
 edition = "2024"
 description = "A SENTINEL capability: one self-contained mechanic that contributes an authored schema, a semantic action, rollback state and causal facts without editing any central enum or the actor crate."
 
-# ⚠ **its OWN workspace root**, like `examples/portal_tutorial` and
+# **its OWN workspace root**, like `examples/portal_tutorial` and
 # `fixtures/minimal_game`. That is not tidiness: a capability that proves an
 # OUTSIDE author can write one must be built the way an outsider builds it —
 # resolving `ambition_*` as ordinary path dependencies, with its own lock and no
 # feature unification from the engine's workspace.
 #
-# ⛔ leaving the workspace would silently drop this crate from
+# leaving the workspace would silently drop this crate from
 # `cargo test --workspace`, which is how a move like this loses its coverage
 # without anyone noticing. `scripts/run_tests.py` runs it explicitly, the same
 # way it runs the two fixtures.
 [workspace]
 
 
-# ⚠ THE DEPENDENCY LIST IS THE PROOF.
+# THE DEPENDENCY LIST IS THE PROOF.
 #
 # No `ambition_platformer2d_actor_monolith`, no `ambition_content`, no game. A capability that had to
 # reach into the actor crate to exist would tell us the seams are not seams —
@@ -34,26 +34,23 @@ ambition_content_pack = { path = "../../crates/ambition_content_pack" }
 ambition_causal = { path = "../../crates/ambition_causal", features = ["bevy"] }
 ambition_input = { path = "../../crates/ambition_input" }
 ambition_platformer2d_core = { path = "../../crates/ambition_platformer2d_core" }
-# ⚠ **the SIM SCHEDULE seam, and it costs exactly ONE crate** (7 → 8 in the
+# **the SIM SCHEDULE seam, and it costs exactly ONE crate** (7 → 8 in the
 # closure). `SimScheduleExt` lives here and this crate depends only on
 # `ambition_platformer2d_core`, which was already present.
 #
-# ⛔ the first version registered into bare `Update`, which is what a Bevy
-# habit produces and what this crate's own recipe warns against — so the
-# WORKED EXAMPLE contradicted the documentation it exists to illustrate. Under
-# a fixed-tick host that ties pulse timing to the RENDER rate; under rollback
-# the systems are not replayed at all, so a rewind restores `PulseCooldown`
-# without re-running the behaviour that produced it. The eighth crate is the
-# honest price of being a rollback-safe capability rather than claiming to be.
+# the first version registered into bare `Update`, which is what a Bevy habit produces and what
+# this crate's own recipe warns against — so the WORKED EXAMPLE contradicted the documentation
+# it exists to illustrate. The eighth crate is the honest price of being a rollback-safe
+# capability rather than claiming to be.
 ambition_platformer2d_shared_tangle = { path = "../../crates/ambition_platformer2d_shared_tangle" }
 bevy = { version = "0.18.1", default-features = false }
-# ⚠ **declared explicitly, not inherited.** Outside the engine's workspace there
+# **declared explicitly, not inherited.** Outside the engine's workspace there
 # is no `workspace.dependencies` to inherit from — which is the point: this is
 # what an outside capability author's manifest actually looks like.
 ron = "0.11"
 serde = { version = "1", features = ["derive"] }
 
-# ⚠ A DEV-DEPENDENCY, and that is the whole fix.
+# A DEV-DEPENDENCY, and that is the whole fix.
 #
 # The first version of this crate depended on `ambition_platformer2d_runtime` so its plugin
 # could register its own rollback state — which dragged the entire simulation
@@ -84,11 +81,6 @@ ambition_sim_harness = { path = "../../crates/ambition_sim_harness" }
 # facade that mounts it.
 ambition_platformer2d = { path = "../../crates/ambition_platformer2d", features = ["content_pack"] }
 
-# ⛔ **AN OUTSIDE WORKSPACE DOES NOT INHERIT THE ENGINE'S PATCHES**, and this is
-# the first thing that broke when this crate moved out of `crates/`
-# (2026-08-01): `cargo test` here resolved the RELEASED `bevy_ggrs 0.21`, which
-# has no `GgrsFrameTiming`, and the rollback backend failed to compile.
-#
 # The engine pins a forked rev in its own `[patch.crates-io]`. Any consumer that
 # selects `ambition_platformer2d/rollback` or names the GGRS backend directly — as
 # this crate does in dev-dependencies to prove a host can install its rollback
@@ -96,7 +88,7 @@ ambition_platformer2d = { path = "../../crates/ambition_platformer2d", features 
 # cost of the fork, and it was invisible while this crate lived inside the
 # workspace and inherited the patch for free.
 #
-# ⚠ keep this rev IDENTICAL to the root `Cargo.toml`'s. Two revs would compile
+# keep this rev IDENTICAL to the root `Cargo.toml`'s. Two revs would compile
 # and desync.
 [patch.crates-io]
 bevy_ggrs = { git = "https://github.com/Erotemic/bevy_ggrs", rev = "4d2eff2a89f00c127e17fd26dd3f25d3a1113fa2" }

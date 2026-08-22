@@ -2,9 +2,8 @@
 //!
 //! ## Why this module exists
 //!
-//! It did not, and that was one bug reported three times. The step that decodes
-//! a declared character's sheet lived in `ambition_app`'s room-transition asset
-//! code — an APPLICATION crate. So:
+//! The step that decodes a declared character's sheet lived in `ambition_app`'s room-transition
+//! asset code — an APPLICATION crate. So:
 //!
 //! * `ambition_demo_mary_o_app` never ran it, and Mary-O rendered as a coloured
 //!   rectangle in her own standalone game while rendering correctly in the
@@ -13,9 +12,8 @@
 //! * only the PRIMARY PLAYER's worn sheet was covered, so any second worn body —
 //!   exactly what a versus mode is made of — fell through.
 //!
-//! Nothing failed when two applications composed the engine differently, which is
-//! what let the same defect ship three times. The fix is not "remember to add the
-//! system": it is that no application can add it, because the engine always does.
+//! The fix is not "remember to add the system": it is that no application can add it, because
+//! the engine always does.
 //!
 //! ## The shape
 //!
@@ -60,11 +58,6 @@ pub use definition::{
     CharacterDefinitionAppExt, CharacterPreparationPlugin, CharacterRegistrationError,
     MissingCharacterFacts, PreparedCharacterDefinition, PreparedCharacterRegistry, PreparedKit,
 };
-// ⭐⭐ **THE AUTHORED TYPE LIVES IN `ambition_characters` NOW** (D73 item 2,
-// 2026-08-12). It is re-exported here because this module is what PREPARES it
-// and every caller in the workspace reaches it through preparation — an import
-// convenience over the one definition, not a second one. See
-// `ambition_characters::actor::definition` for why the cut is where it is.
 pub use ambition_characters::actor::definition::{
     BodySource, CharacterDefinition, Lineage, Vitals,
 };
@@ -90,17 +83,10 @@ pub use seating::{match_participants, ActiveMatch, MatchInstance, MatchSeat};
 /// **A body-complete fixture CAST**, for engine tests that need actors and do
 /// not care which creatures they are.
 ///
-/// ⛔⛔ **this is what the fixture ROSTER used to be** (`test_roster`,
-/// `fixture_roster_with_mount`, `fixture_spec`, `test_spec` — all deleted with
-/// the archetype ontology in AC6). Those handed a test a body by BRAIN KEY, from
-/// a table that answered every key, so a spawn test could name `medium_striker`
-/// and receive a plausible body without anything registering a creature. Every
-/// spawn road resolves a CHARACTER now and refuses what it cannot find, so a
-/// test that needs an actor registers one — the same two steps production does.
-///
-/// Each id becomes a character stating the facts a body needs: the numbers are
-/// the deleted `combatant` row's, so tests that measured a generic enemy still
-/// measure the same body.
+/// Those handed a test a body by BRAIN KEY, from a table that answered every key, so a spawn test
+/// could name `medium_striker` and receive a plausible body without anything registering a
+/// creature. Every spawn road resolves a CHARACTER now and refuses what it cannot find, so a test
+/// that needs an actor registers one — the same two steps production does.
 #[cfg(test)]
 pub(crate) fn fixture_cast(ids: &[&str]) -> PreparedCharacterRegistry {
     let mut registry = PreparedCharacterRegistry::default();
@@ -210,13 +196,6 @@ pub enum CharacterLoadFailure {
     NoSheetResolved,
     /// The sheet resolved and the IMAGE did not — the asset catalog gated the
     /// load, or the path it produced reaches nothing.
-    ///
-    /// Split out from [`Self::NoSheetResolved`] on 2026-07-28 because they are
-    /// different bugs with different fixes and one of them was wearing the
-    /// other's name: the external fixture's character reported "no sheet
-    /// resolved" while its sheet resolved perfectly and the desktop load gate
-    /// was refusing a `game://` path it could not filesystem-check. Twenty
-    /// minutes went into a metadata seam that was already correct.
     NoImageResolved,
     /// This composition has NO asset pipeline at all — a headless simulation, an
     /// RL rollout, an art-free shell. Legitimate, and a different fact from "the
@@ -255,10 +234,7 @@ pub enum CharacterLoadOutcome {
 
 /// **THIS session's cast, by canonical character id.**
 ///
-/// Split out of the load ledger because the two answer different questions and
-/// only one of them is a roster. [`CharacterLoadStates`] is append-only history
-/// keyed by whatever TOKEN was demanded: it has to be, so a failure can name the
-/// spelling that failed. Using it as the cast produced two bugs at once —
+/// Using it as the cast produced two bugs at once —
 ///
 /// * after three rooms it holds every character the process ever loaded, so a
 ///   later session authorized the cues of characters who left the building; and
@@ -273,7 +249,7 @@ pub enum CharacterLoadOutcome {
 ///
 /// Within one session it only grows. Stage A and B, walk three rooms, stage C and
 /// D, and all four are in it — it is not "the characters standing on the field right
-/// now", and comments that read that way were imprecise (GPT 5.6, 2026-07-26).
+/// now", and comments that read that way were imprecise.
 ///
 /// That is the right shape for its one consumer, and deliberately so rather than by
 /// omission. Its consumer is
@@ -283,10 +259,6 @@ pub enum CharacterLoadOutcome {
 /// could not un-authorize anybody, and modelling it as a live roster would produce a
 /// resource whose contents implied a revocation the audio layer never performs. The
 /// two facts are kept the same size on purpose.
-///
-/// The session boundary is where it resets, which is the boundary that matters:
-/// authorizing a fifty-character roster after an evening of play is the bug this
-/// closed, and a fifty-character roster is a fifty-character SESSION.
 ///
 /// If a per-match live roster is ever wanted — a versus mode that reports who is on
 /// stage, or an audio layer that gains revocation — it is a different resource with
@@ -433,12 +405,9 @@ impl CharacterLoadStates {
 
 /// **The canonical character id a demand token names.**
 ///
-/// Rooms, LDtk entities and roster entries all legitimately submit display names
-/// (`"Mary-O"`), while every provider map — the prepared registry, the assembled
-/// catalog's owners — is keyed by stable id (`"mary_o"`). Resolve through the two
-/// declaration authorities, ids first, and hand back the token unchanged when
-/// nothing claims it (an unknown token has no canonical form, and the load ledger
-/// is where that gets reported).
+/// Rooms, LDtk entities and roster entries all legitimately submit display names (`"Mary-O"`),
+/// while every provider map — the prepared registry, the assembled catalog's owners — is keyed
+/// by stable id (`"mary_o"`).
 ///
 /// Deliberately NOT resolved through the sprite table, which is the other place a
 /// token → id alias exists. The table answers about ART, and the cast is a roster
@@ -515,7 +484,7 @@ pub fn materialize_character_demand(
     states: &mut CharacterLoadStates,
     sprites: &mut CharacterSpriteAssets,
     character_catalog: &CharacterCatalog,
-    // Sheets this app's PROVIDERS authored (queue U1). A source of sheet
+    // Sheets this app's PROVIDERS authored. A source of sheet
     // metadata that is not the engine's baked table, which is what lets a game
     // outside this workspace ship a character of its own.
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
@@ -534,8 +503,7 @@ pub fn materialize_character_demand(
         // character whose sheet never resolves.
         let character_id = canonical_character_id(registry, character_catalog, &token).to_string();
         declare_registered_character_into(sprites, registry, &token, &character_id);
-        // Ask BEFORE decoding: an unknown token must be reported as unknown, not
-        // as a decode that produced nothing. They are different bugs.
+        // They are different bugs.
         if matches!(sprites.sheet_state(&token), CharacterSheetState::Unknown) {
             states.record(
                 token,
@@ -609,11 +577,7 @@ pub fn registered_portrait_target<'a>(
 
 /// **Declare every registered character into the sprite read model.**
 ///
-/// The sheet table used to be populated exclusively from `CharacterCatalog`, so a
-/// character registered only through `register_character` was `Unknown` to the art
-/// pipeline — the load state reported "no loaded content declares this character"
-/// about a character a provider had just declared. The prepared registry is a
-/// source of declarations, and this is where it becomes one.
+/// The prepared registry is a source of declarations, and this is where it becomes one.
 ///
 /// Idempotent, and cheap: declaring does NOT decode. It only teaches the table
 /// that the id exists and which display name aliases it, which is what turns
@@ -648,22 +612,15 @@ pub fn declare_registered_characters(
 
 /// **An ACTOR that resolved a character identity needs that art too.**
 ///
-/// The exact sibling of [`demand_worn_character_sheets`], and it was missing.
-/// That system watches `WornCharacter` — the identity a body PUTS ON. An
-/// `EnemySpawn` wears nothing: it resolves its character through the display-name
-/// join (`ActorClusterSeed` → `catalog.id_for_display_name`) and carries the
-/// answer on `ActorConfig::sprite_character_id`. So a room full of authored
-/// enemies declared their characters, resolved them correctly, and never asked
-/// for the art.
+/// That system watches `WornCharacter` — the identity a body PUTS ON. An `EnemySpawn` wears
+/// nothing: it resolves its character through the display-name join (`ActorClusterSeed` →
+/// `catalog.id_for_display_name`) and carries the answer on `ActorConfig::sprite_character_id`.
+/// So a room full of authored enemies declared their characters, resolved them correctly, and
+/// never asked for the art.
 ///
-/// The symptom is a marked placeholder rectangle, and the renderer says so
-/// exactly: *"actor 'Puppy Slug' resolved no sprite and is drawing the
-/// placeholder rectangle: declared as 'npc_puppy_slug' but not materialized —
-/// nothing demanded it, so the engine never decoded its sheet"*. Four of them
-/// stand in `intro_escape_shaft`, in the sequence a stranger plays first
-/// (2026-07-29, found by photographing the room).
+/// Four of them stand in `intro_escape_shaft`, in the sequence a stranger plays first .
 ///
-/// ⚠ **`Added` rather than `Changed`.** An actor's config is rebuilt every tick
+/// **`Added` rather than `Changed`.** An actor's config is rebuilt every tick
 /// as a read-model (`sync_actor_read_models` restores its reaction timers over a
 /// fresh value), so `Changed` here would re-request the whole room's cast every
 /// frame. The identity is decided at construction and does not drift, so asking
@@ -710,13 +667,6 @@ pub fn demand_worn_character_sheets(
 
 /// **A quality Apply converges the art a session is already showing.**
 ///
-/// The one thing the pipeline could not do. Demand was a one-way street:
-/// `Declared → Ready`, and nothing ever re-demanded a character that was already
-/// `Ready`. So a participant who applied a new quality profile mid-play got new
-/// characters at the new tier and every body already on screen at the old one,
-/// forever — Jon's ruling (2026-08-08) is that this is not acceptable and
-/// "it applies on the next room load" is not an answer.
-///
 /// The transition is three moves and no new machinery:
 ///
 /// 1. compare each resident realization's TIER against the active one;
@@ -731,13 +681,7 @@ pub fn demand_worn_character_sheets(
 /// the same body entity, the same gameplay authority. Only the physical
 /// realization is replaced.
 ///
-/// ⚠ **the TIER decides, never the profile.** `Low` and `Medium` realize sheets
-/// at the same `Half` pixels, so keying this on "the profile changed" would
-/// retire and re-decode the whole cast to arrive at a byte-identical result —
-/// and a test asserting "the profile changed" would pass while the feature was
-/// broken, which is how this defect survived.
-///
-/// ⚠ **`UserSettings`, the same source the materializer reads.** Comparing
+/// **`UserSettings`, the same source the materializer reads.** Comparing
 /// against one authority and stamping from another is how a transition becomes a
 /// loop: every frame retires a realization that is immediately remade with the
 /// tier it just failed.
@@ -771,11 +715,8 @@ pub fn converge_character_residency_to_active_quality(
 
 /// **A new session gets a new cast.**
 ///
-/// The load ledger accumulates forever by design, so without this the cast a
-/// session authorizes cues for is every character the PROCESS ever loaded: quit to
-/// the menu, start a different fight, and the previous fight's providers are
-/// authorized alongside the current one. `ActiveAudioSelection` resets on session
-/// select; the cast has to reset with it or the reset means nothing.
+/// `ActiveAudioSelection` resets on session select; the cast has to reset with it or the reset
+/// means nothing.
 ///
 /// Runs before the materializer so a session that begins and stages in the same
 /// frame keeps what it staged.
@@ -838,11 +779,6 @@ pub fn materialize_demanded_character_sheets(
         // shell). SETTLE the demand with a NAMED terminal state rather than leaving
         // it pending: §4.9 forbids silence, and a reveal barrier waiting forever on
         // art that was never going to exist is that silence with extra steps.
-        //
-        // This is a legitimate outcome, not a defect — which is exactly why it needs
-        // its own variant instead of borrowing `NoSheetResolved`. "Nothing was ever
-        // going to decode here" and "the decode produced nothing" call for different
-        // responses from whoever reads the ledger.
         let fallback_registry = PreparedCharacterRegistry::default();
         let registry = registry.as_deref().unwrap_or(&fallback_registry);
         for token in demand.take() {
@@ -881,9 +817,8 @@ pub fn materialize_demanded_character_sheets(
 
 /// Installs the engine's character load pipeline.
 ///
-/// Added unconditionally by the host simulation plugin so **no application can
-/// compose the engine without it**. That is the whole point: this file exists
-/// because "the app forgot the step" was a shippable state three times over.
+/// Added unconditionally by the host simulation plugin so **no application can compose the
+/// engine without it**.
 pub struct CharacterRuntimePlugin;
 
 impl Plugin for CharacterRuntimePlugin {
@@ -903,14 +838,12 @@ impl Plugin for CharacterRuntimePlugin {
             .add_systems(
                 // **The SIM schedule, not `Update`.** (§4.11)
                 //
-                // These two read and write simulation state — a pose clock and the
-                // volumes damage resolves against — so under rollback they must
-                // recompute on every resimulated tick. In `Update` they ran once per
-                // FRAME while the sim re-ran many times, which left
-                // `ResolvedHurtboxes` stale for every rewound tick even though it is
-                // declared rollback-DERIVED on the promise that the sim rebuilds it.
-                // A frame-rate-dependent hurtbox is also just a bug: two peers at
-                // different frame rates would disagree about what got hit.
+                // These two read and write simulation state — a pose clock and the volumes
+                // damage resolves against — so under rollback they must recompute on every
+                // resimulated tick. In `Update` they ran once per FRAME while the sim re-ran
+                // many times, which left `ResolvedHurtboxes` stale for every rewound tick even
+                // though it is declared rollback-DERIVED on the promise that the sim rebuilds
+                // it.
                 sim,
                 (
                     // Gated, not `Option<Res<..>>`: a world with no clock has no
@@ -928,23 +861,19 @@ impl Plugin for CharacterRuntimePlugin {
                     // Pinned to one exact window inside `Combat`: AFTER the move
                     // clock advances, BEFORE damage resolves.
                     //
-                    // Both edges are load-bearing. A move override is selected by
-                    // the move clock, so resolving before `advance_move_playback`
-                    // would present the previous tick's silhouette on the first
-                    // active frame — the frame that matters most. And every body's
-                    // position is already post-movement here (`PlayerSimulation`
-                    // and `WorldPrep` both precede `Combat`), so this is the one
-                    // slot where clocks and positions are simultaneously current.
+                    // Both edges are load-bearing. And every body's position is already
+                    // post-movement here (`PlayerSimulation` and `WorldPrep` both precede
+                    // `Combat`), so this is the one slot where clocks and positions are
+                    // simultaneously current.
                     .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::Combat)
                     .after(crate::schedule::CombatSet::Playback)
                     .before(crate::schedule::CombatSet::Resolve),
             )
             .add_systems(
                 sim,
-                // A13: who a body sounds like, published BEFORE the move timeline
-                // reads it. The move clock is the emitter this whole attribution
-                // exists for, so a frame-scheduled publish would hand it stale (or
-                // missing) attribution on exactly the ticks a rollback resimulates.
+                // The move clock is the emitter this whole attribution exists for, so a
+                // frame-scheduled publish would hand it stale (or missing) attribution on
+                // exactly the ticks a rollback resimulates.
                 (
                     presentation::publish_body_presentation_sources,
                     // G1/H1: the BACKSTOP for a projectile that reached the world
@@ -960,28 +889,16 @@ impl Plugin for CharacterRuntimePlugin {
             )
             .add_systems(
                 sim,
-                // C4 slice 1: a match roster becomes bodies. Before the character
-                // projection in the same phase, so a fighter seated this tick wears
-                // its moveset and silhouette on the tick it appears rather than the
-                // one after — the difference between a fighter that can be hit on
-                // frame one and one that is briefly a bare rectangle.
-                // ⭐ **PREPARE, then ACTIVATE, chained on one tick.** Two systems
-                // rather than one because they answer different questions and
-                // only one of them may fail: preparation resolves every
-                // permanent question against the character authorities, and
-                // activation builds the cast from the answer without consulting
-                // any authority at all. Chained so a roster published this tick
-                // still opens its match this tick.
-                // ⛔ **ONLY ACTIVATION RUNS IN THE ROLLBACK WINDOW.** Preparation
-                // is registered in `Update` below, and the reason is a measured
-                // determinism failure rather than tidiness: `PreparedMatch` is
-                // deliberately NOT rollback state (it is a decision made before
-                // the session it describes), so producing it INSIDE the sim
-                // schedule made it state that is written in the window and does
-                // not rewind with it. GGRS said so directly — *"sync-test
-                // checksum mismatch at frames [10, 11, 12]"* — which is this
-                // repo's own "a derive's MEMO is rollback state" trap: a value
-                // that GATES behaviour is not a cache.
+                // Before the character projection in the same phase, so a fighter seated this tick
+                // wears its moveset and silhouette on the tick it appears rather than the one after
+                // — the difference between a fighter that can be hit on frame one and one that is
+                // briefly a bare rectangle. **PREPARE, then ACTIVATE, chained on one tick.** Two
+                // systems rather than one because they answer different questions and only one of
+                // them may fail: preparation resolves every permanent question against the
+                // character authorities, and activation builds the cast from the answer without
+                // consulting any authority at all. GGRS said so directly — *"sync-test checksum
+                // mismatch at frames [10, 11, 12]"* — which is this repo's own "a derive's MEMO is
+                // rollback state" trap: a value that GATES behaviour is not a cache.
                 //
                 // Activation stays here because building bodies is simulation,
                 // and it replays correctly precisely because the plan it reads
@@ -1003,7 +920,7 @@ impl Plugin for CharacterRuntimePlugin {
                     // right to. "Not part of this composition" and "optional
                     // here" are different claims, and only the first is true.
                     //
-                    // ⭐ **it gates on what preparation actually REQUIRES** — the
+                    // **it gates on what preparation actually REQUIRES** — the
                     // catalog its `Res<CharacterCatalog>` would panic without.
                     // Until AC6 it gated on the enemy archetype roster instead: a
                     // table about hostile bodies, standing in for "content was
@@ -1025,19 +942,12 @@ impl Plugin for CharacterRuntimePlugin {
                 // erased equipment-granted moves; the two agree now because
                 // `apply_worn_character_kit` consults the same registry.
                 //
-                // Named as a PHASE, which is the whole point of D7. This used to
-                // read `.in_set(Combat).before(apply_worn_character_gameplay)` —
-                // and that leaf lives in `PlayerInput`, which PRECEDES `Combat`,
-                // so the edge closed a cycle through the set ordering and nothing
-                // at the call site could have revealed it. A phase name cannot
-                // make that mistake: the set says where it runs.
+                // A phase name cannot make that mistake: the set says where it runs.
                 presentation::project_prepared_character_definitions
                     .in_set(crate::schedule::PlayerInputSet::CharacterProjection),
             )
             .add_systems(
                 Update,
-                // **THE MATCH IS DECIDED OUTSIDE THE ROLLBACK WINDOW.** See the
-                // activation registration above for the measured reason.
                 (
                     // The same requirement as the activation registration above,
                     // named the same way.
@@ -1056,8 +966,7 @@ impl Plugin for CharacterRuntimePlugin {
                     // Declare before anything asks: a character registered only
                     // through `register_character` must not read as `Unknown`.
                     declare_registered_characters,
-                    // The cast belongs to ONE session. Before anything stages into
-                    // it, drop the previous session's.
+                    // The cast belongs to ONE session.
                     retire_previous_session_cast,
                     demand_worn_character_sheets,
                     demand_actor_character_sheets,
@@ -1068,12 +977,8 @@ impl Plugin for CharacterRuntimePlugin {
                     // the THREE changing rather than run every frame — it walks all
                     // of them, and the answer can only change when one does.
                     //
-                    // Gating on the catalog alone was wrong even though startup
-                    // masked it (both resources are new on the first frame): a
-                    // character registered later, into an unchanged catalog, would
-                    // never be compared against it. The condition has to name every
-                    // input the audit reads, or it is a claim about invalidation
-                    // that the schedule does not make (GPT 5.6, 2026-07-26).
+                    // The condition has to name every input the audit reads, or it is a claim
+                    // about invalidation that the schedule does not make.
                     audit::report_character_authority_conflicts.run_if(
                         bevy::ecs::schedule::common_conditions::resource_exists_and_changed::<
                             CharacterCatalog,

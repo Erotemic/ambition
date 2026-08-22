@@ -69,8 +69,7 @@ struct BossSnapshot {
 }
 
 fn read_player(world: &mut World) -> PlayerSnapshot {
-    // ⭐ AC3.1.B: `attacking` reads the melee AUTHORITY. It used to read a
-    // `BodyCombat` mirror that only the player road maintained.
+    // AC3.1.B: `attacking` reads the melee AUTHORITY.
     let mut q = world.query_filtered::<(
         &BodyKinematics,
         &BodyCombat,
@@ -333,12 +332,10 @@ fn flying_into_mockingbird_traces_iframe_gated_contact_damage() {
 ///      the player cannot steer back toward the boss (the knockback gets to
 ///      eject them before they can act).
 ///
-/// Note: `update_boss_encounters` DOES auto-register/wake a programmatically-
-/// spawned boss (by its `behavior.id`), but its HP only starts dropping after
-/// the ~2s Intro invulnerability, and a stray room-edge can trigger a feature
-/// reset that despawns it — both orthogonal to the combat-feel fix. So we
-/// measure the swing CONNECTING (`hit_flash`, set before the HP check) rather
-/// than boss HP, and break cleanly if the boss is reset away.
+/// Note: `update_boss_encounters` DOES auto-register/wake a programmatically- spawned boss (by
+/// its `behavior.id`), but its HP only starts dropping after the ~2s Intro invulnerability, and
+/// a stray room-edge can trigger a feature reset that despawns it — both orthogonal to the
+/// combat-feel fix.
 #[test]
 fn face_tanking_player_swings_back_and_is_recoil_locked() {
     let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
@@ -353,14 +350,7 @@ fn face_tanking_player_swings_back_and_is_recoil_locked() {
         "mockingbird",
         (start.x, start.y),
         (30.0, 30.0),
-        // Stationary (Dormant) boss. The mechanic under measurement — post-contact
-        // i-frames + the player swinging back while invulnerable — is independent of
-        // the boss's flight pattern, and a fixed target makes the "swing reaches the
-        // boss" check deterministic instead of hostage to a chaotic flying pursuit
-        // (the crude steer-at-center agent can't reliably re-catch a fleeing
-        // PhaseScript mockingbird, and which basin it lands in is sensitive to
-        // sub-pixel perturbations like the unified tick's corrected platform-
-        // collision timing). The mockingbird's huge contact box still drives the
+        // Stationary (Dormant) boss. The mockingbird's huge contact box still drives the
         // i-frame loop. Dormant bosses still deal body-contact damage on overlap.
         BossBrain::Dormant,
     );
@@ -417,14 +407,13 @@ fn face_tanking_player_swings_back_and_is_recoil_locked() {
         let boss_after = read_boss(sim.world_mut());
         let boss_flash = boss_after.map(|b| b.hit_flash).unwrap_or(0.0);
 
-        // Hold the independent variable — proximity — fixed. Once a knockback has
-        // FULLY played out (recoil cleared) but the player has drifted off the
-        // boss, snap it back onto the boss so the "swing connects while i-framed"
-        // measurement isn't hostage to flight navigation through the sandbox's
-        // incidental geometry (a free-flying body knocked onto a ledge ABOVE the
-        // grounded boss cannot descend back to it). This NEVER overrides an active
-        // recoil throw (`recoil > 0`), so the knockback / steering-suppression
-        // measurement below stays a faithful read of the real mechanic.
+        // Once a knockback has FULLY played out (recoil cleared) but the player has drifted off
+        // the boss, snap it back onto the boss so the "swing connects while i-framed"
+        // measurement isn't hostage to flight navigation through the sandbox's incidental
+        // geometry (a free-flying body knocked onto a ledge ABOVE the grounded boss cannot
+        // descend back to it). This NEVER overrides an active recoil throw (`recoil > 0`), so
+        // the knockback / steering-suppression measurement below stays a faithful read of the
+        // real mechanic.
         if let Some(b) = boss_after {
             let off = b.pos - cur.pos;
             let bh = b.combat_size * 0.5;
@@ -513,10 +502,7 @@ fn face_tanking_player_swings_back_and_is_recoil_locked() {
         "the player must take >=1 boss hit, otherwise there is no recoil to measure"
     );
 
-    // --- Ask 2: face-tanking is no longer helpless. ---
-    // Before the fix the attack gate was the full ~0.94s hitstun, which
-    // outlasts the 0.75s i-frame window — so the player could NEVER swing while
-    // invulnerable. Now they can, and the swing reaches the boss while flashing.
+    // Now they can, and the swing reaches the boss while flashing.
     assert!(
         swing_while_iframed >= 1,
         "the player should be mid-swing while invulnerable (face-tanking); got {swing_while_iframed}"
@@ -551,12 +537,9 @@ fn face_tanking_player_swings_back_and_is_recoil_locked() {
 /// Boss-encounter refactor canary: live HP/phase state is ENTITY-LOCAL
 /// (`BossEncounter.health` + `BossEncounter.encounter`), not a shared global map.
 ///
-/// Two of the SAME boss archetype must get independent HP / phase / death — the
-/// property a gauntlet or twin-boss room needs. Before the refactor both linked
-/// to a single `encounters["mockingbird"]` state and shared one HP pool;
-/// damaging one would drain the other. After R3 the global map is gone, so this
-/// reads the per-entity `BossEncounter`. See
-/// `docs/systems/boss-encounter-architecture.md`.
+/// Two of the SAME boss archetype must get independent HP / phase / death — the property a
+/// gauntlet or twin-boss room needs. After R3 the global map is gone, so this reads the
+/// per-entity `BossEncounter`. See `docs/systems/boss-encounter-architecture.md`.
 #[test]
 fn two_same_archetype_bosses_have_independent_encounter_state() {
     use ambition_platformer2d::boss_encounter::{BossConfig, BossEncounter};

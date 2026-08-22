@@ -1004,12 +1004,6 @@ fn move_hurtbox_keyframes_must_fit_inside_the_move_clock() {
 
 /// A ZERO-WIDTH window is legal; an INVERTED one is not.
 ///
-/// `simple_melee` with `windup_s: 0.0` — which `avatar/bundles.rs` authors —
-/// emits `Startup [0.0, 0.0)` so the timeline stays three-phase whether or not a
-/// move has a windup. The validator used to reject `start_s >= end_s` and so
-/// rejected exactly that, which made "no windup" unauthorable through the
-/// prefab every other move uses.
-///
 /// ⚠ this is only safe because every window predicate is the half-open
 /// `start_s <= t < end_s` (`moveset/mod.rs`), so nothing can fire inside a
 /// zero-width window — it is a label on a boundary, not a span. If a predicate
@@ -1246,16 +1240,7 @@ fn the_strongest_lift_wins_and_ties_break_on_the_earlier_moment() {
 /// **A COMMANDED VELOCITY IS A VECTOR, AND BOTH HALVES COME FROM THE SAME
 /// EVENT.**
 ///
-/// ⭐ the derivation used to keep only the projection onto the gravity axis,
-/// which is lossless for the shape the first authored recovery happened to have
-/// (straight up) and catastrophic for the next one: a grapple that hauls its
-/// owner 980px/s across and 300px/s up was reported as a 300px/s hop — a move
-/// that gains 20px of altitude and goes nowhere. Every downstream reader then
-/// planned around a move nobody wrote.
-///
-/// ⛔ **both terms are observed.** The vertical half must still be exactly what
-/// it always was (or the fix is a retune wearing a fix's commit), and the side
-/// half must be non-zero (or the field is decorative).
+/// Every downstream reader then planned around a move nobody wrote.
 #[test]
 fn a_diagonal_command_reports_both_of_its_halves() {
     let grapple = timed_move(

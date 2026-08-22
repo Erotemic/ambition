@@ -52,14 +52,8 @@ pub struct DialogState {
     /// conversation. Empty when no conversation is active.
     dialogue_id: String,
 
-    // ⛔ **the two participant entities LIVED HERE and no longer do.** They were
-    // the simulation's only record of who was talking, in a resource rollback
-    // does not rewind; `ambition_conversation::
-    // ActiveConversation` owns them now and IS rewound. ⚠ the landmine this used
-    // to carry is worth keeping written down: `speaker_entity` meant the NPC
-    // while the interaction site's `speaker_id` meant the body that walked UP.
-    // The two spellings of "speaker" mean opposite things; the authority avoids
-    // the word entirely and says `talker` / `initiator`.
+    // The two spellings of "speaker" mean opposite things; the authority avoids the word entirely
+    // and says `talker` / `initiator`.
     /// Stable character id of the conversation endpoint that opened this
     /// dialogue. Copied from `DialogueContext.listener_id`; empty for scripted
     /// conversations without an identified endpoint.
@@ -109,12 +103,7 @@ pub struct DialogState {
     /// Which input source currently owns selection focus, plus the
     /// last row the pointer actually hovered.
     pub(crate) focus: MenuFocusState,
-    /// Last cursor position that successfully owned dialog hover.
-    /// Used to ignore stationary hover when the option list scrolls
-    /// underneath the mouse.
     pub(crate) last_pointer_position: Option<Vec2>,
-    /// The row a finger or cursor went DOWN on, armed until it comes up. See
-    /// `ambition_ui_nav::RowPress` for why activation moved to release.
     pub(crate) row_press: ambition_ui_nav::RowPress,
 
     /// Pending request: `Some((dialogue_id, npc_name))` until a

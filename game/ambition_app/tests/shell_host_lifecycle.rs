@@ -215,12 +215,6 @@ fn launch_entry(app: &mut App, index: usize) {
 
 /// **Launch the row with this LABEL.**
 ///
-/// ⭐⭐ **the walk below used bare indices until 2026-08-15, and unlisting two
-/// experiences renumbered every one of them.** The failure was not loud — the
-/// test asked for row 3 and got TwinTrack, so it asserted Pocket's route against
-/// TwinTrack's session and reported a route mismatch, which reads as a routing
-/// bug rather than as an off-by-one in the test's own bookkeeping.
-///
 /// A label is what the walk actually means, it survives reordering, and it makes
 /// the panic name the game somebody was looking for.
 fn launch_labeled(app: &mut App, label: &str) {
@@ -245,22 +239,15 @@ fn launch_labeled(app: &mut App, label: &str) {
 
 /// Move the launcher cursor to `index` and prove it arrived, without launching.
 ///
-/// Split out of [`launch_entry`] for the EXIT row, which cannot be settled
-/// blindly: `Messages<AppExit>` is double-buffered and dropped after two
-/// updates, so a caller that settles four and then asks whether an exit was
-/// raised is asking a question whose answer has already been thrown away. See
-/// the exit block in the lifecycle walk.
+/// See the exit block in the lifecycle walk.
 fn select_entry(app: &mut App, index: usize) {
     // Reset the cursor to the top deterministically, then walk down.
     for _ in 0..8 {
         app.world_mut().write_message(ShellLauncherCommand::Next);
         app.update();
     }
-    // 8 Next presses over a 4-row list land back where it started; walk to a
-    // known top by pressing Next until selection wraps to 0 is fragile —
-    // instead drive Previous enough times to clamp at a full wrap, then Next.
-    // Simpler and exact: read-modify via commands only — set with Previous
-    // presses to index 0 (wrapping), so compute walk from current selection.
+    // Simpler and exact: read-modify via commands only — set with Previous presses to index 0
+    // (wrapping), so compute walk from current selection.
     let current = app
         .world()
         .resource::<ambition_platformer2d::game_shell::ShellLauncherState>()
@@ -451,18 +438,9 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
          or loses a row is the first thing a player sees."
     );
 
-    // ⭐⭐ **`Pocket` AND `Versus` ARE STILL COMPOSED — they are UNLISTED, which
-    // is a different thing from absent, and asserting both halves is what keeps
-    // this honest.** Jon, 2026-08-15: the game-selection shell should list games,
-    // and these two are a provider-architecture fixture and a crossover test
-    // stage. Dropping their composition would have been the tempting reading and
-    // the wrong one: `Versus` CANNOT be a standalone binary, because its fighters
-    // come from two different provider plugins and this host is the only place
-    // both casts exist. So the row goes and the stage stays.
-    //
-    // ⛔ a test that only checked the visible list would pass just as well if
-    // somebody deleted the composition, which is the failure this pair exists to
-    // separate.
+    // Dropping their composition would have been the tempting reading and the wrong one: `Versus`
+    // CANNOT be a standalone binary, because its fighters come from two different provider plugins
+    // and this host is the only place both casts exist. So the row goes and the stage stays.
     let registered: Vec<String> = app
         .world()
         .resource::<ambition_platformer2d::game_shell::ShellExperienceRegistry>()
@@ -566,10 +544,8 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
 
     // ── Pocket fourth-provider proof ───────────────────────────────────
     //
-    // ⭐ **UNLISTED since 2026-08-15, so it is reached by ROUTE rather than by a
-    // launcher row** — and the leak coverage is the reason to keep visiting it at
-    // all. Not being offered to a player says nothing about whether its session
-    // tears down cleanly, and this walk is the only thing that asks.
+    // Not being offered to a player says nothing about whether its session tears down cleanly, and
+    // this walk is the only thing that asks.
     app.world_mut()
         .write_message(ShellCommand::GoTo(
             ambition_platformer2d::game_shell::ShellRouteId::new("pocket_gameplay"),
@@ -759,12 +735,6 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
     assert_home(&mut app, "after sanic #2");
 
     // ── Exit ───────────────────────────────────────────────────────────
-    //
-    // Exit is the built-in row AFTER every provider entry, so its index is the
-    // entry count — derived, not the literal `4` this used to be. That literal
-    // silently became "Versus" the day a fifth experience registered, and the
-    // failure read as "selecting Exit raises the shell exit request", which names
-    // the symptom and not the cause.
     let exit_index = app
         .world()
         .resource::<ambition_platformer2d::game_shell::ShellLaunchCatalog>()
@@ -774,15 +744,8 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
     app.world_mut()
         .write_message(ShellLauncherCommand::LaunchSelected);
 
-    // ⚠ **WATCHED, not sampled at the end.** `Messages<AppExit>` is
-    // double-buffered and dropped after two updates, so this used to launch,
-    // settle FOUR updates, run one more, and then ask whether an exit message
-    // existed — a question about a buffer that had already been cleared if the
-    // host answered early. It passed when the exit landed in the last update or
-    // two and failed when it landed sooner, which made it a test that FAILED IN
-    // THE FULL BINARY AND PASSED ALONE (2026-07-31, the whole suite's only red
-    // besides an SDK-doc ratchet). A flaky standing guard is worse than no
-    // guard: it teaches the reader to re-run rather than to look.
+    // A flaky standing guard is worse than no guard: it teaches the reader to re-run rather than to
+    // look.
     let mut saw_app_exit = false;
     for _ in 0..8 {
         app.update();
@@ -873,17 +836,8 @@ fn rollback_contract_inputs_never_leak_across_sessions() {
     );
 }
 
-/// **Encounter authorities belong to their session** (GPT-5.6 review,
-/// 2026-07-16).
-///
-/// The wave authorities (`populate_encounter_registry`) and the Noether
-/// attunement (content) must be spawned session-scoped, exactly like the boss
-/// wraps: `SessionTeardownPlugin` clears `EncounterRegistry` on retirement, so
-/// an authority that SURVIVED retirement would be duplicated — same
-/// `Encounter` id, same `SimId::encounter` — by the next session's
-/// repopulation, and identity uniqueness (the snapshot roster invariant)
-/// would be violated. Activate A, prove ownership; retire A, prove nothing
-/// remains; activate B, prove exactly one authority per id, all B's.
+/// Activate A, prove ownership; retire A, prove nothing remains; activate B, prove exactly one
+/// authority per id, all B's.
 #[test]
 fn the_encounter_authorities_belong_to_their_session() {
     let mut app = shell_host_app();

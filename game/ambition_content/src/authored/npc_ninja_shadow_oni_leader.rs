@@ -4,9 +4,7 @@
 //! `gameplay_description`, and *"the shadow answers"* / *"one breath
 //! left"* / *"the order obeyed instantly"* are one.
 //!
-//! ⛔ MOVES ONLY. His body still comes from his catalog row; authoring
-//! vitals here would be a retune wearing a migration's commit, and a
-//! table is the whole job.
+//! MOVES ONLY.
 
 use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition;
 
@@ -16,7 +14,7 @@ use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition
 /// stating the body's run speed here changes nothing a player sees today — it
 /// makes the body complete, which is what let the body-assist seam go.
 ///
-/// ⚠ a moveset without a body was the exact shape the assist seam existed for: a
+/// a moveset without a body was the exact shape the assist seam existed for: a
 /// character rich enough to state its swings and not yet able to state its walk.
 ///
 /// See the module doc. Reached through [`super::AUTHORED_CAST`], which is also
@@ -29,7 +27,6 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
             ..Default::default()
         })
         .with_moveset(crate::ninja_shadow_oni_leader_moveset::ninja_shadow_oni_leader_moveset());
-    // Jon 2026-08-13: ordinary humanoid baseline; a leader is not a boss.
     definition.vitals.max_health = Some(6);
     definition
 }

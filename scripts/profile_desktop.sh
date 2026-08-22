@@ -1050,10 +1050,9 @@ for line in sys.stdin:
     sys.stdout.write(f"[{time.monotonic()-t0:9.3f}s] {clean}")
     sys.stdout.flush()
 '
-    # If the stamper cannot start, its pipe closes, perf takes a SIGPIPE
-    # mid-capture, and perf.data is silently truncated to an unreadable stub --
-    # the whole session lost, discovered only at report time. Prove it runs
-    # before anything is recorded.
+    # If the stamper cannot start, its pipe closes, perf takes a SIGPIPE mid-capture, and
+    # perf.data is silently truncated to an unreadable stub -- the whole session lost,
+    # discovered only at report time.
     if ! printf '' | python3 -c "$stamp_py" >/dev/null 2>"$out_dir/stamper-check.stderr"; then
         log "log stamper failed to start; see $out_dir/stamper-check.stderr"
         fail "refusing to record a capture that would be truncated by a dead stamper"

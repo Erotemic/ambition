@@ -257,13 +257,10 @@ pub static MOCKINGBIRD_SHEET: std::sync::LazyLock<BossSheetSpec> =
                 },
             ),
         ],
-        // The 576×216 generator output now fits the wide silhouette a bit
-        // more conservatively (roughly y≈34..194 on the hover row) so the
-        // beak / tail / flame tips keep safer atlas margins during in-game
-        // animation. We still no longer need the old 3× Rust-side blow-up
-        // used for the sparse 256×256 sheet.
-        // 1.25 keeps the visible body close to the authored 185px tall
-        // combat box while using much denser native source pixels.
+        // The 576×216 generator output now fits the wide silhouette a bit more conservatively
+        // (roughly y≈34..194 on the hover row) so the beak / tail / flame tips keep safer atlas
+        // margins during in-game animation. 1.25 keeps the visible body close to the authored
+        // 185px tall combat box while using much denser native source pixels.
         collision_scale: 1.25,
         // `body_centered: true` below makes this read as the body's
         // normalized vertical offset within the sprite quad rather than
@@ -581,10 +578,6 @@ pub static GIANT_GNU_SHEET: std::sync::LazyLock<BossSheetSpec> =
             ),
         ],
         collision_scale: 4.5,
-        // Design-space shoulder top moved to y ≈ -2 (REST_BODY_Y 60 - 62) in
-        // the new 768×576 frame; Bevy anchor.y = +2 / 576. The scholar sits
-        // 18 px above the shoulder (smaller silhouette), so `BossRuntime::pos`
-        // lands at the shoulder ridge — same semantic as before.
         feet_anchor_y: 2.0 / 576.0,
         frame_sample_inset: 1,
         body_centered: true,
@@ -856,7 +849,6 @@ pub fn load_boss_sprite_in(
 }
 
 /// Build the Smirking Behemoth boss sprite asset.
-///
 
 /// Derive the published sheet's RON record key (its file root) from the resolved
 /// PNG asset path, e.g. `sprites/flying_spaghetti_monster_boss_spritesheet.png`
@@ -1050,8 +1042,6 @@ impl BossAnimator {
         }
     }
 
-    /// Attach the base render size + feet anchor used to build the sprite, so a
-    /// trimmed sheet can recompute per-frame size/anchor. Builder-style.
     pub fn with_render_basis(mut self, render_size: Vec2, feet_anchor: Vec2) -> Self {
         self.render_basis = Some(RenderBasis {
             render_size,
@@ -1195,9 +1185,6 @@ impl BossAnimFrame {
     }
 }
 
-/// Snapshot of boss state used to drive its animation. Pulled from
-/// `BossRuntime` by the rendering layer so this module stays free of
-/// gameplay imports.
 #[derive(Clone, Copy, Debug)]
 pub struct BossAnimState {
     pub alive: bool,
@@ -1210,14 +1197,9 @@ pub struct BossAnimState {
     pub windup_anim: Option<BossAnim>,
     /// Profile-resolved animation to play during the strike.
     pub active_anim: Option<BossAnim>,
-    /// Boss-pattern timer used to vary which active-attack clip plays
-    /// when no profile-resolved animation is available.
     pub pattern_timer: f32,
     /// Horizontal facing: -1.0 = left, +1.0 = right.
     pub facing: f32,
-    /// World position — used to resolve localized gravity for the
-    /// gravity-aware facing flip (so a boss under flipped / sideways gravity
-    /// faces the right way, like the player and enemies).
     pub pos: Vec2,
 }
 
@@ -1265,10 +1247,5 @@ pub fn pick_boss_anim(state: BossAnimState) -> BossAnim {
     BossAnim::Rest
 }
 
-// NOTE (fable audit follow-up): the boss-sprite unit tests were NOT carved
-// over from `ambition_platformer2d_actor_monolith` in cdf21e0b — they still live at
-// `ambition_boss_encounter::sprites::tests` (testing the same
-// derivation). The dangling `mod tests;` placeholder that shipped with the
-// carve pointed at a `boss/tests.rs` that never existed and left this crate's
-// lib-test target uncompilable; removed here. Adding sprite_sheet-local boss
-// coverage is a separate opportunity (dev/journals/code_smells.md).
+// Adding sprite_sheet-local boss coverage is a separate opportunity
+// (dev/journals/code_smells.md).

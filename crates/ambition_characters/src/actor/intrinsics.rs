@@ -1,20 +1,12 @@
 //! **What a character's BODY is**, as authored data — the facts that are true
 //! of the creature however it is spawned and whoever drives it.
 //!
-//! ⭐ **the last group with no authoring surface.** A character could already
-//! state its vitals, its knockback weight, its death traits, its movement feel,
-//! its motion model, its moves and (since 2026-08-11) its verbs. It could not
-//! state how fast it runs, how it locomotes, or whether touching it hurts — so
-//! any body needing those had to be built from an enemy ARCHETYPE, which is why
-//! `ActorClusterSeed::new_in` starts with `roster.spec_for_brain(..)` and why
-//! every migrated character still needs its archetype row to survive.
-//!
 //! ```text
 //! CharacterLocomotion   how this body MOVES     run speed, style, surface cling
 //! ContactDamage         does touching it hurt   strength, amount
 //! ```
 //!
-//! ⛔ **neither is a controller fact.** How FAST a body can go is a capability;
+//! **neither is a controller fact.** How FAST a body can go is a capability;
 //! how fast it CHOOSES to go while patrolling is `BrainProfile`'s
 //! `patrol_effort`, expressed as a fraction of this. The archetype vocabulary
 //! already separates them exactly this way (`run_speed` vs `patrol_effort`), and
@@ -49,15 +41,15 @@ pub struct CharacterLocomotion {
     /// **This body's BASELINE locomotion is free flight** — it ignores gravity as
     /// its ordinary state: a drifting swarm, a hovering machine, a bird.
     ///
-    /// ⛔⛔ **NOT a capability, and the name says so since 2026-08-11.** This was
+    /// **NOT a capability, and the name says so.** This was
     /// `flies`, one letter from `AbilitySet::fly`, and the two mean genuinely
     /// different things: `fly` is *this body MAY take to the air*, which a
     /// grounded fighter can hold and a ruleset can forbid; this is *this body is
     /// airborne by default*, which changes how it moves before anybody presses
     /// anything. The PCA is the case that proved they must not be confused — a
-    /// grounded-base hybrid that carries flight for traversal (ledger D89).
+    /// grounded-base hybrid that carries flight for traversal.
     ///
-    /// ⭐ **the character says it now, and that is what frees a migrated body
+    /// **the character says it now, and that is what frees a migrated body
     /// from needing a catalog row.** Gravity-freedom lived in the catalog's
     /// `body_kind: Floating` and, redundantly, on the archetype's `is_aerial` —
     /// and a character that had shed its archetype still had to have a catalog
@@ -65,26 +57,20 @@ pub struct CharacterLocomotion {
     /// live in another provider's catalog, so migrating them in the standalone
     /// demo produced snakes riding paper airplanes with gravity applied.
     ///
-    /// ⛔⛔ **`None` IS NOT `Some(false)`, and that distinction is the whole
-    /// point** (2026-08-11). This was a bare `bool` whose own doc admitted
+    /// **`None` IS NOT `Some(false)`, and that distinction is the whole
+    /// point**. This was a bare `bool` whose own doc admitted
     /// *"`false` does not mean grounded, it means this character did not say"* —
     /// so a character that baseline_free_flight, one that deliberately does NOT, and one that is
     /// silent were two values for three facts, and a character had no way to
     /// disagree with its catalog row.
     ///
-    /// ⚠ **and the catalog no longer fills the silence.** An earlier version of
-    /// this doc said construction reads `body_kind: Floating` when a character
-    /// says nothing; that fold is DELETED. `Floating` answers *how tall is this*
-    /// (it supplies no `default_standing_height`, so the sheet decides) and
-    /// stopped being locomotion authority. **Preparation resolves silence to
+    /// `Floating` answers *how tall is this* (it supplies no `default_standing_height`, so the
+    /// sheet decides) and stopped being locomotion authority. **Preparation resolves silence to
     /// `Some(false)`** — grounded — and a body that flies says so here.
     ///
-    /// ⭐ **`ArchetypeSpec::is_aerial` already made this distinction, and its doc
-    /// already named the live case**: the Perfect Cellular Automaton, *"`Floating`
-    /// in its catalog row, played grounded by the shipped duel"*. This is that
-    /// answer migrated onto the character, not a new idea — and until it landed,
-    /// the character-first PCA flew every frame of its own duel and never
-    /// blocked.
+    /// **`ArchetypeSpec::is_aerial` already made this distinction, and its doc already named the
+    /// live case**: the Perfect Cellular Automaton, *"`Floating` in its catalog row, played
+    /// grounded by the shipped duel"*.
     #[serde(default)]
     pub baseline_free_flight: Option<bool>,
 }
@@ -92,7 +78,7 @@ pub struct CharacterLocomotion {
 impl Default for CharacterLocomotion {
     fn default() -> Self {
         Self {
-            // ⚠ **zero, not a guessed default**, and that is deliberate: a
+            // **zero, not a guessed default**, and that is deliberate: a
             // character that authors a locomotion block and forgets its speed
             // should stand still visibly rather than inherit somebody's idea of
             // a walk. There is no "ordinary" run speed for a body that could be
@@ -101,7 +87,7 @@ impl Default for CharacterLocomotion {
             move_style: MoveStyleSpec::Walk,
             surface_walker: false,
             cling_breaks_on_hit: false,
-            // ⚠ SILENT, not grounded — see the field.
+            // SILENT, not grounded — see the field.
             baseline_free_flight: None,
         }
     }
@@ -109,11 +95,8 @@ impl Default for CharacterLocomotion {
 
 /// **What this body can be RIDDEN as, and what it can ride** (ADR 0020).
 ///
-/// ⭐ **a character fact in Jon's own list** — *"mount/pilot body capabilities"*
-/// — and the last group of the shark family's row that had nowhere to go. A
-/// shark is rideable because of what a shark IS, and a pirate can board one for
-/// the same kind of reason; neither is a decision the placement or the driver
-/// makes.
+/// A shark is rideable because of what a shark IS, and a pirate can board one for the same kind of
+/// reason; neither is a decision the placement or the driver makes.
 #[derive(Clone, Debug, Default, PartialEq, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CharacterMount {

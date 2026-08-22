@@ -139,9 +139,9 @@ fn spawn_fps_overlay(
 ///
 /// The bottom-right corner is where the action cluster goes on a touch device,
 /// so the counter spent every phone session sitting underneath the buttons —
-/// present, updating, and unreadable (Jon, 2026-08-08).
+/// present, updating, and unreadable.
 ///
-/// ⚠ the row's rectangle is READ, not re-derived. `ResolvedGameplayPresentation`
+/// the row's rectangle is READ, not re-derived. `ResolvedGameplayPresentation`
 /// says of itself that no camera, HUD, touch or pointer system should
 /// independently recalculate margins, and a hardcoded top offset would be
 /// exactly that: the row moves with the safe-area insets and with its own
@@ -343,9 +343,7 @@ mod tests {
         );
     }
 
-    /// Empty history → no stats. The overlay falls back to "--"
-    /// placeholders during the brief frame-zero window before the
-    /// diagnostic has any samples.
+    /// Empty history → no stats.
     #[test]
     fn window_stats_returns_none_when_empty() {
         assert_eq!(window_stats_from_iter(Vec::<f64>::new()), None);
@@ -361,9 +359,6 @@ mod tests {
         assert_eq!(stats.2, 62.0, "max");
     }
 
-    /// A single hitched sample drags the min/max immediately but
-    /// barely moves the mean — exactly the "outlier visibility"
-    /// behavior Jon asked for ("easier to see [perf spikes]").
     #[test]
     fn window_stats_exposes_outliers_without_burying_mean() {
         // 99 nominal samples + 1 hitch.

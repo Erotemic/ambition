@@ -1,9 +1,6 @@
-//! **C4 slice 2: the versus stage is reachable and seats two fighters.**
-//!
-//! Slice 1 proved the engine can seat a roster; this proves the shipped host
-//! offers it. The distinction is the whole of C4's complaint — the fight worked
-//! and existed only where a test could see it, and "a stranger can run it and
-//! watch" is what separates an engine demo from an engine.
+//! The distinction is the whole of C4's complaint — the fight worked and existed only where a test
+//! could see it, and "a stranger can run it and watch" is what separates an engine demo from an
+//! engine.
 //!
 //! Driven through the real shell composition (`build_visible_app(NoWindow, true)`
 //! plus the startup sequence), because a versus route that only a hand-built app
@@ -67,12 +64,8 @@ fn settle_to_launcher(app: &mut App) {
 /// question about the FIGHT, and asking it during the count gets the honest
 /// answer "nobody can act yet" — which reads as a broken controller chain.
 ///
-/// So this is the line between "the stage exists" and "the round is being
-/// fought", and it is deliberately a wait on the PHASE rather than a bigger
-/// magic number. The count is 90 ticks today and the review that specified it
-/// said the duration would be tuned; a test that slept 90 would go quietly wrong
-/// the first time somebody tuned it, and a test that slept 200 would pass while
-/// telling you nothing about when the round began.
+/// So this is the line between "the stage exists" and "the round is being fought", and it is
+/// deliberately a wait on the PHASE rather than a bigger magic number.
 fn settle_into_a_live_round(app: &mut App) {
     for _ in 0..600 {
         app.update();
@@ -109,11 +102,6 @@ fn the_versus_route_is_registered_in_the_shipped_host() {
 }
 
 /// Activating the route builds the arena and seats both fighters.
-///
-/// This is the assertion C4 was missing. It drives the real router — the same
-/// path the launcher takes when somebody picks the entry — rather than inserting
-/// a roster by hand, because inserting the roster by hand is what slice 1's unit
-/// tests already do and it proves nothing about reachability.
 #[test]
 fn choosing_versus_seats_two_fighters_in_the_arena() {
     let mut app = versus_app();
@@ -173,12 +161,6 @@ fn choosing_versus_seats_two_fighters_in_the_arena() {
 }
 
 /// **Leaving versus takes the roster with it.**
-///
-/// `MatchParticipantRoster` is what seating reads, and it is a resource. Leaving
-/// it installed would seat two fighters into whatever the player picked next —
-/// Mary-O's level with a Sanic standing in it. That is the failure mode of every
-/// global "current match" resource, and it is silent: the bodies look like they
-/// belong to the level.
 #[test]
 fn leaving_versus_does_not_seat_fighters_into_the_next_game() {
     use ambition_platformer2d::actors::character_runtime::MatchParticipantRoster;
@@ -226,13 +208,6 @@ fn leaving_versus_does_not_seat_fighters_into_the_next_game() {
     );
 }
 
-/// **C4 slice 6: two controllers make it couch versus.**
-///
-/// Everything below this line existed before and drove nobody: the second seat
-/// got a body in slice 3, `SlotControls[1]` got a writer in slice 4, and the
-/// controllers got partitioned in slice 5. This is the assertion that the three
-/// meet — plug in two pads, pick Versus, and two people are playing.
-///
 /// It presses a real button on a real pad rather than writing `SlotControls`
 /// directly, because every one of those slices could be individually correct
 /// while the chain has a gap, and a test that starts halfway down the chain
@@ -307,9 +282,6 @@ fn two_controllers_make_versus_a_two_player_game() {
     );
 
     // ...and the reverse, so a passing test cannot mean "one pad drives both".
-    // Let player two's fighter slow down before measuring again — but do not
-    // require it to stop. Sanic is a momentum character and coasts for a long
-    // way, which is the authored feel, not a defect.
     pad_set(&mut app, pad_two, GamepadButton::DPadRight, 0.0);
     for _ in 0..240 {
         app.update();
@@ -340,11 +312,10 @@ fn two_controllers_make_versus_a_two_player_game() {
 
 /// **A seated fighter wears its character all the way down.**
 ///
-/// Wearing a character is not a label: `apply_worn_character_gameplay` is the one
-/// writer that turns `WornCharacter` into a persona — the body's name, its action
-/// set, its moveset and its identity kit. It is a QUERY, and a body missing any
-/// required column does not match it, silently. A seated fighter was missing two,
-/// so it wore Sanic and derived nothing from being Sanic.
+/// Wearing a character is not a label: `apply_worn_character_gameplay` is the one writer that
+/// turns `WornCharacter` into a persona — the body's name, its action set, its moveset and its
+/// identity kit. It is a QUERY, and a body missing any required column does not match it,
+/// silently.
 ///
 /// This asserts the derive actually ran on the seated body, because "the cast is
 /// right" is what a body looks like from a query and says nothing about whether
@@ -373,12 +344,9 @@ fn a_seated_fighter_derives_its_character_and_not_just_its_name() {
 
     // The CPU opponent, named by its SEAT.
     //
-    // ⚠ this used to say `Without<PrimaryPlayer>` and mean "the one that is not
-    // player one" — which worked only while seat 0 WAS the session's home body,
-    // the privilege the match-preparation refactor deleted. With every fighter
-    // built the same way neither carries the marker, so that filter selected
-    // whichever seat the query reached first. `MatchSeat` is the identity a
-    // match fighter has, and its own doc says why every other way is a guess.
+    // With every fighter built the same way neither carries the marker, so that filter selected
+    // whichever seat the query reached first. `MatchSeat` is the identity a match fighter has, and
+    // its own doc says why every other way is a guess.
     let world = app.world_mut();
     let mut seated = world.query::<(
         &ambition_platformer2d::actors::character_runtime::MatchSeat,
@@ -453,10 +421,7 @@ fn both_fighters_can_actually_hit_each_other() {
     let (attacker, victim) = (seated[0].1, seated[1].1);
     let pads = [pad_one, pad_two];
 
-    // Walk the attacker into range. The fighters start a seat-spread apart,
-    // which is deliberately outside every authored reach — a swing that landed
-    // from the starting positions would mean the reach is wrong, not that the
-    // damage path works.
+    // Walk the attacker into range.
     let toward = |app: &App| -> f32 {
         let a = app.world().get::<BodyKinematics>(attacker).unwrap().pos.x;
         let v = app.world().get::<BodyKinematics>(victim).unwrap().pos.x;
@@ -731,7 +696,7 @@ fn the_cpu_opponent_is_not_a_statue() {
     );
 }
 
-/// **Seat 0 can lose a round.** (GPT 5.6, 2026-07-27)
+/// **Seat 0 can lose a round.**
 ///
 /// Seat 0 is the adopted PRIMARY PLAYER, and the primary player's death runs
 /// `death_respawn_player`: teleport to the room spawn, full heal, banner. That
@@ -794,14 +759,7 @@ fn seat_zero_can_lose_a_round_and_is_not_respawned_out_from_under_the_rules() {
             damage: hp + 10,
             source: ambition_platformer2d::combat::events::HitSource::Melee,
             attacker: None,
-            // ⛔ **`Actor`, not `Player` — and the change of word is the whole
-            // landing in miniature.** Seat zero used to BE the session's player
-            // body, because a human seat ADOPTED it; a hit aimed at the player
-            // therefore reached the fighter. Seat zero is now an ordinary actor
-            // wearing a character, like every other seat, so the player-damage
-            // consumer skips it and the actor-damage consumer takes it.
-            //
-            // ⚠ **the two consumers are a surviving fork and this test is not
+            // **the two consumers are a surviving fork and this test is not
             // the place to remove it.** `HitTarget::Body` / `HitTarget::Body`
             // are documented as a deliberate split — the relational
             // actor-vs-actor path exists so an Enemy-faction body can damage a
@@ -839,7 +797,7 @@ fn seat_zero_can_lose_a_round_and_is_not_respawned_out_from_under_the_rules() {
     );
 }
 
-/// **Coming back to Versus starts a new match.** (GPT 5.6, 2026-07-27)
+/// **Coming back to Versus starts a new match.**
 ///
 /// `VersusMatch` is a long-lived resource and `run_versus_rules` simply returns
 /// when no roster exists, so leaving mid-match froze the score rather than
@@ -911,10 +869,6 @@ fn returning_to_versus_starts_a_fresh_match() {
             .is_none(),
         "the fixture never actually left the stage, so re-entry is not being tested"
     );
-    // The previous match's bodies go with it. A seated fighter used to be
-    // spawned UNSCOPED, so a knocked-out loser survived leaving the stage and
-    // was still lying at zero health when the next match started — which the new
-    // match instantly scored as round one.
     {
         let world = app.world_mut();
         let mut q = world.query::<&MatchSeat>();
@@ -962,12 +916,9 @@ fn returning_to_versus_starts_a_fresh_match() {
     );
 }
 
-/// **A KO stops the fight.** (GPT 5.6, 2026-07-27)
+/// **A KO stops the fight.**
 ///
-/// The KO card used to be shown over a fight that never stopped: the surviving
-/// fighter kept taking input, the CPU kept steering, attacks kept resolving and
-/// anything already in flight crossed the round boundary. Only the rules and
-/// the HUD ever read `MatchPhase`.
+/// Only the rules and the HUD ever read `MatchPhase`.
 ///
 /// Asserts the SIM CLOCK is zeroed during the hold, because that is the fix —
 /// the engine's own freeze primitive, rather than this module trying to name
@@ -1037,14 +988,12 @@ fn a_knockout_freezes_the_fight_until_the_next_round() {
         scale(&app)
     );
 
-    // ...AND THE FREEZE ENDS. This test asserted only the freeze, which was the
-    // half that worked; the release could not work at all (GPT 5.6,
-    // 2026-07-27). The hold wrote a scale-0 request and then a scale-1 request
-    // in the SAME frame, and the clock reducer keeps the strongest slow by
-    // `min` — deliberately, so ordering cannot decide a freeze — so the release
-    // resolved to 0 every time. The next round began under a clock that only
-    // recovered because an unrelated system asks for full pace every frame, and
-    // then only by RAMPING: seconds of slow motion at the start of round two.
+    // ...AND THE FREEZE ENDS. The hold wrote a scale-0 request and then a scale-1 request in
+    // the SAME frame, and the clock reducer keeps the strongest slow by `min` — deliberately,
+    // so ordering cannot decide a freeze — so the release resolved to 0 every time. The next
+    // round began under a clock that only recovered because an unrelated system asks for full
+    // pace every frame, and then only by RAMPING: seconds of slow motion at the start of round
+    // two.
     let mut thawed = false;
     for _ in 0..900 {
         app.update();
@@ -1070,16 +1019,14 @@ fn a_knockout_freezes_the_fight_until_the_next_round() {
     );
 }
 
-/// **A decided round stops being fought.** (GPT 5.6, 2026-07-27)
+/// **A decided round stops being fought.**
 ///
-/// `a_knockout_freezes_the_fight_until_the_next_round` asserts the clock, and
-/// the clock is a RAMP: the KO asks for scale zero and the smoother slides down
-/// to it over the following second, which is the genre's own beat and staying.
-/// What was wrong is that nothing else changed on the tick the round was
-/// decided. Nothing reads `MatchPhase` — not input, not the brains, not move
-/// triggering — so for the length of that ramp both fighters went on accepting
-/// control, walking and swinging, after the score had been incremented and the
-/// winner named.
+/// `a_knockout_freezes_the_fight_until_the_next_round` asserts the clock, and the clock is a
+/// RAMP: the KO asks for scale zero and the smoother slides down to it over the following
+/// second, which is the genre's own beat and staying. Nothing reads `MatchPhase` — not input,
+/// not the brains, not move triggering — so for the length of that ramp both fighters went on
+/// accepting control, walking and swinging, after the score had been incremented and the winner
+/// named.
 ///
 /// Asserted on the CPU fighter specifically, because that is the half that was
 /// hardest to fix: `ScriptedControl` was blanked only after the PLAYER brains,
@@ -1193,7 +1140,6 @@ fn a_decided_round_takes_the_controls_away() {
 }
 
 /// **A round boundary tells the fighter's PROVIDER to reset its own state.**
-/// (GPT 5.6, 2026-07-27)
 ///
 /// `begin_round` restores health, position, facing and every engine-owned body
 /// cluster, and its comment claimed that as a clean start. It is not one for a
@@ -1286,7 +1232,7 @@ fn a_round_boundary_tells_the_provider_to_reset_its_own_state() {
     );
 }
 
-/// **The health readout is a GAUGE, and it tracks damage.** (queue L18)
+/// **The health readout is a GAUGE, and it tracks damage.**
 ///
 /// The declared HUD published strings and nothing else, so a health readout
 /// could only ever be "47/60". A number is precise; a bar is readable, and in a
@@ -1358,9 +1304,8 @@ fn the_versus_health_readout_is_a_gauge_that_follows_damage() {
     );
 }
 
-/// **Every seated fighter is actually DRAWN.** (Jon, 2026-07-27)
+/// **Every seated fighter is actually DRAWN.**
 ///
-/// Jon picked Versus and saw one fighter. The other had a body, a published
 /// view, a hurtbox, a moveset, health and a team — and no picture, and not even
 /// the placeholder rectangle a body with unresolvable art is supposed to fall
 /// back to.
@@ -1424,7 +1369,7 @@ fn every_seated_fighter_has_something_on_screen() {
     }
 }
 
-/// **Four controllers make it a 2v2.** (queue L19)
+/// **Four controllers make it a 2v2.**
 ///
 /// L17 proved a 2v2 works through seating; nothing a player could PICK offered
 /// one, and `SlotControls` slots 2 and 3 had never carried a real device.
@@ -1516,7 +1461,7 @@ fn four_controllers_make_versus_a_two_versus_two() {
     }
 }
 
-/// **Four pads, four bodies, each moving only its own.** (queue L19 remainder)
+/// **Four pads, four bodies, each moving only its own.**
 ///
 /// The 1v1 has this end to end; the 2v2 asserted seating and the damage
 /// relation and stopped short of four live devices. Slots 2 and 3 of
@@ -1611,7 +1556,7 @@ fn four_pads_each_move_their_own_fighter_and_nobody_else_s() {
 }
 
 /// **A 2v2 scoreboard shows four fighters, and the round goes to the other
-/// TEAM.** (GPT 5.6, 2026-07-27)
+/// TEAM.**
 ///
 /// Two defects met here, and neither is visible in a 1v1.
 ///
@@ -1705,14 +1650,8 @@ fn a_two_versus_two_shows_four_gauges_and_scores_by_team() {
 }
 
 /// **The last round's attacks do not follow the fighters into the next one.**
-/// (GPT 5.6, 2026-07-27)
 ///
-/// A KO hold FREEZES the world; it does not empty it. The reset restored health,
-/// position, velocity and facing — the visible half — and left everything else
-/// exactly where the KO caught it. A projectile crossing the stage, a smash
-/// mid-swing and the strike volume it had spawned were all still there when the
-/// clock resumed, and they resume INTO round two: a fighter can be hit before
-/// they have had a single frame in which to move.
+/// A KO hold FREEZES the world; it does not empty it.
 #[test]
 fn a_round_boundary_leaves_the_last_rounds_attacks_behind() {
     use ambition_platformer2d::actors::character_runtime::MatchSeat;
@@ -1744,7 +1683,7 @@ fn a_round_boundary_leaves_the_last_rounds_attacks_behind() {
     // The survivor is mid-smash when the KO lands, a shot is in the air, and it
     // is holding a BUFFERED attack — the class `transit_body` deliberately keeps
     // ("axis maneuver state … are time facts, not place facts"), which is true
-    // of a teleport and false of a round boundary (GPT 5.6, 2026-07-27).
+    // of a teleport and false of a round boundary.
     app.world_mut()
         .get_mut::<ambition_platformer2d::engine_core::BodyActionBuffer>(seat_zero)
         .expect("a fighter carries the shared action buffer")
@@ -1764,13 +1703,8 @@ fn a_round_boundary_leaves_the_last_rounds_attacks_behind() {
     app.world_mut()
         .entity_mut(seat_zero)
         .insert(MovePlayback::new(smash, 1.0));
-    // ⚠ FIRED, not hand-spawned. This used to be
-    // `world.spawn(LiveProjectile)`, which is not a projectile — it is a marker
-    // on a bare entity. That was invisible while `begin_round` despawned
+    // FIRED, not hand-spawned. That was invisible while `begin_round` despawned
     // `With<LiveProjectile>`, because a marker was all the boundary looked at.
-    // Now a shot's round membership is stamped by its SPAWNER (Campaign 3A), so
-    // a fixture that skips the spawner is testing a population the game never
-    // produces — and it would have reported a leak that does not exist.
     app.world_mut().write_message(
         ambition_platformer2d::projectiles::ProjectileSpawnRequest::named(
             seat_zero,
@@ -1864,20 +1798,14 @@ fn a_round_boundary_leaves_the_last_rounds_attacks_behind() {
 }
 
 /// **The SHIPPED host has render-only frames too, and nothing writes sim state
-/// on them.** (queue N9 residue)
+/// on them.**
 ///
-/// The engine-side sweep in `rollback_coverage` watches the RL-sim composition
-/// and says so in its own docs — it cannot see `VersusMatch`, which the shell app
-/// registers. That doc also said the shipped host "runs its sim on the render
-/// frame, so there is no render-only frame there to probe", and that was WRONG:
-/// `build_visible_app` sets `SimulationHost::Rollback` under `dev_tools`, so the sim
-/// lives in `GgrsSchedule` and a frame whose fixed-step accumulator gets nothing
-/// runs `Update` while the simulation stands still. Reasoned once, checked here.
+/// The engine-side sweep in `rollback_coverage` watches the RL-sim composition and says so in
+/// its own docs — it cannot see `VersusMatch`, which the shell app registers. Reasoned once,
+/// checked here.
 ///
-/// So this is the same instrument pointed at the composition that had the bug:
-/// stop the clock, run frames, and require that nothing GGRS restores changed.
-/// `SimTick` standing still is the proof the sim really did not run — without it
-/// a frame that quietly kept simulating would report a clean sweep.
+/// `SimTick` standing still is the proof the sim really did not run — without it a frame that
+/// quietly kept simulating would report a clean sweep.
 #[test]
 fn no_render_only_frame_of_the_shipped_host_writes_rollback_state() {
     use ambition_platformer2d::actors::character_runtime::MatchSeat;
@@ -1916,8 +1844,7 @@ fn no_render_only_frame_of_the_shipped_host_writes_rollback_state() {
          would miss the exact resource the sweep was written for"
     );
 
-    // Stop the fixed-step clock. `Update` keeps running; the GGRS-hosted sim
-    // gets no step.
+    // `Update` keeps running; the GGRS-hosted sim gets no step.
     app.world_mut()
         .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::ZERO));
     app.update();
@@ -1966,19 +1893,11 @@ fn no_render_only_frame_of_the_shipped_host_writes_rollback_state() {
     );
 }
 
-/// **The round is decided and the fight stops on the SAME tick.** (GPT 5.6,
-/// 2026-07-27)
+/// A fighter could take a hit after losing.
 ///
-/// The KO arm used to set the phase and return, leaving the freeze request to
-/// the next run of the system — and the system is in `CombatSet::Settle`, so
-/// "next run" is a whole further tick of input, move triggering, playback,
-/// projectile materialization and damage at full speed after the round was
-/// already over. A fighter could take a hit after losing.
-///
-/// Asserts on the CLOCK TARGET rather than the live scale, because the live
-/// scale ramps on purpose (a KO decelerating into the card is the genre's own
-/// beat, and it is the same primitive hitstop uses). The target is what says
-/// "the freeze was asked for", and asking a tick late is the defect.
+/// Asserts on the CLOCK TARGET rather than the live scale, because the live scale ramps on purpose
+/// (a KO decelerating into the card is the genre's own beat, and it is the same primitive hitstop
+/// uses).
 #[test]
 fn the_freeze_is_requested_on_the_tick_the_knockout_lands() {
     use ambition_platformer2d::actors::character_runtime::MatchSeat;
@@ -2044,9 +1963,6 @@ fn the_freeze_is_requested_on_the_tick_the_knockout_lands() {
     );
 }
 
-/// **Round two says "ROUND 2", and round one says anything at all.** (GPT 5.6,
-/// 2026-07-27)
-///
 /// Two defects in one counter. Route entry reset the match with `default()`,
 /// which announced nothing, so the opening card never appeared at the start of a
 /// match — only after a later round reset. And the number was derived by summing
@@ -2115,13 +2031,10 @@ fn the_round_counter_counts_rounds_and_not_wins() {
 }
 
 /// **A fighter is hittable through what its AUTHOR said, and a committed smash
-/// changes it.** (queue C2)
+/// changes it.**
 ///
-/// The `HurtboxDoc` seam landed with A7 and no character had ever authored one,
-/// so every body in the game — including both arena fighters — was damageable
-/// through a box derived from its sprite. That is a reasonable default and says
-/// nothing about what a fighter is doing: a smash that costs nothing to whiff is
-/// a game where you always smash.
+/// That is a reasonable default and says nothing about what a fighter is doing: a smash that costs
+/// nothing to whiff is a game where you always smash.
 ///
 /// This asserts the two halves that make the seam real from a stage a stranger
 /// plays: the seated fighter carries its provider's document at all (not the
@@ -2224,14 +2137,10 @@ fn a_seated_fighter_is_damageable_through_its_authored_hurtbox() {
     );
 }
 
-/// **The round-start countdown is a simulation phase, not a card.** (queue L8)
+/// **The round-start countdown is a simulation phase, not a card.**
 ///
-/// A round used to open on a "ROUND n — FIGHT" banner that faded while the fight
-/// was ALREADY LIVE. That is a defensible presentation choice and it has one
-/// property no fighting game accepts: the two players do not start equal, because
-/// one of them is reading the banner. GPT 5.6 (2026-07-28) settled it — the
-/// countdown is engine behaviour, owned by the simulation, and the duration is
-/// the only part that is balance.
+/// That is a defensible presentation choice and it has one property no fighting game accepts: the
+/// two players do not start equal, because one of them is reading the banner.
 ///
 /// So this asserts the three things that make it a phase rather than a graphic:
 ///
@@ -2327,8 +2236,7 @@ fn a_round_opens_on_a_countdown_that_nobody_can_act_through() {
 
 /// **A fighter knocked off the stage loses the round.**
 ///
-/// The verb the whole genre is built on, and until now it could not happen at
-/// all. Two independent reasons, both of which had to be fixed:
+/// The verb the whole genre is built on, and until now it could not happen at all.
 ///
 /// The stage was a closed box — floor plus two walls — so there was nowhere to
 /// be knocked to. And the movement kernel's out-of-bounds gate, which every
@@ -2462,11 +2370,8 @@ fn a_fighter_thrown_off_the_side_loses_the_round() {
     // Parked 180px past the right edge of a 960px stage — beyond the 160px side
     // margin — and HIGH INSIDE the world vertically, at rest.
     //
-    // The vertical placement is the whole test. A first version threw the body
-    // sideways at speed and waited three seconds; it passed with the side zone
-    // DISARMED, because gravity carried the body out through the FLOOR long
-    // before the window closed and the fall margin scored it. The red probe
-    // caught that, which is the only reason this comment exists.
+    // The vertical placement is the whole test. The red probe caught that, which is the only
+    // reason this comment exists.
     //
     // From y=300, reaching the floor blast line (540 + 96) takes ~0.68s, or
     // about 41 ticks. The budget below is 10. Gravity cannot reach the answer
@@ -2510,12 +2415,8 @@ fn a_fighter_thrown_off_the_side_loses_the_round() {
 
 /// **A KO makes a sound.**
 ///
-/// The death drama — the burst, the debris, and the body's own death cue — used
-/// to live inside the exploration DEFEAT arm of `apply_actor_hit`, so two kinds
-/// of death were completely silent: a body the ruleset owns, and a body that
-/// left the world. Every fighter in a versus round carries `RulesetOwnsDeath`,
-/// which means EVERY versus KO was silent, and a KO is the whole payoff of the
-/// genre.
+/// Every fighter in a versus round carries `RulesetOwnsDeath`, which means EVERY versus KO was
+/// silent, and a KO is the whole payoff of the genre.
 ///
 /// The arm's own comment lists what an arena must not have — bounty coin,
 /// heart, death explosion, split offspring, held-item drop, respawn timer — and
@@ -2594,23 +2495,14 @@ fn a_knockout_is_announced_in_the_losers_own_voice() {
 
     // **SEAT 0 TOO, ON ITS OWN STAGE.**
     //
-    // ⛔ **one round can only lose one fighter, and this used to try for two.**
-    // The seat-zero half ran straight on from seat one's knockout, and after the
-    // landing it measured nothing at all: probed, seat zero sat at 4 HP for
-    // every frame while the damage said 14. It passed before only because seat
-    // zero was then the adopted PLAYER body and drained through a different
-    // consumer — one the between-rounds freeze did not gate. Settling into the
-    // NEXT round does not rescue it either (probed: phase `Fighting`, not
-    // scripted, still no damage), so the confound is the round transition
-    // itself and the fix is a fresh stage rather than a longer wait.
+    // Settling into the NEXT round does not rescue it either (probed: phase `Fighting`, not
+    // scripted, still no damage), so the confound is the round transition itself and the fix is
+    // a fresh stage rather than a longer wait.
     //
-    // ⚠ and what this half proves is smaller than its old comment claimed.
-    // It said "on the other code path" — seat one an actor through
-    // `apply_actor_hit`, seat zero the adopted `PlayerEntity` through the player
-    // damage drain. There is no other path now; both seats are actors wearing
-    // characters, which is the landing working. What is still worth pinning is
-    // that the LOCAL seat's knockout is announced, because it is the one a
-    // person hears about themselves.
+    // and what this half proves is smaller than its old comment claimed. There is no other path
+    // now; both seats are actors wearing characters, which is the landing working. What is
+    // still worth pinning is that the LOCAL seat's knockout is announced, because it is the one
+    // a person hears about themselves.
     let mut app = versus_app();
     settle_to_launcher(&mut app);
     app.world_mut()
@@ -2651,14 +2543,7 @@ fn a_knockout_is_announced_in_the_losers_own_voice() {
             damage: hp + 10,
             source: ambition_platformer2d::combat::events::HitSource::Melee,
             attacker: None,
-            // ⛔ **`Actor`, not `Player` — and the change of word is the whole
-            // landing in miniature.** Seat zero used to BE the session's player
-            // body, because a human seat ADOPTED it; a hit aimed at the player
-            // therefore reached the fighter. Seat zero is now an ordinary actor
-            // wearing a character, like every other seat, so the player-damage
-            // consumer skips it and the actor-damage consumer takes it.
-            //
-            // ⚠ **the two consumers are a surviving fork and this test is not
+            // **the two consumers are a surviving fork and this test is not
             // the place to remove it.** `HitTarget::Body` / `HitTarget::Body`
             // are documented as a deliberate split — the relational
             // actor-vs-actor path exists so an Enemy-faction body can damage a
@@ -2707,11 +2592,9 @@ fn a_knockout_is_announced_in_the_losers_own_voice() {
 
 /// **A round boundary culls what the round created, without naming it.** (3A)
 ///
-/// `begin_round` used to open with one hand-written query despawning
-/// `LiveProjectile`. Every transient family added afterwards — a strike volume,
-/// a summon, a lingering hitbox — needed another query in that function, and
-/// forgetting one fails silently: the entity is simply still there in a round
-/// that never asked for it.
+/// Every transient family added afterwards — a strike volume, a summon, a lingering hitbox — needed
+/// another query in that function, and forgetting one fails silently: the entity is simply still
+/// there in a round that never asked for it.
 ///
 /// This asserts the boundary works on a family the RULES never mention: the
 /// entity below is round-scoped and nothing else, so the only thing that can
@@ -2769,19 +2652,17 @@ fn a_round_boundary_culls_round_scoped_entities_the_rules_never_name() {
 
 /// **The disagreement path is REAL, and nothing exercised it.**
 ///
-/// `reconcile_roster_with_frozen_topology` has two arms once a match is seated:
-/// correct the paperwork when the frozen topology would build the SAME fighters,
-/// and refuse to touch anything when it would not. The second arm carries a long
-/// comment explaining why reseating mid-round is the worse bug — and no test
-/// reached it. That is the shape `tracks.md` calls out about K2b: *"the coverage
-/// is all implicit, which is exactly what makes risk 1 dangerous."*
+/// `reconcile_roster_with_frozen_topology` has two arms once a match is seated: correct the
+/// paperwork when the frozen topology would build the SAME fighters, and refuse to touch
+/// anything when it would not. That is the shape `tracks.md` calls out about K2b: *"the
+/// coverage is all implicit, which is exactly what makes risk 1 dangerous."*
 ///
 /// This drives a real seated round, then makes the live roster name fighters the
 /// frozen topology would never build, and asserts the reconciler leaves BOTH the
 /// participants and the stale stamp alone. A repair here would be a silent
 /// reseat of bodies already fighting.
 ///
-/// ⚠ **it asserts the stamp stays STALE on purpose.** That is the visible
+/// **it asserts the stamp stays STALE on purpose.** That is the visible
 /// difference between the two arms: agreement updates it, disagreement must not,
 /// because updating it would claim the session and the roster agree.
 #[test]
@@ -2814,7 +2695,7 @@ fn a_roster_that_disagrees_with_the_frozen_topology_is_left_alone() {
         for participant in &mut roster.participants {
             participant.character = format!("{}_impostor", participant.character).into();
         }
-        // ⚠ **`activate(None)`, not `Proposed`.** The match is LIVE — these
+        // **`activate(None)`, not `Proposed`.** The match is LIVE — these
         // bodies are on the stage — so the roster stays activated and only the
         // record of which topology decided it is cleared. Making it `Proposed`
         // would describe a match nobody has agreed to while its fighters are

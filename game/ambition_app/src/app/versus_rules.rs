@@ -1,4 +1,4 @@
-//! **Rounds, KOs, and a scoreboard.** (queue L8)
+//! **Rounds, KOs, and a scoreboard.**
 //!
 //! Slices 1–6 built a stage and deliberately gave it no rules: a stage has to be
 //! right before rules can be written, and inventing a ruleset over a stage where
@@ -17,13 +17,10 @@
 //!
 //! ## The scoring unit is a TEAM
 //!
-//! Not a seat. The first version scored `1 - loser.min(1)`, which reads as "the
-//! other one" and is only "the other one" when there are exactly two bodies. The
-//! stage seats up to four, so seat 2 (blue) going down awarded the round to
-//! index 0 — blue — and a fighter's defeat scored for its own side (GPT 5.6,
-//! 2026-07-27). A 2v2 is not a bigger 1v1; the relation between fighters is a
-//! TEAM, it is declared on the roster and carried by the body, and the rules
-//! read it rather than re-deriving it from an index.
+//! Not a seat. The first version scored `1 - loser.min(1)`, which reads as "the other one" and
+//! is only "the other one" when there are exactly two bodies. A 2v2 is not a bigger 1v1; the
+//! relation between fighters is a TEAM, it is declared on the roster and carried by the body,
+//! and the rules read it rather than re-deriving it from an index.
 //!
 //! A team loses the round when every one of its members is down, which
 //! degenerates to the obvious thing at 1v1 and is the real rule at 2v2. Both
@@ -61,11 +58,8 @@ const MATCH_HOLD_S: f32 = 4.0;
 
 /// How long a round-start countdown runs, in SIMULATION TICKS.
 ///
-/// Ticks, not seconds. Every other duration here is a float against
-/// `WorldTime::wall_dt`, which is deterministic only because the fixed-tick host
-/// hands it a fixed timestep — true today and true by coincidence. A countdown
-/// is the one beat where "did both machines start the round on the same tick" is
-/// the whole question, so it counts the thing it actually cares about. At the
+/// Ticks, not seconds. A countdown is the one beat where "did both machines start the round on
+/// the same tick" is the whole question, so it counts the thing it actually cares about. At the
 /// normal 60Hz rate this is a second and a half.
 const COUNTDOWN_TICKS: u32 = 90;
 
@@ -118,10 +112,8 @@ pub struct VersusMatch {
     pub rounds_won: BTreeMap<String, u8>,
     /// Which round is being fought, from 1.
     ///
-    /// NOT derived from the win totals. It was, and a DRAW scores for nobody —
-    /// so round two announced itself as round one after a double KO (GPT 5.6,
-    /// 2026-07-27). Rounds played and rounds won are different facts and the
-    /// scoreboard needs both.
+    /// NOT derived from the win totals. Rounds played and rounds won are different facts and
+    /// the scoreboard needs both.
     pub round: u32,
     pub phase: MatchPhase,
 }
@@ -138,7 +130,7 @@ impl VersusMatch {
     /// This IS `Default`. It was a separate constructor, and route entry reset
     /// the match with `default()` — which announced nothing — so the documented
     /// "ROUND 1 — FIGHT" card never appeared at the start of a match, only after
-    /// a later round reset (GPT 5.6, 2026-07-27). One constructor, so a caller
+    /// a later round reset. One constructor, so a caller
     /// cannot pick the silent one by accident.
     pub fn opening() -> Self {
         Self {
@@ -176,7 +168,7 @@ fn team_of(seat: usize, team: Option<&MatchTeam>) -> String {
 
 /// Who, if anyone, took the round.
 ///
-/// ⚠ **the predicate itself lives in the engine now**
+/// **the predicate itself lives in the engine now**
 /// (`ambition_combat::stocks::last_side_standing`, S4), because a stocks match
 /// asks the identical question with a different liveness input: a round asks
 /// "is this fighter's health above zero", a stocks match asks "does this
@@ -210,10 +202,6 @@ type FighterQuery<'w, 's> = Query<
 
 /// **The whole ruleset, on the sim schedule.**
 ///
-/// It used to be two systems: this one on the sim clock and a presentation half
-/// in `Update` that held the KO card. That split was wrong in two directions at
-/// once (GPT 5.6, 2026-07-27).
-///
 /// * The `Update` half MUTATED `VersusMatch`, which is rollback-registered
 ///   simulation state. A resimulation replays sim steps, not render frames with
 ///   their original durations, so the restored score and phase depended on
@@ -226,23 +214,13 @@ type FighterQuery<'w, 's> = Query<
 ///   clock recovered only because an unrelated system asks for full pace every
 ///   frame, and then by RAMPING, so round two opened in slow motion.
 ///
-/// So there is one system, and the hold is counted on `WorldTime::wall_dt` —
-/// unscaled, because the hold is the thing that zeroed the scaled clock and a
-/// hold counted on that clock would never end. Under a fixed-tick host that is
-/// the fixed timestep, so the countdown is as deterministic as anything else in
-/// the sim.
+/// So there is one system, and the hold is counted on `WorldTime::wall_dt` — unscaled, because
+/// the hold is the thing that zeroed the scaled clock and a hold counted on that clock would
+/// never end.
 #[allow(clippy::too_many_arguments)]
 /// Whether the starting countdown may tick down.
 ///
 /// The count runs only while a match is ACTIVE — every participant has a body.
-///
-/// ⚠ this used to take `Option<bool>` from a `MatchSeated` latch and treat
-/// `None` as "go", on the reasoning that a composition without the seating
-/// system would otherwise hold the count forever. That special case is gone with
-/// the latch: `ActiveMatch` is published by seating itself, so absent means no
-/// match is live and there is nothing for a countdown to count into. A
-/// composition with no seating has no match, and a round that opens without one
-/// is the defect this gate exists for (2026-07-29).
 fn countdown_may_advance(active_match: bool) -> bool {
     active_match
 }
@@ -258,9 +236,7 @@ pub fn settle_versus_round(
     active_match: Option<Res<ambition_platformer2d::actors::character_runtime::ActiveMatch>>,
     mut state: ResMut<VersusMatch>,
     mut commands: Commands,
-    // The round LIFETIME, which replaced this system's hand-written projectile
-    // query. Campaign 3A: a round boundary must not enumerate the transient
-    // families that might exist.
+    // Campaign 3A: a round boundary must not enumerate the transient families that might exist.
     mut rounds: ResMut<ambition_platformer2d::platformer::lifecycle::ActiveRoundScope>,
     mut fighters: FighterQuery,
     mut reactions: Query<&mut BodyCombat, With<MatchSeat>>,
@@ -291,7 +267,7 @@ pub fn settle_versus_round(
             // A participant arriving afterwards joined a round already in
             // progress, having never passed the countdown or its reset
             // boundary, which is the one place a round equalises its fighters
-            // (GPT 5.6, 2026-07-28).
+            // .
             //
             // Holding at the initial value rather than pausing mid-count: a
             // countdown that starts, stalls and resumes reads as a stutter, and
@@ -386,12 +362,7 @@ pub fn settle_versus_round(
             };
             // FREEZE ON THIS TICK, not the next one.
             //
-            // This arm used to `return` and let the hold arm ask for the freeze
-            // when the system next ran — but this system is in `CombatSet::Settle`,
-            // so "next run" is a whole further tick of input, move triggering,
-            // playback, projectile materialization and damage at FULL SPEED after
-            // the round was already decided (GPT 5.6, 2026-07-27). A fighter could
-            // take a hit after losing.
+            // A fighter could take a hit after losing.
             request_freeze(&mut scale);
             // AND TAKE THE CONTROLS AWAY, for the same tick and the same reason.
             //
@@ -402,7 +373,7 @@ pub fn settle_versus_round(
             // triggering, not damage — so for the length of that ramp the
             // fighters went on accepting control, walking, starting moves and
             // spawning strikes, after the score had already been incremented and
-            // the winner named (GPT 5.6, 2026-07-27). Slow motion is a feel
+            // the winner named. Slow motion is a feel
             // decision; deciding a round and then letting it keep being fought
             // is not.
             //
@@ -498,12 +469,10 @@ pub fn settle_versus_round(
 
 /// Ask the engine to stop the fight.
 ///
-/// The clock SMOOTHER ramps the live scale toward this target rather than
-/// snapping it, and that is left alone deliberately: a KO decelerating into the
-/// card is the genre's own beat, it is the same primitive hitstop uses, and an
-/// instant stop is a feel decision this stage has not made. What was a defect is
-/// the tick this is first asked on — see the KO arm.
-/// Stop every fighter from deciding anything until the next round starts.
+/// The clock SMOOTHER ramps the live scale toward this target rather than snapping it, and that
+/// is left alone deliberately: a KO decelerating into the card is the genre's own beat, it is
+/// the same primitive hitstop uses, and an instant stop is a feel decision this stage has not
+/// made.
 ///
 /// Paired with the removal in [`begin_round`], and nowhere else: a marker that
 /// suspends control is only as good as the one place that takes it off.
@@ -513,7 +482,7 @@ fn take_the_controls(
     hold: ambition_platformer2d::characters::brain::ControlHold,
 ) {
     for fighter in fighters {
-        // ⭐ **which hold, said at the call site.** The countdown and the KO card
+        // **which hold, said at the call site.** The countdown and the KO card
         // are two different authorities that happen to want the same thing, and
         // a capture can be holding one of these same fighters besides. Whoever
         // releases first must not free a body another still holds, and that is
@@ -524,7 +493,7 @@ fn take_the_controls(
 
 /// **GO: every ceremony hold this stage is responsible for ends here.**
 ///
-/// ⛔⛔ **BOTH bits, and leaving one out froze the stage solid.** Two ceremonies
+/// **BOTH bits, and leaving one out froze the stage solid.** Two ceremonies
 /// converge on this instant: the countdown this stage runs, and the OPENING the
 /// ruleset declared with `opens_suspended`. The engine's own
 /// `release_the_opening_hold` deliberately declines the second — *"a ceremony
@@ -560,12 +529,10 @@ fn request_freeze(
 
 /// **Put the fighters back, and leave the last round behind with them.**
 ///
-/// Health, position, velocity and facing were the whole of the old reset, and
-/// they are the half that is visible. The other half is that a KO pause FREEZES
-/// the world rather than emptying it: the smash that was mid-swing, the box it
-/// had spawned, the shot crossing the stage and the hitstun on the fighter who
-/// ate it are all still there, and they resume into round two — which can kill a
-/// fighter who has not yet been given a chance to move (GPT 5.6, 2026-07-27).
+/// The other half is that a KO pause FREEZES the world rather than emptying it: the smash that
+/// was mid-swing, the box it had spawned, the shot crossing the stage and the hitstun on the
+/// fighter who ate it are all still there, and they resume into round two — which can kill a
+/// fighter who has not yet been given a chance to move.
 ///
 /// What this function can do ITSELF stops at the engine's own clusters. The
 /// fighters are authored by providers, and a provider's transient state is
@@ -588,12 +555,10 @@ fn begin_round(
     // **NOTHING IN FLIGHT CROSSES THE ROUND BOUNDARY**, and this function no
     // longer knows what "in flight" is made of.
     //
-    // ⚠ this opened with a hand-written `for shot in projectiles { try_despawn }`
-    // — one query naming one transient family (Campaign 3A). Every family added
-    // after it needed another query HERE, and forgetting one fails silently: an
-    // entity from the previous round is simply still there, in a round that
-    // never asked for it. Minting the next round is now the whole statement;
-    // `despawn_departed_round_entities` culls whatever belonged to the last one.
+    // Every family added after it needed another query HERE, and forgetting one fails silently:
+    // an entity from the previous round is simply still there, in a round that never asked for
+    // it. Minting the next round is now the whole statement; `despawn_departed_round_entities`
+    // culls whatever belonged to the last one.
     rounds.begin();
     let centre = geometry.0.spawn;
     for (entity, seat, _, mut health, item, mut model) in fighters.iter_mut() {
@@ -608,7 +573,7 @@ fn begin_round(
         // is deliberately KEPT — those are time facts, not place facts". True of
         // a blink; false of a new round. A fighter opened round two holding a
         // buffered maneuver, a live dash timer, or a shield/dodge state left over
-        // from the frame it was knocked out on (GPT 5.6, 2026-07-27).
+        // from the frame it was knocked out on.
         //
         // `reset_body_clusters` is the verb that means "this body starts again",
         // the same one the sandbox reset uses, and it clears the whole
@@ -628,25 +593,19 @@ fn begin_round(
             .try_remove::<ambition_platformer2d::combat::moveset::MovePlayback>();
         // The controls deliberately do NOT come back here.
         //
-        // They used to: this function ran when the KO hold ended and the round
-        // was live the moment it returned. A round now opens on a COUNTDOWN, and
-        // the fighters are reset and visible through all of it without being
-        // able to act — so the suspension has to outlive this reset and end at
-        // the one place the round actually goes live, which is the `Starting`
-        // arm reaching zero. Releasing here would put the controls back 90 ticks
-        // early and leave the countdown counting over a live fight, which is the
-        // exact defect the countdown replaced.
-        // The half of the reset this module cannot perform itself — a ball-dash
-        // charge, a rolling form, a spark cadence — is announced by the ENGINE,
-        // not from here. `reset_body_clusters` raises the pending flag and
-        // `announce_body_restarts` triggers `ae::BodyRestarted` at the front of
-        // the next tick, so every provider hears about this round boundary the
-        // same way it hears about a death respawn.
+        // A round now opens on a COUNTDOWN, and the fighters are reset and visible through all
+        // of it without being able to act — so the suspension has to outlive this reset and end
+        // at the one place the round actually goes live, which is the `Starting` arm reaching
+        // zero. The half of the reset this module cannot perform itself — a ball-dash charge, a
+        // rolling form, a spark cadence — is announced by the ENGINE, not from here.
+        // `reset_body_clusters` raises the pending flag and `announce_body_restarts` triggers
+        // `ae::BodyRestarted` at the front of the next tick, so every provider hears about this
+        // round boundary the same way it hears about a death respawn.
         //
         // This module used to trigger it by hand, which worked and was exactly
         // the wrong shape: seven other production resets did NOT, so ordinary
         // play still leaked provider state and only the versus stage did not
-        // (GPT 5.6, 2026-07-28).
+        // .
     }
     // Hitstun, recoil lock, i-frames and the damage blink are all round-scoped
     // reactions to a fight that is over.
@@ -660,7 +619,7 @@ fn begin_round(
 /// A gauge is a per-body fact. The first version declared two slots and wrote
 /// every seat above zero into the right-hand one, so in a four-player match
 /// seats 1, 2 and 3 overwrote each other and exactly two fighters were visible
-/// (GPT 5.6, 2026-07-27) — one bar showing whichever body the query reached
+/// — one bar showing whichever body the query reached
 /// last, which is worse than no bar because it looks like information.
 pub const HEALTH_HUD_SLOTS: [&str; 4] = [
     "versus_health_seat_1",
@@ -703,10 +662,9 @@ pub fn publish_versus_hud(
         .collect();
     rows.sort_by_key(|(seat, ..)| *seat);
 
-    // One GAUGE per fighter, plus the number. A bar is what a player reads at a
-    // glance mid-fight — "am I nearly dead" — and the number is what they read
-    // when they want to know exactly. The declared HUD had no bar at all until
-    // this stage needed one (L18).
+    // One GAUGE per fighter, plus the number. A bar is what a player reads at a glance
+    // mid-fight — "am I nearly dead" — and the number is what they read when they want to know
+    // exactly.
     let mut written = [false; HEALTH_HUD_SLOTS.len()];
     for (seat, _, name, hp, max) in &rows {
         let Some(slot) = HEALTH_HUD_SLOTS.get(*seat) else {
@@ -800,20 +758,16 @@ mod tests {
     /// count could run — and the round go live — with a seat still empty. A
     /// participant landing afterwards joins a round in progress, having never
     /// passed the countdown or its reset boundary, which is the one place a
-    /// round equalises its fighters (GPT 5.6, 2026-07-28).
+    /// round equalises its fighters.
     ///
-    /// ⚠ Tested as a PREDICATE, not through the app, and the reason is worth
-    /// keeping: an app-level version cannot express the scenario. Seating
-    /// re-published its activation every tick once the roster was complete, so
-    /// a test that poked the resource was corrected before the next update and
-    /// proved nothing — mine did exactly that and failed, which is how I found
-    /// out. Reaching the real case needs a participant that CANNOT seat.
+    /// Tested as a PREDICATE, not through the app, and the reason is worth keeping: an
+    /// app-level version cannot express the scenario. Reaching the real case needs a
+    /// participant that CANNOT seat.
     ///
     /// ✔ that case IS producible, and is driven end-to-end by
     /// `a_roster_with_an_unseatable_participant_never_latches` in
     /// `ambition_platformer2d_actor_monolith`: a roster naming a character nothing registered never
-    /// completes, so the match never activates. The note here used to say the
-    /// fixture could not produce it; it could, cheaply (2026-07-29).
+    /// completes, so the match never activates.
     #[test]
     fn the_countdown_holds_until_every_seat_is_filled() {
         assert!(

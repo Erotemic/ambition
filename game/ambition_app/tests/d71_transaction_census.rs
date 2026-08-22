@@ -1,25 +1,11 @@
-//! **PROBE (D71): does a room change on the PLAYER's route open a transition
-//! transaction?**
+//! **PROBE: does a room change on the PLAYER's route open a transition transaction?**
 //!
 //! Counts, over one authored `Door` crossing driven by a held interact press:
 //! * how many times the ACTIVE ROOM changed,
 //! * how many times a `RoomTransitionLoadState` transaction was open, and
 //! * how many times a deferred `PendingLifecycleCommit` intent was recorded.
 //!
-//! Run under both hosts. The rollback host is the one the shipped desktop binary
-//! composes (`cli.rs` sets `SimulationHost::Rollback` unconditionally and
-//! the rollback backend's `local_session` autostarts a `LocalSyncTest` session), so
-//! its numbers are the ones Jon's play produced.
-//!
-//! # ⭐ THE ANSWER, measured 2026-08-09 (D71 is REPRODUCIBLE, and NAMED)
-//!
-//! ```text
-//! fixed-tick host (ConfirmedFrameBoundary absent):  11 room changes, 11 transactions,  0 deferred intents
-//! ROLLBACK host   (ConfirmedFrameBoundary present): 24 room changes,  0 transactions, 24 deferred intents
-//! shipped app: ConfirmedFrameBoundary present=true, LocalSyncTest / LocalMaintainer
-//! ```
-//!
-//! ⭐ **1:1 both times, and never the same one.** Every room change is accounted
+//! **1:1 both times, and never the same one.** Every room change is accounted
 //! for by exactly one route, and which route it is turns entirely on whether a
 //! rollback host is composed. The shipped desktop binary composes one.
 //!
@@ -42,16 +28,13 @@
 //!   sites — they came through `RoomConstructionPlan::apply_to_world`, which
 //!   only `commit_confirmed_lifecycle` calls.
 //!
-//! ⚠ the `transactions=0` figure alone would have been weak evidence: this probe
+//! the `transactions=0` figure alone would have been weak evidence: this probe
 //! samples `RoomTransitionLoadState` once per `sim.step()`, so a transaction that
 //! opened and closed inside one advance would read as zero. The two signals above
 //! are what make it a bypass rather than a sampling artifact.
 //!
-//! The deferral is deliberate (`session::lifecycle_commit` module docs: the load
-//! machine is not rollback-registered, so it must not run on a speculative
-//! frame). The DEFECT is that the deferred route inherited none of the
-//! transaction's obligations — cover included. Fixing that is a composition
-//! question and deliberately not in this commit.
+//! The deferral is deliberate (`session::lifecycle_commit` module docs: the load machine is not
+//! rollback-registered, so it must not run on a speculative frame).
 
 #![cfg(feature = "rl_sim")]
 
@@ -234,8 +217,8 @@ fn d71_probe_counts_room_changes_against_transactions() {
     );
 }
 
-/// **⛔ THE ACCEPTANCE TARGET for D71's readiness convergence, and it is RED by
-/// construction until that lands.**
+/// **THE ACCEPTANCE TARGET for readiness convergence, and it is RED by construction until that
+/// lands.**
 ///
 /// Unlike the two probes above this asserts rather than reports, and it asserts
 /// what a PLAYER gets: a room change on the host the shipped binary composes
@@ -246,7 +229,7 @@ fn d71_probe_counts_room_changes_against_transactions() {
 /// nothing about assets, so the destination theme's parallax is still loading when the room
 /// appears.
 ///
-/// ⚠ **`#[ignore]`d deliberately, and this is the one shape that earns it.** The
+/// **`#[ignore]`d deliberately, and this is the one shape that earns it.** The
 /// convergence is a real slice in rollback-adjacent code; a target that fails the
 /// gate for the days that takes would be removed by whoever it inconveniences,
 /// which is how a known gap becomes an unknown one. Run it with `--ignored`; when
@@ -277,24 +260,12 @@ fn a_room_change_on_the_shipped_host_opens_a_readiness_transaction() {
 /// **The body that CROSSED is the body that ARRIVES — whoever is driving when
 /// the transaction finally commits.**
 ///
-/// A room transition is not instantaneous: detection opens a readiness
-/// transaction and the authorized commit lands several frames later. Until
-/// 2026-08-14 `RoomTransitionRequested` carried no subject at all, so
-/// `commit_ready_room_transition_system` asked `ControlledSubject` — falling back
-/// to the primary player — at COMMIT time, under a comment claiming it was *"the
-/// same subject the detect side resolves"*. It is the same subject only while
-/// nothing changes hands in between, and possession, death and control handoff
-/// are exactly the things that do.
+/// A room transition is not instantaneous: detection opens a readiness transaction and the
+/// authorized commit lands several frames later. It is the same subject only while nothing changes
+/// hands in between, and possession, death and control handoff are exactly the things that do.
 ///
-/// ⭐ **the rollback path never had this bug**, which is what makes it a
-/// convergence rather than a repair: `LifecycleIntent::Transition` has recorded
-/// `subject: SimId` at detection since Track B. D71 makes the richer contract the
-/// only one, and this is the behaviour that proves the message now carries it.
-///
-/// ⛔ **it names a body that is NOT the controlled one on purpose.** A test that
-/// transited the avatar would pass identically under the old code, because the
-/// avatar is what `ControlledSubject`-or-primary resolves to anyway. The summoned
-/// body is a subject nothing at commit time would ever guess.
+/// makes the richer contract the only one, and this is the behaviour that proves the message
+/// now carries it.
 #[test]
 fn the_recorded_subject_transits_rather_than_whoever_is_controlled() {
     const SUMMONED: &str = "d71_crossing_body";
@@ -322,7 +293,7 @@ fn the_recorded_subject_transits_rather_than_whoever_is_controlled() {
         sim.step(base());
     }
 
-    // ⚠ the id is READ off the body, never spelled: `SimId::placement(id)` would
+    // the id is READ off the body, never spelled: `SimId::placement(id)` would
     // reproduce the construction site's spelling and agree with itself even if
     // construction changed.
     let subject = {

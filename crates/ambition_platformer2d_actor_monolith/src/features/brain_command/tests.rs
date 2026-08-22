@@ -217,12 +217,8 @@ fn an_unknown_preset_is_rejected() {
 /// **A brain command during POSSESSION applies LIVE, because possession
 /// displaces nothing.**
 ///
-/// ⛔ this used to assert the opposite — source-only, live brain untouched — and
-/// the reason was `Brain::Player`: taking control OVERWROTE the body's policy, so
-/// the live brain was the driver's and a switch had to be deferred into
-/// `PossessionState::restore_brain` to survive the release. A driven body keeps
-/// its own policy now, so the live brain IS the autonomous selection and there is
-/// nothing to defer.
+/// A driven body keeps its own policy now, so the live brain IS the autonomous selection and there
+/// is nothing to defer.
 #[test]
 fn a_driven_body_applies_a_brain_command_live_because_nothing_displaced_its_policy() {
     let mut app = app();
@@ -375,7 +371,7 @@ fn release_provocation_pacifies_and_restores_default() {
 // **The character-first road**: a body whose autonomous default is its own
 // character's authored policy rather than a catalog preset.
 //
-// ⛔⛔ every fixture above is preset- or catalog-default-based, and that is why
+// every fixture above is preset- or catalog-default-based, and that is why
 // the whole `CharacterProfile` seam could be wrong in three places at once and
 // stay green. A vocabulary with no fixture is a vocabulary with no tests.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -391,7 +387,7 @@ fn character_policy() -> ambition_characters::brain::BrainProfile {
 /// The policy PROVOCATION installs — deliberately a different template, so the
 /// two are told apart by `Brain::label()` and not by a float comparison.
 ///
-/// ⭐⭐ **AND DELIBERATELY NOT A `MeleeBrute`**, which is what `BrainProfile`'s
+/// **AND DELIBERATELY NOT A `MeleeBrute`**, which is what `BrainProfile`'s
 /// own `Default` is. A provoked fixture built from the default template makes
 /// "the release left the provoked policy in place" and "the release zeroed the
 /// policy to one nobody authored" print the identical failure — two different
@@ -430,9 +426,9 @@ fn character_first_config(brain_profile: ambition_characters::brain::BrainProfil
         id: "villager".into(),
         name: "Villager".into(),
         tuning: crate::features::ecs::actor_tuning::ActorTuning {
-            // ⭐ deliberately NOT the generic peaceful seed
+            // deliberately NOT the generic peaceful seed
             // (`max_run_speed: MAX_RUN_SPEED`): this is the body its character
-            // built, and a controller change must leave it alone. ⚠ the pool
+            // built, and a controller change must leave it alone. the pool
             // that stood beside it left with `ActorTuning::max_health` (AC6.2)
             // — it is `BodyHealth`'s, and the entity below carries one.
             max_run_speed: 91.0,
@@ -480,22 +476,13 @@ fn spawn_provoked_character_first(app: &mut App, sim: &str) -> Entity {
 }
 
 /// **"YOU ARE FREE" MUST MEAN IT.**
-///
-/// ⛔⛔ the defect this pins: `RestoreDefault` for a `CharacterProfile` default
-/// lowered `ActorConfig::brain_profile`, and provocation WRITES that field. So
-/// the release rebuilt the PROVOKED policy, then labelled the binding
-/// `CharacterProfile` — a body that goes on hunting you while every piece of
-/// state agrees it was released, which is the shape of bug nothing ever
-/// notices. The durable answer lives on the character, and this is the road
-/// that asks it.
 #[test]
 fn a_released_character_returns_to_its_own_policy_not_the_provoked_one() {
     let mut app = app_with_cast();
     let e = spawn_provoked_character_first(&mut app, "villager");
 
-    // ⭐ THE POISON, stated before the act: the body's live policy disagrees
-    // with its character's. If these two were equal the test would pass without
-    // the identity lookup existing at all, and would be proving nothing.
+    // If these two were equal the test would pass without the identity lookup existing at all,
+    // and would be proving nothing.
     assert_eq!(
         app.world().get::<Brain>(e).unwrap().label(),
         "skirmisher",
@@ -541,7 +528,7 @@ fn a_released_character_returns_to_its_own_policy_not_the_provoked_one() {
 
 /// **A CONTROLLER CHANGE IS NOT A BODY CHANGE.**
 ///
-/// ⛔ `apply_catalog_mode` reconstructs the generic peaceful-NPC seed —
+/// `apply_catalog_mode` reconstructs the generic peaceful-NPC seed —
 /// `MAX_RUN_SPEED`, default capabilities. That is right for a catalog NPC whose
 /// body IS that seed, and over a character-authored body it is a silent
 /// downgrade wearing a release.
@@ -557,13 +544,9 @@ fn releasing_a_character_first_body_leaves_the_body_its_character_built() {
     );
     app.update();
 
-    // ⛔ **THE POOL HALF OF THIS TEST IS NOW STRUCTURAL** (AC6.2). It asserted
-    // that `tuning.max_health` survived the release, because `apply_catalog_mode`
-    // copies a whole projected `ActorTuning` over the live one — and that copy
-    // never touched `BodyHealth`, so the number it preserved was a mirror rather
-    // than the body's pool. `ActorTuning` states no pool now, so a controller
-    // change has nothing to downgrade: the run speed below is the surviving
-    // number this road can still get wrong.
+    // **THE POOL HALF OF THIS TEST IS NOW STRUCTURAL** (AC6.2). `ActorTuning` states no pool
+    // now, so a controller change has nothing to downgrade: the run speed below is the
+    // surviving number this road can still get wrong.
     let tuning = &app.world().get::<ActorConfig>(e).unwrap().tuning;
     assert_eq!(
         tuning.max_run_speed, 91.0,
@@ -574,7 +557,7 @@ fn releasing_a_character_first_body_leaves_the_body_its_character_built() {
 
 /// **A RELEASE THAT ARRIVES DURING POSSESSION IS STILL A RELEASE.**
 ///
-/// ⛔⛔ `resolve_command_preset` answers *not mine* for a character-first
+/// `resolve_command_preset` answers *not mine* for a character-first
 /// default, and `update_source_only` read that `None` as *unresolvable* and
 /// dropped the command. So provoke → possess → release-provocation → release
 /// possession resumed the PROVOKED policy: the release was swallowed by the
@@ -609,19 +592,16 @@ fn a_release_during_temporary_control_still_changes_the_source() {
 /// **A CHARACTER-FIRST DEFAULT THAT CANNOT BE RESOLVED IS REJECTED, NOT
 /// COVERED FOR.**
 ///
-/// ⛔⛔ the lowering used to fall back to `config.brain_profile` when the
-/// identity road could not answer — scaffolding that recreated the exact bug the
-/// identity road exists to fix. `ActorConfig::brain_profile` is the policy the
-/// body is running NOW and provocation writes it, so on a body whose
-/// `WornCharacter` or prepared cast went missing, "ask the character, and
-/// otherwise trust whatever mind is installed" restores the PROVOKED policy and
-/// labels it the character's own. Silently. Forever.
+/// `ActorConfig::brain_profile` is the policy the body is running NOW and provocation writes it, so
+/// on a body whose `WornCharacter` or prepared cast went missing, "ask the character, and otherwise
+/// trust whatever mind is installed" restores the PROVOKED policy and labels it the character's
+/// own. Silently. Forever.
 ///
-/// ⭐ a binding saying `default = CharacterProfile` is a CLAIM that the
+/// a binding saying `default = CharacterProfile` is a CLAIM that the
 /// character can answer. When it cannot, the composition is broken, and the
 /// command gets the same answer an unknown preset gets.
 ///
-/// ⚠ the fixture removes the identity rather than the cast, because that is the
+/// the fixture removes the identity rather than the cast, because that is the
 /// half a composition can lose without noticing: a body spawned by a road that
 /// forgot to attach `WornCharacter` still has a perfectly good registry sitting
 /// beside it.

@@ -34,7 +34,6 @@ import sys
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# (label, path-or-glob, baseline from the campaign brief's acceptance list)
 COMPONENTS = [
     ("ArchetypeSpec", "crates/ambition_combat/src/archetype_spec.rs", 319),
     (

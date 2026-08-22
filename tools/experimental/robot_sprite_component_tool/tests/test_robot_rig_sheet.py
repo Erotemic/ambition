@@ -271,10 +271,7 @@ def test_run_torso_lean_forward_anchors_are_on_visible_sockets():
         (root / "metadata" / "robot_components.refined.yaml").read_text()
     )
     anchors = meta["sprites"]["torso_lean_forward"]["anchors"]
-    # These anchors are user-editable.  Keep the regression semantic instead of
-    # hard-coding one old hand-tuned pixel solution: shoulders must be separated
-    # on their visible side sockets, and hips must be lower than shoulders and
-    # separated enough for the endpoint solver to avoid component pile-ups.
+    # These anchors are user-editable.
     assert anchors["shoulder_right"][0] < anchors["shoulder_left"][0]
     assert anchors["shoulder_left"][0] - anchors["shoulder_right"][0] >= 45
     assert max(anchors["shoulder_left"][1], anchors["shoulder_right"][1]) < min(

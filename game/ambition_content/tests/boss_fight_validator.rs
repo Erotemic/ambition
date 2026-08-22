@@ -1,13 +1,8 @@
 //! **BD5 run over the shipped roster** — `boss-design.md` §3's rules, measured.
 //!
-//! §3's original aspiration was an install-time gate (*"missing telegraph, empty
-//! fair_counters, unpunishable heavy, simultaneity budget exceeded = ERRORS"*). By
-//! maintainer decision the validator is DIAGNOSTIC today and non-blocking; it does
-//! not gate installation. The honest reason is written into the report below rather
-//! than into a silenced assertion: **the bands are Calibration v0**, which the doc
-//! itself calls *"starting numbers … BD7's pilot re-calibrates them against Jon's
-//! verdict,"* and several rules may be impossible to complete until the engine can
-//! express the relevant boss-feel properties (boss-design.md §9/§11).
+//! §3's original aspiration was an install-time gate (*"missing telegraph, empty fair_counters,
+//! unpunishable heavy, simultaneity budget exceeded = ERRORS"*). By maintainer decision the
+//! validator is DIAGNOSTIC today and non-blocking; it does not gate installation.
 //!
 //! So this test does what CC3's oracle does: it MEASURES, it prints a stable
 //! report, and it pins the current findings so a change in a fight shows up as a
@@ -52,10 +47,6 @@ fn the_shipped_bands_are_section_threes_calibration_v0() {
     assert_eq!(b.warn_deviation_frac, 0.2);
 }
 
-/// Every move every shipped boss plays is catalogued by a seed. If this ever goes
-/// red, BD4's coverage oracle went red first — but the validator would otherwise
-/// report a green fight it could not actually judge, and that is the failure mode
-/// worth two tests.
 #[test]
 fn the_validator_can_judge_every_move_the_roster_plays() {
     use ambition_characters::brain::boss_pattern::validator::Rule;
@@ -118,15 +109,11 @@ fn the_shipped_roster_against_section_threes_rules() {
     );
 }
 
-/// **Measured 2026-07-10 against Calibration v0.**
+/// All 8 errors are rule 3, all in **Enrage**, all the same shape: the tightened enrage combos
+/// chain a `Strike` straight into the next `Telegraph`, leaving the player no punish window at all.
+/// §3 calls that an unpunishable attack; the authors called it escalation.
 ///
-/// All 8 errors are rule 3, all in **Enrage**, all the same shape: the tightened
-/// enrage combos chain a `Strike` straight into the next `Telegraph`, leaving the
-/// player no punish window at all. §3 calls that an unpunishable attack; the
-/// authors called it escalation. Which of them is right is BD7's pilot to settle
-/// with Jon, and it is exactly the argument the pipeline exists to make legible.
-///
-/// Of the 10 warnings, **nine are rule 5 (BD3, 2026-07-10): not one shipped boss
+/// Of the 10 warnings, **nine are rule 5: not one shipped boss
 /// authors a telegraph identity.** Every attack in the game telegraphs by duration
 /// alone. Today it is a measurement; promotion to a hard error requires calibration
 /// and a separate maintainer decision (not automatically after BD7). It is the
@@ -137,7 +124,6 @@ fn the_shipped_roster_against_section_threes_rules() {
 /// never has to simply *step out of the way*.
 ///
 /// Rule 1 (telegraph proportionality) fires **nowhere**, which corrects BD4 §7's
-/// finding 3: the mockingbird's 26-tick cycle telegraphs are `Medium` attacks
 /// (`sweep`, `dash_through`), whose floor is 20 ticks, not a heavy's 30.
 const EXPECTED_ERRORS: usize = 8;
 const EXPECTED_WARNINGS: usize = 10;

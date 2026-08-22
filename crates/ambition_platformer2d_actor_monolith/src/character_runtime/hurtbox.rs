@@ -44,14 +44,9 @@ pub struct AuthoredHurtboxes(pub HurtboxDoc);
 /// rather than an animation row. The vocabulary is [`BODY_POSES`] and nothing
 /// else; content authors profiles against it.
 ///
-/// ⛔ this doc used to promise `tumble`, `shield`, `ledge_hang` and `run` as
-/// well, and [`advance_body_pose_clocks`] wrote none of them — a profile
-/// authored for any of the four validated, published, and was **silently never
-/// selected**. `crouch` was in the same state and is now written, because a
-/// crouched silhouette is the pose-aware hurtbox a fighter most obviously needs.
-/// The other four are absent from the vocabulary rather than listed as
-/// aspirations: adding one means giving [`body_pose`] the fact that produces it,
-/// and the reachability test will not let the name land without it.
+/// The other four are absent from the vocabulary rather than listed as aspirations: adding one
+/// means giving [`body_pose`] the fact that produces it, and the reachability test will not let the
+/// name land without it.
 #[derive(Component, Debug, Clone, PartialEq)]
 pub struct BodyPoseClock {
     pub pose: String,
@@ -77,7 +72,7 @@ impl Default for BodyPoseClock {
 /// Body-state pose ids the engine writes. Content may author a profile for any of
 /// them; an unauthored one falls through to the default shapes.
 ///
-/// ⛔ **this list is a CONTRACT, not a wish list.** An id documented here that
+/// **this list is a CONTRACT, not a wish list.** An id documented here that
 /// [`body_pose`] can never produce is worse than a missing feature: content
 /// authors a profile for it, the profile validates, and it is silently never
 /// selected. [`BODY_POSES`] and `body_pose`'s reachable set are pinned equal by
@@ -94,7 +89,7 @@ pub const BODY_POSES: [&str; 4] = [POSE_HITSTUN, POSE_CROUCH, POSE_AIRBORNE, POS
 ///
 /// Precedence is by how much the state overrides the body's shape: hitstun is a
 /// reaction the body does not choose, a crouch is a stance it does, and airborne
-/// is merely where it is. ⚠ crouch outranks airborne because `BodyMode` only
+/// is merely where it is. crouch outranks airborne because `BodyMode` only
 /// reaches `Crouching` through a grounded stance change — the two are not
 /// expected to be true at once, and if they ever are, the stance is the thing
 /// that actually changed the silhouette.
@@ -193,7 +188,7 @@ pub fn resolve_hurtboxes(
 /// move's hurtbox timeline and its hitbox timeline cannot disagree about when they
 /// are. The pose clock comes from the body state.
 ///
-/// ⚠ Deliberately NOT a query for `CharacterAnimator`, `Sprite`, or anything in
+/// Deliberately NOT a query for `CharacterAnimator`, `Sprite`, or anything in
 /// `ambition_render`. This crate cannot even name them, which is the strongest
 /// available form of §4.11's prohibition.
 pub fn resolve_body_hurtboxes(
@@ -218,10 +213,7 @@ pub fn resolve_body_hurtboxes(
 
 /// Write each body's pose clock from authoritative simulation state.
 ///
-/// Hitstun outranks airborne outranks idle. The timer is the state's OWN clock —
-/// `hitstun_timer` counts DOWN, so elapsed is measured from when the state was
-/// entered by tracking the peak, which the pose clock does by only resetting on a
-/// pose CHANGE.
+/// Hitstun outranks airborne outranks idle.
 pub fn advance_body_pose_clocks(
     world_time: Res<ambition_time::WorldTime>,
     mut bodies: Query<(

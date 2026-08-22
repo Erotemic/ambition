@@ -3,13 +3,10 @@
 //!
 //! ## Why this is here and not in the actor crate
 //!
-//! ⛔ It lived in `ambition_boss_encounter::behavior`
-//! until 2026-08-03, and that placement BLOCKED the content compiler. A schema
-//! must be registered by the crate that owns its type, and the validator has to
-//! link that crate to install the schema — so a boss-profile schema meant the
-//! CLI linking the monolith: **708 crates against the validator's 239, and a
-//! renderer**. That would have destroyed the one property justifying the
-//! compiler (build in seconds, validate in milliseconds).
+//! A schema must be registered by the crate that owns its type, and the validator has to link that
+//! crate to install the schema — so a boss-profile schema meant the CLI linking the monolith: **708
+//! crates against the validator's 239, and a renderer**. That would have destroyed the one property
+//! justifying the compiler (build in seconds, validate in milliseconds).
 //!
 //! Nothing here ever needed the actor crate. Every field resolves against
 //! `ambition_platformer2d_core`, `ambition_entity_catalog`, and this crate's own
@@ -27,26 +24,19 @@ use super::{BossAttackPattern, BossAttackProfile, BossMovementProfile};
 use crate::actor::limb::LimbSlot;
 use ambition_platformer2d_core as ae;
 
-/// One body-local strike rectangle, expressed as DATA rather than an imperative
-/// `match` arm (fable review §C6: "collapse the named-boss geometry toward authored
-/// rect DATA"). Both the center offset and the half-extent are an AFFINE function of
-/// the boss's combat size — `factor * size + const` — so the shape scales with any
-/// boss body while a fixed pixel margin (a floor-slam's 22px reach past the feet, its
-/// 18px slab thickness) stays fixed. `serde`-ready so a content boss can eventually
-/// AUTHOR its strike geometry (in the boss roster RON) instead of a core enum variant —
-/// the "second game adds a boss without editing core" oracle. Today the built-in
-/// per-profile tables below supply it; an authored override is the next slice.
+/// `serde`-ready so a content boss can eventually AUTHOR its strike geometry (in the boss
+/// roster RON) instead of a core enum variant — the "second game adds a boss without editing
+/// core" oracle. Today the built-in per-profile tables below supply it; an authored override is
+/// the next slice.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StrikeRect {
     /// Center offset from the strike origin, as a fraction of the body size.
     pub offset_factor: ae::Vec2,
-    /// Center offset from the strike origin, as a fixed pixel amount (added).
     #[serde(default)]
     pub offset_const: ae::Vec2,
     /// Half-extent, as a fraction of the body size.
     pub half_factor: ae::Vec2,
-    /// Half-extent, as a fixed pixel amount (added).
     #[serde(default)]
     pub half_const: ae::Vec2,
 }
@@ -210,7 +200,7 @@ pub struct BossBehaviorProfile {
     /// constructions of the same four-key map gave six different orders in one
     /// process — so two identical rosters produced two different pack
     /// fingerprints as soon as any boss authored a second strike override.
-    /// (GPT 5.6 review, finding 4.) The same rule ADR 0023 already states for
+    /// The same rule ADR 0023 already states for
     /// every ordered read.
     pub strike_geometry: std::collections::BTreeMap<String, Vec<StrikeRect>>,
     /// ADR 0020: mount classes a boss authored as a would-be RIDER may pilot. A

@@ -119,9 +119,8 @@ pub fn apply_difficulty(
 /// gate in the parent module shares the same per-actor RNG stream.
 pub(super) fn roll_unit(state: &mut SmashState) -> f32 {
     if state.rng_seed == 0 {
-        // Seed-zero fallback: avoid the LCG fixed point. The driver
-        // system pre-seeds from the actor id; this branch only
-        // fires for state built with `default()`.
+        // The driver system pre-seeds from the actor id; this branch only fires for state built
+        // with `default()`.
         state.rng_seed = 0xa5a5a5a5;
     }
     // Numerical Recipes LCG constants.

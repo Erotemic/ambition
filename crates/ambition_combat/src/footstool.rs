@@ -1,9 +1,6 @@
 //! Footstool interaction: jumping off another body.
 //!
-//! Arbitration runs before the movement kernel and claims the jump press through
-//! [`ae::BodyJumpState::footstool_claimed`], so a successful footstool does not
-//! consume an air jump. Contact is therefore judged from the previous tick's
-//! resolved positions.
+//! Contact is therefore judged from the previous tick's resolved positions.
 //!
 //! Both bodies must enable footstools, share a gravity frame, and satisfy the
 //! match's teammate policy. A victim already committed to a move receives no

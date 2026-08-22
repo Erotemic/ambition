@@ -1,14 +1,7 @@
 //! Debug-overlay drawing toolkit — the app-side remainder.
 //!
-//! The palette + low-level gizmo primitives (AABB/arrow draws, world<->bevy
-//! coord helpers) moved to the engine-generic
-//! `ambition_platformer2d::render::rendering::debug_viz` module (any game opts into them
-//! via `DebugVizPlugin`); this overlay imports them back through the parent
-//! module's re-export. What stays here is the LABEL machinery — world-space
-//! `Text2d` identities for the debug boxes — which the shared shapes-only
-//! layer deliberately does not carry.
-//!
-//! Split out of the former 1001-line `debug_overlay.rs` (2026-06-15).
+//! What stays here is the LABEL machinery — world-space `Text2d` identities for the debug boxes
+//! — which the shared shapes-only layer deliberately does not carry.
 
 use super::*;
 

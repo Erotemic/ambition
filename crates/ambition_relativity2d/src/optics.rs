@@ -466,10 +466,8 @@ fn clear_optical_view_without_live_spacetime(
     spacetime: Query<(), (With<ActiveSpacetime2d>, With<SessionRoot>)>,
     mut views: ResMut<RelativisticOpticalView2d>,
 ) {
-    // ⚠ the emptiness test guards CHANGE DETECTION, not correctness: taking
-    // `ResMut` mutably every frame with no spacetime would mark a derived
-    // resource changed forever. A row exists only when an observer published
-    // one, so "no rows" is the same condition the three-field test used to ask.
+    // the emptiness test guards CHANGE DETECTION, not correctness: taking `ResMut` mutably every
+    // frame with no spacetime would mark a derived resource changed forever.
     if spacetime.is_empty() && !views.is_empty() {
         views.clear();
     }
@@ -478,9 +476,7 @@ fn clear_optical_view_without_live_spacetime(
 /// Solve the intersection of one sampled source worldline with an observer
 /// event's past light cone.
 ///
-/// Source motion is linearly interpolated within each sampled segment. A fixed
-/// twelve-step bisection makes the answer deterministic and avoids an iterative
-/// convergence threshold becoming part of rollback behavior.
+/// Source motion is linearly interpolated within each sampled segment.
 pub fn solve_retarded_source_event(
     samples: &VecDeque<WorldlineSample2d>,
     observer_position: Vec2,

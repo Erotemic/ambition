@@ -202,13 +202,11 @@ impl PickupSpec {
     }
 }
 
-// ✔ `PickupKind` DELETED 2026-08-21 (D33). It was byte-identical to
-// `crate::PickupKind` -- same five variants, same fields, same derives -- in the
-// SAME crate. `PickupKind`'s own doc already said it "was never
-// interaction-specific, it was merely first needed there"; this was the other
-// half of that consolidation, left behind. The authored schema names
-// `PickupKind` directly now, and the serialized shape is unchanged because the
-// variant names and fields were identical.
+// It was byte-identical to `crate::PickupKind` -- same five variants, same fields, same derives --
+// in the SAME crate. `PickupKind`'s own doc already said it "was never interaction-specific, it was
+// merely first needed there"; this was the other half of that consolidation, left behind. The
+// authored schema names `PickupKind` directly now, and the serialized shape is unchanged because
+// the variant names and fields were identical.
 
 /// The authored chest schema — open/closed state, an optional reward, and a
 /// persistence flag. Fully plain data; the interaction runtime lowers it to a
@@ -481,7 +479,7 @@ impl PlacementSchema {
 /// **How this placement's body FEELS about the player** — the disposition it
 /// spawns with.
 ///
-/// ⭐ **a spawn-context fact, and the last one an enemy archetype owned.** A row
+/// **a spawn-context fact, and the last one an enemy archetype owned.** A row
 /// could say `hostile_by_default: false` — the puppy slug is ambient wildlife
 /// that never aggros — which made peacefulness a property of the CREATURE. It is
 /// not:
@@ -502,7 +500,7 @@ pub enum SpawnDisposition {
 impl SpawnDisposition {
     /// Whether a body with this disposition attacks on sight.
     ///
-    /// ⚠ **it was `attacks_player`** (renamed 2026-08-13, campaign P2.19). Who a
+    /// **it was `attacks_player`**. Who a
     /// hostile body attacks is a TARGETING question with its own authority
     /// (`ActorFaction`, `MatchTeam`, `damage_lands_between`), and naming a player
     /// here made the engine's hostility model read as if a player were the only

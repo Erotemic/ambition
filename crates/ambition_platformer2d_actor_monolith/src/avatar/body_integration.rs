@@ -83,21 +83,18 @@ pub struct BodyReset {
 /// spawn (engine-level body reset, the same on every body) and `frame_out.reset`
 /// is set.
 ///
-/// ⛔ **but only while the participant is still IN PLAY** (ADR 0033). A body
-/// whose attempt has already ended is not teleported, not reset, and not
-/// re-flagged — the world stops acting on it and the ruleset owns what happens
-/// next. The room-feature reset that used to ride this flag every frame
-/// (`apply_home_reset_policy`, deleted) is now a consequence the game authors
-/// through `DeathRules`.
+/// **but only while the participant is still IN PLAY** (ADR 0033). A body whose attempt has already
+/// ended is not teleported, not reset, and not re-flagged — the world stops acting on it and the
+/// ruleset owns what happens next.
 ///
-/// ⛔ **except a hazard a body that cannot be hurt walked into**, which is where
+/// **except a hazard a body that cannot be hurt walked into**, which is where
 /// this function decides. [`ae::ResetCause`]'s own contract is *"the kernel
 /// reports WHAT the world did to the body; the owner decides what it MEANS"*, and
 /// this is the owner. The reasoning is at the filter below.
 ///
 /// `invulnerable` and `evading` are the two halves of
 /// [`crate::combat::util::body_vulnerable`] the clusters do not already carry.
-/// ⚠ they are passed as INPUTS rather than as a resolved `bool` on purpose: the
+/// they are passed as INPUTS rather than as a resolved `bool` on purpose: the
 /// predicate is applied in ONE place — here — so a second caller cannot invent a
 /// slightly different rule for "can this body be hurt".
 #[allow(clippy::too_many_arguments)]
@@ -121,24 +118,17 @@ pub fn integrate_home_body(
     feel: Platformer2dFeelTuningMonolith,
     frame_dt: f32,
     scaled_dt: f32,
-    // **The other solid bodies this one may not walk through**, sampled before
-    // any body moved. `BodyContactField::NONE` for a body whose composition
-    // never granted the capability, which is every body in Ambition today.
+    // `BodyContactField::NONE` for a body whose composition never granted the capability, which
+    // is every body in Ambition today.
     contact_field: ae::BodyContactField<'_>,
 ) -> Option<ae::Vec2> {
-    // ⭐ the BODY, so both roads read the same authority. The actor road used to
-    // spell half of it (ledger D108); the signature no longer has a half to
-    // spell.
+    // the BODY, so both roads read the same authority.
     let input =
         engine_input_from_actor_control(actor_control, feel, combat, clusters.shield, frame_dt);
-    // ⭐⭐ **the hitlag freeze and the tuning refresh are no longer SPELLED here.**
-    // Both roads used to write the same two steps beside their own
-    // `ae::step_motion` call, which is exactly how D114 happened: the freeze was
-    // a line one road had and the other did not. They are one call now —
-    // `ambition_characters::actor::step_body` — so a rule about how a body
+    // They are one call now — `ambition_characters::actor::step_body` — so a rule about how a body
     // integrates cannot reach this road and miss the actor one.
 
-    // ⭐ **the ledge-platform carry is GONE from here, and that is the point.** It
+    // **the ledge-platform carry is GONE from here, and that is the point.** It
     // was the last thing in this function that only a home body could get: a
     // `&[MovingPlatformState]` scan that matched the hang against each platform
     // by position and carried it by `last_delta`. `integrate_actor_body` was
@@ -164,23 +154,7 @@ pub fn integrate_home_body(
         },
     );
 
-    // Capture the causal position before home-body policy teleports to spawn.
-    // Reading kinematics after `reset_body_clusters` would report the respawn
-    // point as the death impact location.
-    // ⛔ **A HAZARD TILE IS DAMAGE, so it has to ask what damage asks.** Jon,
-    // from play: *"in super sanic mode, sanic should be invincible, even to
-    // spikes."* He was right, and the cause is structural rather than a Sanic
-    // bug: an authored `HazardBlock` reaches the runtime by TWO roads. Drawn as
-    // an entity it becomes an ECS damage volume, and `ambition_combat::hazards`
-    // gates it on `body_vulnerable` like every other emitter. Drawn as an
-    // IntGrid tile it becomes `BlockKind::Hazard`, the kernel flags
-    // `ResetCause::Hazard`, and this line teleported the body to spawn with
-    // nothing consulted at all. **The same authored spikes therefore behaved
-    // differently depending on how they had been drawn**, and no invulnerability
-    // — super form, transformation beat, scripted grant, i-frames — could see
-    // the tile road.
-    //
-    // ⚠ **`LeftTheWorld` and `Drowned` are NOT exempted, deliberately.**
+    // **`LeftTheWorld` and `Drowned` are NOT exempted, deliberately.**
     // `resolve_body_hit` already states the rule for damage — *"you cannot be
     // invulnerable to the edge of the world"* — and this seam has to agree or
     // the two disagree about the same body. Falling out is not something that
@@ -194,52 +168,27 @@ pub fn integrate_home_body(
                 clusters.shield,
                 combat,
             );
-        // ⛔ **AND A BODY THAT IS ALREADY OUT OF PLAY IS NOT KILLED AGAIN**
-        // (ADR 0033). The gate above is a POSITION TEST and re-fires every tick
-        // a body is past the margin — the ACTOR path has always known this and
-        // writes `em.health.alive() && …` for exactly this reason, and this
-        // path never got the same guard. Measured 2026-08-09: one fall into a
-        // Mary-O pit re-flagged the reset on 192 of the 192 frames of her death
-        // beat, and in the hosted app every one of those frames was a full
-        // room-feature reset — Jon, from play: *"enemies respawning immediately
-        // when she dies even though the animation and music is still playing.
-        // That is not correct."*
+        // **AND A BODY THAT IS ALREADY OUT OF PLAY IS NOT KILLED AGAIN** (ADR 0033). The gate above
+        // is a POSITION TEST and re-fires every tick a body is past the margin — the ACTOR path has
+        // always known this and writes `em.health.alive() && …` for exactly this reason, and this
+        // path never got the same guard. That is not correct."*
         //
-        // ⭐ she goes on FALLING, which is the classic behaviour and now costs
-        // nothing: the body is simply no longer teleported out from under its
-        // own death. The pose pin that used to fake this is deleted.
+        // she goes on FALLING, which is the classic behaviour and now costs nothing: the body is
+        // simply no longer teleported out from under its own death.
         (!untouched && !out_of_play).then(|| BodyReset {
             cause,
             origin: clusters.kinematics.pos,
         })
     });
-    // ⛔ **AND THE BODY IS NOT TELEPORTED HOME** (ADR 0033). This used to call
-    // `reset_body_clusters(.., world.spawn, ..)` right here, which is why every
-    // ruleset that wanted a death to MEAN something had to claw the body back:
-    // Mary-O's beat pinned her at the place she died precisely because the
-    // engine had already moved her to spawn, and the pin — outside the world —
-    // is what re-fired the gate 192 times per death.
-    //
-    // ⭐ **the respawn is a CONSEQUENCE now, not a reflex.** A reset is
-    // reported, `publish_kernel_reset_death` turns it into the death fact, and
-    // the game's authored `DeathRules` decides what happens: a level reset puts
-    // her back through the one shared road (`reset_sandbox`, via
-    // `RoomReplayRequested`), and a ruleset that owns its own respawn — a versus
-    // stock — does it there instead. Until then she keeps falling, which is what
-    // a classic platformer death looks like and now costs nothing to get.
-    //
-    // (The `axis_tuning.air_jumps` argument this used to thread lives on at the
-    // remaining call sites; the note it carried — that this site was the one of
-    // five that forgot the follow-up refresh — is answered by there being one
-    // fewer site.)
+    // Until then she keeps falling, which is what a classic platformer death looks like and now
+    // costs nothing to get.
 
     *frame_out = PlayerBodyFrameOutput {
         reset,
         events: result.events,
     };
 
-    // ⭐ the ONE footprint publish, shared with the actor road (D117). A home
-    // body's collision box IS its footprint, so it passes no envelope.
+    // A home body's collision box IS its footprint, so it passes no envelope.
     ambition_boss_encounter::attack_geometry::publish_body_footprint(
         hurtbox,
         clusters.kinematics.pos,
@@ -287,28 +236,16 @@ pub fn surface_skidding(motion_model: &crate::features::MotionModel, run: f32) -
 /// integration (home + actors), so every body rides this frame's platform
 /// positions. Peeled out of the per-entity body loop so it can't multiply.
 ///
-/// ⛔⛔ **THIS USED TO ASK THE HOME AVATAR WHETHER THE WORLD WAS ALLOWED TO
-/// MOVE**, through a `Query<&BodyCombat, PrimaryPlayerOnly>` whose `single()`
-/// returned early when there was none. `InitialBodyPolicy::NoInitialBody` makes
-/// zero primary players an ordinary steady state, so in every match — and in any
-/// session that lowers no home avatar — not one moving platform advanced. This is
-/// the same freeze Jon reported on 2026-08-07 (*"the characters are just stuck in
-/// air"*): that fix took the clock, in `emit_player_time_intent_system`, and left
-/// this system one step downstream still holding the old shape. `markers.rs`
-/// names it exactly — *"the shape to watch for is not `With<PrimaryPlayer>`
-/// itself but `single()` + `else { return }` around it"*.
+/// `InitialBodyPolicy::NoInitialBody` makes zero primary players an ordinary steady state, so in
+/// every match — and in any session that lowers no home avatar — not one moving platform advanced.
 ///
-/// ⭐ **the hitstop read was a DUPLICATE AUTHORITY, not a lost feature.** The
+/// **the hitstop read was a DUPLICATE AUTHORITY, not a lost feature.** The
 /// primary body's hitstop already drives the global clock to zero — hitstop is
 /// the top rung of `emit_player_time_intent_system`'s ladder — so
 /// `WorldTime::sim_dt` carries the freeze that this system was re-deriving from
 /// the same component. Reading the world's own clock is what every body
 /// integrating against these platforms already does.
 ///
-/// ⚠ **and that agreement is the point, not a side effect.** The clock request
-/// lands a frame after the hitstop timer is armed, so the old direct read froze
-/// the platforms one frame BEFORE the bodies riding them stopped — a rider
-/// integrating on a nonzero `dt` while its surface reported `last_delta` of zero.
 /// The platform now freezes on the same frame everything else does.
 pub fn advance_moving_platforms(
     world_time: Res<ambition_time::WorldTime>,

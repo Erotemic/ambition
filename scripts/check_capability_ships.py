@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """A capability whose only installer is behind a DEV feature does not ship.
 
-## The defect (S35, 2026-08-01)
 
 `LocalSeatTopology` is the frozen seat map every couch-multiplayer consumer
 agrees about. It was CAPTURED in exactly one non-test place — a function inside
@@ -19,7 +18,7 @@ had not shipped.**
 reader is `Option`. It tests green — every test constructs the resource by hand.
 The only detector is a person playing a shipped build and noticing an absence.
 
-## What it checks
+# # What it checks
 
 A resource type that is READ as `Option<Res<T>>` / `Option<ResMut<T>>` from
 code that ships, and whose only WRITERS (`init_resource::<T>`,
@@ -53,12 +52,6 @@ REPO = Path(__file__).resolve().parents[1]
 # and `desktop_dev` is a DEVELOPER persona; `visible` / `android` / `web` do not.
 DEV_ONLY_FEATURES = {"dev_tools"}
 
-# ⚠ the `(?:[\w:]+::)?` before `Res` is not decoration: `Option<bevy::prelude::Res<T>>`
-# is the same read and the pattern missed it entirely. Measured 2026-08-02 —
-# ZERO such reads exist in the tree today, everyone writes the bare form — so this
-# widening changes no current result and closes a hole that would have been
-# silent. Found by writing a probe in the qualified style and watching the
-# checker ignore it.
 OPTIONAL_READ = re.compile(
     r"Option\s*<\s*(?:[\w:]+::)?Res(?:Mut)?\s*<\s*(?:[\w:]+::)?(?P<ty>[A-Z]\w+)\s*>"
 )
@@ -69,11 +62,8 @@ INSERT_RESOURCE = re.compile(
 )
 # `let mut topology = ambition_input::LocalSeatTopology::default();`
 #
-# ⛔ the writer that MOTIVATED this script does not name its type at the call:
-# it builds a local, mutates it, and passes the binding. Matching only
-# `insert_resource(TypeName …)` made `LocalSeatTopology` look like it had no
-# writer at all — so the guard skipped it as "written nowhere", and would have
-# been green through the exact defect it exists to catch.
+# the writer that MOTIVATED this script does not name its type at the call: it builds a local,
+# mutates it, and passes the binding.
 LOCAL_BINDING = re.compile(
     r"let\s+(?:mut\s+)?(?P<name>[a-z_]\w*)\s*(?::[^=;]+)?=\s*"
     r"(?:[\w:]+::)?(?P<ty>[A-Z]\w+)\s*(?:::\s*(?:default|new)\s*\(|\{)"
@@ -245,7 +235,7 @@ def main() -> int:
         )
         return 1
 
-    # ⛔ **the counts are on the SUCCESS line, not behind `--verbose`.** They were
+    # **the counts are on the SUCCESS line, not behind `--verbose`.** They were
     # behind it when this script was written earlier today, which meant its
     # ordinary output — "every Option-read capability has at least one shipping
     # writer" — was indistinguishable from a run that scanned nothing. A crate

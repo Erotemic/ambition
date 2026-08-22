@@ -89,9 +89,6 @@ QUOTED_RUNTIME_PATH_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Generated provenance records, not runtime catalogs. Their path fields say
-# where a download landed in the repo working tree, not what the game loads;
-# the files they describe reach the package as ordinary source files anyway.
 PROVENANCE_SIDECAR_NAMES = {"FONT_ASSET_MANIFEST.json"}
 
 COMMON_EXCLUDES = (
@@ -280,20 +277,9 @@ def iter_regular_files(root: Path, *, excludes: Sequence[str]) -> Iterator[tuple
             rel = path.relative_to(root).as_posix()
             if matches_any(rel, excludes):
                 continue
-            # ⛔ A SYMLINKED FILE IS PACKAGED BY ITS CONTENT, NOT SKIPPED.
+            # A SYMLINKED FILE IS PACKAGED BY ITS CONTENT, NOT SKIPPED.
             #
-            # This used to `continue` on any symlink, which was harmless until
-            # 2026-08-08, when the six LDtk worlds moved into the
-            # `game/ambition_map_assets` submodule and are now reached through
-            # TRACKED symlinks. The skip silently dropped every one of them from
-            # the APK, and the game came up on a device logging
-            # `Path not found: worlds/sandbox.ldtk`.
-            #
-            # ⚠ **the postcondition did not catch it, because it cannot.** The
-            # asset contract is built by THIS walk, so contract and package
-            # agreed with each other — `final package matches asset contract:
-            # 4301 files` — and both were missing the same six files. Two views
-            # derived from one broken enumeration cannot disagree.
+            # Two views derived from one broken enumeration cannot disagree.
             #
             # Following the link is correct and keeps the output invariant: the
             # PACKAGE must contain no symlinks (enforced separately, on the
@@ -531,7 +517,7 @@ def materialize_composed_tree(
 ) -> None:
     if mode not in {"copy", "link"}:
         raise AssetContractError(f"unknown materialization mode: {mode}")
-    # ⛔ resolve() BEFORE the existence check: `output` may itself be a symlink
+    # resolve() BEFORE the existence check: `output` may itself be a symlink
     # (the served-web tree was one for two months), and rmtree through a link
     # would delete the TARGET's contents — a source asset root — rather than the
     # link. Removing the link itself is the only correct move.
@@ -554,7 +540,7 @@ def materialize_composed_tree(
             # means the served tree never depends on a second hop staying valid.
             destination.symlink_to(item.source.resolve())
             continue
-        # ⭐ DEREFERENCE. This was `follow_symlinks=False`, which recreates a
+        # DEREFERENCE. This was `follow_symlinks=False`, which recreates a
         # symlink at the destination — and a packaged tree may not contain one
         # (`walk_package_tree` rejects it, and so does the archive check, because
         # an APK/zip cannot carry a working link into an Android install).
@@ -577,7 +563,7 @@ def walk_package_tree(root: Path, *, allow_symlinks: bool = False) -> dict[str, 
         current_path = Path(current)
         for dirname in list(dirnames):
             path = current_path / dirname
-            # ⛔ a linked DIRECTORY is forbidden even in link mode. A directory
+            # a linked DIRECTORY is forbidden even in link mode. A directory
             # link takes the whole subtree out of the contract's control: files
             # appear there that this walk never enumerated, and the override rule
             # `collect_source_files` enforces stops applying inside it. That is

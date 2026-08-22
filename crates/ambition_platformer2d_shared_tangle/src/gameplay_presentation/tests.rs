@@ -52,9 +52,6 @@ fn four_three() -> GameplayPresentationProfile {
     *profiles::fixed_four_by_three().for_environment(PresentationEnvironment::Desktop)
 }
 
-/// Oracle 1 — a fixed-aspect gameplay rectangle preserves the requested aspect
-/// inside the device-safe rectangle, on every display in the matrix and with
-/// asymmetric insets.
 #[test]
 fn fixed_aspect_preserves_ratio_inside_the_safe_rect() {
     let profile = four_three();
@@ -235,10 +232,8 @@ fn stick(size: f32) -> ScreenOcclusion {
 /// outside the safe area, i.e. a control the player cannot reach. Its sibling
 /// rungs had asked `scale_within` the whole time.
 ///
-/// ⚠ the second assertion is the one that keeps this honest: the fix must NOT
-/// shrink controls that already fit. A thumb is a fixed physical size, so a
-/// touch cluster should take MORE of a small screen, not less, and "make the
-/// buttons smaller" is the wrong reading of a cramped phone.
+/// the second assertion is the one that keeps this honest: the fix must NOT shrink controls
+/// that already fit.
 #[test]
 fn an_overlay_control_stays_inside_the_screen_it_is_anchored_to() {
     let footprints = ControlFootprints {
@@ -285,20 +280,7 @@ fn an_overlay_control_stays_inside_the_screen_it_is_anchored_to() {
 /// **A dialogue is laid out where it can be READ**, which is not the same
 /// question as where the subject is framed.
 ///
-/// Jon, on a Pixel 5, 2026-08-03: *"the trick is that space for dialogue on a
-/// phone is so tight… I am able to navigate it on the phone, but it's
-/// frustrating and error prone."* Both halves of that are one defect —
-/// `dialog_ui` laid out in percentages of the whole screen, so its panel ran
-/// under the touch action cluster. Text behind a button cannot be read, and a
-/// tap meant for the text goes to the button.
-///
-/// ⚠ **the distinguishing input is a SYSTEM control**, and that is why this test
-/// is not just the subject-safe test again. `SystemMenuControl` answers
-/// `reserves_subject_space() == false` — it is small, cornered, glanced at, and
-/// a camera can afford to ignore it — while a paragraph underneath it is exactly
-/// the corner Back button Jon says he has to rely on. A reading rect that
-/// carved on the subject predicate would pass every other assertion here and
-/// still ship the bug.
+/// Text behind a button cannot be read, and a tap meant for the text goes to the button.
 #[test]
 fn the_reading_rect_clears_the_controls_a_camera_is_allowed_to_ignore() {
     let profile = GameplayPresentationProfile::full_bleed();
@@ -827,9 +809,6 @@ fn resolved_controls_stay_safe_and_disjoint_on_every_display() {
     }
 }
 
-/// The load-bearing honesty property: when the layout CLAIMS a reserved
-/// placement, no control is on top of the world. This is the bug the review
-/// found — decorative sidebars while the controls still anchored to the window.
 #[test]
 fn a_reserved_placement_never_overlaps_gameplay() {
     for &(name, w, h) in DISPLAYS {
@@ -887,10 +866,8 @@ fn a_wide_display_reserves_both_thumb_clusters_at_full_size() {
     );
 }
 
-/// The review's exact counterexample. At 1920x1200 a 4:3 viewport leaves 160px
-/// per side, which holds neither cluster above its usability floor. The
-/// documented answer is the ordinary overlay, reported as such — never a
-/// reserved claim over controls that are actually covering the world.
+/// At 1920x1200 a 4:3 viewport leaves 160px per side, which holds neither cluster above its
+/// usability floor.
 #[test]
 fn insufficient_space_selects_the_documented_fallback() {
     let resolved = resolve_controls(ae::Vec2::new(1920.0, 1200.0), ScreenInsets::ZERO);
@@ -944,8 +921,6 @@ fn a_slightly_narrow_surround_compacts_rather_than_overlaying() {
 /// Rung 3: a column that holds the compacted action cluster but not the stick.
 #[test]
 fn a_column_that_fits_only_one_cluster_goes_hybrid() {
-    // 1440 gameplay + 209 per side: below the stick's fixed 210, above the
-    // action cluster's 208.1 floor.
     let resolved = resolve_controls(ae::Vec2::new(1858.0, 1080.0), ScreenInsets::ZERO);
     assert_eq!(
         resolved.controls.placement,

@@ -51,7 +51,7 @@ fn the_whole_shipped_ladder_plays_without_l3() {
 
 /// **The pack LOWERS the ladder, which is the whole point of migrating it.**
 ///
-/// ⛔ **the tests above this one all passed while the game read none of it.**
+/// **the tests above this one all passed while the game read none of it.**
 /// Every one of them parses `LADDER_RON` itself, so they were green for as long
 /// as the file was well-formed — including the entire period when
 /// `fighter_brain_ladder.ron` was authored content that nothing in the running
@@ -59,7 +59,7 @@ fn the_whole_shipped_ladder_plays_without_l3() {
 /// itself as the floor a game overrides) was consulted at both production call
 /// sites instead.
 ///
-/// ⭐ so this test asks the only question the others cannot: **is it in the
+/// so this test asks the only question the others cannot: **is it in the
 /// pack?** It reads the prepared pack rather than the file, so it fails if the
 /// manifest stops declaring the source, if the schema stops being registered, or
 /// if lowering breaks — none of which the parse tests can see.
@@ -85,7 +85,7 @@ fn the_prepared_pack_lowers_the_shipped_ladder() {
         ladder().rungs(),
         "the pack lowered a DIFFERENT ladder than the file on disk"
     );
-    // ⭐ the property the floor gets wrong, asserted on what the game will read.
+    // the property the floor gets wrong, asserted on what the game will read.
     let l1 = lowered.level(1).expect("level 1 is authored");
     let floor = ambition_characters::brain::fighter::FighterBrainProfile::for_level(1);
     assert!(

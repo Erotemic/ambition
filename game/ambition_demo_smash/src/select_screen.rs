@@ -1,6 +1,5 @@
 //! **What the select screen LOOKS like, and how a cursor works it.**
 //!
-//! Jon, 2026-08-05 — the whole spec, kept verbatim in
 //! `docs/planning/JONS_OBSERVATIONS_BUGS_AND_ISSUES.md`:
 //!
 //! > a grid of portraits for each of the selectable characters on the top 65% of
@@ -24,19 +23,16 @@
 //! it: it writes the layout's rectangles into Bevy nodes, asks the cursor what
 //! it is over, and tells the decision what happened.
 //!
-//! ⭐ **the layout is the same object the nodes are drawn from and the cursor
+//! **the layout is the same object the nodes are drawn from and the cursor
 //! hit-tests against**, so "what you clicked" and "what you saw" are the same
 //! numbers rather than two derivations that agree until they do not.
 //!
-//! ## ⚠ The portraits were already there
+//! ## The portraits were already there
 //!
-//! Every character in this repo ships a generated `<stem>_portraits.png` beside
-//! its spritesheet — 141 of them — and `CharacterCatalog::portrait_ref` already
-//! derives the path from the sheet's own name. So the "engine helper for
-//! portraits" Jon expected to need turns out to be a method that has existed the
-//! whole time and that nothing outside the dialogue box ever called. This screen
-//! is its second consumer, which is the only real test of whether that was a
-//! seam or a private detail.
+//! Every character in this repo ships a generated `<stem>_portraits.png` beside its spritesheet —
+//! 141 of them — and `CharacterCatalog::portrait_ref` already derives the path from the sheet's own
+//! name. This screen is its second consumer, which is the only real test of whether that was a seam
+//! or a private detail.
 
 pub mod cursor;
 pub mod layout;
@@ -103,8 +99,6 @@ pub enum Anchored {
 pub struct SlotToken(pub usize);
 
 /// One seat's cursor node, by seat.
-///
-/// ⚠ **four of them since 2026-08-21.** It was one; see [`cursor::SelectCursors`].
 #[derive(Component)]
 pub struct CursorNode(pub usize);
 
@@ -130,7 +124,7 @@ pub struct CardName(pub usize);
 
 /// The initials drawn under a portrait, shown only when the art never arrives.
 ///
-/// ⚠ it carries the HANDLE rather than a boolean, because "is there art" cannot
+/// it carries the HANDLE rather than a boolean, because "is there art" cannot
 /// be answered when the cell is built: the path resolves by convention and the
 /// load fails later, asynchronously, or never finishes. Asking the asset server
 /// each frame is the only honest form of the question.
@@ -146,12 +140,6 @@ pub struct SelectPrompt;
 pub struct StartButton;
 
 /// **Somebody clicked START.**
-///
-/// ⚠ a rung the old screen did not have, and it is here because Jon asked for
-/// the real thing: *"work just like how the real smash character select screen
-/// works"*, and that screen does not launch the instant the last token lands.
-/// Auto-starting on readiness also made the screen impossible to LOOK at — every
-/// attempt to photograph a decided lobby photographed the match instead.
 #[derive(Resource, Clone, Copy, Debug, Default)]
 pub struct StartRequested(pub bool);
 
@@ -162,7 +150,7 @@ pub struct BackButton;
 
 /// **Somebody asked to leave the lobby.**
 ///
-/// ⭐ **a REQUEST, exactly like [`StartRequested`], and for the same reason.**
+/// **a REQUEST, exactly like [`StartRequested`], and for the same reason.**
 /// This module draws the screen and arbitrates presses; it does not name the
 /// shell. Writing `ShellCommand` from here would give the screen a second
 /// opinion about routing, and the one place that decides where BACK goes
@@ -196,13 +184,8 @@ const BACKDROP: Color = Color::srgb(0.03, 0.035, 0.06);
 /// over an empty box.
 /// **What a slot's role button says.**
 ///
-/// ⭐ **it names the DEVICE, not an index.** It read `CONTROLLER 1` /
-/// `CONTROLLER 2`, which is the slot's own numbering said back to it and tells
-/// nobody which thing in the room drives that card. Jon, debugging a couch match
-/// on 2026-08-07: *"the UI has no way to indicate which player is connected to
-/// which input device, so idk if that is the problem or not."* It says
-/// `KEYBOARD` and `PAD 1` now, from the same authority that decided the index —
-/// see `select::source_name_under`.
+/// **it names the DEVICE, not an index.** It read `CONTROLLER 1` / `CONTROLLER 2`, which is the
+/// slot's own numbering said back to it and tells nobody which thing in the room drives that card.
 ///
 /// `devices`/`policy` are optional because a fixture (and the walkthrough
 /// binary) renders this text without a live input world; absent, the button
@@ -232,7 +215,7 @@ pub fn card_name_text(
     pick: Option<SlotPick>,
 ) -> String {
     match pick {
-        // ⚠ **"RANDOM", not a fighter's name.** The card must not name somebody
+        // **"RANDOM", not a fighter's name.** The card must not name somebody
         // before the draw happens, and it must not read as undecided either —
         // a slot on random IS decided, which is why `ready()` counts it.
         Some(SlotPick::Random) => "RANDOM".to_string(),
@@ -248,13 +231,10 @@ pub fn card_name_text(
 /// that took it — one accessor, because two spellings of "what random looks
 /// like" is how a screen ends up disagreeing with itself.
 ///
-/// ⚠ **PLACEHOLDER ART.** This is `BonusBlockTile` — the interrobang plate from
-/// Mary-O's bonus blocks — reused because the glyph already means "you do not
-/// know what is in here" (Jon, 2026-08-07: *"We can reuse the interobang sprite
-/// for this"*). It is a 32x32 world TILE standing in for a portrait, so it reads
-/// heavier than the faces beside it and its plate/rivets belong to a different
-/// game. Replace it with a drawn random icon when one exists; nothing else has
-/// to change, because this function is the only place that names it.
+/// It is a 32x32 world TILE standing in for a portrait, so it reads heavier than the faces
+/// beside it and its plate/rivets belong to a different game. Replace it with a drawn random
+/// icon when one exists; nothing else has to change, because this function is the only place
+/// that names it.
 fn random_icon(art: &ScreenArt<'_>) -> Option<Handle<Image>> {
     art.entities.as_deref().and_then(|assets| {
         assets
@@ -277,7 +257,7 @@ fn display_name(catalog: Option<&CharacterCatalog>, id: &str) -> String {
     catalog
         .and_then(|catalog| catalog.get(id))
         .map(|entry| entry.display_name.clone())
-        // ⚠ NOT a panic and not an empty string. A grid cell with no name is a
+        // NOT a panic and not an empty string. A grid cell with no name is a
         // cell nobody can talk about, and a catalog miss is exactly the kind of
         // authoring slip that should be visible on the screen rather than fatal
         // in a demo somebody is showing to a room.
@@ -341,14 +321,7 @@ impl ScreenArt<'_> {
 
 /// **A character's face, as an image AND the rectangle to take out of it.**
 ///
-/// ⛔ **found by LOOKING, 2026-08-05.** The first version loaded the derived PNG
-/// whole. Most portrait sheets are one 256x320 frame, so most cells were right —
-/// and `alice_portraits.png` and `oiler_portraits.png` are **2048x320**, eight
-/// frames of a `default` / `speaking` / `focused` clip set, which drew as a
-/// strip of eight tiny Alices. **A portrait sheet is a SHEET**, and the manifest
-/// beside it has said so all along.
-///
-/// ⚠ the registry is `Option` because the standalone smash app does not install
+/// the registry is `Option` because the standalone smash app does not install
 /// `PortraitSheetRegistryPlugin` unless this screen asks for it, and a
 /// composition without one should still draw a face rather than nothing. With no
 /// registry the whole image is used, which is exactly right for the single-frame
@@ -361,11 +334,10 @@ fn portrait_art(
     asset_server: Option<&AssetServer>,
     id: &str,
 ) -> Option<(Handle<Image>, Option<Rect>)> {
-    // ⭐ **through the ENGINE's resolver, not straight to the catalog.** A
+    // **through the ENGINE's resolver, not straight to the catalog.** A
     // character registered in Rust may name a portrait TARGET; everything that
     // names nothing keeps the catalog's derived answer, which is how all 144 of
     // today's portraits resolve. This screen is the first consumer of that road
-    // — Jon decided it on 2026-07-29 and nothing had reason to call it until a
     // grid of faces existed.
     let target = declared
         .and_then(|registry| registry.get(id))
@@ -398,15 +370,13 @@ fn viewport(windows: &Query<&Window>) -> Option<Vec2> {
 
 /// **Does backing out of this lobby lead anywhere?**
 ///
-/// ⛔ **it does not in every composition, and pretending otherwise is a dead
-/// button.** The standalone smash demo names the select screen as its OWN home
-/// route (`ShellComposition::new(.., SMASH_SELECT_ROUTE, ..)`), because leaving
-/// a match there should return to the screen that chose it rather than to a
-/// launcher listing one game. `QuitToHome` in that app therefore re-enters the
-/// route it is already on: a churn with nothing to see. The multi-game host
-/// names its launcher, and there this is the title screen Jon asked for.
+/// **it does not in every composition, and pretending otherwise is a dead button.** The standalone
+/// smash demo names the select screen as its OWN home route (`ShellComposition::new(..,
+/// SMASH_SELECT_ROUTE, ..)`), because leaving a match there should return to the screen that chose
+/// it rather than to a launcher listing one game. `QuitToHome` in that app therefore re-enters the
+/// route it is already on: a churn with nothing to see.
 ///
-/// ⚠ **a fact about the COMPOSITION, so it is read from the host spec rather
+/// **a fact about the COMPOSITION, so it is read from the host spec rather
 /// than assumed by either app.** Absent (a bare unit fixture with no host
 /// configured) reads as NO exit: a screen with no shell to leave through has
 /// nowhere to go, and drawing an exit for one would be the same lie.
@@ -420,7 +390,7 @@ pub fn exit_leads_somewhere(
 /// The layout this frame, from the window if there is one.
 /// **How much of the screen's WIDTH a fully deflected stick crosses per second.**
 ///
-/// ⚠ a fraction rather than a pixel rate, so the cursor takes the same TIME to
+/// a fraction rather than a pixel rate, so the cursor takes the same TIME to
 /// cross a phone and a monitor. `1.15` puts a corner-to-corner sweep just under
 /// a second on a 16:9 screen, which is about where Smash's own cursor sits.
 const CURSOR_SPEED_PER_SECOND: f32 = 1.15;
@@ -447,13 +417,13 @@ impl Default for SelectInteractionPolicy {
 
 /// **Which page of the grid is showing.**
 ///
-/// ⭐ a resource rather than a field on [`SelectLayout`], because the layout is
+/// a resource rather than a field on [`SelectLayout`], because the layout is
 /// a pure function of the viewport and must stay one — the page is a DECISION
 /// somebody made, and the layout is where things are. Persisting it here also
 /// means a window resize that re-pages the grid does not lose which page the
 /// player was on.
 ///
-/// ⚠ **clamped by the layout, not here.** `SelectLayout::paged` takes whatever
+/// **clamped by the layout, not here.** `SelectLayout::paged` takes whatever
 /// this holds and pins it into range, so a resize from a phone to a monitor
 /// (three pages down to one) shows page 0 rather than an empty grid, and this
 /// resource never has to know the roster size.
@@ -474,7 +444,7 @@ pub fn current_layout(
 
 /// Build the screen.
 ///
-/// ⚠ **built once and positioned every frame.** Nothing here is rebuilt: a tree
+/// **built once and positioned every frame.** Nothing here is rebuilt: a tree
 /// respawned per frame throws away the handles its images resolved to and
 /// restarts every load, and the positions come from [`layout`] anyway — so a
 /// resize costs four numbers rather than a rebuild.
@@ -482,7 +452,7 @@ pub fn spawn_select_screen(
     mut commands: Commands,
     existing: Query<(), With<SmashSelectUiRoot>>,
     fighters: Res<SmashRoster>,
-    // ⛔ **the catalog inside is REQUIRED, not `Option`.**
+    // **the catalog inside is REQUIRED, not `Option`.**
     // `engine.character-authority-is-app-local` forbids making it optional by
     // name, and the reason is this screen's exact failure mode: an absent
     // catalog would draw a grid of nameless plates that looks like missing ART
@@ -552,15 +522,12 @@ pub fn spawn_select_screen(
 
             // ── THE WAY OUT ──────────────────────────────────────────────
             //
-            // ⭐ **a BUTTON, not only a binding.** Jon, 2026-08-16: *"in the
-            // smash character select, there is no way to quit to title, you can
-            // only do this if you start a match."* The `back` intent alone would
-            // not have answered that: a mouse has no Back control at all, so a
-            // player at a desk with no pad and no keyboard hand on Escape would
-            // still have been stuck in the lobby — and an unlabelled press is a
-            // feature only the person who wrote it knows about.
+            // **a BUTTON, not only a binding.** The `back` intent alone would not have answered
+            // that: a mouse has no Back control at all, so a player at a desk with no pad and
+            // no keyboard hand on Escape would still have been stuck in the lobby — and an
+            // unlabelled press is a feature only the person who wrote it knows about.
             //
-            // ⚠ it never dims. START waits on a decided lobby; leaving is always
+            // it never dims. START waits on a decided lobby; leaving is always
             // allowed, which is the whole complaint.
             if exit {
                 let mut back = anchored(Anchored::Back);
@@ -580,10 +547,8 @@ pub fn spawn_select_screen(
                 });
             }
 
-            // ── THE GRID: Jon's top 65% ──────────────────────────────────
-            //
-            // ⚠ **one more cell than there are fighters.** The last square is
-            // RANDOM (Jon, 2026-08-07), drawn below the loop so every fighter
+            // **one more cell than there are fighters.** The last square is
+            // RANDOM, drawn below the loop so every fighter
             // keeps the cell index it already had.
             for (index, id) in fighters.ids().enumerate() {
                 let mut cell = anchored(Anchored::Portrait(index));
@@ -604,13 +569,7 @@ pub fn spawn_select_screen(
                 .with_children(|cell| {
                     // **A MONOGRAM UNDER EVERY PORTRAIT.**
                     //
-                    // ⛔ found by LOOKING: `mary_o` draws a hole. Her catalog row
-                    // names `mary_o_v2_spritesheet.png`, `portrait_ref` derives
-                    // `mary_o_v2_portraits.png` by convention, and that file was
-                    // never generated — so the path resolves, the load fails,
-                    // and the `ImageNode` renders nothing. **A derived path is
-                    // not a promise that the art exists**, and the failure is
-                    // silent all the way down.
+                    // found by LOOKING: `mary_o` draws a hole.
                     //
                     // So the cell says who it is underneath, always. A missing
                     // portrait then reads as missing ART rather than as a broken
@@ -670,12 +629,10 @@ pub fn spawn_select_screen(
 
             // ── THE RANDOM SQUARE, last cell of the grid ─────────────────
             //
-            // ⭐ **the interrobang, reused deliberately** (Jon: *"We can reuse
-            // the interobang sprite for this"*). It is the glyph on Mary-O's
-            // bonus block — the thing you hit without knowing what comes out —
-            // which is the same promise this square makes.
+            // It is the glyph on Mary-O's bonus block — the thing you hit without knowing what
+            // comes out — which is the same promise this square makes.
             //
-            // ⚠ it is a cell like any other: a token rests on it, it lights up
+            // it is a cell like any other: a token rests on it, it lights up
             // for whoever took it, and `SmashSelect::ready()` counts it as
             // decided. What it is NOT is a character, which is why the pick is
             // `SlotPick::Random` and not an index.
@@ -709,7 +666,7 @@ pub fn spawn_select_screen(
                                 },
                             ));
                         }
-                        // ⚠ the same rule the portraits follow: a composition
+                        // the same rule the portraits follow: a composition
                         // with no asset server draws the LABEL and no art,
                         // rather than a hole nobody can explain.
                         None => {
@@ -758,7 +715,6 @@ pub fn spawn_select_screen(
                 node.spawn((Text::new("START"), text_font(17.0), TextColor(INK)));
             });
 
-            // ── THE CARDS: Jon's bottom 35% ──────────────────────────────
             for slot in 0..MAX_SMASH_SEATS {
                 let mut card = anchored(Anchored::Card(slot));
                 card.1.flex_direction = FlexDirection::Column;
@@ -923,9 +879,7 @@ const BACK_HOLD_TO_LEAVE_SECONDS: f32 = 0.55;
 
 /// **Move every seat's cursor, and act on what each one is over.**
 ///
-/// ⚠ **FOUR cursors since 2026-08-21.** It was one, shared like a mouse; Smash
-/// gives each player their own hand and they all move at once. What stayed
-/// shared is the screen's own verbs — see the union at the bottom.
+/// What stayed shared is the screen's own verbs — see the union at the bottom.
 ///
 /// A mouse or a finger writes a position; a held stick roams; the arrows and
 /// d-pad snap between targets. All of them write the same field — see [`cursor`]
@@ -943,7 +897,7 @@ pub(crate) fn drive_the_cursor(
 ) {
     let layout = current_layout(&inputs.windows, &fighters, &page);
     let exit = exit_leads_somewhere(inputs.host.as_deref());
-    // ⭐ **the LAYOUT says where things are; the SCREEN says what is
+    // **the LAYOUT says where things are; the SCREEN says what is
     // REACHABLE.** Same split `token_rect` already makes for an absent slot's
     // token: the rectangle exists, and nobody may press it.
     let targets: Vec<(SelectTarget, HitRect)> = layout
@@ -1010,7 +964,7 @@ pub(crate) fn drive_the_cursor(
     }
     let mut drives = [SeatDrive::default(); MAX_SMASH_SEATS];
 
-    // ⚠ **the mouse, the keyboard and the global frame all speak for SEAT 0.**
+    // **the mouse, the keyboard and the global frame all speak for SEAT 0.**
     // A machine has one mouse and one keyboard; they are the first seat's
     // devices, and the global frame is where a keyboard on a route that
     // declared no seats reports. Pads speak for their own seats below.
@@ -1039,7 +993,7 @@ pub(crate) fn drive_the_cursor(
             drive.back_held |= frame.back_held && !frame.start;
             drive.page_back |= frame.page_left;
             drive.page_forward |= frame.page_right;
-            // ⛔⛔ **ESCAPE IS BOTH `Start` AND `MenuBack`** — one key, two
+            // **ESCAPE IS BOTH `Start` AND `MenuBack`** — one key, two
             // semantic actions, and `presets.rs` binds it to both on purpose
             // (`rebind.rs` documents it and tests it). The shell's pause menu
             // opens on `start` and this screen's chain runs in the SAME set with
@@ -1047,7 +1001,7 @@ pub(crate) fn drive_the_cursor(
             // open the pause menu AND quit the lobby out from under it,
             // deterministically wrong either way the set happened to schedule.
             //
-            // ⚠ **per FRAME, not over the union.** The pair is a property of one
+            // **per FRAME, not over the union.** The pair is a property of one
             // seat's press — the seat holding a pad sends East with `start`
             // clear and still leaves, on the same tick somebody else opens the
             // menu.
@@ -1102,13 +1056,7 @@ pub(crate) fn drive_the_cursor(
         drives[DESKTOP_SEAT].released |= mouse.just_released(MouseButton::Left);
     }
 
-    // ── the fingers ──────────────────────────────────────────────────────
-    // A touch reports a POSITION, so it is the mouse's arm and not the pad's:
-    // `Touches` already speaks logical window pixels with a top-left origin,
-    // which is the space `HitRect` is measured in, so there is nothing to
-    // convert.
-    //
-    // ⭐ **no move-gate, unlike the mouse.** A stationary mouse reports the same
+    // **no move-gate, unlike the mouse.** A stationary mouse reports the same
     // position forever and would fight the arrows for the cursor; a touch
     // position exists only while a finger is on the glass, so there is no
     // stale report to suppress — and gating on travel would skip the frame a
@@ -1136,7 +1084,7 @@ pub(crate) fn drive_the_cursor(
                 })
                 .min_by(|a, b| a.1.total_cmp(&b.1))
                 .map(|(slot, _)| slot);
-            // ⛔ **A SEAT MID-CARRY CLAIMS THE NEXT FINGER, and without this
+            // **A SEAT MID-CARRY CLAIMS THE NEXT FINGER, and without this
             // the two-tap idiom is broken on a phone.** Tap your token, tap a
             // fighter: those are two DIFFERENT fingers, because the first one
             // lifted. The second lands on a portrait, matches no free token,
@@ -1144,7 +1092,7 @@ pub(crate) fn drive_the_cursor(
             // seat 0's token down instead, and seat 1's own token went home,
             // which reads on screen as "it chose Random".
             //
-            // ⚠ lowest seat wins if two are somehow carrying with no finger
+            // lowest seat wins if two are somehow carrying with no finger
             // between them. A deterministic answer beats a lucky one, and the
             // case needs two people to put two tokens down and then have one of
             // them tap.
@@ -1167,7 +1115,7 @@ pub(crate) fn drive_the_cursor(
                 local.fingers.insert(touch.id(), seat);
             }
         }
-        // ⛔ **Android RECYCLES pointer ids**, so a finger that lands after
+        // **Android RECYCLES pointer ids**, so a finger that lands after
         // another lifts can be handed an id that was in this map a moment ago.
         // Claiming happens once, above, on the just-pressed edge only — a seat
         // is never reassigned to a finger already down.
@@ -1217,7 +1165,7 @@ pub(crate) fn drive_the_cursor(
     connected_sources.dedup();
 
     // ── the page, which is the ONE part of the grid every seat shares ────
-    // ⚠ **clamped against the LAYOUT's count, not against a remembered one.**
+    // **clamped against the LAYOUT's count, not against a remembered one.**
     // How many pages exist is a fact about the viewport and the roster, and the
     // layout is the one thing that derives it; a page number that outran a
     // resize would show an empty grid until somebody pressed something.
@@ -1251,7 +1199,7 @@ pub(crate) fn drive_the_cursor(
             // pointer parked in a corner makes the first press cross the whole
             // screen, and there is no way to tell that from "the cursor is broken".
             //
-            // ⚠ **spread per seat**, so four cursors do not begin as one cursor:
+            // **spread per seat**, so four cursors do not begin as one cursor:
             // four hands stacked on cell zero look like a bug in the drawing.
             if !pointer.placed {
                 if let Some(rect) = layout.portrait(seat.min(layout.characters.saturating_sub(1))) {
@@ -1404,7 +1352,7 @@ pub(crate) fn drive_the_cursor(
                     page.0 = (page.0 + 1).min(last_page);
                 }
                 // Placing.
-                // ⚠ a CELL, not a fighter index. `SmashRoster::cell` is the one
+                // a CELL, not a fighter index. `SmashRoster::cell` is the one
                 // place that knows the grid's last square is RANDOM; a click that
                 // lands past the end of the grid chooses nothing rather than
                 // clamping onto whoever is last.
@@ -1428,7 +1376,7 @@ pub(crate) fn drive_the_cursor(
                         start.0 = true;
                     }
                 }
-                // ⚠ **no readiness term.** START is refused on an undecided
+                // **no readiness term.** START is refused on an undecided
                 // lobby; BACK is exactly what an undecided lobby is for.
                 (None, None, Some(SelectTarget::Back)) => {
                     leave.0 = true;
@@ -1779,7 +1727,7 @@ mod touch_tests {
 
     /// The screen, driven headlessly, with the REAL touch path in front of it.
     ///
-    /// ⚠ nothing here writes `Touches` directly — it cannot, the collections are
+    /// nothing here writes `Touches` directly — it cannot, the collections are
     /// private, and that is a mercy: the test sends the `TouchInput` messages
     /// winit emits and lets Bevy's own `touch_screen_input_system` fold them, so
     /// a fixture that stopped resembling Android would stop compiling rather
@@ -1808,7 +1756,7 @@ mod touch_tests {
     /// **TWO FINGERS ARE TWO PLAYERS**, which is the whole point of per-seat
     /// cursors and the thing one shared pointer could never do.
     ///
-    /// ⚠ **the second finger has to land on the SECOND CURSOR'S TOKEN.** That
+    /// **the second finger has to land on the SECOND CURSOR'S TOKEN.** That
     /// assigns the gesture to that cursor; a finger landing anywhere else while
     /// cursor 0 is busy still claims no cursor, which keeps a stray thumb from
     /// hijacking somebody's drag (the test below).
@@ -1920,7 +1868,7 @@ mod touch_tests {
 
     /// **AND A PLACED TOKEN CAN STILL BE PICKED BACK UP.**
     ///
-    /// ⛔ the arm-ordering trap: a placed token sits ON the portrait it chose,
+    /// the arm-ordering trap: a placed token sits ON the portrait it chose,
     /// so a press there matches both "pick this up" and "choose this". If the
     /// tap won, a token once placed could never be moved again.
     #[test]
@@ -1956,12 +1904,7 @@ mod touch_tests {
 
     /// **TWO TAPS BY A SEAT THAT IS NOT SEAT ZERO.**
     ///
-    /// ⛔ **the bug this pins is the one the host caught, not the demo.** Tap
-    /// your token, tap a fighter — two DIFFERENT fingers, because the first one
-    /// lifted. The second lands on a portrait, matches no free token, and
-    /// before 2026-08-21 fell through to seat 0: seat 1's tap put seat 0's
-    /// token down and seat 1's own went home, which reads on screen as
-    /// "it chose Random". A seat mid-carry now claims the next finger.
+    /// A seat mid-carry now claims the next finger.
     #[test]
     fn a_second_seat_can_tap_its_token_then_tap_a_fighter() {
         let mut app = screen();
@@ -2001,7 +1944,7 @@ mod touch_tests {
             Some(SlotPick::Fighter(1)),
             "seat 1's second tap did not choose the fighter it landed on"
         );
-        // ⚠ **`Random`, not `None`** — joining a slot seats it on the random
+        // **`Random`, not `None`** — joining a slot seats it on the random
         // square, so an untouched seat 0 already has a pick. What this asserts
         // is that seat 1's tap did not CHANGE it.
         assert_eq!(
@@ -2149,12 +2092,9 @@ mod touch_tests {
 
     /// **A HELD STICK ROAMS; IT DOES NOT SNAP.**
     ///
-    /// ⭐ the whole point of `MenuControlFrame::nav`, and the thing a d-pad
-    /// cannot express: the cursor lands wherever the stick left it, which will
-    /// almost never be a target's centre. ⚠ asserting only "it moved" would
-    /// pass on the old snapping cursor too — a snap moves it a long way, to a
-    /// centre. So this checks BOTH: it travelled, and it did not arrive
-    /// anywhere in particular.
+    /// the whole point of `MenuControlFrame::nav`, and the thing a d-pad cannot express: the
+    /// cursor lands wherever the stick left it, which will almost never be a target's centre.
+    /// So this checks BOTH: it travelled, and it did not arrive anywhere in particular.
     #[test]
     fn a_held_stick_roams_the_cursor_instead_of_snapping_to_a_target() {
         let mut app = screen();
@@ -2284,11 +2224,8 @@ mod touch_tests {
 
     /// **A FINGER PLAYS THIS SCREEN.**
     ///
-    /// Tap the token, tap a portrait — the two-tap idiom a pad already uses,
-    /// which is the one a finger can perform without a hover state. Every
-    /// assertion below is a seam a touch has to cross: the cursor moved to the
-    /// finger, the press edge arrived, the lift did NOT undo the pick-up, and
-    /// the second tap committed the choice.
+    /// Tap the token, tap a portrait — the two-tap idiom a pad already uses, which is the one a
+    /// finger can perform without a hover state.
     #[test]
     fn a_finger_moves_the_cursor_and_chooses_a_fighter() {
         let mut app = screen();
@@ -2367,10 +2304,7 @@ mod touch_tests {
         );
     }
 
-    /// **AND A FINGER CAN DRAG**, which is the idiom Jon's spec actually names:
-    /// *"the cursor can pick up and drag to select a character"*.
-    ///
-    /// ⚠ this is the half that needs the RELEASE edge, and the release edge is
+    /// this is the half that needs the RELEASE edge, and the release edge is
     /// the one a lifted finger nearly loses: by the time it fires the touch is
     /// gone from `Touches::iter`, so a driver that only ever looks at what is
     /// still down reports nothing and the token never lands.
@@ -2419,19 +2353,12 @@ mod touch_tests {
 
     /// **A SECOND FINGER ON NOBODY'S TOKEN IS NOT A SECOND CURSOR.**
     ///
-    /// ⚠ **narrowed 2026-08-21, and the narrowing is the feature.** A second
-    /// finger IS allowed to drive the second cursor now — by landing on that
-    /// cursor's token, which is what assigns the gesture (see
-    /// `two_fingers_drag_two_seats_tokens_at_once`). What is still refused is
-    /// the case here: a finger that claims nothing, because it landed on a
-    /// portrait rather than on a free token while seat 0 was busy.
-    ///
     /// One person drags a token; somebody else's finger — or the same person's
     /// palm — lands on a portrait. That seat's cursor must stay where the
     /// driving finger is and the stray press must not arbitrate, or the drag
     /// ends by dropping the token wherever the intruder touched.
     ///
-    /// ⚠ the intruder is given the LOWER id on purpose. Android recycles pointer
+    /// the intruder is given the LOWER id on purpose. Android recycles pointer
     /// ids, so a finger that lands after another lifts really can be handed an id
     /// below one still down; "the lowest id wins" would hand the cursor over here
     /// and this is the only assertion that can tell the two rules apart.

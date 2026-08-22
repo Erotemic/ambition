@@ -463,13 +463,7 @@ fn cross_policy_switches_preserve_shared_state_and_initialize_only_destination_s
 
 /// **The adhesive crawler now SAYS when it attaches and detaches.**
 ///
-/// ⛔ this whole locomotion policy published nothing to the operations channel
-/// until 2026-08-02: nine velocity writes and an entire attachment lifecycle,
-/// invisible to the causal instrument — while the open contact bug in this mode
-/// is about attachment. `crate::movement::MovementOp::Slash` is what answered the multi-day ladder
-/// question this session; the crawler had no equivalent to answer with.
-///
-/// ⚠ the edge is derived in `step_adhesive_crawler` from the attachment either
+/// the edge is derived in `step_adhesive_crawler` from the attachment either
 /// side of the step, NOT pushed at the eight sites inside `step_crawler` that
 /// detach or re-attach. `step_crawler` has several early returns, so an
 /// emit-at-the-end rule inside it would silently skip the paths that exit early
@@ -761,14 +755,6 @@ fn the_crawler_circumnavigates_an_island_gluing_to_all_four_faces() {
         seen.insert((normal.x.round() as i32, normal.y.round() as i32));
         // Seated: the body sits half its OWN extent along that face's normal off
         // the face — the seat rule is basis-relative, not a floor special case.
-        //
-        // ⚠ That expectation used to read `size.y * 0.5` for all four faces,
-        // which is a floor special case wearing the words of a general rule: the
-        // AABB does not rotate with the attachment, so on a VERTICAL face the
-        // standoff is the body's half-WIDTH. For this 24 x 16 body the old
-        // expectation put the centre 8 px off a wall while the body reaches 12 px
-        // — the crawler was seated 4 px INSIDE the island it was clinging to, and
-        // this test asserted that it should be.
         let pos = scratch.kinematics.pos;
         let (face_coord, want) = match (normal.x.round() as i32, normal.y.round() as i32) {
             (0, -1) => (600.0 - pos.y, half.y), // top face: distance above y=600
@@ -926,7 +912,7 @@ fn the_crawler_circumnavigates_an_arbitrarily_rotated_chain_island() {
     );
 }
 
-// ── The launch channel, through the real gateway (D6) ──────────────────────
+// ── The launch channel, through the real gateway ──────────────────────
 
 /// A riding surface-momentum body with a floor under it, running along it.
 fn rider_on_a_long_floor() -> (World, BodyClusterScratch, MotionModel) {
@@ -955,7 +941,7 @@ fn rider_on_a_long_floor() -> (World, BodyClusterScratch, MotionModel) {
     (world, scratch, model)
 }
 
-/// ⭐ **The reader's half of the knockback seam, entered where production enters
+/// **The reader's half of the knockback seam, entered where production enters
 /// it.**
 ///
 /// `BodyFlightState::pending_launch` is written by a damage reaction that holds
@@ -1042,19 +1028,13 @@ fn the_launch_channel_is_emptied_by_the_step_that_consumes_it() {
     );
 }
 
-/// **⛔⛔ THE CAPABILITY REACHES THE REAL SWEEP — through `step_motion`, with the
+/// **THE CAPABILITY REACHES THE REAL SWEEP — through `step_motion`, with the
 /// real controller running.**
-///
-/// This is the test the deleted acceleration jostle could not have. `bbbc5e46c`
-/// removed an implementation with eight passing unit tests that moved nothing in
-/// a match, because its fixture had no movement kernel in it: the axis-swept
-/// controller treats `vel.x` as a velocity TARGET and `approach()` overwrites it
-/// every tick, so a term summed into velocity is erased before integration.
 ///
 /// So this enters through `step_motion`, holds RIGHT for a full second of ticks
 /// against the controller that would overwrite a force, and measures the body.
 ///
-/// ⚠ **the A/B is the assertion.** The same run happens twice — once with the
+/// **the A/B is the assertion.** The same run happens twice — once with the
 /// body's contact field populated and once with `NONE`, the documented identity
 /// — and the free body must travel measurably further. No distance in this test
 /// is chosen; both are measured, and if the constraint were inert they would be
@@ -1129,14 +1109,10 @@ fn a_grounded_body_walking_into_another_one_is_stopped_by_the_real_sweep() {
 /// `snapshot_body_contact` does immediately before the integration phase — and
 /// then each body driven through the real kernel against it.
 ///
-/// ⛔⛔ **the fixture may not manufacture the velocities, and that is the whole
-/// point of it.** Every number the constraint divides by here is one the
-/// controller produced from input this tick. A unit test that hands
-/// `constrain_motion` two already-approaching velocities is testing the
-/// arithmetic after being given information the schedule does not actually
-/// supply — which is how the from-rest case below survived a green suite.
+/// **the fixture may not manufacture the velocities, and that is the whole point of it.** Every
+/// number the constraint divides by here is one the controller produced from input this tick.
 ///
-/// ⚠ **it lands the pair before it drives them.** Body contact is a grounded
+/// **it lands the pair before it drives them.** Body contact is a grounded
 /// capability by construction, so a fixture that starts walking on tick zero
 /// measures two bodies drifting through each other in mid-air and blames the
 /// constraint for it.
@@ -1183,7 +1159,7 @@ fn walk_a_pair(
                 )
             })
             .collect();
-        // ⚠ the order these two resolve in must not change the answer, so the
+        // the order these two resolve in must not change the answer, so the
         // caller can reverse it.
         let order: [usize; 2] = if swap_order { [1, 0] } else { [0, 1] };
         for which in order {
@@ -1201,7 +1177,7 @@ fn walk_a_pair(
                     frame,
                     facing_intent: axes[which],
                     dt: DT,
-                    // ⭐ `resistance == 1.0` is the value that promises a SOLID,
+                    // `resistance == 1.0` is the value that promises a SOLID,
                     // so it is the value that has to hold exactly.
                     contact: crate::movement::BodyContactField::moving(
                         &blockers,
@@ -1230,14 +1206,10 @@ fn overlap_of(bodies: &[BodyClusterScratch; 2], down: Vec2) -> f32 {
 
 /// **TWO BODIES STARTING FROM REST MAY NOT BOTH SPEND ONE GAP.**
 ///
-/// ⛔⛔ **the case the velocity split did not close, and it did not heal.**
-/// Measured 2026-08-21: at every starting gap under about three pixels the pair
-/// consumed the whole of it and then STAYED interpenetrated for the rest of the
-/// run — worst overlap and settled overlap were the same number. The proportional
-/// split divides by snapshot velocities, and a snapshot taken before either
-/// controller has run reads zero for both bodies, so each was told the gap was
-/// entirely its own. `resistance == 1.0` promises a solid; a solid pair sitting
-/// a pixel inside each other permanently is that promise broken.
+/// The proportional split divides by snapshot velocities, and a snapshot taken before either
+/// controller has run reads zero for both bodies, so each was told the gap was entirely its own.
+/// `resistance == 1.0` promises a solid; a solid pair sitting a pixel inside each other permanently
+/// is that promise broken.
 #[test]
 fn two_bodies_that_begin_walking_at_each_other_on_one_tick_never_overlap() {
     let both_start = |_tick: usize| -> (f32, f32) { (1.0, -1.0) };
@@ -1251,7 +1223,7 @@ fn two_bodies_that_begin_walking_at_each_other_on_one_tick_never_overlap() {
                  resistance 1.0 they are solids and may not be inside each \
                  other at all",
             );
-            // ⭐ **and they must actually MEET.** Halving the gap unconditionally
+            // **and they must actually MEET.** Halving the gap unconditionally
             // would also score zero overlap while quietly stopping the pair
             // short of each other, which is the failure this catches.
             assert!(
@@ -1269,7 +1241,7 @@ fn two_bodies_that_begin_walking_at_each_other_on_one_tick_never_overlap() {
 /// the other while the second starts, stops and reverses at every phase relative
 /// to the moment they touch.
 ///
-/// ⚠ **a swept pattern rather than three hand-timed scenarios.** Timing a stop
+/// **a swept pattern rather than three hand-timed scenarios.** Timing a stop
 /// to land exactly on the tick of contact by hand is a fixture that passes
 /// because the collision missed it; varying the period walks the change across
 /// every offset, contact included.

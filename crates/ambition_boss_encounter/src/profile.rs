@@ -167,11 +167,9 @@ mod tests {
         ));
     }
 
-    /// The bosses that carried a `BossRewardProfile::None` in the old
-    /// constructors must still resolve to `None` from the RON (i.e. the
-    /// `reward:` field is absent / authored as `None`), and the ones
-    /// that dropped a chest must still drop a chest. Pins the reward
-    /// migration so the RON can't silently drop a chest.
+    /// The bosses that carried a `BossRewardProfile::None` in the old constructors must still
+    /// resolve to `None` from the RON (i.e. the `reward:` field is absent / authored as
+    /// `None`), and the ones that dropped a chest must still drop a chest.
     #[test]
     fn reward_kinds_match_legacy_constructors() {
         for id in ["clockwork_warden", "smirking_behemoth_boss"] {

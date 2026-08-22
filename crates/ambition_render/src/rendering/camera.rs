@@ -9,10 +9,8 @@
 //! continuity, shake — to a COPY of the snapshot, and (b) writes the Bevy
 //! camera transform/projection. Render never mutates sim camera state.
 //!
-//! Frame, not tick: the simulation produces authoritative world facts, and
-//! where the camera looks at them is presentation. Fixed-tick and GGRS hosts
-//! advance the sim off the render clock — GGRS resimulates the same ticks
-//! during rollback — and none of that independently advances camera easing.
+//! Frame, not tick: the simulation produces authoritative world facts, and where the camera
+//! looks at them is presentation.
 //!
 //! The observer facts the resolver consumes (`CameraViewport`,
 //! `CameraScreenFraming`) are published by
@@ -32,9 +30,8 @@ use ambition_sim_view::camera_snapshot::{CameraPresentationInputs, ResolvedCamer
 use ambition_sim_view::camera_snapshot::CameraChartTransit;
 use ambition_sim_view::LocalView;
 
-// `CameraViewState` moved ONTO THE VIEW (D116 M2). It is re-exported from
-// `ambition_sim_view` so the name still resolves here; see that module for why
-// a process-global could not answer "whose view" once there are two.
+// It is re-exported from `ambition_sim_view` so the name still resolves here; see that module
+// for why a process-global could not answer "whose view" once there are two.
 pub use ambition_sim_view::CameraViewState;
 
 #[cfg(feature = "portal_render")]
@@ -51,18 +48,8 @@ pub struct PortalCameraContinuityParams<'w> {
 /// Same-frame, like the old inline read: a post-resolve copy would lag the pad
 /// one frame and visibly step the camera at transit clear.
 ///
-/// ⭐ **the roll moved here from `camera_follow`, and that is the point.** It
-/// used to be written onto the snapshot AFTER resolution, so the resolver
-/// clamped an axis-aligned footprint for a view it did not know was rolled. A
-/// rotation-aware clamp is only expressible once the roll is an input, and the
-/// composition rule ([`presented_roll_radians`]) can only be applied where the
-/// base observer roll is also known.
-///
-/// ⚠ **`observer_roll_at_entry` is latched on the RISING EDGE from the previous
-/// frame's resolved roll.** That frame had no transit, so its roll is the pure
-/// base — the roll this view had adopted before the crossing began, which is
-/// exactly what the composition needs to avoid double-counting a frame change
-/// the portal itself caused.
+/// A rotation-aware clamp is only expressible once the roll is an input, and the composition rule
+/// ([`presented_roll_radians`]) can only be applied where the base observer roll is also known.
 #[cfg(feature = "portal_render")]
 pub fn publish_portal_camera_clamp(
     selection: Option<Res<ambition_portal2d_presentation::PortalCameraContinuitySelection>>,
@@ -121,9 +108,8 @@ pub fn camera_follow(
             Entity,
             &ResolvedCameraSnapshot,
             &mut CameraPresentationInputs,
-            // ⭐ **written on the VIEW, not into a global** (D116 M2). The
-            // resolve below already knows which view this camera presents; that
-            // is exactly the entity whose diagnostics these are.
+            // The resolve below already knows which view this camera presents; that is exactly
+            // the entity whose diagnostics these are.
             &mut CameraViewState,
         ),
         With<LocalView>,
@@ -133,10 +119,8 @@ pub fn camera_follow(
     >,
     shake: Res<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeState>,
     #[cfg(feature = "portal_render")] mut portal_continuity: PortalCameraContinuityParams,
-    // `With<MainCamera>` (not the broad `With<Camera2d>`): besides the #31 cube
-    // pause-menu Camera3d, the portal view-cone renderer spawns offscreen
-    // capture `Camera2d`s. A broad match would drag every capture to the player
-    // and overwrite its `Fixed` ortho scale with the main zoom each frame.
+    // `With<MainCamera>` (not the broad `With<Camera2d>`): besides the #31 cube pause-menu
+    // Camera3d, the portal view-cone renderer spawns offscreen capture `Camera2d`s.
     mut query: Query<
         (
             &mut Transform,
@@ -149,16 +133,11 @@ pub fn camera_follow(
         ),
     >,
 ) {
-    // ⛔⛔ **EACH CAMERA RESOLVES THROUGH ITS OWN LINK.** This used to take
-    // `query.iter().next()`'s link, resolve that ONE view, and then apply that
-    // one view's transform and projection to EVERY main camera in the loop
-    // below — so two cameras correctly naming two different views would both
-    // have been handed the first view's framing. Same singleton the component
-    // move deleted, restored as a loop-invariant. `PresentedViewState::get()`
-    // already refused to choose between several main cameras; this had no such
-    // protection, it just picked.
+    // Same singleton the component move deleted, restored as a loop-invariant.
+    // `PresentedViewState::get()` already refused to choose between several main cameras; this had
+    // no such protection, it just picked.
     //
-    // ⚠ the binding rule itself lives in `ambition_sim_view::ViewsOnHand` — one
+    // the binding rule itself lives in `ambition_sim_view::ViewsOnHand` — one
     // statement, shared with the viewport applier and the draw-side lookup,
     // because three copies of "which view is this camera for" is three chances
     // to disagree silently.
@@ -191,13 +170,9 @@ pub fn camera_follow(
         #[cfg(feature = "portal_render")]
         let _ = &mut presentation; // written pre-resolve by publish_portal_camera_clamp
 
-        // ⚠ **portal camera continuity is still ONE global for the whole
-        // process.** `PortalCameraContinuityState`/`HostView` are `Resource`s,
-        // so the writes below are last-camera-wins once a composition really
-        // has two. That is not a regression — it is exactly what the previous
-        // single-resolve shape did — and it is the next thing portal continuity
-        // owes a split layout: the state is per-VIEW (each view crosses its own
-        // seam), and making it so is its own job, not this one.
+        // **portal camera continuity is still ONE global for the whole process.**
+        // `PortalCameraContinuityState`/`HostView` are `Resource`s, so the writes below are
+        // last-camera-wins once a composition really has two.
         #[cfg(feature = "portal_render")]
         {
             let portal_continuity_enabled =
@@ -223,14 +198,9 @@ pub fn camera_follow(
                     } else if !portal_clamp_padding_still_needed {
                         portal_state.clear_clamp_padding();
                     }
-                    // ⛔ **the roll is NOT applied here any more.** It used to be
-                    // `snapshot.rotation_radians = portal_state.roll_radians`, an
-                    // overwrite of a value the resolver had just computed — which
-                    // meant the resolver clamped for an orientation it never saw,
-                    // and a base observer roll had nowhere to compose with this
-                    // one. `publish_portal_camera_clamp` now hands both facts to
-                    // the resolve, and `snapshot.rotation_radians` already carries
-                    // the composed answer by the time this runs.
+                    // `publish_portal_camera_clamp` now hands both facts to the resolve, and
+                    // `snapshot.rotation_radians` already carries the composed answer by the
+                    // time this runs.
                 } else {
                     portal_state.clear();
                 }
@@ -377,22 +347,18 @@ mod two_views_one_simulation_tests {
         (presented, view_states)
     }
 
-    /// **⛔⛔ EACH MAIN CAMERA PRESENTS THE VIEW IT NAMES — NOT THE FIRST
+    /// **EACH MAIN CAMERA PRESENTS THE VIEW IT NAMES — NOT THE FIRST
     /// CAMERA'S VIEW.**
     ///
-    /// `camera_follow` read `query.iter().next()`'s `PresentsView`, resolved
-    /// that ONE view, and then wrote that one view's transform and projection
-    /// onto EVERY main camera. Two cameras correctly naming two different views
-    /// therefore produced two IDENTICAL cameras — the process-global "the
-    /// gameplay view" that D116 M2 deleted, restored as a loop invariant, and
-    /// invisible until the day a second view existed.
+    /// `camera_follow` read `query.iter.next`'s `PresentsView`, resolved that ONE view, and
+    /// then wrote that one view's transform and projection onto EVERY main camera.
     ///
-    /// ⭐ **the assertion is on the VALUES, not on inequality.** "the two
+    /// **the assertion is on the VALUES, not on inequality.** "the two
     /// cameras differ" would pass for a pair that differ and are both wrong.
     /// Each camera is checked against the framing derived from the view it
     /// names.
     ///
-    /// ⚠ **and the falsifier is inside the test.** The second run swaps only
+    /// **and the falsifier is inside the test.** The second run swaps only
     /// the two `PresentsView` links — same spawn order, same entities, same
     /// snapshots — and the two cameras must swap with them. A `camera_follow`
     /// that keys off camera iteration order instead of the link passes the

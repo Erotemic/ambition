@@ -9,24 +9,14 @@
 //!
 //! ## It reads the AUTHORITY, not a mirror of it
 //!
-//! "Cannot be hurt" has exactly one authoritative answer: the
-//! `Invulnerability` reason set on `Health`, which is what `Health::damage`
-//! itself consults. This used to read `BodyOffense::invincible` instead — a
-//! second field meaning the same thing — and the run log showed why that is not
-//! a stylistic preference: the star re-wrote `invincible` on EVERY tick
-//! (`star lighting 'invincible' on 1253v0`, once per frame, which only prints
-//! when the field is found false), because something else in the body tick
-//! clobbers `BodyOffense` each frame. The effect read the loser of that race and
-//! stayed dark for the whole ten seconds.
+//! "Cannot be hurt" has exactly one authoritative answer: the `Invulnerability` reason set on
+//! `Health`, which is what `Health::damage` itself consults. The effect read the loser of that race
+//! and stayed dark for the whole ten seconds.
 //!
 //! Reading the fact that DECIDES whether hits land means there is no race to
 //! win, because there is no second copy.
 //!
-//! It reads ONE REASON out of that set, not `any()`: `EMPOWERED`. A body is also
-//! briefly untouchable while a transformation beat plays, and lighting the
-//! quasar every time she grows is wrong — Jon saw exactly that. "Why can't I be
-//! hurt" and "am I wearing a star" are different questions, and a set of reasons
-//! is what lets one field answer both without either answer being a guess.
+//! It reads ONE REASON out of that set, not `any()`: `EMPOWERED`.
 
 use std::collections::HashMap;
 
@@ -78,15 +68,10 @@ impl Default for MaryOQuasarShaderSettings {
 ///
 /// Idempotent, so both Mary-O composition paths may call it safely.
 ///
-/// **The skip is a run condition, not an install-time probe.** It used to test
-/// for `EmbeddedAssetRegistry` as a proxy for "this app renders" — but that
-/// resource comes from `AssetPlugin`, which a headless app HAS, while the mesh
-/// and atlas asset collections these systems mutate come from the render
-/// plugins, which it does not. So a headless Mary-O installed the pass and then
-/// panicked on the first frame ("Resource does not exist"), taking 18 of the
-/// demo app's 20 integration tests with it. A proxy answers a question next to
-/// the one being asked; the run condition asks for exactly the collections the
-/// systems take, and cannot drift from them as long as it names the same types.
+/// So a headless Mary-O installed the pass and then panicked on the first frame ("Resource does not
+/// exist"), taking 18 of the demo app's 20 integration tests with it. A proxy answers a question
+/// next to the one being asked; the run condition asks for exactly the collections the systems
+/// take, and cannot drift from them as long as it names the same types.
 pub fn install(app: &mut App) {
     if app.world().contains_resource::<QuasarShaderInstalled>() {
         return;
@@ -105,18 +90,13 @@ pub fn install(app: &mut App) {
 
     app.insert_resource(QuasarShaderInstalled);
     embedded_asset!(app, "shaders/invincible_rainbow_quasar.wgsl");
-    // ⛔ **the MATERIAL plugin asks whether this app RENDERS, which the asset
+    // **the MATERIAL plugin asks whether this app RENDERS, which the asset
     // guard above does not.** `Material2dPlugin` installs render-world state —
     // `PreparedMaterial2d`, `EntitiesNeedingSpecialization` — into any app that
     // merely has an `AssetPlugin`, which every headless composition has. That is
     // the same "a proxy answers the question next door" mistake this module's
     // own doc records, one line further down: the asset registry is a real
     // precondition of `embedded_asset!`, and it is not evidence of a renderer.
-    //
-    // ⭐ found by K2b (2026-08-06): pointing the sim harness at the shell host
-    // pulled every provider in, and `rollback_coverage` began reporting this
-    // material's render resources as unrewound state in a headless RL/oracle
-    // world. Waiving them would have been a lie about what that harness is.
     if app.get_sub_app(bevy::render::RenderApp).is_some() {
         app.add_plugins(Material2dPlugin::<MaryOQuasarMaterial>::default());
     }
@@ -137,10 +117,10 @@ pub fn install(app: &mut App) {
             .run_if(resource_exists::<Assets<Mesh>>)
             .run_if(resource_exists::<Assets<Image>>)
             .run_if(resource_exists::<Assets<TextureAtlasLayout>>)
-            // ⛔ **the MATERIAL collection too, and leaving it out was a real
+            // **the MATERIAL collection too, and leaving it out was a real
             // panic.** `Material2dPlugin` is what creates
             // `Assets<MaryOQuasarMaterial>`, and gating that plugin on a render
-            // app (2026-08-06) made the collection genuinely absent in headless
+            // app made the collection genuinely absent in headless
             // compositions — where `attach_quasar_overlays` then failed
             // parameter validation in the shipped-composition resource sweep.
             // The doc above says this condition names *"exactly the collections
@@ -185,7 +165,7 @@ impl Material2d for MaryOQuasarMaterial {
 /// frame or two. One second at 60fps is far past any decode, so a candidate
 /// still waiting here is one whose overlay is never going to appear.
 ///
-/// ⚠ **counted per candidate and reported ONCE**, not re-warned every frame
+/// **counted per candidate and reported ONCE**, not re-warned every frame
 /// after the threshold: a diagnostic that fires sixty times a second for a
 /// standing condition is the same noise problem one frame earlier.
 const QUASAR_ATTACH_GRACE_FRAMES: u32 = 60;
@@ -231,14 +211,6 @@ fn attach_quasar_overlays(
         // conditions that normally clear within a frame or two of the sprite
         // loading, so they are only worth a word if they PERSIST — which is
         // exactly the case where the overlay never appears and nothing says so.
-        //
-        // ⛔⛔ **that is what the paragraph above always SAID, and the code did
-        // not do it.** Both arms `warn!`d on the first frame the condition held,
-        // so an ordinary boot printed *"overlay not attached: no current sprite
-        // frame (atlas true, image loaded = false)"* twice while the texture was
-        // still decoding — the "not yet" the comment excuses, reported as if it
-        // were the failure the comment is about. ⇒ the condition is COUNTED now
-        // and reported once it outlasts any plausible decode.
         let mut report = |reason: std::fmt::Arguments| {
             let (frames, reported) = waiting.entry(source_entity).or_insert((0, false));
             *frames += 1;
@@ -417,16 +389,13 @@ fn sync_quasar_overlays(
 
 /// Keep the source/overlay pair honest in BOTH directions.
 ///
-/// It only ever swept one way — despawn an overlay whose source is gone — and
-/// the other way is the one that actually happened. The overlay carries
-/// [`RoomVisual`], so a room rebuild or a sprite rebind ("assets changed") takes
-/// it, while the SOURCE survives holding a `MaryOQuasarSource` that points at a
-/// dead entity. From that moment the effect is permanently dark and silent:
-/// `attach` skips the source forever (it filters `Without<MaryOQuasarSource>`),
-/// `sync` fails its overlay lookup and `continue`s before it can even log, and
-/// this system finds no overlay to complain about. Jon's log shows exactly that
-/// — one "overlay attached" line early, a rebind to `mary_o_tall` later, and
-/// never another word.
+/// It only ever swept one way — despawn an overlay whose source is gone — and the other way is the
+/// one that actually happened. The overlay carries [`RoomVisual`], so a room rebuild or a sprite
+/// rebind ("assets changed") takes it, while the SOURCE survives holding a `MaryOQuasarSource` that
+/// points at a dead entity. From that moment the effect is permanently dark and silent: `attach`
+/// skips the source forever (it filters `Without<MaryOQuasarSource>`), `sync` fails its overlay
+/// lookup and `continue`s before it can even log, and this system finds no overlay to complain
+/// about.
 ///
 /// A back-reference to an entity that can die independently is a CACHE, and a
 /// cache whose target dies has to be invalidated. Dropping the component is the
@@ -533,11 +502,8 @@ mod tests {
 
     /// **A dead overlay must release its source**, or the effect is dark forever.
     ///
-    /// `attach_quasar_overlays` filters `Without<MaryOQuasarSource>`, so a source
-    /// still holding a back-reference to a despawned overlay is never rebuilt.
-    /// The overlay is a `RoomVisual` and dies on room rebuilds and sprite
-    /// rebinds, both of which happen routinely mid-level — this is what made
-    /// Mary-O's invincibility invisible in Jon's run.
+    /// `attach_quasar_overlays` filters `Without<MaryOQuasarSource>`, so a source still holding a
+    /// back-reference to a despawned overlay is never rebuilt.
     #[test]
     fn a_source_whose_overlay_died_lets_go_so_the_pair_can_be_rebuilt() {
         let mut app = App::new();

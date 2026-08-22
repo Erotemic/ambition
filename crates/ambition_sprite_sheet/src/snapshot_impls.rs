@@ -1,6 +1,6 @@
 //! `SnapshotCursor` for this crate's own types — the rollback checksum wire.
 //!
-//! ⚠ One impl, and it is here only because the orphan rule put it here. It was
+//! One impl, and it is here only because the orphan rule put it here. It was
 //! written in `ambition_platformer2d_runtime` against `ambition_platformer2d_actor_monolith`' RE-EXPORT of the
 //! type, which reads as if actors owned it; the definition is in this crate.
 //! The doc comment below was already arguing that the type is misfiled — the

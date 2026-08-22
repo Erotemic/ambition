@@ -1,14 +1,6 @@
 //! **The end-to-end run, on a course nobody authors.**
 //!
-//! ⛔ **This replaces two scripted playthroughs that went stale.** Jon,
-//! 2026-08-04: *"the plays level1 test might get stale awfully quick if I modify
-//! level 1. We should probably ensure there is a fixture for the test that won't
-//! change as we modify the level itself."* He was right, and it had already
-//! happened: both routes through 1-1 carried numbers measured against one
-//! arrangement — *"the wand needs ~2.9 s to reach the pit"* — and moving the
-//! enemies into the LDtk file desynchronised them. Both are `#[ignore]`d.
-//!
-//! ⭐ **the fixture is boring on purpose** ([`test_course`]): flat ground, one
+//! **the fixture is boring on purpose** ([`test_course`]): flat ground, one
 //! ?-block, one snake, a goal. What made the old routes brittle was not the
 //! level's complexity but the route needing TIMING — a jump that must clear a
 //! pit has a distance, a speed and a launch frame that all have to stay true. A
@@ -35,7 +27,7 @@ use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 
 /// Boot the real host, entering the fixture course rather than 1-1.
 ///
-/// ⭐ **no new host plumbing was needed.** The provider installs its world source
+/// **no new host plumbing was needed.** The provider installs its world source
 /// as a SYSTEM — its own doc says it *"may read the provider's own resources"* —
 /// so the entry room is a resource read on the update that prepares the session.
 /// Inserting it after the app is built and before the first `update()` is early
@@ -100,7 +92,7 @@ fn the_session_enters_the_fixture_course_when_asked() {
 #[test]
 fn a_host_that_says_nothing_still_enters_level_one() {
     let shipped = ambition_demo_mary_o::mary_o_session_world();
-    // ⚠ the AUTHORED world's name, which the LDtk file supplies — not the string
+    // the AUTHORED world's name, which the LDtk file supplies — not the string
     // the old Rust builder passed to `World::new`.
     assert!(
         !shipped.geometry.0.name.contains("test course"),
@@ -117,7 +109,7 @@ fn a_host_that_says_nothing_still_enters_level_one() {
 
 // ── The run ───────────────────────────────────────────────────────────────
 //
-// ⛔ **NOT ONE FRAME COUNT IN THIS ROUTE.** Every beat below drives to a
+// **NOT ONE FRAME COUNT IN THIS ROUTE.** Every beat below drives to a
 // CONDITION read off the course — she is under the block, her head has reached
 // its underside, the snake is in reach, the pole has answered — because a route
 // expressed in frames is exactly what killed the two runs this replaces. The one
@@ -129,13 +121,10 @@ const TALL_ID: &str = "mary_o_tall";
 
 /// **A DEADLOCK DETECTOR, not a route measurement.**
 ///
-/// No beat of this run is timed: each one steps until the course says it is
-/// done. This is the backstop for the case where it never will be — a body wedged
-/// against a wall, a bonk that cannot reach, a goal that no longer answers — so a
-/// broken run fails loudly with the beat's name in it instead of hanging the
-/// suite. Nothing about the route was measured to pick it; it is simply far more
-/// frames than crossing forty tiles can take, and enlarging it would not change a
-/// single passing run.
+/// No beat of this run is timed: each one steps until the course says it is done. This is the
+/// backstop for the case where it never will be — a body wedged against a wall, a bonk that cannot
+/// reach, a goal that no longer answers — so a broken run fails loudly with the beat's name in it
+/// instead of hanging the suite.
 const LIVENESS_CAP: usize = 6000;
 
 /// The scripted stick, republished every frame in `PreUpdate` because Bevy runs
@@ -145,11 +134,8 @@ const LIVENESS_CAP: usize = 6000;
 /// The course, booted with a stick in her hand.
 fn boot_course_scripted() -> App {
     let mut app = boot_course();
-    // ⭐ **the ordering lives in ONE place now** — after the participant
-    // pipeline's routing stage and before the frame→tick latch. Eight
-    // fixtures each carried their own copy of that knowledge, and five of
-    // them were still guessing `PreUpdate` on 2026-08-19, where the
-    // pipeline overwrote every scripted write before the sim saw it.
+    // **the ordering lives in ONE place now** — after the participant pipeline's routing stage and
+    // before the frame→tick latch.
     ambition_platformer2d::scripted_input::drive_the_local_participant(&mut app);
     app
 }
@@ -282,9 +268,9 @@ fn world_items(app: &mut App) -> Vec<(String, ae::Vec2)> {
 /// The STOMPABLE snake — the one wearing the demo's own shell marker — with its
 /// live box and phase.
 ///
-/// ⚠ **keyed by the marker, not by "the first enemy the query yields".** The
+/// **keyed by the marker, not by "the first enemy the query yields".** The
 /// course stages one authored snake, and the engine's generic placement path was
-/// found (2026-08-04) to build a SECOND, unmarked actor from the same placement.
+/// found to build a SECOND, unmarked actor from the same placement.
 /// The unmarked twin carries no shell mechanic at all, so "did the snake react"
 /// has to be asked of the body that carries the mechanic.
 fn shelled_snake(app: &mut App) -> Option<(ae::Aabb, SnakeShell)> {
@@ -333,8 +319,6 @@ fn flag_phase(app: &mut App) -> Option<FlagPhase> {
     q.iter(app.world()).next().map(|seq| seq.phase)
 }
 
-/// Step until the course is actually PLAYABLE rather than for a fixed count.
-///
 /// `ManualDuration` pins the sim clock, but it does not pin BOOT: session
 /// activation and asset loading advance on real I/O over a variable number of
 /// frames, so "eight frames is enough to be playing" is a bet on machine load and
@@ -355,50 +339,33 @@ fn settle_until_playable(app: &mut App) {
 
 /// **Assert that a scripted press actually reaches the simulation.**
 ///
-/// ⛔⛔ **THIS RETURNED `bool` AND ITS CALLERS USED IT TO `return` EARLY**,
+/// **THIS RETURNED `bool` AND ITS CALLERS USED IT TO `return` EARLY**,
 /// printing `SKIP: a participant pipeline owns ControlFrame in this build`. A
 /// test that returns early is a test that PASSES — so the proof evaporated in
 /// exactly the composition it most needed to hold, and the run summary said
 /// nothing. The guard correctly detected that the press was being erased and
 /// then reported the situation as fine.
 ///
-/// ⚠ the ORIGINAL diagnosis is kept, because it is why the guard existed: a
+/// the ORIGINAL diagnosis is kept, because it is why the guard existed: a
 /// crate-level `cfg(not(feature = "input"))` reads THIS crate's flag, while the
 /// thing that erases a scripted write is `ambition_platformer2d/input` in the
 /// DEPENDENCY. Under `cargo test --workspace` cargo unifies features across the
 /// graph, so `ambition_platformer2d` builds WITH `input` while this crate's flag
 /// stays off. Ask the composition, not the feature flag.
 ///
-/// ⚠ **the probe is `ControlFrame` right after the update, deliberately.**
+/// **the probe is `ControlFrame` right after the update, deliberately.**
 /// `scripted_input`'s own delivery counter observes the SLOT TABLE, which
 /// Bevy publishes from `FixedUpdate` — a frame BEHIND the `Update` that
 /// wrote the press — so it reads `0 delivered` on the first press of a
 /// healthy run. It is an end-of-run check; this is a precondition.
 ///
-/// ⭐ the condition is unreachable now rather than merely detected:
-/// `scripted_input` writes after `InputSet::Route`, so it is the last writer
-/// under a composed pipeline and the only writer without one. If this fires
-/// again the ordering broke — a defect, not a composition to step around.
+/// the condition is unreachable now rather than merely detected: `scripted_input` writes after
+/// `InputSet::Route`, so it is the last writer under a composed pipeline and the only writer
+/// without one.
 #[track_caller]
 fn assert_scripted_input_reaches_the_sim(app: &mut App) {
-    // ⛔⛔ **THIS USED TO ASSERT THE WRITER, NOT THE READER.** It stepped once
-    // and read `ControlFrame` — the resource the scripted stage writes directly
-    // — so it passed whether or not the simulation ever received the press,
-    // which is precisely the failure its own message describes. `ControlFrame`
-    // is seat zero's OUTPUT mirror since D175, so the same line finally measures
-    // what it claims.
-    //
-    // ⚠ **and arrival takes a TICK, not a frame.** On a fixed-tick host the sim
-    // schedule runs ahead of `Update` inside one `Main` pass, so a stick written
-    // in `Update` is committed on the following tick. That was always true; it
-    // was invisible while the check was reading the writer's own resource.
-    // ⚠ **a SHORT cap, and a neutral step on the way out.** Arrival is one
-    // tick; holding right until it happens must not walk her anywhere the run
-    // below then measures.
-    // ⚠ **AIM, not a direction, and that is the point of the probe.** The press
-    // has to be detectable on the far side without MOVING her: these fixtures
-    // walk an authored route measured in pixels, and a liveness check that holds
-    // right until the press arrives shifts every beat after it.
+    // `ControlFrame` is seat zero's OUTPUT mirror since, so the same line finally measures what
+    // it claims.
     let probe = ControlFrame {
         aim_x: 1.0,
         ..ControlFrame::default()
@@ -418,11 +385,9 @@ fn assert_scripted_input_reaches_the_sim(app: &mut App) {
 
 /// **She plays the course: walk, bonk, take what pops, stomp, finish.**
 ///
-/// The coverage the two `#[ignore]`d runs used to hold and nothing replaced —
-/// *"nothing currently walks her spawn-to-flagpole on the production schedule"*.
-/// Every mechanic here has its own focused probe against the authored level; what
-/// only a run can see is that they are CONNECTED, and that a body driven by
-/// nothing but a stick gets from one end of a level to the other.
+/// Every mechanic here has its own focused probe against the authored level; what only a run can
+/// see is that they are CONNECTED, and that a body driven by nothing but a stick gets from one end
+/// of a level to the other.
 #[test]
 fn she_plays_the_course_from_spawn_to_the_goal() {
     let mut app = boot_course_scripted();
@@ -474,7 +439,7 @@ fn she_plays_the_course_from_spawn_to_the_goal() {
 
     // ── 2. She BONKS the ?-block, and takes what pops out ─────────────────
     //
-    // ⭐ **hold jump only until her HEAD reaches the underside, then release.** A
+    // **hold jump only until her HEAD reaches the underside, then release.** A
     // held classic jump rises far past a row-four block and she sails over it; a
     // bare tap comes up short. Steering off the measurement — her head against the
     // block's own `max.y` — rather than off a frame count is what keeps this true
@@ -577,7 +542,7 @@ fn she_plays_the_course_from_spawn_to_the_goal() {
             return None;
         }
         let b = body(app);
-        // ⭐ **the stomp is decided by her FEET against the snake's top face**, not
+        // **the stomp is decided by her FEET against the snake's top face**, not
         // by a distance she is allowed to jump from. Above that face, steer for the
         // middle of its back and come down on it; anywhere else, back out of its
         // reach — a body that is level with a walker and moving into it is taking a
@@ -591,28 +556,16 @@ fn she_plays_the_course_from_spawn_to_the_goal() {
         } else {
             -toward
         };
-        // ⛔⛔ **SHE MAY NOT CHASE PAST THE GOAL, because in real play she
-        // cannot** — walking into the pole starts the flag sequence and ends the
-        // level with the snake still alive. The chase used to steer at the snake
-        // wherever it was, and the snake WANDERS: it walks right until a wall
-        // and the course's ?-block beat takes long enough (she waits for the
-        // reward to rise) that it is past the pole by the time she arrives.
-        // Measured 2026-08-19: snake at x≈1114, pole at x≈1104, and she stomped
-        // it at x=1192 — having grabbed the goal on the way, so beat 4's *"the
-        // goal has not been touched yet"* was false.
+        // **SHE MAY NOT CHASE PAST THE GOAL, because in real play she cannot** — walking into the
+        // pole starts the flag sequence and ends the level with the snake still alive.
         //
-        // ⭐ this stays GEOMETRY, which is the fixture's whole design rule: hold
+        // this stays GEOMETRY, which is the fixture's whole design rule: hold
         // two tiles short of the pole and let the snake come back. It bounces off
         // `course_wall_right` and walks west again — that is what makes waiting a
         // bounded thing to do rather than a timing assumption.
         //
-        // ⚠ the margin is measured against the GRAB BAND, not guessed: the band
-        // is the pole's half-width plus a body half-width (~23px total), so two
-        // tiles of clearance is three times the distance that could trip it.
-        // ⚠ **BRAKE, do not merely stop steering.** Releasing the stick at
-        // running speed still coasts her ~160px — measured: a `0.0` steer at the
-        // limit put her at x=1192 with the pole at 1096. Walking BACK is the only
-        // input that guarantees she ends up west of the line she must not cross.
+        // Walking BACK is the only input that guarantees she ends up west of the line she must not
+        // cross.
         let chase_limit = course_pole_x() - 2.0 * 32.0;
         let steer = if b.right() >= chase_limit {
             -1.0

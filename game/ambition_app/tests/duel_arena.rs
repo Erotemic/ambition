@@ -11,13 +11,6 @@
 //! targeting AND authorizes same-faction damage, so they fight each other — and only
 //! each other, never the observing player. No trigger, no manual staging: the fight
 //! is already underway the instant the room exists.
-//!
-//! It then steps the real game loop for many timesteps and asserts the brain
-//! plays a real **neutral / attack / defense** game in the actual engine — both
-//! fighters roam and hop (neutral), trade melee (attack), and blink/shield away
-//! perceived lunges (defense) — and that the duel resolves (real damage drains
-//! HP). This pins the regression where the anti-clump crowding signal counted the
-//! opponent and froze both fighters at a standoff.
 
 #![cfg(feature = "rl_sim")]
 
@@ -238,12 +231,10 @@ fn resetting_the_room_restages_the_duel_fighters_fresh() {
     let after_gap = (pca_x_after - pca_x0).abs();
     // NEAR SPAWN, by a ratio OR by an absolute floor — either is the invariant.
     //
-    // ⚠ the ratio alone is the brittleness it was written to avoid, one level
-    // down. When the fight happens to leave the PCA close to where it started,
-    // `roamed` is small and `roamed * 0.3` demands SUB-PIXEL re-staging: this
-    // failed at 2px from a 427px spawn because the fighter had only roamed 5px
-    // (queue F0e, 2026-07-29). A denominator that can be tiny makes a ratio
-    // stricter than any fixed tolerance, not looser.
+    // the ratio alone is the brittleness it was written to avoid, one level down. When the
+    // fight happens to leave the PCA close to where it started, `roamed` is small and `roamed *
+    // 0.3` demands SUB-PIXEL re-staging: this failed at 2px from a 427px spawn because the
+    // fighter had only roamed 5px .
     //
     // The absolute floor is deliberately generous. A reset that did not re-stage
     // puts the fighter wherever the fight left it — tens to hundreds of pixels —
@@ -284,11 +275,9 @@ fn duel_pca_body_is_sprite_authored_not_the_tiny_ldtk_box() {
     );
 }
 
-/// The brain emits shield/blink/dash/fly — but does the BODY enact them in the
-/// real sim? This pins that the archetype capabilities reach the body AND the
-/// shared movement pipeline resolves each ability (no player-only gate). Without
-/// this the abilities would be "pressed but inert" — exactly the failure mode the
-/// user reported ("I don't see any shield, dash, or blink, fly").
+/// The brain emits shield/blink/dash/fly — but does the BODY enact them in the real sim? This pins
+/// that the archetype capabilities reach the body AND the shared movement pipeline resolves each
+/// ability (no player-only gate).
 #[test]
 fn duel_fighters_actually_enact_their_abilities_on_the_body() {
     let mut sim = Platformer2dSimHarness::new_with_options(
@@ -335,54 +324,20 @@ fn duel_fighters_actually_enact_their_abilities_on_the_body() {
             "{who}: shield must actually go up on the body (got {} frames)",
             log.shield_active_frames
         );
-        // ⛔ **`fly_frames > 0` USED TO BE ASSERTED HERE, AND IT WAS THE SAME BET
-        // THE DASH ASSERTION LOST** (queue D74, 2026-08-10).
-        //
-        // It claimed the fly limb resolves on the body, and what it actually
-        // measured was whether a RARE REACTIVE behaviour — the damage-triggered
-        // high-ground regroup — happened at least once in a thirty-second bout.
-        // Measured: registering an unrelated character (`perfect_cellular_
-        // automaton`, which this fight does not even involve on the failing
-        // side) turned the ROBOT's count to zero, because registering a
-        // character moves the whole fight's trajectory. That is not a signal
-        // about the flight limb; it is an instrument reporting on the weather.
-        //
-        // ⚠ **and the cost was real rather than theoretical**: the PCA was held
+        // **and the cost was real rather than theoretical**: the PCA was held
         // off `PLAYABLE_ROSTER` for weeks to keep this green, so the smash grid
         // shipped one portrait short of the roster it advertises.
         //
-        // What it claimed to prove is proven directly, and without an opinion
-        // about the AI's mood, by
-        // `enemies::integration::dash_tests::a_fly_capable_grounded_body_leaves_the_floor_when_it_toggles_flight`
-        // — a grounded body under full gravity toggles flight and climbs — with
-        // `a_body_without_the_fly_kit_stays_on_the_floor_pressing_the_same_button`
-        // as its negative. ⭐ those are STRICTER: they pin that the toggle limb
-        // runs and that flight is steered by `velocity_target` rather than the
-        // locomotion axes, neither of which a frame count could distinguish.
-        //
-        // ⚠ this is not a test weakened to make a change pass. Both replacements
-        // were written and landed on a CLEAN tree in `b15c8df9b`, before the
-        // roster change that needed them — the same discipline, and for the same
-        // reason, as the dash argument below.
+        // those are STRICTER: they pin that the toggle limb runs and that flight is steered by
+        // `velocity_target` rather than the locomotion axes, neither of which a frame count
+        // could distinguish.
         println!(
             "{who}: fly_frames={} (observed, not asserted — see D74)",
             log.fly_frames
         );
     }
-    // ⛔ **THE AGGREGATE DASH ASSERTION IS GONE**, and its own history is the
-    // argument (queue F0e, 2026-07-29).
-    //
-    // It claimed to prove that the dash intent resolves through the shared body
-    // pipeline. It was a bet on AI CADENCE, and its comment recorded the bet
-    // losing twice: per-fighter weakened to aggregate, then the robot's
-    // contribution going to zero. Measured on a clean tree, the whole assertion
-    // rested on ONE fighter's 18 dash frames out of 600.
-    //
-    // Knockback carrying its launch moved every number in this fight, and those
-    // 18 went to 0: both fighters now regroup by FLYING, which the deleted
-    // comment already conceded is regrouping just as validly — and `fly_frames >
-    // 0` is asserted PER FIGHTER above, so the regroup behaviour is still
-    // covered, more strictly than the dash ever was.
+    // **THE AGGREGATE DASH ASSERTION IS GONE**, and its own history is the
+    // argument.
     //
     // What it claimed to prove is proven directly, and without an opinion about
     // the AI's mood, by
@@ -390,17 +345,10 @@ fn duel_fighters_actually_enact_their_abilities_on_the_body() {
     // — same intent, real integration, the dasher must cover more ground, with
     // `an_uncapable_body_does_not_burst_and_just_walks` as its negative.
     //
-    // ⚠ this is not a test deleted to make a change pass. The argument above was
-    // written down on a CLEAN tree, before this change existed, precisely so that
-    // it could not be mistaken for one.
-    // Blink: since §A2 step 7 a body in hitstun has its blink tap EATEN by the
-    // shared post-hit gate (the same rule the player lives under), and the smash
-    // brain times its evades exactly around getting hit — it can't perceive its
-    // own stagger yet (§A7), so a tap may resolve on the body OR die inside the
-    // stagger window with the brain's cooldown burnt. Until §A7 wires stagger
-    // into the brain's observation, pin the WIRING both ways: the brain asks
-    // (fly_toggles prove ActorControl flows) and blink resolution stays possible
-    // — the neutral-fight test pins that blink requests still fire in a bout.
+    // Blink: since §A2 step 7 a body in hitstun has its blink tap EATEN by the shared post-hit
+    // gate (the same rule the player lives under), and the smash brain times its evades exactly
+    // around getting hit — it can't perceive its own stagger yet (§A7), so a tap may resolve on
+    // the body OR die inside the stagger window with the brain's cooldown burnt.
     println!(
         "blink resolutions: PCA {} + robot {} (0 is legal while brains are stagger-blind, §A7)",
         pca.blink_events, robot.blink_events
@@ -516,16 +464,14 @@ fn duel_arena_room_is_a_real_neutral_attack_defense_fight() {
         "robot should reactively block the opponent's pressure (got {} frames)",
         robot.shield
     );
-    // The BLOCK is the bread-and-butter defensive read and is strongly required from
-    // BOTH fighters above (shield >= 5). The BLINK-evade — the mobile option reserved
-    // for a committed lunge — is cadence-fragile: it fires only when the opponent
-    // commits sustained-pressure lunges, which the ranged subsumption (E54) further
-    // rarefied (both fighters now spend cadence on the moveset `"fire"` move, so they
-    // lunge — and thus draw blink-evades — less; both blink counts fell to 0 in the
-    // bout). Rather than pin a verb the shifted cadence no longer exercises, the
-    // defensive game is guarded by the block requirement above; the blink kit is
-    // co-exercised by other suites. Retune the fighters' lunge/blink appetite in the
-    // feel pass (bulk-review: duel AI cadence).
+    // The BLOCK is the bread-and-butter defensive read and is strongly required from BOTH
+    // fighters above (shield >= 5). The BLINK-evade — the mobile option reserved for a
+    // committed lunge — is cadence-fragile: it fires only when the opponent commits
+    // sustained-pressure lunges, which the ranged subsumption (E54) further rarefied (both
+    // fighters now spend cadence on the moveset `"fire"` move, so they lunge — and thus draw
+    // blink-evades — less; both blink counts fell to 0 in the bout). Rather than pin a verb the
+    // shifted cadence no longer exercises, the defensive game is guarded by the block
+    // requirement above; the blink kit is co-exercised by other suites.
 
     // RESOLUTION: the duel is decisive, not an endless stalemate — substantial
     // total HP drained across both fighters.

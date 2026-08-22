@@ -20,14 +20,7 @@ use bevy::prelude::*;
 /// `Update`, `FixedUpdate`, or the GGRS schedule; this lower crate intentionally
 /// stores only the schedule label so it does not depend on the owner crate.
 ///
-/// - [`Update`] (**default**) — frame-stepped, once per rendered frame.
-/// - [`FixedUpdate`] — fixed-tick on Bevy's `Time<Fixed>` accumulator.
-/// - a host-provided schedule such as `bevy_ggrs::GgrsSchedule` — driven by
-///   that host's request/session machinery.
-///
-/// Bullet-time composes **inside** the tick, never with the tick rate: in
-/// fixed-tick/GGRS modes `WorldTime::scaled_dt == TICK_DT × time_scale` while
-/// cadence stays pinned. Nothing ever scales the accumulator.
+/// Nothing ever scales the accumulator.
 ///
 /// # Reading it
 ///
@@ -48,12 +41,10 @@ use bevy::prelude::*;
 ///
 /// # The seal
 ///
-/// The value is **sealed on first read**: once any plugin has asked for the
-/// label, changing it panics rather than silently splitting the schedule graph
-/// in half (some sim systems in `Update`, the rest in `FixedUpdate` — a
-/// split-brain whose symptom is systems mysteriously never ordering against one
-/// another). Set the mode BEFORE adding any sim plugin, or let
-/// `PlatformerEnginePlugins` set it as its first act.
+/// The value is **sealed on first read**: once any plugin has asked for the label, changing it
+/// panics rather than silently splitting the schedule graph in half (some sim systems in
+/// `Update`, the rest in `FixedUpdate` — a split-brain whose symptom is systems mysteriously
+/// never ordering against one another).
 #[derive(Resource, Debug)]
 pub struct SimSchedule {
     label: InternedScheduleLabel,
@@ -69,11 +60,10 @@ impl Default for SimSchedule {
 
 /// Host-owned marker for a historical replay pass through the simulation.
 ///
-/// Ordinary render-frame and fixed-tick hosts leave this resource absent. A
-/// rollback host raises it after loading historical state and clears it after
-/// the host finishes servicing that rollback request batch. Diagnostic systems
-/// use the marker to avoid treating replayed history as a new irreversible
-/// event while gameplay systems continue to run normally.
+/// A rollback host raises it after loading historical state and clears it after the host
+/// finishes servicing that rollback request batch. Diagnostic systems use the marker to avoid
+/// treating replayed history as a new irreversible event while gameplay systems continue to run
+/// normally.
 #[derive(Resource, Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct SimulationReplayState {
     pub replaying_history: bool,
@@ -104,7 +94,6 @@ impl SimSchedule {
         self.label
     }
 
-    /// True when the sim advances on `Time<Fixed>` rather than the render frame.
     pub fn is_fixed_tick(&self) -> bool {
         self.is(FixedUpdate)
     }
@@ -126,7 +115,7 @@ pub trait SimScheduleExt {
     /// one — see [`SimSchedule`]'s seal.
     fn set_sim_schedule(&mut self, label: impl ScheduleLabel) -> &mut Self;
 
-    /// True when the sim advances on `Time<Fixed>`. Does not seal.
+    /// Does not seal.
     fn sim_is_fixed_tick(&self) -> bool;
 
     /// Compare the configured host schedule without sealing it.
@@ -204,11 +193,8 @@ pub struct PresentationSetupSet;
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub struct SimulationSetupSet;
 
-/// Slot inside the `WorldPrep` boss tick chain where the content layer
-/// inserts per-boss steering systems (e.g. the cut-rope boss tracking
-/// its anvil). Configured `.after(tick_boss_brains_system)` and
-/// `.before(update_ecs_bosses)` so a content system in this set runs at
-/// exactly the point the old inline registration occupied.
+/// Slot inside the `WorldPrep` boss tick chain where the content layer inserts per-boss
+/// steering systems (e.g. the cut-rope boss tracking its anvil).
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub struct BossSteerSlot;
 
@@ -218,14 +204,6 @@ pub struct BossSteerSlot;
 /// The engine owns the combat spine — trigger, playback, materialize, resolve,
 /// settle — and named content hangs on [`Self::ContentSpecials`] /
 /// [`Self::ContentFlavor`] instead of being registered inline by the app.
-///
-/// The five engine phases were added 2026-07-27 for the same reason
-/// [`PlayerInputSet`] was: everything that needed to run at a point in this chain
-/// had to name a LEAF SYSTEM, which is what Task 6 rules out and what produced a
-/// `GgrsSchedule` cycle when a caller could not tell which SET a named leaf lived
-/// in. Naming the phases changed no order — this is the chain the runtime already
-/// had — but `.in_set(CombatSet::Resolve)` is a complete statement of intent and
-/// `.after(apply_feature_hit_events)` is a coupling to a name.
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum CombatSet {
     /// **Intent becomes a started move.** Cooldowns decay, an attack gesture
@@ -241,8 +219,6 @@ pub enum CombatSet {
     /// exists because a thing must EXIST before it can hit anything — the reason
     /// projectile presentation is stamped here rather than inherited later.
     Materialize,
-    /// **Overlaps become damage.** Hitbox resolution, landed-hit marking, on-hit
-    /// techniques, hitbox retirement, feature-hit application.
     Resolve,
     /// **Post-damage bookkeeping.** Victim staging and mount/rider link
     /// enforcement — everything that reads this tick's damage outcome rather than
@@ -350,7 +326,7 @@ pub enum Platformer2dSimulationPhaseMonolith {
 /// the engine roadmap's Task 6 explicitly rules out ("runtime orders semantic
 /// sets rather than naming leaf systems"). Two costs, both paid:
 ///
-/// * A caller cannot tell which SET a named leaf lives in. On 2026-07-27 that
+/// * A caller cannot tell which SET a named leaf lives in. that
 ///   produced a `GgrsSchedule` before/after cycle: a system was ordered
 ///   `.in_set(Combat).before(apply_worn_character_gameplay)`, and that leaf turns
 ///   out to live in `PlayerInput`, which precedes `Combat`. Nothing in the call
@@ -391,13 +367,9 @@ pub enum PlayerInputSet {
 /// **The phases inside [`Platformer2dSimulationPhaseMonolith::Progression`], as
 /// an orderable vocabulary.**
 ///
-/// Same shape and same reason as [`PlayerInputSet`], one phase later. Progression
-/// was a single `.chain()` of seventeen systems, and every slot that had to sit
-/// at a particular point in it pinned itself with `.after(<leaf system>)` /
-/// `.before(<leaf system>)` — eight such orderings, the largest concentration in
-/// the runtime after `PlayerInputSet` fixed the input phase.
+/// Same shape and same reason as [`PlayerInputSet`], one phase later.
 ///
-/// ⚠ **the boundaries are not arbitrary: they are where the pins already were.**
+/// **the boundaries are not arbitrary: they are where the pins already were.**
 /// Two slots (`ContentEncounterScriptSet`, `ambition_encounter::EncounterLifecycleSet`)
 /// anchored INSIDE the boss group, both against `update_encounter_progress` —
 /// which is why the boss work is two phases rather than one. A vocabulary that
@@ -443,9 +415,6 @@ pub enum RoomTransitionSet {
     /// **Has a transition been requested?** Edge/door/walk detection publishes the
     /// intent; nothing has moved yet.
     Detect,
-    /// **The transaction: readiness, authorization, commit.** The slot the module
-    /// docs used to describe in a sentence. A game that replaces the transition
-    /// policy replaces what is here.
     Apply,
     /// **Per-room feature reset** over the unified actor cluster, once the
     /// transition has committed. `ContentRoomResetSet` follows it, and generic
@@ -456,13 +425,8 @@ pub enum RoomTransitionSet {
 
 /// **The movement anchor inside [`Platformer2dSimulationPhaseMonolith::WorldPrep`].**
 ///
-/// Unlike [`PlayerInputSet`] and [`CombatSet`], this is deliberately NOT a full
-/// decomposition of its set. `WorldPrep` is the biggest chain in the engine, its
-/// actor and boss sub-chains interleave through two anchors, and its own comments
-/// record a before/after CYCLE that panicked the app at startup in 2026-07-05.
-/// Splitting it wholesale is a large change with a startup-crash failure mode and
-/// almost no consumer-facing payoff — an audit of every `.before`/`.after` naming
-/// a `WorldPrep` system found exactly ONE leaf reached from another crate.
+/// Unlike [`PlayerInputSet`] and [`CombatSet`], this is deliberately NOT a full decomposition
+/// of its set.
 ///
 /// That one is worth naming, because it is the question every game asks: *does my
 /// system run before bodies move, or after they have landed?* Mary-O's stomp
@@ -474,16 +438,10 @@ pub enum RoomTransitionSet {
 /// are where a consumer joins.
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum WorldPrepSet {
-    /// **Before any non-boss body moves.** A system here still sees last frame's
-    /// resolved positions and can change what the movement phase will sweep — a
-    /// posed collision box, a routed limb intent, a portal carve.
     BeforeIntegrate,
     /// **The ONE movement phase** for every non-boss sim body: actor bodies and
     /// the home/player body integrate through the same engine entry.
     Integrate,
-    /// **After bodies have landed.** Positions and contacts are resolved, which is
-    /// what a contact classifier needs — classifying a stomp from pre-movement
-    /// positions is a stomp that reads the wrong frame.
     AfterIntegrate,
     /// **The shared body-contact damage pass**, as a boundary a consumer can order
     /// against.
@@ -507,11 +465,9 @@ pub enum WorldPrepSet {
 /// [`PlayerInputSet`] and [`CombatSet`]), for the same reason and with the same
 /// rule: naming them changed no order.
 ///
-/// This one had an explicit LEAF-NAMED SLOT in its docs — *"the
-/// home-reset/presentation pair pins `.after(release_possession_if_target_lost)
-/// .before(apply_player_hit_events)`"*. A documented slot is still a coupling: a
-/// host reading that sentence has to trust it stays true, and nothing checks that
-/// it does. [`Self::PostPossession`] IS that slot, and a host joins it by name.
+/// A documented slot is still a coupling: a host reading that sentence has to trust it stays
+/// true, and nothing checks that it does. [`Self::PostPossession`] IS that slot, and a host
+/// joins it by name.
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum PlayerSimulationSet {
     /// **Who is driving which body.** Possession triggers and releases; a target
@@ -540,22 +496,16 @@ pub enum PlayerSimulationSet {
 /// `encounter` — and every cross-domain interleave in it was load-bearing and
 /// recorded ONLY as adjacency in a tuple plus prose at the call site.
 ///
-/// ⭐ **the generalisable finding this enum exists for: a module with zero
-/// inward imports can still be pinned by the SCHEDULE.** `conversation` measured
-/// 1,836 lines with zero `crate::` edges in either direction and its own header
-/// claimed *"the carve is a Cargo.toml"* — but three of its systems sat wedged
-/// between `interact_ecs_actors_and_switches` and the chest systems in a chain
-/// it could not name, so lifting it out of the crate would have silently
-/// dissolved the ordering. An import graph cannot see a `.chain()`.
+/// An import graph cannot see a `.chain()`.
 ///
-/// ⚠ **naming these changed no order.** The variants are the boundaries the
+/// **naming these changed no order.** The variants are the boundaries the
 /// prose comments already drew; each one carries the sentence that justified it.
 /// The chain is declared once (`FeatureInteractionSchedulePlugin`) and every
 /// domain plugin only says which phase it belongs to — so `conversation` states
 /// its own placement against a vocabulary that lives BELOW the monolith and
 /// survives the carve.
 ///
-/// ⛔ **`.chain()` on the set list, not `(a, b).before(c)`.** `(A, B).before(C)`
+/// **`.chain()` on the set list, not `(a, b).before(c)`.** `(A, B).before(C)`
 /// orders both A and B before C and says nothing about A vs C's siblings; only a
 /// chain states a total order. And because Bevy inserts sync points on
 /// dependency edges after flattening sets to systems, the `ApplyDeferred`
@@ -572,7 +522,7 @@ pub enum FeatureInteractionSet {
     /// **Somebody pressed Interact**: actors and switches. The phase that OPENS
     /// a conversation, which is why [`Self::Continuity`] may not precede it.
     Actuate,
-    /// **The break rule.** ⚠ AFTER [`Self::Actuate`]: a dialogue opened this
+    /// **The break rule.** AFTER [`Self::Actuate`]: a dialogue opened this
     /// frame must not be judged for separation before the bodies that opened it
     /// have been read. Both use the same `strict_intersects` reach, so a
     /// conversation cannot begin and immediately break.
@@ -581,14 +531,14 @@ pub enum FeatureInteractionSet {
     /// says what they say. Immediately after [`Self::Continuity`], so the bubble
     /// lands on the same tick the conversation ended.
     ///
-    /// ⭐ **a slot `conversation` names and the cast fills.** The set is declared
+    /// **a slot `conversation` names and the cast fills.** The set is declared
     /// by the ordering vocabulary and its member lives in `features::npcs`,
     /// which is the temporal twin of the `ConversationCutBark` message port:
     /// continuity owns WHEN, the cast owns WHAT.
     CutBarkCast,
     /// **The hold, PROJECTED** — whatever [`Self::Continuity`] decided (a break,
     /// a body that stopped existing, or nothing at all), the world is made to
-    /// match the authority on the same frame. ⛔ it is not a "release": it both
+    /// match the authority on the same frame. it is not a "release": it both
     /// takes and releases the hold, because a projection that only let go would
     /// be a second rule about when to hold.
     HoldProjection,
@@ -619,13 +569,8 @@ pub fn gameplay_allowed(mode: Res<State<GameMode>>) -> bool {
 /// Bevy run condition: complement of [`gameplay_allowed`]. True in any mode
 /// that suspends gameplay (paused, dialogue, room transition, cutscene).
 ///
-/// Use this to gate the small set of systems that should only run while
-/// gameplay is suspended, such as forcing world time to zero.
-/// ⚠ **this asks [`GameMode::stops_the_world`], not `allows_gameplay`.** It used
-/// to ask the latter, which meant a conversation froze every body in the level
-/// including the ones nobody was talking to. On a couch that is player two
-/// stopped mid-jump because player one walked into an NPC; in single player it
-/// is every NPC and hazard in the room holding still for a text box.
+/// On a couch that is player two stopped mid-jump because player one walked into an NPC; in single
+/// player it is every NPC and hazard in the room holding still for a text box.
 pub fn gameplay_suspended(
     mode: Res<State<GameMode>>,
     dialogue_policy: Option<Res<DialogueStopsTheWorld>>,
@@ -662,25 +607,13 @@ pub enum GameMode {
 
 /// **Does a conversation stop the world?**
 ///
-/// Jon, 2026-08-03: *"dialogue should have the option to stop the world. I'm not
-/// decided on what I want it to do in game."* So both are expressible and this
-/// is the policy; Jon decided the DEFAULT on 2026-08-06, and it is per-seat —
-/// a conversation claims the talker's input and leaves the world running.
-///
-/// An experience that wants the old modal beat back sets this to `true` and gets
-/// exactly the previous behaviour. Nothing else has to change, because the
-/// world-stop and the input claim were already two different mechanisms wearing
-/// one switch.
+/// Nothing else has to change, because the world-stop and the input claim were already two
+/// different mechanisms wearing one switch.
 #[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct DialogueStopsTheWorld(pub bool);
 
 impl GameMode {
     /// Whether GAMEPLAY INPUT may route this frame.
-    ///
-    /// ⚠ **not the same question as whether the world is running** — see
-    /// [`Self::stops_the_world`]. They were one predicate until 2026-08-06, and
-    /// that conflation is what made "a conversation the world keeps running
-    /// through" inexpressible.
     pub fn allows_gameplay(self) -> bool {
         matches!(self, Self::Playing)
     }

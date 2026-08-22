@@ -4,18 +4,12 @@
 //! input adapter: is there something in reach, and what kind of thing is it?
 //! [`NearestInteractable`] carries the answer as an [`InteractVariant`].
 //!
-//! ## What this used to be, and why it is not
+//! **it was a whole affordance TABLE — *"what would each input do right now?"* for jump, attack,
+//! shield, dash, special and interact — and 1,200 of its 1,725 lines had no reader at all.** Its
+//! own module doc said the HUD read the table and that gameplay would follow; the HUD had since
+//! stopped, and gameplay never started.
 //!
-//! ⛔⛔ **it was a whole affordance TABLE — *"what would each input do right
-//! now?"* for jump, attack, shield, dash, special and interact — and 1,200 of
-//! its 1,725 lines had no reader at all.** Its own module doc said the HUD read
-//! the table and that gameplay would follow; the HUD had since stopped, and
-//! gameplay never started. A census on 2026-08-21 found `PlayerAffordances`,
-//! `PlayerIntent`, `Aim`, `PogoTargetBelow` and the Attack/Jump/Shield/Dash/
-//! Special variant families named NOWHERE outside this module — the only
-//! mention of the central product was its own rollback declaration.
-//!
-//! ⚠ **and it had just been CARVED out of the monolith into this crate**, which
+//! **and it had just been CARVED out of the monolith into this crate**, which
 //! is how a dead subsystem earns a second life: a move is easy to justify and
 //! says nothing about whether anything wants the thing. Counting consumers is
 //! what "does this belong here" actually means, and it should have come first.

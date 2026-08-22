@@ -1,6 +1,3 @@
-//! The smash demo's shell, as a function — so the binary and the regression
-//! tests assemble the SAME app.
-//!
 //! This crate exists for one reason that the content crate cannot supply: until
 //! something runs the stage, every claim about the stocks loop is a unit test.
 //! The loop is spend → respawn → eliminate → end, and each step is covered
@@ -27,18 +24,13 @@ pub fn build_demo_app() -> App {
         ambition_platformer2d::render::rendering::debug_viz::DebugVizPlugin::default(),
     );
     compose_smash_shell(&mut app);
-    // ⛔⛔ **NOTHING SHEET-DRIVEN HAD ART IN THIS PROCESS** (D128). Every other
-    // demo shell installs the asset umbrella and the generic presentation after
-    // its composition registers catalogs — `ambition_demo_mary_o_app` and
-    // `ambition_demo_sanic_app` both do, and their twin comments call each other
-    // the regression test for the helper an external consumer depends on. This
-    // shell was the third and never joined.
+    // This shell was the third and never joined.
     //
-    // ⭐ **AFTER `compose_smash_shell`, because the plugin READS the catalogs it
+    // **AFTER `compose_smash_shell`, because the plugin READS the catalogs it
     // registers** — the plugin's own doc says so, and it panics naming the
     // composition-order mistake rather than booting art-less.
     //
-    // ⚠ **`visible` only, deliberately.** `build_demo_app` is also the harness
+    // **`visible` only, deliberately.** `build_demo_app` is also the harness
     // for this crate's regression tests, and they assert on a stepping
     // simulation rather than on pixels; sanic draws the same line by keeping its
     // asset install in `build_windowed_demo_app`.
@@ -76,13 +68,7 @@ fn compose_smash_shell(app: &mut App) {
     // Boot onto SELECT. Neither `PrimaryGameplay` nor `Launcher` says this, which
     // is why `starting_at` exists.
     .starting_at(ambition_demo_smash::SMASH_SELECT_ROUTE)
-    // ⭐ **the select screen's own score is no longer declared here.**
-    // `SmashSelectPlugin` declares it beside the route it belongs to, so it
-    // travels: the same character-select theme plays in this demo AND in the
-    // multi-game Ambition host, which is exactly what this comment used to say
-    // was impossible ("there is no per-route frontend music today — so the
-    // character-select score plays here and NOT there"). Fixed 2026-08-07 by
-    // keying frontend audio on the route instead of the process.
+    // by keying frontend audio on the route instead of the process.
     //
     // What stays here is the DEFAULT for this app's other frontend routes —
     // loading, and anything a future screen adds — which is a claim about this

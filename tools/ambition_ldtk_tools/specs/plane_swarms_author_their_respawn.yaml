@@ -1,14 +1,11 @@
 # The plane swarms' respawn policy moves onto their placements.
 #
-# ⭐ Respawn is SPAWN-CONTEXT (ADR 0022) — the field's own doc in the LDtk
-# definition says so: "Spawn-context (ADR 0022), not a property of the
-# character." These four placements authored none and inherited
-# `OnRoomReenter` from the `mary_o_snakes_on_a_*` roster rows — the archetype
-# table's LAST live job anywhere. The snake and slop placements already made
-# this exact move when THEIR rows were deleted (2026-08-11); these four are the
-# stragglers.
+# Respawn is SPAWN-CONTEXT (ADR 0022) — the field's own doc in the LDtk definition says so:
+# "Spawn-context (ADR 0022), not a property of the character." These four placements authored
+# none and inherited `OnRoomReenter` from the `mary_o_snakes_on_a_*` roster rows — the archetype
+# table's LAST live job anywhere.
 #
-# ⚠ same values the rows carried: no behaviour change, one authority fewer.
+# same values the rows carried: no behaviour change, one authority fewer.
 #
 #   PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools entity set-field \
 #       tools/ambition_ldtk_tools/specs/plane_swarms_author_their_respawn.yaml \

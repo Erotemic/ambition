@@ -155,10 +155,8 @@ fn climbing_passes_through_solid_blocks_overlapping_ladder() {
     scratch.body_mode.body_mode = crate::player_state::BodyMode::Climbing;
     scratch.env_contact.climbable = world.climbable_at(scratch.kinematics.aabb());
     let initial_y = scratch.kinematics.pos.y;
-    // Drive 60 frames at fixed-60Hz climb-up. With the
-    // passthrough rule, the player should make significant
-    // upward progress past the platform at y=460. Without the
-    // fix, they'd hit the platform from below and stop.
+    // With the passthrough rule, the player should make significant upward progress past the
+    // platform at y=460.
     for _ in 0..60 {
         let _ = update_player_with_tuning_scratch(
             &world,

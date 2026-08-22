@@ -68,14 +68,13 @@ fn app_with_populated_mirrors() -> App {
 
 /// **The save-applied latch dies with the world it describes.**
 ///
-/// ⛔⛔ **it did not, and that is D125's second carried risk.** `SaveRestored`
-/// means *"the loaded save has been applied to THIS WORLD"*, is set true in
-/// exactly one place, and was set false NOWHERE — so the second session in a
-/// process returned early from both restores and inherited session A's
-/// `AuthoredOccurrences`, `OccurrenceBaseline`, `CustodyBaseline` and
-/// `MintedItemBaseline`. A consumed occurrence stayed consumed into a new game.
+/// **it did not, and that is second carried risk.** `SaveRestored` means *"the loaded save has
+/// been applied to THIS WORLD"*, is set true in exactly one place, and was set false NOWHERE —
+/// so the second session in a process returned early from both restores and inherited session
+/// A's `AuthoredOccurrences`, `OccurrenceBaseline`, `CustodyBaseline` and `MintedItemBaseline`.
+/// A consumed occurrence stayed consumed into a new game.
 ///
-/// ⭐ **resetting the latch is the whole fix**: `AuthoredOccurrences::adopt_rows`
+/// **resetting the latch is the whole fix**: `AuthoredOccurrences::adopt_rows`
 /// REPLACES rather than merges, so session B's restore rewrites all four ledgers
 /// from the save, empty or not. One value, not four.
 #[test]

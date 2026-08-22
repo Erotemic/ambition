@@ -1,11 +1,5 @@
 name: Tests
 
-# Disabled 2026-05-07 per Jon: "I'd also like to disable building this on
-# github actions for now while we are iterating very fast. There is no
-# need to churn the servers with rust CIs until we have something we
-# really need github action testing for. Keep the structure just skip
-# it for now with a note."
-#
 # To re-enable: switch the trigger back to the original push/pull_request
 # block (kept commented below). The structure of the jobs stays intact
 # so re-enabling is a one-line change.
@@ -31,26 +25,10 @@ jobs:
         with:
           shared-key: engine
       - name: cargo test -p ambition_platformer2d_core
-        # Library + integration tests (proptest_foundation, body_shape_fits_at,
-        # wall_jump_fuzz). The engine has no system libraries so this is a
-        # cheap smoke gate. (Crate was `ambition_engine` when this was authored;
-        # renamed to `ambition_platformer2d_core` — the old `-p ambition_engine` errored.)
-        #
-        # ROT NOTE (2026-07-03): the per-crate jobs here miss leaf-crate unit
-        # tests — `-p ambition_platformer2d_actor_monolith --lib` / `-p ambition_app` build the
-        # other crates' LIBS but not their `#[cfg(test)]` targets, so those rot
-        # unseen (found: ambition_vfx, architecture_boundaries stale for many
-        # commits). When re-enabling, add a `cargo test --workspace` gate.
+        # Library + integration tests (proptest_foundation, body_shape_fits_at, wall_jump_fuzz).
+        # The engine has no system libraries so this is a cheap smoke gate.
         run: cargo test -p ambition_platformer2d_core
       - name: cargo test -p ambition_workspace_policy
-        # The 187 repository-structure rules: dependency boundaries, source
-        # scans, module-size limits, architecture ratchets and their poison
-        # tests. It was RED with 12 engine-scope violations on 2026-08-15 and is
-        # green now, and until this step nothing ran it at all — not
-        # `run_tests.py`, not CI, not the goal guard. Three slices landed
-        # violations in one day and nothing caught them, which is the whole
-        # argument for a gate.
-        #
         # It belongs in THIS job rather than the headless one because it
         # inspects the workspace as parsed manifests and source text and
         # deliberately links no production crate — its own manifest says
@@ -118,24 +96,17 @@ jobs:
         with:
           python-version: '3.x'
       - name: broken doc-link ratchet
-        # ⛔ THE PROJECT GATE CANNOT SEE THIS CLASS. `cargo check --all-targets`
-        # compiles code; an unresolved `[`Item`]` is a RUSTDOC lint, so a
-        # deletion that leaves its references behind rots in the space between
-        # the two commands. 199 of them had accumulated by 2026-08-12 and
-        # nothing had ever failed (ledger D103).
+        # THE PROJECT GATE CANNOT SEE THIS CLASS. `cargo check --all-targets` compiles code; an
+        # unresolved `[`Item`]` is a RUSTDOC lint, so a deletion that leaves its references behind
+        # rots in the space between the two commands.
         #
-        # ⚠ a RATCHET, not a sweep: the per-crate counts may fall and must not
+        # a RATCHET, not a sweep: the per-crate counts may fall and must not
         # rise. Lower them and bank it with `--update` in the same commit.
         # It also fails when a crate produces NO rustdoc output, because zero
         # warnings from a build that did not happen is not a score.
         run: python scripts/check_doc_link_ratchet.py --check
       - name: loading-zone name ratchet
-        # ⛔ A `LoadingZone`'s `name` is RENDERED TO THE PLAYER, and 130 of 151
-        # were authoring ids — so the flagship's opening room greeted a player
-        # with `wake_room_arrival` under the robot (ledger D161). Nothing could
-        # fail for it: the string is content, not code.
-        #
-        # ⚠ a RATCHET, per world, so the developer sandbox's remaining 102
+        # a RATCHET, per world, so the developer sandbox's remaining 102
         # cannot mask a rise in a shipped one. It also fails when it observes NO
         # zones at all, because a moved directory reads as a perfect score.
         run: python scripts/check_zone_name_ratchet.py --check

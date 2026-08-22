@@ -55,7 +55,6 @@ DEFAULT_ENTITY_ICON_ORDER = [
     "LockWall",
     "PogoOrb",
     "ReboundPad",
-    # --- appended 2026-06-21 to cover the remaining entity defs ---
     "Solid",
     "OneWayPlatform",
     "BlinkWall",
@@ -90,7 +89,6 @@ DEFAULT_ICON_COLORS = {
     "LockWall": (185, 28, 28),
     "PogoOrb": (250, 204, 21),
     "ReboundPad": (251, 146, 60),
-    # --- appended 2026-06-21 ---
     "Solid": (107, 114, 128),
     "OneWayPlatform": (148, 163, 184),
     "BlinkWall": (34, 211, 238),

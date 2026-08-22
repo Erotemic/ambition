@@ -1,8 +1,6 @@
-//! Reverse-gravity SYMMETRY suite, driven entirely through the headless
-//! action/observation harness. Each mechanic is exercised under default "down"
-//! gravity AND inverted "up" gravity; a mechanic is symmetric iff it behaves the
-//! same way relative to the gravity direction. Built while hunting (and fixing)
-//! the pogo gravity-inversion bug; see docs note in the run plan.
+//! Reverse-gravity SYMMETRY suite, driven entirely through the headless action/observation
+//! harness. Each mechanic is exercised under default "down" gravity AND inverted "up" gravity;
+//! a mechanic is symmetric iff it behaves the same way relative to the gravity direction.
 //!
 //! Uses the world-observability added to `AgentObservation` (gravity_dir,
 //! enemies, pickups) and the `Platformer2dSimHarness` scenario scaffolding
@@ -62,10 +60,8 @@ fn free_fall_acceleration_is_gravity_symmetric() {
     );
 }
 
-/// Drop the player onto a pogo orb placed in their GRAVITY-down direction, with
-/// the pogo ability, and return the post-bounce velocity-away-from-gravity. A
-/// correct pogo launches the player back OPPOSITE gravity under either
-/// orientation — the regression this suite was built around.
+/// Drop the player onto a pogo orb placed in their GRAVITY-down direction, with the pogo ability,
+/// and return the post-bounce velocity-away-from-gravity.
 fn pogo_away_speed(gdir: (f32, f32)) -> f32 {
     let mut sim = open_sim();
     for _ in 0..5 {
@@ -158,10 +154,9 @@ fn descend(gdir: (f32, f32), jump: bool) -> AgentAction {
     }
 }
 
-/// Rest the player on an injected floor (solid or one-way) in OPEN air, on the
-/// gravity-facing face, so the test is independent of room geometry. The platform
-/// sits at an open spot; the player is dropped onto it from the anti-gravity side.
-/// Returns (sim, floor_center_y). Asserts the player actually landed on OUR floor.
+/// Rest the player on an injected floor (solid or one-way) in OPEN air, on the gravity-facing face,
+/// so the test is independent of room geometry. The platform sits at an open spot; the player is
+/// dropped onto it from the anti-gravity side. Returns (sim, floor_center_y).
 fn settle_on_floor(gdir: (f32, f32), one_way: bool) -> (Platformer2dSimHarness, f32) {
     let mut sim = open_sim();
     for _ in 0..5 {
@@ -224,12 +219,9 @@ fn crouch_is_gravity_symmetric() {
     );
 }
 
-/// Drop-through a one-way platform = descend + jump. The reported bug: under
-/// flipped gravity this did nothing — because pressing the descend key (screen-up)
-/// ALSO fires crouch, whose world-bottom resize anchor floated the body off the
-/// ceiling and dropped `on_ground`, killing the drop-through gate. With the
-/// gravity-relative resize this works under both orientations. Full-app test (runs
-/// the sandbox crouch system, unlike the engine-level drop test).
+/// Drop-through a one-way platform = descend + jump. With the gravity-relative resize this
+/// works under both orientations. Full-app test (runs the sandbox crouch system, unlike the
+/// engine-level drop test).
 #[test]
 fn drop_through_one_way_is_gravity_symmetric_full_app() {
     let drops = |gdir: (f32, f32)| -> bool {

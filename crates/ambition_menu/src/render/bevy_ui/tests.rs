@@ -203,8 +203,6 @@ fn drain_activations(app: &mut App) -> Vec<crate::MenuActionActivated<Action>> {
 
 #[test]
 fn a_row_activates_when_the_pointer_comes_up_on_it_not_when_it_goes_down() {
-    // ⛔ this bridge used to fire on `Pressed`, which is why a finger that
-    // lands on a row and slides to scroll had already chosen it.
     let mut app = build_app();
     install_bevy_ui_menu_actions::<Action>(&mut app);
     spawn_view(&mut app, 0, None);
@@ -244,7 +242,7 @@ fn a_row_activates_when_the_pointer_comes_up_on_it_not_when_it_goes_down() {
 
 #[test]
 fn a_press_that_leaves_the_row_activates_nothing() {
-    // ⛔ a leave and a release are the same `Interaction::None`, and treating
+    // a leave and a release are the same `Interaction::None`, and treating
     // one as the other is what made dragging on a list dangerous.
     let mut app = build_app();
     install_bevy_ui_menu_actions::<Action>(&mut app);
@@ -265,7 +263,7 @@ fn a_press_that_leaves_the_row_activates_nothing() {
 
 #[test]
 fn an_arm_survives_the_page_respawning_under_the_finger() {
-    // ⚠ the reason the arm is keyed on the ACTION: a menu page rebuilds its
+    // the reason the arm is keyed on the ACTION: a menu page rebuilds its
     // controls, so press and release land on two different entities for one
     // control. That is the `Pointer<Click>` failure this bridge must not have.
     let mut app = build_app();
@@ -419,9 +417,8 @@ fn scrollbar_spawns_track_and_thumb_with_right_fraction() {
         .query_filtered::<&Pickable, With<BevyUiMenuScrollbarThumb>>();
     let thumbs: Vec<_> = thumb_q.iter(app.world()).collect();
     assert_eq!(thumbs.len(), 1, "a scrolling scrollbar draws a thumb");
-    // Regression: the thumb sits on top of the track but the TRACK owns the drag
-    // (it carries the press/drag handlers). The thumb must be non-pickable so a
-    // grab on the thumb falls through to the track — otherwise click-drag breaks.
+    // The thumb must be non-pickable so a grab on the thumb falls through to the track — otherwise
+    // click-drag breaks.
     assert!(
         !thumbs[0].is_hoverable && !thumbs[0].should_block_lower,
         "scrollbar thumb must be Pickable::IGNORE so the track owns the drag",
@@ -588,10 +585,6 @@ fn scrollbar_fraction_maps_pointer_into_track() {
 /// `Justify::Center` then centres the line inside a box exactly as wide as the
 /// line, which does nothing. Every "centred" heading and footer in the shell was
 /// drawn to the RIGHT of where it was asked to be.
-///
-/// On the launcher — the first screen anybody sees — that put the game title on
-/// top of the first menu row and ran the key hint past the panel edge. Found by
-/// capturing the route and looking at it (2026-07-29).
 #[test]
 fn a_centred_text_node_spans_its_container_instead_of_starting_at_the_anchor() {
     use super::spawn::text_node;
@@ -619,13 +612,6 @@ fn a_centred_text_node_spans_its_container_instead_of_starting_at_the_anchor() {
 
 /// **The size a menu is SPAWNED at is never the size it is presented at, and
 /// the gap has to close inside one frame.**
-///
-/// A text node is built with no window in reach, so it carries the 1080p
-/// reference size until `resolve_menu_text_size` corrects it against the live
-/// one. While that correction lived in `Update` it landed on the FOLLOWING
-/// frame, and the launcher — which rebuilds its whole tree whenever the cursor
-/// moves — presented one frame of oversized text on every arrow press and every
-/// mouse hover. Jon saw it as text "growing and then shrinking".
 ///
 /// This asserts the closing, not the schedule: one update, spawned and
 /// corrected, whatever set it ends up in.

@@ -1,10 +1,6 @@
 //! Dimension-independent special-relativity foundations.
 //!
-//! This crate deliberately owns no Bevy or platformer vocabulary. Minkowski
-//! spacetime is the first exact model behind Ambition's spacetime-provider
-//! boundary; a later curved provider can reuse the clock, interval, observer,
-//! signal, and regression vocabulary without treating one global inertial frame
-//! as an engine law.
+//! This crate deliberately owns no Bevy or platformer vocabulary.
 
 use core::fmt;
 
@@ -123,7 +119,6 @@ pub fn minkowski_interval(
 pub struct DopplerMeasurement {
     /// Frequency in the selected Minkowski coordinate chart.
     pub coordinate_frequency: f64,
-    /// Frequency measured by the receiving observer's local clock.
     pub observed_frequency: f64,
     /// `observed_frequency / emitted_proper_frequency`.
     pub total_factor: f64,
@@ -227,8 +222,6 @@ pub fn coordinate_frequency_from_emitter(
     (frequency.is_finite() && frequency > 0.0).then_some(frequency)
 }
 
-/// Frequency measured by a receiving observer from a signal whose frequency is
-/// represented in the current Minkowski coordinate chart.
 pub fn observed_frequency_from_coordinate(
     coordinate_frequency: f64,
     photon_direction: [f64; 3],
@@ -462,7 +455,7 @@ pub fn solve_null_intercept_constant_velocity(
 
 /// Rapidity corresponding to one signed collinear velocity.
 ///
-/// ⚠ **`atanh`/`tanh` are libm, and libm is not bit-identical across
+/// **`atanh`/`tanh` are libm, and libm is not bit-identical across
 /// platforms.** Nothing in the simulation calls this today — the rollback path
 /// runs through [`minkowski_clock_rate`], whose only transcendental is `sqrt`,
 /// which IEEE-754 pins exactly. If a future mechanic composes velocities inside

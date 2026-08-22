@@ -211,15 +211,6 @@ fn the_variant_order_is_the_precedence() {
 }
 
 /// **Airborne past the lip of a platform is RECOVERY, even inside the room.**
-///
-/// `StageView` is the ROOM. On a platform stage the playable floor is a subset
-/// of it, so a fighter that walked off a 420px platform in a 640px room was
-/// *inside the stage* for another hundred pixels of falling: L1 answered
-/// `Neutral`, L2 offered `Approach`/`Retreat`/`Jump`, and `Recover` — the one
-/// verb that means "get back" — was not on the list until the body had left the
-/// ROOM. Traced at level 9 on 2026-07-31: airborne at x=582 and x=627 over a
-/// platform ending at 530, drifting right at 532 px/s, offered `[Retreat, Jump]`
-/// and taking `Retreat` both times.
 #[test]
 fn airborne_with_nothing_underneath_is_recovering_even_inside_the_room() {
     let platform = crate::perception::PerceivedSolid {

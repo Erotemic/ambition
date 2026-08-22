@@ -1,11 +1,4 @@
-// Falling-sand room regression: needs the sand slice (`falling_sand`) and the
-// RL stepping API. Compiled out (empty module) when either is disabled.
 #![cfg(all(feature = "falling_sand", feature = "rl_sim"))]
-//! Authored-room regression for the FS2/FS3 sand slice: the REAL
-//! `falling_sand_room`, entered by semantic room id, with the REAL authored
-//! sand switch activated semantically (by its authored id — no navigation
-//! coordinates, no simulated walking to a lever).
-//!
 //! What it pins, in order down the pipeline:
 //!
 //! 1. opening the spout EMITS matter into the sand grid,
@@ -18,10 +11,6 @@
 //! 5. that contribution PERSISTS across further ticks — the overlay is rebuilt
 //!    every frame, and the ledger must survive every rebuild (the transient
 //!    flicker defect this slice exists to kill).
-//!
-//! This is the initial regression oracle for the room, not the FS2 fixed-point
-//! proof — that lives as a property test on the grid itself in
-//! `ambition_content::falling_sand_sim::sand_grid`.
 
 use ambition_content::falling_sand_sim::{FallingSandWorld, ROOM_ID, SAND_SWITCH};
 

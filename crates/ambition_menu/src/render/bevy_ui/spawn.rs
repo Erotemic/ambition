@@ -1,6 +1,3 @@
-//! Flat (bevy_ui) node spawning: turns a `MenuNode` rect/control/text/icon into
-//! `Node` entities + the panel-layer z-sort. Split out of the grid renderer;
-//! `use super::*` reaches the shared color/layout helpers + marker components.
 
 use super::*;
 /// Background panels sort by size, like the cube's DEPTH_BACKGROUND / LARGE_PANEL /
@@ -48,10 +45,6 @@ pub(super) fn spawn_node<Action>(
                 TextColor(to_color(*color)),
                 TextFont {
                     font_size: crate::MenuTextHeightFraction(*size).reference_pixels(),
-                    // ⛔ leaving this at `..default()` resolves Bevy's built-in
-                    // `FiraMono-subset.ttf`, which is what drew a hollow box for
-                    // `·` and `—` in every menu — probed by forcing it back.
-                    // See `MenuFont` for what is measured and what is not.
                     font: font.cloned().unwrap_or_default(),
                     ..default()
                 },
@@ -77,10 +70,6 @@ pub(super) fn spawn_node<Action>(
                 TextColor(to_color(*color)),
                 TextFont {
                     font_size: crate::MenuTextHeightFraction(*size).reference_pixels(),
-                    // ⛔ leaving this at `..default()` resolves Bevy's built-in
-                    // `FiraMono-subset.ttf`, which is what drew a hollow box for
-                    // `·` and `—` in every menu — probed by forcing it back.
-                    // See `MenuFont` for what is measured and what is not.
                     font: font.cloned().unwrap_or_default(),
                     ..default()
                 },
@@ -125,19 +114,6 @@ pub(super) fn spawn_node<Action>(
 /// picking/nav can map entity → action/focus identically across backends.
 #[allow(clippy::too_many_arguments)]
 /// Place an absolutely-positioned text node so its ALIGNMENT means what it says.
-///
-/// ⚠ a text node with no width shrinks to its content, so `left: Percent(50)` puts
-/// the node's LEFT EDGE at the middle and the line runs off to the right —
-/// `Justify::Center` then centres the line inside a box exactly as wide as the
-/// line, which is a no-op. Every "centred" heading and footer in the shell was
-/// therefore anchored at the centre and drawn to the right of it: on the launcher
-/// the game title overlapped the first menu row and the key hint ran past the
-/// panel edge (measured 2026-07-29).
-///
-/// The HUD hit this and fixed it for its own cards; the comment there is worth
-/// repeating because it is the whole bug: *"it reads as 'the HUD is in the middle
-/// of the screen' rather than as a centred card, which is exactly how this
-/// shipped."*
 ///
 /// So a centred line SPANS its container and centres inside it, and a right-aligned
 /// one spans up to its anchor. Only `Left` treats `x` as a left edge, which is the
@@ -244,12 +220,9 @@ fn spawn_control<Action>(
         control.with_children(|c| {
             c.spawn((
                 Text::new(label.to_string()),
-                // ⚠ a `Text` with no `TextFont` is not "unstyled" — Bevy inserts
-                // the default one as a required component, and that resolves the
-                // built-in ASCII-only `FiraMono-subset.ttf`. This is the ROW
-                // LABEL, so it carries whatever a game named its entries; the
-                // title and footer above were fixed first and these were missed
-                // because they had no `TextFont` literal to notice.
+                // a `Text` with no `TextFont` is not "unstyled" — Bevy inserts the default one
+                // as a required component, and that resolves the built-in ASCII-only
+                // `FiraMono-subset.ttf`.
                 TextFont {
                     font: font.cloned().unwrap_or_default(),
                     ..default()

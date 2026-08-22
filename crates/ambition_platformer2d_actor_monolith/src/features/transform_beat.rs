@@ -1,7 +1,6 @@
 //! **The transformation moment** — the beat a body plays when it becomes
 //! something else.
 //!
-//! Jon asked for this twice, once per demo: *"in mary-o we need a 'growing'
 //! animation when she grows or transforms. In single player this might request
 //! that time around the transforming character slows down as an effect, but in a
 //! multi-player setting the time slow needs to be agreed upon by all players"*,
@@ -13,14 +12,11 @@
 //!
 //! ## The multiplayer clause is structural, not promised
 //!
-//! The beat never touches `ClockState::time_scale`. It writes a
-//! [`ClockScaleRequest`], and `apply_clock_scale_requests` consults the active
-//! [`RegimePolicy`] before granting one — `Regime::Solo` grants, and a regime
-//! that cannot afford one participant bending everyone's clock denies. That is
-//! the agreement Jon is describing: a transformation ASKS for time to slow, and
-//! the regime in force answers. A demo that dilated time by writing the scale
-//! itself would be correct in single-player and wrong the moment a second
-//! participant existed, silently.
+//! The beat never touches `ClockState::time_scale`. It writes a [`ClockScaleRequest`], and
+//! `apply_clock_scale_requests` consults the active [`RegimePolicy`] before granting one —
+//! `Regime::Solo` grants, and a regime that cannot afford one participant bending everyone's clock
+//! denies. A demo that dilated time by writing the scale itself would be correct in single-player
+//! and wrong the moment a second participant existed, silently.
 //!
 //! ## What it does
 //!
@@ -40,9 +36,7 @@ use ambition_time::{ClockDomain, WorldTime};
 
 use ambition_time::time_control::{ClockRequester, ClockScaleRequest};
 
-/// What a transformation looks like for THIS body. Authored per character by
-/// the game; absent means transformations are instant, which is a legitimate
-/// choice and what every body did before this existed.
+/// What a transformation looks like for THIS body.
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct TransformBeatPolicy {
     /// Wall-clock seconds the beat holds.
@@ -330,8 +324,6 @@ mod tests {
             "the beat did not request its dilation ({scales:?})",
         );
 
-        // And it hands the clock back rather than leaving the world in slow
-        // motion — the failure mode where one powerup slows the rest of the run.
         advance(&mut app, 0.3);
         let requests = app.world().resource::<Messages<ClockScaleRequest>>();
         let mut cursor = requests.get_cursor();
@@ -346,11 +338,8 @@ mod tests {
     /// in it: a body can ALREADY be untouchable for a reason of its own — a
     /// burning star, Sanic's super form — when a transformation starts.
     ///
-    /// The beat used to capture that as a bool and write it back on the way out,
-    /// which handled this case and would have broken the moment the other reason
-    /// STARTED mid-beat (the restore would have erased it). It takes and
-    /// releases its own reason now, so both orderings hold for the same reason
-    /// rather than one being handled and the other being an accident.
+    /// It takes and releases its own reason now, so both orderings hold for the same reason rather
+    /// than one being handled and the other being an accident.
     #[test]
     fn the_beat_takes_its_own_reason_and_leaves_every_other_one_alone() {
         use ambition_characters::actor::Invulnerability;

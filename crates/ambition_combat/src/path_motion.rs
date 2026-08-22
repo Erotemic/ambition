@@ -32,8 +32,7 @@ impl PathMotion {
         (self.segment, self.dir)
     }
 
-    /// Rewind the cursor. Clamped to the path's own segment count, because a blob
-    /// from a run whose content differed is a bug to survive, not to index with.
+    /// Rewind the cursor.
     pub fn set_cursor(&mut self, segment: usize, dir: i32) {
         self.segment = segment.min(self.path.points.len().saturating_sub(1));
         self.dir = if dir >= 0 { 1 } else { -1 };
@@ -49,13 +48,10 @@ impl PathMotion {
         }
         let mut remaining = self.path.speed * dt;
         while remaining > 0.0 {
-            // ⭐ `Loop` CLOSES its circuit — the `% len` is the leg back to the
-            // first point. Without it the cursor returned to segment 0 while the
-            // POSITION was still at the last point, so the mover retraced the
-            // final leg backwards and never revisited the first. Kept identical
-            // to `ambition_platformer2d_world::platforms`, which had the same
-            // defect and the same fix; these two steppers are the same algorithm
-            // twice and must not drift. (Queue D12.)
+            // `Loop` CLOSES its circuit — the `% len` is the leg back to the first point.
+            // Without it the cursor returned to segment 0 while the POSITION was still at the
+            // last point, so the mover retraced the final leg backwards and never revisited the
+            // first.
             let target_index = if self.dir >= 0 {
                 let next = self.segment + 1;
                 if matches!(
@@ -75,7 +71,7 @@ impl PathMotion {
             let to_target = target - pos;
             let distance = to_target.length();
             if distance <= 0.001 {
-                // ⛔ **A CURSOR THAT DOES NOT MOVE ENDS THE FRAME, or this spins
+                // **A CURSOR THAT DOES NOT MOVE ENDS THE FRAME, or this spins
                 // forever.** This branch consumes no `remaining`, so it is only
                 // safe while every advance changes where the mover is heading. A
                 // two-point `Loop` path breaks that: `last_segment` is
@@ -83,13 +79,6 @@ impl PathMotion {
                 // "wraps" to segment 0 — whose target is the point the mover is
                 // already standing on. Zero distance, cursor unchanged,
                 // `continue`, forever.
-                //
-                // ⚠ found in the platform copy of this loop
-                // (`ambition_platformer2d_world::platforms`), which hung a test
-                // binary. The two steppers are line-for-line the same shape, so
-                // the same guard belongs in both — this one drives spike balls,
-                // patrol dummies and scripted hazards. See queue D12 for why
-                // `Loop` is broken rather than merely dangerous.
                 let before = (self.segment, self.dir);
                 self.advance_segment();
                 if (self.segment, self.dir) == before {
@@ -176,10 +165,6 @@ fn lookahead_advance(
 
 #[cfg(test)]
 mod path_motion_tests {
-    //! Moving-platform path following. advance walks the position toward
-    //! the next waypoint by speed*dt; lookahead_advance is the (segment,
-    //! dir) cursor whose Once/Loop/PingPong reversal logic is the
-    //! bug-prone part (off-by-one at the ends flips a platform's travel).
     use super::*;
     use ambition_platformer2d_core::{KinematicPath, KinematicPathMode};
 
@@ -272,14 +257,12 @@ mod path_motion_tests {
         assert_eq!(dir, 1, "reverse at 0 flips to forward");
     }
 
-    /// ⛔ **The same two-point `Loop` spin the platform stepper had, and the same
+    /// **The same two-point `Loop` spin the platform stepper had, and the same
     /// closed circuit that fixes it.**
     ///
-    /// These two `advance` loops are line-for-line the same algorithm, so the
-    /// defect, the termination guard and the `% len` closing leg are all the same.
-    /// Found in the platform copy, where it hung a test binary outright; this
-    /// asserts that a spike ball or patrol dummy on a two-waypoint looping path
-    /// both RETURNS from its frame and goes round rather than stopping.
+    /// Found in the platform copy, where it hung a test binary outright; this asserts that a spike
+    /// ball or patrol dummy on a two-waypoint looping path both RETURNS from its frame and goes
+    /// round rather than stopping.
     #[test]
     fn a_two_point_looping_path_circulates_instead_of_spinning() {
         let a = ae::Vec2::new(0.0, 0.0);

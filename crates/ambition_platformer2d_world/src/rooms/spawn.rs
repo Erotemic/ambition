@@ -139,10 +139,8 @@ fn player_body_clear(world: &ae::World, center: ae::Vec2, half: ae::Vec2) -> boo
 
 #[cfg(test)]
 mod spawn_tests {
-    //! Spawn placement safety: clamping into the room and the spiral
-    //! search that nudges a player out of a solid. Embedding the player
-    //! in a solid on a room transition is a real bug class (there's even
-    //! a CI guard for authored spawns), so the repair path is pinned.
+    //! Spawn placement safety: clamping into the room and the spiral search that nudges a
+    //! player out of a solid.
     use super::*;
 
     fn world_with(blocks: Vec<ae::Block>) -> ae::World {

@@ -43,9 +43,6 @@ fn scene(me_x: f32, foe_x: f32) -> WorldView {
     }
 }
 
-/// A press planted mid-flight: the ordinary forward jab, at `ticks` from
-/// maturing. The BINDING is what the press will be — since 2026-07-31 the
-/// pending action carries it, so a planted press has to name one too.
 fn planted_press(ticks: u32) -> PendingAttack {
     PendingAttack {
         ticks,
@@ -89,13 +86,7 @@ fn run(cfg: &FighterCfg, state: &mut FighterState, ticks: u32) -> Vec<ActorContr
     frames
 }
 
-/// **⛔⛔ THE BRAIN THE SMASH ROSTER ACTUALLY SEATS KNOWS IT IS IN A CAPTURE.**
-///
-/// The capture arms were written against the Smash brain, and the smash roster
-/// seats FIGHTERS (`the_duelist_preset_is_a_fighter_brain`) — so in a real match
-/// a held CPU ran its ordinary decision and asked to approach an opponent it
-/// could not walk toward, and a holding CPU did the same instead of spending
-/// the hold. The capability was real and had no adopter.
+/// **THE BRAIN THE SMASH ROSTER ACTUALLY SEATS KNOWS IT IS IN A CAPTURE.**
 ///
 /// Three claims, and the third is the one a happy-path test would miss:
 ///
@@ -179,9 +170,6 @@ fn the_intent_is_held_between_decisions() {
 }
 
 /// **A decision happens every `decision_interval_ticks`, not every tick.**
-///
-/// Measured through the clock the rig actually uses rather than by counting
-/// calls: `ticks_until_decision` is reloaded to the interval each time it fires.
 #[test]
 fn decisions_run_on_the_configured_cadence() {
     let mut cfg = FighterCfg::new(immediate_profile());
@@ -274,18 +262,18 @@ fn the_same_seed_produces_the_same_fighter() {
     );
 }
 
-/// ⛔⛔ **THE SAME SEED SHOWN A DIFFERENT WORLD IS ALLOWED TO DECIDE
+/// **THE SAME SEED SHOWN A DIFFERENT WORLD IS ALLOWED TO DECIDE
 /// DIFFERENTLY**, and this is the half that keeps Emmy Ethereal's authored mirror
 /// symmetry an emergent property rather than a puppet show.
 ///
-/// ⭐ [`the_same_seed_produces_the_same_fighter`] above is the other half:
+/// [`the_same_seed_produces_the_same_fighter`] above is the other half:
 /// *identical cognition + symmetric information → symmetric behaviour*, which is
 /// exactly what her trait buys by putting two CPU twins on one stream (see
 /// `CharacterDefinition::preserves_mirror_symmetry`). ⇒ **together the pair states
 /// the whole invariant**: the mirror follows from shared cognition reading a
 /// symmetric stage, so it must BREAK as soon as the stage stops being symmetric.
 ///
-/// ⚠ **a forced mirror would pass the first test and fail this one**, which is the
+/// **a forced mirror would pass the first test and fail this one**, which is the
 /// only reason this test earns its place: it is the falsifier for an
 /// implementation that synchronised two fighters' actions instead of their
 /// starting streams. Noether's theorem is that claim precisely — the symmetry has
@@ -306,7 +294,7 @@ fn the_same_seed_shown_a_different_world_may_decide_differently() {
          the mirror at all"
     );
 
-    // ...and two DIFFERENT worlds. ⭐ **the foe is on the OPPOSITE SIDE**, which is
+    // ...and two DIFFERENT worlds. **the foe is on the OPPOSITE SIDE**, which is
     // the asymmetry this fixture can actually express: it supplies no moveset, so
     // neither fighter ever has an attack option to choose between, and the only
     // decision on the table is which way to go. That makes it the sharpest
@@ -331,7 +319,7 @@ fn the_same_seed_shown_a_different_world_may_decide_differently() {
          foes being on opposite sides — that would mean behaviour is synchronised \
          rather than emerging from what each one observes"
     );
-    // ⭐ and name the divergence rather than only counting it: they walk APART.
+    // and name the divergence rather than only counting it: they walk APART.
     assert!(
         right_out.locomotion.x * left_out.locomotion.x < 0.0,
         "the two twins did not head in opposite directions toward opposite foes \
@@ -394,7 +382,7 @@ fn a_brain_that_has_seen_nothing_emits_neutral() {
 
 /// A body standing on a ledge narrower than it can commit to walking across.
 ///
-/// ⚠ the width is load-bearing and 80 px was NOT narrow enough. The veto asks
+/// the width is load-bearing and 80 px was NOT narrow enough. The veto asks
 /// what a COMMITTED walk does — one decision interval of input, then coasting —
 /// and at 160 px/s an interval is only a few px. A ledge the body can step
 /// around inside one decision is a ledge no honest veto fires on, which is the
@@ -410,9 +398,7 @@ fn on_a_ledge(me_x: f32) -> WorldView {
 
 /// **A chosen verb replaces the held movement; it does not add to it.**
 ///
-/// `frame` arrives holding the last decision's answer, so a verb that only adds
-/// inherits the rest. Jump used to do exactly that: veto Retreat, choose Jump,
-/// and the body jumps while still walking the direction the veto struck off.
+/// `frame` arrives holding the last decision's answer, so a verb that only adds inherits the rest.
 #[test]
 fn choosing_a_verb_cancels_the_walk_the_last_decision_left_running() {
     let profile = FighterBrainProfile {
@@ -475,13 +461,9 @@ fn the_same_brain_on_solid_ground_still_walks() {
 
 /// **When every option is fatal, take the one that dies LATEST — never nothing.**
 ///
-/// The first cut of this halted instead, on the reading that a body told every
-/// direction kills it should stop. That is right on the ground and wrong in the
-/// air, and the difference cost a measurable regression: once `Recover` became
-/// modellable the rollout could condemn it, `Recover` is the ONLY verb offered
-/// in `Situation::Recovery`, so an airborne body's list emptied and the halt
-/// replaced a doomed recovery with a certain one. Level 9 survival fell 40.2s to
-/// 9.2s the moment the model got good enough to condemn the verb.
+/// The first cut of this halted instead, on the reading that a body told every direction kills it
+/// should stop. Level 9 survival fell 40.2s to 9.2s the moment the model got good enough to condemn
+/// the verb.
 ///
 /// The scenario is a body already in the air with no floor beneath it, which is
 /// where the shadow has no `ground_level` at all.
@@ -558,13 +540,13 @@ fn the_jump_button_does_not_stay_held_after_the_jump() {
 ///
 /// A press is armed at one decision and matures several ticks later, and the
 /// situation can change in between. On a platform stage it does, in the one
-/// direction that matters: the trace of a level-9 self-KO (2026-07-31) caught an
+/// direction that matters: the trace of a level-9 self-KO caught an
 /// attack armed while airborne OVER the lip — still `Neutral` — maturing two
 /// decisions later with the body past the edge and asking to `Recover`. Every
 /// attack in this engine lunges, so the fighter's own queued swing carried it
 /// further out while its emitted input said "back".
 ///
-/// ⛔ **"L2 already refuses to OFFER attacks in `Recovery`" is no longer true**,
+/// **"L2 already refuses to OFFER attacks in `Recovery`" is no longer true**,
 /// and the correction is the point rather than a tidy-up: L2 now offers a
 /// recovering body its LIFTING moves, because a genre fighter's answer to being
 /// offstage IS a move. So this is a DROP, not a ban — the stale press dies and
@@ -609,7 +591,6 @@ fn a_press_in_flight_is_dropped_when_the_body_starts_recovering() {
 
 /// **One decision to Blink is ONE press edge.**
 ///
-/// GPT 5.6, 2026-07-31 (finding 3). The brain stores its last emitted frame in
 /// `FighterState::held` and clones it every tick between decisions, clearing the
 /// edges by hand — melee, jump and dash. `MovementVerb::Blink` sets
 /// `blink_pressed`, which was not among them, so a single choice re-emitted a
@@ -696,18 +677,12 @@ fn the_held_frame_carries_sustains_and_never_re_emits_an_edge() {
 
 /// **The chosen attack is PRESSED as itself.**
 ///
-/// GPT 5.6, 2026-07-31 (finding 2): L2 scored every move, L3 refined the choice,
 /// `RefinedChoice::move_id` named one — and the emission set `melee_pressed` with
 /// a neutral axis, so the moveset resolved whatever the default gesture maps to.
 /// The binding now rides the pending press through the execution jitter, and
 /// this is the frame that comes out the other side.
 ///
-/// ⚠ **this is the emission half only.** The review's acceptance condition is a
-/// production `MovePlayback.spec.id`, and a test that observes `melee_pressed` is
-/// the disconnected seam itself — see the S26 row in the 72h queue for the
-/// end-to-end fixture this does not replace.
-///
-/// ⚠ **the fixture plants the STICK as well as the press (2026-08-15), because
+/// **the fixture plants the STICK as well as the press, because
 /// that is what an arming decision produces.** The direction stopped riding the
 /// `PendingAttack` struct and now rides the held frame, the way a hand holds a
 /// stick while the button is still on its way down — so a fixture that planted
@@ -765,11 +740,6 @@ fn a_pending_attack_matures_into_the_press_that_reaches_its_move() {
 /// **THE DIRECTION THE BRAIN CHOSE IS THE DIRECTION THE BODY RESOLVES — AT
 /// EITHER FACING, AND AT THE STRENGTH THAT WAS ASKED FOR.**
 ///
-/// ⛔⛔ the two defects this closes were measured in a CPU-versus-CPU match on
-/// 2026-08-15, and neither was reachable by any assertion in the repo, because
-/// every one of them stopped at the emitted frame and this is a claim about what
-/// the CONSUMER makes of it.
-///
 /// * **the mirror.** `attack_axis` is documented *"in the controlled actor's
 ///   local frame"* — the gravity-local frame `locomotion` is in — and
 ///   [`attack_dir_from_axis`] recovers *forward* by multiplying `axis.x` by the
@@ -784,7 +754,7 @@ fn a_pending_attack_matures_into_the_press_that_reaches_its_move() {
 ///   the flick window is a smash whatever the strength hint says. So a brain
 ///   that shoved the stick to 1.0 could not ask for a tilt at all.
 ///
-/// ⭐ **nothing here is a restatement of the brain's own arithmetic**: the axis
+/// **nothing here is a restatement of the brain's own arithmetic**: the axis
 /// goes through `resolve_attack_gesture` — the production function
 /// `resolve_attack_gestures` calls for every body, with the production tuning —
 /// and the assertion is on what came out the far side.
@@ -831,8 +801,6 @@ fn the_aimed_stick_round_trips_through_the_bodys_own_resolver() {
         .expect("a press was requested")
     };
 
-    // ⭐ THE MIRROR, both ways. A body facing LEFT is the half of the match the
-    // old code got backwards; a body facing RIGHT is the half that hid it.
     for facing in [1.0_f32, -1.0] {
         for direction in [
             AttackDir::Forward,
@@ -854,7 +822,7 @@ fn the_aimed_stick_round_trips_through_the_bodys_own_resolver() {
                  half the time",
                 out.direction
             );
-            // ⭐ and the STRENGTH, in the same breath: a Basic binding is a tilt.
+            // and the STRENGTH, in the same breath: a Basic binding is a tilt.
             assert_eq!(
                 out.strength,
                 AttackStrength::Tilt,
@@ -865,7 +833,7 @@ fn the_aimed_stick_round_trips_through_the_bodys_own_resolver() {
         }
     }
 
-    // ⛔ **THE POISON, and it is the same resolver.** A full deflection is still
+    // **THE POISON, and it is the same resolver.** A full deflection is still
     // a flick and still a smash — so the assertion above is measuring the
     // brain's chosen deflection rather than a resolver that answers `Tilt` to
     // everything.
@@ -904,7 +872,7 @@ fn the_aimed_stick_round_trips_through_the_bodys_own_resolver() {
         true,
         false,
         false,
-        // ⛔ the hint is FALSE on purpose: what is being shown is that the
+        // the hint is FALSE on purpose: what is being shown is that the
         // deflection ALONE decides, which is exactly why the tilt deflection
         // above has to be below the threshold.
         false,
@@ -922,13 +890,10 @@ fn the_aimed_stick_round_trips_through_the_bodys_own_resolver() {
 /// **Why did this fighter choose this action?** — asked headlessly, of the real
 /// brain, without reading a line of engine implementation.
 ///
-/// This is the program's first required inspector question and it is answered
-/// against the SAME `tick_fighter` the game runs. What it replaces is
-/// `AMBITION_FIGHTER_TRACE=1`: one `eprintln!` per decision, unqueryable,
-/// uncorrelatable, and — by its own docstring — unable to tell an original tick
-/// from a resimulated one.
+/// This is the program's first required inspector question and it is answered against the SAME
+/// `tick_fighter` the game runs.
 ///
-/// ⚠ the assertion is on FIELDS, never on the summary sentence. A test that
+/// the assertion is on FIELDS, never on the summary sentence. A test that
 /// greps prose breaks when somebody improves the wording, which teaches the next
 /// person that improving the wording is dangerous.
 #[cfg(feature = "causal")]
@@ -955,10 +920,8 @@ fn the_inspector_answers_why_this_fighter_chose_this_action() {
         }
     });
 
-    // The fact is ABOUT this fighter. It used to be about nobody — the brain has
-    // no sim id of its own, so the fact was a world fact that `explain` returned
-    // for any subject you asked about. The id arrives through the snapshot's
-    // world-in port, filled by the integration layer that assigns it.
+    // The fact is ABOUT this fighter. The id arrives through the snapshot's world-in port, filled
+    // by the integration layer that assigns it.
     let explanation = log.explain(41, &SubjectKey::Sim("fighter_1".into()));
     let decision = explanation
         .first("fighter_decision")
@@ -973,9 +936,6 @@ fn the_inspector_answers_why_this_fighter_chose_this_action() {
         "a foe 200px away and open floor: the brain chose something — {chose}"
     );
 
-    // 2. And WHY it was available: what was offered, and what the rollout struck
-    //    off. This is the pair the old text line existed to expose and the pair
-    //    no test could previously assert on.
     assert!(decision.get("offered").is_some());
     assert_eq!(
         decision.get("vetoed_count"),
@@ -1058,10 +1018,8 @@ fn recording_changes_nothing_about_what_the_brain_does() {
 /// did THIS one walk off the edge" with both of their reasoning interleaved and
 /// no way to separate it. For a fighting game that is every interesting tick.
 ///
-/// PROBED: with `snapshot.subject` left `None` on both — the state before this
-/// row — asking about `fighter_left` returns **4** decisions belonging to the
-/// other fighter. Not two: an unattributed fact is returned for EVERY subject,
-/// so both fighters' whole streams merge into each query.
+/// Not two: an unattributed fact is returned for EVERY subject, so both fighters' whole streams
+/// merge into each query.
 #[cfg(feature = "causal")]
 #[test]
 fn two_fighters_facts_do_not_merge_into_one_explanation() {
@@ -1108,8 +1066,6 @@ fn two_fighters_facts_do_not_merge_into_one_explanation() {
     }
 }
 
-/// ⛔ **`locomotion.x` is BODY-LOCAL, and this brain used to write world `x`.**
-///
 /// The kernel states the contract at `LocalAxes`: *"controlled-body-local axes:
 /// `+x` local side/right … produced by resolving raw `ScreenAxes` against the
 /// body's current `AccelerationFrame`"*. `apply_movement` wrote
@@ -1117,16 +1073,13 @@ fn two_fighters_facts_do_not_merge_into_one_explanation() {
 /// conversion downstream (`LocalAxes::from_vec`) copies the components and
 /// renames the type, so nothing performed the transform the type asserts.
 ///
-/// ⚠ **the two conventions agree under screen-down gravity**, which is why this
-/// never showed: `side` is world `+x` there and `to_local` is the identity. So
-/// the fix is byte-identical for every stage anyone plays, and the only test
-/// that can see it is one that rotates the frame.
+/// **the two conventions agree under screen-down gravity**, which is why this never showed:
+/// `side` is world `+x` there and `to_local` is the identity.
 ///
-/// With gravity pointing world-LEFT the body's local side axis is world `+y`, so
-/// a foe displaced along world `+x` sits on this body's GRAVITY axis — directly
-/// above or below it in its own frame. There is no sideways throttle that closes
-/// on it, and every lateral this brain emits derives from that same resolved
-/// sign. The old code answered full throttle along an axis the foe is not on.
+/// With gravity pointing world-LEFT the body's local side axis is world `+y`, so a foe displaced
+/// along world `+x` sits on this body's GRAVITY axis — directly above or below it in its own frame.
+/// There is no sideways throttle that closes on it, and every lateral this brain emits derives from
+/// that same resolved sign.
 #[test]
 fn every_lateral_this_brain_emits_is_in_the_bodys_own_frame() {
     let lateral = |gravity_down: ae::Vec2| -> Vec<f32> {

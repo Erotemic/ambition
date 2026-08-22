@@ -89,8 +89,6 @@ fn item_cells_carry_a_sprite_icon_when_one_exists_else_fall_back_to_text() {
 
 #[test]
 fn items_page_has_one_detail_panel_not_per_cell_descriptions() {
-    // Regression for the "24 overlapping descriptions" mush: NO grid cell may
-    // carry the full item description as its detail text.
     let owned = OwnedItems::default();
     let page = build_items_page(&owned, None);
     for node in &page.nodes {
@@ -603,10 +601,8 @@ fn long_system_page_emits_one_scrollbar_node_with_thumb() {
         "top window → thumb top"
     );
 
-    // A short screen emits NO scrollbar node. A 3-station Radio screen (3 rows +
-    // Back = 4) fits inside SYSTEM_VISIBLE_ROWS, so no scrollbar is drawn. (The
-    // TOP-LEVEL entry list has 7 rows and now overflows the 6-row window — Fix 2 —
-    // so it is no longer a valid "fits" case; drill into a short screen instead.)
+    // A short screen emits NO scrollbar node. A 3-station Radio screen (3 rows + Back = 4) fits
+    // inside SYSTEM_VISIBLE_ROWS, so no scrollbar is drawn.
     let short_radio = RadioSnapshot {
         stations: (0..3).map(|i| (i, format!("Station {i}"))).collect(),
         active: Some(0),

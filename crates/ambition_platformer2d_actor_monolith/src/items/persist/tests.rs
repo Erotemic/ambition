@@ -93,9 +93,7 @@ fn a_fresh_process_adopts_the_post_load_bag_as_its_checkpoint_baseline() {
         4,
     )];
 
-    // Deliberately start from a DIFFERENT live bag. The old central durable
-    // adopter ran before this restore and therefore captured this starter bag;
-    // the first death after a genuine fresh-process load then reverted the file.
+    // Deliberately start from a DIFFERENT live bag.
     let (mut app, _player) = app_with(save, OwnedItems::starter(), 0);
     app.update();
 

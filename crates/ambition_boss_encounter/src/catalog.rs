@@ -211,16 +211,14 @@ impl BossCatalogFragment {
 
     /// The same assembly, with the roster and the encounters ALREADY PARSED.
     ///
-    /// ⛔ **this is what lets the content pack be the load path.**
+    /// **this is what lets the content pack be the load path.**
     /// [`Self::from_ron`] re-parses bytes the compiler has already read and
     /// judged — two readers of one file, which is the split the content pack
     /// exists to close. A provider whose content came out of a
     /// `PreparedContentPack` hands the lowered values here instead.
     ///
-    /// ⭐ **the encounters joined the roster here on 2026-08-04**, when the
-    /// compiler learned to merge a schema lowered by MANY sources. Ambition
-    /// authors nine encounter files; until then the pack could only validate
-    /// them and the runtime parsed all nine again, right in this function.
+    /// Ambition authors nine encounter files; until then the pack could only validate them and the
+    /// runtime parsed all nine again, right in this function.
     #[allow(clippy::too_many_arguments)]
     pub fn from_prepared(
         provider_id: impl Into<String>,

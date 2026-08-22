@@ -184,12 +184,9 @@ def _stale_field_names(project: dict, spec_entity: dict) -> dict[str, str]:
         )
         if was == now:
             continue
-        # ⭐ **closing a String into an enum that SPELLS every authored value
-        # loses nothing**, and it is the one retype this vocabulary actually
-        # wants: `kind` was free text only until its enum landed. The values
-        # are unchanged strings either way — what changes is that the editor
-        # offers a dropdown instead of a text box. A value the enum does NOT
-        # spell is a real loss and still stops the tool, naming it.
+        # The values are unchanged strings either way — what changes is that the editor offers a
+        # dropdown instead of a text box. A value the enum does NOT spell is a real loss and still
+        # stops the tool, naming it.
         if spec_field["type"] == "Enum" and was == "String":
             allowed = {str(value) for value in spec_field.get("values") or []}
             authored = {
@@ -384,7 +381,7 @@ def apply_upsert(project: dict, entities: list[dict]) -> list[str]:
                 )
                 old["__type"] = human
                 old["type"] = internal
-                # ⚠ every INSTANCE carries the type too, and LDtk reads it. A
+                # every INSTANCE carries the type too, and LDtk reads it. A
                 # def that says `LocalEnum.X` over instances still saying
                 # `String` is the mismatch that makes the editor drop values.
                 retyped = _retype_field_instances(project, identifier, name, human)

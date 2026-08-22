@@ -381,12 +381,9 @@ fn glide_requires_ability_flag() {
     );
 }
 
-/// Multi-frame glide: hold-jump for 60 frames (1 second at
-/// 60fps) — the player must keep gliding the whole time, with
-/// vel.y staying near `glide_fall_speed` and the body not falling
-/// out of the world. Catches a regression where `gliding` flips
-/// off mid-flight (e.g. an off-by-one in the predicate or a
-/// state mutation that clears the flag).
+/// Multi-frame glide: hold-jump for 60 frames (1 second at 60fps) — the player must keep gliding
+/// the whole time, with vel.y staying near `glide_fall_speed` and the body not falling out of the
+/// world.
 #[test]
 fn glide_sustains_across_many_frames() {
     let world = test_world();
@@ -825,13 +822,6 @@ fn an_airborne_fling_above_run_speed_is_preserved_while_holding_into_it() {
 }
 
 /// **A launched body travels the distance its launch describes.** (queue F0e)
-///
-/// The defect this pins, measured end to end before it was fixed: a clean
-/// forward smash — the duelists' authored 420px/s launch — landed on a fighter
-/// moved it **15.5px horizontally**. The launch WAS applied (peak speed was
-/// exactly 420px/s) and then `AIR_STOP_ASSIST` removed it inside about two
-/// frames, because the hands-off stop assist decays toward `carried_run` and
-/// nothing but the portal adapter had ever written that. A hit read as a shove.
 ///
 /// The assertion is deliberately loose — this is not a tuning lock. It says the
 /// body goes somewhere *on the order of* what its launch describes, so the next

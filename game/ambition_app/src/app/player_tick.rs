@@ -1,22 +1,14 @@
 //! Home/player body HOME-POLICY + PRESENTATION phases.
 //!
-//! Movement integration for the home body is NO LONGER here. It moved DOWN into
-//! the unified `ambition_platformer2d::actors::features::integrate_sim_bodies` phase
-//! (`WorldPrep`), which integrates every non-boss sim body — home and actor — in
-//! ONE scheduled system through the same engine entry. There is no `player_body_tick`
-//! gameplay-movement route anymore. What remains here is the ONE HOME-specific
-//! phase that reads the [`ambition_platformer2d::actors::avatar::PlayerBodyFrameOutput`]
-//! hand-off the movement phase writes:
+//! Movement integration for the home body is NO LONGER here. There is no `player_body_tick`
+//! gameplay-movement route anymore. What remains here is the ONE HOME-specific phase that reads
+//! the [`ambition_platformer2d::actors::avatar::PlayerBodyFrameOutput`] hand-off the movement
+//! phase writes:
 //!
 //! - [`sync_player_presentation`] — HOME PRESENTATION. Emits screen shake / landing
 //!   SFX / per-op anim/SFX/VFX from the hand-off. Moves no body, resolves no physics.
 //!
-//! ⛔ **its former neighbour `apply_home_reset_policy` is DELETED** (ADR 0033).
-//! It turned a flagged body reset into a full sandbox reset plus a room-feature
-//! reset, on the frame it was flagged — so a death resolved itself before any
-//! ruleset could speak, and a death beat that held the body outside the world
-//! re-flagged it every frame of the dwell. A death is a FACT now; the game's
-//! authored `DeathRules` owns the consequence.
+//! A death is a FACT now; the game's authored `DeathRules` owns the consequence.
 
 use bevy::prelude::*;
 
@@ -35,9 +27,8 @@ use super::phases::sync_player_presentation as sync_player_presentation_phase;
 pub fn sync_player_presentation(
     mut event_writers: GameplayFeedbackWriters,
     mut shake: ResMut<ambition_platformer2d::platformer::camera_ease::CameraShakeState>,
-    // The active route's shake ceiling (D14), published from its presentation
-    // profile. Read once per system rather than per body: it is a fact about the
-    // experience, not about a fighter.
+    // Read once per system rather than per body: it is a fact about the experience, not about a
+    // fighter.
     shake_tuning: Res<ambition_platformer2d::platformer::camera_ease::CameraShakeTuning>,
     mut player_q: Query<
         (

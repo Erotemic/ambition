@@ -32,10 +32,6 @@ fn the_touch_classification_separates_a_stomp_from_a_side_hit() {
     );
 }
 
-/// **THE bug, as geometry.** A player who has come to REST on a body is on top of
-/// it. Both enemy rules used to demand a falling player (`vel.y > 0`), so standing
-/// still on a body read as a SIDE contact — and a body you are standing on that
-/// thinks you are beside it will hurt you for as long as you stand there.
 #[test]
 fn a_player_at_rest_on_a_head_is_stomping_it_not_touching_its_side() {
     assert_eq!(
@@ -81,15 +77,10 @@ fn a_gap_above_the_head_is_not_a_stomp() {
 
 /// **RUNNING INTO A SHORT ENEMY ON FLAT GROUND IS A SIDE HIT, NOT A STOMP.**
 ///
-/// Jon, 2026-08-21: *"if she runs into solid snake from the side, the snake gets
 /// hit instead of her."*
 ///
-/// ⛔ **the old band was a fixed 16px, and that made the answer a function of the
-/// ENEMY'S HEIGHT.** Two bodies standing on the same ground have their feet on
-/// the same line, so the player's feet sit exactly `enemy_height` below the
-/// enemy's head — inside a 16px band for any enemy 16 tall or shorter. She ran
-/// into it, the classifier said `Top`, and the snake shelled instead of hurting
-/// her. Every existing case here used a 32-tall body and stayed green.
+/// She ran into it, the classifier said `Top`, and the snake shelled instead of hurting her.
+/// Every existing case here used a 32-tall body and stayed green.
 #[test]
 fn running_into_a_short_enemy_on_flat_ground_hits_its_side() {
     const GROUND: f32 = 300.0;

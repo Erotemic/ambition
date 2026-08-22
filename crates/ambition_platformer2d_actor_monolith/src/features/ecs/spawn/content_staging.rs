@@ -1,11 +1,6 @@
 //! **`RoomContentStagingRegistry` — the open seam for content-staged room
 //! occupants** (N3.2b closeout).
 //!
-//! Some room occupants are not authored `RoomSpec` placements: the spectator
-//! duel's fighters, a demo level's walkers. Content used to stage them from
-//! systems consuming the `RoomLoaded` notification — which had two structural
-//! faults:
-//!
 //! 1. **The occupants were invisible to room construction.** A snapshot restore
 //!    that stages a room (netcode.md N3.2b) rebuilds exactly what construction
 //!    builds; an occupant created only by a future-frame notification consumer
@@ -260,9 +255,7 @@ impl RoomContentStagingRegistry {
         Ok(requests)
     }
 
-    /// Infallible construction-side convenience. Invalid content staging is an
-    /// authored/plugin bug, so normal room construction fails loudly before it
-    /// emits any content-staged spawn requests. Snapshot room staging uses `try_requests_for`
+    /// Infallible construction-side convenience. Snapshot room staging uses `try_requests_for`
     /// during its mutation-free prepare phase and returns a controlled refusal.
     pub fn requests_for(&self, room: &RoomSpec) -> Vec<SpawnActorRequest> {
         self.try_requests_for(room)
@@ -296,7 +289,7 @@ mod tests {
             grudge_against: None,
             kind: crate::features::SpawnActorKind::Enemy {
                 brain: CharacterBrain::Custom("fixture".to_string()),
-                // ⚠ a fixture states a creature like every other producer; the
+                // a fixture states a creature like every other producer; the
                 // `Option` that let this say nothing is gone.
                 character: ambition_entity_catalog::CharacterId::from("fixture"),
             },

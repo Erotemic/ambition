@@ -1,4 +1,4 @@
-//! **Does this pass survive its target being torn down?** (queue L24)
+//! **Does this pass survive its target being torn down?**
 //!
 //! A presentation pass queues `commands.entity(body).insert(..)`. Between the
 //! query that produced `body` and the frame's command flush, another system can
@@ -14,11 +14,6 @@
 //! ## Why a harness instead of a rule
 //!
 //! The obvious response is "use `try_insert` everywhere", and it is wrong.
-//! `try_insert` on a target that should ALWAYS exist converts a real bug into
-//! silence — the write simply stops happening and nothing says so. The decision
-//! is per-site and it needs evidence, so this provides the evidence:
-//! [`run_frame_despawning_targets`] runs a pass, despawns everything it could
-//! have targeted before the flush, and reports whether the frame survives.
 //!
 //! Turning "I reasoned that this is safe" into "I ran it" is the whole point.
 
@@ -53,18 +48,10 @@ pub fn run_frame_despawning_targets<Doomed: Component, M, P>(
     // entity another system has already asked to despawn, and the flush honours
     // the despawn first.
     //
-    // It used to be two unordered `add_systems` calls under a comment claiming
-    // "chained AFTER the pass". Neither half was true: nothing chained them, so
-    // which ran first was the scheduler's choice, and a probe reported a hazard
-    // as absent whenever the pass happened to win. That is how
-    // `upgrade_actor_sprites` passed this harness while holding a plain
-    // `insert` (2026-07-27).
-    // `chain_ignore_deferred`, NOT `chain`: a plain `.chain()` inserts an
-    // `ApplyDeferred` sync point between the two, so the despawn would be
-    // APPLIED before the pass runs and the pass's query would never yield the
-    // entity at all. That is the safe case, not the hazard — and it is what made
-    // the harness's own meta-test stop failing when the ordering was first
-    // corrected. Both command buffers must reach ONE flush.
+    // That is how `upgrade_actor_sprites` passed this harness while holding a plain `insert`.
+    // That is the safe case, not the hazard — and it is what made the harness's own meta-test
+    // stop failing when the ordering was first corrected. Both command buffers must reach ONE
+    // flush.
     app.add_systems(
         schedule,
         (despawn_doomed::<Doomed>, pass).chain_ignore_deferred(),
@@ -80,10 +67,8 @@ pub fn run_frame_despawning_targets<Doomed: Component, M, P>(
 /// outing, and the actor-sprite probe below did it again on its first run: green
 /// against an unconverted `insert`, because the pass had skipped the entity.
 ///
-/// So the caller spawns a WITNESS alongside the doomed target — same population,
-/// same frame, not despawned — and names a component the pass must have written
-/// to it. If the witness is untouched, the fixture was wrong and the run proved
-/// nothing.
+/// So the caller spawns a WITNESS alongside the doomed target — same population, same frame,
+/// not despawned — and names a component the pass must have written to it.
 pub fn run_frame_despawning_targets_with_witness<Doomed, Witness, Written, M, P>(
     app: &mut App,
     schedule: impl ScheduleLabel + Clone,
@@ -164,7 +149,7 @@ mod tests {
     }
 }
 
-/// The harness pointed at a REAL pass. (queue L24)
+/// The harness pointed at a REAL pass.
 ///
 /// `apply_placeholder_sprites_override` targets sprite entities, and sprite
 /// entities are exactly what `despawn_dead_dynamic_feature_visuals` retires when
@@ -182,9 +167,6 @@ mod production_passes {
     #[derive(Component)]
     struct Doomed;
 
-    /// Survives the frame and proves the pass reached its write. Added
-    /// 2026-07-27, after the harness's ordering bug showed that a probe passing
-    /// is not the same as a probe running.
     #[derive(Component)]
     struct Witness;
 
@@ -203,10 +185,6 @@ mod production_passes {
         let mut registry = ambition_platformer2d_world::rooms::GatePortalRegistry::default();
         registry.register("zone", "switch", "portal", "ring");
         app.insert_resource(registry);
-        // The live phase is a separate resource since 2026-08-15 (it is rollback
-        // state; the registry above is authored). The pass reads it, so it has
-        // to exist — its default `Off` still reaches the deferred insert, which
-        // is what this probe is about.
         app.init_resource::<ambition_platformer2d_world::rooms::GatePortalPhases>();
         app.world_mut().spawn((
             PropVisual {

@@ -99,9 +99,7 @@ impl DialogueVoiceCatalog {
             return None;
         }
         self.exact.get(key).copied().or_else(|| {
-            // Alias precedence is provider-authored registration order. This
-            // preserves the old fixed matcher order while keeping the runtime
-            // open to additional providers.
+            // Alias precedence is provider-authored registration order.
             self.aliases
                 .iter()
                 .find_map(|(alias, cue)| key.contains(alias.as_str()).then_some(*cue))

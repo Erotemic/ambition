@@ -24,9 +24,9 @@ def entity_name(entity: dict[str, Any]) -> str:
     return f"{entity.get('__identifier')} {entity.get('iid', '<no-iid>')}"
 
 
-#: Fields whose value is an `EntityRef` naming another entity this one is
-#: authored ON TOP OF. A pair joined by one of these is a RELATIONSHIP, not a
-#: duplicate, and the author put them at the same pixel on purpose.
+# : Fields whose value is an `EntityRef` naming another entity this one is
+# : authored ON TOP OF. A pair joined by one of these is a RELATIONSHIP, not a
+# : duplicate, and the author put them at the same pixel on purpose.
 RIDING_REF_FIELDS = ("mounted_on",)
 
 
@@ -112,10 +112,10 @@ def debug_label_overlap_issues(project: dict[str, Any]) -> list[Issue]:
     return issues
 
 
-#: `LoadingZone` ids are ROOM-SCOPED by design and reused on purpose —
-#: `return_door` names the way back in seven different rooms, and a zone's
-#: `target_zone` is resolved WITHIN its `target_room`, so the room disambiguates.
-#: Every other kind's id can become a `SimId::placement(..)`, which is GLOBAL.
+# : `LoadingZone` ids are ROOM-SCOPED by design and reused on purpose —
+# : `return_door` names the way back in seven different rooms, and a zone's
+# : `target_zone` is resolved WITHIN its `target_room`, so the room disambiguates.
+# : Every other kind's id can become a `SimId::placement(..)`, which is GLOBAL.
 ROOM_SCOPED_ID_KINDS = {"LoadingZone"}
 
 
@@ -212,14 +212,7 @@ def spawn_overlap_issues(project: dict[str, Any]) -> list[Issue]:
             for j in range(i + 1, len(items)):
                 ka, la, a_layer, ax, ay, aw, ah, a_iid, a_refs = items[i]
                 kb, lb, _b_layer, bx, by, bw, bh, b_iid, b_refs = items[j]
-                # ⛔⛔ **A RIDER AND ITS MOUNT ARE AUTHORED AT THE SAME PIXEL.**
-                # Without this, every shark-riding pirate in the sky levels
-                # reads as a doubled spawn — and this warning is what talked a
-                # previous session into reaching for `entity delete` on the
-                # exact content Jon had already reported missing once, after an
-                # editor session dropped the mount refs.
-                #
-                # ⭐ position-identical is what a mount IS, so position alone can
+                # position-identical is what a mount IS, so position alone can
                 # never tell the two apart. The FIELDS can: one names the other.
                 if (b_iid and b_iid in a_refs) or (a_iid and a_iid in b_refs):
                     continue
@@ -358,15 +351,12 @@ def loading_zone_support_issues(project: dict[str, Any]) -> list[Issue]:
             if side == "bottom":
                 if any(csv[(c_hei - 1) * c_wid + x] == 1 for x in range(c_wid)):
                     return True
-                # ⭐⭐ **A FLOOR STOPS A FALL WHEREVER IT IS, not only on the
-                # outermost row.** `portal_lab` is walled on three sides and
-                # reported open at the bottom — because its full-width floor
-                # sits FIVE rows above the level boundary, with empty margin
-                # below it that nothing can reach. Driven headlessly the body
-                # rests and never falls, which is what said the warning was
-                # wrong rather than the room.
+                # **A FLOOR STOPS A FALL WHEREVER IT IS, not only on the outermost row.**
+                # `portal_lab` is walled on three sides and reported open at the bottom —
+                # because its full-width floor sits FIVE rows above the level boundary, with
+                # empty margin below it that nothing can reach.
                 #
-                # ⚠ **only the BOTTOM gets this.** The same idea on left/right
+                # **only the BOTTOM gets this.** The same idea on left/right
                 # (a full-height column of solid) is the wrong test and much
                 # NOISIER — measured: it opens 46 sides instead of 6, because a
                 # corridor's side wall legitimately has a doorway gap in it.

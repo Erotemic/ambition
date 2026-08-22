@@ -17,7 +17,7 @@
 //! and where a respawn lands. Three of them are unrepresentable in any other view
 //! of this room.
 //!
-//! ⚠ it lives in the LIB and not in the bin that prints it, because
+//! it lives in the LIB and not in the bin that prints it, because
 //! `match_diagram` needs the same drawing and pulled the bin in with `#[path]` —
 //! which made that bin's `main` dead code inside the other one, and said so as a
 //! warning on every build.

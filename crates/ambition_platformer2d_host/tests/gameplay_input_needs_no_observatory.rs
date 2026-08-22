@@ -1,10 +1,7 @@
 //! **Removing a developer instrument may not remove gameplay input.**
 //!
-//! Jon opened the served browser build on 2026-08-15 and found a split that
-//! makes no sense until you know where the latch lived: arrow keys navigated the
-//! menus, a gamepad navigated the menus, and neither moved the character. Not a
-//! keycode problem — the same gamepad failed, and device input plainly reached
-//! leafwing, since the menus responded to it.
+//! Not a keycode problem — the same gamepad failed, and device input plainly reached leafwing,
+//! since the menus responded to it.
 //!
 //! The device→tick latch table, `SlotControlLatches`, was installed by
 //! `ambition_app::dev::rollback_observatory`, which is behind `dev_tools`. The
@@ -15,7 +12,7 @@
 //! told the simulation the player was holding nothing, every tick, forever.
 //! Menus were unaffected because menu frames never enter the session.
 //!
-//! ⭐ **this crate is the enforcement.** `ambition_platformer2d_host` cannot
+//! **this crate is the enforcement.** `ambition_platformer2d_host` cannot
 //! depend on `ambition_app`, so it cannot have a `dev_tools` feature and cannot
 //! borrow an observatory — a composition assembled here is exactly the shape the
 //! browser ships. If the latch ever migrates back to an instrument, this file
@@ -45,7 +42,7 @@ fn host_with_device(sim_host: SimulationHost) -> App {
 fn a_rollback_host_owns_the_primary_device_latch_without_any_developer_tooling() {
     let app = host_with_device(SimulationHost::Rollback);
 
-    // ⚠ **ONE assertion where there were two.** Seat zero had its own
+    // **ONE assertion where there were two.** Seat zero had its own
     // `ControlFrameLatch` resource beside this table and both had to be checked;
     // seat zero is row zero now.
     assert!(
@@ -74,12 +71,7 @@ fn a_frame_stepped_host_still_installs_no_latch_because_it_has_nothing_to_bridge
     );
 }
 
-// ⚠ **INSTALLED IS NOT WIRED, and the other half of that is not proven here.**
-// An untouched latch reports `is_device_authority() == false`, and
-// `capture_latched_local_input` deliberately declines to publish one — so a
-// resource registered without its accumulator reproduces the original bug while
-// satisfying the presence check above. Splitting the two across the arms is
-// exactly the half-move that caused this.
+// Splitting the two across the arms is exactly the half-move that caused this.
 //
 // It does not belong in this file. Stepping the plugin's `Update` needs session
 // state the host group does not own (`declare_in_session_input_contexts` wants

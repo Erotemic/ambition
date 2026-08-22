@@ -35,10 +35,6 @@ pub mod presented_pose;
 mod rollback_registration;
 mod view_index;
 
-// The affordance table — "what would each input do right now?" — moved here
-// from the actor monolith 2026-08-21. It is a read model recomputed per frame
-// from body state, which is this crate's stated contract; its four rollback
-// declarations all say so in as many words. See `affordances`.
 pub use anim_index::{
     rebuild_actor_anim_index, rebuild_boss_frame_index, ActorAnimFrame, ActorAnimIndex,
     ActorSpriteData, BossFrameIndex, BossFrameView, ClipRequest, HazardLaneFact,

@@ -1,14 +1,11 @@
 //! Ambition fire-intent resolver: gesture → generic portal fire intent.
 //!
-//! The input adapter recognizes the *gesture* and emits a [`FirePortalGun`]
-//! (implying "the primary player, holding the gun, aiming this way"). Portal core
-//! no longer understands that — it consumes a generic
-//! [`PortalFireIntent`] `{ origin, dir, channel }`. This resolver bridges the
-//! two: it reads `FirePortalGun`, resolves the origin (the primary player's body
-//! position), the direction (the gesture's aim), and the channel (the held gun's
-//! current color), and emits the generic intent — behavior identical to the old
-//! in-core `portal_fire_system`, but now anything (a replay, an AI) can place a
-//! portal by emitting `PortalFireIntent` directly.
+//! The input adapter recognizes the *gesture* and emits a [`FirePortalGun`] (implying "the
+//! primary player, holding the gun, aiming this way"). This resolver bridges the two: it reads
+//! `FirePortalGun`, resolves the origin (the primary player's body position), the direction
+//! (the gesture's aim), and the channel (the held gun's current color), and emits the generic
+//! intent — behavior identical to the old in-core `portal_fire_system`, but now anything (a
+//! replay, an AI) can place a portal by emitting `PortalFireIntent` directly.
 
 use bevy::prelude::*;
 
@@ -25,10 +22,6 @@ use ambition_portal2d::{FirePortalGun, PortalFireIntent, PortalGun};
 pub fn resolve_portal_fire_intent(
     mut fires: MessageReader<FirePortalGun>,
     controlled: Option<Res<ControlledSubject>>,
-    // ⭐ `&mut ActorControl`: this is where a fire is ACCEPTED, so this is where
-    // the Attack press is spent. The input adapter used to spend it on the way
-    // in, for a gun this system then refused as inactive — a press eaten by an
-    // action that did not happen.
     mut holders: Query<(
         &BodyKinematics,
         &PortalGun,
@@ -144,12 +137,7 @@ mod tests {
         );
     }
 
-    /// **⭐ THE FIRE SPENDS THE ATTACK PRESS — HERE, WHERE IT IS ACCEPTED.**
-    ///
-    /// The input adapter used to spend it on the way in. That was wrong for the
-    /// same reason the drop was: this system refuses a gun that is not `active`,
-    /// so a press spent upstream was spent for a fire that did not happen and
-    /// the wearer's jab lost it too.
+    /// **THE FIRE SPENDS THE ATTACK PRESS — HERE, WHERE IT IS ACCEPTED.**
     #[test]
     fn an_accepted_fire_spends_the_press_and_a_refused_one_does_not() {
         use ambition_characters::brain::ActorControl;

@@ -242,9 +242,7 @@ fn a_zone_standing_on_the_rooms_own_floor_is_not_a_step() {
 
 /// **⚠ THE APPROACH COLUMN IS ON THE ROOM'S SIDE, NOT ALWAYS THE LEFT.**
 ///
-/// An `EdgeExit` touches a level edge, so the room is on whichever side is not
-/// the edge. Reading the approach from a fixed side would compare a LEFT exit
-/// against the void outside the level and report a step that is not there.
+/// An `EdgeExit` touches a level edge, so the room is on whichever side is not the edge.
 #[test]
 fn a_left_edge_exit_is_measured_against_the_room_to_its_right() {
     // Floor along row 7 except under cols 0..1, which are one cell higher.

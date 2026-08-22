@@ -140,14 +140,6 @@ fn register_two_providers_characters(app: &mut App) {
 }
 
 /// Two providers, one session: registration, staging, and readiness.
-///
-/// This used to be named `..._trade_damage_in_one_session` and claimed to be the
-/// §7.10 acceptance test, but it computed an AABB overlap by hand and subtracted
-/// authored integers from local variables — no entities, no `MovePlayback`, no
-/// hit events, no `BodyHealth`. It proved that two definitions can coexist and
-/// that their numbers can be read back, which is worth having and is what it is
-/// now named for. The fight itself is
-/// [`two_provider_characters_trade_damage_through_the_real_damage_path`].
 #[test]
 fn two_providers_stage_into_one_session_and_both_reach_readiness() {
     let mut app = App::new();
@@ -273,15 +265,6 @@ fn a_missing_opponent_is_named_and_the_present_character_still_fights() {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The actual fight.
-//
-// Everything below drives the PRODUCTION systems: the gesture interpreter, the
-// move trigger, move playback (which spawns the strike volumes), the hurtbox
-// resolver, the volume publisher, `apply_hitbox_damage`, and the victim-side
-// consumer that mutates health. Nothing here computes an overlap or subtracts a
-// damage number by hand — that was the defect in the test above, and it is why
-// the fact that NO body in the game was hit on its published silhouette survived
-// a green suite.
-// ─────────────────────────────────────────────────────────────────────────────
 
 use crate::combat::hitbox::apply_hitbox_damage;
 use crate::combat::moveset::{
@@ -385,12 +368,9 @@ fn spawn_fighter(
     // one damage consulted. That is not a hypothetical — the first version of these
     // tests used a 20-wide body and proved nothing.
     let body = Vec2::new(40.0, 32.0);
-    // ...and that is ASSERTED, not commented. A comment naming `±10 in hurtboxes()`
-    // is a second copy of a number, and the whole A10 defect class is two fixture
-    // values that must differ silently becoming equal. Read the authored width off
-    // the definition and check it here, so widening the torso breaks the fixture
-    // that depends on it being narrow rather than quietly making every
-    // silhouette-vs-box assertion in this file vacuous.
+    // ...and that is ASSERTED, not commented. Read the authored width off the definition and
+    // check it here, so widening the torso breaks the fixture that depends on it being narrow
+    // rather than quietly making every silhouette-vs-box assertion in this file vacuous.
     {
         let widest_authored = prepared
             .hurtboxes
@@ -443,13 +423,10 @@ fn spawn_fighter(
                 crate::features::MotionModel::default(),
             ),
             (identity, disposition, combat, faction),
-            // §7.6 → gameplay: the character's own authored moveset and silhouette
-            // are NOT inserted here. `project_prepared_character_definitions` puts
-            // them on the body from the registry, which is C3 — the join the plan is
-            // for. This fixture used to do it by hand, and that hand projection was
-            // the whole reason A1's ✔ was narrower than it read: it proved the
-            // projection works, not that registering a character reaches a body.
-            // Deleting it is what makes this test evidence for the engine seam.
+            // §7.6 → gameplay: the character's own authored moveset and silhouette are NOT inserted
+            // here. `project_prepared_character_definitions` puts them on the body from the
+            // registry, which is C3 — the join the plan is for. Deleting it is what makes this test
+            // evidence for the engine seam.
             //
             // A fighter WEARS the character it fights as. Without this the body
             // carries a moveset and a silhouette from a provider it cannot name:
@@ -493,9 +470,9 @@ fn fight_app() -> App {
     app.add_message::<crate::features::SetFlagRequested>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<ambition_vfx::vfx::VfxMessage>();
-    // `dispatch_move_events` asks for PAIRED effects now (D149) — a visual and
-    // the cue its own name addresses — so the request channel has to exist or
-    // the system fails parameter validation before it can run.
+    // `dispatch_move_events` asks for PAIRED effects now — a visual and the cue its own name
+    // addresses — so the request channel has to exist or the system fails parameter validation
+    // before it can run.
     app.add_message::<ambition_vfx::FxRequest>();
     app.add_message::<ambition_vfx::vfx::DebrisBurstMessage>();
     app.add_message::<crate::features::ActorStimulus>();
@@ -503,11 +480,7 @@ fn fight_app() -> App {
     app.add_message::<crate::features::ecs::damage_apply::WalletShieldSpent>();
     app.add_message::<crate::combat::moveset::MoveEventMessage>();
     app.add_message::<ambition_characters::brain::ActorActionMessage>();
-    // A session whose speakers belong to somebody else. Every cue a fighter emits
-    // falls back to THIS source when the fighter is not attributed, so an
-    // attribution bug shows up as "the session owner made that sound" — the exact
-    // production symptom — rather than as an empty string that could also mean
-    // "no context installed".
+    // A session whose speakers belong to somebody else.
     {
         let mut context = ambition_sfx::SfxEmissionContext::default();
         context.set(
@@ -535,12 +508,6 @@ fn fight_app() -> App {
             decay_reaction_timers,
         )
             .chain()
-            // The engine projects a registered character's moveset and silhouette
-            // onto the body (C3), and everything below reads what it projects. In
-            // production that edge comes from `Platformer2dSimulationPhaseMonolith::Combat`'s internal order;
-            // this fixture composes the systems by hand, so it has to name the edge
-            // by hand. Without it the projection landed AFTER the move trigger and
-            // the first swing of the fight found no moveset.
             .after(crate::character_runtime::project_prepared_character_definitions),
     );
     app.init_resource::<Traded>();
@@ -678,10 +645,8 @@ fn two_provider_characters_trade_damage_through_the_real_damage_path() {
 
 /// The silhouette decides the fight, not the bounding box.
 ///
-/// Same two characters, same authored strike, moved apart so the reach still
-/// covers each body's coarse box but no longer covers the narrow authored torso.
-/// Nobody may be hit. Without this, the test above passes just as well when
-/// damage reads the coarse box — which is exactly the state §7.10 shipped in.
+/// Nobody may be hit. Without this, the test above passes just as well when damage reads the
+/// coarse box — which is exactly the state §7.10 shipped in.
 #[test]
 fn a_strike_that_clears_the_authored_torso_lands_on_nobody() {
     let mut app = fight_app();
@@ -710,11 +675,8 @@ fn a_strike_that_clears_the_authored_torso_lands_on_nobody() {
 
     // ── The premise, CHECKED, on the tick the strike is live ──────────────────
     //
-    // The comment above computes three spans by hand, and a hand-computed premise
-    // is the A10 defect class waiting to happen: move Sanic to x = 90 and this test
-    // still passes, having proven only that a strike which reaches nothing hits
-    // nothing. So walk to the live strike volume and assert what the comment
-    // claims — the coarse box overlaps it, the published silhouette does not.
+    // So walk to the live strike volume and assert what the comment claims — the coarse box
+    // overlaps it, the published silhouette does not.
     let mut checked = false;
     for _ in 0..14 {
         finalize_and_update(&mut app);

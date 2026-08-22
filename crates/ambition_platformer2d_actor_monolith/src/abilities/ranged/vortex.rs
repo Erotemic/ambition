@@ -131,7 +131,7 @@ pub fn update_vortex_wells(
     let factor = (VORTEX_PULL_RATE * dt).min(1.0);
     for (entity, mut well) in &mut wells {
         for (mut kin, faction, health) in &mut actors {
-            // Structural tangibility gate (Jon 2026-07-22): a dead enemy is an
+            // Structural tangibility gate: a dead enemy is an
             // intangible corpse — the well does not drag it.
             if *faction != ActorFaction::Enemy || crate::combat::util::body_is_corpse(health) {
                 continue;

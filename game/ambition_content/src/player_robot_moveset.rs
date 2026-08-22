@@ -1,15 +1,10 @@
 //! **The player robot's canonical move repertoire** — the moves that ARE the
 //! protagonist, wherever it is seated.
 //!
-//! ⭐⭐ **authored on the CHARACTER, so both games consume the same swing.** This
-//! table was written for the Smash demo's shadow duelists (`smash_duelist_a/b`,
-//! Robot art, Smash-only identities), which is exactly the arrangement Jon's
-//! redirect §15 rejects: *"Do not copy the current rich Smash moves from
-//! `smash_duelist_a` into a second independent Robot definition. Move/refactor
-//! the canonical move data into the reusable Robot character provider and have
-//! both compositions reference it."* This is that move.
+//! Move/refactor the canonical move data into the reusable Robot character provider and have both
+//! compositions reference it."* This is that move.
 //!
-//! ⚠ **a move states what it IS, never what a mode does with it.** Startup,
+//! **a move states what it IS, never what a mode does with it.** Startup,
 //! active frames, recovery, hitbox geometry, damage, base launch, growth,
 //! landing lag and auto-cancel are properties of the swing. Percent, stocks,
 //! blast zones, DI and the strength of knockback growth are the RULESET's, and
@@ -28,7 +23,7 @@ use ambition_platformer2d::entity_catalog::{
     MovesetContract, VolumeShape, WindowTag,
 };
 
-// ⭐ the authoring primitives are SHARED (`moveset_authoring`), so the goblin's
+// the authoring primitives are SHARED (`moveset_authoring`), so the goblin's
 // table below is written with the same `strike` this one is rather than a copy
 // of it. They left this file the day a second character authored moves.
 use ambition_characters::moveset_authoring::{
@@ -96,7 +91,7 @@ pub fn player_robot_moveset() -> MovesetContract {
 
     // ── the smashes ──────────────────────────────────────────────────────────
     //
-    // ⭐ **the move the demo did not have.** A forward smash is eighteen frames
+    // **the move the demo did not have.** A forward smash is eighteen frames
     // of startup you cannot take back, and the reason anybody accepts that is
     // the launch at the end of it: three times the jab's, growing with the
     // victim's percent, so at 120% it is the thing that ends the stock. The
@@ -158,7 +153,7 @@ pub fn player_robot_moveset() -> MovesetContract {
 
     // ── aerials ──────────────────────────────────────────────────────────────
     //
-    // ⭐ **landing lag and auto-cancel are what make an aerial a DECISION**, and
+    // **landing lag and auto-cancel are what make an aerial a DECISION**, and
     // both were engine features with no adopter. The pair reads: throw this one
     // early in a jump and land clean; throw it late and pay for it.
     let mut n_air = strike(
@@ -245,7 +240,7 @@ pub fn player_robot_moveset() -> MovesetContract {
         // Straight DOWN — a spike. Offstage this is a stock; onstage it is a
         // bounce the opponent has to deal with.
         Some((0.0, 1.0)),
-        // ⭐ the ONE move that can bounce its attacker. Ambition reads this as a
+        // the ONE move that can bounce its attacker. Ambition reads this as a
         // pogo; a platform fighter declares `Spike` and it becomes a kill.
         Some(EffectRef::new(
             ambition_platformer2d::combat::on_hit::POGO_BOUNCE_KEY,
@@ -255,18 +250,15 @@ pub fn player_robot_moveset() -> MovesetContract {
     d_air.landing_lag_s = Some(0.28);
     d_air.autocancel_after_s = Some(0.40);
 
-    // ── 2026-08-16: THE FOUR THAT WERE MISSING ───────────────────────────────
-    //
-    // Jon: *"Let's complete the kit for all characters."* Measured first, the
     // PROTAGONIST was 12/16 — no forward tilt, and one special answering all
     // four directions, because the Hadouken arrives from the DERIVED kit (the
     // action set's ranged spec) and nothing had ever authored the other three.
     //
-    // ⚠ **authored moves overlay the derived kit, they do not replace it**, so
+    // **authored moves overlay the derived kit, they do not replace it**, so
     // the Hadouken stays exactly where it is and keeps `special`. These three
     // take the directions it was standing in for.
 
-    // ⛔ **the forward tilt.** Without one the commonest press in the genre falls
+    // **the forward tilt.** Without one the commonest press in the genre falls
     // down the directional chain to the jab — the hole five of the ten authored
     // tables had. A straight servo-driven extension: longer than the jab, slower,
     // and it moves you.
@@ -289,7 +281,7 @@ pub fn player_robot_moveset() -> MovesetContract {
     let f_tilt = on_contact(f_tilt, "player.hit");
 
     // **SIDE — `rocket_dash`.** The dash it has at home, spent as one committed
-    // pass instead of a movement option. ⭐ `Set`, so it crosses the same
+    // pass instead of a movement option. `Set`, so it crosses the same
     // distance whatever it was doing — a recovery mix-up rather than a
     // momentum bonus.
     let side_b = strike(
@@ -361,16 +353,13 @@ pub fn player_robot_moveset() -> MovesetContract {
     let down_b = vfx_at(down_b, 0.14, "hit_metal", (0.0, 16.0), 0.8);
     let down_b = on_contact(down_b, "player.hit");
 
-    // ── 2026-08-16: THE OTHER POSTURE ────────────────────────────────────────
-    //
-    // Jon: *"A down-b that has special airborne properties should also have an
     // effect on ground. Think of bowser down b. In the air he just does a
     // downward slam, but on the ground, it causes him to jump in an arc and then
     // slam. Specials can have different effects in different contexts that
     // should be ok, and makes for a richer smash game, although in most cases
     // they shouldn't be context dependent."*
     //
-    // ⛔ a special gated to ONE posture is not answered in the other — the
+    // a special gated to ONE posture is not answered in the other — the
     // directional chain walks straight past it to the NEUTRAL special, so a
     // player pressing down-B in the air got the neutral-B. `special_air_down`
     // sits ahead of `special_down` in that chain and has the whole time; this is
@@ -400,7 +389,7 @@ pub fn player_robot_moveset() -> MovesetContract {
 
     // **ROBOT'S CAPTURE KIT.** The reference body: if a grab feels wrong on the robot
     // it is the mechanic, not the character.
-    // ⚠ the grab draws `attack`, not `grab`: these sheets publish no `grab` row,
+    // the grab draws `attack`, not `grab`: these sheets publish no `grab` row,
     // and each table's own `every_clip_names_a_row_..._sheet_carries` guard says
     // so. `ClipBinding`'s fallbacks would have covered it at runtime, but a move
     // that NAMES a row nobody publishes is a lie the guard is right to refuse.
@@ -485,12 +474,11 @@ pub fn player_robot_moveset() -> MovesetContract {
         },
         side_special: side_b,
         up_special: up_b,
-        // ⭐ **AUTHORED 2026-08-19, at Jon's ask that every fighter in the smash
-        // roster have a grab.** The transitional `None` is gone: capture was
-        // proven on George and the Pirate Admiral, and the whole point of
-        // proving it was to stop being the only two.
+        // **AUTHORED, at the rule that every fighter in the smash roster have a grab.** The
+        // transitional `None` is gone: capture was proven on George and the Pirate Admiral, and
+        // the whole point of proving it was to stop being the only two.
         //
-        // ⚠ the VALUES are per character on purpose. A roster whose grabs are
+        // the VALUES are per character on purpose. A roster whose grabs are
         // twelve copies of one number set is one grab wearing twelve names.
         capture: SmashCaptureRepertoire {
             cues: CaptureCues::GENERIC,
@@ -513,8 +501,6 @@ pub fn player_robot_moveset() -> MovesetContract {
 mod tests {
     use super::*;
 
-    // ⭐⭐ **RETIRED 2026-08-16 — the per-file verb-map test.**
-    //
     // Fourteen fighters each carried a copy of it: every bound verb names a move
     // this table defines, and the table binds the whole vocabulary. Both are now
     // unwritable defects rather than tested ones. `SmashRepertoire` owns the verb
@@ -527,17 +513,17 @@ mod tests {
 
     /// **The protagonist states its own verbs, so a match stops guessing.**
     ///
-    /// ⛔ **it authored none**, and an unauthored character takes the migration
+    /// **it authored none**, and an unauthored character takes the migration
     /// bridge in `seat_abilities`: the MODE's declared set, stamped on verbatim.
     /// That bridge exists because almost nothing in the repo authors verbs yet,
     /// and it is documented as meant to shrink — this is the first character out
     /// of it, and the right first, because it is the one body both games share.
     ///
-    /// ⚠ **`reset` is deliberately absent**, and asserting that is the point:
+    /// **`reset` is deliberately absent**, and asserting that is the point:
     /// it is a debug affordance, and a character that authored it would hand
     /// every game that seats the robot a way to teleport home.
     ///
-    /// ⚠ **`fly` is PRESENT, and my first pass had that wrong** — see the note
+    /// **`fly` is PRESENT, and my first pass had that wrong** — see the note
     /// at the authoring site. It reads like a dev toggle from the player's side
     /// and is not: the robot is a grounded-base hybrid that takes to the air for
     /// vertical space, and the duel arena's exhibition robot uses it.
@@ -554,7 +540,7 @@ mod tests {
              seats the robot now receives a way to teleport home"
         );
 
-        // ⚠ **a RETIRED incarnation shares the VERBS and not the MOVES**, and
+        // **a RETIRED incarnation shares the VERBS and not the MOVES**, and
         // the split is the point: v0, v2 and v3 are one robot at three ages, so
         // what its body can do is the lineage's — the duel arena fields v2 and
         // it has to blink and dash like the robot it is. The current frame data
@@ -582,13 +568,7 @@ mod tests {
 
     /// **A MOVE CAN BE A COMBO, as data.**
     ///
-    /// ⭐ **the claim the `player_robot` archetype row existed to make**, moved
-    /// here with it (ledger D83): TWO Active windows on ONE timeline, so the
-    /// system expresses a multi-hit combo as authored data rather than as a
-    /// chain of presses the runtime happens to allow. A combo that needed two
-    /// moves and a cancel would prove something else entirely.
-    ///
-    /// ⚠ the second hit has to HURT MORE, or the pair is a stutter rather than a
+    /// the second hit has to HURT MORE, or the pair is a stutter rather than a
     /// chain.
     #[test]
     fn the_theorem_chain_is_two_hits_on_one_timeline() {
@@ -618,7 +598,7 @@ mod tests {
 
     /// **The robot's projectile has its own look, stated by the character.**
     ///
-    /// ⛔ this was `ranged_visual` on the archetype row, and the character-first
+    /// this was `ranged_visual` on the archetype row, and the character-first
     /// constructor wrote an empty string — so a migrated robot fired an
     /// unadorned rock while the archetype road drew the Hadouken.
     #[test]
@@ -636,11 +616,7 @@ mod tests {
 
     /// **The repertoire is a SMASH table, and it says so in its d-air.**
     ///
-    /// ⛔ **this is the row that blocks attaching it to the protagonist**
-    /// (ledger D82). `air_down` launches straight DOWN — a spike, which ends a
-    /// stock offstage — while Ambition's down-air is a POGO that bounces the
-    /// ATTACKER up off whatever it hits. Same press, same geometry, two
-    /// readings, and only the mode can choose between them (Jon's redirect §16).
+    /// Same press, same geometry, two readings, and only the mode can choose between them.
     ///
     /// Pinned rather than described, because "the moves are shared and the
     /// ruleset interprets" is a claim that has to survive somebody retuning this
@@ -669,13 +645,10 @@ mod tests {
 /// **THEOREM CHAIN — the robot's two-hit signature**, a light poke into a
 /// heavier follow-up on ONE timeline.
 ///
-/// ⭐ **the only proof in the repo that a moveset expresses multi-hit combos as
-/// DATA across characters** rather than as a boss one-off. It lived on the
-/// `player_robot` archetype row (ledger D83), which is the last thing keeping
-/// eighty lines of enemy-archetype alive; here it is a character's move, on the
-/// incarnation the exhibition duel actually fields.
+/// **the only proof in the repo that a moveset expresses multi-hit combos as DATA across
+/// characters** rather than as a boss one-off.
 ///
-/// ⚠ **v2's, not v3's.** The duel arena fields Robot v2 against the PCA, and v3
+/// **v2's, not v3's.** The duel arena fields Robot v2 against the PCA, and v3
 /// carries the platform-fighter table instead. Two incarnations of one robot
 /// with different repertoires is what a lineage IS — the same reason v0 and v2
 /// keep their own silhouettes.
@@ -688,8 +661,7 @@ pub fn theorem_chain_moveset() -> MovesetContract {
             },
             damage,
             knockback,
-            // Flat, exactly as the row authored it. A migration that added growth
-            // on the way would be a retune wearing a migration's commit.
+            // Flat, exactly as the row authored it.
             knockback_growth: 0.0,
             launch_dir: None,
             on_hit: None,
@@ -727,7 +699,7 @@ pub fn theorem_chain_moveset() -> MovesetContract {
                     vec![volume((30.0, 0.0), (26.0, 22.0), 2, 90.0)],
                 ),
                 window(0.22, 0.36, WindowTag::Recovery, Vec::new()),
-                // ⭐ the SECOND Active window on the SAME timeline — the whole
+                // the SECOND Active window on the SAME timeline — the whole
                 // point. A combo that needed two moves and a cancel would prove
                 // the runtime can chain presses, not that a move can be a combo.
                 window(
@@ -765,11 +737,11 @@ pub fn theorem_chain_moveset() -> MovesetContract {
 mod clip_binding_tests {
     /// **EVERY CANONICAL ROBOT MOVE ASKS FOR ITS OWN ROW.**
     ///
-    /// ⭐ sprite redirect P1. All eleven passed `"attack"` as their clip, so a
+    /// sprite redirect P1. All eleven passed `"attack"` as their clip, so a
     /// 132-row sheet drew ONE animation for a jab, three smashes and five
     /// aerials. The gameplay was already distinct; only the picture was not.
     ///
-    /// ⚠ **this asserts the REQUEST, not the drawing.** Whether a row exists is
+    /// **this asserts the REQUEST, not the drawing.** Whether a row exists is
     /// a question about a particular sheet and belongs to
     /// `SheetRecord::first_bound_row`; what a character ASKS FOR is a fact about
     /// the character, and it is the half that was missing.
@@ -800,7 +772,7 @@ mod clip_binding_tests {
                  will draw one",
                 spec.clip.clip
             );
-            // ⛔ and the chain must still reach a sheet that has none of them.
+            // and the chain must still reach a sheet that has none of them.
             assert!(
                 spec.clip.fallbacks.iter().any(|f| f == "idle"),
                 "`{id}` can fall all the way through to nothing"
@@ -811,30 +783,17 @@ mod clip_binding_tests {
 
 /// **THE ROBOT'S CANONICAL REPERTOIRE — what actions it intrinsically HAS.**
 ///
-/// ⭐⭐ **authored, since 2026-08-11** (GPT 5.6 §5). This lived in
-/// `default_player_action_set(abilities)`, a Rust function that built the
-/// protagonist's kit from scratch on every call and gated it by the live
-/// `AbilitySet` in the same expression. Two different questions shared one body
-/// of code: *what actions does this character have* (a character fact, and the
-/// only one on this list) and *which of them are unlocked right now* (runtime
-/// progression). `ActionSet::gated_by` is the second question's general form, so
-/// this is free to be the first question's plain answer.
-///
-/// ⚠ **the numbers are the host function's verbatim.** A migration that retuned
-/// on the way would be a retune wearing a migration's commit — and the windup in
-/// particular is a decision with a reason on it, quoted below.
+/// This lived in `default_player_action_set(abilities)`, a Rust function that built the
+/// protagonist's kit from scratch on every call and gated it by the live `AbilitySet` in the same
+/// expression. Two different questions shared one body of code: *what actions does this character
+/// have* (a character fact, and the only one on this list) and *which of them are unlocked right
+/// now* (runtime progression). `ActionSet::gated_by` is the second question's general form, so this
+/// is free to be the first question's plain answer.
 pub fn player_robot_action_set() -> ambition_characters::brain::ActionSet {
     use ambition_characters::brain::{
         ActionSet, MeleeActionSpec, MoveStyleSpec, RangedActionSpec, SpecialActionSpec, SwipeSpec,
     };
     ActionSet {
-        // **NO WINDUP. The player's attack comes out on the press.** (Jon,
-        // 2026-07-31: *"the attack should come out immediately so it feels
-        // responsive."*) A windup is a promise made to an opponent — it exists so
-        // a fighter can be READ, which is right for a striker the player is meant
-        // to beat and wrong for the hand the player is holding. The Startup phase
-        // still exists and is zero seconds long, so the hit volume, the slash arc
-        // and the swing cue all land on the frame of the press.
         melee: Some(MeleeActionSpec::Swipe(SwipeSpec {
             windup_s: 0.0,
             active_s: 0.10,
@@ -842,7 +801,7 @@ pub fn player_robot_action_set() -> ambition_characters::brain::ActionSet {
             damage: 1,
             reach_px: 36.0,
         })),
-        // The Hadouken. ⭐ HOW it fires — hold to build, release — is
+        // The Hadouken. HOW it fires — hold to build, release — is
         // `ranged_execution: ChargedProjectile` on the definition, not a property
         // of this slot: the slot says the robot throws something, the execution
         // says the throw charges.

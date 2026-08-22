@@ -186,13 +186,9 @@ pub fn trigger_boss_attack_moves(
             .map(|p| (p, true))
             .or_else(|| attack_intent.active_profile.as_ref().map(|p| (p, false)));
 
-        // A move is already playing: don't re-trigger (its own duration is the
-        // fire-rate gate) — but ABORT a still-in-WINDUP move the pattern has
-        // abandoned (phase change / suppress / rest cleared the intent, or it moved
-        // on to a different profile). This is the telegraph-edge trigger's parity
-        // with the old strike-edge behavior: an interrupted windup must NOT strike.
-        // A move already in its Active window is committed (the Smash convention) and
-        // runs to completion.
+        // This is the telegraph-edge trigger's parity with the old strike-edge behavior: an
+        // interrupted windup must NOT strike. A move already in its Active window is committed
+        // (the Smash convention) and runs to completion.
         if let Some(pb) = playback {
             let move_profile = BossAttackProfile::from_move_id(&pb.spec.id);
             let in_windup = pb.t < active_start(&pb.spec);
@@ -264,9 +260,6 @@ pub fn project_boss_attack_state_from_move(
 ) {
     use ambition_characters::brain::BossAttackProfile;
     for (playback, mut attack_state) in &mut bosses {
-        // No live move → no telegraph, no strike. As the SOLE writer (§A1 slice 1b) the
-        // projection clears a resting boss here rather than leaving a stale strike the
-        // brain used to clear.
         let Some(playback) = playback else {
             attack_state.clear();
             continue;
@@ -306,15 +299,12 @@ pub fn project_boss_attack_state_from_move(
     }
 }
 
-/// PHASE (presentation, SIM-side) — drive each boss's animation frame and publish
-/// the per-frame [`crate::features::BossAnimationFrameSample`] the boss GEOMETRY
-/// reads (fable-review-2026-07-04 R1.3). This retires the render→sim WRITE-BACK:
-/// render no longer owns or writes the frame. Now the SIM owns the cursor: it
-/// picks the anim from the projected `BossAttackState`, advances the frame, and
+/// PHASE (presentation, SIM-side) — drive each boss's animation frame and publish the per-frame
+/// [`crate::features::BossAnimationFrameSample`] the boss GEOMETRY reads. This retires the
+/// render→sim WRITE-BACK: render no longer owns or writes the frame. Now the SIM owns the
+/// cursor: it picks the anim from the projected `BossAttackState`, advances the frame, and
 /// writes the sample; the renderer mirrors that cursor into its draw-only
 /// [`BossAnimator`](ambition_boss_encounter::sprites::BossAnimator).
-/// Runs after `project_boss_attack_state_from_move` (so `BossAttackState` is this
-/// frame's) and before the renderer's `animate_bosses`.
 pub fn drive_boss_animators(
     mut commands: Commands,
     boss_catalog: Res<ambition_boss_encounter::BossCatalog>,
@@ -422,7 +412,7 @@ pub fn tick_boss_brains_system(
         ),
         With<FeatureSimEntity>,
     >,
-    // Any body a boss may be aiming at — its COLLISION extent, read-only. ⛔ NOT
+    // Any body a boss may be aiming at — its COLLISION extent, read-only. NOT
     // `CenteredAabb`: that is the coarse footprint, and a boss publishes it from
     // its `BodyEnvelope` render envelope (AJ5.1), so asking it about a boss
     // target would answer with a render quad. `BodyKinematics::size` is the box
@@ -433,8 +423,6 @@ pub fn tick_boss_brains_system(
     target_bodies: Query<&crate::actor::BodyKinematics>,
 ) {
     let dt = world_time.sim_dt();
-    // A room used to arrive as a `Single`, so no room meant Bevy skipped this
-    // system. Same outcome, now stated: a boss has nothing to decide against.
     let Some(feature_world) = collision.solids() else {
         return;
     };
@@ -467,7 +455,7 @@ pub fn tick_boss_brains_system(
         // through a deterministic input→special mapping over `BossCapability` — the
         // boss body's full kit, nothing special-cased (unified-actors I2/I7).
         //
-        // ⭐ **the scripted pattern is not stashed any more; it is simply not
+        // **the scripted pattern is not stashed any more; it is simply not
         // asked.** Its `Brain` sits on the body untouched for the whole
         // possession — the human is the policy choosing from the same repertoire
         // the pattern would, and the moment the seat leaves, the pattern resumes
@@ -502,7 +490,7 @@ pub fn tick_boss_brains_system(
             // the profile's authored `possessed_verbs` resolved through the same
             // directional-verb chain an actor melee uses, falling back to the legacy
             // deterministic mapping (primary strike / signature special) for a boss
-            // that authors no verbs. Verb bindings are BLIND (Jon feel-checks).
+            // that authors no verbs. Verb bindings are BLIND.
             intent.clear();
             if let Some(profile) =
                 possessed_attack_choice(&frame, &boss.config.behavior, capability, boss.kin.facing)
@@ -695,17 +683,6 @@ pub(crate) fn horizontal_front_wall_clearance(
     best
 }
 
-/// PHASE — integrate boss bodies through the ONE shared per-body integrator
-/// (`integrate_actor_body`), the SAME function every actor body flows through
-/// (fable-review-2026-07-04 R1.1). A boss IS an aerial actor: its `BossPattern`
-/// brain wrote a `velocity_target` into `ActorControl` upstream, and the shared
-/// integrator moves it through the SAME flight limb every aerial actor uses
-/// (`ActorMut::update`) in DIRECT-VELOCITY mode — the commanded velocity is taken
-/// verbatim. There is no longer a bespoke boss `em.update` + `CenteredAabb` publish;
-/// the boss's coarse render footprint rides the body-generic [`crate::combat::BodyEnvelope`]
-/// (the envelope split, AJ5.1), so the one integrator's publish rule
-/// (`footprint = envelope ?? kin.size`) reproduces the render-sized box.
-///
 /// This is the boss sibling of the player's `integrate_home_body` arm and the
 /// actor arm of `integrate_sim_bodies`: three disjoint archetypes, ONE shared
 /// integrator. It keeps its own scheduled slot (chain 1, between
@@ -716,7 +693,7 @@ pub(crate) fn horizontal_front_wall_clearance(
 /// and its stagger timers are always zero (the boss victim path arms none), so
 /// every extra thing `integrate_actor_body` does is a no-op here.
 ///
-/// E6(d) no-boss-arm fold verdict (Codex 2026-07-07): do NOT merge this into
+/// E6(d) no-boss-arm fold verdict: do NOT merge this into
 /// `integrate_sim_bodies` by adding a boss branch. The cheap bound fails because
 /// the fold requires a schedule move (chain-2 body movement ahead of chain-1 boss
 /// presentation), boss-only query inputs (`BossConfig` + `BodyEnvelope` +
@@ -752,17 +729,12 @@ pub fn integrate_boss_bodies(
             // phase — the SAME artifact every other body integrates under.
             &'static ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
             &'static mut ambition_platformer2d_core::BodyMotionFacts,
-            // The boss's live strike move, if any — its authored per-window
-            // motion lock (the strike-speed throttle, formerly brain policy)
-            // scales the steering intent inside `integrate_actor_body`.
             Option<&'static crate::combat::moveset::MovePlayback>,
         ),
         (With<FeatureSimEntity>, Without<crate::actor::PlayerEntity>),
     >,
 ) {
     let dt = world_time.sim_dt();
-    // A room used to arrive as a `Single`, so no room meant Bevy skipped this
-    // system. Same outcome, now stated: a boss has nothing to decide against.
     let Some(feature_world) = collision.solids() else {
         return;
     };
@@ -820,7 +792,7 @@ pub fn integrate_boss_bodies(
             &mut hit_events,
             #[cfg(feature = "causal")]
             None,
-            // ⚠ **a boss is not in the contact snapshot.** Body contact is
+            // **a boss is not in the contact snapshot.** Body contact is
             // granted per body by a composition; nothing grants it to a boss,
             // and an inert field resolves this body exactly as it did.
             ae::BodyContactField::NONE,

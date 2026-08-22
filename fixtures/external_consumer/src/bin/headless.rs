@@ -7,7 +7,7 @@
 //! Outlander session ACTIVATES (room constructed, player + staged sentry
 //! present) and the ridge gate actually transits the walking body onto the
 //! upper ledge. An earlier draft updated an empty un-routed host 120 times and
-//! called that success (GPT 5.6 review finding).
+//! called that success.
 
 fn main() {
     let mut app = outlander::build_outlander_app();

@@ -81,38 +81,16 @@ pub fn input_timer_system(
     let frame_dt = world_time.wall_dt();
     let feel = *feel_tuning;
     sim_state.remaining = (sim_state.remaining - frame_dt).max(0.0);
-    // ⭐ **ONE decay, called — not a fourth spelling of it** (AC3.3). This was
-    // five inline lines that decayed `landing_lag_timer` and forgot `hit_flash`,
-    // while the shared `decay_reaction_timers` the actor and boss ticks call
-    // decayed `hit_flash` and forgot `landing_lag_timer`. Two lists for one rule,
+    // ⭐ **ONE decay, called — not a fourth spelling of it** (AC3.3). Two lists for one rule,
     // disagreeing in both directions.
-    //
-    // ⚠ **and picking up `hit_flash` here FIXES a body nobody was decaying.**
-    // The blink used to decay in `cleanup_timers_system`, whose query is
-    // `PrimaryPlayerOnly` — the HOME AVATAR. This query is `With<PlayerEntity>`,
-    // every player body, so a co-op or clone body that took a hit no longer keeps
-    // its damage blink lit forever.
-    //
-    // ⛔⛔ **THE RAW FRAME DELTA HERE IS DELIBERATE, AND MOVING IT TO THE SIM
-    // CLOCK BREAKS SEVEN BOSS TESTS — measured 2026-08-18, D117.**
-    //
-    // The actor and boss ticks pass `world_time.sim_dt()`, and this site looks
-    // like the odd one out. It is not. **Hitstop is a `sim_clock` requester** —
-    // a connect asks `RequestedClockScale.sim_clock` down, and `scaled_dt =
-    // raw_dt × time_scale` follows. So decaying `hitstop_timer` on `sim_dt()`
-    // slows the timer that ENDS the freeze by the freeze itself, and the same
-    // scale stretches the i-frame and hitstun windows measured against it.
     //
     // ⭐ i-frames are a promise to the PLAYER in real seconds — a bullet-time
     // moment must not hand out longer invulnerability — which is the same
     // reason the double-tap windows below are unscaled.
     //
-    // ⚠ **what WAS wrong is the waiver, not the clock.** The `Res<Time>`
-    // allowlist entry for this file claimed *"the reaction timers still compute
-    // their own scaled dt manually"*, and no such scaling exists or should. A
-    // waiver that describes a protection the code does not have is what stops
-    // the next reader from checking — and it is why this was "fixed" once,
-    // against seven passing tests, before the reason was written down.
+    // ⚠ **what WAS wrong is the waiver, not the clock.** The `Res<Time>` allowlist entry for
+    // this file claimed *"the reaction timers still compute their own scaled dt manually"*, and
+    // no such scaling exists or should.
     for mut combat in &mut home_feel_q {
         combat.decay_reaction_timers(frame_dt);
     }
@@ -337,16 +315,10 @@ mod per_seat_gesture_tests {
     /// **PLAYER TWO CAN FAST-FALL.**
     ///
     /// ⛔⛔ **they could not, and one line proved it:**
-    /// `read_gameplay_control_frame_with_settings` hardcoded
-    /// `fast_fall_pressed: false`, and the only system that ever set it read
-    /// `slot_gestures.primary_mut()`. The table was per-slot, the accessor was
-    /// per-slot, and body mode consumed it per-slot — the PRODUCER filled row
-    /// zero. Nothing was missing but the loop.
-    ///
-    /// ⚠ **both seats, and the assertion on seat ZERO is not decoration.** A
-    /// per-seat rewrite that quietly moved the derivation off the primary would
-    /// fix player two by breaking player one, and a test that only looked at the
-    /// new seat would call that a success.
+    /// `read_gameplay_control_frame_with_settings` hardcoded `fast_fall_pressed: false`, and
+    /// the only system that ever set it read `slot_gestures.primary_mut()`. The table was
+    /// per-slot, the accessor was per-slot, and body mode consumed it per-slot — the PRODUCER
+    /// filled row zero.
     #[test]
     fn every_seat_derives_its_own_fast_fall_double_tap() {
         let mut app = App::new();
@@ -488,13 +460,10 @@ mod interaction_suppression_tests {
 
     /// **A TAP THAT ONLY EVER EXISTED IN THE LATCH STILL REACHES THE BUFFER.**
     ///
-    /// ⛔⛔ **the regression this exists to prevent, and I wrote it.** D175 moved
-    /// this system off the global `ControlFrame` and onto the per-seat RAW row.
-    /// On a LATCH host that is the wrong table: `ControlFrameLatch` OR-accumulates
-    /// edges across every sub-tick sample, so a press that opens and closes
-    /// between two ticks lives in the drained frame and in NO single raw sample
-    /// — which is the entire reason the latch exists. The fixture puts the press
-    /// only where the latch would have left it.
+    /// On a LATCH host that is the wrong table: `ControlFrameLatch` OR-accumulates edges across
+    /// every sub-tick sample, so a press that opens and closes between two ticks lives in the
+    /// drained frame and in NO single raw sample — which is the entire reason the latch exists. The
+    /// fixture puts the press only where the latch would have left it.
     #[test]
     fn a_sub_tick_press_survives_on_a_latching_host() {
         let mut app = App::new();
@@ -540,9 +509,7 @@ mod interaction_suppression_tests {
         );
     }
 
-    /// Down + Interact is the possession gesture and must NOT register a normal
-    /// interaction (the in-game bug Jon hit: starting a possession hold next to
-    /// an NPC opened its dialog). The Down-held interact edge is suppressed.
+    /// The Down-held interact edge is suppressed.
     #[test]
     fn down_interact_is_claimed_by_possession_not_a_normal_interact() {
         assert!(

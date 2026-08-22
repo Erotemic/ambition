@@ -12,12 +12,6 @@
 //!
 //! ## Items-page layout (matches `ambition_mock_demo`)
 //!
-//! The proven demo (`crates/ambition_mock_demo/src/app/models.rs`) does NOT render
-//! each item's full description inside its grid cell (that overlapping mush is the
-//! bug this file fixes). Instead it shows short item NAMES in a compact grid and
-//! renders the *focused* item's wrapped description once, in a dedicated detail
-//! panel beside the grid. We replicate that structure here:
-//!
 //! * the grid sits in the left/centre (panel rect [`GRID_RECT`]), each cell shows a
 //!   short, wrapped item name and a one-word action hint (Equip/Use/...),
 //! * the [`DETAIL_PANEL_RECT`] on the right shows the [`MenuFocus`]ed item's name +
@@ -84,11 +78,7 @@ const LABEL_WRAP_COLS: usize = 10;
 /// Max lines of a wrapped item name shown in a cell.
 const LABEL_MAX_LINES: usize = 2;
 
-/// Detail-panel dynamic-text slots. The detail panel's CONTENT is cursor-dependent
-/// but its LAYOUT is fixed, so the panel emits a fixed set of [`MenuDynamicText`]
-/// slots (spawned empty) that the in-place updater
-/// (`crate::menu::kaleidoscope_app::kaleidoscope_sync_detail_text`) rewrites from
-/// the live cursor — no face rebuild, so a hover never drops a `Pointer<Click>`.
+/// Detail-panel dynamic-text slots.
 ///
 /// Items face: slot 0 is the "SELECTED" header, slots `1..=DETAIL_VISIBLE_TOTAL`
 /// are the wrapped name/description/status lines.
@@ -299,8 +289,7 @@ pub fn items_spec(
             } else {
                 InventoryItemNode::unowned(item.index(), cell_label(item.display_name()))
             };
-            // Short per-cell hint only (NOT the full description — that mush was the
-            // bug). The description is rendered once, in the detail panel.
+            // The description is rendered once, in the detail panel.
             node = node
                 .detail(cell_hint(owned, equipped, item))
                 .equipped(equipped == Some(item));
@@ -343,11 +332,7 @@ pub fn build_items_page(
 /// wrapped description. This is the demo's "SELECTED" panel — exactly ONE detail
 /// region for the whole page, not one per cell.
 ///
-/// The panel's CONTENT is cursor-dependent, so it is emitted as fixed, empty
-/// [`MenuDynamicText`] slots; the in-place updater
-/// (`crate::menu::kaleidoscope_app::kaleidoscope_sync_detail_text`) fills them
-/// from the live cursor each time it moves — no rebuild, so a hover never drops a
-/// click. See [`items_detail_slot_text`] for the slot→string mapping.
+/// See [`items_detail_slot_text`] for the slot→string mapping.
 fn add_detail_panel(model: &mut MenuPageModel<MenuPage, MenuPageAction>) {
     model.panel(
         DETAIL_PANEL_RECT,
@@ -374,10 +359,8 @@ fn add_detail_panel(model: &mut MenuPageModel<MenuPage, MenuPageAction>) {
     }
 }
 
-/// The Items detail-panel text keyed by dynamic-text slot, for the focused item.
-/// Empty slots (lines beyond the item's text) map to `""` so a previously longer
-/// description is cleared in place. This is the in-place equivalent of the old
-/// baked detail panel.
+/// The Items detail-panel text keyed by dynamic-text slot, for the focused item. This is the
+/// in-place equivalent of the old baked detail panel.
 pub fn items_detail_slot_text(
     owned: &OwnedItems,
     equipped: Option<Item>,
@@ -661,7 +644,7 @@ fn system_option_label(model: &SystemMenuModel, opt: SystemOptionId) -> String {
             })
             .map(|r| format!("{}: {}  < >", r.label, r.value_label))
             .unwrap_or_else(|| id.label().to_string()),
-        // ⚠ the BINDING comes from the row the IR built from the seat's live
+        // the BINDING comes from the row the IR built from the seat's live
         // projection, never from a table this function keeps. A rebind row that
         // printed a remembered control is the exact staleness `SeatBindings`
         // exists to make impossible.
@@ -794,13 +777,10 @@ const SYSTEM_ROW_FONT: f32 = 2.3;
 const SYSTEM_ROW_MAX_H: f32 = 10.5;
 /// Description wrap width inside the wider bottom panel.
 const SYSTEM_DESC_WRAP_COLS: usize = 60;
-/// Max System rows shown at once before the list becomes a windowed scroll list
-/// (Fix 3/4). Long screens — Radio (~26 stations) and Developer (~15 toggles) —
-/// otherwise cram every row into the list rect, producing unreadably thin rows.
-/// At/under this count the whole list shows; over it, the window follows the
-/// cursor (same mechanic as the Bevy-UI pause menu's `RADIO_VISIBLE_ROWS`). Sized
-/// for large, finger-readable rows that still leave room for the bottom panel: 6
-/// rows give each a noticeably bigger touch target + font than the old 7.
+/// Long screens — Radio (~26 stations) and Developer (~15 toggles) — otherwise cram every row
+/// into the list rect, producing unreadably thin rows. At/under this count the whole list
+/// shows; over it, the window follows the cursor (same mechanic as the Bevy-UI pause menu's
+/// `RADIO_VISIBLE_ROWS`).
 pub const SYSTEM_VISIBLE_ROWS: usize = 6;
 
 /// The largest valid scroll-window START for a list of `total` rows: the last
@@ -810,11 +790,8 @@ pub fn system_max_window_start(total: usize) -> usize {
     total.saturating_sub(SYSTEM_VISIBLE_ROWS)
 }
 
-/// Map a scrollbar's neutral `0..=1` drag fraction onto a System-window START row
-/// for a list of `total` rows. `None` when the list fits (no scrolling). Single
-/// source of truth shared by BOTH backends' scroll-drag appliers (the cube's
-/// `kaleidoscope_apply_scroll_drag` + the grid's `grid_menu_apply_scroll_drag`),
-/// which previously each open-coded the same `(fraction * max).round().min(max)`.
+/// Map a scrollbar's neutral `0..=1` drag fraction onto a System-window START row for a list of
+/// `total` rows. `None` when the list fits (no scrolling).
 pub fn scroll_fraction_to_window_start(total: usize, fraction: f32) -> Option<usize> {
     if total <= SYSTEM_VISIBLE_ROWS {
         return None;
@@ -1075,15 +1052,10 @@ pub fn system_scrollbar_thumb(window_start: usize, total: usize) -> (f32, f32) {
     (start, size)
 }
 
-/// The System face's BOTTOM detail panel: the focused option's label (its current
-/// state) plus a wrapped description. A wide, short panel along the bottom (the
-/// items page keeps its right-side panel; the System face moves it down so the
-/// option column can be centered + enlarged).
-/// The System face's BOTTOM detail panel. Its CONTENT (focused row's label +
-/// description) is cursor-dependent, so it is emitted as fixed, empty
-/// [`MenuDynamicText`] slots filled in place by
-/// `crate::menu::kaleidoscope_app::kaleidoscope_sync_detail_text`
-/// (see [`system_detail_slot_text`]) — no rebuild on hover, so the click survives.
+/// The System face's BOTTOM detail panel: the focused option's label (its current state) plus a
+/// wrapped description. A wide, short panel along the bottom (the items page keeps its
+/// right-side panel; the System face moves it down so the option column can be centered +
+/// enlarged). The System face's BOTTOM detail panel.
 fn add_system_detail_panel(model: &mut MenuPageModel<MenuPage, MenuPageAction>) {
     model.panel(
         SYSTEM_DESC_RECT,
@@ -1113,8 +1085,6 @@ fn add_system_detail_panel(model: &mut MenuPageModel<MenuPage, MenuPageAction>) 
 }
 
 /// The System bottom-panel text keyed by dynamic-text slot, for the focused row.
-/// The in-place equivalent of the old baked bottom panel; empty slots clear stale
-/// lines from a previously longer description.
 pub fn system_detail_slot_text(
     sys_model: &SystemMenuModel,
     rows: &[SystemRow],

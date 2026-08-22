@@ -47,8 +47,8 @@ pub fn outlander_asset_root() -> String {
 // sources there". That sentence is an engine rule, and a consumer holding it in
 // a free function is a consumer being trusted to call it at the right moment.
 //
-// DELETED 2026-07-30. The source is DECLARED on `OutlanderModule::manifest`
-// now, and the engine installs it at the only correct moment. See §host.
+// The source is DECLARED on `OutlanderModule::manifest` now, and the engine installs it at the only
+// correct moment. See §host.
 
 pub const OUTLANDER_EXPERIENCE: &str = "outlander";
 pub const OUTLANDER_GAMEPLAY_ROUTE: &str = "outlander_gameplay";
@@ -59,15 +59,12 @@ pub const OUTLANDER_ENEMY_BRAIN_KEY: &str = "outlander_sentry";
 pub const OUTLANDER_SENTRY_CHARACTER_ID: &str = "outlander_sentry";
 pub const OUTLANDER_SENTRY_ID: &str = "outlander_sentry_0";
 
-// ── §character ──────────────────────────────────────────────────────────────
-// LEAK #3 CLOSED, both halves (2026-07-28). This used to read "reuses an
-// engine-shipped spritesheet on purpose: consumer-owned art has no home" — and
-// that was two separate gaps wearing one sentence. The ADDRESS half was the
-// asset source plus a catalog pipeline that reduced every path to a basename
-// under the engine's sprite folder; the DESCRIPTION half was sheet metadata
-// living only in a table baked from the engine's own tree. Both are seams now:
-// `game://` survives catalog assembly, and `register_character_sheet_ron`
-// registers what the art looks like. The row below is what a third party writes.
+// ── §character ────────────────────────────────────────────────────────────── LEAK #3 CLOSED, both
+// halves. The ADDRESS half was the asset source plus a catalog pipeline that reduced every path to
+// a basename under the engine's sprite folder; the DESCRIPTION half was sheet metadata living only
+// in a table baked from the engine's own tree. Both are seams now: `game://` survives catalog
+// assembly, and `register_character_sheet_ron` registers what the art looks like. The row below is
+// what a third party writes.
 /// The catalog this crate authors, exposed so a test can assemble it exactly as
 /// the shell does rather than paraphrasing it — a fixture that proves a claim
 /// about a paraphrase proves nothing about the game.
@@ -100,16 +97,11 @@ const OUTLANDER_CATALOG_RON: &str = r#"(
     },
 )"#;
 
-/// **The sheet Outlander authors for its own character.** (queue U1)
+/// **The sheet Outlander authors for its own character.**
 ///
-/// A catalog row says a character exists and names a sheet TARGET; this says
-/// what that sheet looks like — frame size, rows, where the body sits. Until
-/// 2026-07-28 the second half was expressible only by putting a RON in the
-/// ENGINE's asset tree and rebuilding the engine, which a third party cannot
-/// do: `manifest_target()` strips `_spritesheet.ron` to a name and that name was
-/// looked up in a table baked from `crates/ambition_platformer2d_actor_monolith/assets/sprites`. A
-/// consumer could address its own PNG and had no way to describe it, so its
-/// character drew the placeholder rectangle whatever art it shipped.
+/// A catalog row says a character exists and names a sheet TARGET; this says what that sheet looks
+/// like — frame size, rows, where the body sits. A consumer could address its own PNG and had no
+/// way to describe it, so its character drew the placeholder rectangle whatever art it shipped.
 ///
 /// One `idle` row, because the resolution rule is "a spec that maps Idle" and a
 /// fixture should author the minimum that makes the claim true rather than a
@@ -136,12 +128,9 @@ pub const OUTLANDER_SHEET_RON: &str = r#"[
 
 // ── §enemy (character half) ─────────────────────────────────────────────────
 //
-// D73 deleted the old enemy roster because one row mixed three authorities:
-// what a body IS, how an autonomous driver DECIDES, and what this placement
-// should do when the body dies. Outlander now demonstrates the public replacement
-// from outside the workspace: body facts live on a CharacterDefinition, controller
-// policy lives in BrainProfile, and the staged placement keeps its own respawn
-// policy (EnemySpawnSpec's default is OnRoomReenter).
+// Outlander now demonstrates the public replacement from outside the workspace: body facts live
+// on a CharacterDefinition, controller policy lives in BrainProfile, and the staged placement
+// keeps its own respawn policy (EnemySpawnSpec's default is OnRoomReenter).
 
 // ── §room ───────────────────────────────────────────────────────────────────
 /// Two floors joined by the §transition gate: a lower ridge with the sentry,
@@ -192,8 +181,8 @@ fn sentry_spawn_requests(spawn: Vec2) -> Vec<ambition_platformer2d::actor::Spawn
             brain: ambition_platformer2d::character::CharacterBrain::Custom(
                 OUTLANDER_ENEMY_BRAIN_KEY.to_string(),
             ),
-            // The body identity is REQUIRED post-D73. The controller key above is
-            // placement vocabulary; it is not a second source of body facts.
+            // The controller key above is placement vocabulary; it is not a second source of
+            // body facts.
             character: ambition_platformer2d::character::CharacterId::new(
                 OUTLANDER_SENTRY_CHARACTER_ID,
             ),
@@ -205,11 +194,6 @@ pub fn install_outlander_content(app: &mut App) {
     use ambition_platformer2d::actor::RoomContentStagingRegistry;
     use ambition_platformer2d::character::{CharacterCatalogAppExt, CharacterCatalogFragment};
 
-    // `from_ron_at` for the CATALOG, and it is located for a reason: these
-    // constants are this crate's authored content, and when one of them is wrong
-    // the message a stranger reads should say WHERE. The seam took an anonymous
-    // `&str` until 2026-07-28, so no diagnostic could name a file however hard
-    // it tried.
     app.register_character_catalog_fragment(
         CharacterCatalogFragment::from_ron_at(
             "fixtures/external_consumer/src/lib.rs:OUTLANDER_CATALOG_RON",
@@ -222,19 +206,12 @@ pub fn install_outlander_content(app: &mut App) {
     // The sheet half of authoring a character. Same shape as the catalog
     // fragment above and deliberately so: a provider says WHO its characters are
     // and WHAT THEY LOOK LIKE through two registrations, neither of which
-    // requires touching the engine's asset tree (queue U1).
+    // requires touching the engine's asset tree.
     {
         use ambition_platformer2d::character::AuthoredSheetAppExt;
         app.register_character_sheet_ron("outlander", OUTLANDER_SHEET_RON);
     }
     // **The character-DEFINITION seam, exercised from outside the workspace.**
-    //
-    // The catalog fragment above says a character exists; this says what it can
-    // DO, and since 2026-07-28 an authored value here outranks the row (queue
-    // C3). Until now every caller of that seam was in-workspace — the two arena
-    // duelists — which makes it a claim about this repo rather than about an
-    // engine. The keystone rule applies: an engine claim nobody outside proves
-    // is not an engine claim.
     //
     // Outlander authors an EMPTY action set, deliberately, and it is the harder
     // half of the claim rather than the lazy one. `Some(empty)` means "this
@@ -243,15 +220,10 @@ pub fn install_outlander_content(app: &mut App) {
     // through to the row — whose `default_action_set: "drifter"` is a kit this
     // character did not ask for — and hand a third party's wanderer a weapon.
     //
-    // ⚠ **the row above no longer carries `playable_kit` AT ALL.** It said
-    // `HostCode` until 2026-08-11 (the robot authors its own kit now, so no row
-    // may say another crate owns its playable repertoire), then `Authored` until
-    // `PlayableKitSource` — a selector with one thing to select — was deleted on
-    // 2026-08-13. This RON kept the field for six days and NOTHING SAID SO: a
-    // catalog fragment is parsed at runtime, so `cargo check` on this fixture
-    // stayed green while every test that boots it panicked on an unknown field.
-    // The fall-through this block guards is unchanged and still real — the row's
-    // own `drifter` set — and it never depended on the deleted field.
+    // This RON kept the field for six days and NOTHING SAID SO: a catalog fragment is parsed at
+    // runtime, so `cargo check` on this fixture stayed green while every test that boots it
+    // panicked on an unknown field. The fall-through this block guards is unchanged and still real
+    // — the row's own `drifter` set — and it never depended on the deleted field.
     {
         use ambition_platformer2d::character::{
             ActionSet, BrainProfile, CharacterBrainTemplate, CharacterDefinition,
@@ -264,8 +236,6 @@ pub fn install_outlander_content(app: &mut App) {
                 .with_action_set(ActionSet::default()),
         );
 
-        // **The old roster row, expressed through the post-D73 authorities.**
-        //
         // Body:      max_health, run_speed, move_style, contact damage.
         // Controller: Wanderer + effort/radius policy.
         // Placement: OnRoomReenter is EnemySpawnSpec's named default.
@@ -311,11 +281,6 @@ pub fn install_outlander_content(app: &mut App) {
             |spec| sentry_spawn_requests(spec.world.spawn),
         )
         .expect("sentry staging registration is unique");
-    // DELIBERATE SILENCE used to be declared HERE, by hand-registering an empty
-    // `AudioCatalogFragment`, because preparation validation refuses an
-    // experience whose provider registered none — "a good message that a
-    // headless host surfaced NOWHERE".
-    //
     // Both halves are closed now. The refusal is legible (slice C gave it
     // `HostStatus::Refused`), and the declaration is a word on the draft:
     // `no_audio()`. See §host.
@@ -341,9 +306,7 @@ pub fn install_outlander_content(app: &mut App) {
 pub struct BeaconCharge {
     /// Seconds of contact accumulated, saturating at [`BEACON_FULL_SECONDS`].
     pub seconds: f32,
-    /// Ticks the body has spent inside the field. A second field on purpose: an
-    /// encoder that round-trips one member and drops the other is a real bug
-    /// class, and a single-field state cannot catch it.
+    /// Ticks the body has spent inside the field.
     pub ticks: u32,
 }
 
@@ -500,23 +463,18 @@ impl Plugin for OutlanderExperiencePlugin {
                 "outlander.beacon_charge",
             );
         }
-        // The experience used to be assembled HERE — `PlatformerExperienceAuthoring`
-        // wrapped around a hand-built `PreparedPlatformerSource`, six arguments
-        // of engine vocabulary in a third party's file. `ModuleDraft::playable`
-        // took ownership of that in slice B; Outlander is migrated onto it in
-        // slice C. See §host.
+        // `ModuleDraft::playable` took ownership of that in slice B; Outlander is migrated onto it
+        // in slice C. See §host.
     }
 }
 
 // ── §host ───────────────────────────────────────────────────────────────────
 /// **Outlander, declared.** Everything the engine needs to stand this game up.
 ///
-/// LEAK CLOSED 2026-07-30 — slice A of the API 1.0 campaign, and this fixture is
-/// why it was found. What stood here was three hand-ordered compositions
-/// totalling ~110 lines: `build_outlander_app`, `build_outlander_rollback_app`
-/// and `build_windowed_app`, plus `compose_outlander_shell` and
-/// `register_outlander_asset_source` for them to share. Between them they
-/// encoded EIGHT engine ordering rules, of which four failed silently:
+/// What stood here was three hand-ordered compositions totalling ~110 lines: `build_outlander_app`,
+/// `build_outlander_rollback_app` and `build_windowed_app`, plus `compose_outlander_shell` and
+/// `register_outlander_asset_source` for them to share. Between them they encoded EIGHT engine
+/// ordering rules, of which four failed silently:
 ///
 /// > the consumer's asset source registers before `DefaultPlugins` (Bevy seals
 /// > its sources when `AssetPlugin` builds); `AssetPlugin.file_path` is the
@@ -585,8 +543,6 @@ pub fn build_outlander_app() -> App {
 /// the claim: a consumer does not restructure its game to become
 /// rollback-capable.
 ///
-/// # LEAK CLOSED 2026-07-30 — the ninth, and this builder is where it hid
-///
 /// The A2 inventory found eight ordering rules in this fixture's hand-composed
 /// hosts. Migrating to the builder found a NINTH, which had been sitting in
 /// this function's own comment and nowhere else:
@@ -617,14 +573,8 @@ pub fn build_outlander_rollback_app() -> Result<App, String> {
         .mount(OutlanderModule)
         .build();
 
-    // ⚠ This function used to be forty lines of ordering, and every line was a
-    // hazard the engine had already hit: activate before the session exists,
-    // because preparation and the session-world commit build the room and the
-    // body through `Commands` and a rollback cannot undo construction; then
-    // settle, because activation completing is not the same fact as the next
-    // tick being quiet. The first draft skipped both, started the session on
-    // update #1, and watched GGRS report a checksum mismatch on frames 2, 3
-    // and 4 forever.
+    // The first draft skipped both, started the session on update #1, and watched GGRS report a
+    // checksum mismatch on frames 2, 3 and 4 forever.
     //
     // `ambition_platformer2d::rollback::start` performs that sequence. What Outlander
     // proves by no longer containing it is that the ordering is the ENGINE's
@@ -662,10 +612,6 @@ pub fn build_windowed_app(gpu: bool) -> App {
 
 /// Drive one frame of input, through the engine's own driver seam.
 ///
-/// LEAK CLOSED 2026-07-27. This used to carry its own branch — `PendingLocalInput`
-/// under GGRS, the `ControlFrame` resource under fixed tick — because a consumer
-/// running its game under both hosts had to know both, and writing the wrong one
-/// is silently ignored: the walk runs, the body never moves, nothing says why.
 /// That is a rule the engine can state once, and now does
 /// (`ambition_platformer2d::sim::drive_control_frame`).
 ///
@@ -755,13 +701,6 @@ pub fn activate_outlander(app: &mut App) -> Result<usize, String> {
         // Name where the shell actually got stuck — the difference between
         // "misconfigured route", "preparation never finished", and "activated
         // into the wrong room" is the whole diagnosis.
-        //
-        // This used to reach into `ShellRouter` and `ActiveGameplaySession`
-        // directly and format their fields by hand. `ambition_platformer2d::app::host_status`
-        // is the supported answer now, and it says strictly more: a REFUSED host
-        // carries the reasons preparation rejected it, which is exactly the
-        // state this fixture's hand-rolled version reported as "pending: true"
-        // and left the reader to guess about.
         let status = ambition_platformer2d::app::host_status(app);
         let router = format!("{status:?}");
         let session = match &status {
@@ -855,5 +794,3 @@ fn walk_outlander_to_the_ledge(
 // ActiveRoomMetadata, StartingCharacter and LdtkRuntimeIndex assembled by hand
 // out of `ambition_platformer2d::runtime::demo_fixture`. A module named `demo_fixture` in a
 // shipped game's imports was the namespace mirror confessing.
-//
-// DELETED 2026-07-30. `ModuleDraft::playable` assembles it.

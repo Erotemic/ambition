@@ -14,27 +14,17 @@ use crate::Platformer2dInputActionMonolith;
 
 /// One physical button, and the gameplay action a layout puts on it.
 ///
-/// `action: None` is a DECLARED BLANK, not an omission: the layout claims the
-/// button (so whatever the base preset had there is cleared) and deliberately
-/// leaves it dead. That is how Y works today — Jon's layout says *"y=grab"* and
-/// **we do not have grab**, so binding it to a placeholder would be inventing a
-/// verb, and leaving Projectile on it would leave a stray Ambition fireball on
-/// the button a fighting-game player reaches for to grab.
+/// `action: None` is a DECLARED BLANK, not an omission: the layout claims the button (so whatever
+/// the base preset had there is cleared) and deliberately leaves it dead.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PadSlot {
     pub button: GamepadButton,
     /// What this layout puts on the button — or `None` for a button it CLAIMS
     /// and leaves empty.
     ///
-    /// ⚠ the `None` is load-bearing, not a placeholder: [`BindingLayout::apply`]
-    /// clears every claimed button's gameplay bindings first and only then binds
-    /// the ones with an action, so a blank slot is how a layout TAKES A BUTTON
-    /// AWAY from the base preset without giving it a new verb. The Smash layout
-    /// used it to keep Projectile off North while North was reserved for a grab
-    /// that did not exist yet; that reservation was redeemed 2026-08-18 and no
-    /// layout blanks a button today. The capability stays because the next one
-    /// that needs it is one line, and the alternative — binding something the
-    /// layout does not want — is the failure this expresses.
+    /// the `None` is load-bearing, not a placeholder: [`BindingLayout::apply`] clears every claimed
+    /// button's gameplay bindings first and only then binds the ones with an action, so a blank
+    /// slot is how a layout TAKES A BUTTON AWAY from the base preset without giving it a new verb.
     pub action: Option<Platformer2dInputActionMonolith>,
 }
 
@@ -56,30 +46,9 @@ pub enum BindingLayout {
     /// The base preset's own pad, untouched. Ambition's layout: A=Jump.
     #[default]
     Standard,
-    /// Jon's smash layout, for the fighting-game mode.
     Smash,
 }
 
-/// Jon's smash pad, verbatim from the ruling, plus what each displaced action
-/// does about it.
-///
-/// | button | smash | was | the displaced action |
-/// |---|---|---|---|
-/// | South (A) | Attack | Jump | Jump moves to East |
-/// | East (B)  | Jump   | Blink | **Blink loses its pad button.** A teleport is not a fighting-game verb; its keyboard binding is untouched. |
-/// | West (X)  | Special | Attack | Attack moves to South |
-/// | North (Y) | **Grab** | Projectile | **The reservation is redeemed (2026-08-18).** Projectile lost its pad button rather than sitting on the grab button, and the button sat blank until the grab it was held for existed. |
-/// | LeftTrigger (LB) | Shield | Utility | **Utility (fly toggle) loses its pad button.** |
-/// | LeftTrigger2 (LT) | Shield | Modifier | **Modifier loses its pad button.** A fighting game reads walk off the analog stick. |
-///
-/// ⚠ **both left shoulder buttons shield, on purpose.** Jon said *"left trigger
-/// is shield"* about an Xbox pad, where "left trigger" is the ANALOG trigger —
-/// which Bevy spells `LeftTrigger2`, because it spells the BUMPER `LeftTrigger`.
-/// Rather than guess which of the two he meant, the layout gives Shield both:
-/// that is what a fighting game does anyway (L and R both shield), it satisfies
-/// his sentence under either reading, and one action on two buttons is not the
-/// hazard — two ACTIONS on one button is.
-///
 /// | DPadUp / DPadDown | **Taunt** | Move | **Movement is stick-only in a fighter**, which is what the genre does and what frees a button for a taunt. |
 ///
 /// Everything the table does not name is the base preset's: RightTrigger still
@@ -96,11 +65,6 @@ const SMASH_PAD: &[PadSlot] = &[
         GamepadButton::West,
         Platformer2dInputActionMonolith::Special,
     ),
-    // ⭐ **the reservation, redeemed.** This was `blank(North)` with a comment
-    // saying it was held for a grab that did not exist. Leaving a pad button
-    // empty for months is a real cost, and it was the right call: the
-    // alternative was Projectile sitting here and then being taken away from
-    // players' fingers the day capture landed.
     slot(GamepadButton::North, Platformer2dInputActionMonolith::Grab),
     // ⭐ **the D-pad taunts, because a fighting game moves on the STICK.** That
     // is the genre's own layout; the base preset's `DPad → Move` is what a
@@ -200,10 +164,9 @@ fn clear_gameplay_bindings_of(
 /// just the primary, unlike the keyboard-preset sync beside it: a preset is one
 /// person's taste, a layout is the mode's.
 ///
-/// ⭐ **DECLARE, don't edit.** The alternative — teaching
-/// `insert_gamepad_bindings` about smash — would make one game's taste every
-/// game's default, and Jon's ruling is the opposite: *"B=jump is the way I like
-/// my smash controller, it's probably non standard."* A=Jump stays right for
+/// ⭐ **DECLARE, don't edit.** The alternative — teaching `insert_gamepad_bindings` about smash
+/// — would make one game's taste every game's default, and the rule is the opposite: *"B=jump
+/// is the way I like my smash controller, it's probably non standard."* A=Jump stays right for
 /// Ambition, and it stays right by the smash layout never touching it.
 ///
 /// Same shape as `DeclaredCombatRules`, for the same reason: the declaration
@@ -294,10 +257,6 @@ mod tests {
     }
 
     /// ⭐ **the permutation, stated as "one button, one verb".**
-    ///
-    /// The base pad is fully assigned, so the failure this pins is not "the
-    /// binding is missing" — it is B firing Jump AND Blink together, which is
-    /// what a layout expressed as four additions would have produced.
     #[test]
     fn every_button_the_smash_layout_claims_drives_exactly_one_verb() {
         let map = smash_pad();

@@ -1,6 +1,5 @@
 //! **When does the world reset, relative to the death beat?**
 //!
-//! Jon, from play: *"When maryo-dies the enemies seem to reset before the death
 //! animation is finished. The level reset needs to happen all at once at a time
 //! that is easy to express in the game code."*
 //!
@@ -9,16 +8,12 @@
 //! Mary-O emits that from `restart_level_after_death`, which returns early while
 //! `sequence.active()`. So the reset is already gated behind the beat.
 //!
-//! ⚠ **which makes this a REPRODUCTION question, not a design one**, and a
-//! reproduction question is settled by stepping the sim rather than by reading
-//! more of it. This records, per frame, the beat's `remaining` against the frame
-//! the world actually resets, and asserts the ordering the code claims. A red
-//! here is the real row; a green says the symptom is something else wearing the
-//! same clothes — most likely the PLAYER resetting mid-animation, which
-//! `death_respawn_player` does do on the fatal hit and which the death module's
-//! own doc calls out.
+//! **which makes this a REPRODUCTION question, not a design one**, and a reproduction question
+//! is settled by stepping the sim rather than by reading more of it. This records, per frame,
+//! the beat's `remaining` against the frame the world actually resets, and asserts the ordering
+//! the code claims.
 //!
-//! ⛔ **it kills her by dropping her in a pit, not by writing
+//! **it kills her by dropping her in a pit, not by writing
 //! `ActorDiedMessage`.** Writing the message would prove the beat gates the
 //! reset when the beat is armed by hand — which is the one case nobody doubted.
 //! The pit is the path a player takes.
@@ -29,12 +24,12 @@
 //! level — and both Mary-O enemies carry `AwakeNearObservers { radius: 720 }`,
 //! so **every enemy is dormant for the whole beat.** `enemy_signature` sits
 //! constant across 94% of it, and it would do that whether or not the world was
-//! frozen. ⛔ **a dormant world looks exactly like a frozen one**, so that
+//! frozen. **a dormant world looks exactly like a frozen one**, so that
 //! fixture reports *"the world holds still"* unconditionally: if the open
 //! *freeze it?* decision is ever answered yes, this is the thing that would
 //! confirm an implementation that never ran.
 //!
-//! ⚠ **the 4000 stays.** It is how she dies *in a pit*, which is the death the
+//! **the 4000 stays.** It is how she dies *in a pit*, which is the death the
 //! first fixture is about; moving her within 720 px of an enemy would change the
 //! cause of death. So the repair is the SECOND fixture below, which kills her
 //! where she stands — beside four woken enemies — and asserts that the
@@ -115,7 +110,7 @@ fn displace(app: &mut App, to: Vec2) {
 
 /// Seconds left on the death window, or `None` when nobody is dying.
 ///
-/// ⚠ **it rides the BODY now** (ADR 0033), not the level owner — the beat is the
+/// **it rides the BODY now** (ADR 0033), not the level owner — the beat is the
 /// participant's, and the component is absent entirely when no window is open.
 /// `None` therefore means "nobody is dying", where the old level-owned component
 /// answered `Some(0.0)` for the same state.
@@ -131,17 +126,12 @@ pub(crate) fn beat_remaining(app: &mut App) -> Option<f32> {
 /// Returns how many frames it took, so a caller can print what it cost rather
 /// than trusting a magic number.
 ///
-/// ⛔ **`BodyHealth.health.current = 0` does NOT kill her, and it is the obvious
-/// wrong route.** Nothing polls the controlled body's health for death: the only
-/// two writers of `ActorDiedMessage` are `death_respawn_player` — reached from
-/// `handle_player_damage_events`, i.e. from a HIT — and
+/// **`BodyHealth.health.current = 0` does NOT kill her, and it is the obvious wrong route.**
+/// Nothing polls the controlled body's health for death: the only two writers of `ActorDiedMessage`
+/// are `death_respawn_player` — reached from `handle_player_damage_events`, i.e. from a HIT — and
 /// `publish_kernel_reset_death`, which needs a kernel reset (a pit, a hazard).
-/// Measured here 2026-08-09: a hand-zeroed body walked this room at `hp = 0` for
-/// 120 frames and the beat never armed. `versus_stage.rs` recorded the same
-/// thing about the versus stage: *"a hand-zeroed body never invokes it and the
-/// test passes whether or not the fix exists"*.
 ///
-/// ⚠ **the first swing is routinely voided**, which is why this loops rather
+/// **the first swing is routinely voided**, which is why this loops rather
 /// than throwing one hit and hoping. A victim-side hit is staged into
 /// `PendingPlayerHitEvents` at the end of one frame's Combat phase and applied
 /// on the next, and `void_pending_player_hits_at_lifecycle_boundaries` clears
@@ -251,7 +241,7 @@ fn the_room_resets_no_earlier_than_the_death_beat_ends() {
         let remaining = beat_remaining(&mut app);
         let signature = enemy_signature(&mut app);
 
-        // ⚠ **the window is REMOVED when it closes** (ADR 0033), it does not sit
+        // **the window is REMOVED when it closes** (ADR 0033), it does not sit
         // at zero — so "ended" is `None` after having been `Some`, not
         // `Some(0.0)`. A fixture that only watched for `<= 0.0` would wait
         // forever and report the beat as never having run down.
@@ -309,18 +299,10 @@ fn the_room_resets_no_earlier_than_the_death_beat_ends() {
          means the reset is NOT gated behind the beat the way the chain reads.\n{}",
         log.join("\n")
     );
-    // ⭐ **WHAT THIS MEASURED, 2026-08-03, and it is not what the report said.**
-    // The reset is correctly gated — but the world never HOLDS STILL: the
-    // non-player bodies move on essentially every frame of the ~0.55 s dwell
-    // (signature drifting 37188 → 37131 across f163..f195) and then snap on the
-    // single frame after it ends. To a player that reads exactly as "the enemies
-    // reset before the death animation finished": they were walking the whole
-    // time, and then jumped.
+    // To a player that reads exactly as "the enemies reset before the death animation finished":
+    // they were walking the whole time, and then jumped.
     //
-    // ⛔ **deliberately NOT asserted.** Whether the world freezes during a death
-    // beat is an unmade design decision, and pinning today's answer either way
-    // would be a regression test over unpolished behaviour. The measurement is
-    // printed and the row carries it; see D2 in the 08-03 spine.
+    // The measurement is printed and the row carries it; see in the 08-03 spine.
     println!(
         "[death beat] started f{started}, ended f{ended}, room reset f{first_reset}; \
          first world motion during the beat: {enemy_moved:?}"
@@ -332,7 +314,6 @@ fn the_room_resets_no_earlier_than_the_death_beat_ends() {
 
 /// **HOW MANY TIMES DOES ONE FALL ASK THE WORLD TO RESET?**
 ///
-/// Jon, from play (2026-08-09): *"I've noticed enemies respawning immediately
 /// when she dies even though the animation and music is still playing. That is
 /// not correct."*
 ///
@@ -344,14 +325,7 @@ fn the_room_resets_no_earlier_than_the_death_beat_ends() {
 /// frame `PlayerBodyFrameOutput.reset` is `Some`**, with no other condition than
 /// `gameplay_allowed`.
 ///
-/// ⭐ **so the fact to measure here is the INPUT that system reads**, which this
-/// host produces identically: the beat pins her at the place she died, that place
-/// is outside the world, and the kernel's gate is a position test. Every frame of
-/// the pin re-flags the reset. The count below is therefore the number of room
-/// resets the HOSTED app performs during one death — measured on a host where
-/// nothing consumes them.
-///
-/// ⚠ **anti-vacuity first.** A run where she never died at all would report
+/// **anti-vacuity first.** A run where she never died at all would report
 /// "no re-flags" by reporting nothing, so the beat must have armed and a life
 /// must have been spent before any count below means anything.
 #[test]
@@ -439,7 +413,7 @@ fn the_pinned_death_pose_reflags_the_world_reset_every_frame_of_the_beat() {
         "the beat armed on {beat_armings:?} and the lives counter never moved, \
          so this fixture cannot see a life being spent"
     );
-    // ⭐ **ONE, and it is the frame she died on.** That frame IS the death: the
+    // **ONE, and it is the frame she died on.** That frame IS the death: the
     // kernel flags it, `publish_kernel_reset_death` turns it into the fact, and
     // `open_death_interlude` marks her out of play in the same frame's Outcome
     // set — so from the next frame the gate skips her and stays silent for the
@@ -492,20 +466,13 @@ fn level_lives(app: &mut App) -> Option<i8> {
     query.iter(app.world()).next().map(|level| level.lives)
 }
 
-/// **The same beat, measured somewhere the instrument can see.**
-///
 /// She dies WHERE SHE STANDS, so no coordinate is authored here at all — her
 /// `PlayerStart` has four enemies inside the 720 px wake radius, the nearest at
 /// 210 px, which is how the dormancy gate ends up open without the fixture
 /// arranging anything.
 ///
-/// ⚠ **it asserts what the instrument CAN SEE and only prints what it saw.**
-/// Whether the world should hold still during a death beat is an open design
-/// question, and pinning today's answer either way would be a regression test
-/// over unpolished behaviour — the same reason the pit fixture prints its
-/// measurement instead of asserting it. What is asserted is that this fixture
-/// could tell the difference: a fixture that cannot detect motion cannot detect
-/// its absence, and that is the entire defect being repaired.
+/// What is asserted is that this fixture could tell the difference: a fixture that cannot detect
+/// motion cannot detect its absence, and that is the entire defect being repaired.
 #[test]
 fn the_death_beat_is_measured_with_the_world_awake() {
     let mut app = boot();

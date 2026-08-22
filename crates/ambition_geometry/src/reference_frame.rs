@@ -1,11 +1,8 @@
 //! The gravity-relative reference frame and the transforms between Ambition's
 //! three frames.
 //!
-//! Ambition reasons about three reference frames; the bugs in this area
-//! (attack direction, pogo, sprite orientation, facing flip) were all "someone
-//! forgot to transform between two of them". [`AccelerationFrame`] makes the frames
-//! and the transforms explicit so being gravity-aware is "you hold a
-//! `AccelerationFrame`", not "you remembered to multiply by `gravity_dir`".
+//! [`AccelerationFrame`] makes the frames and the transforms explicit so being gravity-aware is
+//! "you hold a `AccelerationFrame`", not "you remembered to multiply by `gravity_dir`".
 //!
 //! - **Input frame** — the controller: `axis_x` right-positive, `axis_y`
 //!   screen-down-positive. Raw, never rotated.
@@ -97,19 +94,14 @@ impl LocalAxes {
     }
 }
 
-// ⭐ **the rule these operators encode: scaling, adding and negating a vector
+// **the rule these operators encode: scaling, adding and negating a vector
 // cannot change which frame it is in, so they are available on the typed value;
 // anything that DOES change frame has to go through `to_world` / `to_local`.**
 // That is the whole distinction, and it is what makes the type cheap to live
 // with — a caller only reaches for a conversion at the moments a conversion is
 // actually the point.
 //
-// ⛔ deliberately absent: `From<Vec2>` / `Into<Vec2>` in either direction. An
-// infallible conversion is exactly the reinterpretation `LocalAxes::from_vec`
-// already offers, and offering it as a coercion would put it back everywhere
-// implicitly — which is the defect this typing exists to prevent. `from_vec`
-// stays, because a caller that has genuinely resolved the frame itself needs a
-// way in; it is greppable, and that is the point.
+// deliberately absent: `From<Vec2>` / `Into<Vec2>` in either direction.
 impl std::ops::Mul<f32> for LocalAxes {
     type Output = Self;
     fn mul(self, scale: f32) -> Self {
@@ -254,7 +246,7 @@ impl InputFrameMode {
 
     /// **The mode that actually applies once the observing view's frame is known.**
     ///
-    /// ⭐⭐ **under [`CameraReferenceFrame::SubjectFrame`] every mode collapses to
+    /// **under [`CameraReferenceFrame::SubjectFrame`] every mode collapses to
     /// [`Self::BodyRelativeStrict`], and that is an IDENTITY rather than a
     /// preference.** A subject-frame view rolls until screen-down *is* the body's
     /// `down` and screen-right *is* its `side`. Feed a stick `(sx, sy)` through
@@ -266,12 +258,12 @@ impl InputFrameMode {
     /// hard to map", and a body that never *appears* flipped has nothing to
     /// accommodate.
     ///
-    /// ⛔ **this is why `ScreenRelative` must not be read raw once a view can
+    /// **this is why `ScreenRelative` must not be read raw once a view can
     /// roll.** `side`/`down` are the body basis *expressed in world coordinates*
     /// (see [`AccelerationFrame`]), so reading the stored mode directly means
     /// "screen" silently means "world" — correct only while no view rotates.
     ///
-    /// ⚠ takes the view's POLICY, never its rotation. The presented roll is eased
+    /// takes the view's POLICY, never its rotation. The presented roll is eased
     /// and is not rollback-registered; resolving off it would put presentation
     /// state under the simulation. The policy is a settings-derived enum, which is
     /// the same class of read the stored mode already is.
@@ -290,7 +282,7 @@ impl InputFrameMode {
 /// belongs to a VIEW, so when views become indexed this moves with them rather
 /// than becoming a process-global mode.
 ///
-/// ⭐ **it lives beside [`InputFrameMode`] because they are one question asked
+/// **it lives beside [`InputFrameMode`] because they are one question asked
 /// twice** — "which frame is this human operating in?" — and
 /// [`InputFrameMode::under_camera`] is the rule that keeps the two answers
 /// consistent. Splitting them across crates is what let `ScreenRelative` mean
@@ -307,15 +299,14 @@ impl InputFrameMode {
     serde::Deserialize,
 )]
 pub enum CameraReferenceFrame {
-    /// Screen orientation stays tied to the world frame even when the subject
-    /// enters sideways or inverted gravity. Ordinary platformer readability, and
-    /// the only behaviour that existed before this policy.
+    /// Screen orientation stays tied to the world frame even when the subject enters sideways
+    /// or inverted gravity.
     #[default]
     WorldFixed,
     /// Screen orientation follows the view subject's resolved body frame, so a
     /// gravity change presents as the world rotating around an upright body.
     ///
-    /// ⭐ **the subject is a view's subject, not a protagonist.** The resolver
+    /// **the subject is a view's subject, not a protagonist.** The resolver
     /// takes a direction, never an entity, so a spectator, a replay or a second
     /// local view can orient on whatever body it is watching.
     SubjectFrame,
@@ -584,8 +575,8 @@ pub enum GameplayFramePolicy {
     /// Relative to the current acceleration frame, usually equivalent to
     /// controlled-body-local for movement/contact mechanics.
     AccelerationFrame,
-    /// Fixed world/environment space. Use for room geometry, scripted world
-    /// hazards, and other effects that deliberately do not rotate with a body.
+    /// Use for room geometry, scripted world hazards, and other effects that deliberately do
+    /// not rotate with a body.
     WorldSpace,
     /// Raw display/input space. This should live at the input seam and be
     /// converted before gameplay resolution.
@@ -813,8 +804,6 @@ impl AccelerationFrame {
         vel.dot(self.down)
     }
 
-    /// Force `vel`'s toward-feet component to at least `speed` (used to "commit"
-    /// a down-attack), leaving the perpendicular component alone.
     pub fn ensure_descend_speed(self, vel: &mut Vec2, speed: f32) {
         let cur = vel.dot(self.down);
         if cur < speed {

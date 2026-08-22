@@ -140,11 +140,7 @@ pub struct GravityZones {
 
 /// **The set [`collect_gravity_zones`] runs in — this tick's zone snapshot exists.**
 ///
-/// Portal carve publishing waits for it: carves and the gravity snapshot share
-/// one cadence, and the pin was written to keep that cadence byte-identical to
-/// the pre-extraction `PortalSet::GravityAndCarves` chain.
-///
-/// ⚠ ONE member, nested inside `GravitySet::ZoneSnapshot`, and the distinction
+/// ONE member, nested inside `GravitySet::ZoneSnapshot`, and the distinction
 /// matters: the parent also holds `collect_force_zones`, chained AFTER this.
 /// `.after(GravitySet::ZoneSnapshot)` would additionally wait for force zones —
 /// stronger than the cadence claim, and the byte-identical promise is exactly
@@ -160,7 +156,7 @@ pub fn collect_gravity_zones(mut snapshot: ResMut<GravityZones>, zones: Query<&G
 }
 
 /// A [`GravityZone`] that slides horizontally — a "gravity column riding a moving
-/// platform" (Jon's gravity TODO). Its region oscillates each frame, and because
+/// platform". Its region oscillates each frame, and because
 /// the snapshot is rebuilt every frame, a body riding the column is carried with
 /// it (localized gravity + motion).
 #[derive(Component, Clone, Copy, Debug)]
@@ -280,12 +276,6 @@ pub fn snap_cardinal(dir: Vec2) -> Vec2 {
     }
 }
 
-/// The live world gravity DIRECTION, or the default "down" `(0,1)` when no
-/// [`GravityField`] resource exists (headless / test apps). The standard way a
-/// per-frame actor tick reads gravity before `apply_gravity_dir`-syncing its
-/// tuning — every player/clone site used to open-code
-/// `field.as_deref().map_or((0,1), |g| g.dir)`. Call as
-/// `gravity_dir_or_default(gravity_field.as_deref())`.
 pub fn gravity_dir_or_default(field: Option<&GravityField>) -> Vec2 {
     field.map_or(ambition_platformer2d_core::DEFAULT_GRAVITY_DIR, |g| g.dir)
 }
@@ -399,13 +389,6 @@ pub fn gravity_upright_angle(gravity_dir: Vec2) -> f32 {
 
 /// Horizontal `flip_x` for a sprite that may also be rotated by
 /// [`gravity_upright_angle`].
-///
-/// `facing` is now a controlled-body-local sign: `+1` means local right and `-1`
-/// means local left. Because the gravity roll rotates the sprite's whole local
-/// body frame into world space, the horizontal mirror is independent of gravity.
-/// Older code inverted this again under up-gravity because `facing` still carried
-/// a screen/world-space interpretation there; once facing is local, that extra
-/// inversion is the bug.
 pub fn gravity_aware_flip_x(facing: f32, _gravity_dir: Vec2) -> bool {
     facing < 0.0
 }
@@ -512,9 +495,6 @@ mod tests {
         );
         assert_eq!(local_gravity_sign(inside, &zones, base), -1.0);
 
-        // A body OUTSIDE the column (e.g. the player elsewhere) still feels the
-        // ambient down. This is the bug fix: the column body's gravity does NOT
-        // depend on where the player is.
         let outside = Vec2::new(-200.0, 50.0);
         assert!(
             gravity_dir_at(outside, &zones, base).y > 0.0,

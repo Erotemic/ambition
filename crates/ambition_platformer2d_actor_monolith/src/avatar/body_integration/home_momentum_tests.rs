@@ -128,10 +128,8 @@ fn worn_momentum_home_body_rides_runs_and_jumps() {
 
 #[test]
 fn momentum_home_body_rides_ordinary_block_floors() {
-    // THE Sanic-in-a-normal-room regression (Jon, 2026-07-05): every
-    // sandbox room floors with AABB `Block`s, not authored chains. A
-    // worn momentum body must land, run, and jump on plain solids —
-    // blocks are surfaces (`Block::boundary_chain`), not just obstacles.
+    // A worn momentum body must land, run, and jump on plain solids — blocks are surfaces
+    // (`Block::boundary_chain`), not just obstacles.
     let world = ae::World::new(
         "home-momentum-blocks",
         ae::Vec2::new(3000.0, 1200.0),
@@ -174,12 +172,6 @@ fn momentum_home_body_rides_ordinary_block_floors() {
 }
 
 /// **Falling out REPORTS, and does not relocate** (ADR 0033).
-///
-/// ⛔ **this used to assert `pos == world.spawn`**, because the movement phase
-/// teleported the body home in the frame it flagged the reset. That reflex is
-/// deleted: a death is a fact the engine publishes, and where the body goes next
-/// is a consequence the game authors. Asserting the teleport would now be
-/// pinning a product decided against.
 ///
 /// ⭐ **and the new assertion is the one that earns its keep.** "She dies where
 /// she died" was a 300-line death beat in Mary-O — a pose pinned every frame,
@@ -299,13 +291,6 @@ fn run_into_the_spikes(
     None
 }
 
-/// ⛔ **Jon, from play: *"in super sanic mode, sanic should be invincible, even
-/// to spikes."*** He was right and the reason is structural, not a Sanic bug: an
-/// authored `HazardBlock` reaches the runtime by TWO roads. As an ECS damage
-/// volume it goes through `body_vulnerable` like every other emitter; as a
-/// tile-grid `BlockKind::Hazard` it became an unconditional teleport-to-spawn
-/// that no invulnerability could see. **The same authored spikes therefore
-/// behaved differently depending on how they were drawn**, and nothing said so.
 #[test]
 fn a_body_that_cannot_be_hurt_runs_straight_over_a_hazard_tile() {
     assert_eq!(

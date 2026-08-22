@@ -1,23 +1,6 @@
 //! **The Perfect Cellular Automaton's signature move**, authored as data.
 //!
-//! ⭐ "Cellular Pulse" was the first real moveset consumer in the repository and
-//! it lived on an ENEMY ARCHETYPE ROW — `character_archetypes.ron`'s
-//! `signature_move` field, which existed for exactly one creature. It says the
-//! same thing here that it said there: a 0.40s telegraph, a 0.14s active window
-//! with one forward volume, then recovery, on the owner's proper-time clock,
-//! triggered by the `special` verb through the shared moveset runtime.
-//!
-//! ⚠ **the numbers are the row's verbatim.** A migration that retuned on the way
-//! would be a retune wearing a migration's commit.
-//!
-//! ## The other fifteen (2026-08-16)
-//!
-//! Jon: *"Let's complete the kit for all characters, authoring new moves when we
-//! need to."* Measured first, the PCA was the worst-off fighter on the grid:
-//! **8/16**, no smash attacks at all, and one special answering all four
-//! directions. Everything but the pulse below is new.
-//!
-//! ⭐ **the vocabulary is Conway's, because the character is.** A cellular
+//! **the vocabulary is Conway's, because the character is.** A cellular
 //! automaton does not punch — it applies a rule and the neighbourhood changes.
 //! Every move names a pattern, and its shape is the pattern's shape: a still
 //! life is a small stable block, an oscillator flips in place, a glider leaves
@@ -25,7 +8,7 @@
 //! Its FOURTEEN authored effect rows were already rendered and, apart from the
 //! pulse's cue, not one of them was named by anything.
 //!
-//! ⚠ **boss-grade telegraphs, kept.** The pulse's 0.40s tell is what makes it
+//! **boss-grade telegraphs, kept.** The pulse's 0.40s tell is what makes it
 //! fair; the new moves are quicker but every one of them is slower to start than
 //! the equivalent on a fighter built for this — it is a boss standing in a
 //! platform fighter, and the numbers say so.
@@ -62,7 +45,7 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
         sustain_effect: None,
     };
 
-    // ⚠ **VERBATIM, and hand-built rather than passed through `strike`.** The
+    // **VERBATIM, and hand-built rather than passed through `strike`.** The
     // helper would give it a slash arc and a different window shape; this move's
     // numbers came off an archetype row and the migration that brought them here
     // promised not to retune them. Everything after it uses the helper.
@@ -106,7 +89,7 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
                 cue: "pca.cellular_pulse".to_string(),
             },
         }],
-        // ⭐ the SLOT owns the posture — `SmashRepertoire` sets it from
+        // the SLOT owns the posture — `SmashRepertoire` sets it from
         // `neutral_special`, so this field is only here because a struct literal
         // has to name every field.
         gates: Default::default(),
@@ -138,7 +121,7 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
     let jab = on_contact(jab, "player.hit");
 
     // **FORWARD TILT — `rule_front`.** The rule advances one cell into you.
-    // ⛔ without this the commonest press in the genre fell to the jab.
+    // without this the commonest press in the genre fell to the jab.
     let f_tilt = strike(
         "rule_front",
         "attack_side",
@@ -196,16 +179,9 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
 
     // ── smashes ──────────────────────────────────────────────────────────────
     //
-    // ⛔ **it had NONE.** Three presses that resolved to nothing at all, on the
+    // **it had NONE.** Three presses that resolved to nothing at all, on the
     // fighter with the highest health pool on the grid — a boss that could not
     // kill. These are its heaviest reads and they telegraph like the pulse.
-    //
-    // ⚠ **the startups are 0.30–0.32, and the number was MEASURED against the
-    // cast rather than picked.** Written at 0.18–0.20 they tied Emmy for the
-    // fastest forward smash on the grid, which is the opposite of the claim this
-    // module makes — the identity test below caught it. The band is robot 0.30,
-    // goblin 0.28, admiral 0.34, clerk 0.38, Emmy 0.20, Oiler 0.26, Stargan 0.34;
-    // a boss belongs at the slow end of it.
 
     // **FORWARD — `generation_wipe`.** One step of the rule applied to the whole
     // row in front of it. Everything in that row is in the next generation or it
@@ -297,8 +273,6 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
     let n_air = vfx_at(n_air, 0.07, "oscillator_pulse", (0.0, 0.0), PATTERN_FX);
     let n_air = on_contact(n_air, "player.hit");
 
-    // **FORWARD AIR — `glider_cut`.** The glider's leading edge, swung rather
-    // than launched. ⛔ this press used to fall through to the neutral air.
     let f_air = strike(
         "glider_cut",
         "air_forward",
@@ -375,7 +349,7 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
 
     // ── the three specials the pulse was standing in for ─────────────────────
 
-    // **SIDE — `glider_launch`.** A glider leaves and does not come back. ⭐ the
+    // **SIDE — `glider_launch`.** A glider leaves and does not come back. the
     // move DISPLACES the automaton rather than spawning a projectile: its ranged
     // glider already exists on its action set, and a second spawner here would
     // be two authorities on one pattern.
@@ -445,16 +419,13 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
     let down_b = sfx(down_b, 0.22, "pca.cellular_pulse");
     let down_b = on_contact(down_b, "player.hit");
 
-    // ── 2026-08-16: THE OTHER POSTURE ────────────────────────────────────────
-    //
-    // Jon: *"A down-b that has special airborne properties should also have an
     // effect on ground. Think of bowser down b. In the air he just does a
     // downward slam, but on the ground, it causes him to jump in an arc and then
     // slam. Specials can have different effects in different contexts that
     // should be ok, and makes for a richer smash game, although in most cases
     // they shouldn't be context dependent."*
     //
-    // ⛔ a special gated to ONE posture is not answered in the other — the
+    // a special gated to ONE posture is not answered in the other — the
     // directional chain walks straight past it to the NEUTRAL special, so a
     // player pressing down-B in the air got the neutral-B. `special_air_down`
     // sits ahead of `special_down` in that chain and has the whole time; this is
@@ -488,7 +459,7 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
     // **CELLULAR'S CAPTURE KIT.** TALLER than it is wide, which is the automaton's
     // silhouette. The fastest pummel on the roster for the least damage each, and a
     // near-vertical throw: it does not carry you away, it stacks you.
-    // ⚠ the grab draws `attack`, not `grab`: these sheets publish no `grab` row,
+    // the grab draws `attack`, not `grab`: these sheets publish no `grab` row,
     // and each table's own `every_clip_names_a_row_..._sheet_carries` guard says
     // so. `ClipBinding`'s fallbacks would have covered it at runtime, but a move
     // that NAMES a row nobody publishes is a lie the guard is right to refuse.
@@ -572,12 +543,11 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
         neutral_special: NeutralSpecial::Authored(cellular_pulse),
         side_special: side_b,
         up_special: up_b,
-        // ⭐ **AUTHORED 2026-08-19, at Jon's ask that every fighter in the smash
-        // roster have a grab.** The transitional `None` is gone: capture was
-        // proven on George and the Pirate Admiral, and the whole point of
-        // proving it was to stop being the only two.
+        // **AUTHORED, at the rule that every fighter in the smash roster have a grab.** The
+        // transitional `None` is gone: capture was proven on George and the Pirate Admiral, and
+        // the whole point of proving it was to stop being the only two.
         //
-        // ⚠ the VALUES are per character on purpose. A roster whose grabs are
+        // the VALUES are per character on purpose. A roster whose grabs are
         // twelve copies of one number set is one grab wearing twelve names.
         capture: SmashCaptureRepertoire {
             cues: CaptureCues::GENERIC,
@@ -600,8 +570,6 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
 mod tests {
     use super::*;
 
-    // ⭐⭐ **RETIRED 2026-08-16 — the per-file verb-map test.**
-    //
     // Fourteen fighters each carried a copy of it: every bound verb names a move
     // this table defines, and the table binds the whole vocabulary. Both are now
     // unwritable defects rather than tested ones. `SmashRepertoire` owns the verb

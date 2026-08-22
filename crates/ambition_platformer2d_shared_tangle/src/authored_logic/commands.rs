@@ -10,11 +10,11 @@
 //!
 //! | | condition | command |
 //! |---|---|---|
-//! | **rollback** | reads; a rewind cannot notice | ⭐ answered by CONSTRUCTION — see below |
-//! | **ordering** | anywhere in the frame | ⭐ [`AuthoredCommandSet`], one place |
-//! | **authority** | free: read-only | ⭐ [`CommandCatalog::run`] is PRIVATE |
+//! | **rollback** | reads; a rewind cannot notice | answered by CONSTRUCTION — see below |
+//! | **ordering** | anywhere in the frame | [`AuthoredCommandSet`], one place |
+//! | **authority** | free: read-only | [`CommandCatalog::run`] is PRIVATE |
 //!
-//! ## ⭐⭐ Immutability first, because it is what earns the rollback waiver
+//! ## Immutability first, because it is what earns the rollback waiver
 //!
 //! [`ConditionCatalog::publish`](super::ConditionCatalog) is private and the
 //! only way in is a trait on `App`; **a simulation tick holds a `World`, never
@@ -23,11 +23,11 @@
 //! WAIVED from the rollback snapshot instead of registered into it.
 //!
 //! [`CommandCatalog::publish`] is private for exactly the same reason and with
-//! exactly the same consequence. ⛔ **a command registry a system could write to
+//! exactly the same consequence. **a command registry a system could write to
 //! IS rollback state**, and then every authored verb in the game joins the
 //! snapshot.
 //!
-//! ## ⭐⭐ Authority: `run` is private too, and that is the whole answer
+//! ## Authority: `run` is private too, and that is the whole answer
 //!
 //! *Who may run a command?* **Nothing outside this module**, because
 //! [`CommandCatalog::run`] is private and no other module can reach it. Holding
@@ -39,7 +39,7 @@
 //! system in a single set, defined in this file beside the private function it
 //! is the only caller of.
 //!
-//! ⚠ **the narrow choice, stated so the next widening is a decision rather than
+//! **the narrow choice, stated so the next widening is a decision rather than
 //! a drift:** authority is the RUNNER, not the requester. Anything that can
 //! write a message can ask for a command; nothing at all can perform one out of
 //! phase. The alternative — a per-command list of permitted callers — was
@@ -47,7 +47,7 @@
 //! that is not already a seat, a session or a body, and a fourth one invented
 //! here would be answering a question nobody has asked yet.
 //!
-//! ## ⭐ Ordering, and why the first command makes rollback a non-question
+//! ## Ordering, and why the first command makes rollback a non-question
 //!
 //! [`AuthoredCommandSet`] runs after the core simulation and **before**
 //! `GameplayEffects`, the phase that routes each domain's own typed effect bus.
@@ -63,15 +63,15 @@
 //!
 //! # What this deliberately is NOT
 //!
-//! ⛔ **no expression language, no interpreter, no sequencer** — the same
+//! **no expression language, no interpreter, no sequencer** — the same
 //! non-goals [the condition half](super) lists, for the same reasons.
 //!
-//! ⛔ **no general effect enum.** A monolithic `GameplayEffect` was built in this
+//! **no general effect enum.** A monolithic `GameplayEffect` was built in this
 //! workspace and deleted. A command is a registered id plus prepared arguments;
 //! performing it calls the owning domain's function, and the owning domain keeps
 //! its own typed channel.
 //!
-//! ⛔ **a command is not phrased against ECS component layout**, for the same
+//! **a command is not phrased against ECS component layout**, for the same
 //! reason a condition is not: a rule that writes a component is coupled to an
 //! implementation detail the owning domain is entitled to change.
 
@@ -87,7 +87,7 @@ use super::{join_namespaced, split_namespaced, AuthoredArg, ParamSpec};
 /// one [`ConditionId`](super::ConditionId) uses — see
 /// [`super::split_namespaced`] on why that rule lives in one place.
 ///
-/// ⚠ **a separate TYPE from `ConditionId` even though the spelling rule is
+/// **a separate TYPE from `ConditionId` even though the spelling rule is
 /// shared, and that is the point.** `world.flag_set` and `world.set_flag` are a
 /// question and a verb that differ by a word order; a single id type would make
 /// asking the catalog to perform a question, or to answer a verb, a runtime
@@ -98,7 +98,7 @@ pub struct CommandId(String);
 impl CommandId {
     /// Build an id from its domain and its verb.
     ///
-    /// ⛔ **panics on a segment containing `.`** — an id that can be spelled two
+    /// **panics on a segment containing `.`** — an id that can be spelled two
     /// ways is an id that can be published twice.
     pub fn new(domain: &str, verb: &str) -> Self {
         Self(join_namespaced("command", "verb", domain, verb))
@@ -106,13 +106,13 @@ impl CommandId {
 
     /// Read an id back out of one authored string (`"world.set_flag"`).
     ///
-    /// ⭐⭐ **fallible where [`CommandId::new`] panics, and for the same reason
+    /// **fallible where [`CommandId::new`] panics, and for the same reason
     /// its condition twin is**: authored content is exactly the caller that must
     /// never be able to take the process down. A `.yarn` line naming
     /// `worldset_flag` is a typo in content — the right answer is a diagnostic
     /// and nothing happening, not a crash.
     ///
-    /// ⚠ **it never repairs.** No trimming, no case folding. An id accepted in
+    /// **it never repairs.** No trimming, no case folding. An id accepted in
     /// two spellings is an id that can be published twice.
     pub fn parse(raw: &str) -> Option<Self> {
         split_namespaced(raw)?;
@@ -146,14 +146,14 @@ pub struct CommandDescriptor {
 
 /// **What happened, and there are only TWO answers.**
 ///
-/// ⭐ **deliberately one fewer than [`ConditionOutcome`](super::ConditionOutcome),
+/// **deliberately one fewer than [`ConditionOutcome`](super::ConditionOutcome),
 /// and the missing one is the interesting part.** A question has three answers
 /// because *"I cannot tell"* is genuinely different from *"no"*. A verb does not:
 /// either the domain did the thing or it did not, and every reason it did not —
 /// no such command, wrong arguments, no save layer installed — is the same fact
 /// to the caller, which is that the world did not change.
 ///
-/// ⚠ **so `Refused` always carries a reason**, because that reason is the only
+/// **so `Refused` always carries a reason**, because that reason is the only
 /// thing distinguishing the cases and it is what an author reads.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum CommandOutcome {
@@ -176,16 +176,16 @@ impl CommandOutcome {
 
 /// How a domain performs its own verb.
 ///
-/// ⚠ **a plain `fn`, not a boxed closure**, for the reason the condition
+/// **a plain `fn`, not a boxed closure**, for the reason the condition
 /// evaluator is one: it keeps the catalog `Clone` and captures nothing, so a
 /// registration cannot smuggle state into a value that is supposed to be
 /// immutable for the whole run.
 ///
-/// ⭐ **`&mut World`, unlike a condition's `&World`** — that is the entire
+/// **`&mut World`, unlike a condition's `&World`** — that is the entire
 /// difference between the two halves, and it is why this type may only be called
 /// from one place in the frame.
 ///
-/// ⛔ **a runner must not depend on query iteration order**, and it must not
+/// **a runner must not depend on query iteration order**, and it must not
 /// write anything the owning domain has not registered for rollback. The
 /// preferred shape is that a runner writes its domain's EXISTING typed request
 /// message and lets the domain's own consumer apply it — which is what
@@ -202,12 +202,12 @@ struct Registered {
 /// **The composed, read-only catalog of every verb the installed engine can be
 /// told to perform.**
 ///
-/// ⭐⭐ **derived and read-only**, the same axis the condition catalog sits on: a
+/// **derived and read-only**, the same axis the condition catalog sits on: a
 /// central *authoritative* census every new domain must edit is the thing to
 /// avoid; a central *derived index* domains contribute to is how an agent finds
 /// out what it can ask for without reading the engine's source.
 ///
-/// ⚠ **not rollback state, and structurally rather than by promise.** Every row
+/// **not rollback state, and structurally rather than by promise.** Every row
 /// is written during plugin build; there is no `&mut` accessor to mutate one
 /// with, and no public way to perform one either. A rewind that restored it
 /// would restore an identical value.
@@ -217,13 +217,13 @@ pub struct CommandCatalog {
 }
 
 impl CommandCatalog {
-    /// Publish one command. ⛔ **panics on a duplicate id**, at startup, by
+    /// Publish one command. **panics on a duplicate id**, at startup, by
     /// design: the alternative is that the winner is whichever plugin happened
     /// to build last.
     ///
-    /// ⭐⭐ **PRIVATE ON PURPOSE, and that privacy is what earns this value its
+    /// **PRIVATE ON PURPOSE, and that privacy is what earns this value its
     /// rollback waiver.** The only way in is [`PublishCommand`] on `App`, and a
-    /// simulation tick holds a `World`, never an `App`. ⛔ making this `pub` for
+    /// simulation tick holds a `World`, never an `App`. making this `pub` for
     /// convenience would silently convert the waiver into a lie — and this half
     /// is the one where the lie would be expensive, because a mutable registry
     /// of verbs is a registry the simulation could rewrite mid-tick.
@@ -240,13 +240,13 @@ impl CommandCatalog {
 
     /// **Perform one command.**
     ///
-    /// ⭐⭐ **PRIVATE, and this is the authority answer.** A caller holding the
+    /// **PRIVATE, and this is the authority answer.** A caller holding the
     /// catalog can read the whole vocabulary and cannot speak a word of it. The
     /// only caller is [`run_requested_authored_commands`], twenty lines below —
     /// so *"when in the frame does an authored verb happen"* has exactly one
     /// answer, and it is a schedule position rather than a convention.
     ///
-    /// ⚠ **arity and kinds are checked HERE rather than in each runner**, the
+    /// **arity and kinds are checked HERE rather than in each runner**, the
     /// same way and for the same reason the condition catalog checks them: fifty
     /// domains each writing the same four lines is fifty chances for one of them
     /// to write them differently.
@@ -285,7 +285,7 @@ impl CommandCatalog {
 
     /// Every published command, in id order.
     ///
-    /// ⭐ ordered because this is what a diagnostic prints and what a test
+    /// ordered because this is what a diagnostic prints and what a test
     /// compares.
     pub fn describe_all(&self) -> impl Iterator<Item = &CommandDescriptor> {
         self.rows.values().map(|row| &row.descriptor)
@@ -315,7 +315,7 @@ impl CommandCatalog {
 
 /// Publish a command from a domain's own plugin.
 ///
-/// ⭐ **this trait is the entire contract surface a provider needs**, which is
+/// **this trait is the entire contract surface a provider needs**, which is
 /// what makes the no-central-enum claim testable: a crate that can call this can
 /// publish a command, and it never names another domain to do so.
 pub trait PublishCommand {
@@ -342,13 +342,7 @@ impl PublishCommand for App {
 
 /// **Ask for an authored command to be performed.**
 ///
-/// ⭐ **an ordinary simulation message, which is the point.** It is the only
-/// public road to [`CommandCatalog::run`], it carries prepared arguments rather
-/// than text, and being a message means everything the engine already knows how
-/// to do with a request — order it, clear it on rollback, hold it in a narrative
-/// ledger until the tick it applies from — applies to authored verbs for free.
-///
-/// ⛔ **a requester outside the simulation must NOT write this channel
+/// **a requester outside the simulation must NOT write this channel
 /// directly.** The Yarn runner executes in `Update`, outside rollback; a write
 /// from there is wiped by the next rewind and never re-derived. It goes through
 /// `ambition_conversation`'s narrative-input ledger like every other narrative
@@ -367,7 +361,7 @@ impl RunAuthoredCommand {
 
 /// **When in the frame an authored verb happens.**
 ///
-/// ⭐ one set, so the answer to *"when does authored content's effect land"* is
+/// one set, so the answer to *"when does authored content's effect land"* is
 /// a schedule position anyone can read, rather than a property of whichever
 /// system happened to request it. See this module's header on why the window is
 /// after the core simulation and before the domain effect buses are routed.
@@ -376,13 +370,13 @@ pub struct AuthoredCommandSet;
 
 /// **Perform every command asked for this tick.** (sim)
 ///
-/// ⚠ **EXCLUSIVE, and it has to be.** A runner takes `&mut World` because the
+/// **EXCLUSIVE, and it has to be.** A runner takes `&mut World` because the
 /// catalog cannot know which domain's state a verb touches. That is one schedule
-/// sync point per frame for the whole authored-command vocabulary — ⛔ the shape
+/// sync point per frame for the whole authored-command vocabulary — the shape
 /// to refuse is one exclusive system per command, which is the version of this
 /// that gets slow without anybody noticing which change did it.
 ///
-/// ⭐ **it DRAINS rather than reading with a cursor, and that is a determinism
+/// **it DRAINS rather than reading with a cursor, and that is a determinism
 /// choice.** A `MessageReader`'s cursor is `Local` state GGRS never rewinds, so
 /// after a load it resumes wherever an abandoned future left it. This system
 /// holds no `Local` at all: what is in the buffer when it runs is what it
@@ -423,7 +417,7 @@ pub fn run_requested_authored_commands(world: &mut World) {
 
 /// Installs the channel, the set and the one runner.
 ///
-/// ⭐ **it publishes NO command**, which is the same separation the condition
+/// **it publishes NO command**, which is the same separation the condition
 /// half keeps: this is the machinery, and a domain adds its verbs from its own
 /// plugin with [`PublishCommand`] and no edit here.
 pub struct AuthoredCommandPlugin;
@@ -439,9 +433,9 @@ impl Plugin for AuthoredCommandPlugin {
             .add_message::<RunAuthoredCommand>()
             .configure_sets(
                 sim,
-                // ⚠ **INSIDE the root set**, so a frozen session at a title or
+                // **INSIDE the root set**, so a frozen session at a title or
                 // loading route does not perform authored verbs, and
-                // ⚠ **after `CoreSimulation` / before `GameplayEffects`** — both
+                // **after `CoreSimulation` / before `GameplayEffects`** — both
                 // sets live in this same schedule, so neither pin is the
                 // silently-vacuous cross-schedule kind.
                 AuthoredCommandSet

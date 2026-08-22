@@ -1,10 +1,4 @@
 //! Tests for the parent module's causal publishers.
-//!
-//! ⚠ **moved out of `causal.rs` on 2026-08-01**, because the agent-KB
-//! instrument flagged the inline module at >=200 lines and the honest answer to
-//! "does it need to be inline" was no. It reaches nothing private: every item it
-//! touches is `pub`, and a child module would still see the private ones if that
-//! changed. Same rule, same reason, as `ambition_platformer2d_runtime`'s `causal_it.rs`.
 
 use super::*;
 use ambition_causal::{FactValue, RecordingPolicy};
@@ -87,17 +81,6 @@ fn the_match_decision_explains_every_seat_because_it_is_about_the_world() {
     }
 }
 
-/// ⛔ **an unseated body's knockout is NOT a world fact**, and this test used
-/// to assert that it was.
-///
-/// The old reasoning, written here: *"no seat, so no `SubjectKey`. The fact
-/// is still worth keeping — it explains the WORLD on that tick."* A knockout
-/// does not explain the world; it explains a body. And a fact with no
-/// subject is returned by `explain` for EVERY subject, so a CPU fighter
-/// losing a stock landed in seat 0's causal chain — the inspector answering
-/// the wrong question exactly where it is needed most (GPT 5.6, 2026-08-01,
-/// finding 5).
-///
 /// A body with no seat and no stable id now gets an explicitly UNSTABLE
 /// key. That variant exists to mark a recorded API leak, and it is still
 /// strictly better than global: a recycled index can mislead one later
@@ -135,7 +118,7 @@ fn a_knockout_of_an_unseated_body_is_about_that_body_not_about_the_world() {
 
 #[test]
 fn messages_are_drained_even_while_recording_is_off() {
-    // ⚠ otherwise the first frame after somebody turns the instrument on
+    // otherwise the first frame after somebody turns the instrument on
     // reports a backlog of old knockouts stamped with the CURRENT tick —
     // an explanation of something that happened minutes ago.
     let mut app = app();
@@ -160,13 +143,7 @@ fn messages_are_drained_even_while_recording_is_off() {
 
 /// **A CPU's stock loss must not appear in a PARTICIPANT's explanation.**
 ///
-/// The concrete failure the review names, reproduced: a CPU fighter loses a
-/// stock on the same tick a seated player is doing something, and the
-/// inspector is asked why seat 0 is where it is. Before the fix the CPU's
-/// fact had no subject, so `explain` returned it for seat 0 — and for every
-/// other seat, and for the world.
-///
-/// ⚠ the second half matters as much: a genuinely GLOBAL fact must still
+/// the second half matters as much: a genuinely GLOBAL fact must still
 /// reach every participant. `match_decided` is one — the match ending really
 /// does explain every seat — and a fix that made everything body-specific
 /// would break it.
@@ -233,7 +210,7 @@ fn a_cpus_stock_loss_stays_out_of_a_participants_explanation() {
         "the CPU's stock loss is filed under the CPU's stable id"
     );
 
-    // ⚠ and the genuinely global fact still reaches the seat.
+    // and the genuinely global fact still reaches the seat.
     assert!(
         seat_view.first("match_decided").is_some(),
         "the match ending explains every seat — a fix that filed EVERYTHING \

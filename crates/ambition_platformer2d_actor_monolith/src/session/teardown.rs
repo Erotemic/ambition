@@ -65,17 +65,15 @@ pub struct SessionScopedResources<'w> {
     quest_registry: ResMut<'w, QuestRegistry>,
     /// Transient per-room bookkeeping (room-transition cooldown, etc.).
     sim_state: ResMut<'w, RoomTransitionCooldown>,
-    /// Slot-level buffered gestures belong to the retired control session. The
-    /// simulation sleeps at the launcher, so they cannot rely on a later tick
-    /// to decay before the next activation.
+    /// Slot-level buffered gestures belong to the retired control session.
     slot_interactions: ResMut<'w, SlotInteractionState>,
     /// Switch activations intentionally cross one simulation-frame boundary.
     /// Retirement between production and consumption must not deliver a
     /// session-A activation into session B.
     switch_activations: ResMut<'w, SwitchActivationQueue>,
-    /// ⛔⛔ **"the loaded save has been applied to THIS WORLD" — and the world
-    /// it refers to has just been retired.** That sentence is the latch's own
-    /// doc, and it is the whole argument for resetting it here (D125).
+    /// **"the loaded save has been applied to THIS WORLD" — and the world it refers to has just
+    /// been retired.** That sentence is the latch's own doc, and it is the whole argument for
+    /// resetting it here.
     ///
     /// It is set true ONCE, in `restore_inventory_from_save`, and was set false
     /// nowhere in the tree. So the second session in a process never re-ran the
@@ -83,23 +81,12 @@ pub struct SessionScopedResources<'w> {
     /// `OccurrenceBaseline`, `CustodyBaseline` and `MintedItemBaseline` — a
     /// suppressed occurrence surviving into a new game.
     ///
-    /// ⭐ **resetting the LATCH is the whole fix**: `adopt_rows` REPLACES rather
-    /// than merges, so the next session's restore rewrites every ledger from the
-    /// save, empty or not. One value, however many ledgers there are.
+    /// One value, however many ledgers there are.
     ///
-    /// ⚠ **and that count moved.** This said *"all four ledgers … one value, not
-    /// four"* until `OwnedItemsBaseline` became the FIFTH on 2026-08-19, and a
-    /// number written into prose goes stale silently. The argument survives the
-    /// change because it never depended on the number — which is exactly why the
-    /// number should not have been in it. ⭐ the fifth is adopted from the LIVE
-    /// bag rather than from a save row list, because `items::persist` has already
-    /// restored it by then; the latch gates both legs, so they still land
-    /// together.
-    ///
-    /// ⚠ the identical bug was fixed one level down on 2026-08-04 — a rewind
-    /// past the restore undid its EFFECT and kept the record of having applied
-    /// it — by registering this latch as rollback state. The experience boundary
-    /// is the same sentence with a different clock.
+    /// The argument survives the change because it never depended on the number — which is exactly
+    /// why the number should not have been in it. the fifth is adopted from the LIVE bag rather
+    /// than from a save row list, because `items::persist` has already restored it by then; the
+    /// latch gates both legs, so they still land together.
     save_restored: ResMut<'w, crate::session::durable_horizon::SaveRestored>,
 }
 

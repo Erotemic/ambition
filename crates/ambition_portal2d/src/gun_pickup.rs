@@ -14,10 +14,9 @@ use bevy::prelude::*;
 pub struct PortalGunPickup {
     pub pos: Vec2,
     pub half_extent: Vec2,
-    /// Seconds before this pickup can be grabbed. A *just-dropped* gun arms
-    /// after a short delay so the same `Attack` press that dropped it (and the
-    /// next overlapping frame) can't immediately re-grab it. World-placed
-    /// pickups spawn already armed (`0.0`).
+    /// A *just-dropped* gun arms after a short delay so the same `Attack` press that dropped it
+    /// (and the next overlapping frame) can't immediately re-grab it. World-placed pickups
+    /// spawn already armed (`0.0`).
     pub arm_timer: f32,
 }
 
@@ -27,13 +26,11 @@ pub struct PortalGunPickup {
 
 /// **The set [`arm_portal_pickups`] runs in.**
 ///
-/// The arming pass and the Ambition inventory GRANT live in different crates by
-/// design — this one is generic portal code, the grant knows about Ambition
-/// items — but they must run in that order inside `ItemPickupSet::CoreHeldItems`.
-/// The grant used to state that by naming this function across two crate
-/// boundaries; now it names the boundary.
+/// The arming pass and the Ambition inventory GRANT live in different crates by design — this one
+/// is generic portal code, the grant knows about Ambition items — but they must run in that order
+/// inside `ItemPickupSet::CoreHeldItems`.
 ///
-/// ⚠ ONE member, and the split is the point: this crate must not learn what
+/// ONE member, and the split is the point: this crate must not learn what
 /// `pickup_portal_gun_system` is, so the set can only ever hold the generic half.
 #[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct PortalPickupArming;

@@ -59,9 +59,6 @@ fn chest(app: &mut App, id: &str, pos: ae::Vec2) -> Entity {
     chest_holding(app, id, pos, None)
 }
 
-/// A chest authored WITH a payload — the shape all three chest authors produce
-/// (LDtk's `spawn_static`, the mob encounter's reward chest, the boss's
-/// `DropChest` profile) and the one nothing used to read.
 fn chest_holding(
     app: &mut App,
     id: &str,
@@ -127,14 +124,6 @@ fn distant_chest_is_not_opened() {
 /// opened, sparked, played its sound, announced *"opened X"* and gave the player
 /// nothing, and no test noticed because the three that existed all authored a
 /// chest with `None` in it.
-///
-/// ⚠ **BOTH terms are observed, and neither is sufficient.** A wallet that
-/// stayed at zero is the bug; a wallet that moved without the chest having
-/// opened would mean something else paid it. ⇒ the assertions are *the chest is
-/// `Opened`* and *the balance went from a stated zero to the authored amount*,
-/// and the zero floor is asserted BEFORE the update rather than assumed — a
-/// fixture that spawned a pre-funded wallet would pass this while granting
-/// nothing.
 #[test]
 fn an_opened_chest_pays_out_what_it_was_authored_with() {
     let mut app = app();

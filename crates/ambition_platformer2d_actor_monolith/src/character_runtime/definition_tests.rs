@@ -1,9 +1,9 @@
 //! One registration, one prepared authority (§7.6).
 //!
-//! ⛔ what is left here drives an `App` through `try_register_character` and
+//! what is left here drives an `App` through `try_register_character` and
 //! `finalize` — it tests COMPOSITION, which is what this crate owns. The tests
 //! that ask what a definition PREPARES to followed preparation down to
-//! `ambition_characters::prepared` (campaign P1.7), so preparation's own tests
+//! `ambition_characters::prepared`, so preparation's own tests
 //! no longer sit one crate above preparation.
 
 use super::*;
@@ -14,12 +14,6 @@ use ambition_platformer2d_shared_tangle::binding::Namespace;
 use bevy::prelude::App;
 
 /// **Registration DECLARES. It does not load.**
-///
-/// This test used to assert the opposite — that registering demanded the art —
-/// on the reasoning that a provider should not need a second call. The reasoning
-/// inverts as the plan succeeds: once fifty fighters are registered through this
-/// seam, merely installing their providers would demand fifty sheets, which is
-/// the startup decode storm §7.1 deleted, rebuilt from the other end.
 ///
 /// Loading is driven by what a session STAGES (`StagesCharacters` — a room plan,
 /// a match roster, a startup spec, a worn identity), never by what exists.
@@ -46,12 +40,8 @@ fn registration_declares_without_demanding_art() {
 
 /// **Preparation provenance survives registration.** (A5)
 ///
-/// `PreparedCharacter::checked` names the namespaces preparation actually resolved,
-/// and registration used to drop it — so after publication there was no way to
-/// distinguish "these cues were verified against a real vocabulary" from "nobody
-/// looked". Those must never read the same; that confusion is the whole reason the
-/// binding boundary exists, and a distinction that survives only until the value is
-/// stored is not a distinction.
+/// Those must never read the same; that confusion is the whole reason the binding boundary exists,
+/// and a distinction that survives only until the value is stored is not a distinction.
 #[test]
 fn preparation_provenance_survives_registration() {
     // Registered with NO cue resolver: moves are checked, cues are not.
@@ -157,20 +147,12 @@ fn two_providers_cannot_author_the_same_stable_id() {
     );
 }
 
-/// **A PORTRAIT TARGET NOBODY AUTHORED IS NAMED — and until 2026-08-12 it was
-/// not, in any composition** (ledger D106).
-///
-/// ⛔⛔ **the test above is titled *"Sheets, PORTRAITS and the derived vfx
-/// inventory are resolved too"* and only ever asserted sheets.** That is how the
-/// gap survived: the claim was in the name, the coverage was not, and a reader
-/// checking whether portraits were handled would have found a test saying yes.
-///
 /// The mechanism was there — `with_available_portraits` populates the resolver
 /// and `checked()` reports it — and nothing ever called it, so `self.portraits`
 /// was `None` everywhere and preparation's honest *"we did not look"* was the
 /// permanent answer.
 ///
-/// ⚠ **this asserts the SEAM, not the resolver.** It goes through
+/// **this asserts the SEAM, not the resolver.** It goes through
 /// `try_register_character`, which is where `with_engine_vocabularies` is
 /// applied — a test that passed the resolver by hand would prove the check works
 /// while leaving it disconnected, which is exactly the state this replaces.
@@ -194,11 +176,7 @@ fn a_portrait_target_nobody_authored_is_named_at_registration() {
          looked — which is the D106 state, not a pass"
     );
 
-    // ⛔⛔ **`was_checked` ALONE WAS THE WHOLE TEST until 2026-08-12, and GPT 5.6
-    // named it.** "Somebody looked" and "somebody found the typo" are different
-    // claims, and only the second is what a content author gets value from — a
-    // vocabulary wired up but resolving nothing would satisfy the assertion
-    // above perfectly. The vfx twin below has always asserted both halves.
+    // The vfx twin below has always asserted both halves.
     let unresolved: Vec<&str> = prepared.unresolved_references().collect();
     assert!(
         unresolved
@@ -218,7 +196,7 @@ fn a_portrait_target_nobody_authored_is_named_at_registration() {
 /// **THE POISON for the portrait check: a target that DOES exist resolves
 /// clean.**
 ///
-/// ⛔ without this, the test above passes on a vocabulary that rejects
+/// without this, the test above passes on a vocabulary that rejects
 /// everything — including a build where `available_portrait_targets()` came back
 /// empty and every shipped character was suddenly "unresolved". An absence
 /// assertion needs the presence case beside it or it is measuring the resolver

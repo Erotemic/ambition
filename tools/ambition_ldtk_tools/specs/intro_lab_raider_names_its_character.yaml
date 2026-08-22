@@ -2,11 +2,7 @@
 # after, and becomes the SECOND creature pointing at the shared `medium_striker`
 # policy.
 #
-# D73 / campaign P2.15-P2.16, and the campaign named this placement explicitly:
-# "npc_lab_raider and npc_salvage_guard for the two intro placements that are
-# literally named that."
-#
-# ⭐ this is the half that makes `medium_striker` a ROLE. A shared
+# this is the half that makes `medium_striker` a ROLE. A shared
 # `autonomous_profiles` entry with one adopter is that adopter's private policy
 # wearing a general name; with a goblin band and a lab raider pointing at it, the
 # indirection is doing the job it was introduced for -- one controller policy,
@@ -17,10 +13,6 @@
 #                  both creatures the same ones
 #   controller  -> `medium_striker`, named and provider-relative
 #   placement   -> stays here
-#
-# ⚠ `brain` stays until the row itself goes. `medium_striker` cannot be deleted
-# yet: `under_town_skitter` is still an unnamed placement wearing it, and which
-# creature that spawn IS is a product question rather than a migration.
 #
 #   PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools entity set-field \
 #       tools/ambition_ldtk_tools/specs/intro_lab_raider_names_its_character.yaml \

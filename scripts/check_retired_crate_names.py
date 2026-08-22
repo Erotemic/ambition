@@ -5,7 +5,7 @@ Written 2026-08-01, immediately after the `platformer2d` rename, because that
 rename hit the same defect three separate times and each occurrence was found by
 a test failure whose message was about something else entirely.
 
-## Why a substring search, and not a smarter one
+# # Why a substring search, and not a smarter one
 
 The rename itself used a word-boundary rule — `\\bambition_portal\\b` cannot eat
 `ambition_portal_presentation`, which is exactly right for rewriting Rust paths.
@@ -25,7 +25,7 @@ never mentions them".
 So this check is deliberately the dumbest possible search. A plain substring has
 no blind spot to share with the tool that did the renaming.
 
-## Why an explicit list, and not "any name that is not a workspace member"
+# # Why an explicit list, and not "any name that is not a workspace member"
 
 That was tried first and is unusable: 128 distinct `ambition_*` tokens in this
 tree name Python packages, shell functions, JSON keys, LDtk layers, asset
@@ -33,7 +33,7 @@ manifests and identifiers. A ratchet with an explicit list has no false
 positives, and the maintenance it asks for is one line at the moment somebody
 renames a crate — which is the moment they are already editing everything else.
 
-## Scope
+# # Scope
 
 Historical records are EXEMPT and must stay exempt. A linker transcript that
 says `libambition_actors.so`, a review from July, a `# was:` line recording a
@@ -69,23 +69,15 @@ RETIRED_CRATE_NAMES = {
     "ambition_pulse": "examples/capability_demo",
     # ── retired TYPE names ──
     #
-    # ⚠ the same rule, one level down, and it earns its place: `SandboxAction`
-    # was renamed with the crates and left THIRTEEN live mentions in
-    # `queue-72h-2026-07-31.md`, all describing current architecture. The row
-    # that mattered told a reader to migrate `InputMap<SandboxAction>` — a grep
-    # for which returns nothing, so the honest conclusion from that row was "this
-    # is already done". A stale crate name breaks a build; a stale TYPE name in a
-    # planning doc quietly retires a piece of work.
+    # The row that mattered told a reader to migrate `InputMap<SandboxAction>` — a grep for which
+    # returns nothing, so the honest conclusion from that row was "this is already done". A stale
+    # crate name breaks a build; a stale TYPE name in a planning doc quietly retires a piece of
+    # work.
     "SandboxAction": "Platformer2dInputActionMonolith",
-    # Found 2026-08-02 by asking a different question of the same file: which
-    # type-like names in the LIVE queues exist nowhere in `*.rs`? 27 did, and
-    # most were fine — a queue legitimately names things to BUILD and things
-    # DELETED. ⭐ the filter that separates them is whether the mention sits under
-    # an OPEN row: only there does a dead name send somebody after work.
+    # the filter that separates them is whether the mention sits under an OPEN row: only there
+    # does a dead name send somebody after work.
     #
-    # These two failed that filter. They sat in a sentence asserting what the
-    # code does TODAY — "every teardown system keys on `SandboxResetCommitted`"
-    # — and both had been renamed out from under it.
+    # These two failed that filter.
     "SandboxResetCommitted": "NewGameResetCommitted",
     "process_sandbox_reset_request": "process_new_game_reset_request",
 }
@@ -99,23 +91,12 @@ HISTORICAL_PREFIXES = (
     "dev/benchmark-candidates/",
     ".agent/",
     ".llm_resource_tally/",
-    # ⛔ the QUEUE files were exempt here until 2026-08-02, and the exemption was
-    # backwards. They are not a record of the past — they are the LIVE WORKLIST
-    # this repository is driven from, so a dead name in one does not misdescribe
-    # history, it hands the next reader a task they cannot find.
-    #
-    # It cost exactly that: `SandboxAction` (renamed with the crates) survived
-    # THIRTEEN times in `queue-72h-2026-07-31.md`, and the row that mattered told
-    # a reader to migrate `InputMap<SandboxAction>` — a grep for which returns
-    # nothing, so the honest conclusion from that row was "already done".
-    #
-    # ⚠ and the exemption was buying almost nothing: lifting it flagged TWO
-    # lines in the whole tree, both genuinely historical, both fixed by saying so
-    # on the line. A blanket waiver whose real population is two is a waiver
-    # nobody priced.
+    # They are not a record of the past — they are the LIVE WORKLIST this repository is driven from,
+    # so a dead name in one does not misdescribe history, it hands the next reader a task they
+    # cannot find.
 )
 
-# ⚠ the guard's own test file is skipped because its FIXTURES are retired names —
+# the guard's own test file is skipped because its FIXTURES are retired names —
 # that is what it tests. It went unnoticed at first because `git ls-files` did not
 # yet list the file: the live-tree ratchet passed while its own counter-example was
 # untracked, which is the "green at minute zero" trap one level in.
@@ -133,12 +114,7 @@ WAIVED_FILES = {
         "source it used to patch, so the retired name IS the data",
 }
 
-# A line may keep a retired name when it is explicitly recording history. These
-# are the phrasings real historical prose in this tree already uses; the rule
-# they encode is "if you are describing what USED to be, say so on the line."
-# ⚠ deliberately NOT a generic waiver comment: a marker somebody has to remember
-# to add is a marker nobody adds, whereas these words are already there when the
-# sentence is genuinely about the past.
+# A line may keep a retired name when it is explicitly recording history.
 HISTORICAL_MARKERS = (
     "# was:",
     "was: ",
@@ -157,31 +133,18 @@ HISTORICAL_MARKERS = (
     "when this was authored",
     "then called",
     "Earlier notes",
-    # ⚠ added 2026-08-02 with the queue exemption removal below. A sentence that
-    # says a name is RETIRED is the clearest possible statement that it is
-    # describing the past, and this tree already writes it that way.
     "retired",
 )
 
 
-# ⚠ UNTRACKED files the guard must still read.
+# UNTRACKED files the guard must still read.
 #
-# `.goal/active.json` holds the goal harness's own check COMMANDS, and it is not
-# in git. When the platformer2d rename retired `ambition_actors` and `ambition`,
-# two of those commands kept naming them — so `cargo check -p ambition` and
-# `cargo test -p ambition_actors` failed on an unknown package, and the harness
-# reported "S1 slice H is not done" and "S2 match activation is not done" about
-# work that was finished and green. A broken instrument reading as unfinished
-# WORK is the most expensive failure mode this repository has, and `git ls-files`
-# is exactly why nothing caught it.
+# `.goal/active.json` holds the goal harness's own check COMMANDS, and it is not in git.
 #
 # `done-*.json` are archived goals — records, skipped like any other history.
 #
-# ⚠ `root` is a parameter so the RULE can be tested without a goal being armed on
-# the machine running the test. It used to read the live `.goal/` only, which
-# made a tracked test depend on a developer's untracked local state: green here,
-# and red in a fresh clone or a source archive that omits the directory (GPT
-# review of 5cc4337..47d7de3, finding 12).
+# `root` is a parameter so the RULE can be tested without a goal being armed on the machine running
+# the test.
 def extra_paths(root: Path | None = None) -> list[str]:
     goal = (root or REPO) / ".goal"
     if not goal.is_dir():
@@ -233,11 +196,7 @@ def retired_names_in_line(line: str) -> list[tuple[str, str]]:
         return []
     hits: list[tuple[str, str]] = []
     for old, new in RETIRED_CRATE_NAMES.items():
-        # Plain substring, then a TRAILING boundary only. The trailing side is
-        # safe to test — an escape sequence sits BEFORE a name
-        # (`\tambition_actors`), never after — and it is what keeps
-        # `ambition_world_entity`, a local variable meaning Ambition's world,
-        # from reading as the retired `ambition_world` crate.
+        # Plain substring, then a TRAILING boundary only.
         start = 0
         while (at := line.find(old, start)) != -1:
             start = at + 1

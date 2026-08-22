@@ -85,7 +85,6 @@ fn the_body_is_swallowed_before_it_crosses_and_emerges_from_inside_the_far_pipe(
 
 /// **The exit continues the journey; it never reverses it.**
 ///
-/// Jon, on the feel: "the physics of exiting the pipe is weird. You sort of fall
 /// down and then bounce up, and when going up you push up and then fall down."
 /// That was the emergence running BACKWARDS — the throat sat on the far side of
 /// the arrival, so going down a pipe dropped you below the ceiling mouth and

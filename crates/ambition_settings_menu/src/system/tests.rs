@@ -12,11 +12,10 @@ fn top_level_order_and_dev_gating() {
         &DevSnapshot::default(),
     );
     let ids: Vec<_> = model.entries.iter().map(|e| e.id).collect();
-    // The non-dev prefix is always present in this fixed order. Shaders is no
-    // longer a top-level entry (it rides under Video); Reset All Settings, Quit
-    // to Title, and Quit to Desktop are always present (the two exits sit right
-    // after Reset All Settings — Title above Desktop — before the dev-only
-    // entries).
+    // The non-dev prefix is always present in this fixed order. Shaders is no longer a
+    // top-level entry (it rides under Video); Reset All Settings, Quit to Title, and Quit to
+    // Desktop are always present (the two exits sit right after Reset All Settings — Title
+    // above Desktop
     assert_eq!(
         &ids[..9],
         &[

@@ -1,6 +1,3 @@
-//! Investigate Jon's report: "a grounded dash (i.e. slide) causes
-//! the camera to shake in a weird way."
-//!
 //! Root cause was: `try_change_body_mode` keeps feet planted by
 //! adjusting `pos.y` by half the height delta on every body-shape
 //! change. When a grounded dash + down ends, the body_mode driver
@@ -60,8 +57,6 @@ fn grounded_horizontal_dash_does_not_oscillate_pos_y() {
         .map(|w| (w[1] - w[0]).abs())
         .fold(0.0_f32, f32::max);
 
-    // Print full feet trace so a regression tells the developer
-    // exactly which frame oscillated.
     if max_feet_y_delta >= 5.0 {
         for (i, y) in feet_ys.iter().enumerate() {
             eprintln!("  frame {i:>3}: feet_y = {y}");

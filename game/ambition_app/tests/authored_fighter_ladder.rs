@@ -8,15 +8,11 @@
 //! which is the authored level **nine** — so a level-1 CPU priced a kill move
 //! exactly as the hardest one did.
 //!
-//! Three separate pieces had to line up to fix that, and **a compile proves none
-//! of them**: the pack has to lower the ladder, `ambition_content` has to insert
-//! it as `AuthoredFighterLadder`, and `project_authored_fighter_ladder` has to be
-//! REGISTERED, in `Update`, before `tick_actor_brains`. Any one of those could be
-//! perfectly written and silently absent, and every existing test would still
-//! pass — the same class as `content_dormancy`'s *"it also proves the pass is
+//! Any one of those could be perfectly written and silently absent, and every existing test
+//! would still pass — the same class as `content_dormancy`'s *"it also proves the pass is
 //! registered, which a compile cannot catch."*
 //!
-//! ⚠ **the level is 5 on purpose, and this is the trap that makes a naive
+//! **the level is 5 on purpose, and this is the trap that makes a naive
 //! version of this test worthless.** The authored ladder's level **9** row is
 //! byte-identical to `UtilityWeights::v1()` (`1.0 / 0.6 / 0.4 / -0.8 / 0.5`),
 //! and level **1**'s `reaction_ms` is 500.0 in BOTH the ladder and the floor. So
@@ -25,7 +21,7 @@
 //! on every axis, and the assertion below refuses to run until it has checked
 //! that.
 //!
-//! ⛔ **and this composition is the ONLY one where the two halves meet — measured,
+//! **and this composition is the ONLY one where the two halves meet — measured,
 //! not assumed.** Ambition's own 24 archetypes contain zero `Fighter` brains (12
 //! `Smash`, 3 `Skirmisher`, 4 `StandStill`, the rest one-offs); all 7 `Fighter`
 //! rows in the workspace are `ambition_demo_smash`'s roster, plus its
@@ -73,7 +69,7 @@ fn a_fighter_in_the_host_runs_on_the_authored_rung_not_the_engine_floor() {
             .expect("the authored ladder has a row for every level 1..=9")
     };
 
-    // ⭐ **ANTI-VACUITY, and it is not ceremony.** If someone retunes the ladder
+    // **ANTI-VACUITY, and it is not ceremony.** If someone retunes the ladder
     // so this rung matches the floor, every assertion below passes without any
     // of the wiring existing. That is exactly how the level-9 version of this
     // test would have been born green.

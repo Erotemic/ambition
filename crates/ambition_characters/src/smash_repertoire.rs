@@ -106,12 +106,8 @@ pub struct SmashRepertoire {
     /// **The capture kit — grab, pummel, throws.** See
     /// [`SmashCaptureRepertoire`](crate::smash_capture::SmashCaptureRepertoire).
     ///
-    /// ✔ **REQUIRED, as of 2026-08-19 — the migration is over and the `Option`
-    /// is gone.** It was the one optional slot on this struct, suspending the
-    /// type's whole argument (a missing field is a compile error in the
-    /// fighter's own file) while the relationship architecture was proven on two
-    /// fighters. All fourteen author one now, so the compiler resumes doing here
-    /// what it does for the other sixteen slots.
+    /// All fourteen author one now, so the compiler resumes doing here what it does for the other
+    /// sixteen slots.
     ///
     /// ⭐ **this replaces a grep.** A goal check read the movesets looking for
     /// `capture: Some`, which is the kind of guard that answers a question the
@@ -133,20 +129,14 @@ pub struct SmashRepertoire {
 
 /// **Every verb a [`SmashRepertoire`] can bind.**
 ///
-/// ⭐⭐ **this exists because [`SmashRepertoire::into_contract`]'s own doc was
-/// FALSE.** It says it is *"the ONE place the verb strings exist"* — and it was
-/// not. Character preparation kept a SECOND, hand-written list of the flat ones
-/// so it could tell an authored verb from a typo, and a verb has to reach both
-/// or it is a move authored onto a button the runtime reports does not exist.
+/// ⭐⭐ **this exists because [`SmashRepertoire::into_contract`]'s own doc was FALSE.** It says
+/// it is *"the ONE place the verb strings exist"* — and it was not.
 ///
-/// ⛔⛔ **both halves of that pair have now been missed, in three days.**
-/// `taunt` reached the device table, the human brain's press list,
-/// `ENGINE_ACTIONS` and its rollback codec, and every fighter authored one —
-/// while the vocabulary did not know the word, and nineteen characters shipped
-/// reporting *"unknown input verb `taunt`"*. `attack_dash` then repeated it
-/// exactly, from a branch based before that repair. The lesson is not "remember
-/// the fifth list"; it is that a list nobody can derive gets remembered four
-/// times out of five.
+/// ⛔⛔ **both halves of that pair have now been missed, in three days.** `taunt` reached the
+/// device table, the human brain's press list, `ENGINE_ACTIONS` and its rollback codec, and
+/// every fighter authored one — while the vocabulary did not know the word, and nineteen
+/// characters shipped reporting *"unknown input verb `taunt`"*. The lesson is not "remember the
+/// fifth list"; it is that a list nobody can derive gets remembered four times out of five.
 ///
 /// ⛔ **not a registry and not a new authority.** The table in `into_contract`
 /// is still the only thing that BINDS a verb to a move. This is that table's
@@ -206,10 +196,7 @@ impl SmashRepertoire {
     ///
     /// # Panics
     ///
-    /// If two slots were given moves with the SAME id. `move_by_id` takes the
-    /// first match, so a reused id silently makes one of the two presses swing
-    /// the other's timeline — the one defect this shape cannot rule out by
-    /// construction, so it is ruled out here, at preparation time, by name.
+    /// If two slots were given moves with the SAME id.
     pub fn into_contract(self) -> MovesetContract {
         let Self {
             jab,
@@ -445,12 +432,6 @@ mod tests {
     /// **Every press this vocabulary names is answered, in every posture it is
     /// asked in** — resolved the way a BODY resolves it, through the directional
     /// chain, rather than by asking whether a verb key exists.
-    ///
-    /// ⭐ this is the check that used to be fourteen private copies of
-    /// `every_bound_verb_names_a_move_that_exists`. It is stronger than they
-    /// were: they asked whether a bound id was defined, and this asks whether a
-    /// PRESS reaches a move — which is the question the fourteen copies were
-    /// standing in for.
     #[test]
     fn every_press_is_answered_in_every_posture_it_is_asked_in() {
         for down in [
@@ -506,9 +487,7 @@ mod tests {
         }
     }
 
-    /// **The two-form down-B answers each posture with ITS OWN move**, which is
-    /// the whole content of Jon's Bowser ruling: not "the press works", but "the
-    /// press does the right thing in both places".
+    /// The two-form down-B maps ground and air postures to their corresponding moves.
     #[test]
     fn the_two_form_down_b_answers_each_posture_with_its_own_move() {
         let set = repertoire(
@@ -529,11 +508,8 @@ mod tests {
 
     /// **The posture comes from the SLOT, not from what the fighter set.**
     ///
-    /// ⭐ the fixture hands every slot a `grounded: Some(true)` spec — the gate
-    /// that would be wrong for eleven of the sixteen. If the seam merely
-    /// *defaulted*, the aerials would still be grounded-only and unreachable in
-    /// the air, which is exactly the defect the census found nine fighters
-    /// carrying before the slot owned this.
+    /// the fixture hands every slot a `grounded: Some(true)` spec — the gate that would be wrong
+    /// for eleven of the sixteen.
     #[test]
     fn the_slot_owns_the_posture_gate() {
         let set = repertoire(

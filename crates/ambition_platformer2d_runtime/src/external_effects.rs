@@ -7,8 +7,6 @@
 //! they must be keyed to the timeline the host has actually settled rather than
 //! to whatever the simulation currently believes.
 //!
-//! # What this replaces
-//!
 //! The earlier [`ambition_sfx::SfxEmissionGate`] answered *"has this frame been
 //! simulated before?"* and dropped the emission if so. That kills the duplicate
 //! a local rollback produces, but under predicted remote input it is wrong in a
@@ -64,11 +62,8 @@
 //!
 //! # Cost, honestly
 //!
-//! An effect is delayed by however far confirmation lags simulation — bounded by
-//! GGRS's prediction window, and zero when nothing is predicted. Every non-rollback
-//! host (render-frame, fixed-tick, headless, every unit fixture) never installs
-//! [`ConfirmedFrameBoundary`] at all, so none of these systems run and effects
-//! fire the instant they are written, exactly as before this module existed.
+//! An effect is delayed by however far confirmation lags simulation — bounded by GGRS's
+//! prediction window, and zero when nothing is predicted.
 //!
 //! A released effect is an ordinary message in the ordinary channel, so it keeps
 //! Bevy's usual two-frame lifetime and reaches a consumer that happened not to
@@ -277,14 +272,9 @@ impl<M: Message> Plugin for ExternalEffectQuarantinePlugin<M> {
         let sim = app.sim_schedule();
         let speculating = resource_exists::<ConfirmedFrameBoundary>;
 
-        // ⛔ **REGISTER THE CHANNEL THIS PLUGIN QUARANTINES.** It used to install
-        // systems taking `ResMut<Messages<M>>` and leave the registration to
-        // whoever else happened to want the message — which in a shipped app is
-        // the render/audio plugins, so it always worked there and nowhere else.
-        // A host that composes rollback WITHOUT presentation (a headless
-        // capability host, `examples/capability_demo`'s GGRS round-trip) failed
-        // parameter validation on frame one, naming a message type it had never
-        // heard of.
+        // A host that composes rollback WITHOUT presentation (a headless capability host,
+        // `examples/capability_demo`'s GGRS round-trip) failed parameter validation on frame one,
+        // naming a message type it had never heard of.
         //
         // `add_message` is guarded by `contains_resource`, so this is idempotent
         // and changes nothing for a composition that already registered it.
@@ -311,9 +301,7 @@ impl<M: Message> Plugin for ExternalEffectQuarantinePlugin<M> {
                     .run_if(speculating),
             );
 
-        // `LoadWorld` only exists under a rollback host. Registering the
-        // discard against a schedule the host has not created would panic on a
-        // fixed-tick app, so the bridge that owns that schedule installs it.
+        // `LoadWorld` only exists under a rollback host.
     }
 }
 

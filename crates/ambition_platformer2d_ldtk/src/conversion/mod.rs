@@ -99,8 +99,8 @@ impl LdtkProject {
         for (area_id, levels) in area_levels {
             rooms.push(self.compose_runtime_area(&area_id, &levels, vocabulary)?);
         }
-        // Baked `ron-room` docs (W2): rooms that enter the graph as
-        // serialized IR, no authoring backend behind them.
+        // Baked `ron-room` docs: rooms that enter the graph as serialized IR, no authoring
+        // backend behind them.
         for doc in ambition_platformer2d_world::ron_room::load_ron_rooms(ron_rooms)? {
             links.extend(doc.links);
             rooms.push(doc.spec);
@@ -248,7 +248,7 @@ impl LdtkProject {
                         lock_walls.extend(emission.lock_walls);
                         switch_commands.extend(emission.switch_commands);
                     }
-                    // ⭐ **name the LEVEL.** An iid is not something an author can
+                    // **name the LEVEL.** An iid is not something an author can
                     // search for; the level is what they open to fix it, and
                     // every other diagnostic on this path already says which one.
                     Err(error) => errors.push(format!(
@@ -437,11 +437,9 @@ pub struct RoomEmission {
     /// may DUAL-emit (its legacy typed family + the record); records are
     /// inert until an interpreter is registered for their kind.
     pub placements: Vec<ambition_platformer2d_world::placements::PlacementRecord>,
-    /// An authored encounter's trigger volume. At most one per area; most
-    /// entities emit zero. See
-    /// [`ambition_platformer2d_world::rooms::EncounterTriggerSpec`] for why
-    /// these now join the emission stream instead of being read off the raw
-    /// project (D136).
+    /// An authored encounter's trigger volume. At most one per area; most entities emit zero.
+    /// See [`ambition_platformer2d_world:rooms:EncounterTriggerSpec`] for why these now join
+    /// the emission stream instead of being read off the raw project.
     pub encounter_triggers: Vec<ambition_platformer2d_world::rooms::EncounterTriggerSpec>,
     /// An authored encounter's lock wall. At most one per area.
     pub lock_walls: Vec<ambition_platformer2d_world::rooms::EncounterLockWallSpec>,
@@ -637,15 +635,10 @@ fn offset_points(points: Vec<ae::Vec2>, offset: ae::Vec2) -> Vec<ae::Vec2> {
 /// WILL produce, and re-deriving it is how the game-side content validator came
 /// to disagree with the runtime about which paths exist. Ask, do not model.
 ///
-/// ⛔ **and this function itself used to be the second modeller.** It slugged
-/// the display name with a private rule that additionally collapsed `_path_`
-/// away, so `enemy patrol path A` minted `enemy_patrol_a` here while
-/// `ambition_platformer2d_world`'s slug — the one every RESOLVER consults —
-/// said `enemy_patrol_path_a`. Nothing referenced the compacted spelling; it
-/// existed only to be bridged back by a third resolution alias, and that bridge
-/// was implemented in three places and got it wrong in two, which is how
-/// sandbox's basement patroller stood still for months while two validators
-/// called it healthy. The rule now has ONE owner and this road asks it.
+/// Nothing referenced the compacted spelling; it existed only to be bridged back by a third
+/// resolution alias, and that bridge was implemented in three places and got it wrong in two, which
+/// is how sandbox's basement patroller stood still for months while two validators called it
+/// healthy. The rule now has ONE owner and this road asks it.
 pub fn kinematic_path_lookup_id(entity: &LdtkEntityInstance, name: &str) -> String {
     field_string(entity, "id")
         .map(|value| value.trim().to_string())
@@ -667,7 +660,7 @@ fn entity_display_name(entity: &LdtkEntityInstance) -> String {
 /// Every `KinematicPath` in an active area, by LDtk `iid` → the lookup id its
 /// [`KinematicPathSpec`] will carry.
 ///
-/// ⭐ **this is what makes a native `EntityRef` to a path resolvable at all.** A
+/// **this is what makes a native `EntityRef` to a path resolvable at all.** A
 /// ref stores the target's `iid`; the room's path table is keyed by the lookup
 /// id. Resolving one to the other needs the TARGET entity, which a per-entity
 /// converter does not have, so the area builds the index once and the ref is
@@ -675,7 +668,7 @@ fn entity_display_name(entity: &LdtkEntityInstance) -> String {
 /// it reads a ref target's containers out of the project instead of trusting a
 /// spec to carry them.
 ///
-/// ⚠ scoped to the AREA, matching the runtime lookup table's scope exactly. A
+/// scoped to the AREA, matching the runtime lookup table's scope exactly. A
 /// ref pointing at a path in some other area is not in this map, and the
 /// converter refuses it out loud rather than degrading to "no motion".
 fn kinematic_path_ids_by_iid(levels: &[&LdtkLevel]) -> BTreeMap<String, String> {
@@ -729,13 +722,13 @@ impl LdtkEntityCtx<'_> {
     ///
     /// `Ok(None)` = the field is unset, which is authoring nothing. An `Err` is
     /// a ref that names something this area has no path for — a dangling or
-    /// mistyped link, which is content the author must fix. ⛔ **it is refused
+    /// mistyped link, which is content the author must fix. **it is refused
     /// rather than dropped**: a path reference that silently resolves to nothing
     /// degrades to "the body does not move", and a level that looks finished
     /// while an actor stands still is the exact failure this repo has paid for
     /// on this relationship twice.
     ///
-    /// ⚠ this re-derives no resolution rule. The id comes from
+    /// this re-derives no resolution rule. The id comes from
     /// [`kinematic_path_lookup_id`] — the same call that mints the spec's own id
     /// — so the reference and the target agree by construction rather than by a
     /// spelling convention both sides implement.
@@ -762,17 +755,12 @@ pub type LdtkEntityConverter = fn(&LdtkEntityCtx<'_>) -> Result<RoomEmission, St
 /// **The LDtk nouns one conversion understands**: the engine's standard
 /// vocabulary, plus whatever the caller's game adds.
 ///
-/// ⛔ **this used to be a process-global `OnceLock`, and "first install wins"
-/// was the whole problem.** Two games, a game and a tool, or two test Apps in
-/// one process could not carry different vocabularies — the first one to install
-/// defined conversion for every other, and the only way to notice was an error
-/// log. The reason given for the global was real: conversion runs from pure
-/// non-system code (`to_room_set`, validators, tools) with no `World` in hand,
-/// so a Bevy `Resource` could not reach it. But "no `World`" argues for a
-/// PARAMETER, not for ambient state — and a value passed in is exactly as
-/// reachable from a tool as from a system.
+/// The reason given for the global was real: conversion runs from pure non-system code
+/// (`to_room_set`, validators, tools) with no `World` in hand, so a Bevy `Resource` could not reach
+/// it. But "no `World`" argues for a PARAMETER, not for ambient state — and a value passed in is
+/// exactly as reachable from a tool as from a system.
 ///
-/// ⭐ **the vocabulary is now part of the question.** Asking "what rooms does
+/// **the vocabulary is now part of the question.** Asking "what rooms does
 /// this project describe?" without saying which nouns you understand was always
 /// an incomplete question; it only looked complete because one answer was
 /// installed behind everyone's back.
@@ -790,7 +778,7 @@ impl LdtkVocabulary {
 
     /// The engine's vocabulary plus a game's own converters.
     ///
-    /// ⚠ **a game cannot override a standard identifier.** The engine's table
+    /// **a game cannot override a standard identifier.** The engine's table
     /// wins on lookup, which keeps `Solid` meaning `Solid` in every world file
     /// anyone loads. Extending the vocabulary and redefining it are different
     /// permissions, and only the first is on offer.
@@ -915,12 +903,6 @@ mod tests {
     use ambition_platformer2d_world::world_manifest::{WorldManifest, WorldSource};
     use serde_json::Value;
 
-    /// The cross-crate test fixture: the game's real worlds under
-    /// `game/ambition_content/assets/worlds`, entry room = the hub. Read
-    /// cross-crate (the explicit cross-crate fixture pattern) so this crate's
-    /// conversion / ron-room contract tests exercise real data without
-    /// shipping any. Tests name it EXPLICITLY — it used to be handed to them
-    /// behind their back by a `cfg(test)` branch inside the global accessor.
     fn test_fixture_manifest() -> WorldManifest {
         let worlds_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../game/ambition_content/assets/worlds");
@@ -948,10 +930,9 @@ mod tests {
         }
     }
 
-    // ---- Restored ruled-contract tests (fable final audit F7): these were
-    // dropped in the W3 carve. They pin [W-b] dual emission, the §3.6 tile
-    // GeoId determinism contract, the W2 sanic IR proof, and the F7 fixes
-    // (record display name; inline-motion hazards stay legacy-only).
+    // ---- Restored ruled-contract tests (fable final audit F7): these were dropped in the
+    // carve. They pin [W-b] dual emission, the §3.6 tile GeoId determinism contract, the sanic
+    // IR proof, and the F7 fixes (record display name; inline-motion hazards stay legacy-only).
 
     fn entity_at(
         identifier: &str,
@@ -1048,9 +1029,8 @@ mod tests {
         );
     }
 
-    /// A level that says nothing keeps the behaviour it had before the field
-    /// existed. The whole migration is worthless if adding an authoring channel
-    /// silently re-tunes every room that never used it.
+    /// The whole migration is worthless if adding an authoring channel silently re-tunes every
+    /// room that never used it.
     #[test]
     fn a_level_that_authors_no_margin_keeps_the_engine_default() {
         let room_set = synthetic_level(Vec::new())
@@ -1065,15 +1045,15 @@ mod tests {
 
     /// **A level authors where finishing it leads.**
     ///
-    /// ⛔ **this was an if/else chain in a game crate, and it was the LAST Rust
-    /// cost of authoring a level (2026-08-15).** Mary-O's `exit_for_room` read
+    /// **this was an if/else chain in a game crate, and it was the LAST Rust
+    /// cost of authoring a level.** Mary-O's `exit_for_room` read
     /// *"1-1 → 1-2, else if 1-2 → 1-3, else if 1-3 → 1-1, else replay"*: every
     /// other property of a level — geometry, blocks, enemies, links, goal pole,
     /// roster entry — came off the LDtk file, and the successor did not. It had
     /// already cost a test, which had pinned *"finishing 1-2 returns to 1-1"* —
     /// true only while 1-2 was the last level authored.
     ///
-    /// ⚠ **the id is NOT resolved here, and that is the design.** A level states
+    /// **the id is NOT resolved here, and that is the design.** A level states
     /// a name; only the loaded `RoomSet` knows which rooms a session holds, so
     /// refusing an unknown id at conversion would refuse a room that names a
     /// sibling living in another world file. The consumer warns.
@@ -1125,8 +1105,7 @@ mod tests {
     /// merely behaves oddly.
     #[test]
     fn a_negative_blast_margin_is_refused_rather_than_clamped() {
-        // All THREE margins, because they share one `take_px` closure now. A
-        // regression in it would be invisible if only one field were driven.
+        // All THREE margins, because they share one `take_px` closure now.
         let mut project = synthetic_level(Vec::new());
         for name in ["blast_margin", "side_blast_margin", "ceiling_blast_margin"] {
             project.levels[0]
@@ -1364,9 +1343,6 @@ mod tests {
         );
     }
 
-    /// THE W2 IR PROOF, restored: the sanic area (richest IR surface — the
-    /// chains channel) round-trips serialize∘parse as a string fixed point
-    /// and re-enters a RoomSet with no LDtk in the second path.
     #[test]
     fn the_sanic_area_round_trips_as_a_ron_room() {
         let manifest = test_fixture_manifest();
@@ -1405,16 +1381,11 @@ mod tests {
     /// **An author can NAME a moving platform, and gets the iid when they do
     /// not.**
     ///
-    /// ⛔ **this converter went straight to the iid**, alone among the ones that
-    /// take an identity: `LoadingZone`, `CameraZone`, `Portal` and `ShrineSpawn`
-    /// all read `field_string(entity, "id")` first. So a moving platform had no
-    /// stable name a room could address it by, and Mary-O's underground ferry is
-    /// found by NAME for exactly that reason — a name is presentation
-    /// (`FeatureName`'s own doc: *"human-facing … for debug overlays /
-    /// inspectors"*), and this repo has already paid twice for keying gameplay
-    /// on one.
+    /// **this converter went straight to the iid**, alone among the ones that take an identity:
+    /// `LoadingZone`, `CameraZone`, `Portal` and `ShrineSpawn` all read `field_string(entity,
+    /// "id")` first.
     ///
-    /// ⚠ **both halves, because the fallback is what keeps it additive.** No
+    /// **both halves, because the fallback is what keeps it additive.** No
     /// world authors an `id` on a `MovingPlatform` today, so every existing
     /// platform has to keep the iid it already had — a test that only checked
     /// the new field would pass over a change that broke every current level.
@@ -1470,14 +1441,7 @@ mod tests {
 
     /// **An enemy's BEHAVIOUR and its ART are authored separately — both roads.**
     ///
-    /// `EnemySpawn` gained `character_id` on 2026-08-06 so a level can say which
-    /// catalog character an enemy wears instead of having the art joined by
-    /// matching a human-readable display name. The hazard being retired is that
-    /// renaming a character silently un-arts every level that placed it; two
-    /// demos carried a hand-written pass to patch the name back in after
-    /// conversion, and a third was about to be written.
-    ///
-    /// ⚠ **the ABSENT case is the one that matters.** Every world authored
+    /// **the ABSENT case is the one that matters.** Every world authored
     /// before the field existed names no `character_id`, and a test that only
     /// checked the new field would sail past a change that broke all of them —
     /// the lesson the sibling `MovingPlatform` id row wrote down. So both roads
@@ -1573,18 +1537,16 @@ mod tests {
             "a misspelled orientation must refuse rather than silently choose a direction: {bad_facing}"
         );
 
-        // ⛔⛔ **the display-name road is REFUSED, not defaulted** (2026-08-14).
-        // These two cases used to assert `character_id.is_none()` and art
-        // falling back to "Solid Snake" — the documented silent join. With the
-        // field required an authored entity that names no creature cannot be
-        // lowered at all, and the conversion says which entity and why.
+        // **the display-name road is REFUSED, not defaulted**. With the field required an authored
+        // entity that names no creature cannot be lowered at all, and the conversion says which
+        // entity and why.
         let missing = convert_err(&enemy(vec![named("brain", "mary_o_snake")]));
         assert!(
             missing.contains("authors no `character_id`"),
             "a placement naming no creature must be refused by name: {missing}"
         );
 
-        // ⚠ an authored-but-BLANK field is what the LDtk editor writes for a
+        // an authored-but-BLANK field is what the LDtk editor writes for a
         // field a human tabbed through. It reads as absent — which is now a
         // refusal rather than an identity nothing in the catalog can match.
         let blank = convert_err(&enemy(vec![
@@ -1597,17 +1559,12 @@ mod tests {
         );
     }
 
-    /// **THE INVARIANT: the id conversion MINTS for a path is one the resolvers
-    /// ACCEPT.** Two slug rules used to decide that — this crate's, which
-    /// collapsed `_path_` away, and `ambition_platformer2d_world`'s, which every
-    /// resolution alias is generated from. They disagreed, so conversion minted
-    /// `enemy_patrol_a` for a path nothing referenced by that name, and the gap
-    /// was papered over downstream until sandbox's basement patroller stood
-    /// still for months with two validators calling it healthy.
+    /// They disagreed, so conversion minted `enemy_patrol_a` for a path nothing referenced by that
+    /// name, and the gap was papered over downstream until sandbox's basement patroller stood still
+    /// for months with two validators calling it healthy.
     ///
-    /// ⚠ asserted as AGREEMENT rather than against a literal, because a literal
-    /// is exactly what a second copy of the rule would also satisfy. The poison
-    /// is the compacted spelling: the deleted rule's answer must not come back.
+    /// asserted as AGREEMENT rather than against a literal, because a literal is exactly what a
+    /// second copy of the rule would also satisfy.
     #[test]
     fn a_derived_path_id_is_a_spelling_the_resolvers_accept() {
         use crate::project::{LdtkEntityInstance, LdtkFieldInstance};
@@ -1678,7 +1635,7 @@ mod tests {
         fields
     }
 
-    /// Where `patrol_project` puts its path. ⚠ `synthetic_level` is 640x480 and
+    /// Where `patrol_project` puts its path. `synthetic_level` is 640x480 and
     /// the converter rejects an out-of-bounds placement before it ever looks at a
     /// field, so a fixture that overflows the level fails every reference test
     /// for a reason that has nothing to do with references.
@@ -1717,15 +1674,11 @@ mod tests {
 
     /// **A native `path_ref` names the path the room actually built.**
     ///
-    /// ⭐ this is the migration's whole claim. The reference used to be a string
-    /// hidden inside `brain` (`Patrol:<id>`), so it named a SPELLING and every
-    /// consumer had to agree on how a path's name became that spelling — three
-    /// did not, and sandbox's basement patroller stood still for months while
-    /// two validators called it healthy. An `EntityRef` names the ENTITY, and
-    /// conversion resolves it through the same `kinematic_path_lookup_id` that
-    /// minted the target's own id, so the two cannot disagree.
+    /// this is the migration's whole claim. An `EntityRef` names the ENTITY, and conversion
+    /// resolves it through the same `kinematic_path_lookup_id` that minted the target's own id, so
+    /// the two cannot disagree.
     ///
-    /// ⚠ asserted as AGREEMENT with the room's own path table rather than
+    /// asserted as AGREEMENT with the room's own path table rather than
     /// against a literal id — a literal is exactly what a second derivation
     /// would also satisfy.
     #[test]
@@ -1765,11 +1718,8 @@ mod tests {
         );
     }
 
-    /// A ref at something that is not a path in this area is REFUSED, naming the
-    /// target. ⛔ the failure it replaces was silent: an unresolvable patrol fell
-    /// back to passive, so the level looked finished and the enemy just stood
-    /// there. A dangling native ref is the one verdict this road owns outright —
-    /// it is LDtk's own referential integrity, not a re-derived engine rule.
+    /// A dangling native ref is the one verdict this road owns outright — it is LDtk's own
+    /// referential integrity, not a re-derived engine rule.
     #[test]
     fn a_path_ref_at_something_that_is_not_a_path_is_refused_by_name() {
         let errors = patrol_project(Some("KinematicPath-nobody-minted-this"), None)

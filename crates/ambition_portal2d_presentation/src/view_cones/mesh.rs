@@ -1,7 +1,5 @@
 //! Cone render-mesh construction (triangulation + UVs) and the proximity-fade
 //! ramp helpers the sync system applies.
-//!
-//! Split out of the former 1098-line `view_cones.rs` (2026-06-15).
 
 use super::*;
 

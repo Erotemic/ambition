@@ -1,6 +1,4 @@
 //! Per-frame sprite animation systems (player, characters, props).
-//!
-//! Split out of the former 883-line `actors/mod.rs` (2026-06-15).
 
 use bevy::prelude::*;
 
@@ -23,7 +21,7 @@ pub(crate) fn apply_character_frame(
     anim: ambition_sprite_sheet::character::CharacterAnim,
     // **What the body's ACTIVE MOVE asks to be drawn as**, when one is playing.
     //
-    // ⭐⭐ sprite redirect P0: `anim` is the 56-variant semantic vocabulary and
+    // sprite redirect P0: `anim` is the 56-variant semantic vocabulary and
     // the new fighter sheets carry rows it has no variant for — `smash_forward`,
     // `air_dodge`, `tumble`. A move already names its clip and its fallbacks, so
     // the exact row is drawn when this sheet has it, the author's fallbacks when
@@ -40,11 +38,8 @@ pub(crate) fn apply_character_frame(
     // `sync_visuals` instead of restoring the standing height at the lowered pos.
     stance_ratio_y: f32,
 ) {
-    // The stance squash is a PLACEHOLDER for sheets that lack a row for the
-    // compact pose (the fallback then shows standing art at a shrunken AABB).
-    // A sheet that natively owns the requested row drew the pose at world
-    // scale inside the fixed logical frame — squashing it again would flatten
-    // authored crouch/ball art, so the ratio collapses to 1.0.
+    // The stance squash is a PLACEHOLDER for sheets that lack a row for the compact pose (the
+    // fallback then shows standing art at a shrunken AABB).
     let stance_ratio_y = if animator.spec.maps(anim) {
         1.0
     } else {
@@ -95,12 +90,8 @@ pub(crate) fn apply_character_frame(
     if let (Some(size), Some(a)) = (sprite.custom_size, anchor.as_deref()) {
         animator.ensure_render_basis(size, a.0);
     }
-    // Alpha-trimmed (atlas-packed) sheets: each frame is stored at its own
-    // trimmed size + offset, so re-derive the sprite size + anchor per frame to
-    // keep the logical frame fixed. `current_render` returns `None` for
-    // untrimmed sheets, so those keep their fixed spawn-time size/anchor and are
-    // byte-identical. The anchor x mirrors with the facing flip so an
-    // off-centre trim stays consistent left/right.
+    // The anchor x mirrors with the facing flip so an off-centre trim stays consistent
+    // left/right.
     if let (Some((mut size, mut anchor_v)), Some(anchor)) = (animator.current_render(), anchor) {
         // Crouch/crawl/slide/morph: scale the trimmed height by the collision-shrink
         // ratio so the feet stay planted (the normalized anchor preserves foot
@@ -140,9 +131,8 @@ pub fn animate_player(
     // (sim-side, in the pose rebuild). The player body is not special to
     // rendering, only the camera/HUD are.
     for (mut sprite, mut animator, pose, scale, anchor) in &mut query {
-        // Presentation time uses this rendered frame's delta while applying the
-        // authoritative world-clock and proper-time scales. This keeps the
-        // authored cadence independent of fixed / rollback tick duration.
+        // Presentation time uses this rendered frame's delta while applying the authoritative
+        // world-clock and proper-time scales.
         let dt = presentation_time.entity_dt(ambition_time::ProperTimeScale::or_default(scale));
         // Hit feedback is drawn by the white-silhouette overlay in
         // `presentation::rendering::hit_flash` — a sibling mesh that samples this
@@ -153,7 +143,7 @@ pub fn animate_player(
             &mut animator,
             anchor.map(|a| a.into_inner()),
             pose.anim,
-            // ⭐ **and the local player's move names its row too** — the same
+            // **and the local player's move names its row too** — the same
             // request the actor road carries, so a human-driven fighter and a
             // CPU one on the same character draw the same animation for the same
             // move. That is the property the whole seam exists for.
@@ -344,11 +334,6 @@ pub fn animate_props(
         } else {
             presentation_time.entity_dt(ambition_time::ProperTimeScale::or_default(scale))
         };
-        // Route through the SAME frame-apply chokepoint as actors so a trimmed
-        // prop sheet gets the self-captured trim basis too (props used to skip
-        // it and rendered a trimmed cell at full-frame size — misaligned).
-        // Props don't face or tint: facing = 1.0 is unflipped under normal
-        // gravity (`Vec2::Y` is +y/down here), tint stays WHITE.
         apply_character_frame(
             &mut sprite,
             &mut animator,
@@ -400,7 +385,6 @@ mod tests {
     /// **A left-drawn character faces the way they are going, exactly like a
     /// character whose art was drawn the other way round.**
     ///
-    /// Jon, 2026-08-16: *"Patent clerk faces backwards."* His sheet is drawn
     /// facing WEST (the SVG paperdoll view is `Patent Clerk - Side Left`, and
     /// his rig declares `features.facing: "west"`), while the renderer assumed
     /// every sheet is drawn facing +x — so the one mirror it applied pointed
@@ -472,14 +456,14 @@ mod tests {
             checked > 100,
             "expected the baked sheet table to hold the whole cast, saw {checked}"
         );
-        // ⭐ **THE OTHER SHEETS ARE UNMOVED, as a measurement rather than a
+        // **THE OTHER SHEETS ARE UNMOVED, as a measurement rather than a
         // hope.** `authored_faces_left` is `#[serde(default)]` and the
         // generator emits it only when true, so a sheet absent from this list
         // resolves `flip_x` to exactly `facing < 0` — byte-identical to what it
         // did before the field existed. This list is the complete set of sheets
         // whose drawing changed.
         //
-        // ⚠ the list is EXACT on purpose. It fails both ways: if a left-drawn
+        // the list is EXACT on purpose. It fails both ways: if a left-drawn
         // sheet silently stops publishing its facing (a regen against a stale
         // generator), and if some other sheet starts declaring one without
         // anybody deciding that its art was redrawn.
@@ -493,15 +477,11 @@ mod tests {
             "patent_clerk.0_25x",
             "patent_clerk.0_5x",
             "patent_clerk.potato",
-            // ⚠ **THE THIRD, added 2026-08-21, and it was always true.** The
-            // reference sword fighter's SVG declares `data-rig-facing="west"`
-            // and its published sheets have carried `authored_faces_left` the
-            // whole time — under its old name and under this one. The list did
-            // not know because this test only sees sheets that are ON DISK, and
-            // the polygons' art is gitignored: a checkout without it passes
-            // vacuously. ⛔ that is the real lesson here, not the row.
+            // The list did not know because this test only sees sheets that are ON DISK, and the
+            // polygons' art is gitignored: a checkout without it passes vacuously. that is the real
+            // lesson here, not the row.
             //
-            // ⚠ the BRAWLER is deliberately absent: its SVG declares no facing,
+            // the BRAWLER is deliberately absent: its SVG declares no facing,
             // so its sheets keep the +x default. Two polygons, one facing.
             "pointed_polygon",
             "pointed_polygon.0_25x",

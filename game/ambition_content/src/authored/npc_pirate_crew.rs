@@ -4,32 +4,22 @@
 //! They were registered as buildable and authored NOTHING — the shape that
 //! list's own doc calls dangerous by default. What held them there was a real
 //! question rather than an oversight: their VITALS were a content decision
-//! (queue D96 item 8, *"how tough is a pirate quartermaster?"*), and authoring a
+//!, and authoring a
 //! number to empty a list would have been inventing one.
 //!
-//! ⭐⭐ **Jon answered it on 2026-08-13, and the answer was that it was never a
-//! product decision**: *"these are ordinary tuning values that can be changed
-//! later if they feel wrong in play. Pick reasonable explicit health values and
-//! AUTHOR THEM. Do not retain fallback health or incomplete body definitions
-//! because we are waiting for balance decisions."* His initial numbers —
-//! ordinary pirate **4**, heavy/large pirate variant **6** — are the two used
-//! here.
+//! Pick reasonable explicit health values and AUTHOR THEM. Do not retain fallback health or
+//! incomplete body definitions because we are waiting for balance decisions."* His initial numbers
+//! — ordinary pirate **4**, heavy/large pirate variant **6** — are the two used here.
 //!
-//! ⚠ **so these numbers are TUNING and the authoring is ARCHITECTURE.** He drew
+//! **so these numbers are TUNING and the authoring is ARCHITECTURE.** He drew
 //! that line himself. Retuning a health value later is not reopening a decision;
 //! putting the fallback back would be.
 //!
-//! ⛔ **one file for six, and that is the P2.16 rule rather than laziness.** They
+//! **one file for six, and that is the P2.16 rule rather than laziness.** They
 //! are one crew in three shapes — two strikers, two brutes, two rangers — and the
 //! shapes are the three brain presets their catalog rows already named. Six files
 //! differing by a literal would be the copy `AUTHORED_CAST` exists to refuse, and
 //! the raider file next door already carries two creatures for the same reason.
-//!
-//! ⚠ **their provoked policy is NOT here.** Every `npc_pirate_*` id takes it from
-//! the RULE at the head of `authored_intrinsics`, which is what replaced the
-//! substring matcher on display names (ledger D84). A rule covers the pirate
-//! added tomorrow; this file answers the different question of what each named
-//! pirate's BODY is.
 
 use ambition_characters::actor::CharacterLocomotion;
 use ambition_characters::brain::{
@@ -41,7 +31,7 @@ use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition
 /// row named — which is the behaviour-preserving migration AC4.2 asks for, and
 /// the reason this file is not three lines shorter.
 ///
-/// ⛔ **the first draft of this gave the lookout and the navigator a cutlass**,
+/// **the first draft of this gave the lookout and the navigator a cutlass**,
 /// because "pirate boarding party" is a plausible story and the six ids look
 /// alike. They ship as `skirmisher_ranger` — they stand off at 140px and shoot.
 /// `a_character_states_its_policy_in_one_place` caught it, which is precisely
@@ -51,8 +41,6 @@ use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition
 enum Crew {
     /// `melee_brute_striker`: aggro 220, reach 36, chase 110.
     Striker,
-    /// `melee_brute_brute`: aggro 240, reach 44, chase 75. Jon's "heavy/large
-    /// pirate variant".
     Brute,
     /// `skirmisher_ranger`: aggro 320, standoff 140, strafe 85, refire 0.8.
     Ranger,
@@ -131,7 +119,6 @@ pub(crate) fn author(id: &str, definition: CharacterDefinition) -> CharacterDefi
             chase_effort: 1.0,
             ..Default::default()
         });
-    // Jon 2026-08-13: ordinary pirate 4, heavy/large pirate variants 6.
     definition.vitals.max_health = Some(if heavy { 6 } else { 4 });
     definition
 }

@@ -1,9 +1,8 @@
 //! Durable geometry identity — `GeoId`/`GeoFaceRef` (docs/concepts/movement-collision.md).
 //!
-//! What durably names a piece of ROOM geometry — for `WorldDelta` ops, the CC6
-//! portal host ref, save overlays, and debug traces? `Block.name` is an informal
-//! display string; this is the stable identity. Two-level: WHERE the geometry
-//! came from + its deterministic ordinal within that source's emission.
+//! What durably names a piece of ROOM geometry — for `WorldDelta` ops, the CC6 portal host ref,
+//! save overlays, and debug traces? `Block.name` is an informal display string; this is the
+//! stable identity.
 //!
 //! **This is the identity SUBSTRATE only.** The types exist so `Block` can carry
 //! an id and the emission paths can assign real sources incrementally; no delta
@@ -16,7 +15,7 @@
 /// synthesized `"{room}:{index}"`). The [W-d] record-layer id, lifted to
 /// engine_core because `GeoSource` (geometry vocabulary) names it and Tier-0/2
 /// both sit around this crate.
-/// ⭐ `Ord`, so an id may key an ORDERED container. A durable identity that can
+/// `Ord`, so an id may key an ORDERED container. A durable identity that can
 /// only live in a hash container forces every holder to re-argue determinism.
 #[derive(
     Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
@@ -33,8 +32,7 @@ impl PlacementId {
     }
 }
 
-/// WHERE a piece of geometry came from — the durable half of a [`GeoId`].
-/// ⭐ see [`PlacementId`] on why this is `Ord`.
+/// see [`PlacementId`] on why this is `Ord`.
 #[derive(
     Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
 )]
@@ -60,9 +58,7 @@ pub enum GeoSource {
     Anon,
 }
 
-/// Durable identity of one piece of ROOM geometry: WHERE it came from + its
-/// deterministic ordinal within that source's emission.
-/// ⭐ see [`PlacementId`] on why this is `Ord`.
+/// see [`PlacementId`] on why this is `Ord`.
 #[derive(
     Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
 )]

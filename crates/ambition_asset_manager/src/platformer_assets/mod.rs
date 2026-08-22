@@ -51,7 +51,7 @@ pub struct AssetScaleVariant {
 /// convention, and the reason a consumer's art could not get through this seam:
 /// every path was reduced to a basename and rebuilt as
 /// `{sprite_folder}/{filename}`, so an authored `game://sprites/mine.png` came
-/// out as `sprites/game://sprites/mine.png` (GPT 5.6, 2026-07-28).
+/// out as `sprites/game://sprites/mine.png`.
 ///
 /// `qualified` is the escape: a path that already names its own SOURCE
 /// (`game://…`, `embedded://…`) is carried through verbatim and never rebuilt.
@@ -267,16 +267,10 @@ impl Platformer2dAssetCatalog {
             | AssetProfile::DesktopInstalled
             | AssetProfile::SteamDeckInstalled => {
                 resolved.missing_policy.is_required()
-                    // A SOURCE-QUALIFIED path belongs to a custom `AssetSource`,
-                    // and this pre-check cannot see inside one: it walks the
-                    // desktop asset roots looking for `<root>/<rel>`, and
-                    // `game://sprites/x.png` is not a relative file path — no
-                    // candidate can ever exist. So the gate silently refused
-                    // every consumer-owned asset, and the decode that followed
-                    // reported "no sheet resolved" for a sheet that had resolved
-                    // perfectly (queue T2; found by rendering the external
-                    // fixture's own character, which is the only way it could be
-                    // found).
+                    // A SOURCE-QUALIFIED path belongs to a custom `AssetSource`, and this
+                    // pre-check cannot see inside one: it walks the desktop asset roots looking
+                    // for `<root>/<rel>`, and `game://sprites/x.png` is not a relative file
+                    // path — no candidate can ever exist.
                     //
                     // The source owns its own existence check, exactly as the
                     // Android/iOS arms trust the packager. Attempt the load and
@@ -539,11 +533,8 @@ mod authored_path_tests {
     /// an authored filename is exercised here with a source-qualified path, and
     /// the manifest must carry it verbatim.
     ///
-    /// Characters were fixed first, bosses second, and the reason bosses were
-    /// broken is that nobody had walked a consumer-authored boss end to end —
-    /// exactly the reason characters were broken. A family added later that
-    /// re-implements the join fails this test rather than waiting for somebody
-    /// to render it.
+    /// A family added later that re-implements the join fails this test rather than waiting for
+    /// somebody to render it.
     #[test]
     fn every_manifest_family_carries_a_consumers_own_path_verbatim() {
         const OWN: &str = "game://sprites/consumer_owned.png";

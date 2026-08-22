@@ -1,7 +1,3 @@
-//! Unit tests for the parent module, extracted from an inline
-//! `#[cfg(test)] mod projectile_transit_tests` block (test-organization campaign, 2026-07-10).
-//! Pure move: same test names + logic, now an adjacent child module (a direct
-//! sibling, so `super` path depth is unchanged) with `use super::*;`.
 
 //! Headless projectile-transit tests for the generic portal core plus the real
 //! projectile adapter. A projectile near a pair should emerge with rotated
@@ -138,8 +134,6 @@ fn projectile_fired_into_portal_a_emerges_from_portal_b_with_rotated_velocity() 
 
 #[test]
 fn projectile_nowhere_near_a_portal_flies_straight_through() {
-    // No-regression guard: with a portal pair placed but the projectile far
-    // from both, transit is a pure no-op and the body keeps its velocity.
     let mut app = app_with_transit();
     place_wall_pair(&mut app);
 

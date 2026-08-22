@@ -219,7 +219,7 @@ fn a_hostile_actor_enters_the_same_body_melee_lifecycle() {
     let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
         .expect("sandbox sim builds");
     let p = player_pos(sim.world_mut());
-    // ⭐ **it NAMES its character** (D102). This said only
+    // This said only
 
     // `Custom("cellular_automaton_fighter")`, and that archetype row was
 

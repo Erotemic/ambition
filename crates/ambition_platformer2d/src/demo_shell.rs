@@ -8,7 +8,7 @@
 /// **How many ticks a sim-only shell should step**, from `--ticks N`, falling
 /// back to `default` when the caller did not say.
 ///
-/// ⛔⛔ **this was THREE byte-identical copies and a fourth shell that did not
+/// **this was THREE byte-identical copies and a fourth shell that did not
 /// have it at all.** `sanic`, `mary-o` and `twintrack` each carried the same
 /// six-line `parse_ticks`; the smash shell hardcoded 600 and ignored the flag,
 /// so `./run_game.sh smash --headless -- --ticks 3` stepped six hundred and said
@@ -60,7 +60,7 @@ mod tests {
         assert_eq!(ticks_from(args(&["--ticks=5"]), 600), 5);
     }
 
-    /// ⚠ **a garbled count falls back rather than panicking.** A launcher flag is
+    /// **a garbled count falls back rather than panicking.** A launcher flag is
     /// a convenience; a demo that aborts on a typo is worse than one that runs
     /// its default and prints how many ticks it ran.
     #[test]

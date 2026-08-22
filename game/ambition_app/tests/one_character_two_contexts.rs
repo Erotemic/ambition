@@ -7,15 +7,10 @@
 //! context. Controller changes and provocation change policy/relationship; they
 //! do not reconstruct the body."*
 //!
-//! ⭐ **it is checkable now because there is one construction path to check.**
-//! Until 2026-08-13 a body could be built from a character OR built from an
-//! archetype and then PATCHED by a character through the body-assist seam, so
-//! "same body" depended on which road a placement happened to take and on which
-//! fields the character had got around to authoring. AC5 deleted the patch road:
-//! every registered character can build its own body, and every shipped
+//! AC5 deleted the patch road: every registered character can build its own body, and every shipped
 //! placement names one.
 //!
-//! ⚠ **two REAL roads, not one road called twice.** The Hall stages its cast as
+//! **two REAL roads, not one road called twice.** The Hall stages its cast as
 //! authored `NpcSpawn` placements — the interactable/NPC construction road — and
 //! `spawn_enemy_character_at` is the runtime-summon road that a boss cascade or a
 //! wave spawner uses. They are different entry points with different context
@@ -23,7 +18,7 @@
 //! facts agree across those two, "context does not reconstruct the body" is a
 //! measurement rather than a diagram.
 //!
-//! ⛔ **the contextual facts are asserted to DIFFER, deliberately.** A test that
+//! **the contextual facts are asserted to DIFFER, deliberately.** A test that
 //! only proved sameness would pass just as happily if both roads produced one
 //! identical thing with no context at all — which would mean the axes had been
 //! fused rather than separated. Disposition is the tell: the Hall's slug is
@@ -36,31 +31,23 @@ use ambition_platformer2d::actors::features::{ActorConfig, ActorDisposition, Act
 use ambition_platformer2d::characters::actor::WornCharacter;
 use ambition_platformer2d::characters::actor::BodyHealth;
 
-/// The character under test. A Puppy Slug because it genuinely appears in both
-/// roles in shipped content — the Hall stages one, and Jon's 2026-08-13 casting
-/// made it what a dividing mite splits into, so the summon road builds one for
-/// real.
 const CHARACTER: &str = "npc_puppy_slug";
 
 /// The intrinsic facts a BODY owns, per the campaign's doctrine 3 — durability,
 /// locomotion, and the physics weight that decides how far a hit sends it. These
 /// must not depend on how the body got here.
 ///
-/// ⛔⛔ **GEOMETRY IS DELIBERATELY NOT IN HERE, and the reason is a measurement
+/// **GEOMETRY IS DELIBERATELY NOT IN HERE, and the reason is a measurement
 /// rather than a judgement.** With size included, this test goes red: the Hall's
 /// slug is 84.18 × 21.93 and the summoned one is 56.12 × 14.62 — the same body
 /// at exactly 1.5×, on both axes. Health, speed and weight agree exactly.
 ///
-/// ⚠ **that 1.5 is unexplained and it is NOT the character's `collision_scale`,
-/// which is 1.4.** `NpcActorSpawnPlan::spawn_into` carries a comment about
-/// `collision_scale` being re-applied and "ballooning the sprite", so the hazard
-/// is known to exist on this seam. Whether the difference is a defect or a
-/// legitimate placement override (an authored NPC rect sizing its occupant) needs
-/// evidence this test cannot supply.
+/// **that 1.5 is unexplained and it is NOT the character's `collision_scale`, which is 1.4.**
+/// `NpcActorSpawnPlan::spawn_into` carries a comment about `collision_scale` being re-applied
+/// and "ballooning the sprite", so the hazard is known to exist on this seam.
 ///
-/// ⇒ recorded in the campaign plan as an open AC6/AC7 question with the numbers,
-/// rather than asserted here as either a rule or a bug. Adding `size` back is how
-/// you re-open it, and it will be red until somebody explains the 1.5.
+/// Adding `size` back is how you re-open it, and it will be red until somebody explains the
+/// 1.5.
 #[derive(Debug, PartialEq)]
 struct IntrinsicBody {
     max_health: i32,
@@ -71,12 +58,12 @@ struct IntrinsicBody {
 /// Read the one body WEARING `CHARACTER`, plus its disposition — which is
 /// CONTEXT and is read separately on purpose.
 ///
-/// ⚠ **`WornCharacter`, not `ActorIdentity`.** The identity component carries
+/// **`WornCharacter`, not `ActorIdentity`.** The identity component carries
 /// the PLACEMENT's feature id and display label; the character a body IS is what
 /// it wears. Keying this test on the wrong one is how it would compare two
 /// bodies that merely share a name.
 ///
-/// ⛔ **`placement` is not optional decoration.** `combat_calibration_lab` stages
+/// **`placement` is not optional decoration.** `combat_calibration_lab` stages
 /// a Puppy Slug of its own, so a query that asked only "who wears this
 /// character" would have found the ROOM's body and compared it to the Hall's —
 /// two authored placements, not two construction roads. Found while poisoning
@@ -133,7 +120,7 @@ fn one_character_built_as_an_npc_and_as_a_summon_is_the_same_body() {
     }
     summoned.spawn_enemy_character_at(
         "cross_context_probe",
-        // ⚠ a display name that is NOT the character's, on purpose: if the body
+        // a display name that is NOT the character's, on purpose: if the body
         // resolved its facts by matching a name, this road would resolve nothing
         // and the comparison below would fail loudly rather than agree by luck.
         "Summoned Probe",
@@ -154,7 +141,7 @@ fn one_character_built_as_an_npc_and_as_a_summon_is_the_same_body() {
         )
     });
 
-    // ⛔ **non-degenerate, or two empty bodies would compare equal.** A slug with
+    // **non-degenerate, or two empty bodies would compare equal.** A slug with
     // no health and no speed is what a body built from nothing looks like, and
     // this test would pass on two of them.
     assert!(

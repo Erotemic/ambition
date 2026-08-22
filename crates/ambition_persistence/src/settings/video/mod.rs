@@ -70,10 +70,8 @@ impl FlashIntensity {
     }
 }
 
-/// Frame-rate cap (battery saver). `Auto` paces to the display refresh rate; the
-/// `Hz*` variants cap to a fixed frame rate (lower = more battery/heat savings);
-/// `Off` renders unthrottled. Drives `bevy_framepace`'s limiter in visible builds
-/// via `crate::host::framepace`. Default `Auto` (on, paced) for battery life.
+/// Frame-rate cap (battery saver). Drives `bevy_framepace`'s limiter in visible builds via
+/// `crate::host::framepace`. Default `Auto` (on, paced) for battery life.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FramePaceCap {
     #[default]
@@ -184,9 +182,7 @@ impl ColorblindMode {
 
 /// Gameplay camera viewport preset.
 ///
-/// The camera now targets a fixed world-space gameplay rectangle instead of
-/// letting larger desktop windows reveal more of the level. Encounter zooms
-/// multiply this base viewport; debug overview remains a separate developer
+/// Encounter zooms multiply this base viewport; debug overview remains a separate developer
 /// override.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CameraZoomPreset {
@@ -244,8 +240,6 @@ impl CameraZoomPreset {
     }
 }
 
-/// How the fixed gameplay viewport maps onto non-16:9 windows.
-///
 /// `FitDesign` is the default: the full authored design rectangle remains
 /// visible, and wider/taller windows may reveal a modest margin. `FixedHeight`
 /// mirrors the usual Unity orthographic policy (stable vertical world height;
@@ -393,8 +387,6 @@ pub struct ScreenShaderSettings {
     #[serde(default = "default_crt_chroma")]
     pub crt_chroma: f32,
 
-    /// Pixel/frame-anchored film grain. Grain size is measured in output
-    /// pixels per grain cell; FPS controls how often the random seed changes.
     #[serde(default)]
     pub film_grain_strength: f32,
     #[serde(default = "default_grain_size")]
@@ -567,10 +559,8 @@ fn default_crt_bloom() -> f32 {
 }
 
 fn default_crt_chroma() -> f32 {
-    // Lowered from 0.45 after Android playtesting: the higher default
-    // made the screen feel rainbow-fringed before the user had a
-    // chance to tune it down. 10% reads as "subtle chroma" and still
-    // makes the effect visible when CRT strength is bumped.
+    // 10% reads as "subtle chroma" and still makes the effect visible when CRT strength is
+    // bumped.
     0.10
 }
 

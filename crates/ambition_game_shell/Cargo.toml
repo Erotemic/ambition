@@ -23,11 +23,6 @@ basic_presentation = [
     # this crate (a real app selects its own platform feature) — but "isolated
     # build" is exactly what `cargo test -p ambition_game_shell` is. Same
     # declaration `ambition_dialog` and `ambition_audio` already carry.
-    #
-    # This used to compile by accident: `ambition_menu` requested bevy's full
-    # default features, so feature unification handed x11 to the whole
-    # workspace. Trimming that (2026-07-19) removed the accident and exposed
-    # the missing declaration here.
     "bevy/x11",
 ]
 
@@ -41,14 +36,10 @@ ambition_audio = { path = "../ambition_audio", default-features = false }
 # no ambition_* deps), so this stays a clean downward edge.
 ambition_input = { path = "../ambition_input", default-features = false }
 ambition_load = { path = "../ambition_load" }
-# The persisted user settings the shell's system menu edits, and the
-# renderer-agnostic IR that decides what editing one MEANS. Both sit strictly
-# below the shell — `ambition_settings_menu` names only the persistence
-# vocabulary and has no bevy, no renderer and no game state, which is the whole
-# point of its carve-out. The shell composes with that IR rather than inventing
-# a second way to change a volume (Jon, 2026-07-28: the title screen should
-# reach "generic global all-game properties" through the same IR Ambition's own
-# system menu extends).
+# The persisted user settings the shell's system menu edits, and the renderer-agnostic IR that
+# decides what editing one MEANS. Both sit strictly below the shell — `ambition_settings_menu`
+# names only the persistence vocabulary and has no bevy, no renderer and no game state, which is
+# the whole point of its carve-out.
 ambition_persistence = { path = "../ambition_persistence", default-features = false }
 ambition_settings_menu = { path = "../ambition_settings_menu" }
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }

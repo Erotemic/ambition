@@ -47,21 +47,9 @@ impl Default for SuppressWallAbilitiesInPortal {
 /// ledges / climbable walls, so a body would cling "into" a portal and pop back
 /// out the entry instead of sinking through and crossing.
 ///
-/// BODY-GENERIC (relativity): the aperture-edge hazard is a property of
-/// transiting, not of being the primary player — a possessed actor (or any
-/// wall-able actor) crossing a portal needs the same guard. Suppression
-/// re-applies every frame while the [`PortalTransit`] latch is present (robust
-/// against the primary player's per-frame F3 ability re-sync), and
-/// [`restore_wall_abilities_after_transit`] puts the verbs back from the body's
-/// own authored [`AbilityBase`](ambition_platformer2d_core::AbilityBase) when the
-/// latch is removed — bodies outside the F3 re-sync (everything that isn't the
-/// primary player) would otherwise stay stripped forever.
-/// Gated on [`PortalTuning::suppress_wall_abilities`]. Runs before the movement
-/// integration.
-///
-/// Reads the portal-owned [`PortalTransit`] latch and writes the Ambition
-/// `BodyAbilities` — so it is content glue, not portal core. Moved out of the
-/// portal crate (Stage 19 Phase 5a); identical-sim.
+/// BODY-GENERIC (relativity): the aperture-edge hazard is a property of transiting, not of
+/// being the primary player — a possessed actor (or any wall-able actor) crossing a portal
+/// needs the same guard. Gated on [`PortalTuning::suppress_wall_abilities`].
 pub fn suppress_ledge_grab_during_transit(
     tuning: Res<PortalTuning>,
     mut bodies: Query<
@@ -132,15 +120,12 @@ pub fn restore_wall_abilities_after_transit(
 /// (`portal_input_adapter_system`).
 ///
 /// Reads the portal-owned [`PortalInputWarp`] / [`PortalEmission`] guards (set by
-/// [`portal_player_input_adapter`](super::transit_body_adapter::portal_player_input_adapter)
-/// on a crossing) and MUTATES the content-agnostic [`PlayerMovementIntent`] (the
-/// live movement axis for this frame), never the Ambition input type. The content
-/// adapter
-/// (`sync_movement_intent_from_control` / `apply_movement_intent_to_control`)
-/// brackets this system to copy `ControlFrame` axes into the intent before it runs
-/// and back out afterward, so the timing and result are byte-identical to mutating
-/// `ControlFrame` directly. This is INPUT shaping, so it lives in Ambition (moved
-/// out of the portal crate, Stage 19 Phase 5a); identical-sim.
+/// [`portal_player_input_adapter`](super::transit_body_adapter::portal_player_input_adapter) on a
+/// crossing) and MUTATES the content-agnostic [`PlayerMovementIntent`] (the live movement axis for
+/// this frame), never the Ambition input type. The content adapter
+/// (`sync_movement_intent_from_control` / `apply_movement_intent_to_control`) brackets this system
+/// to copy `ControlFrame` axes into the intent before it runs and back out afterward, so the timing
+/// and result are byte-identical to mutating `ControlFrame` directly.
 pub fn warp_portal_input(
     time: Option<Res<ambition_time::WorldTime>>,
     mut commands: Commands,

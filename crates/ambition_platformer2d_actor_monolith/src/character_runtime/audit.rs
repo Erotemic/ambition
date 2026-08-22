@@ -2,12 +2,10 @@
 //!
 //! ## Why not "compare two apps' resources"
 //!
-//! The obvious test for the defect this module exists to prevent — the host
-//! materializes, a demo does not — is to boot both and diff what they installed.
-//! That test would pass while being worthless: it asserts an implementation
-//! detail (which resources exist) and goes red every time either app gains an
-//! unrelated one. It also cannot fail for the RIGHT reason, because two apps that
-//! install identical resources can still stage characters differently.
+//! That test would pass while being worthless: it asserts an implementation detail (which resources
+//! exist) and goes red every time either app gains an unrelated one. It also cannot fail for the
+//! RIGHT reason, because two apps that install identical resources can still stage characters
+//! differently.
 //!
 //! The invariant that actually matters is about outcomes:
 //!
@@ -132,7 +130,7 @@ pub fn audit_character_capabilities(world: &World) -> Vec<CharacterCapabilityGap
 /// registry first, the sprite alias table takes whatever declared last. Those rules
 /// only agree when the two authorities agree, and nothing checked that they did — so
 /// a character could be spawned with the catalog's moveset, drawn from the registry's
-/// sheet, and credited to the registry's provider (GPT 5.6, 2026-07-26).
+/// sheet, and credited to the registry's provider.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CharacterAuthorityConflict {
     /// One display name, two different characters, across the combined namespace.
@@ -145,13 +143,8 @@ pub enum CharacterAuthorityConflict {
     /// One id, two different NAMES — the inverse of the case above, and the one
     /// it cannot see.
     ///
-    /// ⚠ **found by AF4b's residue, 2026-07-31.** `player_robot_lineage.rs`
-    /// authors each incarnation's display name in Rust and
-    /// `character_catalog.ron` authors it again in content, with no rule saying
-    /// which wins — and both are live: `id_for_display_name` resolves content
-    /// addressing through the PREPARED REGISTRY while a pedestal label, a bark
-    /// header and the launcher list read the CATALOG. Rename a character in one
-    /// authority and it answers to one name and is labelled with the other.
+    /// Rename a character in one authority and it answers to one name and is labelled with the
+    /// other.
     ///
     /// The sibling variants caught the two ways that had already bitten (one
     /// name many ids; one id two sheets) and this third way was simply never
@@ -164,21 +157,21 @@ pub enum CharacterAuthorityConflict {
     },
     /// One id declared by both authorities, with different art.
     ///
-    /// ⚠ **both sheets are the CANONICAL sheet target**, never the raw strings
+    /// **both sheets are the CANONICAL sheet target**, never the raw strings
     /// the two authorities happen to store. A registry names a target (`robot`);
     /// a catalog names files (`sprites/robot_spritesheet.png` +
     /// `sprites/robot_spritesheet.ron`). Comparing those as strings reported a
     /// conflict for every character both authorities declare — ten of them in
     /// the shipped cast, including `sanic`, `robot` and `mary_o` — so this
     /// audit's `error!` was permanently on and therefore unreadable
-    /// (GPT 5.6, 2026-07-30).
+    /// .
     SheetDisagreement {
         character_id: String,
         registry_sheet: String,
         catalog_sheet: String,
     },
     /// One id, two PROVIDERS. The sharpest form of the split, and the one the
-    /// first version of this audit did not check (GPT 5.6, 2026-07-26): the
+    /// first version of this audit did not check: the
     /// provider is what authorizes a presentation source and what selects a cue
     /// bank, and `provider_of_character` prefers the registry while everything
     /// reading `CharacterCatalogOwners` gets the other answer. A character can end
@@ -306,14 +299,14 @@ pub fn audit_character_authority_parity(world: &World) -> Vec<CharacterAuthority
     // actually named a sheet: a registration that names none is deferring to the
     // catalog on purpose, which is agreement, not conflict.
     //
-    // ⚠ **compared as sheet TARGETS, not as the strings each side stores.** The
+    // **compared as sheet TARGETS, not as the strings each side stores.** The
     // two authorities write the same logical asset in two different vocabularies
     // — a registry `with_sheet` names the baked manifest target (`robot`), a
     // catalog row names its files (`sprites/robot_spritesheet.png` and
     // `sprites/robot_spritesheet.ron`) — and `manifest_target()` is the existing
     // canonical projection between them. Comparing raw strings made this fire on
     // every character both authorities declare, which is to say it fired on
-    // agreement (GPT 5.6, 2026-07-30). Ten shipped characters, an `error!` on
+    // agreement. Ten shipped characters, an `error!` on
     // every boot, and nothing ever asserted on it — a guard that is always red is
     // a guard nobody reads.
     if let (Some(registry), Some(catalog)) = (registry, catalog) {
@@ -452,8 +445,6 @@ mod authority_parity_tests {
     }
 
     /// A registration that names NO sheet is deferring to the catalog on purpose.
-    /// That is the ordinary migration state and must not be reported as a conflict,
-    /// or the report becomes noise and stops being read.
     #[test]
     fn deferring_to_the_catalog_for_art_is_not_a_conflict() {
         let mut app = app_with_catalog();
@@ -471,7 +462,7 @@ mod authority_parity_tests {
     /// `CharacterCatalogOwners` gets the other answer, so the character is built as
     /// one provider's and sounds like the other's. The first version of this audit
     /// explained that exact hazard in its own doc comment and then checked only art
-    /// and display names (GPT 5.6, 2026-07-26).
+    /// and display names.
     #[test]
     fn a_character_authored_by_two_different_providers_is_a_conflict() {
         let mut app = app_with_catalog();
@@ -537,7 +528,7 @@ mod authority_parity_tests {
     }
 
     /// **The inverse question, which was never asked.** (AF4b residue,
-    /// 2026-07-31)
+    /// )
     ///
     /// The test above asks whether one NAME belongs to several characters. This
     /// asks whether one CHARACTER has several names, and the audit could not
@@ -567,11 +558,6 @@ mod authority_parity_tests {
         );
     }
 
-    /// And agreement is not a conflict — the ordinary state of the whole shipped
-    /// cast, where both authorities declare the same character on purpose. A
-    /// parity check that fires on agreement is the failure mode
-    /// `SheetDisagreement` already had once, and it made the audit unreadable
-    /// for ten characters.
     #[test]
     fn agreeing_display_names_are_not_a_conflict() {
         let mut app = app_with_catalog();

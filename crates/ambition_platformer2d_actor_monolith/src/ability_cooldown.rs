@@ -5,12 +5,9 @@
 //! use. A single shared timer per body is fine: a body holds one ability at a
 //! time, so only the equipped ability's cooldown is ever in play.
 //!
-//! **Body-generic, not player-only (S5/S6 fold, refactor-chain R6a).** `blink`
-//! and `grapple` already act on the `ControlledSubject` — any body the human is
-//! driving — and arm the cooldown on THAT body. The tick used to filter
-//! `With<PlayerEntity>, With<PrimaryPlayer>`, so a possessed actor's armed
-//! cooldown never counted down and it could never blink again. The fold fixed a
-//! real bug rather than merely relaxing a filter.
+//! **Body-generic, not player-only (S5/S6 fold, refactor-chain R6a).** `blink` and `grapple`
+//! already act on the `ControlledSubject` — any body the human is driving — and arm the
+//! cooldown on THAT body.
 
 use bevy::prelude::*;
 

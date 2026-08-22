@@ -2,10 +2,10 @@
 # Profile one or a few sprite targets without forcing the entire roster.
 #
 # Examples:
-#   ./profile_sprites.sh --target oiler
-#   ./profile_sprites.sh --target ninja_heavy --target stochastic_parrot_v2
-#   ./profile_sprites.sh --suite quick
-#   ./profile_sprites.sh --suite representative --product publish
+# ./profile_sprites.sh --target oiler
+# ./profile_sprites.sh --target ninja_heavy --target stochastic_parrot_v2
+# ./profile_sprites.sh --suite quick
+# ./profile_sprites.sh --suite representative --product publish
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

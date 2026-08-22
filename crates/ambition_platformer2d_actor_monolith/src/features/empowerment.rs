@@ -1,7 +1,6 @@
 //! **An empowerment** — a body holding a SET of super-state traits, for a while
 //! or for as long as whoever granted them keeps them.
 //!
-//! Jon: *"There should be an elegant way to represent the idea of I'm invincible
 //! and I hurt everything I touch and compose those together for the
 //! COSMIC_QUASAR_SUPER_STATE."*
 //!
@@ -13,13 +12,6 @@
 //! const COSMIC_QUASAR: Empowerment =
 //!     Empowerment::UNTOUCHABLE.with(Empowerment::HARMS_ON_CONTACT);
 //! ```
-//!
-//! A super mode expressed as an enum grows a variant per character, and every
-//! system that reads it grows a match arm — that is the monolith Jon is warning
-//! about. Traits compose instead: Sanic's super form asks for the same two and
-//! needs no new engine code, a future invincibility ring asks for `UNTOUCHABLE`
-//! alone, and a "heavy" that flattens things without being safe itself asks for
-//! `HARMS_ON_CONTACT` alone. None of them is a case in here.
 //!
 //! ## Each trait delegates to a seam that already exists
 //!
@@ -111,14 +103,6 @@ impl Empowerment {
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct Empowered {
     /// Seconds left, or `None` for an empowerment HELD by whatever granted it.
-    ///
-    /// The two are genuinely different states, not one with a sentinel. A
-    /// pickup starts a clock and then has nothing more to do with it (Jon: *"an
-    /// item should just be triggering the start of the invincible state. It
-    /// shouldn't be bound to the lifetime of that item"*). A form — Sanic's
-    /// super identity — is true for exactly as long as the body wears it, and
-    /// expressing that as a very large number would be a lie that eventually
-    /// comes due.
     pub remaining: Option<f32>,
     pub traits: Empowerment,
 }
@@ -174,7 +158,7 @@ impl Default for ContactHarm {
 /// consulted by everything that might overwrite it. Re-stating is what makes the
 /// claim true independently of who else writes.
 ///
-/// ⛔ **do not add this to a game's schedule.** [`EmpowermentLifecyclePlugin`]
+/// **do not add this to a game's schedule.** [`EmpowermentLifecyclePlugin`]
 /// installs it in [`EmpowermentExpiry`], and a second registration would tick
 /// `remaining` twice per frame — a two-second grant lasting one. Order against
 /// the SET instead.
@@ -224,16 +208,11 @@ pub fn run_empowerments(
 /// actor-generic rather than a player rule: an empowered NPC flattens what an
 /// NPC may flatten, without this system knowing what a player is.
 ///
-/// ⚠ a corpse is skipped, and so is a body its own vulnerability rule protects
-/// (i-frames, a dodge roll, a parry). Both checks are the SHARED ones — a second
-/// opinion about who is hittable is the bug this file was rewritten to remove.
+/// a corpse is skipped, and so is a body its own vulnerability rule protects (i-frames, a dodge
+/// roll, a parry).
 ///
-/// ⭐ **this half stays OPTIONAL and the game schedules it**, unlike expiry —
-/// Sanic deliberately does not install it, because `defeat_badniks` already owns
-/// destroy-on-touch and two authorities killing one badnik was the bug that
-/// choice avoids. A game that wants it and wants the frame an empowerment ends
-/// not to also be a frame it flattens something orders it
-/// `.after(EmpowermentExpiry)`.
+/// A game that wants it and wants the frame an empowerment ends not to also be a frame it flattens
+/// something orders it `.after(EmpowermentExpiry)`.
 pub fn apply_contact_harm(
     mut hit_events: MessageWriter<HitEvent>,
     empowered: Query<(
@@ -252,8 +231,6 @@ pub fn apply_contact_harm(
         &ae::BodyMotionFacts,
         &crate::actor::BodyShieldState,
         &BodyCombat,
-        // ⛔ a `Has<PlayerEntity>` column used to ride here to pick between two
-        // target variants. There is one, so the column is gone with the fork.
         Option<&ambition_combat::targeting::MatchTeam>,
     )>,
     tuning: Option<Res<ambition_combat::rules::ResolvedCombatTuning>>,
@@ -341,23 +318,15 @@ mod tests;
 /// **When an empowerment's clock advances**, as one named slot the engine fills
 /// and a game can order against.
 ///
-/// ⭐ **the split the standing note was missing.** *"What is engine-owned is the
-/// INVARIANT, not the order"* is right about `apply_contact_harm`: whether a
-/// body's touch is destructive is a ruleset choice, and Sanic answers it
-/// differently from Mary-O for a reason. It was wrong about EXPIRY. Ticking
-/// `remaining`, deciding `live` and releasing the projection is not a policy any
-/// game gets to hold an opinion about — it is what `Empowered::for_seconds(…,
-/// 2.0)` MEANS. Leaving that to each composition made "for two seconds" mean
-/// "forever" in whichever game forgot, which is exactly how Smash's respawn
-/// protection surfaced it: the grant appeared and five seconds later still read
-/// `remaining: 2.0`.
+/// Ticking `remaining`, deciding `live` and releasing the projection is not a policy any game
+/// gets to hold an opinion about — it is what `Empowered::for_seconds(…, 2.0)` MEANS.
 ///
 /// So the engine installs [`run_empowerments`] here, and a game says only what
 /// it wants ORDERED against it — `apply_contact_harm` after expiry, a grant
 /// before it. Contact harm stays entirely optional; forgetting the lifecycle
 /// stops being possible.
 ///
-/// ⚠ **the placement is `GameplayEffects`, and it could not be all three.** The
+/// **the placement is `GameplayEffects`, and it could not be all three.** The
 /// five hand-installations sat in three mutually exclusive phases
 /// (`CombatSet::Settle` ⊂ `Combat` ⊂ `CoreSimulation` for Smash,
 /// `FeatureInteraction` for Mary-O, `GameplayEffects` for Sanic), and the hosted
@@ -383,7 +352,7 @@ pub struct EmpowermentExpiry;
 /// **The empowerment lifecycle**: the clock that ends a timed grant, and the
 /// release that follows the component out of the world.
 ///
-/// ⛔ **this existed as a ritual, and the ritual was already being performed by
+/// **this existed as a ritual, and the ritual was already being performed by
 /// hand.** `run_empowerments` writes `Invulnerability::EMPOWERED` from the
 /// component, and it can only write it for bodies that still HAVE the component
 /// — so a granter that takes the empowerment back (Sanic dropping its super
@@ -400,7 +369,7 @@ pub struct EmpowermentExpiry;
 /// however it happens: expiry, a granter taking it back, a despawn, or a
 /// rollback restoring a frame where the body was never empowered.
 ///
-/// ⭐ **and the SAME argument applies one level up**, which is what this plugin
+/// **and the SAME argument applies one level up**, which is what this plugin
 /// gained: an empowerment whose expiry depends on each composition remembering
 /// to schedule a system is a two-step ritual with the scheduling as step two.
 /// The clock is installed here now, in [`EmpowermentExpiry`] — read that set's

@@ -87,10 +87,8 @@ pub const RELATION_MOUNT: &str = "ambition.mount";
 pub const ACTOR_CONSTRUCTION_DOMAIN: &str = "actor";
 
 const OWNER: &str = "ambition_platformer2d_actor_monolith";
-// v2: relation wiring and postconditions changed — the rig became slot-keyed,
-// and limb/mount verification now checks home offset, `Mounted`, and mount
-// capabilities. Behaviour change under a fixed schema id would be invisible to
-// the prepared-content fingerprint, so the id moves with the behaviour.
+// v2: relation wiring and postconditions changed — the rig became slot-keyed, and limb/mount
+// verification now checks home offset, `Mounted`, and mount capabilities.
 const SCHEMA: &str = "actor-construction-v2";
 
 pub fn recipe_authored_ground_item() -> RecipeId {
@@ -175,11 +173,8 @@ pub enum ActorConstructionParams {
     },
     StagedActor(SpawnActorRequest),
     SummonedMinion(SummonedMinionParams),
-    /// A `"giant"`-class limbed host: an ordinary authored enemy body plus the
-    /// host-side rig state its hands' limb relations attach to. Its two hands are
-    /// separate [`Self::GiantHand`] rows, joined by `ambition.limb` relations —
-    /// they used to be minted inside the enemy spawn helper as authoritative
-    /// roots no plan named (the last legacy family).
+    /// A `"giant"`-class limbed host: an ordinary authored enemy body plus the host-side rig state
+    /// its hands' limb relations attach to.
     GiantHost {
         authored: crate::rooms::Authored<crate::rooms::EnemySpawnSpec>,
         faction: crate::features::ActorFaction,
@@ -214,9 +209,7 @@ pub enum ActorConstructionParams {
         paths: Vec<(String, ambition_platformer2d_core::KinematicPath)>,
         lower: crate::world::placements::LoweringFn,
     },
-    /// An authored heal/save shrine — the formerly ANONYMOUS static family;
-    /// its spec always carried a stable LDtk iid, the entity just never wore
-    /// it. Now it is a plan row like everything else in the room.
+    /// Now it is a plan row like everything else in the room.
     Shrine {
         spec: crate::rooms::ShrineSpec,
     },
@@ -393,18 +386,13 @@ pub type ActorConstructionPlan = ConstructionPlan<ActorConstruction>;
 pub type ActorConstructionRequest = ConstructionRequest<ActorConstruction>;
 type Ctx<'w, 's, 'a> = ConstructionExecCtx<'w, 's, 'a, ActorConstruction>;
 
-/// Why an actor-domain request could not be turned into a planned row. These
-/// are the failures that used to be silent skips at spawn time.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ActorConstructionError {
     /// A ground item names a held-item spec no registry provides.
     ///
-    /// Carries the binding failure verbatim rather than restating it, so the one
-    /// authority that REFUSES the room is also the one with the good
-    /// diagnostic — who declared it, what was available, and the likely typo.
-    /// The room sweep used to report this too; two authorities for one defect
-    /// meant the softer one described the behaviour wrongly (it said "skipped at
-    /// spawn" about something that fails the whole room).
+    /// Carries the binding failure verbatim rather than restating it, so the one authority that
+    /// REFUSES the room is also the one with the good diagnostic — who declared it, what was
+    /// available, and the likely typo.
     UnknownHeldItem(Box<ambition_platformer2d_shared_tangle::binding::UnresolvedRef>),
     /// One limb declares two hosts. A limb is a part OF a body; two hosts is not
     /// a configuration with a degraded meaning, it is a contradiction.
@@ -452,10 +440,6 @@ pub enum ActorConstructionError {
     /// A row whose body is built FROM a character names no character at all.
     ///
     /// A row names a character this composition has not registered.
-    ///
-    /// The original Iron Mary defect: content says `IronMary`, her registration
-    /// is missing, and the body used to spawn anyway as a stranger with her
-    /// name. Refused here, so the world is still whole when it is reported.
     BodyCharacterNotRegistered { sim_id: SimId, character: String },
     /// A row names a REGISTERED character whose definition cannot build a body.
     ///
@@ -593,7 +577,7 @@ fn construct_staged_actor(
         &ctx.services.context.characters,
         &ctx.services.context.sheets,
         // ⭐ the cast this construction context has carried all along — the
-        // staged path simply never asked for it (queue D75).
+        // staged path simply never asked for it.
         &ctx.services.context.prepared,
         &ctx.services.boss_catalog,
         ctx.session,
@@ -798,9 +782,6 @@ fn wire_limb(limb: Entity, host: Entity, relation: &ActorRelation, ctx: &mut Ctx
     });
 }
 
-/// Prove the limb link landed on BOTH sides, with the slot AND the home offset
-/// the plan named.
-///
 /// Checking only `Limb.of` would accept a limb the host's rig does not drive —
 /// the fan-out iterates the RIG, so a limb missing from it is inert while
 /// looking perfectly attached from its own side. Checking the slot only on the
@@ -855,7 +836,6 @@ fn verify_limb(
     }
 }
 
-/// Planned slot-to-limb identity map for one host, used to verify exact rig composition.
 pub fn planned_rig_for_host(
     plan: &ActorConstructionPlan,
     host: &SimId,
@@ -983,16 +963,9 @@ fn wire_mount(rider: Entity, mount: Entity, _relation: &ActorRelation, ctx: &mut
         .insert(crate::features::MountSlot { rider: Some(rider) });
 }
 
-/// Prove the mount link landed on BOTH sides.
-///
-/// The reverse check is the one that matters here, because the half-write it
-/// catches is a defect that exists in the tree today: `attach_mount_role` never
-/// inserts `MountSlot`, and `reconcile_autonomous_actors` re-establishes the
-/// link with `world.get_mut::<MountSlot>(..)` — a mutation that silently does
-/// nothing when the component is absent — while inserting `RidingOn`
-/// unconditionally. That leaves a rider pointing at a mount that does not point
-/// back, and `steer_mount_from_rider` queries `With<MountSlot>`, so the mount
-/// stops obeying while every rider-side assertion still passes.
+/// That leaves a rider pointing at a mount that does not point back, and
+/// `steer_mount_from_rider` queries `With<MountSlot>`, so the mount stops obeying while every
+/// rider-side assertion still passes.
 fn verify_mount(
     world: &World,
     rider: Entity,
@@ -1056,9 +1029,6 @@ fn wire_grudge(from: Entity, to: Entity, _relation: &ActorRelation, ctx: &mut Ct
         });
 }
 
-/// Prove the grudge landed, by reading the component rather than trusting that
-/// [`wire_grudge`] was called.
-///
 /// The distinction matters because the two are separately fallible: the wiring
 /// runs through deferred `Commands`, so a later command in the same flush can
 /// overwrite `ActorAggression` wholesale, and the receipt records the call
@@ -1163,14 +1133,6 @@ pub fn mount_capabilities_of(
         ActorConstructionParams::StagedActor(request) => match &request.kind {
             // ⭐ **THE CHARACTER FIRST, exactly like the authored arm below.**
             //
-            // ⛔ this read the archetype alone, and `SpawnActorKind::Enemy` has
-            // carried a `character` since P1.12 — whose own doc names the bug
-            // this closes: *"A shark spawned this way stopped being rideable and
-            // started falling out of the sky."* That was fixed at the SPAWN and
-            // not here, so a staged actor whose character authors a
-            // `CharacterMount` was still PLANNED as un-mountable, and the plan
-            // is what the mount-link legality rules are checked against.
-            //
             // ⚠ the same call the authored road makes, so the two roads cannot
             // disagree about whether a body is rideable — which is the whole
             // point of there being one construction path.
@@ -1233,14 +1195,8 @@ pub fn mount_capabilities_of(
 /// **What a placement can ride and be ridden as** — the CHARACTER's answer, and
 /// as of AC6 there is no other one.
 ///
-/// ⚠ character-first as a WHOLE, never field by field: a definition that authors
-/// a mount block states both halves of the pair, and merging two sources would
-/// let a deleted row keep contributing a `pilotable_classes` nobody can see.
-/// ⚠ **it took an `Option<&ArchetypeSpec>` as the other half** and fell back to
-/// it — so a misspelled or migrated brain key inherited the reserved `combatant`
-/// row's mount answers, and the plan is what the mount-link legality rules are
-/// checked against. A body that states no mount rides nothing, which is what a
-/// body that says nothing has always meant.
+/// A body that states no mount rides nothing, which is what a body that says nothing has always
+/// meant.
 fn authored_mount_capabilities(
     character: Option<&crate::character_runtime::PreparedCharacterDefinition>,
 ) -> PlannedMountCapabilities {
@@ -1272,24 +1228,13 @@ fn family_of(parameters: &ActorConstructionParams) -> &'static str {
 /// **Which planned rows build their body FROM a character**, and what each one
 /// names.
 ///
-/// Exhaustive over the parameter enum on purpose: a new construction family
-/// stops compiling here until somebody answers *does this build a body from a
-/// character*, which is precisely the question [`preflight_planned_bodies`]
-/// exists to ask before the world is touched.
-///
 /// `None` means the family builds no character body — a shrine, a ground item,
 /// a gravity zone — or builds it from another authority entirely (a boss reads
 /// the [`BossCatalog`]; a placement lowers through the NPC road, which still has
 /// a catalog-bodied fallback of its own).
 /// The character each planned row builds its body from, when the row builds one.
 ///
-/// ⭐ **this returned a `PlannedBody { character: Option<&str>, named_by: String }`
-/// until 2026-08-14.** Both roads that reach here now name a character BY TYPE —
-/// an authored placement through `EnemySpawnSpec::character_id`, a staged request
-/// through `SpawnActorKind::Enemy::character` — so the `Option` had nothing left
-/// to express, the preflight arm that read it had nothing left to catch, and
-/// `named_by` existed only to describe a row in that arm's error message. The
-/// struct's last field is the return value.
+/// The struct's last field is the return value.
 fn planned_body_character(parameters: &ActorConstructionParams) -> Option<&str> {
     match parameters {
         ActorConstructionParams::AuthoredEnemy { authored, .. }
@@ -1302,9 +1247,6 @@ fn planned_body_character(parameters: &ActorConstructionParams) -> Option<&str> 
             // A staged boss builds from the boss catalog, like an authored one.
             crate::features::SpawnActorKind::Boss { .. } => None,
         },
-        // ⚠ **this field was `archetype_id` until AC6** and held a character id
-        // long before the name admitted it — the summon road stopped resolving
-        // roster rows well before the rows were deleted.
         ActorConstructionParams::SummonedMinion(minion) => Some(minion.character_id.as_str()),
         ActorConstructionParams::AuthoredBoss { .. }
         | ActorConstructionParams::Placement { .. }
@@ -1317,12 +1259,10 @@ fn planned_body_character(parameters: &ActorConstructionParams) -> Option<&str> 
 /// **Prove every planned body can actually be built, before anything is
 /// mutated.**
 ///
-/// ⛔⛔ **THIS IS THE HALF AC6 LEFT LATE.** Deleting the enemy-archetype ontology
-/// made an unresolvable character honest — there is no generic `combatant` left
-/// to settle for — but the refusal it became lives inside
-/// `spawn_enemy_with_faction_into`, which runs as a construction RECIPE. By then
-/// the transaction has begun: the outgoing room is retired and earlier rows are
-/// already spawned, so the honest refusal arrives as a panic mid-commit.
+/// ⛔⛔ **THIS IS THE HALF AC6 LEFT LATE.** Deleting the enemy-archetype ontology made an
+/// unresolvable character honest — there is no generic `combatant` left to settle for — but the
+/// refusal it became lives inside `spawn_enemy_with_faction_into`, which runs as a construction
+/// RECIPE.
 ///
 /// The construction contract says the opposite in [`ConstructionDomain::dispatch`]'s
 /// own words — *"nothing here can fail: every lookup that could miss resolved in
@@ -1336,11 +1276,9 @@ fn planned_body_character(parameters: &ActorConstructionParams) -> Option<&str> 
 /// placement and the character so the diagnostic is actionable, and the world is
 /// whole when it is reported.
 ///
-/// ⚠ **an absent registry is an EMPTY cast, not an exemption.** `prepared: None`
-/// becomes a default (empty) `PreparedCharacterRegistry` in the frozen services,
-/// so a composition that publishes no cast cannot build a character body either.
-/// Saying so here is what makes the failure legible; the alternative is the
-/// panic three stack frames into a commit.
+/// **an absent registry is an EMPTY cast, not an exemption.** `prepared: None` becomes a default
+/// (empty) `PreparedCharacterRegistry` in the frozen services, so a composition that publishes no
+/// cast cannot build a character body either.
 pub fn preflight_planned_bodies(
     requests: &[ActorConstructionRequest],
     prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
@@ -1473,10 +1411,7 @@ pub fn preflight_actor_relations(
         }
     }
 
-    // Family legality and pilot/mount compatibility. Both ends must be rows —
-    // the generic planner guarantees that — so a missing entry here is a planner
-    // bug rather than a content error, and is treated as "cannot hold that end"
-    // rather than silently skipped.
+    // Family legality and pilot/mount compatibility.
     for (rider, mounts) in &mounts_of_rider {
         let Some(mount) = mounts.first() else {
             continue;
@@ -1761,12 +1696,8 @@ pub fn staged_actor_requests(
             // limbed host, so the two agreed by luck rather than by design.
             if crate::features::is_limbed_host(resolve_planned_character(prepared, character)) {
                 let aabb = ambition_platformer2d_core::Aabb::new(request.pos, request.half_size);
-                // ⛔⛔ **THE HOST ROW USED TO DROP THE CHARACTER.** It was built
-                // from the brain alone, so a staged giant's `character` — the
-                // thing that says it IS a giant, and now the only thing that can
-                // build its body — never reached the row the executor spawns.
-                // Invisible while an archetype row could answer for the brain
-                // key; a refusal the moment they went (AC6).
+                // Invisible while an archetype row could answer for the brain key; a refusal the
+                // moment they went (AC6).
                 let host_payload =
                     crate::rooms::EnemySpawnSpec::new(brain.clone(), character.clone());
                 let host_authored = crate::rooms::Authored::new(
@@ -1823,16 +1754,12 @@ pub fn staged_actor_requests(
 /// Turn EVERY authored enemy and boss into construction rows — the Phase-4
 /// family migration for the two actor families.
 ///
-/// An ordinary enemy is one [`ActorConstructionParams::AuthoredEnemy`] row; a
-/// `"giant"`-class limbed host expands to one host row plus two hand rows
-/// joined by `ambition.limb` relations; a boss is one
-/// [`ActorConstructionParams::AuthoredBoss`] row. Each row is built by the SAME
-/// populate function the deleted family loop called, so being planned changes
-/// who allocates the root, stamps identity/provenance/ownership, and
-/// wires/verifies relations — not what the actor is. Identities are
-/// `SimId::placement(id)` (hands `SimId::spawned(host, ordinal)`), the same
-/// spelling `ensure_sim_id` used to assign after the fact, so snapshots taken
-/// before the migration still restore.
+/// An ordinary enemy is one [`ActorConstructionParams::AuthoredEnemy`] row; a `"giant"`-class
+/// limbed host expands to one host row plus two hand rows joined by `ambition.limb` relations; a
+/// boss is one [`ActorConstructionParams::AuthoredBoss`] row. Each row is built by the SAME
+/// populate function the deleted family loop called, so being planned changes who allocates the
+/// root, stamps identity/provenance/ownership, and wires/verifies relations — not what the actor
+/// is.
 pub fn authored_actor_requests(
     room: &crate::rooms::RoomSpec,
     paths: &[(String, ambition_platformer2d_core::KinematicPath)],
@@ -1909,10 +1836,6 @@ pub fn authored_actor_requests(
 /// aspirational. Origins that do not go through the planner at all (summon,
 /// encounter, runtime minion, boss) reject giant-class specs during preparation
 /// rather than producing a handless host.
-///
-/// The hand identities are `SimId::spawned(host, ordinal)`, with the feature id a
-/// pure function of the host's authored id, so a snapshot taken before the
-/// explicit-hand migration still restores.
 #[allow(clippy::too_many_arguments)]
 fn giant_cluster_rows(
     host_sim: SimId,
@@ -1955,13 +1878,8 @@ fn giant_cluster_rows(
                                 "npc_giant_gnu_hands",
                             ),
                         );
-                    // ⛔ the brain key beside it used to be the fallback for a
-                    // composition that had not registered the cast; there is no
-                    // such fallback, so a host whose cast lacks
-                    // `npc_giant_gnu_hands` is refused the whole cluster at
-                    // preparation rather than given two generic hands.
-                    // A limb is not a combatant: the rider's routed strikes are
-                    // what hurt, and the hand itself must never be targeted.
+                    // A limb is not a combatant: the rider's routed strikes are what hurt, and the
+                    // hand itself must never be targeted.
                     authored.payload.disposition =
                         Some(ambition_entity_catalog::placements::SpawnDisposition::Peaceful);
                     authored
@@ -1985,23 +1903,6 @@ fn giant_cluster_rows(
 /// family loop that still builds ordinary enemies can skip them — a giant is a
 /// plan row now, and building it on the loop too would duplicate it.
 /// The prepared definition a placement names, if it names one the cast knows.
-///
-/// ⚠ **`None` is not a verdict here.** This answers the question that shapes the
-/// PLAN — *is this a limbed host, what can it pilot* — and an unresolvable id
-/// answers "no limbs" the same way a resolvable ordinary body does. The verdict
-/// on the id itself belongs to [`preflight_planned_bodies`], which runs over the
-/// finished rows and can say which placement named it. ⛔ this used to say that
-/// planning *"falls back to the archetype rather than refusing here"*; planning
-/// refuses, and there is no archetype.
-/// The prepared definition a planned row's character resolves to, if this
-/// composition registered one.
-///
-/// ⚠ **`prepared` stays optional and `character` no longer is.** Those are two
-/// different absences and only one of them survived: a composition that
-/// registers no cast is ordinary, while a planned row that names no character
-/// is now unrepresentable — every caller passed `Some(..)` once
-/// `EnemySpawnSpec::character_id` and `SpawnActorKind::Enemy::character` became
-/// required, so the `Option` here described a state none of them could reach.
 fn resolve_planned_character<'a>(
     prepared: Option<&'a crate::character_runtime::PreparedCharacterRegistry>,
     character: &ambition_entity_catalog::CharacterId,
@@ -2009,15 +1910,10 @@ fn resolve_planned_character<'a>(
     prepared.and_then(|cast| cast.get(character.as_str()))
 }
 
-// ⛔⛔ **`planned_giant_host_ids()` WAS HERE AND IS DELETED (2026-08-13, D73
-// item 16) — the GIANT-LIMBS road that item names, and the last
-// `try_spec_for_brain` reader in this module.**
-//
-// It filtered a room's enemy spawns down to the limbed hosts, asking the
-// prepared character first and the archetype row second. The compiler-backed
-// census (`probe_dead_public_fns.py`, D105) reports ZERO call sites in the
-// workspace or any excluded consumer — it is a projection nobody projects, and
-// it kept a `&CharacterRoster` parameter alive for nothing.
+// It filtered a room's enemy spawns down to the limbed hosts, asking the prepared character
+// first and the archetype row second. The compiler-backed census (`probe_dead_public_fns.py`, )
+// reports ZERO call sites in the workspace or any excluded consumer — it is a projection nobody
+// projects, and it kept a `&CharacterRoster` parameter alive for nothing.
 //
 // ⚠ **read before deleting, as that tool insists**: it pins no invariant. The
 // limbed-host QUESTION still has an owner (`features::is_limbed_host`, called
@@ -2079,10 +1975,8 @@ pub fn placement_requests(
     requests
 }
 
-/// Turn the actor-owned formerly-anonymous static families — shrines and gravity
-/// zones — into construction rows. Their specs always carried stable authored
-/// ids; the entities now wear them. Capability-owned families compose their own
-/// typed construction lanes beside this actor lane.
+/// Their specs always carried stable authored ids; the entities now wear them. Capability-owned
+/// families compose their own typed construction lanes beside this actor lane.
 pub fn authored_static_requests(room: &crate::rooms::RoomSpec) -> Vec<ActorConstructionRequest> {
     let mut requests = Vec::new();
     for shrine in &room.shrines {
@@ -2103,14 +1997,6 @@ pub fn authored_static_requests(room: &crate::rooms::RoomSpec) -> Vec<ActorConst
 
 /// Fold the room's authored mount links into the request batch as planned
 /// `ambition.mount` relations.
-///
-/// **This is the migration that deleted `PendingMountLinks`.** Every authored
-/// enemy and boss is already a plan row ([`authored_actor_requests`]), so a
-/// link is purely a relation between two existing rows: the rider row declares
-/// `ambition.mount`, the engine-owned `wire_mount` installs BOTH ends at
-/// commit, and `verify_mount` plus the roster verifier prove it landed. A link
-/// naming an id with no row fails the room while it is whole — the deleted
-/// frame-later resolver retried it silently forever.
 pub fn attach_authored_mount_links(
     room: &crate::rooms::RoomSpec,
     requests: &mut Vec<ActorConstructionRequest>,
@@ -2141,14 +2027,8 @@ pub fn attach_authored_mount_links(
     Ok(())
 }
 
-// ⛔ **`planned_authored_enemy_ids()` and `planned_authored_boss_ids()` WERE
-// HERE AND ARE DELETED (2026-08-13).** Both mapped a room's spawns to their own
-// ids and neither had a caller; the enemy one had gone further and stopped using
-// the `CharacterRoster` it still demanded, carrying it as `_roster` "so
-// roster/diagnostic call sites keep one authority" — for call sites that no
-// longer exist. A parameter kept for symmetry makes every caller thread an
-// authority it does not need, which is how a roster reaches code that has no
-// question for it.
+// A parameter kept for symmetry makes every caller thread an authority it does not need, which
+// is how a roster reaches code that has no question for it.
 
 /// Build the request for one summoned minion.
 ///

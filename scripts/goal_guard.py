@@ -15,7 +15,7 @@ So this guard is a `command` hook. It reads the repository, never the
 conversation. Its answer is an exit status from a list of shell checks the
 human wrote in advance, and no amount of eloquence at 2am moves it.
 
-## What it is NOT
+# # What it is NOT
 
 It is not unfoolable. The checks it runs are commands, and the agent can edit
 the files those commands read. The honest claim is narrower: it converts
@@ -30,7 +30,7 @@ that kind and neither was visible in the checks: the wiring could not find the
 script, and `repo_root()` found the wrong repository. The one symptom available
 to a human is `.goal/state.json` going stale while the session works on.
 
-## The four ways out, none of which needs the repository to be healthy
+# # The four ways out, none of which needs the repository to be healthy
 
 A guard that can wedge a session is worse than no guard, and this one has had
 that bug twice (a SessionStart hook that ran `cargo check` before the session
@@ -52,7 +52,7 @@ hatches are therefore listed here rather than inferred from the code:
 
 Every one of those says out loud that the goal was NOT met when it fires.
 
-## Pausing for one turn (`--pause`) — the exception that is not an exit
+# # Pausing for one turn (`--pause`) — the exception that is not an exit
 
 Those four END a run. There is a fifth thing a human wants that none of them
 serves: *"finish that and then wait for me."* Without a way to say it, the only
@@ -74,7 +74,7 @@ and cashed in at 3am, and every spend prints its reason and increments
 guard cannot check intent — it makes the act visible instead, which is the same
 bargain the rest of this file makes.
 
-## Holding indefinitely (`--hold` / `--unhold`) — when one turn is not enough
+# # Holding indefinitely (`--hold` / `--unhold`) — when one turn is not enough
 
 ⭐ **added 2026-08-18, because the one-shot was the wrong shape for working on
 something together.** `--pause` buys exactly one turn, so a conversation — Jon
@@ -103,7 +103,7 @@ being a hole:
 unasked costs a turn; a hold armed unasked costs the run. Nothing here can
 prevent that — what it does is make it impossible to hide.
 
-## Giving a live run more time (`--extend`)
+# # Giving a live run more time (`--extend`)
 
     python3 scripts/goal_guard.py --extend 48h      # 2d, 90m, or 2026-08-20T20:15Z
     python3 scripts/goal_guard.py --extend          # just print the clocks
@@ -124,7 +124,7 @@ With no argument it changes nothing and prints the three releases. `--status`
 answers the same question, but it RUNS EVERY CHECK to do it, and in a repository
 whose checks build the workspace that is minutes of wall clock to learn a date.
 
-## Coordinator mode: waiting on background work is not stopping
+# # Coordinator mode: waiting on background work is not stopping
 
 A coordinator that spawns subagents and yields the turn to wait for them is
 ENDING A TURN, and a turn ending is the only event this hook can observe. Left
@@ -154,7 +154,7 @@ is not tool-specific, but no transcript available when this was written containe
 one — every `isSidechain` count was zero. If subagents are not standing the guard
 down, that is the first thing to check.
 
-## The full goal text is worth tokens sometimes, not every turn
+# # The full goal text is worth tokens sometimes, not every turn
 
 The preamble is several thousand tokens and byte-identical every turn, so
 reprinting it at every block spends the context the agent needs to do the work in
@@ -166,7 +166,6 @@ when the agent has lost the goal. A goal shorter than
 `SHORT_FORM_MIN_GOAL_CHARS` is always printed whole, because abbreviating it
 costs more than it saves.
 
-## Wiring (`.claude/settings.json`) — and why the command is not one word long
 
 ⛔ **The hook command must not contain a RELATIVE path.** A hook inherits the
 session's working directory, which follows the agent around: one `cd` into a
@@ -201,7 +200,7 @@ not change ordinary interactive sessions. Arming is an explicit act:
     python3 scripts/goal_guard.py --status
     python3 scripts/goal_guard.py --clear
 
-## A goal belongs to ONE session, or to SEVERAL if you say so
+# # A goal belongs to ONE session, or to SEVERAL if you say so
 
 The goal is armed in the REPOSITORY, but a run belongs to one session. Without
 scoping, every other session sharing the working directory — a quick question in
@@ -277,7 +276,7 @@ That releases ownership AND prints the goal with its open items, so the agent
 knows what it is resuming; this session claims it at the end of the turn.
 `--status` prints the current owner if you need to check.
 
-## The goal file — per RUN
+# # The goal file — per RUN
 
     {
       "goal": "complete the queue",
@@ -302,7 +301,7 @@ satisfied forever, about a file that no longer exists. Three checks in this repo
 did exactly that for two days. `test $? -eq 1` passes only on "read it, found
 nothing", so a vanished subject goes RED and names itself.
 
-## `.goal-guard.json` — per REPOSITORY
+# # `.goal-guard.json` — per REPOSITORY
 
 Two things vary by repository rather than by run, and they were constants in
 this file until 2026-08-15, which is what stopped it being portable:
@@ -320,7 +319,7 @@ own. Both are optional — a repo with no config file at all is a working instal
 
 It is COMMITTED, unlike `.goal/`, which is gitignored per-run state.
 
-## Porting this to another repository
+# # Porting this to another repository
 
 Copy `goal_guard.py`, its tests, the two hook entries in `.claude/settings.json`,
 and add `.goal/` to `.gitignore`. Then write a `.goal-guard.json`. There is
@@ -343,7 +342,7 @@ discover them:
 The narrative behind these rules — which incident produced which line — is in
 `docs/tools/goal-guard.md`. Rules travel; stories stay where they happened.
 
-## Why it does not follow the documented `stop_hook_active` advice
+# # Why it does not follow the documented `stop_hook_active` advice
 
 Claude Code's hook docs say a Stop hook should "check stop_hook_active in the
 input and return success while it's true". A hook that obeys that blocks exactly
@@ -410,7 +409,7 @@ PAUSE_TTL_MINUTES = 30.0
 #   a real `tool_use` that really went async and really has not returned;
 # * every WAIT_HEARTBEAT_MINUTES the guard blocks anyway to ask how the subagents
 #   are doing, because in-flight work hangs and a silent coordinator waiting on a
-#   dead task looks exactly like a healthy one (Jon, 2026-08-15);
+#   dead task looks exactly like a healthy one;
 # * after WAIT_CEILING_HOURS with nothing returning, standing down stops. A task
 #   that was killed never sends a completion, so without this one `TaskStop` buys
 #   permanent silence.
@@ -612,8 +611,7 @@ def join_owner(root: Path, session: str) -> None:
         with owner_path(root).open("a", encoding="utf8") as handle:
             handle.write(session + "\n")
     except OSError:
-        # Not fatal: an unrecorded owner reads as unclaimed, which blocks. The
-        # failure direction is "holds the run", never "releases it".
+        # Not fatal: an unrecorded owner reads as unclaimed, which blocks.
         pass
 
 
@@ -680,7 +678,7 @@ def session_owns_goal(root: Path, hook_input: dict, *, claim: bool) -> bool:
         if claim:
             join_owner(root, session)
         return True
-    # ⭐ **A SHARED run lets a second session JOIN rather than stand down.** The
+    # **A SHARED run lets a second session JOIN rather than stand down.** The
     # unshared path below is unchanged and is still the default: a goal one
     # session claimed does not reach out and hold every other window.
     if claim and goal_is_shared(root):
@@ -858,7 +856,7 @@ def record_check_cost(
     try:
         watched = guard_config(root)["build_processes"]
         payload = {
-            # SCHEMA 2 (2026-08-15): `foreign_builds` may now be `null`, meaning
+            # SCHEMA 2: `foreign_builds` may now be `null`, meaning
             # this repo never declared what a build process looks like, and the
             # new `build_processes` field says what was actually counted. A
             # contention number whose subject is unrecorded cannot be compared
@@ -919,13 +917,8 @@ def run_checks(goal: dict, root: Path) -> list[CheckResult]:
             # A timeout is NOT a pass. The whole point of this file is that
             # "we could not tell" never resolves to "done".
             #
-            # But it is not a FAILURE either, and saying only "timed out after
-            # 120s" let this repo read a green suite as red for days: the check
-            # `cargo test -p ambition_app --test app_it` cannot finish a cold
-            # compile inside the default, so the block reported an integration
-            # suite that was never actually run. The line has to say which of the
-            # two it is and what to do about it, or the next repo loses the same
-            # days to the same sentence.
+            # The line has to say which of the two it is and what to do about it, or the next
+            # repo loses the same days to the same sentence.
             results.append(
                 CheckResult(
                     name, cmd, False,
@@ -1007,7 +1000,7 @@ def clear_goal(
         active.unlink()
         state_path(root).unlink(missing_ok=True)
         owner_path(root).unlink(missing_ok=True)
-        # ⛔ the SHARE marker dies with the run it shared. A stale one would make
+        # the SHARE marker dies with the run it shared. A stale one would make
         # the NEXT goal armed here hold every window in the repository without
         # anybody asking for it.
         shared_path(root).unlink(missing_ok=True)
@@ -1017,14 +1010,11 @@ def clear_goal(
 
 # ── Reading the transcript for what the hook input does not say ───────────────
 
-# A tool result announcing that its work went async. BOTH forms matter and only
-# one of them was obvious: a call made with `run_in_background` says "running in
-# background with ID", and a FOREGROUND call that outlived its timeout says
-# "moved to the background (ID". Matching only the first misses every task that
-# went async by timing out — which is the shape a HUNG task arrives in, so the
-# miss would land exactly where the heartbeat is needed most.
+# A tool result announcing that its work went async. Matching only the first misses every task
+# that went async by timing out — which is the shape a HUNG task arrives in, so the miss would
+# land exactly where the heartbeat is needed most.
 #
-# ⛔ THE ID IS PART OF THE PATTERN, and leaving it out cost a false positive on
+# THE ID IS PART OF THE PATTERN, and leaving it out cost a false positive on
 # the first run: a `grep` whose OUTPUT contained the phrase "running in
 # background with ID" registered as a launch, so the guard believed a task was
 # in flight that had never existed. Requiring `: <id>` is what separates the
@@ -1403,7 +1393,7 @@ def mode_stop(root: Path, hook_input: dict) -> int:
 
     # A SUSTAINED pause the human asked for. Checked before everything else for
     # the same reason the one-shot is: the point is to hand the turn back now.
-    # ⚠ it is deliberately LOUD — every single Stop says the goal is held, names
+    # it is deliberately LOUD — every single Stop says the goal is held, names
     # the reason and says how to lift it, so a hold cannot be quietly forgotten
     # the way a silent one would be.
     hold = current_hold(root)
@@ -1483,7 +1473,7 @@ def mode_stop(root: Path, hook_input: dict) -> int:
     # see — returned "" and reset the counter to zero on every single block. The
     # stall release could then never fire, and the one escape hatch from a run
     # that is going nowhere was disabled by exactly the infrastructure failures
-    # most likely to make a run go nowhere (GPT 5.6, 2026-07-28).
+    # most likely to make a run go nowhere.
     #
     # So the three cases are named: a NEW commit is progress and resets; the same
     # commit is a stall; and not knowing is a stall too, because a guard that
@@ -1533,12 +1523,9 @@ def mode_stop(root: Path, hook_input: dict) -> int:
 
     # The WALL-CLOCK fuse, which depends on nothing but the clock.
     #
-    # `deadline_utc` is the intended release and every armed goal should carry
-    # one — but it is optional, and an unparseable one used to become silently
-    # no deadline at all. A goal with no deadline and a check that can never pass
-    # is an unbounded block, so the guard keeps its own ceiling: `--arm` now
-    # rejects a malformed deadline outright, and this catches goals armed before
-    # that existed, or edited by hand afterwards.
+    # A goal with no deadline and a check that can never pass is an unbounded block, so the guard
+    # keeps its own ceiling: `--arm` now rejects a malformed deadline outright, and this catches
+    # goals armed before that existed, or edited by hand afterwards.
     fuse_h = as_float(goal.get("max_run_hours"), DEFAULT_MAX_RUN_HOURS)
     started = parse_deadline(first_block_at)
     if fuse_h > 0 and started and now_utc() - started >= _dt.timedelta(hours=fuse_h):
@@ -1604,7 +1591,7 @@ def mode_inject(root: Path, hook_input: dict) -> int:
         return 0
 
     state = load_json(state_path(root)) or {}
-    # ⚠ a HELD goal must say so at session start, or a fresh session reads the
+    # a HELD goal must say so at session start, or a fresh session reads the
     # open items as pressure and starts working on something the human paused.
     held = state.get("hold")
     if isinstance(held, dict):
@@ -1926,8 +1913,6 @@ def mode_extend(root: Path, raw: str) -> int:
 
     fuse_h = as_float(goal.get("max_run_hours"), DEFAULT_MAX_RUN_HOURS)
     if fuse_h > 0:
-        # Written even when it was ABSENT: the default applies either way, and a
-        # default that fires early is the failure this command exists to prevent.
         goal["max_run_hours"] = round(fuse_h + hours, 3)
     goal["deadline_utc"] = stamp_utc(new_deadline)
 
@@ -2015,10 +2000,7 @@ def mode_status(root: Path) -> int:
         print(f"pauses spent: {state['pauses']}, last {state.get('last_pause_at', '?')}")
     if state:
         print(f"blocks so far: {state.get('blocks', 0)}, stalled: {state.get('stalled', 0)}")
-        # The only symptom of a guard that is not running at all. Every other
-        # line here is about whether the WORK is done; this one is about whether
-        # the instrument is plugged in, which is the failure that costs hours
-        # because nothing else reports it.
+        # The only symptom of a guard that is not running at all.
         last = parse_deadline(state.get("last_block_at"))
         if last:
             idle_h = (now_utc() - last).total_seconds() / 3600.0
@@ -2066,8 +2048,6 @@ def validate_goal(goal: dict) -> list[str]:
 
     raw_deadline = goal.get("deadline_utc")
     if raw_deadline and parse_deadline(raw_deadline) is None:
-        # The dangerous one: this used to degrade to "no deadline", which is
-        # indistinguishable from "run until somebody notices".
         problems.append(
             f"`deadline_utc` {raw_deadline!r} is not an ISO-8601 timestamp — a "
             "deadline that does not parse is silently NO deadline"
@@ -2098,13 +2078,6 @@ def mode_arm(root: Path, source: str) -> int:
             print(f"  - {problem}", file=sys.stderr)
         return 2
     goal_dir(root).mkdir(parents=True, exist_ok=True)
-    # ⛔ ARMING USED TO DESTROY THE GOAL IT REPLACED. This was a bare
-    # `copyfile` over `active.json`, and `.goal/` is gitignored, so on
-    # 2026-08-15 a re-arm erased a live 72-hour goal that existed in no other
-    # place — no archive, no git object, nothing. `clear_goal` had written a
-    # `done-<stamp>.json` on every OTHER exit from a run since the beginning;
-    # replacement was the one door out with no receipt.
-    #
     # `remove=False` because this is not a release: the outgoing goal is
     # archived and then immediately overwritten by the incoming one.
     if src.resolve() != active_path(root).resolve():
@@ -2117,7 +2090,7 @@ def mode_arm(root: Path, source: str) -> int:
 
 
 def main() -> int:
-    # ⛔ **NOT `description=__doc__`.** The module docstring is this file's DESIGN
+    # **NOT `description=__doc__`.** The module docstring is this file's DESIGN
     # RECORD — why the arbiter is a command hook and not a model, what the four
     # ways out are and why each exists — and it is 296 lines of `--help`. An agent
     # running `--help` is mid-task and wants the operational answer, not the
@@ -2241,7 +2214,7 @@ def main() -> int:
     if args.pause is not None:
         return mode_pause(root, args.pause)
     if args.own:
-        # ⭐ ADDS to the roster rather than replacing it, so binding a second
+        # ADDS to the roster rather than replacing it, so binding a second
         # session by id does not silently release the first.
         join_owner(root, args.own.strip())
         roster = owner_sessions(root) or []
@@ -2292,14 +2265,12 @@ def main() -> int:
     if args.clear is not None:
         roster = owner_sessions(root) or []
         if args.clear:
-            # ⛔ per-session: drops THIS window and disarms only if it held the
+            # per-session: drops THIS window and disarms only if it held the
             # goal alone. See `clear_goal`'s `session` argument.
             clear_goal(root, "cleared by hand", session=args.clear.strip())
             return 0
-        # ⛔⛔ **A BARE `--clear` USED TO DISARM EVERY SESSION SILENTLY**, which on
-        # 2026-08-20 released a lane that was still working when a different lane
-        # wrapped up. It is only ambiguous when the roster is shared, so refuse
-        # exactly there rather than making the common case ceremonious.
+        # It is only ambiguous when the roster is shared, so refuse exactly there rather than making
+        # the common case ceremonious.
         if len(roster) > 1:
             print(
                 "REFUSING: this goal is held by "
@@ -2362,7 +2333,7 @@ if __name__ == "__main__":
         # But not forever. Blocking on a crash means a typo in THIS file wedges
         # every session in the repo, with the only escape being to find and move
         # `.goal/active.json` by hand — which is exactly the lock-out this file
-        # claims at the top it cannot cause (GPT 5.6, 2026-07-28). After
+        # claims at the top it cannot cause. After
         # MAX_CONSECUTIVE_CRASHES it releases and says why, loudly enough that
         # nobody mistakes it for the goal being met.
         root = repo_root()

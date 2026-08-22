@@ -1,38 +1,17 @@
 //! **How much of `Update` is even addressable by set-level gating.**
 //!
-//! `dev/journals/code_smells.md` 2026-07-23 recorded the everything-schedule:
-//! *"311 static `add_systems(Update, …)` call sites … the multithreaded
-//! executor's per-system graph bookkeeping measured 10-18% of CPU self-time in
-//! EVERY phase of the desktop-lifecycle-1 profile — title screen included, where
-//! almost none of those systems have work."* Its suggested fix is *"run_if-gating
-//! whole sets by session phase and merging trivial systems"*.
-//!
-//! ⚠ **311 counted CALL SITES, and one `add_systems` registers many systems.**
+//! **311 counted CALL SITES, and one `add_systems` registers many systems.**
 //! The runtime population is what the executor pays for, so that is what this
 //! measures.
 //!
 //! ## Why "systems in no set" is the number worth having first
 //!
-//! The proposed fix is set-level: gate a SET by session phase. A system that
-//! belongs to no set cannot be gated that way — it would need its own condition,
-//! one at a time, which is a different (and much larger) piece of work. So before
-//! anyone estimates "gate the sets", the honest question is *what fraction of the
-//! schedule is inside a set at all*.
+//! The proposed fix is set-level: gate a SET by session phase. A system that belongs to no set
+//! cannot be gated that way — it would need its own condition, one at a time, which is a
+//! different (and much larger) piece of work.
 //!
-//! ⛔ **this deliberately does NOT claim to measure what runs.** Bevy does not
-//! expose per-frame skip counts, and run conditions are not reachable from the
-//! public `ScheduleGraph` API in 0.18 — so "how many are gated" cannot be
-//! measured here and is not asserted. Set MEMBERSHIP can be, and it bounds the
-//! answer from above: an unsetted system is certainly not set-gated.
-//!
-//! ⚠ **this counts the DEV composition, and that is not a detail.** The shipped
-//! desktop build sets `SimulationHost::Rollback` inside
-//! `#[cfg(feature = "dev_tools")]`, so its ~242 `CoreSimulation` systems live in
-//! `GgrsSchedule` and are NOT in the number below. A build without `dev_tools` —
-//! the browser entry sets no host at all — resolves to the render-frame default
-//! and puts those systems back into `Update`. So this census is a lower bound
-//! for that composition, and comparing it against one taken from a different
-//! feature set compares two different schedules. (Measured 2026-08-03.)
+//! Set MEMBERSHIP can be, and it bounds the answer from above: an unsetted system is certainly not
+//! set-gated.
 
 use bevy::ecs::schedule::graph::Direction;
 use bevy::ecs::schedule::{NodeId, ScheduleLabel, Schedules};
@@ -61,7 +40,7 @@ fn set_membership(
                 .systems()
                 .expect("initialized above, so the systems are enumerable")
             {
-                // ⛔ **EXCLUDE `SystemTypeSet`.** Bevy puts every system into an
+                // **EXCLUDE `SystemTypeSet`.** Bevy puts every system into an
                 // automatic per-system-type set so that `.after(my_system)` can
                 // resolve. Counting those made the first draft of this census
                 // report 97% "in a set" — a measure of Bevy's own bookkeeping,
@@ -70,7 +49,7 @@ fn set_membership(
                 // it; the sample showed `SystemTypeSet(fn …)` and nothing else
                 // for row after row.
                 //
-                // ⛔ and this is done STRUCTURALLY, without naming anything.
+                // and this is done STRUCTURALLY, without naming anything.
                 // `get_node_name` on a set walks its members to render an
                 // anonymous set's name, and PANICS if the hierarchy still
                 // references a system the schedule no longer holds — which this
@@ -79,7 +58,7 @@ fn set_membership(
                 // member" identifies an authored grouping without asking any
                 // node what it is called.
                 //
-                // ⚠ the known error: a genuinely authored set with exactly ONE
+                // the known error: a genuinely authored set with exactly ONE
                 // member is counted as unsetted. That biases the number DOWN, so
                 // the conclusion it supports (how much is addressable) is
                 // conservative rather than flattering.
@@ -97,7 +76,7 @@ fn set_membership(
                     in_a_set += 1;
                 } else {
                     orphan += 1;
-                    // ⚠ the SYSTEM's own name, not `get_node_name` — see above
+                    // the SYSTEM's own name, not `get_node_name` — see above
                     // for why naming a node can panic on this graph.
                     let name = format!("{}", system.name());
                     let owner = name
@@ -117,7 +96,7 @@ fn set_membership(
         })
 }
 
-/// ⭐ **The census, on the shipped composition rather than a fixture.**
+/// **The census, on the shipped composition rather than a fixture.**
 ///
 /// Printed rather than pinned to an exact number: this is a MEASUREMENT that
 /// should move, and a test that fails whenever a system is added would be
@@ -168,7 +147,7 @@ fn census_of_how_much_of_update_is_inside_a_set() {
 /// by name — `ambition_touch_input`'s `fold_touch_gestures` does it twice, once
 /// for `MenuFrameCutsceneSkip` and once for `MenuNavConsume`.
 ///
-/// ⛔ **a cross-schedule `.before` is SILENTLY VACUOUS.** A Bevy set node belongs
+/// **a cross-schedule `.before` is SILENTLY VACUOUS.** A Bevy set node belongs
 /// to one schedule; pinning against a set that has no members here constrains
 /// nothing and reports nothing. Both configuration sites already know this — the
 /// host's says the chain is *"LOAD-BEARING ONLY under the `RenderFrame` host,
@@ -177,7 +156,7 @@ fn census_of_how_much_of_update_is_inside_a_set() {
 /// "does it have members here" is, and an empty node is a thing this app really
 /// produces.
 ///
-/// ⚠ this is a PREREQUISITE for the open `MenuFrameConsume` decision (queue A1):
+/// this is a PREREQUISITE for the open `MenuFrameConsume` decision:
 /// folding the reader sets into one umbrella, or adding one over both, is only
 /// meaningful if they are co-scheduled. If they are not, the honest finding is
 /// that one of the touch adapter's two pins is already doing nothing.
@@ -272,14 +251,10 @@ fn the_menu_frame_reader_sets_are_co_scheduled() {
 
 /// **A `.before` pinned against an umbrella orders EVERY member.**
 ///
-/// The property `MenuFrameConsume` rests on, proven on a three-system app rather
-/// than assumed from Bevy's docs. The touch adapter used to name both reader
-/// sets and now names only their umbrella; if nesting did not propagate
-/// ordering, that edit would have silently unordered a gesture write against the
-/// menu readers — and nothing in this repo would have said so, because the pin
-/// still compiles and the set still exists.
+/// The property `MenuFrameConsume` rests on, proven on a three-system app rather than assumed from
+/// Bevy's docs.
 ///
-/// ⚠ deliberately NOT the shipped app: a behavioural claim about a Bevy
+/// deliberately NOT the shipped app: a behavioural claim about a Bevy
 /// mechanism is answered by exercising the mechanism, and a full composition
 /// would let a hundred other constraints produce the same order by accident.
 #[test]

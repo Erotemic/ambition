@@ -99,7 +99,7 @@ def test_a_target_iid_becomes_a_full_ref_read_out_of_the_project():
     )
     assert ref == {
         "entityIid": "mount-1",
-        # ⭐ none of these three appear in the spec — they are the file's.
+        # none of these three appear in the spec — they are the file's.
         "layerIid": "Ambition-1",
         "levelIid": "lookout-1",
         "worldIid": "test-world",
@@ -140,11 +140,7 @@ def test_null_clears_the_ref():
 # ---------------------------------------------------------------------------
 # `path_ref` — the SECOND native reference relationship.
 #
-# ⭐ two adopters is what earns a shared synthesizer. `mounted_on` had its
-# ~30-key LDtk field-def shape hand-written in `mount_split`, the one command
-# that needed it; a second hand-written copy is how the two would drift, and a
-# wrong key there makes the editor refuse the file or silently drop the link.
-# ---------------------------------------------------------------------------
+# two adopters is what earns a shared synthesizer.
 
 
 def _project_with_paths() -> dict:
@@ -178,7 +174,7 @@ def test_a_path_ref_field_def_is_synthesized_once_and_scoped_to_kinematic_paths(
     made = ensure_entity_ref_fielddef(project, "EnemySpawn", "path_ref")
 
     assert made["__type"] == "EntityRef" and made["type"] == "F_EntityRef"
-    # ⭐ the editor itself will only offer KinematicPath targets, so the
+    # the editor itself will only offer KinematicPath targets, so the
     # wrong-kind mistake cannot be made by hand at all.
     assert made["allowedRefs"] == "OnlySpecificEntity"
     assert made["allowedRefsEntityUid"] == 2012, "must name the KinematicPath def"
@@ -204,7 +200,7 @@ def test_a_path_ref_resolves_to_the_path_and_refuses_anything_else():
     assert ref["entityIid"] == "path-1"
     assert ref["layerIid"] == "Ambition-1", "the containers come from the file"
 
-    # ⛔ THE POISON, and it is the whole reason the def declares a scope: a ref at
+    # THE POISON, and it is the whole reason the def declares a scope: a ref at
     # the wrong KIND of entity writes cleanly and fails at load. The def already
     # said what this field may point at; now something reads it.
     with pytest.raises(SystemExit) as ex:

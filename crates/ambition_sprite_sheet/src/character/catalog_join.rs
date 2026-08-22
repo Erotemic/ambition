@@ -11,23 +11,10 @@
 //! reader asking "why does a sheet crate know about characters" finds the answer
 //! here instead of grepping.
 //!
-//! Both functions were `character_sprites::assets::*_from_data` in
-//! `ambition_platformer2d_actor_monolith` until 2026-08-09. They moved because
-//! they were made of nothing the monolith owns — `AuthoredSheets`,
-//! `CharacterSheetSpec`, `SheetTuning` and `record_for_target` are this crate's,
-//! `CharacterCatalogData` is `ambition_characters`' — and their staying put was
-//! the last downward edge holding `character_sprites::{attack_hitbox, anim,
-//! posed_body}` inside the monolith. The monolith keeps the `*_in` wrappers that
-//! adapt the Bevy `CharacterCatalog` resource to the plain data these take.
+//! The monolith keeps the `*_in` wrappers that adapt the Bevy `CharacterCatalog` resource to
+//! the plain data these take.
 //!
-//! ⛔ **do not "tidy" the `_from_data` suffix away.** It reads like a leftover
-//! from a distinction that only mattered in the monolith, and it is not: the
-//! bare spellings `sheet_for_character_id(` and
-//! `sprite_body_collision_for_character_id(` are FORBIDDEN IDENTIFIERS in
-//! `engine.character-authority-is-app-local`, because those were the retired
-//! wrappers that resolved a character against a process-global catalog. Dropping
-//! the suffix here turned that policy red in seven places on 2026-08-09. The
-//! suffix is the promise that the catalog arrives as an argument.
+//! The suffix is the promise that the catalog arrives as an argument.
 
 use bevy::math::Vec2;
 
@@ -95,11 +82,6 @@ pub fn sheet_for_character_id_from_data(
 /// metrics*, plus the render-quad size that keeps the on-screen sprite
 /// identical to the legacy `collision_scale` render.
 ///
-/// `collision` is the world-space box around the **visible body** (the
-/// `body_pixel_bbox` / `body_pixel_parts` the generator measured from the
-/// rendered art), so an actor's hitbox matches what the player sees instead
-/// of an authored LDtk rectangle.
-///
 /// `render_size` is exactly what [`sheets::sprite_render_size`] produces today —
 /// the caller stores it so the renderer draws the sprite at its current size even
 /// though the collision box shrank to the body. (The renderer's `collision_scale`
@@ -114,15 +96,9 @@ pub struct SpriteBodyCollision {
 
 /// Pixel-space extent of the visible body in the sheet's standing frame.
 ///
-/// ⛔ **this used to be its own implementation, and that made it a FORK** (found
-/// 2026-08-08, the first time anything compared the drawn body to the collided
-/// one). It read the static `body_pixel_bbox` where the sheet-authored actor
-/// route (`posed_body_geometry`) reads `pose_body_bbox`, which prefers the
-/// per-animation `idle` hurtbox. Where a sheet publishes both and they differ,
-/// the collision box came from one rectangle and the drawn quad from the other:
-/// measured at up to **1.30x on width** (`npc_vera_ruin`) and **1.12x on
-/// height** (`npc_davy_hylbert`). One reader now, in the crate that owns the
-/// metadata.
+/// It read the static `body_pixel_bbox` where the sheet-authored actor route
+/// (`posed_body_geometry`) reads `pose_body_bbox`, which prefers the per-animation `idle` hurtbox.
+/// One reader now, in the crate that owns the metadata.
 fn body_pixel_extent(metrics: &BodyMetrics) -> Option<(f32, f32)> {
     metrics.body_pixel_extent(CharacterAnim::Idle)
 }
@@ -170,13 +146,6 @@ pub fn sprite_body_collision_for_character_id_from_data(
     // `collision_scale` again to the resulting collision box.
     let scale = match standing_height {
         Some(height) if body_h > 0.0 => height / body_h,
-        // ⚠ **the legacy scale, written out rather than borrowed.** It used to
-        // call `sprite_render_size`, and when that function moved to the bbox
-        // route this branch silently followed — clamping every body without a
-        // stated height to its LDtk PLACEMENT rectangle, which is the opposite of
-        // "an authored rectangle says WHERE, not HOW BIG" (the duel arena's
-        // Perfect Cellular Automaton went from a 92px body to a 44px one).
-        //
         // `CharacterBodyKind::default_standing_height` deliberately answers for
         // `Standard` only — *"a crawler, a floating drone and a wide body have no
         // shared height to be consistent about"* — so this population keeps the

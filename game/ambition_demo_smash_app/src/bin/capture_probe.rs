@@ -18,14 +18,14 @@
 //! endings      thrown / escaped / timed out / interrupted
 //! ```
 //!
-//! ⚠ **an ENDING is classified from the hold's last observed state**, because by
+//! **an ENDING is classified from the hold's last observed state**, because by
 //! the time a capture is gone the component that knew is gone with it. A hold
 //! whose escape meter had filled escaped; one at its ceiling timed out; anything
 //! else ended because somebody chose to end it — a throw, or a hit that broke
 //! it. That is a coarse classification and it is the honest one available from
 //! outside.
 //!
-//! ⛔ **it is a PROBE, not a test.** It reports what a match did; it asserts
+//! **it is a PROBE, not a test.** It reports what a match did; it asserts
 //! nothing, because the number a healthy match produces is not known yet and a
 //! threshold invented here would be a fixture pretending to be a design.
 
@@ -36,7 +36,7 @@ use ambition_platformer2d::combat::capture::{CaptureAttemptRequested, CapturedBy
 
 /// How many capture attempts the adapter actually asked for.
 ///
-/// ⭐ **the split that matters when a match produces grabs and no holds**: an
+/// **the split that matters when a match produces grabs and no holds**: an
 /// attempt that was never REQUESTED is an authoring or adapter problem, and one
 /// that was requested and refused is an eligibility problem. From outside they
 /// look identical.
@@ -45,7 +45,7 @@ struct AttemptsSeen(u32);
 
 /// **Press Grab FOR them, on the tick a person would.**
 ///
-/// ⛔⛔ **it has to be a SYSTEM in the sim schedule, and writing the frame from
+/// **it has to be a SYSTEM in the sim schedule, and writing the frame from
 /// outside `app.update()` measures nothing** — the fighter brain writes
 /// `ActorControl` every tick, so a press stamped after the update is overwritten
 /// before anything reads it. That mistake reported 567 presses and 3 attempts,
@@ -102,7 +102,7 @@ fn main() {
         .and_then(|arg| arg.parse().ok())
         .unwrap_or(60.0);
     let ticks = (seconds * 60.0) as u32;
-    // ⭐ **`--force`: press Grab FOR them, when a person would.** The CPU's own
+    // **`--force`: press Grab FOR them, when a person would.** The CPU's own
     // timing is a policy question; whether the live game can produce a hold at
     // all is not, and the two are only separable by taking the timing out of the
     // AI's hands. Presses on the tick the two are inside grab range and the
@@ -119,7 +119,7 @@ fn main() {
             ambition_platformer2d::platformer::schedule::SimScheduleExt::sim_schedule(&mut app);
         app.add_systems(
             sim,
-            // ⛔⛔ **AFTER the brain, not merely before combat.** `.before(C)`
+            // **AFTER the brain, not merely before combat.** `.before(C)`
             // orders nothing against the systems that also run before C, so a
             // press stamped here raced the actor brain's own `*out = frame` and
             // lost — the second time the same clobber ate this experiment.
@@ -133,7 +133,7 @@ fn main() {
     for _ in 0..30 {
         app.update();
     }
-    // ⚠ **CPU seats, not the select screen's** — `SmashSelect::roster` makes
+    // **CPU seats, not the select screen's** — `SmashSelect::roster` makes
     // every locked seat a HUMAN, and two humans with no controllers stand still
     // forever. The same note `match_diagram` carries, for the same reason.
     app.world_mut()
@@ -200,7 +200,7 @@ fn main() {
     }
 
     let mut tally = Tally::default();
-    // ⭐ **WHERE A ZERO COMES FROM.** "No grabs happened" has five possible
+    // **WHERE A ZERO COMES FROM.** "No grabs happened" has five possible
     // causes and they are indistinguishable from the relationship table alone:
     // the kit offers none, the brain never chooses one, the press never
     // reaches the body, the move never plays, or acquisition declines. Counting
@@ -217,18 +217,12 @@ fn main() {
     let mut ticks_in_grab_range = 0u32;
     let mut moves_started: HashMap<String, u32> = HashMap::new();
     let mut last_move: HashMap<bevy::prelude::Entity, String> = HashMap::new();
-    // What each captive's hold looked like on the last tick it existed.
-    // ⚠ the tally is about PUMMELS, ESCAPES and HOLD AGE, all of which are this
-    // ruleset's half of a capture since the 2026-08-19 split. `CapturedBy` says
-    // only who holds whom, so the probe tracks `SmashHoldState` across ticks.
+    // `CapturedBy` says only who holds whom, so the probe tracks `SmashHoldState` across ticks.
     let mut live: HashMap<bevy::prelude::Entity, SmashHoldState> = HashMap::new();
 
     for _ in 0..ticks {
         app.update();
         let world = app.world_mut();
-        // ⚠ the hold is TWO components since 2026-08-19: `CapturedBy` is the
-        // relation and `SmashHoldState` is this ruleset's half. The probe tallies
-        // pummels and escapes, which are the ruleset's, so it reads both.
         let mut query = world.query::<(
             bevy::prelude::Entity,
             &CapturedBy,
@@ -260,7 +254,7 @@ fn main() {
         }
         live = now;
 
-        // ⭐ **WHY AN ATTEMPT WAS DECLINED, from outside the engine.** An
+        // **WHY AN ATTEMPT WAS DECLINED, from outside the engine.** An
         // attempt reaches acquisition and a hold does not appear: the reasons
         // are the eligibility predicate's own terms, so print those terms on the
         // ticks it actually ran.
@@ -332,7 +326,7 @@ fn main() {
             .collect();
         grab_presses += pressing.len() as u32;
         if !pressing.is_empty() {
-            // ⭐ **WAS THE PRESSER FREE TO ACT?** `trigger_moveset_moves` drops a
+            // **WAS THE PRESSER FREE TO ACT?** `trigger_moveset_moves` drops a
             // requested move outright when a `MovePlayback` is running and its
             // cancel window does not permit the new one — which for a smash into
             // a grab it never does. Counting presses without this cannot tell a

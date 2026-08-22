@@ -122,10 +122,6 @@ fn hard_fall_saturates_through_kick_cap() {
 /// **A REFERENCE CONNECT SHAKES NOTHING, AND A SMASH SHAKES HARD** — the whole
 /// of what P4.37 asked for, expressed as a scale rather than a special case.
 ///
-/// ⛔ before 2026-08-12 no landed hit moved this camera at any severity, so the
-/// row's goal (*"a strong hit should feel materially different from a weak
-/// poke"*) was carried entirely by hitlag.
-///
 /// ⚠ the three assertions are three different claims and none implies the
 /// others: a dead zone at the reference, a real jolt at the ceiling, and
 /// MONOTONICITY between them. A function that returned a constant above the
@@ -144,12 +140,8 @@ fn only_a_hit_harder_than_standard_moves_the_camera() {
          mean the screen moves on literally every hit in the game"
     );
 
-    // ⛔⛔ **the dead zone is the WEAKEST connect, not the reference one.** It
-    // was the reference for a day, and `duel_arena` — a real authored fight —
-    // measured its hardest trade at 0.0595 s against this 0.070 s reference.
-    // Every hit in Ambition's own combat landed under the old dead zone, so the
-    // camera could not move in the shipped game at all. This assertion is that
-    // regression: an ordinary trade is a small, real jolt.
+    // Every hit in Ambition's own combat landed under the old dead zone, so the camera could
+    // not move in the shipped game at all.
     let ordinary = super::hit_shake_amplitude(REFERENCE * 0.85, REFERENCE);
     assert!(
         ordinary > 0.0,

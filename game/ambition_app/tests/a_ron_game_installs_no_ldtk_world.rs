@@ -1,14 +1,11 @@
 //! **An authoring format's state is INSTALLED, not owed.**
 //!
-//! Until 2026-08-16 `PlatformerSessionWorld` — the engine's canonical live
-//! session bundle — carried `runtime_rooms: LdtkRuntimeIndex` as a mandatory
-//! field. Every RON-authored game therefore constructed an
-//! `LdtkRuntimeIndex::default()`, a value whose own doc calls it *"the 'no LDtk
-//! world installed' index"*, for a world it would never install. The index is
-//! optional session state a FORMAT installs now, so a RON-authored session root
+//! Every RON-authored game therefore constructed an `LdtkRuntimeIndex::default()`, a value whose
+//! own doc calls it *"the 'no LDtk world installed' index"*, for a world it would never install.
+//! The index is optional session state a FORMAT installs now, so a RON-authored session root
 //! carries no such component at all.
 //!
-//! ⛔ **the two tests below are ONE claim and neither half means anything
+//! **the two tests below are ONE claim and neither half means anything
 //! alone.** "Sanic has no LDtk index" is trivially satisfiable by never
 //! inserting the component anywhere — which is precisely what a bad
 //! implementation of this change looks like, and it would delete LDtk streaming
@@ -55,10 +52,6 @@ impl ambition_platformer2d::bevy::prelude::Plugin for VersusCapability {
 }
 
 /// **THE POSITIVE TERM: the LDtk-authored game installs a real index.**
-///
-/// Without this, its sibling below would pass in a build where nothing ever
-/// inserts the component — the failure mode that matters most, because it is
-/// silent and it removes level streaming from the shipped game.
 #[test]
 fn the_ldtk_authored_game_installs_a_real_index_onto_its_session_root() {
     let mut app = ambition_platformer2d::bevy::prelude::App::new();
@@ -75,7 +68,7 @@ fn the_ldtk_authored_game_installs_a_real_index_onto_its_session_root() {
          not a boundary cleanly drawn",
     );
 
-    // ⚠ presence is not enough: a `default()` index inserted unconditionally
+    // presence is not enough: a `default()` index inserted unconditionally
     // would satisfy `is_some()` while being exactly the empty value this whole
     // change exists to delete. The active area is the field `from_project` fills
     // and `Default` leaves blank, so it separates a real installation from the
@@ -108,7 +101,7 @@ fn a_ron_authored_session_root_carries_no_ldtk_index() {
          never got to the state where the wrong implementation could be caught",
     );
 
-    // ⚠ **the root must be REAL before its emptiness means anything.** A handle
+    // **the root must be REAL before its emptiness means anything.** A handle
     // to an entity that is not a live session world would report "no LDtk index"
     // for the uninteresting reason that it has no components at all. `RoomSet`
     // is a canonical session-world component every platformer session owns, so
@@ -145,10 +138,10 @@ fn schema_names_the_ldtk_row(world: &ambition_platformer2d::bevy::prelude::World
         .any(|entry| entry.name == LDTK_ROLLBACK_ROW)
 }
 
-/// **THE POSITIVE TERM for the D136 half: the LDtk-authored game installs the
-/// spine and carries the format's row in its wire format.**
+/// **THE POSITIVE TERM for the half: the LDtk-authored game installs the spine and carries the
+/// format's row in its wire format.**
 ///
-/// ⛔ without this, its sibling below passes in a build where
+/// without this, its sibling below passes in a build where
 /// `LdtkWorldPlugin` is added by nobody — which deletes level streaming AND the
 /// index's rollback participation from the shipped game while turning the pair
 /// green.
@@ -176,12 +169,10 @@ fn the_ldtk_authored_game_installs_the_spine_and_registers_its_rollback_row() {
 
 /// **THE INVARIANT: a RON-authored composition never mentions LDtk.**
 ///
-/// D135 made the spine's six-system chain DECLINE TO RUN in the five
-/// RON-authored games by gating it on `ldtk_world_installed`. ⛔ a plugin that
-/// is added and then declines to run is still added: its six index resources
-/// are still initialized, its systems are still in the schedule graph, and its
-/// component is still a row in the wire format. This pins the other half — the
-/// engine group does not install an authoring format at all.
+/// a plugin that is added and then declines to run is still added: its six index resources are
+/// still initialized, its systems are still in the schedule graph, and its component is still a
+/// row in the wire format. This pins the other half — the engine group does not install an
+/// authoring format at all.
 #[test]
 fn a_ron_authored_composition_installs_no_ldtk_spine_and_no_ldtk_rollback_row() {
     let app = PlatformerApp::headless()
@@ -189,7 +180,7 @@ fn a_ron_authored_composition_installs_no_ldtk_spine_and_no_ldtk_rollback_row() 
         .try_build()
         .expect("the versus stage must compose through the public API");
 
-    // ⚠ **the composition must be REAL before its emptiness means anything.** An
+    // **the composition must be REAL before its emptiness means anything.** An
     // App that failed to assemble the engine would report "no LDtk spine" for
     // the uninteresting reason that it has nothing in it. The registry is
     // installed by `AmbitionRollbackSchemaPlugin`, the FIRST plugin in the

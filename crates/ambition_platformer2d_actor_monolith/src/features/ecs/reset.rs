@@ -9,12 +9,7 @@ use super::*;
 
 /// **Spawned by THIS attempt at the room, and cleared when the attempt is.**
 ///
-/// Jon, 2026-08-03: *"When I reset the level old drops from enemies seem to
-/// still be there."* Reproduced as a test before this existed: a coin dropped by
-/// an enemy killed in the previous attempt was still lying in the room after the
-/// reset, because it is session-scoped — and a session outlives a replay.
-///
-/// ⛔ **re-scoping the drop to the ROOM would be the wrong fix.** A weapon you
+/// **re-scoping the drop to the ROOM would be the wrong fix.** A weapon you
 /// drop in one room and find again when you walk back is intended behaviour, and
 /// room scope deletes it on an ordinary transition. The two questions are
 /// genuinely different — *does this survive leaving the room* and *does this
@@ -22,7 +17,7 @@ use super::*;
 /// named explicitly rather than inferred from a lifetime that means something
 /// else.
 ///
-/// ⚠ **it marks what the ATTEMPT produced, not everything spawned at runtime.**
+/// **it marks what the ATTEMPT produced, not everything spawned at runtime.**
 /// A summon a participant is still commanding or an item a body threw can be
 /// somebody's durable live state; loot on the ground is the residue of a fight
 /// that is about to be un-fought. In-flight projectiles are different: every
@@ -110,10 +105,6 @@ pub fn reset_ecs_room_features(
     if reasons.is_empty() {
         return;
     }
-    // Visible marker for every full room-feature reset: repeated resets are a
-    // regression signature (they re-seed boss encounter state back to Intro
-    // and replay its stingers), and this line was the missing evidence when
-    // desktop-lifecycle-2 showed the boss phase flapping every ~2.5s.
     bevy::log::info!(
         target: "ambition_platformer2d::room_reset",
         "room features reset: reasons={reasons:?}",
@@ -217,11 +208,9 @@ pub fn reset_ecs_room_features(
             // and announces nothing, so `ae::BodyRestarted` never fired for a
             // boss revive and no provider heard about it.
             //
-            // ⚠ safe to say the stronger thing only since `ActorBody::from_kit`
-            // records the identity size: `reset_body_clusters` restores
-            // `base_size`, which defaulted to the PLAYER's size for every boss
-            // in the game. Converting this before that fix would have resized
-            // every boss on every room reset.
+            // safe to say the stronger thing only since `ActorBody::from_kit` records the
+            // identity size: `reset_body_clusters` restores `base_size`, which defaulted to the
+            // PLAYER's size for every boss in the game.
             ae::reset_body_clusters(
                 &mut motion_model,
                 &mut em.clusters_mut(),
@@ -308,10 +297,6 @@ mod reset_tests {
             .id()
     }
 
-    /// **PROBE (2026-08-03): does loot dropped in the previous attempt survive a
-    /// room reset?** Jon: *"When I reset the level old drops from enemies seem to
-    /// still be there."*
-    ///
     /// The reset already despawns in-flight enemy volleys, with the reason
     /// stated in its own comment — they "belong to the previous attempt". A coin
     /// dropped by an enemy killed in that attempt is the same class of thing.

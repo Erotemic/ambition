@@ -188,16 +188,12 @@ pub fn pointed_polygon_moveset() -> MovesetContract {
     );
 
     SmashRepertoire {
-        // ⚠ **added by the architecture lane, twice.** The slot arrived on main
-        // after this file was written and is REQUIRED — a fighter with nothing
-        // to say has to say so in its own file — and a later working copy of
-        // this file, cut before that, dropped it again. See `select.rs` for the
-        // same shape: a stale copy is a revert with no diff to review.
+        // See `select.rs` for the same shape: a stale copy is a revert with no diff to review.
         taunt: ambition_characters::moveset_authoring::taunt(
             "pointed_polygon_taunt",
             0.9,
         ),
-        // ⚠ the genre shape, deliberately: this character is the REFERENCE rig,
+        // the genre shape, deliberately: this character is the REFERENCE rig,
         // so its dash attack is the one a new humanoid should copy before it has
         // a reason to differ. A bespoke reach here would be a number nobody
         // chose being copied into every fighter that starts from these poses.

@@ -542,11 +542,6 @@ fn swept_tier_transfers_a_stopped_body_with_its_entry_momentum() {
 /// already exposes `*_for_convention` variants taking it explicitly. The global
 /// is a detour around a value that is right there.
 ///
-/// ⚠ **WALL to WALL, and that is the only shape that can prove anything.** The
-/// convention enters as `if !rotation && wall_to_wall(..) { return 0.0 }`, so a
-/// floor pair maps identically under both — measured: a floor→wall fixture gave
-/// π/2 either way, and the anti-vacuity assert below caught it.
-///
 /// ⚠ this probe leaves the process global at its DEFAULT and disagrees with it
 /// through tuning. Writing the global is the contamination the finding is about.
 #[test]

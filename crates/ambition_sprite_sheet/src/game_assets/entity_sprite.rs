@@ -37,15 +37,6 @@ pub enum EntitySprite {
     SwitchArmed,
     SwitchDisabled,
     // Blocks / surfaces
-    //
-    // ⛔ **`SolidBlock`, `OneWayPlatform`, `SoftBlinkWall` and `HardBlinkWall`
-    // are GONE (2026-08-06).** They were single ~92×78 props that the renderer
-    // stretched across whatever footprint a block had, and every one of them is
-    // generated with a 4px transparent border — so a stretched surface collided
-    // further than it could be seen (Smash's 420×32 stage was solid ~18px past
-    // each visible end). A surface repeats its tile texture now, whatever way it
-    // was authored, and these have no caller left. Do not reintroduce one: the
-    // art that covers a box of any size is the seamless `*_Tile` below.
     PogoOrb,
     ReboundPad,
     MovingPlatform,
@@ -60,20 +51,18 @@ pub enum EntitySprite {
     // instead of stretching one sprite across the whole footprint.
     /// A LIVE bonus block — warm plate, rivets, interrobang glyph.
     ///
-    /// ⚠ **not reachable from `BlockKind`, and that is the point.** Bonus blocks
+    /// **not reachable from `BlockKind`, and that is the point.** Bonus blocks
     /// are `BlockKind::Solid` like every wall, so no kind-derived lookup can
     /// tell them apart; a game names this through the `BlockArt` component
-    /// (queue D11). The USED state needs no art of its own — a spent block drops
+    ///. The USED state needs no art of its own — a spent block drops
     /// the override and falls back to `SolidTile`, which is exactly the plain
     /// block it becomes.
     BonusBlockTile,
     /// A USED bonus block — the same plate and rivets, drained and glyphless.
     ///
-    /// ⚠ **a spent block does NOT fall back to `SolidTile`**, which was the
-    /// first design. A used block that looks like a wall hides its own history:
-    /// a player deciding whether a block is worth hitting cannot tell it from
-    /// masonry. Jon, 2026-08-04: *"A used questionmark block should get an inert
-    /// texture."*
+    /// **a spent block does NOT fall back to `SolidTile`**, which was the first design. A used
+    /// block that looks like a wall hides its own history: a player deciding whether a block is
+    /// worth hitting cannot tell it from masonry.
     SpentBlockTile,
     SolidTile,
     OneWayTile,

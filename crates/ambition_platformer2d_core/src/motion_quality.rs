@@ -81,9 +81,7 @@ pub struct MotionQuality {
 impl MotionQuality {
     /// Jerk as a multiple of ordinary travel — the scale-free reading.
     ///
-    /// `0.0` for a body that never moved and never jerked. Infinite for one that
-    /// jerked without ever travelling, which is a real and nameable state: it did
-    /// not move, it was MOVED.
+    /// `0.0` for a body that never moved and never jerked.
     pub fn jerk_ratio(&self) -> f32 {
         if self.mean_step <= STILL_PX {
             if self.max_jerk <= STILL_PX {
@@ -200,8 +198,7 @@ pub fn measure_motion(track: &[Vec2]) -> MotionQuality {
 pub struct MotionBudget {
     /// Absolute ceiling on the worst single-tick change in travel.
     pub max_jerk: f32,
-    /// Ceiling on the worst jerk as a multiple of ordinary travel. Guards the
-    /// same defect scale-free, so it survives a speed retune.
+    /// Ceiling on the worst jerk as a multiple of ordinary travel.
     pub max_jerk_ratio: f32,
     /// Ceiling on the fraction of steps that reverse direction.
     pub max_reversal_rate: f32,

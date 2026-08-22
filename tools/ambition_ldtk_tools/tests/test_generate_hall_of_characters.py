@@ -63,7 +63,7 @@ def test_floors_and_rows_grow_to_fit_any_count():
     assert main_floors_for(exact + 1) == 7
     assert basement_rows_for(3 * BASEMENT_SLOTS_PER_ROW - 1) == 3
     assert basement_rows_for(3 * BASEMENT_SLOTS_PER_ROW + 1) == 4
-    # ⭐ the reserved slots are the whole reason this is not a plain ceil-divide,
+    # the reserved slots are the whole reason this is not a plain ceil-divide,
     # so assert the boundary they move rather than trusting the arithmetic above
     # to have exercised it.
     assert main_floors_for(exact + DOOR_RESERVED_SLOTS) == 7, (
@@ -90,8 +90,6 @@ def test_derived_dims_sizes_to_the_roster():
         + 16
     )
     assert height == expected
-    # Adding a character that spills to a new floor makes the hall strictly
-    # taller — proof the size tracks the count rather than a fixed cap.
     _, taller = derived_dims(main_count + MAIN_SLOTS_PER_FLOOR, basement_count)
     assert taller > height
 

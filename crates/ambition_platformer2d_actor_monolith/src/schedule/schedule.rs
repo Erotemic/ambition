@@ -37,13 +37,8 @@ use ambition_platformer2d_shared_tangle::schedule::{
 /// state after the main sim has resolved, so they're each configured
 /// `.after(CoreSimulation)` without joining the chain.
 ///
-/// Every set here is a SIM phase, so the whole ordering is declared in the
-/// app's sim schedule ([`SimSchedule`] — `Update` when frame-stepped,
-/// `FixedUpdate` when fixed-tick). `PresentationVisualSync` is the one
-/// presentation-side set in the list; it is configured alongside the sim so
-/// that in frame-stepped mode it keeps its `.after(FeatureViewSync)` edge. In
-/// fixed-tick mode the render systems that join it live in `Update` and need no
-/// such edge — the read-model they consume was published by the last tick.
+/// `PresentationVisualSync` is the one presentation-side set in the list; it is configured
+/// alongside the sim so that in frame-stepped mode it keeps its `.after(FeatureViewSync)` edge.
 ///
 /// [`SimSchedule`]: ambition_platformer2d_shared_tangle::schedule::SimSchedule
 pub fn configure_platformer2d_simulation_phases(app: &mut App) {
@@ -76,15 +71,11 @@ pub fn configure_platformer2d_simulation_phases(app: &mut App) {
 
     // Sub-sets inside CoreSimulation, ordered.
     //
-    // CONTROL-SEAM ORDERING: `PlayerInput` runs BEFORE `WorldPrep`. This is the
-    // slot-input invariant — `PlayerInput` finalizes this frame's device input,
-    // publishes it into `SlotControls`, and resolves `ControlledSubject`; only
-    // THEN does `WorldPrep` tick the actor/boss brains (`update_ecs_actors` /
-    // `tick_boss_brains_system`). So a possessed body holding a seat
-    // reads THIS frame's input, not last frame's. The `ActorActionMessage`
-    // emitters were moved out of `PlayerInput` to run after `WorldPrep` (see
-    // `register_player_input_systems`) so they observe both the player's and the
-    // actors' freshly-ticked `ActorControl`.
+    // CONTROL-SEAM ORDERING: `PlayerInput` runs BEFORE `WorldPrep`. This is the slot-input
+    // invariant — `PlayerInput` finalizes this frame's device input, publishes it into
+    // `SlotControls`, and resolves `ControlledSubject`; only THEN does `WorldPrep` tick the
+    // actor/boss brains (`update_ecs_actors` / `tick_boss_brains_system`). So a possessed body
+    // holding a seat reads THIS frame's input, not last frame's.
     app.configure_sets(
         sim,
         (
@@ -117,8 +108,6 @@ pub fn configure_platformer2d_simulation_phases(app: &mut App) {
             .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput),
     );
 
-    // The phases INSIDE RoomTransition. `Apply` is the transaction slot the
-    // module docs used to describe in prose.
     app.configure_sets(
         sim,
         (
@@ -230,18 +219,6 @@ pub fn configure_platformer2d_simulation_phases(app: &mut App) {
         Platformer2dSimulationPhaseMonolith::PresentationVisualSync.after(Platformer2dSimulationPhaseMonolith::FeatureViewSync),
     );
 
-    // Input populate contract (ambition_input::InputSet): every system that
-    // WRITES the `ControlFrame` resource lives in `InputSet::Route`, and the
-    // whole set is pinned BEFORE the gameplay consume boundary. That boundary is
-    // `PrimarySlotInputCommit`: the finalized `ControlFrame` is published into
-    // the canonical slot-based controller model (`SlotControls[PRIMARY]`). There
-    // is no per-body input copy after this point. This is ADDITIVE: every tagged
-    // writer already ran before that consumer (device populate + touch fold run
-    // `.before(CoreSimulation)`; the portal write-back and edge-derived flags run
-    // earlier in the `PlayerInput` chain `.before` the consumer). Naming the
-    // window makes it structurally impossible for a `ControlFrame` writer to
-    // float past the consume and stamp stale input over the fresh frame — the
-    // Move-axis regression this contract exists to prevent.
     app.configure_sets(
         sim,
         ambition_input::InputSet::Route.before(crate::control::PrimarySlotInputCommit),

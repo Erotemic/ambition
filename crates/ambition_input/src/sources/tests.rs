@@ -1,7 +1,4 @@
-//! The keyboard-ownership decision, which is the whole of what `sources` adds.
-//!
-//! Every case here is one of Jon's couch milestones or the solo behaviour those
-//! milestones must not break.
+//! Keyboard ownership tests for couch multiplayer and solo play.
 
 use super::*;
 
@@ -102,9 +99,6 @@ fn the_keyboard_and_mouse_are_one_source() {
 
 #[test]
 fn two_gamepads_are_distinct_sources() {
-    // Guards the modelling choice, not the compiler: if `InputSourceId` ever
-    // stops carrying which pad, every seat resolves to the same source again and
-    // that is exactly the bug `local_seats` was written to kill.
     let mut world = World::new();
     let first = world.spawn_empty().id();
     let second = world.spawn_empty().id();

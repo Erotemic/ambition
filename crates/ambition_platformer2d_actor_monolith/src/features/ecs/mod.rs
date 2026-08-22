@@ -24,10 +24,9 @@
 //! stable while the generic mechanics live DOWN in that kit (ADR 0019).
 
 use super::*;
-// `BodyCombat`/`BodyHealth` live on the reusable actor crate (D2). This module
-// surfaces them to the `ecs/` submodules that name `super::BodyCombat` — the
-// `super::*` glob no longer carries them since the `features` facade stopped
-// re-exporting the shared body vocabulary.
+// `BodyCombat`/`BodyHealth` live on the reusable actor crate. This module surfaces them to the
+// `ecs/` submodules that name `super:BodyCombat` — the `super:*` glob no longer carries them
+// since the `features` facade stopped re-exporting the shared body vocabulary.
 use crate::platformer_runtime::lifecycle::RoomVisual;
 use ambition_characters::actor::BodyCombat;
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
@@ -134,9 +133,6 @@ pub use hitbox::{
     apply_hitbox_damage, tick_and_despawn_hitboxes, Hitbox, HitboxAnchor, HitboxHits,
     HitboxKnockback, HitboxLifetime,
 };
-// ⚠ the continuity systems moved to `ambition_conversation` on 2026-08-07. What
-// stays here is what this module is actually about: the moment somebody presses
-// Interact. Keeping a conversation ALIVE is not an interaction.
 pub use interact::interact_ecs_actors_and_switches;
 pub use mount::{
     enforce_mount_rider_link, steer_mount_from_rider, sync_riders_to_mounts, CanPilot,

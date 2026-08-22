@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 description = "The content-pack validator's diagnostic front door. Composes the same schema registry the app composes and calls the same `ambition_content_pack::compile`."
 
-# ⛔ THIS CRATE MUST NOT EMBED CONTENT.
+# THIS CRATE MUST NOT EMBED CONTENT.
 #
 # Its whole reason to exist is that editing a character RON does not rebuild
 # Rust. An `include_str!` here — or a dependency on a crate that has one for the
@@ -18,16 +18,13 @@ ambition_content_pack = { path = "../ambition_content_pack" }
 # validates against, and it is why "uninstalled capability" is a real refusal.
 ambition_characters = { path = "../ambition_characters", features = ["content_pack"] }
 ambition_items = { path = "../ambition_items", features = ["content_pack"] }
-# The encounter capability owns `encounter_waves`. ⚠ the CLI must judge Ambition's
+# The encounter capability owns `encounter_waves`. the CLI must judge Ambition's
 # content by the SAME rules the game does — a test pins the two registries equal
 # — so a schema added to one belongs in the other in the same commit.
 ambition_encounter = { path = "../ambition_encounter", features = ["content_pack"] }
 ambition_audio = { path = "../ambition_audio", features = ["content_pack"] }
 ambition_combat = { path = "../ambition_combat", features = ["content_pack"] }
 
-# No `#[test]` in a bin entry point, so `cargo test` was compiling and LINKING a
-# test harness for each of these against the full engine graph. Nothing was in
-# them to run. (Compile-efficiency pass, 2026-07-31.)
 [[bin]]
 name = "ambition_content"
 path = "src/main.rs"

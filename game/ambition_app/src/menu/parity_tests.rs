@@ -236,9 +236,8 @@ fn every_settings_option_is_surfaced_by_the_settings_ir() {
 }
 
 /// No-drift: every `SystemMenuEntryId` appears in the System page model
-/// (`SystemMenuModel::build`), except the dev-build-gated entries when the
-/// `dev_tools` feature is off. The exhaustive list + compile guard mean a new
-/// entry variant must be surfaced (or explicitly excluded) before this passes.
+/// (`SystemMenuModel::build`), except the dev-build-gated entries when the `dev_tools` feature
+/// is off.
 #[test]
 fn every_system_menu_entry_is_surfaced_by_the_system_model() {
     let model = SystemMenuModel::build(
@@ -284,7 +283,7 @@ fn every_system_menu_entry_is_surfaced_by_the_system_model() {
 
 /// **The Rebind screen appears only where there is something to rebind.**
 ///
-/// ⭐ the capability gate, pinned from both sides. `build` alone must not
+/// the capability gate, pinned from both sides. `build` alone must not
 /// surface it (the sibling assertion above), and attaching rows must — because
 /// a composition with no input stack has no bindings and should show no row
 /// rather than an empty screen, while one that HAS them must not hide the
@@ -413,12 +412,9 @@ fn grid_actions(
         .collect()
 }
 
-/// Content parity: at a fixed state, for EACH page, the set of actionable controls
-/// the Grid renders equals the cube's set MINUS the `ChangePage` edge controls.
-/// This is the positive complement to `flat_renderer_skips_page_turn_edge_controls`
-/// (which only checks the Grid drops the edges): here we assert the NON-edge
-/// controls are otherwise identical, so neither backend can grow/drop a control the
-/// other has.
+/// This is the positive complement to `flat_renderer_skips_page_turn_edge_controls` (which only
+/// checks the Grid drops the edges): here we assert the NON-edge controls are otherwise
+/// identical, so neither backend can grow/drop a control the other has.
 #[test]
 fn grid_and_cube_render_the_same_non_edge_controls_per_page() {
     // A representative fixed state: an item granted + equipped so Items has a live
@@ -549,7 +545,7 @@ mod dispatch_parity {
         app.add_message::<PlayerHealRequested>();
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         app.add_message::<bevy::app::AppExit>();
-        // ⭐ **both backends now dispatch from the SAME message**, which is what
+        // **both backends now dispatch from the SAME message**, which is what
         // makes this a parity harness rather than two harnesses in a trench coat:
         // the cube's 3D press/release observers and the flat Grid's `Interaction`
         // bridge both publish `MenuActionActivated`, and each backend's consumer

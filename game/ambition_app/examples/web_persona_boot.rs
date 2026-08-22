@@ -1,13 +1,5 @@
 //! **Boot the WEB persona's composition on a native host.**
 //!
-//! ⛔⛔ **THE BROWSER IS A DIFFERENT BUILD, AND THAT IS WHAT KEPT HIDING THE
-//! BUG.** Every test in `app_it` runs under the default desktop features, so it
-//! answers "does the composition work" for a feature set the browser does not
-//! have. Twice in one day that difference was the whole defect: first the web
-//! persona had no shell host at all, then it had one and no
-//! `basic_shell_presentation` to draw the route it booted into. Neither was
-//! visible to a green desktop suite.
-//!
 //! This is the cheapest thing that is not a browser: compile `ambition_app` with
 //! the web persona's Cargo features, compose the same
 //! `compose_ambition_visible_game` the browser composes, and step it. A panic in
@@ -69,10 +61,7 @@ fn main() {
         .map(|spec| spec.initial_route.to_string());
     println!("web-persona-boot: SURVIVED startup. initial route = {route:?}");
 
-    // ⛔ **SURVIVING IS NOT SHOWING.** The panic this example was written to catch
-    // killed the app on its first menu tick; fixing that proves the app RUNS, and
-    // proves nothing about whether anything reached the screen. A `NoWindow` host
-    // draws no pixels by construction — but the entities a route builds are
+    // A `NoWindow` host draws no pixels by construction — but the entities a route builds are
     // ordinary world state, and their ABSENCE is exactly what a blank canvas is.
     let world = app.world_mut();
     let ui_nodes = world.query::<&bevy::ui::Node>().iter(world).count();
@@ -91,7 +80,7 @@ fn main() {
         .map(|active| active.route_id.to_string());
     println!("web-persona-boot: active route = {active:?}");
 
-    // ⛔ **AND A COMPOSITION THAT DRAWS IS NOT A COMPOSITION THAT PLAYS.**
+    // **AND A COMPOSITION THAT DRAWS IS NOT A COMPOSITION THAT PLAYS.**
     //
     // The browser reached this point — it booted, routed, and painted a menu the
     // arrow keys navigated — and the controlled body still never moved, because
@@ -107,7 +96,7 @@ fn main() {
         .world()
         .get_resource::<ambition_platformer2d::runtime::SimulationHost>()
         .copied();
-    // ⚠ seat zero is ROW ZERO of the one latch table now; it used to be its own
+    // seat zero is ROW ZERO of the one latch table now; it used to be its own
     // `ControlFrameLatch` resource beside it.
     let latches = app
         .world()

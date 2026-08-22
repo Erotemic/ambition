@@ -85,10 +85,6 @@ impl ConditionId {
     /// mode.
     ///
     /// ⚠ **it never repairs.** No trimming, no case folding, no "did you mean".
-    /// An id that is accepted in two spellings is an id that can be published
-    /// twice, which is the collision [`ConditionId::new`]'s assertions exist to
-    /// prevent — and a parser that quietly fixed content would make the
-    /// published name and the authored name different strings.
     pub fn parse(raw: &str) -> Option<Self> {
         split_namespaced(raw)?;
         Some(Self(raw.to_string()))
@@ -186,12 +182,10 @@ pub struct ConditionDescriptor {
 
 /// **The answer, and there are THREE of them.**
 ///
-/// ⭐⭐ **`Unanswerable` is not a failure mode; it is the reason this is an enum
-/// and not a `bool`.** *"Is the key held?"* asked about an occurrence that does
-/// not exist is not false — false would mean "it exists and nobody has it", and a
-/// gate that opens on the negation would swing open for a world that never
-/// authored the key at all. It is also the value that makes M5's *"explain why
-/// this rule did not fire"* answerable at all.
+/// ⭐⭐ **`Unanswerable` is not a failure mode; it is the reason this is an enum and not a
+/// `bool`.** *"Is the key held?"* asked about an occurrence that does not exist is not false —
+/// false would mean "it exists and nobody has it", and a gate that opens on the negation would
+/// swing open for a world that never authored the key at all.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ConditionOutcome {
     Satisfied,
@@ -228,10 +222,7 @@ impl ConditionOutcome {
 /// catalog `Clone` and captures nothing, so a registration cannot smuggle state
 /// into a value that is supposed to be immutable for the whole run.
 ///
-/// ⛔ **an evaluator must not depend on query iteration order.** It gets `&World`
-/// and Bevy's iteration order is an archetype accident; a condition that counted
-/// entities in order would be a determinism bug that reproduces perfectly on one
-/// machine. Answer a question about identities, not about a sequence.
+/// Answer a question about identities, not about a sequence.
 ///
 /// ⭐ **`&World` and not `&mut World`, which a first draft assumed was
 /// impossible.** `World::try_query` builds a `QueryState` from a shared

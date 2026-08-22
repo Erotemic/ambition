@@ -312,7 +312,7 @@ pub fn session_world_entity(world: &World) -> Option<Entity> {
 
 /// **Advance an app until its session world exists.**
 ///
-/// ⛔ **direct entry and shell entry disagree about WHEN a world is there, and
+/// **direct entry and shell entry disagree about WHEN a world is there, and
 /// that disagreement is the whole of K2b's risk 1.** A direct-entry host spawns
 /// its root at PLUGIN-BUILD time, so `App::new(); …; update(); read_the_world()`
 /// works — and roughly thirty-five integration files, the RL harness and
@@ -325,16 +325,10 @@ pub fn session_world_entity(world: &World) -> Option<Entity> {
 /// once: it advances the app until [`session_world_entity`] answers, and returns
 /// how many frames that took.
 ///
-/// ⭐ **it returns `Err` with the budget rather than panicking**, so a caller can
-/// say what it was waiting for. A settle that silently gave up would hand back
-/// an app whose world is absent for a reason nobody recorded — which is exactly
-/// the failure the `.expect("active session RoomSet")` in `run_headless` turns
-/// into a panic three lines later, with no clue about the barrier.
+/// **it returns `Err` with the budget rather than panicking**, so a caller can say what it was
+/// waiting for.
 ///
-/// ⚠ **a build-time root settles in ZERO frames**, so this is safe to put in
-/// front of a direct-entry caller before anything is deleted — both paths agree
-/// on the answer, they disagree only on when. That is what makes the migration
-/// stageable.
+/// That is what makes the migration stageable.
 pub fn settle_until_session_world(app: &mut App, max_frames: u32) -> Result<u32, u32> {
     for frame in 0..=max_frames {
         if session_world_entity(app.world()).is_some() {
@@ -347,7 +341,7 @@ pub fn settle_until_session_world(app: &mut App, max_frames: u32) -> Result<u32,
 
 /// **Advance until the session has a CONTROLLED SUBJECT, not just a world.**
 ///
-/// ⛔ **a world and a body are two different arrivals**, and a harness whose
+/// **a world and a body are two different arrivals**, and a harness whose
 /// callers immediately drive an actor needs the second one. Settling on the
 /// world alone and then reading
 /// `ControlledSubject` is how the desync canary reported *"the sandbox session
@@ -355,7 +349,7 @@ pub fn settle_until_session_world(app: &mut App, max_frames: u32) -> Result<u32,
 /// at a shell-routed host: the root was there, the body was not, and one frame
 /// separated them.
 ///
-/// ⚠ **it does not replace [`settle_until_session_world`].** A caller that only
+/// **it does not replace [`settle_until_session_world`].** A caller that only
 /// inspects room geometry should wait for the cheaper fact; requiring a body
 /// would make a world-only fixture hang for a reason it does not care about.
 pub fn settle_until_controlled_subject(app: &mut App, max_frames: u32) -> Result<u32, u32> {
@@ -587,10 +581,7 @@ mod settle_tests {
 
     /// **A world that is already there settles in ZERO frames.**
     ///
-    /// ⭐ this is what makes K2b stageable: putting the settle in front of a
-    /// direct-entry caller changes nothing for it, so the migration can land the
-    /// helper and the call sites BEFORE anything is deleted, with both paths
-    /// proven to agree on the answer. They disagree only about when.
+    /// They disagree only about when.
     #[test]
     fn a_build_time_root_settles_immediately() {
         let mut app = App::new();
@@ -601,7 +592,7 @@ mod settle_tests {
 
     /// **A world that never arrives is an ERROR, not a hang and not a panic.**
     ///
-    /// ⛔ the caller this replaces reads `.expect("active session RoomSet")`
+    /// the caller this replaces reads `.expect("active session RoomSet")`
     /// three lines after its update loop, so a session that never activated
     /// surfaced as a panic naming the component rather than the barrier. An
     /// exhausted budget is a fact the caller can report.

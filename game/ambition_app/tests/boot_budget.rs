@@ -18,40 +18,20 @@
 //! gets muted, which is worse than no guard.
 //!
 //! ## Why ceilings and not exact values
-//!
-//! These are budgets, not golden values. A ceiling with real headroom fails on
-//! the CLASS of regression that matters — a sheet decoded eagerly at boot, a
-//! plugin registered twice — and stays quiet for ordinary growth. An exact
-//! assertion would fail on every legitimate addition and be raised without being
-//! read, which is the same as not having one.
 
 use ambition_app::app::{build_visible_app, VisibleRenderMode};
 
 /// Decoded megapixels at boot.
-///
-/// Measured 2026-07-27: **11.1 MP across 19 images**. The ceiling is ~3.5x that —
-/// enormous headroom for new art, and still an order of magnitude below the
-/// 627 MP this used to be. Crossing it means something started decoding whole
-/// character sheets at startup again rather than on demand.
 const BOOT_MEGAPIXEL_BUDGET: f64 = 40.0;
 
 /// Systems registered across every schedule after the shell host is composed.
-///
-/// Measured 2026-07-27: **2645**. The ceiling catches runaway registration — a
-/// plugin added twice, a group installed by two owners — which is a live defect
-/// class here: a duplicated `add_message` installs a second update system for one
-/// channel, drains it twice a frame, and silently eats unread messages. That was
-/// a real bug in `AmbitionLoadPlugin` (closed 2026-07-27) and its symptom was
-/// invisible.
 const SYSTEM_COUNT_BUDGET: usize = 3400;
 
 /// Boot the shipped shell composition and let asset loading settle.
 ///
-/// Settling is what makes the assertion mean anything. Decoding happens on IO
-/// threads, so a fixed frame count samples a partly-loaded world — and an
-/// upper-bound assertion on an understated number passes vacuously. This runs
-/// until the image count has been unchanged for a stretch, which is the honest
-/// "loading is done" signal available without reaching into the asset server.
+/// Settling is what makes the assertion mean anything. This runs until the image count has been
+/// unchanged for a stretch, which is the honest "loading is done" signal available without
+/// reaching into the asset server.
 fn boot_and_settle() -> bevy::app::App {
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
@@ -70,7 +50,7 @@ fn boot_and_settle() -> bevy::app::App {
     let deadline = std::time::Instant::now() + SETTLE_DEADLINE;
     while std::time::Instant::now() < deadline {
         app.update();
-        // ⚠ REAL time, not simulated. Decoding happens on IO threads and the app
+        // REAL time, not simulated. Decoding happens on IO threads and the app
         // clock is pinned to `ManualDuration`, so spinning `update()` advances the
         // simulation without giving the decoders any wall-clock in which to
         // finish. See `SETTLE_POLL`.
@@ -91,16 +71,10 @@ fn boot_and_settle() -> bevy::app::App {
 
 /// How long a poll waits in REAL time before re-reading the census.
 ///
-/// ⚠ **this used to be zero, and the loop counted quiet FRAMES.** Its own
-/// docstring warned against exactly that — *"a fixed frame count samples a
-/// partly-loaded world, and an upper-bound assertion on an understated number
-/// passes vacuously"* — and then 60 consecutive sub-millisecond headless
-/// `update()` calls is a fixed frame count wearing a different hat: ~30ms of wall
-/// clock, which is less than one 16.8 MP PNG takes to decode. Now it waits in the
-/// clock the decoders actually run in.
+/// Now it waits in the clock the decoders actually run in.
 ///
-/// ⛔ **and this was NOT the reason this guard reads low.** Probed before
-/// believing it (2026-07-30): with a 5-second real-time settle the count sits at
+/// **and this was NOT the reason this guard reads low.** Probed before
+/// believing it: with a 5-second real-time settle the count sits at
 /// 19 images and never moves. The gap against the shipped binary's own
 /// `[image-census]` — **11.1 MP / 19 images here versus 82.5 MP / 112 images at
 /// five seconds there** — is a COMPOSITION difference, not a timing one. This
@@ -176,20 +150,10 @@ fn the_composition_registers_no_more_systems_than_its_budget() {
     );
     eprintln!("[boot-budget] {total} systems (budget {SYSTEM_COUNT_BUDGET})");
 }
-/// **The precise version of the system-count budget.** (queue D17)
+/// **The precise version of the system-count budget.**
 ///
-/// The 3400 ceiling catches a doubled plugin only once the double is ~750
-/// systems large, which is why it is described in its own doc comment as a blunt
-/// instrument. This catches one at size ONE: a named system registered twice in
-/// the same schedule is a registration that happened twice, and the defect class
-/// the ceiling exists for — "a plugin or plugin group installed by two owners" —
-/// always looks like this first.
-///
-/// ⚠ The row proposed a per-`Messages<T>` guard instead, on the reasoning that a
-/// duplicated `add_message` installs a second update system for one channel.
-/// Measured 2026-07-28: **Bevy 0.18 has ONE shared `message_update_system` for
-/// every channel**, so that guard would have asserted a property this Bevy does
-/// not have. The duplication is still real; it just does not present per-channel.
+/// The 3400 ceiling catches a doubled plugin only once the double is ~750 systems large, which is
+/// why it is described in its own doc comment as a blunt instrument.
 ///
 /// Two exclusions, both principled rather than convenient:
 ///
@@ -248,23 +212,11 @@ fn no_system_is_registered_twice_in_one_schedule() {
 
 /// **What entering a gameplay session stages, budgeted.**
 ///
-/// The boot budget above measures the title screen and has nothing to say about
-/// the moment the game actually gets slow. Every megapixel in Jon's 2026-07-30
-/// desktop timeline landed AFTER boot: 82.5 MP at five seconds, 450.8 MP and
-/// 1803 MB by fifteen, with a 1437 ms frame in the middle. The guard built to
-/// catch "something decodes whole sheets again" could watch all of that happen
-/// and stay green, because it stopped measuring before the session started.
-///
 /// This measures the STAGED CAST rather than megapixels, and that is the whole
 /// design: the cast is a deterministic function of the composition and the room
 /// graph, so it means the same thing on every machine, while decoded megapixels
 /// headless depend on which variants the quality profile resolves. The cast is
 /// also the thing that CAUSES the megapixels — one staged character is one sheet.
-///
-/// Measured 2026-07-30: **162 characters** before the neighbour-prefetch budget,
-/// which was the entire cast of the game — every pirate, every goblin variant,
-/// every review sandbag — because `prefetch_neighbor_room_preparation_system`
-/// reached every room one loading zone from the hub and the hub has 21 of them.
 #[test]
 fn a_gameplay_session_stages_no_more_of_the_cast_than_its_budget() {
     use ambition_platformer2d::game_shell::ShellCommand;
@@ -302,12 +254,6 @@ fn a_gameplay_session_stages_no_more_of_the_cast_than_its_budget() {
 }
 
 /// The active room's own cast, plus a bounded neighbourhood's worth of prefetch.
-///
-/// Measured 2026-07-30: **10** with the neighbour budget in place, **162**
-/// without. The ceiling is 4x the real number — room for a hub to grow and for
-/// content to add NPCs — and still an order of magnitude under the regression it
-/// exists to catch. A ceiling set just above 162 would have been "the number we
-/// happened to have", which is how a budget stops meaning anything.
 const SESSION_STAGED_CAST_BUDGET: usize = 40;
 
 fn staged_cast_len(app: &bevy::app::App) -> usize {

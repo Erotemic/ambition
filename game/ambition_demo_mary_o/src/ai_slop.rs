@@ -5,17 +5,6 @@
 //! throwaway mob a head-stomp just SQUASHES flat (similar to a Goomba). It renders
 //! from the published `ai_slop` sheet.
 //!
-//! With **zero engine edits**:
-//! - **Body + walk + contact damage** come from a demo-owned roster archetype
-//!   (`mary_o_ai_slop`, a 1-HP `Wanderer` that paces and reverses at walls). Its
-//!   `body_contact_damage` defaults true, so a side touch hurts Mary-O through the
-//!   ONE shared body-contact pass — no bespoke code.
-//! - **The sprite** is the `ai_slop` sheet, resolved by a demo catalog row of the
-//!   same name so it renders standalone AND hosted.
-//! - **The stomp** is a demo RULE, not the engine's attack-hitbox pogo (Jon:
-//!   Mary-O does not pogo; she *bounces* on enemies to squash them). A player
-//!   descending onto its head bounces up, and the mob dies on the spot.
-//!
 //! Unlike the snake, a squashed AI Slop does not become anything — it just dies. The
 //! [`AiSlop`] marker keeps this stomp from ever touching a snake (which owns its own
 //! shell rule); the two enemies never share a code path.
@@ -44,25 +33,20 @@ pub const AI_SLOP_BRAIN_KEY: &str = "mary_o_ai_slop";
 /// enemy render resolves for an AI Slop.
 pub const AI_SLOP_SHEET_TARGET: &str = "ai_slop";
 
-/// **How close an observer must be for an AI Slop to keep thinking**, in world
-/// units. Jon's report is the reason this number exists: *"ai slop will just walk
-/// off the edge of the level before she even gets to that part of the level"*.
+/// **How close an observer must be for an AI Slop to keep thinking**, in world units.
 ///
-/// ⭐ **DERIVED from the view presets, not chosen by feel.** A wake radius below
+/// **DERIVED from the view presets, not chosen by feel.** A wake radius below
 /// the half-width of the view a player selected pops an actor into frame already
 /// moving. The five presets are 640/800/960/1120/1600 world units wide, so the
 /// half-widths are 320/400/480/**560**/800. `Cinematic`'s 560 is the widest that
 /// is a PLAY choice; 720 clears it by 160 — five tiles at this level's `T` — so a
 /// slop has settled onto its column well before it is visible.
 ///
-/// ⚠ **`Debug`'s 1600 is deliberately not covered.** A developer at twice the
+/// **`Debug`'s 1600 is deliberately not covered.** A developer at twice the
 /// gameplay view is looking for exactly this kind of thing, and sizing content for
 /// that zoom would leave the policy culling nothing.
 ///
-/// ⭐ and it culls the reported case: 1-1's slop sit at x = 416/768/1696/2240 plus
-/// one per stair step near the flagpole, in a level 104 columns / 3328px wide,
-/// with the player spawning at `2 * T` = 64. The near pair is awake; everything
-/// from the third column out sleeps until she comes for it.
+/// The near pair is awake; everything from the third column out sleeps until she comes for it.
 pub const AI_SLOP_WAKE_RADIUS: f32 = 720.0;
 
 /// Upward speed Mary-O gets off a squashed AI Slop — a lively hop, a touch under a
@@ -127,42 +111,32 @@ pub fn register_ai_slop_sheet(
     }
 }
 
-// ⭐ `AI_SLOP_TILE_COLUMNS`, `ai_slop_stair_steps()` and
+// `AI_SLOP_TILE_COLUMNS`, `ai_slop_stair_steps()` and
 // `stair_slop_spawn_positions()` are GONE. Where a slop stands is authored.
 //
-// ⚠ its SIZE stays here, and the difference is the rule: how big a slop is, is a
+// its SIZE stays here, and the difference is the rule: how big a slop is, is a
 // fact about the character; where it stands is a fact about the level.
 
 /// **How WIDE an AI Slop is, in world units.** The one authored number; its
 /// height follows from the art.
 ///
-/// ⛔ **this used to be `AI_SLOP_HALF`, splatted into a SQUARE.** The sheet
-/// publishes a body of **257 x 167 px** — a 1.54:1 animal — and
-/// `Vec2::splat(14.0)` laid a 1:1 box over it, so the collision was 28 tall where
-/// the creature is 18. That is Jon's *"the sprite might not match the box"* on
-/// the slop, and unlike the snake's it is not a scale mismatch at all: no value
-/// of any scale knob can make a square describe a 1.54:1 creature.
-///
-/// ⭐ **WIDTH is the anchor because width is what the level sees.** A slop
+/// **WIDTH is the anchor because width is what the level sees.** A slop
 /// patrols a corridor; how much of it it occupies is the fact a room is authored
 /// against, and 28 is what it occupied before — so this change costs no level a
 /// re-author. The height stops being a claim and becomes a measurement.
 ///
-/// ⚠ this function's own doc already said the snake was *"one step further along
+/// this function's own doc already said the snake was *"one step further along
 /// — its size comes from its sheet"*. This is the slop taking that step.
 pub const AI_SLOP_BODY_WIDTH: f32 = 28.0;
 
 /// World units per sheet pixel, derived so the body is [`AI_SLOP_BODY_WIDTH`]
 /// wide and the art's own aspect decides the rest.
 ///
-/// ⚠ **derived per call rather than pinned**, exactly like
+/// **derived per call rather than pinned**, exactly like
 /// `mary_o_world_per_pixel`: the sheets are regenerated regularly and every
 /// regeneration re-measures the alpha bbox, so a scale pinned to today's pixel
 /// count silently resizes the creature the first time a crop moves by a pixel.
 pub fn ai_slop_half_size() -> ae::Vec2 {
-    // No baked art (a headless fixture, `--no-assets`): fall back to the square
-    // this replaced, so a composition with no sheets behaves exactly as before
-    // rather than acquiring a differently-wrong body.
     let fallback = ae::Vec2::splat(AI_SLOP_BODY_WIDTH * 0.5);
     let Some(sheet) = ambition_platformer2d::character_sprites::posed_body_geometry(
         AI_SLOP_SHEET_TARGET,
@@ -180,16 +154,10 @@ pub fn ai_slop_half_size() -> ae::Vec2 {
 
 /// **Is this actor an AI Slop?**
 ///
-/// ⛔ **identity is the ARCHETYPE, not a name and not an id prefix** — see
-/// [`crate::snake::is_snake_brain`] for the two ways this was wrong before and
-/// why `ActorConfig.brain` is the answer. Both mobs made the same mistake twice,
-/// so the reasoning is written once.
+/// Both mobs made the same mistake twice, so the reasoning is written once.
 ///
-/// What it replaced here specifically: `AI_SLOP_TILE_COLUMNS` said where the
-/// ground patrol stood and `stair_slop_spawn_positions` re-derived a slop per
-/// step from the pyramid's own constants, so an author could not add, move or
-/// remove one. The level authors them now, and the engine's own authored-enemy
-/// construction builds them — this crate no longer stages a second copy.
+/// The level authors them now, and the engine's own authored-enemy construction builds them —
+/// this crate no longer stages a second copy.
 pub fn is_ai_slop_brain(brain: &CharacterBrain) -> bool {
     matches!(brain, CharacterBrain::Custom(key) if key == AI_SLOP_BRAIN_KEY)
 }
@@ -197,7 +165,7 @@ pub fn is_ai_slop_brain(brain: &CharacterBrain) -> bool {
 /// Tag freshly staged AI Slop with the [`AiSlop`] marker, so the stomp rule finds
 /// its own, and hold it to the size its sheet describes.
 ///
-/// ⭐ **an enemy's authored rectangle says WHERE, not HOW BIG.** The engine
+/// **an enemy's authored rectangle says WHERE, not HOW BIG.** The engine
 /// spawns an authored body at the rect the level draws, which is right for
 /// geometry and wrong for a character: how big a slop is, is a fact about the
 /// slop. The snake makes the same statement one step further along — its size
@@ -220,17 +188,12 @@ pub fn tag_mary_o_ai_slop(
     for (entity, config, mut body, mut kin) in &mut fresh {
         if is_ai_slop_brain(&config.brain) {
             let half = ai_slop_half_size();
-            // ⛔⛔ **WRITE THE AUTHORITY, NOT ONLY THE MIRROR.** `CenteredAabb`
-            // is DERIVED from `BodyKinematics.size` — `reset_to_spawn` and the
-            // mount seam both do `aabb.half_size = kin.size * 0.5` — so writing
-            // the box alone reached the slop for two ticks and was then
-            // overwritten by the size the spawn gave it. Measured 2026-08-18:
-            // the authored 28 x 18.2 landed on the box at tick 2 and the body
-            // read 73.87 x 48.00 from tick 400 onward, and BOTH readings were
-            // true at once, which is why this survived a guard that asked the
-            // sizing FUNCTION whether the arithmetic was right.
+            // **WRITE THE AUTHORITY, NOT ONLY THE MIRROR.** `CenteredAabb` is DERIVED from
+            // `BodyKinematics.size` — `reset_to_spawn` and the mount seam both do `aabb.half_size =
+            // kin.size * 0.5` — so writing the box alone reached the slop for two ticks and was
+            // then overwritten by the size the spawn gave it.
             //
-            // ⚠ `kin.size` is a FULL size and `half_size` is half of it; the
+            // `kin.size` is a FULL size and `half_size` is half of it; the
             // authored width (`AI_SLOP_BODY_WIDTH`) is the FULL width, which is
             // why `ai_slop_half_size()` is doubled here and not there.
             kin.size = half * 2.0;

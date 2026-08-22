@@ -38,19 +38,12 @@ REPO = Path(__file__).resolve().parents[3]
 SPECS = REPO / "tools/ambition_ldtk_tools/specs"
 ROSTER = REPO / "game/ambition_content/assets/data/character_archetypes.ron"
 
-#: `parse_enemy_brain` and `parse_boss_brain`
-#: (crates/ambition_platformer2d_ldtk/src/fields.rs) resolve these themselves;
-#: everything else becomes `CharacterBrain::Custom(key)` and is looked up in the
-#: roster.
-#:
-#: ⚠ `PhaseScript:` belongs to `BossSpawn`, a population the placement census
-#: never counted — 11 bosses carry no `character_id` field at all and resolve
-#: through boss profiles instead. A first draft of this list omitted the boss
-#: vocabulary and flagged nine bosses as orphans.
-#:
-#: ⛔ `Patrol:` is GONE. A patrol's path is a native `path_ref` EntityRef now,
-#: and `convert_enemy_spawn` refuses the retired prefix out loud — so a spec
-#: still spelling it must be reported here, not excused.
+# : `parse_enemy_brain` and `parse_boss_brain` :
+# (crates/ambition_platformer2d_ldtk/src/fields.rs) resolve these themselves; : everything else
+# becomes `CharacterBrain::Custom(key)` and is looked up in the : roster. : : `PhaseScript:`
+# belongs to `BossSpawn`, a population the placement census : never counted — 11 bosses carry no
+# `character_id` field at all and resolve : through boss profiles instead. A first draft of this
+# list omitted the boss : vocabulary and flagged nine bosses as orphans. : : `Patrol:` is GONE.
 BUILT_IN_PREFIXES = ("Guard:", "PhaseScript:")
 BUILT_IN_EXACT = frozenset({"Passive", "Dormant"})
 

@@ -1,28 +1,20 @@
 //! **What the boss catalog says about sheets and special telegraphs, pinned
 //! exactly — so moving it out of Rust cannot change it.**
 //!
-//! `boss_sprite_filenames()` and `special_animation_keys()` are content authored
-//! as Rust `BTreeMap`s, which the authoring-loop ledger records as the reason no
-//! schema can own them yet: *"they have to become authored DATA before a schema
-//! can own them."* This is the characterization pin that has to stay green
-//! across that move. It asserts the VALUES, not the mechanism, so it says nothing
-//! about where they live and everything about what they are.
+//! It asserts the VALUES, not the mechanism, so it says nothing about where they live and
+//! everything about what they are.
 //!
-//! ⚠ **it deliberately pins the exact sets, not just counts.** A count survives
+//! **it deliberately pins the exact sets, not just counts.** A count survives
 //! a typo'd key — and a typo'd key here is silent by construction: a boss whose
 //! sheet filename is misspelled draws a placeholder, and a special whose name is
 //! misspelled telegraphs nothing, because `special_animation_keys` returns `&[]`
 //! for anything unregistered (`boss_animation_keys_for_profile`: *"Unregistered
 //! → no special row"*).
 //!
-//! ⛔ **`apple_rain` is absent from the telegraph map ON PURPOSE and this test
-//! records that rather than fixing it.** It is the eleventh declared `Special` in
-//! `boss_profiles.ron` and the only one with no rows, which is the single line of
-//! content blocking the `BossAnim`→`CharacterAnim` fold. Adding it changes a live
-//! boss's damageable shape on the no-sample path (measured: a 42 × 33 head box,
-//! ≈5% of the frame, replacing the body box), so it is Jon's call and it is
-//! written up in `awaiting-maintainer-decision.md`. A sibling test —
-//! `apple_rain_claims_no_animation_rows_which_is_why_the_fold_is_blocked` — fails
+//! **`apple_rain` is absent from the telegraph map ON PURPOSE and this test records that rather
+//! than fixing it.** It is the eleventh declared `Special` in `boss_profiles.ron` and the only one
+//! with no rows, which is the single line of content blocking the `BossAnim`→`CharacterAnim` fold.
+//! A sibling test — `apple_rain_claims_no_animation_rows_which_is_why_the_fold_is_blocked` — fails
 //! on EITHER answer so neither happens quietly; this one would too.
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -97,12 +89,8 @@ fn the_ten_telegraphing_specials_ask_for_exactly_these_rows() {
     }
 }
 
-/// ⭐ **the invariant the schema will inherit**: a telegraph row for a special
+/// **the invariant the schema will inherit**: a telegraph row for a special
 /// nobody declares is dead content, and the current map has no way to say so.
-///
-/// ⚠ this is the direction that CAN be checked without settling `apple_rain`.
-/// The other direction — every declared `Special` has rows — is exactly the open
-/// question, so asserting it here would be taking Jon's decision by test.
 #[test]
 fn every_telegraphing_special_is_one_the_profiles_actually_declare() {
     use ambition_characters::brain::BossAttackProfile;

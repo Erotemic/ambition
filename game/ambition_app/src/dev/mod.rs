@@ -32,14 +32,7 @@ impl Plugin for DevToolsPlugin {
 
 /// **A developer typing into an inspector is not steering the character.**
 ///
-/// egui receives the same key presses leafwing does, so editing a tuning field
-/// with the inspector open also drove the actor: typing a jump height walked
-/// the player off the ledge being measured. `DEBUG_CONTEXT` has existed for
-/// this since the claim system landed — priority 195, above every in-session
-/// surface, *"because a developer reaching for the inspector means it"* — and
-/// nothing declared it.
-///
-/// ⚠ **the condition is "egui WANTS the keyboard", not "the inspector is
+/// **the condition is "egui WANTS the keyboard", not "the inspector is
 /// visible".** Watching values while playing is the normal way to use an
 /// inspector; capturing input for the whole time a panel is up would break the
 /// thing the panel is there to observe. egui already answers the narrower

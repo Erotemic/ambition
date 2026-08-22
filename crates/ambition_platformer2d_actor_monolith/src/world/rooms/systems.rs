@@ -22,7 +22,7 @@ use ambition_time::WorldTime;
 /// mode down on the same frame it becomes stale, which requires the room
 /// metadata to already describe the NEW room.
 ///
-/// ⚠ ONE member. The chained neighbours (`sync_room_music_request`,
+/// ONE member. The chained neighbours (`sync_room_music_request`,
 /// `tick_portal_phases_system`) are CONSUMERS of the fresh metadata, not part of
 /// establishing it, so widening would make teardown wait on music and portals.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -68,7 +68,7 @@ pub fn sync_room_music_request(
 /// On, so the traversal check (only `On` allows it) remains stable
 /// even when the switch flickers.
 ///
-/// ⚠ **this runs in the SIM schedule** — `GgrsSchedule` under the shipped
+/// **this runs in the SIM schedule** — `GgrsSchedule` under the shipped
 /// rollback host — so every line below executes on speculative frames and is
 /// re-executed on resimulation. The switch it integrates lives in the
 /// rollback-registered `AmbitionGameSave`; the integral it produces lives in the
@@ -89,7 +89,7 @@ pub fn tick_portal_phases_system(
     if dt <= 0.0 {
         return;
     }
-    // ⚠ iteration order over the authored map is arbitrary and that is FINE:
+    // iteration order over the authored map is arbitrary and that is FINE:
     // each portal's tick reads only its own switch and writes only its own
     // phase, so no portal can observe another's update. Nothing here folds an
     // order-dependent accumulator.
@@ -116,11 +116,6 @@ pub fn detect_room_transition_system(
     room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomSet>,
     sim_state: Res<crate::RoomTransitionCooldown>,
     portals: Res<GatePortalRegistry>,
-    // ⭐ **the gate's LIVE phase, read in the same schedule that integrates it.**
-    // Split out of `GatePortalRegistry` on 2026-08-15 so it can be rollback
-    // state without dragging the authored config into the snapshot: this is the
-    // value the refusal below is made from, and before the split it did not
-    // rewind at all.
     phases: Res<GatePortalPhases>,
     // The transition subject is the CONTROLLED body: if the driven body (home
     // avatar or possessed actor) enters an exit/door, THAT body transitions. Future
@@ -151,29 +146,22 @@ pub fn detect_room_transition_system(
     // reconstructing a path from velocity when a sample exists. Room transitions
     // simply missed that migration.
     //
-    // ⚠ `Option`, and `vel · dt` survives as the FALLBACK — the sample's own
-    // contract says bodies without the component (legacy spawns, scratch fixtures)
-    // keep the historical approximation at the read site. Deleting the fallback is
-    // for the day every mover writes a sample, not for this fix.
-    // A body whose attempt has ended cannot start a room crossing. Death is
-    // resolved in `PlayerSimulation`, before this `RoomTransition::Detect`
-    // phase, so this filter also closes the same-tick race where a pit death
-    // marked the body `OutOfPlay` and the old detector then recorded an edge
-    // crossing for the corpse later in the frame.
+    // `Option`, and `vel · dt` survives as the FALLBACK — the sample's own contract says bodies
+    // without the component (legacy spawns, scratch fixtures) keep the historical approximation
+    // at the read site. Deleting the fallback is for the day every mover writes a sample, not
+    // for this fix. A body whose attempt has ended cannot start a room crossing.
     bodies: Query<
         (&crate::actor::BodyKinematics, Option<&ae::SweepSample>),
         Without<ambition_combat::death_rules::OutOfPlay>,
     >,
-    // The triggering body's rollback-stable identity, recorded into the deferred
-    // transition so the confirmed commit transports the body that CROSSED the
-    // exit — not whatever is controlled later, after a possession change (GPT
-    // review finding 2).
+    // The triggering body's rollback-stable identity, recorded into the deferred transition so
+    // the confirmed commit transports the body that CROSSED the exit — not whatever is
+    // controlled later, after a possession change.
     sim_ids: Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
     primary_q: Query<Entity, crate::actor::PrimaryPlayerOnly>,
     world_time: Res<WorldTime>,
-    // Track B: under a rollback host, defer the transition instead of engaging
-    // the (not-rollback-registered) multi-tick load machine on a speculative
-    // frame. Absent on fixed-tick / render hosts, so the eager path is unchanged.
+    // Track B: under a rollback host, defer the transition instead of engaging the
+    // (not-rollback-registered) multi-tick load machine on a speculative frame.
     boundary: Option<Res<ae::ConfirmedFrameBoundary>>,
     mut pending_lifecycle: ResMut<crate::session::lifecycle_commit::PendingLifecycleCommit>,
 ) {
@@ -199,39 +187,13 @@ pub fn detect_room_transition_system(
         .unwrap_or_else(|| kin.vel * world_time.sim_dt());
     let wants_interact = slot_gestures.primary().buffered();
     let Some(zone) = room_set.transition_for_player(kin.aabb(), delta, wants_interact) else {
-        // ⭐ **"at the very least maybe we need more logs"** (Jon, 2026-08-12, on
-        // standing in a loading zone that did nothing). A body ON a zone that
-        // does not transition is the one state this system had no voice for: it
-        // returned, and the game reported that as the room simply not changing —
-        // which is what sent an investigation into the key bindings.
-        //
-        // So when the body is TOUCHING a zone and the swept test still said no,
-        // say every fact the decision was made from. The three that matter are
-        // exactly the three ways this goes wrong: `delta` (is the path being
-        // seen at all — the bug this replaced), `wants_interact` (a `Door` needs
-        // a press and an `EdgeExit` does not), and the activation kind (which of
-        // those two this zone is).
-        //
-        // ⚠ `warn_once`: a stuck body re-enters this branch every tick, and the
+        // `warn_once`: a stuck body re-enters this branch every tick, and the
         // situation is a standing one — the first report is the whole message.
-        // ⚠ and it costs nothing on the normal path: it runs only after the
+        // and it costs nothing on the normal path: it runs only after the
         // swept test has already declined, and only for a body actually
         // overlapping an authored zone.
         //
-        // ⛔⛔ **A `Door` NOBODY HAS PRESSED IS NOT A SYMPTOM, so this SPLITS BY
-        // LEVEL rather than going silent** (D162, 2026-08-17). Standing in a
-        // doorway without pressing is what a doorway is FOR, and this fired on
-        // ordinary play in half the rooms sampled — a WARN that describes
-        // correct behaviour is how a log stops being read. Demonstrated rather
-        // than argued: driving the press against this very zone shows the
-        // warning first and the transition working immediately after it.
-        //
-        // ⛔ **but it must NOT be filtered away on `!wants_interact`**, which
-        // was the first fix I wrote and it was wrong: the failure this message
-        // was BUILT for *"sent an investigation into the key bindings"*, and a
-        // broken binding is exactly the case where the press happened and
-        // `wants_interact` still reads false. Suppressing that silences the
-        // instrument in its own founding scenario.
+        // Suppressing that silences the instrument in its own founding scenario.
         //
         // ⇒ WARN when the press HAPPENED and nothing moved (unambiguous), DEBUG
         // when it did not (ordinary, and still one log level away). Every fact
@@ -291,13 +253,9 @@ pub fn detect_room_transition_system(
             Some(RoomSfxId::new("world.portal.enter"))
         }
     };
-    // ⭐ **WHO is crossing, resolved ONCE and required by BOTH hosts.** This used
-    // to sit inside the rollback branch, because only the deferred intent named
-    // its subject — the eager message carried no subject at all and the commit
-    // re-derived `ControlledSubject`-or-primary several frames later. Two
-    // descriptions of one crossing that disagreed about the body is exactly the
-    // fork D71 exists to close, so the refusal below is now universal: a body we
-    // cannot name is a crossing we cannot describe, on any host.
+    // Two descriptions of one crossing that disagreed about the body is exactly the fork exists
+    // to close, so the refusal below is now universal: a body we cannot name is a crossing we
+    // cannot describe, on any host.
     let Ok(subject) = sim_ids.get(subject_entity) else {
         bevy::log::error_once!(
             "transition subject {:?} has no SimId; refusing an ambiguous crossing",
@@ -305,22 +263,15 @@ pub fn detect_room_transition_system(
         );
         return;
     };
-    // ⭐ **ONE description, recorded the same way on every host** (D71).
+    // **ONE description, recorded the same way on every host**.
     //
-    // This used to fork: a rollback host recorded a `LifecycleIntent` and an
-    // eager host wrote a `RoomTransitionRequested` carrying a resolved zone and
-    // no subject. Two descriptions of one crossing, and only the message opened
-    // the readiness transaction — so the SHIPPED game, which composes the
-    // rollback host, changed rooms with no cover, no failure reporting and no
-    // asset accounting. Now both hosts record the intent and the transaction is
-    // its only consumer; they differ only in WHEN it is safe to act on, which is
-    // the frame stamped here.
+    // Two descriptions of one crossing, and only the message opened the readiness transaction — so
+    // the SHIPPED game, which composes the rollback host, changed rooms with no cover, no failure
+    // reporting and no asset accounting. Now both hosts record the intent and the transaction is
+    // its only consumer; they differ only in WHEN it is safe to act on, which is the frame stamped
+    // here.
     //
-    // Earliest-sticky (see `PendingLifecycleCommit::record`), so a re-detected
-    // overlap on a later frame — the body stays on the exit until the commit
-    // relocates it — is a no-op rather than a duplicate.
-    //
-    // ⚠ the intent names the room by ID, so it needs the target's spec. A
+    // the intent names the room by ID, so it needs the target's spec. A
     // failure here leaves the press buffered on purpose (the transition is still
     // wanted; we just cannot describe it yet), so this system re-runs every tick
     // the body stays on the exit — `_once` keeps a stuck exit out of the log.
@@ -335,7 +286,7 @@ pub fn detect_room_transition_system(
     // crossing has been validated.
     slot_gestures.primary_mut().clear();
     pending_lifecycle.record(
-        // ⚠ **an eager host has no frames to be ahead of.** `0` is not a
+        // **an eager host has no frames to be ahead of.** `0` is not a
         // placeholder: with no `ConfirmedFrameBoundary` there is no speculation,
         // so the intent is confirmed the instant it is recorded, which is what
         // `ConfirmedRoomTransitionIntent` reads it as.

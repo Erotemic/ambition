@@ -68,14 +68,8 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
                 .after(portal_transit),
         );
 
-        // Suppress wall abilities while transiting so the carved aperture edges
-        // are not grabbed before movement integration probes for a ledge — for
-        // ANY transiting body, not just the primary player. Mutates
-        // `BodyAbilities`, so it is Ambition ability glue (Stage 19 Phase 5a),
+        // Mutates `BodyAbilities`, so it is Ambition ability glue (Stage 19 Phase 5a),
         // registered in the same `PortalSet::TransitGuards` slot the core used.
-        // The paired restore puts the verbs back from the body's authored
-        // `AbilityBase` when its `PortalTransit` latch is removed (the primary
-        // player would also get this from the F3 re-sync; no other body would).
         app.add_systems(
             sim,
             (
@@ -102,7 +96,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
                 .in_set(PortalSet::Transit)
                 .before(ambition_portal2d::PortalLinkResolution),
         );
-        // **The attribution latch is rollback state.** (GPT 5.6 review 5)
+        // **The attribution latch is rollback state.**
         //
         // `attach_portal_hosts` is one-shot: a portal that failed to attach stays a
         // static aperture rather than re-scanning every frame. Losing that latch on a
@@ -119,10 +113,6 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
             register_rollback_state(&mut registrar);
         }
 
-        // Bridge portal-owned carves → the host collision overlay. Runs in
-        // `PortalSet::Carves` (which is `.before(CoreSimulation)`), after
-        // `publish_portal_carves` fills `PortalCarves`, so the overlay sees the
-        // same carves the same frame the in-core write used to produce.
         app.add_systems(
             sim,
             bridge_portal_carves
@@ -130,9 +120,6 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
                 .after(publish_portal_carves),
         );
 
-        // Measure the wall material behind each placed portal (RoomGeometry →
-        // the portal-owned PortalHostDepths seam) BEFORE the carve publish and
-        // the transit consume it this frame — the thin-wall geometric guard.
         app.add_systems(
             sim,
             sync_portal_host_depths
@@ -173,13 +160,9 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::PlayerSimulation),
         );
 
-        // Resolve the `FirePortalGun` gesture → the generic `PortalFireIntent`
-        // (origin from the player's body, dir from the aim, channel from the held
-        // gun) the core fire system consumes (Phase 2 Seam 3). Runs after the
-        // input adapter (which emits `FirePortalGun`) and, being in
-        // `PortalSet::InputAdapter`, before `PortalSet::WeaponAndProjectiles`
-        // (where `portal_fire_system` reads the intent) — same frame, identical
-        // behavior to the old in-core player+gun read.
+        // Resolve the `FirePortalGun` gesture → the generic `PortalFireIntent` (origin from the
+        // player's body, dir from the aim, channel from the held gun) the core fire system
+        // consumes (Phase 2 Seam 3).
         app.add_systems(
             sim,
             resolve_portal_fire_intent
@@ -217,17 +200,10 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
                 .in_set(PortalSet::WeaponAndProjectiles),
         );
 
-        // --- Movement-intent bracketing around portal core's input warp ---
-        // Portal core's `warp_portal_input` reads + mutates the content-agnostic
-        // `PlayerMovementIntent`; these adapters mirror it to/from `ControlFrame`
-        // so the result is byte-identical to the old direct-`ControlFrame` mutate.
-        // Sync ControlFrame -> intent BEFORE the warp, apply intent -> ControlFrame
-        // AFTER it.
-        // --- Identity → policy tagging + player-input reproduction ---
-        // `ensure_portal_bodies` adds the `PortalBody` marker + the right
-        // `PortalPolicy` to the player and every actor BEFORE the generic
-        // `portal_transit` core runs, so the SET of bodies that transit is
-        // identical to the old player + actor split.
+        // --- Movement-intent bracketing around portal core's input warp --- Portal core's
+        // `warp_portal_input` reads + mutates the content-agnostic `PlayerMovementIntent`;
+        // these adapters mirror it to/from `ControlFrame` so the result is byte-identical to
+        // the old direct-`ControlFrame` mutate.
         app.add_systems(
             sim,
             ensure_portal_bodies
@@ -250,15 +226,12 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         // ordering as `ensure_portal_bodies` so a freshly-spawned projectile is
         // tagged before transit sees it.
         //
-        // Ordering of projectile INTEGRATION vs transit: projectile motion
-        // integrates in `Platformer2dSimulationPhaseMonolith::Combat` (`step_projectiles`), which is chained AFTER
-        // `Platformer2dSimulationPhaseMonolith::PlayerSimulation` (where `PortalSet::Transit` lives). So
-        // within every frame the relationship is FIXED and deterministic —
-        // `portal_transit` runs against the projectile body integrated on the
-        // PREVIOUS frame, the same fixed cadence actors use (integrate → transit
-        // → integrate → transit). The transit machine is a multi-frame
-        // aperture/centroid latch, so the one-frame sampling cadence is correct;
-        // what matters is that it is consistent, which the set chain guarantees.
+        // Ordering of projectile INTEGRATION vs transit: projectile motion integrates in
+        // `Platformer2dSimulationPhaseMonolith::Combat` (`step_projectiles`), which is chained
+        // AFTER `Platformer2dSimulationPhaseMonolith::PlayerSimulation` (where
+        // `PortalSet::Transit` lives). The transit machine is a multi-frame aperture/centroid
+        // latch, so the one-frame sampling cadence is correct; what matters is that it is
+        // consistent, which the set chain guarantees.
         app.add_systems(
             sim,
             ensure_projectile_portal_bodies
@@ -342,11 +315,9 @@ mod schedule_tests {
         raw.set(slot, frame);
     }
 
-    /// The general input contract: any system tagged `InputSet::Route` is
-    /// pinned BEFORE the canonical primary-slot publication in
-    /// `Platformer2dSimulationPhaseMonolith::PlayerInput`. Observing the value in
-    /// `SlotControls[PRIMARY]` proves the writer ran before that boundary; there
-    /// is deliberately no second slot→body copy to inspect.
+    /// The general input contract: any system tagged `InputSet::Route` is pinned BEFORE the
+    /// canonical primary-slot publication in
+    /// `Platformer2dSimulationPhaseMonolith::PlayerInput`.
     #[test]
     fn input_set_populate_runs_before_primary_slot_publication() {
         use ambition_characters::control::{PlayerSlot, SeatRawFrames, SlotControls};

@@ -51,15 +51,11 @@ pub fn emit_player_time_intent_system(
 ) {
     // **NO LOCAL BODY IS NOT "NOTHING TO SAY".**
     //
-    // ⛔ this used to `return`, and the whole-system return was Jon's freeze
-    // (2026-08-07): pause a match — which forces this clock to zero so
-    // presentation stops dead — quit to the title, then start a CPU-versus-CPU
-    // match. There is no `PrimaryPlayer` in it, so nothing ever asked for the
-    // neutral pace back, and the world ran at scale 0.0 forever. Every fighter
-    // built, seated, armed, framed, brains ticking, `SimTick` counting up — and
-    // zero sim seconds per tick, so not one body moved a pixel. *"the characters
-    // are just stuck in air"*, with a menu that still worked, because menus do
-    // not run on sim time.
+    // There is no `PrimaryPlayer` in it, so nothing ever asked for the neutral pace back, and the
+    // world ran at scale 0.0 forever. Every fighter built, seated, armed, framed, brains ticking,
+    // `SimTick` counting up — and zero sim seconds per tick, so not one body moved a pixel. *"the
+    // characters are just stuck in air"*, with a menu that still worked, because menus do not run
+    // on sim time.
     //
     // ⭐ **the ladder below is slot zero's; the LAST RUNG is the world's.**
     // Hitstop and bullet-time are per-player feel affordances and are correctly

@@ -23,6 +23,5 @@ pub use ambition_platformer2d_shared_tangle::{gravity, lifecycle, math, schedule
 // Facade modules re-exporting extracted runtime surfaces (Stage 16 / S1–S2).
 pub mod body;
 pub mod collision;
-// Still-local: the not-yet-extracted remainder (orientation, until gravity moves).
 pub mod orientation;
 pub mod prelude;

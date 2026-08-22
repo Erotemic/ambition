@@ -26,9 +26,6 @@ pub struct BossHealthBarOverlayVisual;
 /// actor only when developer health bars are enabled. This system is the
 /// player-facing boss UI: if a live boss exists in the active room, show
 /// the boss name and HP fraction in the top-center HUD overlay.
-///
-/// Pure read-model consumer (E4 slice 5): boss identity rides
-/// `BossRenderIndex`, liveness + hp ride the boss's `FeatureView` row.
 pub fn sync_boss_health_bar_overlay(
     mut commands: Commands,
     overlays: Query<Entity, With<BossHealthBarOverlayVisual>>,
@@ -163,9 +160,6 @@ pub fn sync_health_overlays(
     active_session: Option<Res<ActiveSessionScope>>,
     developer_tools: Res<ambition_dev_tools::dev_tools::DeveloperTools>,
     overlays: Query<Entity, With<HealthOverlayVisual>>,
-    // Pure read-model consumer (E4 slice 5): the player rides its
-    // `BodyPoseView`; actors/bosses/breakables ride their `FeatureView`
-    // rows (hp/alive/fighting facts) + the identity indexes for labels.
     player: Query<
         (
             &ambition_sim_view::BodyPoseView,

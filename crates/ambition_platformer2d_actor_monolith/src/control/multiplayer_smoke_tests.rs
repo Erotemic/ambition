@@ -33,12 +33,8 @@ fn dummy_attack_spec() -> crate::combat::AttackSpec {
     crate::combat::attack_spec_from_view(&view, crate::combat::AttackIntent::Forward)
 }
 
-/// Two player entities each carry their own `BodyMelee`,
-/// so a swing on one player does not silently affect the other.
-/// Regression guard for the old shared-resource shape — if a
-/// future patch turns `BodyMelee` back into a global
-/// `Resource`, this test stops being meaningful and should fail
-/// loudly when it tries to read two values.
+/// Two player entities each carry their own `BodyMelee`, so a swing on one player does not silently
+/// affect the other.
 #[test]
 fn two_players_have_independent_active_attacks() {
     let mut app = App::new();

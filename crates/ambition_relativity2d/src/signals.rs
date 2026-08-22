@@ -374,7 +374,6 @@ pub enum LightReceiverMode2d {
     Reflect,
 }
 
-/// An AABB receiver measured in the current Minkowski chart.
 #[derive(Component, Clone, Debug, PartialEq)]
 pub struct LightReceiver2d {
     pub label: String,

@@ -10,16 +10,9 @@
 //!
 //! Class B carries a contract the other two do not:
 //!
-//! > at most one Class-B action applies per body per frame — the earliest by
-//! > TOI along the sample; ties break by fixed priority
-//! > `death/reset > room-transition > portal-transit`
-//!
-//! Schedule order *approximates* this today (transit runs before zone checks,
-//! reset processing runs last). Nothing proved it. This module is what makes it
-//! provable: every Class-B writer records its remap here, the ledger is cleared
-//! at the head of each sim frame, and the CC3 fuzz oracle asserts invariant 5 —
-//! **no body carries two Class-B remaps in one frame**. A violation is a
-//! re-ordering bug, not a tolerated race.
+//! Nothing proved it. This module is what makes it provable: every Class-B writer records its
+//! remap here, the ledger is cleared at the head of each sim frame, and the CC3 fuzz oracle
+//! asserts invariant 5 — **no body carries two Class-B remaps in one frame**.
 //!
 //! ## This is a ledger, not an arbiter
 //!
@@ -68,9 +61,6 @@ impl ClassBRemap {
         self as u8
     }
 
-    /// True when `self` is the action §3.2 says should survive a same-frame tie
-    /// with `other`. Ties between equal kinds are not decidable here — two
-    /// portal transits in one frame is itself the bug.
     pub fn wins_over(self, other: Self) -> bool {
         self.priority() < other.priority()
     }
@@ -95,11 +85,7 @@ pub struct ClassBRemapEntry {
     pub kind: ClassBRemap,
 }
 
-/// A body that took two or more Class-B remaps in one frame: invariant 5's
-/// violation shape. `first`/`second` are in *application* order, so
-/// `second.wins_over(first)` distinguishes "a stronger authority correctly
-/// overrode a weaker one but the weak one still ran" (a missed sample reset)
-/// from "two authorities fought" (a re-ordering bug).
+/// A body that took two or more Class-B remaps in one frame: invariant 5's violation shape.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ClassBContention {
     /// The doubly-remapped body.
@@ -234,8 +220,6 @@ mod tests {
         );
         // The doctrine says the room transition should have won the tie...
         assert!(found[0].second.wins_over(found[0].first));
-        // ...and it ran second, so the bug is that the portal's remap ALSO
-        // applied: the sweep sample was not reset (§3.1 rule 2).
     }
 
     /// Three remaps on one body report ONE contention (the first offending

@@ -21,9 +21,6 @@ pub struct Platformer2dFeelTuningMonolith {
     /// into a door. Matches the possession hold, which is the game's other
     /// hold-a-direction gesture.
     pub interaction_hold_time: f32,
-    /// **Hitlag at a reference-strength connect** — the freeze BOTH bodies take
-    /// when a strike lands, scaled by how hard it landed.
-    ///
     /// ⛔ this replaces `attack_hitstop_time` (0.055, attacker) and
     /// `player_damage_hitstop_time` (0.070, victim): two unscaled constants at
     /// two sites for one event.

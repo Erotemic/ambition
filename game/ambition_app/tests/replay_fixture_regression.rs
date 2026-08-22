@@ -1,11 +1,3 @@
-//! Replay-fixture regression test.
-//!
-//! Loads the in-tree fixture trace (`tests/fixtures/replay_central_hub_60f_v1.json`),
-//! lifts its recorded controls into a typed
-//! [`InputStream`](ambition_platformer2d::engine_core::InputStream) (netcode N0.2), drives a
-//! fresh `Platformer2dSimHarness` at fixed-60Hz with it, and asserts ZERO divergence from
-//! the recorded `player.pos` at every tick.
-//!
 //! This pins many gameplay invariants in one shot: any change that shifts player
 //! position determinism in the central_hub_complex Startup→tick path will fail
 //! this test with a clear "frame N diverged" message.
@@ -17,13 +9,7 @@
 //! guards the trajectory of a specific room from a specific recorded moment;
 //! that one guards the artifact.
 //!
-//! ⭐ **REGENERATED 2026-08-06 (K2b edit 2), and the diff proves nothing moved.**
-//! Deleting the build-time `SessionRoot` made every entry point activate through
-//! the shell, which takes frames — so the caller's frame 0 is now one frame
-//! later in the same fall. The new trace is the old one shifted by exactly one:
-//! `new[i] == old[i+1]` for all 59 frames, and both land at y=904.0.
-//!
-//! ⚠ **that check is the point, and it is the one to repeat.** A regenerated
+//! **that check is the point, and it is the one to repeat.** A regenerated
 //! fixture is worthless as evidence unless somebody says what changed about it.
 //! "The trajectory is identical and the window moved" is a different claim from
 //! "the physics changed", and only one of them is a reason to accept a rewrite.
@@ -52,12 +38,6 @@ const TOLERANCE: f32 = 0.001;
 /// more (velocity, collision neighborhood, moving platforms); `serde` ignores
 /// what we do not name, and `ControlFrame`'s `#[serde(default)]` fills the
 /// fields this fixture predates (`left_pressed`, `aim_*`, the projectile verbs).
-///
-/// Deserializing straight into `ControlFrame` is the point of N0.2: the trace's
-/// controls ARE control frames, and the old hand-written `f32_field` /
-/// `bool_field` pokes into an untyped `serde_json::Value` — via an `AgentAction`
-/// that cannot even carry `shield_held` or `aim_x` — were a lossy re-encoding of
-/// data that already had a type.
 #[derive(Deserialize)]
 struct TraceDump {
     frames: Vec<TraceFrame>,

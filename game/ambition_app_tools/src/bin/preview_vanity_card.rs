@@ -8,7 +8,7 @@
 //!
 //!     cargo run -p ambition_app_tools --bin preview_vanity_card
 //!
-//! ⚠ no `--features visible`. That was true when this bin lived in
+//! no `--features visible`. That was true when this bin lived in
 //! `ambition_app`, where `visible` is a default feature; `ambition_app_tools`
 //! declares only `causal`, and cargo hard-errors on a feature a package does
 //! not have — so the documented command could not run at all.

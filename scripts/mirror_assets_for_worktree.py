@@ -21,7 +21,6 @@ symlink, while every other asset still points at the shared copy — and the mai
 checkout never sees it. Directory links would send that write straight into
 main's assets, which is exactly the accident this exists to prevent.
 
-## ⛔ Submodules are NOT gitignored assets, and this used to skip them
 
 A fresh worktree gets EMPTY submodule directories, and one of them is not art:
 `game/ambition_map_assets` holds every `.ldtk` world. The files under
@@ -73,7 +72,7 @@ MIRRORED_TREES = (
     "crates/ambition_platformer2d_actor_monolith/assets/backgrounds/parallax_layers_0_5x",
     "crates/ambition_platformer2d_actor_monolith/assets/backgrounds/parallax_layers_0_25x",
     "crates/ambition_platformer2d_actor_monolith/assets/backgrounds/parallax_layers_potato",
-    # ⚠ Content-side generated art too, and it is easy to forget because it sits
+    # Content-side generated art too, and it is easy to forget because it sits
     # under a different crate. The first version of this list stopped at the
     # monolith and left `vanity_card`'s frames behind; the app integration suite
     # then failed twenty tests in this worktree — declared art paths, doors, the
@@ -88,7 +87,7 @@ MIRRORED_TREES = (
 
 
 # Submodules a worktree needs CHECKED OUT rather than mirrored, with the reason
-# a worker will hit if they are not. ⚠ these are ordinary git content, not
+# a worker will hit if they are not. these are ordinary git content, not
 # generated assets: `git submodule update --init` gives the worktree its own
 # checkout, and symlinking them at main's would route an edit made here into
 # main's index.
@@ -257,7 +256,7 @@ def main(argv: List[str] | None = None) -> int:
         )
         return 2
 
-    # ⭐ **submodules FIRST.** A worker's first LDtk command is what discovers
+    # **submodules FIRST.** A worker's first LDtk command is what discovers
     # this gap today, and it discovers it as a traceback rather than as advice.
     submodule_problems: list[str] = []
     if not args.no_submodules:

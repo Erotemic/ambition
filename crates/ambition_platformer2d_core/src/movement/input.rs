@@ -3,10 +3,9 @@ use std::marker::PhantomData;
 use crate::reference_frame::{LocalAxes, WorldVec2};
 use crate::Vec2;
 
-/// An enum whose variants index a compact fixed [`ActionEdges`] store. `COUNT`
-/// must fit in the `u32` bitset (≤ 32), and `index` must be a stable, dense
-/// `0..COUNT`. Implemented by [`MovementAction`] (and, later, any other
-/// action family that wants the same edge storage).
+/// `COUNT` must fit in the `u32` bitset (≤ 32), and `index` must be a stable, dense `0..COUNT`.
+/// Implemented by [`MovementAction`] (and, later, any other action family that wants the same
+/// edge storage).
 pub trait ActionKey: Copy {
     const COUNT: usize;
     fn index(self) -> usize;

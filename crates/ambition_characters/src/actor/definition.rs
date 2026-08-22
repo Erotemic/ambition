@@ -1,21 +1,14 @@
 //! **THE AUTHORED CHARACTER** — what content writes down, before anything
 //! resolves it.
 //!
-//! ⭐⭐ **moved out of `ambition_platformer2d_actor_monolith` on 2026-08-12**
-//! (D73 checklist item 2, appendix C ruling 4). It had lived beside the
-//! PREPARATION that consumes it, in the monolith, which made the crate that
-//! happens to build a character look like the owner of what a character IS.
-//!
 //! Item 1 settled where the cut goes and the file settled it, not a preference:
 //! `derive_moveset` — the single reach into `ambition_combat` — is a private
 //! preparation function rather than a method on this type, and resolving a kit
 //! is runtime work. So the AUTHORED half moves and
 //! `PreparedCharacterDefinition` stays above.
 //!
-//! ⚠ **this half already had no `crate::` references at all**, which is how a
-//! 600-line move became a cut rather than a refactor. The one monolith type it
-//! did name — `avatar::RangedExecution` — moved here first, for the same reason
-//! and in its own commit.
+//! **this half already had no `crate::` references at all**, which is how a 600-line move became a
+//! cut rather than a refactor.
 
 use ambition_entity_catalog::{HurtboxDoc, MovesetContract};
 
@@ -60,12 +53,10 @@ pub struct Vitals {
     /// are different claims even though 1.0 is the ambient default, and only the
     /// first one may overwrite an archetype.
     ///
-    /// ⚠ this said "AUTHORED AND UNCONSUMED — no production code reads this,
-    /// verified by grep". The grep was right about the FIELD and wrong about the
-    /// concept: `Mass` already existed, already rewound, and was populated from
-    /// the ROSTER archetype and never from here. So this was not a dead field, it
-    /// was a second declaration of a fact only the roster could state — and
-    /// "delete it" was very nearly the recommendation (2026-07-29).
+    /// The grep was right about the FIELD and wrong about the concept: `Mass` already existed,
+    /// already rewound, and was populated from the ROSTER archetype and never from here. So
+    /// this was not a dead field, it was a second declaration of a fact only the roster could
+    /// state — and "delete it" was very nearly the recommendation.
     pub mass: Option<f32>,
     /// **How hard this body is to LAUNCH** — the knockback weight, reaching a
     /// body as `CombatTuning::weight` (`ambition_combat`). `1.0` is
@@ -77,11 +68,8 @@ pub struct Vitals {
     /// here, and conflating them would make a heavy mount hard to knock about
     /// as a side effect of how its rider orbits it.
     ///
-    /// `None` leaves the body's own — for a clustered actor that is its roster
-    /// archetype's, which is the ONLY place a weight could be stated until now.
-    /// Two characters seated from one archetype therefore weighed the same and
-    /// could not differ, which is a per-character fact in every platform fighter
-    /// that has one (D73 phase 1).
+    /// `None` leaves the body's own — for a clustered actor that is its roster archetype's,
+    /// which is the ONLY place a weight could be stated until now.
     pub knockback_weight: Option<f32>,
     /// **HOW TALL THIS CHARACTER STANDS, in world pixels — sixteen to a tile.**
     ///
@@ -92,16 +80,11 @@ pub struct Vitals {
     /// i.e. exactly three tiles — so this DECLARES the unit the engine already
     /// used rather than introducing one.
     ///
-    /// ⛔⛔ **what it replaces is not a value but an ARITHMETIC nobody could
-    /// compare.** Every character's drawn size came from a scale that multiplied
-    /// its OWN sheet's frame size, so `1.95`, `1.60` and `2.10` were three
-    /// unrelated numbers — and the largest of them belonged to the character that
-    /// reads smallest on screen. Where a desired size WAS expressed it was
-    /// expressed ad hoc and not even on one axis: the robot lineage derived its
-    /// scale from a height constant, the AI slop from a WIDTH constant, the snake
-    /// from an opaque helper.
+    /// Where a desired size WAS expressed it was expressed ad hoc and not even on one axis: the
+    /// robot lineage derived its scale from a height constant, the AI slop from a WIDTH
+    /// constant, the snake from an opaque helper.
     ///
-    /// ⭐ **it is a CONTRACT: the art scales to it** (Jon, 2026-08-17), so the
+    /// ⭐ **it is a CONTRACT: the art scales to it**, so the
     /// cast is consistent by construction and a badly framed sheet cannot make a
     /// character huge. A tight tolerance WARNS when the resulting scale drifts
     /// far from 1.0 — ⛔ warns, does not refuse: a sheet that disagrees still
@@ -132,10 +115,6 @@ pub fn world_per_pixel_for_height(canonical_height: f32, sheet_pixel_height: f32
 }
 
 /// Where a body's collision geometry comes from (§4.11, §5).
-///
-/// Both variants are CONSUMED, and each by the authority that owns the fact
-/// (wired 2026-07-29 — until then this field had no reader anywhere, so a
-/// provider could author a body and receive some other size entirely):
 ///
 /// * `SpriteAuthored { world_per_pixel }` becomes a
 ///   [`SpritePosedBody`](ambition_sprite_sheet::character::sheets::SpritePosedBody), installed by
@@ -176,9 +155,6 @@ pub struct CharacterDefinition {
     /// Select-screen portrait. Loads WITHOUT the sheet, so an enumeration screen
     /// costs no sheet decode.
     ///
-    /// ⚠ **preparation RESOLVES this reference; no runtime consumes it**, and the
-    /// reason is structural rather than an oversight (checked 2026-07-29).
-    ///
     /// This declares a portrait TARGET — a name. Dialogue resolves a speaker's
     /// portrait through `CharacterCatalog::portrait_ref`, which yields concrete
     /// `{ image, manifest, default_clip }` paths. There is no
@@ -204,7 +180,7 @@ pub struct CharacterDefinition {
     /// It could only say that about a character with a CATALOG ROW. A
     /// registered-only character — which is every character another game brings
     /// — had no way to carry a voice at all, so four of them stand mute on Hall
-    /// pedestals (Jon, 2026-07-29).
+    /// pedestals.
     ///
     /// ⚠ the LOWEST-precedence voice, not a dialogue system: a yarn node wins,
     /// then the catalog row's situation pool, then its `fallback_dialogue`, then
@@ -217,12 +193,10 @@ pub struct CharacterDefinition {
     /// **What this body does when it DIES, and what it drops** — explode,
     /// divide, crash, or refuse to die at all.
     ///
-    /// D73 phase 1. These are properties of the creature, and until now the ONLY
-    /// producer of `CombatCapabilities` (`ambition_combat`) in the workspace was
-    /// `ArchetypeSpecExt::combat_capabilities` — so a mite that splits when
-    /// killed could say so as an archetype and a registered character could not
-    /// say it at all. A seated fighter and a worn player simply had no death
-    /// traits, whatever they were.
+    /// These are properties of the creature, and until now the ONLY producer of
+    /// `CombatCapabilities` (`ambition_combat`) in the workspace was
+    /// `ArchetypeSpecExt:combat_capabilities` — so a mite that splits when killed could say so
+    /// as an archetype and a registered character could not say it at all.
     ///
     /// `None` means the author said nothing, and nothing is inserted — today's
     /// behaviour for every character in the repo. ⚠ absence RETRACTS on a
@@ -232,19 +206,12 @@ pub struct CharacterDefinition {
     pub moveset: Option<MovesetContract>,
     /// What this character CAN do — melee, ranged, special, locomotion style.
     ///
-    /// `None` means "the author said nothing", and the catalog row's
-    /// `default_action_set` stands. `Some(ActionSet::default())` means "the
-    /// author said NOTHING APPLIES", which is a different statement and has to
-    /// survive as one: Sanic's kit is the momentum ride and the ball dash, and
-    /// a resolver that treats an authored-empty set as unauthored hands him a
-    /// punch (queue C3 / architecture campaign X3, R-b).
-    ///
     /// Splitting this from [`Self::moveset`] is the identity split C3 is about.
     /// A moveset says what the MOVES are; an action set says what the body and
     /// the AI believe the body can reach for. Leaving the second exclusively in
     /// the catalog means a definition can author moves the brain does not know
     /// exist — and it makes a ranged move depend on a projectile specification
-    /// from a different authority entirely (GPT 5.6, 2026-07-28).
+    /// from a different authority entirely.
     pub action_set: Option<crate::brain::ActionSet>,
     /// How this character MOVES — the state-free movement policy.
     ///
@@ -252,8 +219,8 @@ pub struct CharacterDefinition {
     /// and the last one that was still exclusively the catalog's. A provider
     /// authoring a character that runs on momentum rather than swept axes had to
     /// say so in a catalog row even when it authored everything else on the
-    /// definition (queue C3 / campaign R-a, deferred from the first slice
-    /// deliberately and landed 2026-07-28).
+    /// definition ( / campaign R-a, deferred from the first slice
+    /// deliberately and landed ).
     ///
     /// `None` means the catalog row stands, which is every character that has not
     /// authored one.
@@ -297,12 +264,6 @@ pub struct CharacterDefinition {
     pub abilities: Option<ambition_platformer2d_core::AbilitySet>,
     /// **How this body moves under its own power** — top speed, gait, surface
     /// cling. See [`crate::actor::CharacterLocomotion`].
-    ///
-    /// `None` means the character said nothing, and a construction path with a
-    /// legacy source (the archetype's `run_speed`/`move_style`, a match's
-    /// fighter default) still uses it. A crawler that authors this is a crawler
-    /// wherever it is spawned — including a fighter seat, which is Jon's
-    /// compositional acceptance test.
     pub locomotion: Option<crate::actor::CharacterLocomotion>,
     /// **Whether touching this body hurts, and how much.** `None` = it does
     /// not, which is most characters.
@@ -310,20 +271,12 @@ pub struct CharacterDefinition {
     /// **The POLICY this character runs when nothing else drives it** — the
     /// controller authority, carried as a value rather than as a name.
     ///
-    /// ⭐⭐ **and it is the ONLY half now** (2026-08-12, ledger D97). This field's
-    /// doc used to describe a fork: a sibling `default_brain_profile` named a
-    /// catalog `brain_presets` key for the NPC road while this carried a
-    /// `BrainProfile` for the enemy road, *"the same idea in two vocabularies"*,
-    /// and the note promised a convergence. The convergence turned out to be a
-    /// deletion: the preset half had **zero authors in the entire repo** and one
-    /// consumer, and its absence was what produced the empty-string default that
-    /// crashed two shipped rooms. A character states its policy HERE, or it
-    /// leaves the catalog row in charge; there is no third place.
+    /// **and it is the ONLY half now**. The convergence turned out to be a deletion: the preset
+    /// half had **zero authors in the entire repo** and one consumer, and its absence was what
+    /// produced the empty-string default that crashed two shipped rooms. A character states its
+    /// policy HERE, or it leaves the catalog row in charge; there is no third place.
     ///
-    /// ⚠ **the two vocabularies still exist, one authority apart.** A catalog ROW
-    /// may name a `brain_presets` key and many still do (D81 counts ~125
-    /// adopters); a character DEFINITION states a `BrainProfile`. What is gone is
-    /// a definition being able to say the same thing in the row's words.
+    /// What is gone is a definition being able to say the same thing in the row's words.
     ///
     /// `None` leaves the archetype's projection in charge, which is every
     /// character that has not migrated.
@@ -331,19 +284,14 @@ pub struct CharacterDefinition {
     /// **The SHARED policy this character names**, resolved out of the catalog's
     /// `autonomous_profiles` map at preparation into [`Self::autonomous_profile`].
     ///
-    /// ⭐ **this is what makes a policy reusable** (ledger D80). Carrying a
-    /// profile by value says what ONE character does; naming one says several
-    /// characters fight alike — which is the whole reason `medium_striker`
-    /// exists as a whole-body archetype worn by five goblins, a lab raider and a
-    /// skitter. A named profile lets those five keep their own bodies and share
-    /// the decision-making, which is the Group-B/Group-C split.
+    /// Carrying a profile by value says what ONE character does; naming one says several characters
+    /// fight alike — which is the whole reason `medium_striker` exists as a whole-body archetype
+    /// worn by five goblins, a lab raider and a skitter. A named profile lets those five keep their
+    /// own bodies and share the decision-making, which is the Group-B/Group-C split.
     ///
-    /// ⛔⛔ **INLINE XOR NAMED, and authoring both is a REFUSAL** (Jon's
-    /// redirect §9). The precedence this used to document — inline wins, named
-    /// is the fallback — was whole-value REPLACEMENT wearing the word
-    /// "specialization", and nothing merged. Documenting replacement as
-    /// specialization is misleading API on the day it ships; if a real patch is
-    /// ever wanted it gets a real `BrainProfilePatch` with explicit semantics.
+    /// **INLINE XOR NAMED, and authoring both is a REFUSAL**. Documenting replacement as
+    /// specialization is misleading API on the day it ships; if a real patch is ever wanted it gets
+    /// a real `BrainProfilePatch` with explicit semantics.
     ///
     /// ⛔ **and a name nobody authored is a PREPARATION FAILURE**, not a silent
     /// `None`. Falling back would reproduce the explicit-`CharacterId` mistake
@@ -371,39 +319,21 @@ pub struct CharacterDefinition {
     /// **What this character's PROJECTILE looks like** — the cosmetic id its
     /// ranged verb spawns (`"hadouken"`).
     ///
-    /// ⛔ **it had no home outside an enemy ARCHETYPE row** (ledger D83).
-    /// `ActorTuning::ranged_visual` carries it at runtime and the archetype road
-    /// filled it; the character-first constructor wrote an empty string, so a
-    /// migrated robot fired an unadorned rock. The melee side of the same
-    /// question has been a character fact for a long time (the catalog's
-    /// `attack_vfx`), which is what makes the absence a gap rather than a design.
-    ///
     /// `None` = this character's ranged verb draws whatever the projectile
     /// itself authors, which is every character that has never had one.
     pub ranged_vfx: Option<String>,
     /// **HOW this character's ranged attack is executed** — a charged projectile
     /// (hold to build, release to fire) or an ordinary moveset verb.
     ///
-    /// ⭐ **an authored CHARACTER fact since 2026-08-11** (GPT 5.6 §4). It was
-    /// derived from `PlayableKitSource::HostCode`, which made a gameplay property
-    /// of the protagonist's attack look like a property of which crate built it —
-    /// and so made *delete HostCode* read as *delete the charge*. Jon's product
-    /// rule is the opposite: Player Robot v3 is the same character with the same
-    /// repertoire in Ambition and in Smash, and a mode changes interpretation and
-    /// restrictions rather than silently replacing its moves.
+    /// It was derived from `PlayableKitSource::HostCode`, which made a gameplay property of the
+    /// protagonist's attack look like a property of which crate built it — and so made *delete
+    /// HostCode* read as *delete the charge*.
     ///
     /// ⚠ the DEFAULT is `MovesetVerb`, which is what every character that has
     /// never had a charge already does.
     pub ranged_execution: crate::brain::RangedExecution,
     /// **This body is a PRACTICE TARGET** — a training dummy, not a
     /// participant.
-    ///
-    /// ⛔ **the last fact keeping the sandbags on `character_archetypes.ron`**
-    /// (ledger D77). `ArchetypeSpec::is_sandbag` has four live consumers — the
-    /// save sync excludes it from the file, the path assignment skips it, and
-    /// two sprite reads select on it — and `new_character_in` wrote `false` via
-    /// `..Default::default()`, so a migrated sandbag would silently have joined
-    /// the save file and changed its sprite.
     ///
     /// ⚠ **on the definition, not read off a catalog tag.** The plane-swarm
     /// lesson: a body that reads an intrinsic from a catalog row it cannot see
@@ -696,19 +626,12 @@ impl CharacterDefinition {
 mod authority_tests {
     use super::*;
 
-    /// **WHAT A CHARACTER IS ALLOWED TO KNOW** — D73's first failure mode,
-    /// guarded from the destination side.
+    /// **WHAT A CHARACTER IS ALLOWED TO KNOW** — first failure mode, guarded from the
+    /// destination side.
     ///
-    /// The brief's warning is *"do not migrate `ArchetypeSpec` into
-    /// `CharacterDefinition` wholesale — it holds THREE authorities and they
-    /// must separate"*. `ArchetypeSpec` now has the same exhaustive destructure
-    /// saying where each of its 49 fields goes. This is the other half: a field
-    /// arriving HERE has to be justified as something a body may state.
-    ///
-    /// ⇒ **the failure mode now requires an explicit lie rather than an
-    /// omission.** Carrying `aggro_radius` across would not quietly widen a
-    /// struct; it would stop this crate compiling until somebody filed a
-    /// controller fact under one of the headings below.
+    /// `ArchetypeSpec` now has the same exhaustive destructure saying where each of its 49
+    /// fields goes. This is the other half: a field arriving HERE has to be justified as
+    /// something a body may state.
     ///
     /// ⚠ **the DEFAULT CONTROLLER group is the subtle one and is deliberately
     /// not empty.** A character may state the policy it comes with — the goblin

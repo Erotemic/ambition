@@ -39,13 +39,9 @@ pub fn read_gameplay_control_frame_with_settings(
     );
     let axis = bevy::math::Vec2::new(deadzoned_x, deadzoned_y);
 
-    // The modifier slot is reported RAW — held level and press edge — and the
-    // adapter assigns it no meaning. It used to cap the move vector to a
-    // hardcoded 0.45 "walk" governor right here, which destroyed the
-    // information: nothing downstream could tell "0.45 because the modifier is
-    // down" from "0.45 because the stick is half-deflected", and no content
-    // could give the slot a different meaning. Now the state travels intact to
-    // the simulation and a body's own rules decide what sustaining it does.
+    // The modifier slot is reported RAW — held level and press edge — and the adapter assigns it no
+    // meaning. Now the state travels intact to the simulation and a body's own rules decide what
+    // sustaining it does.
     let modifier_held = actions.pressed(&Platformer2dInputActionMonolith::Modifier);
     let modifier_pressed = actions.just_pressed(&Platformer2dInputActionMonolith::Modifier);
     let left_pressed = actions.just_pressed(&Platformer2dInputActionMonolith::MoveLeft);
@@ -57,7 +53,7 @@ pub fn read_gameplay_control_frame_with_settings(
     // RT2 button as the "press level". The settings-defined press / release
     // thresholds collapse trigger jitter into a single edge.
     //
-    // ⚠ **the device-side names moved to BURST too, and the WIRE did not.** A
+    // **the device-side names moved to BURST too, and the WIRE did not.** A
     // stored remap is keyed by the action's `Debug` spelling, so `"Dash"` is
     // carried to `"Burst"` by `settings::ControlSettings::migrate_renamed_actions`;
     // the persisted `dash_input_mode` key is PINNED with `#[serde(rename)]`.
@@ -88,7 +84,6 @@ pub fn read_gameplay_control_frame_with_settings(
         }
     };
 
-    // Aim deadzone — applied to the right stick before blink aim consumes it.
     // This is the fix for old-controller drift pushing the blink target upward.
     let raw_aim = actions.clamped_axis_pair(&Platformer2dInputActionMonolith::AimStick);
     let (aim_x_raw, aim_y_raw) = crate::settings::ControlSettings::apply_deadzone(
@@ -134,7 +129,7 @@ pub fn read_gameplay_control_frame_with_settings(
         projectile_held: actions.pressed(&Platformer2dInputActionMonolith::Projectile),
         projectile_released: actions.just_released(&Platformer2dInputActionMonolith::Projectile),
         shield_held: actions.pressed(&Platformer2dInputActionMonolith::Shield),
-        // ⚠ `just_pressed`, not `pressed`: the grab is an ATTEMPT, and the
+        // `just_pressed`, not `pressed`: the grab is an ATTEMPT, and the
         // authored grab move owns how long that attempt stays active. Reading
         // the level here would re-attempt every tick a player leans on the
         // button, which deletes the cost of whiffing one.

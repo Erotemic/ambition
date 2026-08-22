@@ -15,11 +15,8 @@
 
 use bevy::prelude::*;
 
-// The kernel, not the platformer. This crate takes `Vec2`, `Aabb`,
-// `CombatVolume` and `VolumeShape` — shapes and boxes, nothing with a
-// genre in it — and used to reach them through the platformer core. Gameplay
-// geometry stays on `ambition_geometry`; the only direct core edge now is the
-// backend-neutral rollback declaration vocabulary in `rollback_registration`.
+// The kernel, not the platformer. Gameplay geometry stays on `ambition_geometry`; the only direct
+// core edge now is the backend-neutral rollback declaration vocabulary in `rollback_registration`.
 use ambition_geometry as ae;
 
 pub mod fx;
@@ -33,15 +30,10 @@ pub use vfx::{
 // The side an effect is emitted BY.
 // ===================================================================
 //
-// ⚠ **this is the one piece of combat vocabulary that stayed**, and the reason
-// is the orphan rule rather than taste. `Effect::DamageBox` and
-// `Effect::Summon` both carry a side. Projectile spawning no longer names this
-// enum at all; its request vocabulary is owned by the projectile domain. The
-// authoritative components this tag used to sit beside are gone; what remains
-// is a small enum on an effect message.
-// ===================================================================
-// Hitbox — the world-anchored damage volume an effect spawns.
-// ===================================================================
+// **this is the one piece of combat vocabulary that stayed**, and the reason is the orphan rule
+// rather than taste. `Effect::DamageBox` and `Effect::Summon` both carry a side. Projectile
+// spawning no longer names this enum at all; its request vocabulary is owned by the projectile
+// domain.
 
 /// Presentation-neutral side tag carried by effect messages and hitboxes.
 ///

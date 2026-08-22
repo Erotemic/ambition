@@ -40,7 +40,7 @@ where
             OWNER,
             "projectile.live_marker",
         )
-        // ⚠ `projectile.gameplay` is intentionally absent here: its type is
+        // `projectile.gameplay` is intentionally absent here: its type is
         // owned by `ambition_platformer2d_shared_tangle`, whose own
         // `register_rollback_state` declares it. Moving registration authority
         // means following the TYPE owner rather than claiming a neighbour's row.

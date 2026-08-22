@@ -60,10 +60,7 @@ impl LdtkRuntimeSpineParity {
         )
     }
 }
-/// Compare runtime-spine index counts to the JSON-derived collision
-/// world. Logs a tracing warning the first time a mismatch appears so
-/// the parity bug is visible without spamming every frame; clears the
-/// warning when counts converge.
+/// Compare runtime-spine index counts to the JSON-derived collision world.
 ///
 /// This is the verification gate for the LDtk runtime-spine roadmap.
 /// Once parity holds for a meaningful number of sandbox sessions and

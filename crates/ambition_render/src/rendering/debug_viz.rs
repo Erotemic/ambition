@@ -204,27 +204,19 @@ pub fn draw_hitbox_volume(
 
 /// **Where a body-anchored strike is DRAWN, as opposed to where it was resolved.**
 ///
-/// ⛔⛔ **the red F1 box used to be the authoritative volume, verbatim, and that
-/// is why it shuddered.** `volume` is tick-clock geometry; the sprite and the
-/// camera are resampled on the frame clock, so at any frame rate that is not an
-/// exact multiple of the tick the box steps while the body it is attached to
-/// glides. A diagnostic that misreports ATTACHMENT is worse than no diagnostic:
-/// it invites you to debug the hitbox when the hitbox is fine.
+/// A diagnostic that misreports ATTACHMENT is worse than no diagnostic: it invites you to debug the
+/// hitbox when the hitbox is fine.
 ///
 /// The translation is the owner's [`PresentedPose::delta`] — `presented −
 /// authoritative` — which is the same number every other row of that body takes
-/// this frame. ⚠ deliberately NOT `presented − owner_anchor`: that form also
+/// this frame. deliberately NOT `presented − owner_anchor`: that form also
 /// silently re-anchors a strike whose volume was resolved against a position
 /// the body has since left, which is a REAL disagreement a diagnostic exists to
 /// show. Presentation moves geometry; it does not repair it.
 ///
 /// [`PresentedPose::delta`]: ambition_sim_view::presented_pose::PresentedPose::delta
 ///
-/// ⚠ **a WORLD-anchored strike does not move.** An arena hazard or a wielded AOE
-/// is fixed in the world, not carried by a body, so translating it would be the
-/// mirror-image lie.
-///
-/// ⛔ the shape is never recomputed: `CombatVolume::translated` preserves it
+/// the shape is never recomputed: `CombatVolume::translated` preserves it
 /// exactly, and presentation must not reach back into the authoritative
 /// `Hitbox` — the coupling the read model exists to remove.
 pub fn presented_strike_volume(
@@ -240,19 +232,14 @@ pub fn presented_strike_volume(
 /// **This frame's presentation translation for every body the overlay draws**,
 /// keyed by body — the join a caller performs once and hands to the shared draw.
 ///
-/// ⛔⛔ **one delta per BODY, not one lookup per row.** The previous version of
-/// this join answered "where is the owner of a strike drawn", so only strikes
-/// were re-placed while the same body's collision envelope and hurtboxes stayed
-/// on the tick clock. Jon watched the red box settle and a different box start
-/// jumping — the disagreement moved rather than went away. Everything rigidly
-/// attached to one body has to take the same translation in the same frame or
-/// the diagnostic is lying about attachment.
+/// **one delta per BODY, not one lookup per row.** The previous version of this join answered
+/// "where is the owner of a strike drawn", so only strikes were re-placed while the same body's
+/// collision envelope and hurtboxes stayed on the tick clock. Everything rigidly attached to one
+/// body has to take the same translation in the same frame or the diagnostic is lying about
+/// attachment.
 ///
-/// ⭐ and the population is now every body: `PresentedPose` follows
-/// `BodyKinematics`, so a boss and an actor answer here exactly as a player
-/// does. It used to follow `BodyPoseView`, which is rebuilt only
-/// `With<PlayerVisual>` — an absence that read as "no interpolation" instead of
-/// "not covered".
+/// and the population is now every body: `PresentedPose` follows `BodyKinematics`, so a boss and an
+/// actor answer here exactly as a player does.
 ///
 /// A body with no entry has no presented history yet (its first frame), and
 /// `ZERO` is then the honest translation.
@@ -276,7 +263,7 @@ pub fn presentation_deltas(
 /// carry no controller/primary-player distinction: a fighter is debugged by
 /// the geometry it publishes, not by who is driving it.
 ///
-/// ⛔⛔ **every row of one body takes the SAME translation** from `deltas` — see
+/// **every row of one body takes the SAME translation** from `deltas` — see
 /// [`presentation_deltas`]. The collision envelope, the hurtboxes and the
 /// body-anchored strikes are one rigid group; translating a subset relocates the
 /// disagreement instead of removing it, which is exactly what happened when only
@@ -345,7 +332,7 @@ pub fn draw_combat_geometry_view(
 ///   distinct lengths. They look identical on screen as "the fighter is not
 ///   moving", and they are three different reasons.
 ///
-/// ⛔ **no controller, no faction, no primary-player check.** It draws whatever
+/// **no controller, no faction, no primary-player check.** It draws whatever
 /// the read model published, which is every combat body.
 fn draw_combat_tuning_readout(
     gizmos: &mut Gizmos,
@@ -471,10 +458,8 @@ pub fn draw_room_bounds(gizmos: &mut Gizmos, world: &ae::World) {
 
 /// **Where the world ENDS**, drawn beside where it is bounded.
 ///
-/// A stage authors `blast_margin` / `side_blast_margin` / `ceiling_blast_margin`
-/// and, until this existed, had no way to see the line short of throwing a body
-/// at it and watching. The room bounds and the kill line are the same idea one
-/// step apart, so they share `show_room_bounds`.
+/// The room bounds and the kill line are the same idea one step apart, so they share
+/// `show_room_bounds`.
 ///
 /// `gravity_dir` is not decoration. The gate measures every margin along the
 /// body's own `down`, so a line drawn at `y = size.y + margin` is correct only
@@ -663,7 +648,7 @@ pub fn draw_surface_chains(gizmos: &mut Gizmos, world: &ae::World) {
             let (a, b) = chain.segment(i);
             gizmos.line_2d(w2(world, a), w2(world, b), seg_color);
             let mid = (a + b) * 0.5;
-            // Normal + tangent quills (world-space lengths; w2 handles the flip).
+            // Normal + tangent quills (world-space lengths; handles the flip).
             let n = chain.normal(i);
             let t = chain.tangent(i);
             gizmos.line_2d(w2(world, mid), w2(world, mid + n * 22.0), normal_color);
@@ -746,15 +731,12 @@ impl Plugin for DebugVizPlugin {
         // `.after(PresentedPoseSet)`: the overlay draws bodies and features at
         // their PRESENTED positions, so the resample must have happened first.
         //
-        // Without the edge this system merely CONFLICTED with the resample (it
-        // reads `PresentedPose`, the resample writes it), and Bevy answers a
-        // conflict by choosing an order — stably, and in this case stably wrong.
-        // The box was drawn from last frame's presented pose while the camera it
-        // is drawn through had already advanced to this frame's, so the two
-        // disagreed by one frame of motion, every frame: the collision box
-        // visibly shook while the sprite beside it sat still. That is a missing
-        // ordering edge, not a smoothing problem, and no amount of correct
-        // extrapolation upstream could have fixed it.
+        // Without the edge this system merely CONFLICTED with the resample (it reads
+        // `PresentedPose`, the resample writes it), and Bevy answers a conflict by choosing an
+        // order — stably, and in this case stably wrong. The box was drawn from last frame's
+        // presented pose while the camera it is drawn through had already advanced to this
+        // frame's, so the two disagreed by one frame of motion, every frame: the collision box
+        // visibly shook while the sprite beside it sat still.
         app.add_systems(
             Update,
             (
@@ -845,14 +827,12 @@ pub fn draw_debug_viz(
     if developer_tools.show_moving_platform {
         draw_moving_platform_debug(&mut gizmos, world, &platform_set.0);
     }
-    // ⚠ TWO boxes for one player body, and the distinction is deliberate: this
-    // cyan one is the COLLISION box from the player-bodied pose view, while
-    // `draw_combat_geometry_view` draws the orange coarse ENVELOPE the combat
-    // model publishes for every combat body. They coincide for an ordinary body
-    // (its collision box IS its footprint) and diverge for a boss, whose
-    // envelope is much larger — seeing both is how that divergence is visible at
-    // all. Since D116 they ride the same frame clock, so they no longer disagree
-    // about WHERE, only about WHICH box.
+    // TWO boxes for one player body, and the distinction is deliberate: this cyan one is the
+    // COLLISION box from the player-bodied pose view, while `draw_combat_geometry_view` draws
+    // the orange coarse ENVELOPE the combat model publishes for every combat body. They
+    // coincide for an ordinary body (its collision box IS its footprint) and diverge for a
+    // boss, whose envelope is much larger — seeing both is how that divergence is visible at
+    // all.
     if developer_tools.show_player_hitbox || developer_tools.show_player_vectors {
         for (pose, presented) in &bodies {
             let draw_pos = ambition_sim_view::presented_pose::draw_pos(pose, presented);
@@ -1000,9 +980,6 @@ mod presented_strike_tests {
         }
     }
 
-    /// **⛔⛔ THE REGRESSION: a body-anchored strike is drawn where its owner is
-    /// DRAWN.**
-    ///
     /// The overlay drew `strike.volume` verbatim — authoritative tick geometry —
     /// beside a body resampled on the frame clock, so the red box stepped while
     /// the fighter glided.
@@ -1022,9 +999,6 @@ mod presented_strike_tests {
         );
     }
 
-    /// **A world-anchored strike does NOT move.** An arena hazard is fixed in
-    /// the world; translating it by some body's interpolation would be the
-    /// mirror image of the bug.
     #[test]
     fn a_world_anchored_strike_stays_where_the_simulation_put_it() {
         let volume = presented_strike_volume(&strike(false), ae::Vec2::new(999.0, 0.0));
@@ -1040,13 +1014,7 @@ mod presented_strike_tests {
         assert_eq!(volume.bounds().center(), ae::Vec2::new(100.0, 100.0));
     }
 
-    /// **⭐⭐ ONE BODY, ONE TRANSLATION.**
-    ///
-    /// The half-fix translated strikes and left the same body's collision
-    /// envelope and hurtboxes on the tick clock, so Jon saw the red box settle
-    /// and a different box start jumping. This asserts the property that failure
-    /// violated: every row rigidly attached to one body moves by the same
-    /// vector, and each keeps its shape.
+    /// **ONE BODY, ONE TRANSLATION.**
     #[test]
     fn every_row_of_one_body_takes_the_same_translation() {
         let delta = ae::Vec2::new(6.0, -2.0);

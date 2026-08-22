@@ -1,7 +1,7 @@
-//! **M3 — the flagpole sequence.**
+//! ** — the flagpole sequence.**
 //!
-//! `docs/planning/demos/super-mary-o.md`: *"M3 level-end sequencing: flagpole grab
-//! → slide → walk-off → score tally."*
+//! `docs/planning/demos/super-mary-o.md`: *" level-end sequencing: flagpole grab → slide →
+//! walk-off → score tally."*
 //!
 //! Content-side, and it adds **zero engine code**. The whole sequence is a state
 //! machine over a clock plus one authored geometry fact (where the pole is), and
@@ -10,22 +10,9 @@
 //!
 //! ## Why the score is computed from the GRAB, not from the slide
 //!
-//! In the game this pays homage to, the points depend on how high up the pole you
-//! caught it. That height is a fact about the moment of contact, and the slide is a
-//! celebration. Computing the score from the *live* body position would let a
-//! player who grabbed high and slid fast score differently from one who grabbed
-//! high and slid slow, which is a bug that reads as physics.
+//! That height is a fact about the moment of contact, and the slide is a celebration.
 //!
 //! ## Why the pole is not solid
-//!
-//! The pole is authored as a ONE-WAY block, not a solid one. A flagpole you can
-//! walk into is a wall, and a wall holds the body a half-body-width away from the
-//! pole's center — which is to say it holds it permanently outside any grab band
-//! measured from that center. Solid geometry and "touch me to win" are mutually
-//! exclusive by construction, and the failure is silent: the level just refuses to
-//! end. One-way keeps the pole in the LEVEL (it is authored geometry, not a
-//! bespoke entity) while letting a body pass through it horizontally, and it still
-//! catches a body that lands on the top from the stairs.
 //!
 //! ## Why the player is not "frozen"
 //!
@@ -47,10 +34,7 @@ pub struct FlagPole {
     pub top_y: f32,
     /// World y of the pole's base, where the slide ends.
     pub base_y: f32,
-    /// Half the pole's authored thickness. Carried (rather than assumed) because
-    /// it is what [`grab_half_width`](Self::grab_half_width) is measured from — a
-    /// pole that is redrawn thicker must catch a body sooner, and deriving that
-    /// from one authored number is what keeps the two from drifting.
+    /// Half the pole's authored thickness.
     pub half_width: f32,
 }
 
@@ -70,12 +54,7 @@ impl FlagPole {
     /// number the sequence has (a center), so a grab fires the instant she makes
     /// contact — from either side, at any height, running or falling.
     ///
-    /// **This must be derived, not guessed.** It used to be a flat 12px, which was
-    /// narrower than a body's own half-width (15px): a body that walked into the
-    /// pole and STOPPED against it parked its center 23px away and never grabbed,
-    /// so the sequence only fired from above the pole's top, where nothing blocked
-    /// the approach. A grab band smaller than the body it is meant to catch is
-    /// unreachable by construction.
+    /// A grab band smaller than the body it is meant to catch is unreachable by construction.
     pub fn grab_half_width(&self) -> f32 {
         self.half_width + GRAB_BODY_HALF_WIDTH
     }
@@ -158,33 +137,19 @@ impl FlagSequence {
 
 /// **The whole sequence, as a pure function of `(state, pole, body, dt)`.**
 ///
-/// Returns where the body should be this tick. `None` in `Idle` — the player is
-/// still playing, and the sequence has no opinion about where they are.
-/// `body_half_height` is what turns the pole's base — a GROUND LINE — into a
-/// body CENTRE. The slide used to end at `base_y` directly, which parked her
-/// centre on the ground surface and left her buried to the waist for the
-/// walk-off and the whole tally. A scripted pose overrules physics by design
-/// (that is the point of `constrain_body_pose`), so nothing downstream was ever
-/// going to lift her back out — and nothing should: this project does not shove
-/// bodies out of geometry, it puts them in the right place to begin with.
-/// **What the sequence is doing to the body this tick** — where it puts her, how
-/// fast she is going, and whether she is on the pole.
-///
-/// ⭐⭐ **THE VELOCITY AND THE MODE ARE THE WHOLE POINT** (Jon, 2026-08-21: *"her
-/// sprite seems to just translate instead of using the climb animation to slide
-/// down the pole and then the walk animation to move after … we should not hack
-/// these in … so we get these animations for free"*).
+/// Returns where the body should be this tick. `None` in `Idle` — the player is still playing, and
+/// the sequence has no opinion about where they are. `body_half_height` is what turns the pole's
+/// base — a GROUND LINE — into a body CENTRE. A scripted pose overrules physics by design (that is
+/// the point of `constrain_body_pose`), so nothing downstream was ever going to lift her back out —
+/// and nothing should: this project does not shove bodies out of geometry, it puts them in the
+/// right place to begin with. **What the sequence is doing to the body this tick** — where it puts
+/// her, how fast she is going, and whether she is on the pole.
 ///
 /// `constrain_body_pose` already takes an imposed velocity — its own doc names
 /// *"a scripted end-of-level slide"* — and this sequence passed `Vec2::ZERO`. So
 /// her motion facts said "standing still" while her position jumped, and the
 /// animation picker, which reads exactly those facts, correctly chose Idle. The
 /// clip was never the thing to fix.
-///
-/// ⛔ **no clip is named anywhere in this file, and none should be.** The picker
-/// turns `BodyMode::Climbing` into the climb clip and ground speed into the walk
-/// clip. Saying what the body IS doing is what makes the animation follow; naming
-/// a clip here would be the hack Jon refused in advance.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct FlagDrive {
     /// Where her centre is this tick.
@@ -264,7 +229,7 @@ fn step_phase(
             let step = WALK_OFF_SPEED * dt;
             if step >= remaining {
                 seq.phase = FlagPhase::Tallied { score };
-                // ⚠ **she is still WALKING on this tick** — it is the stride that
+                // **she is still WALKING on this tick** — it is the stride that
                 // covers the last `remaining` px. Reporting zero here was the same
                 // untruth in miniature: the frame she arrives on would animate as
                 // a stand while she was still crossing ground. She stops in
@@ -285,7 +250,7 @@ fn step_phase(
                 on_pole: false,
             })
         }
-        // Done. The body stays where it is; a results screen is M4's.
+        // Done. The body stays where it is; a results screen is.
         FlagPhase::Tallied { .. } => Some(FlagDrive {
             pos: body,
             vel: ae::Vec2::ZERO,
@@ -331,12 +296,11 @@ mod tests {
 
     /// **THE SEQUENCE SAYS WHAT SHE IS DOING, SO THE ANIMATION FOLLOWS.**
     ///
-    /// Jon, 2026-08-21: *"her sprite seems to just translate instead of using the
     /// climb animation to slide down the pole and then the walk animation to move
     /// after … we should not hack these in … so we get these animations for
     /// free."*
     ///
-    /// ⛔ **the clip was never the thing to fix.** The sequence imposed
+    /// **the clip was never the thing to fix.** The sequence imposed
     /// `Vec2::ZERO` as her velocity, so every reader of her motion was told she
     /// stood still while her position jumped — and the animation picker, which
     /// reads exactly those facts, correctly chose Idle. This asserts the facts
@@ -344,7 +308,7 @@ mod tests {
     /// `a_climbing_body_picks_the_ladder_clip` turns that into `LadderClimb`) and
     /// real ground speed on the walk-off.
     ///
-    /// ⚠ it deliberately does NOT assert a clip. Naming one here would re-implement
+    /// it deliberately does NOT assert a clip. Naming one here would re-implement
     /// the picker in the fixture and then agree with itself.
     #[test]
     fn the_slide_climbs_and_the_walk_off_walks() {
@@ -513,10 +477,6 @@ mod tests {
                 .pos;
             assert_eq!(body.x, p.x, "the slide never drifts sideways");
         }
-        // Her FEET stop at the base — the base is a ground line, and a body
-        // whose CENTRE stops there is buried to the waist for the rest of the
-        // sequence (Jon, 2026-07-25: "her body is half way through the floor
-        // after the flag triggers").
         assert_eq!(
             body.y + HALF_H,
             p.base_y,
@@ -575,7 +535,7 @@ mod tests {
         );
     }
 
-    /// A results screen is M4's, and this must not fight it.
+    /// A results screen is, and this must not fight it.
     #[test]
     fn a_tallied_sequence_holds_still_forever() {
         let p = pole();
@@ -636,13 +596,11 @@ pub fn run_flag_sequence(
     let Ok(mut kin) = bodies.get_mut(entity) else {
         return;
     };
-    // The pole owns the body from the grab to the tally. This used to blank the
-    // control frame right here, which did nothing — `GameplayEffects` runs after
-    // every reader and the brain refills the frame before the next one. The
-    // engine's `ScriptedControl` blanks at the one point where it is observable,
-    // and takes her out of the pickup pass while she is on the pole.
+    // The pole owns the body from the grab to the tally. The engine's `ScriptedControl` blanks at
+    // the one point where it is observable, and takes her out of the pickup pass while she is on
+    // the pole.
     if matches!(sequence.phase, FlagPhase::Idle) {
-        // ⛔ the POLE's hold and nobody else's: off the pole is not the same
+        // the POLE's hold and nobody else's: off the pole is not the same
         // fact as free.
         ambition_platformer2d::characters::brain::release_control_hold(
             &mut commands,
@@ -670,7 +628,7 @@ pub fn run_flag_sequence(
     // The scripted end-of-level slide is an external kinematic constraint
     // (ADR 0024 authority): the sequence owns the pose while it plays.
     //
-    // ⭐ **AND THE VELOCITY IT IMPOSES IS THE TRUE ONE.** This passed
+    // **AND THE VELOCITY IT IMPOSES IS THE TRUE ONE.** This passed
     // `Vec2::ZERO`, so every reader of her motion was told she was standing
     // still while her position jumped — which is why she appeared to translate
     // rather than slide and walk. `constrain_body_pose` has taken an imposed
@@ -680,7 +638,7 @@ pub fn run_flag_sequence(
     if drive.vel.x.abs() > f32::EPSILON {
         kin.facing = drive.vel.x.signum();
     }
-    // ⭐ **being on the pole is a BODY MODE, not a clip.** The animation picker
+    // **being on the pole is a BODY MODE, not a clip.** The animation picker
     // turns `Climbing` into the climb clip on its own — the same road a ladder
     // takes — so the slide animates because the body says what it is doing, and
     // this file names no clip at all.
@@ -704,12 +662,6 @@ const VICTORY_MUSIC_OWNER: &str = "mary_o_flag";
 /// The same priority-tier claim her death uses, for the same reason: it is the
 /// one tier that outranks the room's own theme, and claiming rather than
 /// assigning means the boss system's every-frame release cannot silence it.
-///
-/// It runs from the grab to the tally rather than for a fixed window, so the
-/// cue covers whatever the sequence actually takes. `mary_o_flag_victory` is two
-/// bars of 4/4 at 156bpm — about 3.1 seconds — and the slide, walk-off and
-/// `LEVEL_CYCLE_DWELL` together comfortably exceed that, so the sting finishes
-/// before the level loops rather than being cut off by the replay.
 ///
 /// The track is authorized by Mary-O's audio fragment
 /// ([`crate::provider::MARY_O_VICTORY_MUSIC_TRACK`]); under provider-relative

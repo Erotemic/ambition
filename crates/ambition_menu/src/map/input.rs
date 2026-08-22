@@ -4,7 +4,7 @@
 //! instead, so it is suppressed here; the `M` key still toggles this standalone
 //! panel. No-op stub when the `input` feature is off.
 
-// ⚠ both are used only by the `input`-gated system below, so they carry the
+// both are used only by the `input`-gated system below, so they carry the
 // SAME gate. Without it a build with the feature off warns on two unused
 // imports, and a crate that warns in its ordinary configuration is a crate
 // whose real warnings are invisible.

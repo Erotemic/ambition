@@ -1,17 +1,7 @@
 # The pirates in the pirate sky stopped riding their sharks, and this puts the
 # four `mounted_on` refs back.
 #
-# Jon, 2026-08-08: "The pirates in the pirate sky no longer ride their sharks."
-#
-# `5e4d6448e` (2026-07-05) authored four linked mount+rider pairs in
-# `pirate_sky_lookout` by running `mount split`. `6e48e5988` (2026-07-06,
-# "modify falling sand room") rewrote sandbox.ldtk from an LDtk EDITOR session
-# on an unrelated level, and every `EntityRef` in the file came back as
-# `"__value": null` — 48 of them materialised as explicit nulls, of which
-# exactly 4 had ever been set. Nothing errored; the pirates just spawned in
-# mid-air for a month.
-#
-# ⭐ this is a PASTE, not a re-authoring judgement: each `entityIid` below is
+# this is a PASTE, not a re-authoring judgement: each `entityIid` below is
 # read straight out of the blob at `5e4d6448e`, and all eight iids still exist
 # in today's file at the same `px`. The rider and its shark share a top-left
 # pixel, which is the invariant
@@ -24,7 +14,7 @@
 #   EnemySpawn-4482    (960, 240)  EnemySpawn-6808    (960, 240)   Pirate Raider
 #   EnemySpawn-4505    (720, 320)  EnemySpawn-6809    (720, 320)   Iron Mary
 #
-# ⛔ only the `entityIid` comes from history. `entity set-field` derives the
+# only the `entityIid` comes from history. `entity set-field` derives the
 # `layerIid` / `levelIid` / `worldIid` from the file it is editing, because a
 # container iid pasted out of an old blob produces a ref that looks authored and
 # resolves to nothing.

@@ -77,9 +77,7 @@ impl Plugin for AmbitionRollbackPlugin {
             "AmbitionRollbackPlugin may only be installed for SimulationHost::Rollback \
              (found {host:?})"
         );
-        // The concrete backend owns the concrete schedule. A composition may
-        // declare rollback semantics before this plugin exists; selecting GGRS
-        // here is what turns that semantic choice into an executable host.
+        // The concrete backend owns the concrete schedule.
         app.set_sim_schedule(GgrsSchedule);
 
         app.add_plugins(GgrsPlugin::<AmbitionGgrsConfig>::default())
@@ -117,10 +115,8 @@ impl Plugin for AmbitionRollbackPlugin {
             probes::compare_restored_census.after(AmbitionLoadWorldSet::Reconcile),
         );
 
-        // Install the exact same domain/runtime declaration set whose metadata is
-        // fingerprinted by the generic runtime. Backend-install idempotence is
-        // separate from descriptor idempotence, so a schema recorded earlier by
-        // a fixed-host composition cannot suppress real GGRS installation.
+        // Install the exact same domain/runtime declaration set whose metadata is fingerprinted
+        // by the generic runtime.
         let mut registrar = GgrsRollbackRegistrar::new(app);
         ambition_platformer2d_runtime::rollback::register_engine_rollback_state(&mut registrar);
 

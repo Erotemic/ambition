@@ -10,27 +10,17 @@
 //! Binaries: `ambition_game_bin`, `headless`, `rl_random_walker`, `rl_smoke`,
 //! and `trace_replay` (rl_sim feature for the stepping drivers).
 
-// Process-wide allocator, declared in the LIB so it covers every entry point
-// that links it: the desktop bin, the headless drivers, AND the Android
-// cdylib (a bin-local declaration never reaches the shared library). Default
-// on via the platform bundles: glibc malloc measured 5-9% of self-time in
-// every desktop profile phase, mimalloc ~8% faster on the headless benchmark,
-// and Android's bionic malloc is weaker than glibc. Opt out by building
-// without `mimalloc_alloc`.
+// Process-wide allocator, declared in the LIB so it covers every entry point that links it: the
+// desktop bin, the headless drivers, AND the Android cdylib (a bin-local declaration never reaches
+// the shared library). Opt out by building without `mimalloc_alloc`.
 #[cfg(all(feature = "mimalloc_alloc", not(target_arch = "wasm32")))]
 #[global_allocator]
 static GLOBAL_ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 /// **The LDtk nouns THIS composition understands.**
 ///
-/// ⭐ **one place, because it is a composition decision.** The sandbox authors
-/// only engine vocabulary, so today this is just the engine's. What matters is
-/// that the answer has a NAME: the eight places that read or convert a world
-/// file used to inherit whatever a process-global `OnceLock` happened to hold,
-/// and the day this app composes a game that owns LDtk nouns of its own — Mary-O
-/// already does — that becomes one edit here rather than eight scattered
-/// literals, none of which would have been findable by asking "what can this
-/// app convert?".
+/// **one place, because it is a composition decision.** The sandbox authors only engine vocabulary,
+/// so today this is just the engine's.
 pub fn composed_ldtk_vocabulary() -> ambition_platformer2d::ldtk_map::LdtkVocabulary {
     ambition_platformer2d::ldtk_map::LdtkVocabulary::engine()
 }
@@ -52,14 +42,10 @@ pub use rl_sim::{
 
 /// Android shared-library entry point.
 ///
-/// Desktop builds enter through `src/bin/ambition_game_bin.rs`, but the Android
-/// Gradle project packages this crate as a shared library. GameActivity /
-/// android-activity expects the library to export `android_main`; Bevy's
-/// `#[bevy_main]` macro generates that boilerplate and registers the Android
-/// app handle for `bevy_winit` before calling into our normal visible app
-/// builder. NOTE (A3): the .so was previously `libambition::actors.so` built
-/// from the old monolith; the Gradle config must point at `libambition_app.so`
-/// after this split.
+/// Desktop builds enter through `src/bin/ambition_game_bin.rs`, but the Android Gradle project
+/// packages this crate as a shared library. GameActivity / android-activity expects the library to
+/// export `android_main`; Bevy's `#[bevy_main]` macro generates that boilerplate and registers the
+/// Android app handle for `bevy_winit` before calling into our normal visible app builder.
 #[cfg(target_os = "android")]
 #[bevy::prelude::bevy_main]
 fn main() {

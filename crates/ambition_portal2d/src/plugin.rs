@@ -115,9 +115,6 @@ impl Plugin for PortalSimulationPlugin {
         // geometry here; the host bridge copies it into the host collision
         // overlay each frame (portal core never names the concrete overlay).
         app.init_resource::<PortalCarves>();
-        // Host-measured wall depth behind each placed portal (the geometric
-        // guard bounding the aperture volume on thin walls). The host syncs
-        // it each frame from its collision world; empty = unclipped.
         app.init_resource::<crate::PortalHostDepths>();
         app.init_resource::<PortalTuning>();
         // NOTE: the held-gun aim hint (`PortalAimHint`) is a render-only resource
@@ -146,10 +143,7 @@ impl Plugin for PortalSimulationPlugin {
         // marker components it sets on a crossing (`PortalInputWarp` /
         // `PortalEmission`).
 
-        // The host input adapter translates concrete controls into portal
-        // intents in PortalSet::InputAdapter, ordered before this set, so these
-        // consumers see the intents the same frame. The drop consumer lives in
-        // the inventory adapter while it touches host item state.
+        // The drop consumer lives in the inventory adapter while it touches host item state.
         app.configure_sets(
             sim,
             PortalSet::InputAdapter.before(PortalSet::WeaponAndProjectiles),
@@ -192,7 +186,6 @@ impl Plugin for PortalSimulationPlugin {
                 // apertures this frame.
                 crate::resolve_portal_links.in_set(crate::PortalLinkResolution),
                 crate::equalize_pair_apertures,
-                // JON'S RULE: AVOID PUSHOUT — the ONE exception: a portal that
                 // moved/closed under a straddler shoves it clear (vs ripping it
                 // in half). Runs first so transit never acts on a body the
                 // closing plane already evicted.

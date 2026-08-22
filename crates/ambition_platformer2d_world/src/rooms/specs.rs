@@ -4,11 +4,8 @@ use ambition_platformer2d_core as ae;
 
 /// Static decorative prop authored as the `Prop` LDtk entity.
 ///
-/// Props render a sprite at a fixed location with no Interactable
-/// (so an Interact press near a prop does NOT pop a dialogue) and
-/// no AI / combat / save state. Sheet lookup goes through the
-/// prop registry in
-/// `crate::character_sprites::sheets`, keyed by `kind`.
+/// Sheet lookup goes through the prop registry in `crate::character_sprites::sheets`, keyed by
+/// `kind`.
 ///
 /// Props are kept off `World::objects` (which is the engine-side
 /// authored-object list — every entry there grows runtime behavior).
@@ -140,8 +137,8 @@ pub struct PortalSpec {
     /// color pairing — and a link that is not exactly two members is closed.
     /// `None` ⇒ legacy color pairing.
     pub link: Option<String>,
-    /// Authored along-surface half-length (opening size) from the LDtk box.
-    /// `None` ⇒ the fixed default. Both ends of a pair shrink to the minimum.
+    /// Authored along-surface half-length (opening size) from the LDtk box. Both ends of a pair
+    /// shrink to the minimum.
     pub half_length: Option<f32>,
 }
 
@@ -240,11 +237,6 @@ pub struct Authored<T> {
 }
 
 impl<T> Authored<T> {
-    /// ⭐ **`impl Into<T>`, not `T`.** Every existing call passes the payload
-    /// exactly, and the blanket `impl From<T> for T` keeps those compiling — but
-    /// it also lets a family GROW its payload from a bare value into a struct
-    /// without rewriting two dozen call sites. [`EnemySpawnSpec`] is the first to
-    /// use that: it wraps the `CharacterBrain` every caller used to pass.
     pub fn new(
         id: impl Into<String>,
         name: impl Into<String>,
@@ -468,9 +460,8 @@ pub use ambition_entity_catalog::placements::{
 mod enemy_spawn_identity_tests {
     use super::{EnemySpawnSpec, SpawnFacing};
 
-    /// Authored room data uses a semantic direction while the body keeps its
-    /// existing signed runtime representation. Silence preserves the old +1
-    /// construction behavior for non-migrated worlds.
+    /// Authored room data uses a semantic direction while the body keeps its existing signed
+    /// runtime representation.
     #[test]
     fn spawn_facing_is_semantic_and_backwards_compatible() {
         let spec = EnemySpawnSpec::new(

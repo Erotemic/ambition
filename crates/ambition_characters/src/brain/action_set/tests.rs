@@ -99,11 +99,8 @@ fn peaceful_action_set_has_no_attacks() {
 
 #[test]
 fn resolve_returns_predictable_request_count_per_intent_subset() {
-    // Table-driven coverage: every combo of melee/fire/special
-    // bits → predictable request count. `special` NO LONGER emits a
-    // request here — the moveset subsumes it (fable review §A1), so the
-    // special bit contributes 0 to the count; melee/fire stay
-    // independent. Pins that the flat special arm is gone.
+    // Table-driven coverage: every combo of melee/fire/special bits → predictable request
+    // count. Pins that the flat special arm is gone.
     let actions = ActionSet {
         melee: Some(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT)),
         ranged: Some(RangedActionSpec::bolt(500.0, 1)),
@@ -146,12 +143,8 @@ fn resolve_returns_predictable_request_count_per_intent_subset() {
 
 #[test]
 fn resolve_emits_a_melee_request_for_a_dedicated_pogo_press() {
-    // Regression: the DEDICATED pogo button (`pogo_pressed`, no `melee_pressed`)
-    // must resolve to a Melee request so the moveset `"attack"` trigger starts the
-    // swing that carries the bounce — the pogo is the air-down variant of the swing
-    // (resolved to AirDown downstream from `pogo_pressed`). Dropping this made the
-    // dedicated pogo button dead after the melee-unification (gravity_symmetry's
-    // pogo test caught it end-to-end).
+    // Dropping this made the dedicated pogo button dead after the melee-unification
+    // (gravity_symmetry's pogo test caught it end-to-end).
     let actions = ActionSet {
         melee: Some(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT)),
         ..Default::default()

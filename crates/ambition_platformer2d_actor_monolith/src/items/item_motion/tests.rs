@@ -85,12 +85,9 @@ fn the_rise_lifts_it_clear_and_then_hands_over_to_travel() {
 /// A rise that is NOT a whole number of ticks still rises exactly as far as it
 /// was authored to.
 ///
-/// 0.13s against a 1/60s step is 7.8 ticks, and the eighth has only 0.0133s of
-/// rise left in it. Spending a full tick's fraction there — which is what the
-/// code did — carried the pickup 32.8px out of a block that authored 32, and it
-/// then started travelling from a height nobody wrote down. The bug needs a
-/// duration the timestep does not divide, which is why the existing rise test
-/// (0.4s = exactly 24 ticks) is green either way and could never have caught it.
+/// 0.13s against a 1/60s step is 7.8 ticks, and the eighth has only 0.0133s of rise left in it.
+/// Spending a full tick's fraction there — which is what the code did — carried the pickup 32.8px
+/// out of a block that authored 32, and it then started travelling from a height nobody wrote down.
 #[test]
 fn a_rise_the_timestep_does_not_divide_still_stops_at_the_authored_height() {
     let plan = ItemMotionPlan::walker(60.0).emerging(32.0, 0.13);
@@ -110,7 +107,6 @@ fn a_walker_turns_around_at_a_wall_instead_of_pressing_into_it() {
     assert!(item.pos.x < 380.0, "and is heading back: {:?}", item.pos);
 }
 
-/// The one number that separates Jon's two pickups, shown as behaviour.
 #[test]
 fn a_walker_settles_onto_the_floor_and_a_bouncer_does_not() {
     let (_, walker) = run(ItemMotionPlan::walker(0.0), 60 * 2);

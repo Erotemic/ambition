@@ -342,12 +342,8 @@ fn to_persisted_collapses_active_to_untouched() {
 
 // ── Encounter loader ───────────────────────────────────────────
 //
-// ⭐⭐ **these drive the WHOLE new road, deliberately.** The loader reads rooms
-// now (D136), and a test that handed it a hand-built `RoomSpec` would prove the
-// loader and skip the part that actually moved: `EncounterTrigger` and
-// `LockWall` becoming emissions. So they still load the shipped sandbox world
-// and CONVERT it, which means a converter that stopped emitting a trigger fails
-// here rather than at runtime.
+// So they still load the shipped sandbox world and CONVERT it, which means a converter that
+// stopped emitting a trigger fails here rather than at runtime.
 
 /// The shipped sandbox world, converted through the real room pipeline.
 fn sandbox_rooms() -> Vec<ambition_platformer2d_world::rooms::RoomSpec> {
@@ -391,11 +387,6 @@ fn load_encounter_specs_respects_persisted_cleared() {
 
 #[test]
 fn ldtk_switch_runtime_id_matches_activation_payload() {
-    // Regression for the bug where the Switch RoomObject id was
-    // entity.iid (e.g. "Switch-4072") but the
-    // SwitchActivation payload's id was the LDtk `id` field
-    // ("goblin_encounter_reset_switch"). That mismatch made switch state
-    // updates a no-op and the switch sprite stayed stuck red.
     let manifest = test_world_manifest();
     let project = LdtkProject::load_default_for_dev(&manifest).expect("sandbox LDtk should load");
     let room_set = project
@@ -588,11 +579,8 @@ fn wave_clears_only_when_all_pending_and_alive_are_resolved() {
 
 #[test]
 fn just_spawned_mob_survives_one_tick_before_liveness_refresh() {
-    // Regression heritage: the "encounter ends after 2 seconds" bug — a
-    // freshly-spawned mob must not be counted dead by the SAME tick's stale
-    // liveness. The adapter refreshes `alive` BEFORE the director tick and
-    // fresh spawns append `alive = true` after, so the wave (and the generic
-    // objective) hold for at least one frame.
+    // The adapter refreshes `alive` BEFORE the director tick and fresh spawns append `alive = true`
+    // after, so the wave (and the generic objective) hold for at least one frame.
     let mut spec = lab_spec();
     spec.intro_seconds = 0.0;
     spec.waves = vec![EncounterWaveSpec {
@@ -601,8 +589,6 @@ fn just_spawned_mob_survives_one_tick_before_liveness_refresh() {
     }];
     let mut enc = WaveEncounter::new(spec);
     enc.start();
-    // The refresh reports all-dead (the runtime hasn't seen the new mob yet —
-    // the bug condition), but the fresh spawn is added AFTER the refresh.
     kill_all(&mut enc.parts);
     enc.tick(0.001);
     assert_eq!(
@@ -844,7 +830,7 @@ mod cleanup {
     /// cleanup consults the POLICY, not just the ownership enum. `Keep` is an
     /// explicit ownership RELEASE, not a silently still-owned leftover: the
     /// ended encounter drops its spawned relations while the bodies live on
-    /// as ordinary unowned actors (GPT-5.6 review, 2026-07-16).
+    /// as ordinary unowned actors.
     #[test]
     fn keep_policy_releases_spawned_participants_but_leaves_them_alive() {
         let mut app = cleanup_app();
@@ -875,7 +861,7 @@ mod cleanup {
     /// spawned participant whose entity CACHE is nulled (exactly a snapshot
     /// restore's participants) by resolving `SimId::placement(member.id)` —
     /// canonical simulation identity, not a type-specific marker query
-    /// (GPT-5.6 review, 2026-07-16).
+    /// .
     #[test]
     fn cleanup_resolves_a_nulled_participant_cache_through_sim_identity() {
         let mut app = cleanup_app();

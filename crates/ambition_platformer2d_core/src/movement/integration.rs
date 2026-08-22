@@ -129,16 +129,10 @@ pub(super) fn integrate_velocity_clusters(
     let was_clinging = state.wall_clinging;
     state.wall_clinging = false;
 
-    // The sweeps are still X/Y because the world is axis-aligned, but both the
-    // ORDER and the SEMANTICS are local-frame: sweep the controlled body's side
-    // axis first (arming wall contact), apply wall abilities against last-frame
-    // ground state, clear ground, then sweep the gravity/support axis, which
-    // owns landing. ONE sequence and ONE role-aware sweep for every cardinal
-    // gravity (fable review 2026-07-02 §B5/§B6 — the per-world-axis sweep pair
-    // and the per-branch ordering each broke whichever axis gravity rotated
-    // onto). In particular, a sideways body that runs off a ledge loses support
-    // before the gravity-axis sweep of the SAME frame, not one frame later
-    // because X happened to run before Y.
+    // The sweeps are still X/Y because the world is axis-aligned, but both the ORDER and the
+    // SEMANTICS are local-frame: sweep the controlled body's side axis first (arming wall
+    // contact), apply wall abilities against last-frame ground state, clear ground, then sweep
+    // the gravity/support axis, which owns landing.
     let gravity_on_x = frame.down().x != 0.0;
     let (side_axis, gravity_axis) = if gravity_on_x {
         (
@@ -168,22 +162,16 @@ pub(super) fn integrate_velocity_clusters(
                 crate::collision_semantics::Axis::X => clusters.kinematics.vel.x,
                 crate::collision_semantics::Axis::Y => clusters.kinematics.vel.y,
             } * dt;
-            // ⭐⭐ **BODY-VS-BODY CONTACT, and this line is the whole placement
-            // argument.** Jon's ruling (2026-08-20) is that a body mechanic may
-            // express contact but it *"should never be a mandatory part of the
-            // movement kernel"* — so the capability CONSTRAINS the motion this
-            // body proposed, immediately before the world sweep resolves it, and
-            // does nothing at all to a body whose composition never granted it
-            // (`BodyContactField::is_inert`). Nothing is separated afterwards.
+            // Nothing is separated afterwards.
             //
-            // ⛔ **SIDE AXIS AND GROUNDED ONLY, first slice.** Standing ON another
+            // **SIDE AXIS AND GROUNDED ONLY, first slice.** Standing ON another
             // body is `footstool`, which already exists and means something else;
             // and an airborne fighter passing another one is Smash-correct. The
             // ground flag read here is the body's ENTRY state — the side sweep
             // runs before support is re-established — which is the right answer
             // to *is this body standing* for this step.
             //
-            // ⛔⛔ **AND IT IS NOT A FORCE.** A term summed into `vel` is erased:
+            // **AND IT IS NOT A FORCE.** A term summed into `vel` is erased:
             // `approach()` overwrites `vel` toward the input target every tick,
             // which is why the acceleration version of this had eight green tests
             // and moved nothing in a real match (`bbbc5e46c`).
@@ -192,7 +180,7 @@ pub(super) fn integrate_velocity_clusters(
                     clusters.kinematics.aabb_oriented(frame.down()),
                     delta_along,
                     matches!(axis, crate::collision_semantics::Axis::X),
-                    // ⛔ **ONE WALK'S WORTH, and no more.** A body standing in
+                    // **ONE WALK'S WORTH, and no more.** A body standing in
                     // the way pushes back with the force of standing there; a
                     // launched body ploughs through it. Without this the
                     // constraint ate knockback and two `smash_it` guards about
@@ -354,7 +342,7 @@ pub(super) fn integrate_velocity_clusters(
     // locomotion fact maintained at one of them would be a running attack the
     // CPU could not perform.
     //
-    // ⚠ post-sweep on purpose: a body pinned against a wall has been stopped,
+    // post-sweep on purpose: a body pinned against a wall has been stopped,
     // and its Attack press is a standing one.
     let travel = clusters.kinematics.vel.dot(frame.side());
     let steer = input.local_axis().x;
@@ -363,15 +351,11 @@ pub(super) fn integrate_velocity_clusters(
         && travel.abs() >= tuning.locomotion.run_commit_frac * tuning.locomotion.max_run_speed;
 }
 
-/// Ladder integration: drive vel.y from `axis_y * climb_speed`,
-/// scale x by `strafe_factor`, and clear transient flight flags.
-/// Suspends gravity by overwriting `vel.y` rather than accumulating.
-/// Normal-mode integration — the shared physics SPINE (not a composable limb):
-/// gravity-direction-relative gravity, fast-fall, glide-gate, run/friction, and
-/// the fall-speed cap. The fourth mode-select branch alongside dash (skip),
-/// climb, and flight. Everything projects through the supplied `MotionFrame` so sideways /
-/// flipped gravity Just Works — the property enemies/NPCs inherit when they move
-/// onto this spine (and the reason their Y-only `gravity_sign` fall bug vanishes).
+/// Ladder integration: drive vel.y from `axis_y * climb_speed`, scale x by `strafe_factor`, and
+/// clear transient flight flags. Suspends gravity by overwriting `vel.y` rather than
+/// accumulating. Normal-mode integration — the shared physics SPINE (not a composable limb):
+/// gravity-direction-relative gravity, fast-fall, glide-gate, run/friction, and the fall-speed
+/// cap. The fourth mode-select branch alongside dash (skip), climb, and flight.
 pub(super) fn integrate_normal_clusters(
     kinematics: &mut crate::body_clusters::BodyKinematics,
     flight: &mut crate::body_clusters::BodyFlightState,
@@ -541,7 +525,7 @@ pub fn integrate_normal_spine(
         // instead of 110 (queue F0e). When the window ends the floor bleeds at
         // `carried_decay` exactly as it always has — which is also what a portal
         // fling gets, since a fling sets no hold.
-        // ⚠ this whole block is inside `can_move_horizontal`, so the hold counts
+        // this whole block is inside `can_move_horizontal`, so the hold counts
         // TICKS THE HORIZONTAL LAW RAN, not wall time. That is the right clock
         // for it — the carry only means anything while this law is deciding the
         // run axis — and it is inert in the gap: a body that cannot move
@@ -553,12 +537,10 @@ pub fn integrate_normal_spine(
                 // answer for the momentum; control is back, so it stops being
                 // owed and the tight stop-on-release feel returns immediately.
                 //
-                // ⚠ this must ZERO the floor, not hand it to `carried_decay`.
-                // That rate is `0.0` on the axis-swept profile — the floor never
-                // bleeds — so "expire into the ordinary decay" would mean a body
-                // that was hit once coasts at its launch speed for the rest of
-                // its life. That is the core-feel change that got the first
-                // attempt at this reverted (queue F0e).
+                // this must ZERO the floor, not hand it to `carried_decay`. That rate is `0.0` on
+                // the axis-swept profile — the floor never bleeds — so "expire into the ordinary
+                // decay" would mean a body that was hit once coasts at its launch speed for the
+                // rest of its life.
                 //
                 // Zeroing the FLOOR is not braking: `kin_vel` is untouched, so
                 // the launched body flies on and decelerates under the ordinary
@@ -589,7 +571,7 @@ pub fn integrate_normal_spine(
                     }
                     v
                 } else if run > 0.1 {
-                    // ⭐ the AIR cap, which is the ground cap unless the body
+                    // the AIR cap, which is the ground cap unless the body
                     // authored its own. Air ACCELERATION was already a separate
                     // number; air TOP SPEED was the ground's, which made a
                     // slow-running heavy that drifts fast unspellable.
@@ -859,7 +841,6 @@ pub(super) fn integrate_flight_clusters(
 /// `wall_climb` + local up/down input, drive motion along that down axis.
 /// Records the first transition op so the trace recorder fires
 /// `WallCling` / `WallClimb` exactly once per engagement.
-///
 pub(super) fn apply_wall_abilities_clusters(
     kinematics: &mut crate::body_clusters::BodyKinematics,
     ground: &crate::body_clusters::BodyGroundState,

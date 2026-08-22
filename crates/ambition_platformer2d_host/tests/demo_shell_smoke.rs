@@ -1,10 +1,5 @@
-//! E5 step 6 — THE DEMO GATE, executable: a demo-shaped app assembles from
-//! the engine group + the host group + a tiny fixture content plugin and
-//! ticks without panicking. This is the permanent regression guard for the
-//! demo gate: if an engine-group system grows a bare `Res<T>` on state only
-//! Ambition's assembly provides, THIS test panics — move the default into
-//! `SimCoreResourcesPlugin` (engine state) or document it as world/content
-//! state the fixture must provide (like `RoomSet`/`RoomGeometry` below).
+//! E5 step 6 — THE DEMO GATE, executable: a demo-shaped app assembles from the engine group + the
+//! host group + a tiny fixture content plugin and ticks without panicking.
 //!
 //! The fixture provides exactly what the ENGINE deliberately does not own:
 //! the installed WORLD (which rooms exist is the game's choice).
@@ -41,10 +36,8 @@ const FIXTURE_CATALOG_RON: &str = r#"(
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
-            // ⚠ this fixture used to declare `playable_kit: HostCode` to exercise
-            // the host-built protagonist kit. That variant is deleted -- no
-            // character says engine code owns its repertoire any more -- so the
-            // row states what it actually is: a peaceful shell character.
+            // That variant is deleted -- no character says engine code owns its repertoire any more
+            // -- so the row states what it actually is: a peaceful shell character.
             tags: ["player"],
         ),
     },
@@ -146,21 +139,11 @@ fn fixture_setup(
 
 /// **A SHELL WITH NO ENCOUNTER CONTENT BOOTS.**
 ///
-/// ⛔⛔ **this whole file was red, and had been, and the run could not see it**
-/// (ledger D88, 2026-08-11). `drive_wave_encounters` takes six plain resources —
-/// the save, the quest registry, the switch index, the catalog, the roster, the
-/// prepared cast — and Bevy validates a `Res` param BEFORE the system can
-/// discover that its `Query<&Encounter, ..>` is empty and it has nothing to do.
-/// So a composition with no encounter content panicked on boot.
-///
-/// ⚠ **the run's gate is `cargo check -p ambition_app --all-targets` plus
+/// **the run's gate is `cargo check -p ambition_app --all-targets` plus
 /// `app_it`, and neither builds this crate's tests.** A whole crate went red and
 /// stayed green to the campaign. That is the finding; the panic is only how it
 /// showed up.
 ///
-/// ⭐ the fix is a run condition rather than six `Option<Res<..>>`: an absent
-/// resource would otherwise read as *skip this encounter* inside a game that HAS
-/// encounters, which is the silent-disable this repo has a standing rule against.
 /// The panic stays for a world with encounters and no authorities to drive them.
 #[test]
 fn demo_shell_boots_and_ticks() {
@@ -176,9 +159,6 @@ fn demo_shell_boots_and_ticks() {
     app.update();
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Netcode N0.1 — the same shell, hosted on the fixed-tick clock.
-//
 // The exit check has two halves. Here: the demo assembly boots in `FixedUpdate`
 // and the sim graph does not SPLIT across two schedules. In
 // `game/ambition_app/tests/{player,actor}_phase_split.rs`: the rl_sim
@@ -221,19 +201,15 @@ fn systems_in(
     let Some(graph) = schedules.get(schedule).map(|s| s.graph()) else {
         return 0;
     };
-    // `SetNotFound` means the set has no node in this schedule at all — which is
-    // exactly "no systems", not a failure. A node with zero members reads the
-    // same. (The host's `.before(CoreSimulation)` edges DO create empty nodes in
-    // `Update`, which is why MEMBERSHIP, not existence, is what this asserts.)
+    // `SetNotFound` means the set has no node in this schedule at all — which is exactly "no
+    // systems", not a failure. A node with zero members reads the same.
     graph.systems_in_set(set.intern()).map_or(0, |s| s.len())
 }
 
 /// Build the shell and run Bevy's Startup frame.
 ///
-/// Bevy's very first frame has `dt == 0`, so the fixed accumulator expends
-/// nothing: `Startup` runs, the sim does not. Every frame after it advances
-/// exactly one tick, because the frame dt is pinned to the tick dt (identical
-/// `Duration`s, hence integer nanoseconds, hence no accumulator drift ever).
+/// Every frame after it advances exactly one tick, because the frame dt is pinned to the tick
+/// dt (identical `Duration`s, hence integer nanoseconds, hence no accumulator drift ever).
 fn fixed_tick_shell() -> App {
     let mut app = App::new();
     ambition_platformer2d_runtime::add_headless_foundation(&mut app);
@@ -265,11 +241,9 @@ fn fixed_tick_demo_shell_boots_and_ticks() {
     }
 }
 
-/// The graph must not split. Under fixed tick, `Update` may still hold
-/// presentation and device systems — but not one single system belonging to a
-/// SIM phase. A content or engine plugin that hardcoded `Update` instead of
-/// asking `app.sim_schedule()` would land its systems here, where they would
-/// silently stop ordering against the rest of the sim.
+/// The graph must not split. A content or engine plugin that hardcoded `Update` instead of
+/// asking `app.sim_schedule()` would land its systems here, where they would silently stop
+/// ordering against the rest of the sim.
 #[test]
 fn fixed_tick_leaves_no_sim_system_in_update() {
     let mut app = fixed_tick_shell();
@@ -405,8 +379,6 @@ fn presentation_shell(profiles: ActiveGameplayPresentationProfiles) -> App {
     app
 }
 
-/// A fixed-aspect declaration reaches all three consumers in the assembled
-/// host: the camera observation input, the physical viewport, and the surround.
 #[test]
 fn a_fixed_aspect_profile_reaches_the_camera_and_the_surround() {
     let mut app = presentation_shell(ActiveGameplayPresentationProfiles(

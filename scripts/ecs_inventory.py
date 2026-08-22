@@ -1544,8 +1544,7 @@ def crate_display_name(crate_root: pathlib.Path) -> str:
 
 def discover_crate_roots(repo_root: pathlib.Path) -> list[pathlib.Path]:
     roots: list[pathlib.Path] = []
-    # crates/ = engine; game/ = app + content + demos (re-homed by decomposition
-    # E7); tests/ = the workspace-policy package. All hold workspace-member crates.
+    # All hold workspace-member crates.
     for root_name in ("crates", "game", "tests"):
         parent = repo_root / root_name
         if not parent.is_dir():

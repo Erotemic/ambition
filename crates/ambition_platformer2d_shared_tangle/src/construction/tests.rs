@@ -493,13 +493,8 @@ fn an_unregistered_relation_kind_is_rejected() {
 /// [`ConstructionDomain::dispatch_relation`] derives the kind from it, so the
 /// pairing is a function rather than two independent inputs.
 ///
-/// What this replaced: `RelationRequest { kind, to, payload }`, where nothing
-/// checked that `kind` and `payload` described the same relation. The registry
-/// validated the kind and knew nothing of payloads; the wiring function
-/// destructured the payload and `unreachable!`d on a mismatch — during COMMIT,
-/// after the outgoing room had been retired. See
-/// `crates/ambition_platformer2d_actor_monolith/src/construction/tests.rs` for the domain-level
-/// version, which is where a genuine multi-variant relation enum lives.
+/// See `crates/ambition_platformer2d_actor_monolith/src/construction/tests.rs` for the
+/// domain-level version, which is where a genuine multi-variant relation enum lives.
 #[test]
 fn a_relation_cannot_name_a_kind_that_disagrees_with_its_payload() {
     let request = RelationRequest::<Toy> {
@@ -888,15 +883,11 @@ fn the_registry_dump_does_not_depend_on_registration_order() {
 
 // ── The recipe/parameter pairing ─────────────────────────────────────────────
 //
-// There are no tests here any more, and their absence is the point. A request
-// used to carry a `RecipeId` beside its parameters, so `a.recipe = picky()` was
-// a thing a test could write and a caller could ship; an `AcceptsFn` checked the
-// pairing at preparation and a wrong `true` still reached the constructor's
-// `unreachable!` mid-commit. The recipe is now derived from the payload by
-// `ConstructionDomain::dispatch`, one exhaustive match that yields the recipe
-// identity and its constructor together, so the mispairing is a state that
-// cannot be written down and a missing arm is a compile error. `every_parameter_variant_constructs` in `ambition_platformer2d_actor_monolith`
-// covers the real domain's arms behaviourally.
+// There are no tests here any more, and their absence is the point. The recipe is now derived from
+// the payload by `ConstructionDomain::dispatch`, one exhaustive match that yields the recipe
+// identity and its constructor together, so the mispairing is a state that cannot be written down
+// and a missing arm is a compile error. `every_parameter_variant_constructs` in
+// `ambition_platformer2d_actor_monolith` covers the real domain's arms behaviourally.
 
 // ── Partial commits ──────────────────────────────────────────────────────────
 
@@ -978,13 +969,10 @@ fn a_subset_that_encloses_a_relation_wires_it() {
 
 /// A recipe cannot commandeer a body that already exists.
 ///
-/// The previous design ran the recipe and trusted whatever `Entity` it handed
-/// back, guarded only by a deferred check that the entity did not already hold a
-/// `SimId`. A pre-existing entity WITHOUT one — a presentation node, a helper,
-/// anything not yet identified — sailed through that check and had the planned
-/// identity stamped onto it. The executor allocates the root now, so there is no
-/// return value to distrust: the toy domain below cannot even express the
-/// attempt.
+/// The previous design ran the recipe and trusted whatever `Entity` it handed back, guarded
+/// only by a deferred check that the entity did not already hold a `SimId`. The executor
+/// allocates the root now, so there is no return value to distrust: the toy domain below cannot
+/// even express the attempt.
 #[test]
 fn a_recipe_cannot_commandeer_a_pre_existing_entity() {
     #[derive(Component)]
@@ -1069,11 +1057,7 @@ fn each_planned_row_gets_its_own_fresh_root() {
 
 // ── Relation cuts, both directions ───────────────────────────────────────────
 //
-// These were written once, verified against the pre-fix implementation, and then
-// silently lost: an edit that replaced from a marker to end-of-file took the
-// whole block with it, and the commit reported a test count nobody re-derived.
-// They are restored and extended here, and the load-bearing one is called out
-// below.
+// They are restored and extended here, and the load-bearing one is called out below.
 
 /// **The poison test.** A relation is an `Entity` handle, so rebuilding the
 /// TARGET of one is not a private matter for the target's row: `a` grudges `b`,
@@ -1081,10 +1065,9 @@ fn each_planned_row_gets_its_own_fresh_root() {
 /// handle. The roster looks right — both identities present — and only the
 /// wiring is silently wrong.
 ///
-/// **Demonstrated against `896bfb1`**, which permitted this case on the
-/// reasoning that the relation belonged to the untouched source. It failed
-/// there with `left: Some(Grudge(1v0))` (the corpse) against
-/// `right: Some(Grudge(1v1))` (the rebuilt target). It is not regression-only.
+/// **Demonstrated against `896bfb1`**, which permitted this case on the reasoning that the relation
+/// belonged to the untouched source. It failed there with `left: Some(Grudge(1v0))` (the corpse)
+/// against `right: Some(Grudge(1v1))` (the rebuilt target).
 #[test]
 fn reconstructing_a_relation_target_alone_must_not_strand_its_source() {
     let registry = registry();
@@ -1389,11 +1372,8 @@ mod drifting {
 
 /// **Preparation freezes the executable decision, not just its label.**
 ///
-/// Before the constructor was stored on the row, commit called `dispatch` again
-/// — so a plan could validate recipe A, dump recipe A, contribute recipe A to
-/// the content fingerprint, and then execute constructor B. This fails against
-/// that implementation: it builds `BuiltByB` while every canonical surface says
-/// `drift.a`.
+/// This fails against that implementation: it builds `BuiltByB` while every canonical surface
+/// says `drift.a`.
 #[test]
 fn commit_runs_the_constructor_preparation_resolved_not_a_fresh_one() {
     use drifting::{BuiltByA, BuiltByB, Drifting, DISPATCHES, USE_B};
@@ -1762,12 +1742,7 @@ fn verify_under_both(
 
 /// **A planned relation the executor never wired is a failure, not a skip.**
 ///
-/// The verifier used to `continue` past any relation absent from
-/// `relations_wired`, which made the whole postcondition pass vacuous for
-/// exactly the relations that failed hardest: a relation the executor never
-/// attempted has no receipt entry, so "check the ones that were wired" checked
-/// everything except the broken one. Which relations were OWED is now derived
-/// from the identities actually committed.
+/// Which relations were OWED is now derived from the identities actually committed.
 ///
 /// The executor cannot be made to skip a relation from the outside — that is
 /// the point of the design — so this drops the entry from the receipt directly,
@@ -2003,9 +1978,8 @@ fn a_second_entity_wearing_a_baseline_identity_is_detected() {
     );
 }
 
-/// (2) A baseline entity despawned and replaced by another entity carrying the
-/// same identity. **Exactly one occupant, exactly the right identity, wrong
-/// body.** This is the case an identity-only baseline is structurally blind to.
+/// **Exactly one occupant, exactly the right identity, wrong body.** This is the case an
+/// identity-only baseline is structurally blind to.
 #[test]
 fn a_baseline_entity_replaced_by_a_look_alike_is_detected() {
     let mut world = World::new();
@@ -2031,10 +2005,7 @@ fn a_baseline_entity_replaced_by_a_look_alike_is_detected() {
     );
 }
 
-/// (3) Duplicate authoritative identities present BEFORE the transaction. The
-/// capture refuses rather than collapsing them, because every later
-/// multiplicity check would otherwise be measured against a baseline that had
-/// already lost the duplicate.
+/// (3) Duplicate authoritative identities present BEFORE the transaction.
 #[test]
 fn a_baseline_that_already_contains_duplicates_is_refused_at_capture() {
     let mut world = World::new();
@@ -2094,7 +2065,6 @@ fn a_declared_reconstruction_changes_exactly_one_generation() {
     let bystander = world.spawn(SimId::placement("untouched")).id();
     let baseline = baseline_of(&mut world);
 
-    // Retire the old body and rebuild the identity through the plan.
     world.despawn(original);
     let plan = ConstructionPlan::prepare(scope(), vec![request("a")], &nothing_live(), &registry())
         .unwrap();

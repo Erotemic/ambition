@@ -444,10 +444,7 @@ fn select_shell_audio_context(
     // and title music are authorized by the exact shell activation that emitted
     // them, while stale gameplay requests remain invalid.
     //
-    // ⭐ **the route is what selects the profile, and it is the only new fact
-    // here.** The OWNER was already per-activation; the provider used to come
-    // from a process-global resource, so one host could honour exactly one
-    // provider's frontend sound. `activation.route_id` was in scope and unread.
+    // `activation.route_id` was in scope and unread.
     for event in shell_events.read() {
         match event {
             ShellEvent::RouteActivated(activation)
@@ -525,22 +522,13 @@ fn translate_shell_session_lifecycle(
                     {
                         loads.retire(&load.load_id);
                     }
-                    // **THE WORLD THAT WAS STOPPED IS GONE, SO NOTHING IS
-                    // STOPPED.** (Jon, 2026-08-07: *"A quit to title should not
-                    // leave a dirty global state. Ideally this would not be
-                    // something we need to manage."*)
+                    // `GameMode` is a Bevy `States` global, and pausing is the one thing that
+                    // writes it from OUTSIDE the session's own systems. Quit to the title from a
+                    // paused match and the mode stayed `Paused` with no session to explain it: the
+                    // next match built its fighters, seated them, framed them and never advanced a
+                    // tick — bodies hanging in the air with a menu that still answered.
                     //
-                    // ⛔ `GameMode` is a Bevy `States` global, and pausing is the
-                    // one thing that writes it from OUTSIDE the session's own
-                    // systems. Quit to the title from a paused match and the mode
-                    // stayed `Paused` with no session to explain it: the next
-                    // match built its fighters, seated them, framed them and
-                    // never advanced a tick — bodies hanging in the air with a
-                    // menu that still answered. Measured 2026-08-07, and the
-                    // resource census was clean, because the dirty state was
-                    // never a resource anybody thought to release.
-                    //
-                    // ⭐ **the pause menu already handed the sim back on its way
+                    // **the pause menu already handed the sim back on its way
                     // out, and that is exactly the problem**: `QuitToHome` has
                     // four writers (the pause menu, the F10 developer hotkey, the
                     // in-world system menu, the scripted route sweep) and only
@@ -548,7 +536,7 @@ fn translate_shell_session_lifecycle(
                     // rule three callers will eventually break. The lifecycle
                     // that ended the session is the one place that cannot forget.
                     //
-                    // ⚠ `Dialogue`, `RoomTransition` and `Cutscene` reset too,
+                    // `Dialogue`, `RoomTransition` and `Cutscene` reset too,
                     // for the same reason — every one of them describes a live
                     // world, and this one has just been retired.
                     if let Some(mode) = game_mode.as_mut() {

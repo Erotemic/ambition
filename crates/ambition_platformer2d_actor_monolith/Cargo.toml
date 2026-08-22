@@ -24,12 +24,7 @@ description = "Ambition gameplay core: content-free simulation systems, runtime 
 crate-type = ["rlib"]
 
 [features]
-# Publish this crate's causal facts (movement intent, for now).
-# ⚠ **every crate that PUBLISHES must be listed**, not just the ones this crate
-# calls into. `ambition_characters` was missing until 2026-08-01, so the BRAIN
-# domain — the fighter decisions Program C exists to explain — was compiled out
-# of every composition that turned the inspector on. The stderr trace still
-# printed, which is what hid it: the line appeared and the fact did not, and
+# The stderr trace still printed, which is what hid it: the line appeared and the fact did not, and
 # nothing distinguishes "the brain published nothing" from "the brain cannot".
 causal = ["dep:ambition_causal", "ambition_combat/causal", "ambition_characters/causal"]
 # Default preserves the full desktop sandbox / development posture. Android
@@ -61,7 +56,6 @@ portal = ["dep:ambition_portal2d", "ambition_projectiles/portal", "dep:ambition_
 # into portal visuals without dragging in the desktop-only audio/ui/physics
 # subsystems. Personas that want portal rendering enable their own render
 # pipeline (`visible` / `visible_web_base`) alongside this flag.
-#
 portal_render = ["portal"]
 portal_ldtk = ["portal", "ldtk_runtime", "dep:ambition_platformer2d_ldtk", "ambition_platformer2d_ldtk/portal_ldtk"]
 
@@ -188,11 +182,8 @@ web_served_assets = ["visible_web_served", "web_platform"]
 # of its own — composing it pulls in the right sandbox behavior.
 web_served = ["ambition_sprite_sheet/web_served"]
 
-# (`rl_sim` was removed here 2026-07-19: the RL surface — `Platformer2dSimHarness`,
-# `AgentAction`, `AgentObservation` — moved to `ambition_sim_harness` and the
-# app in the July-16 extraction, so this crate's copy of the feature gated
-# nothing at all. The real switch is `ambition_app/rl_sim`, which pulls
-# `dep:ambition_sim_harness` and gates the rl_sim-only integration tests.)
+# The real switch is `ambition_app/rl_sim`, which pulls `dep:ambition_sim_harness` and gates the
+# rl_sim-only integration tests.)
 
 # Composite marker for a headless build. Intentionally enables NOTHING: the
 # lever is `--no-default-features --features headless`, i.e. "the base without
@@ -201,13 +192,6 @@ web_served = ["ambition_sprite_sheet/web_served"]
 # bevy_ecs_ldtk) get stripped further.
 headless = []
 
-# Devtools: egui inspector plugins. NOT the file watcher — its host
-# cost (one inotify instance + one open fd per watched directory)
-# scales with the assets tree (~320 files, ~70 dirs as of 2026-05-21)
-# and trips hosts with a low per-process file-descriptor limit
-# ("Failed to create file watcher … Too many open files"). Opt into
-# the hot-reload watcher explicitly with `--features dev_hot_reload`
-# when you actually want to iterate on assets live.
 dev_tools = ["dep:bevy-inspector-egui", "ambition_settings_menu/dev_tools"]
 
 # Opt-in Bevy file watcher for live asset hot-reload. Off by default
@@ -272,32 +256,19 @@ ldtk_runtime = [
     "dep:ambition_platformer2d_ldtk",
     "ambition_platformer2d_ldtk/ldtk_runtime",
 ]
-# The runtime audio subsystem. Composes `authored_audio`: Kira playback
-# of authored OGG/WAV music + the packed SFX bank loaded through the
-# asset manager catalog. There is no runtime DSP/effects backend today;
-# the old fundsp procedural music + SFX synthesizer was retired in
-# favor of authored OGGs and the SFX bank. See docs/archive/retired/fundsp-audio.md
-# (now an end-of-life note).
+# The runtime audio subsystem. Composes `authored_audio`: Kira playback of authored OGG/WAV
+# music + the packed SFX bank loaded through the asset manager catalog.
 audio = ["authored_audio"]
 # Authored-asset audio playback. `bevy_kira_audio` works on
 # wasm32-unknown-unknown via `kira/cpal/wasm-bindgen`, so this composite
 # is the same on desktop, Android, and web.
 authored_audio = ["dep:bevy_kira_audio", "ambition_audio/kira"]
-# Browser-side audio composite. Pulls in the full `audio` feature
-# (NOT just `authored_audio`) so the `#[cfg(feature = "audio")]`
-# gates in `audio/runtime.rs`, `audio/web_unlock.rs`, the bank
-# loader, the env writer, etc. actually fire. Before this depended
-# only on `authored_audio` and the web build silently boot-stripped
-# the entire audio runtime (no plugin install, no AudioContext
-# creation) even though `bevy_kira_audio` was in the dep graph.
+# Browser-side audio composite. Pulls in the full `audio` feature (NOT just `authored_audio`) so
+# the `#[cfg(feature = "audio")]` gates in `audio/runtime.rs`, `audio/web_unlock.rs`, the bank
+# loader, the env writer, etc. actually fire.
 web_audio = ["audio"]
-# The DIALOGUE/YARN umbrella. It carried `dep:bevy_material_ui` until
-# 2026-08-08; no file in this crate ever named the crate, and the app-side plugin
-# install that did has been deleted. ⭐ **and it stopped carrying the Yarn
-# runtime on 2026-08-17 (D33)**: the host glue that named `bevy_yarnspinner`
-# moved to `ambition_conversation::dialog`, so both yarnspinner crates left this
-# manifest entirely and the feature now only FORWARDS. Its callers still select
-# it for the Yarn runtime and `ambition_dialog/ui`.
+# The DIALOGUE/YARN umbrella. Its callers still select it for the Yarn runtime and
+# `ambition_dialog/ui`.
 ui = [
     "ambition_conversation/ui",
     "ambition_dialog/ui",
@@ -306,13 +277,9 @@ physics_debris = ["dep:avian2d"]
 input = [
     "dep:leafwing-input-manager",
     "ambition_input/input",
-    # ⛔ `ambition_ui_nav/input` USED TO BE FORWARDED HERE, and the forward was
-    # doubly redundant: `ambition_dialog/input` below already enables it, and
-    # `ambition_ui_nav/input` is itself only `ambition_input/input`, which the
-    # line above already enables. The `ambition_ui_nav` dependency existed for
-    # nothing but this forward — this crate names no ui_nav path — so removing
-    # the forward removed a declared Cargo edge and one of the capability crates
-    # a movement-only consumer inherits. See
+    # The `ambition_ui_nav` dependency existed for nothing but this forward — this crate names no
+    # ui_nav path — so removing the forward removed a declared Cargo edge and one of the capability
+    # crates a movement-only consumer inherits. See
     # `docs/planning/engine/actor-monolith-decomposition.md`.
     "ambition_dialog/input",
 ]
@@ -365,11 +332,6 @@ ambition_sfx = { path = "../ambition_sfx" }
 # authored hitbox/body-collision joins.
 ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
 ambition_encounter = { path = "../ambition_encounter" }
-# The boss-fight DOMAIN. Carved out of this crate 2026-08-17 (D33): the data
-# model relocated here first (`features::ecs::boss_clusters` -> `clusters`), and
-# once the last two upward names (`CutsceneTriggerQueue`, `MountDied`) moved
-# BELOW, nothing in the domain reached back. No facade re-export stands here —
-# callers name the crate.
 ambition_boss_encounter = { path = "../ambition_boss_encounter" }
 ambition_entity_catalog = { path = "../ambition_entity_catalog" }
 # Reusable gameplay flight-recorder FORMAT (schema + buffer + dump). The
@@ -385,12 +347,7 @@ ambition_audio = { path = "../ambition_audio" }
 # not-yet-extracted local modules collision/orientation/transit). See
 # docs/current/state.md Stage 13 / Task K.
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
-# Reusable, content-free portal MECHANIC (portal-gun place/replace/channel,
-# aperture transit math, the one generic `portal_transit` over PortalBody +
-# PortalPolicy, carve publishing, pieces geometry, lifecycle, the pure shot
-# helper over SolidWorldQuery, portal events + PortalPlugin). Hosts and content
-# adapters import this crate directly; actor sim no longer carries a portal
-# facade or presentation dependency. ADR 0019; Stage 19.
+# ADR 0019; Stage 19.
 ambition_portal2d = { path = "../ambition_portal2d", optional = true }
 # The reusable projectile MODEL (E2): shot vocabulary + components + spawn pool +
 # portal transit. The sim heart retains only the victim/world/anim-woven steppers.
@@ -411,10 +368,8 @@ ambition_characters = { path = "../ambition_characters" }
 # `bevy_ecs` for the `Resource` impl -- no renderer, no other domain.
 ambition_causal = { path = "../ambition_causal", features = ["bevy"], optional = true }
 ambition_combat = { path = "../ambition_combat" }
-# Conversation continuity — the `ActiveConversation` authority, the hold, the
-# break rule + its cast port, the narrative-input ledger, and the dialogue-
-# opening seam. Carved out of this crate 2026-08-17 (D33 step 2); `features`
-# and `schedule` are the callers that keep the edge.
+# Conversation continuity — the `ActiveConversation` authority, the hold, the break rule + its cast
+# port, the narrative-input ledger, and the dialogue- opening seam.
 ambition_conversation = { path = "../ambition_conversation" }
 # Cutscene script format + runtime stepper + playback-state resources (pure
 # data + ECS resources). The playback systems that drive them live in
@@ -424,16 +379,13 @@ ambition_vfx = { path = "../ambition_vfx" }
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 ambition_interaction = { path = "../ambition_interaction" }
 ambition_items = { path = "../ambition_items" }
-# ⭐⭐ **OPTIONAL as of 2026-08-18, and it is now the FEATURE GRAPH that holds
-# this edge rather than a `use`** (D136). Every production module that named this
-# crate — the encounter loader and its system, the gated lock walls, the switch
-# commands — reads the room IR instead; the last mention in `src/` is a doc
-# comment. So the only thing keeping it in a movement-only game's closure was
-# this line being unconditional, which is exactly the pattern the subsystem-gate
-# comment below describes: *"Deps are flipped to `optional = true` so toggling
-# these features actually moves crates in/out of the dep graph."*
-# ⚠ the four features that forward into it name `dep:` explicitly, and the tests
-# take it back through `[dev-dependencies]`.
+# Every production module that named this crate — the encounter loader and its system, the gated
+# lock walls, the switch commands — reads the room IR instead; the last mention in `src/` is a doc
+# comment. So the only thing keeping it in a movement-only game's closure was this line being
+# unconditional, which is exactly the pattern the subsystem-gate comment below describes: *"Deps are
+# flipped to `optional = true` so toggling these features actually moves crates in/out of the dep
+# graph."* the four features that forward into it name `dep:` explicitly, and the tests take it back
+# through `[dev-dependencies]`.
 ambition_platformer2d_ldtk = { path = "../ambition_platformer2d_ldtk", default-features = false, optional = true }
 # Device -> ControlFrame input layer (Platformer2dInputActionMonolith / ControlFrame / presets /
 # input-domain settings). Re-exported as `crate::input` from lib.rs (ADR 0019);
@@ -504,13 +456,13 @@ serde_json = "1"
 # The binaries moved to the `ambition_app` crate (Stage 20 / A3).
 
 [dev-dependencies]
-# ⚠ **the tests still build LDtk fixtures**, and the production dependency went
+# **the tests still build LDtk fixtures**, and the production dependency went
 # `optional` (see above). `#[cfg(test)]` code reaches a dev-dependency, so the
 # encounter / gated-lock-wall / switch-command tests keep converting a real
 # project into rooms — which is the point of those fixtures — without putting the
 # crate back on the shipping surface.
 ambition_platformer2d_ldtk = { path = "../ambition_platformer2d_ldtk", default-features = false }
-# ⛔ **the barrier-bypassing test seams, and DEV-ONLY is the whole point.**
+# **the barrier-bypassing test seams, and DEV-ONLY is the whole point.**
 # `prepare_and_finalize_for_test` and `insert_prepared` were `#[cfg(test)]
 # pub(crate)` while they lived in this crate; the P1.7 move put the model and
 # preparation into `ambition_characters` and left eighteen fixtures here, and

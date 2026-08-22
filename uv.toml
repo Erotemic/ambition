@@ -8,8 +8,3 @@
 # This static date is the floor. run_developer_setup.sh exports
 # UV_EXCLUDE_NEWER=$(today - 14d) at run time, which takes precedence and
 # keeps the cutoff rolling forward without needing to edit this file.
-#
-# Bump this manually when intentionally adopting newer packages (e.g. a
-# security fix). Keep the date >= ~2 weeks behind today under normal
-# circumstances.
-# exclude-newer = "2026-05-08"

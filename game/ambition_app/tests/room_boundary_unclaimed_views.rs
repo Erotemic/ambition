@@ -1,11 +1,6 @@
 //! **Crossing a room boundary must not leave a repeating unclaimed-view
 //! population.**
 //!
-//! Jon, 2026-08-05: his screen stayed black for the room-transition cover's full
-//! 8-second give-up deadline, and his log carried eight lines of
-//! ``no render family claimed `coin:EnemySpawn-…` `` per transition, repeating
-//! forever.
-//!
 //! The mechanism is a LIFETIME MISMATCH, and it is general. The sim publishes a
 //! `FeatureView` for every live feature; each render family discovers its own
 //! population; and `draw_unclaimed_feature_views` is the floor beneath them — a
@@ -14,36 +9,17 @@
 //! picture does not parks a permanent stand-in in every room you walk into
 //! afterwards.
 //!
-//! ⚠ **the stand-in stopped being the transition cover's settle signal on
-//! 2026-08-09** (queue D46). The cover waits on `UnclaimedFeatureViews` — the
-//! census of published-but-undrawn views — because the stand-in is a DIAGNOSTIC
-//! that wants to fire LATE, only once a view has stayed unclaimed long enough
-//! to be a real orphan, while the cover needs an answer that fires IMMEDIATELY.
-//! Nothing below changes: a permanently-unclaimed id produces a census row AND
-//! (a few frames later) a stand-in, so a stand-in that survives a crossing is
-//! still a census row that survives it, and the cover still sits out its full
-//! deadline over a black screen, every crossing.
+//! The cover waits on `UnclaimedFeatureViews` — the census of published-but-undrawn views — because
+//! the stand-in is a DIAGNOSTIC that wants to fire LATE, only once a view has stayed unclaimed long
+//! enough to be a real orphan, while the cover needs an answer that fires IMMEDIATELY. Nothing
+//! below changes: a permanently-unclaimed id produces a census row AND (a few frames later) a
+//! stand-in, so a stand-in that survives a crossing is still a census row that survives it, and the
+//! cover still sits out its full deadline over a black screen, every crossing.
 //!
-//! `dd73a3087` fixed one instance by giving two enemy drops `RoomScopedEntity`.
-//!
-//! ⛔ **this is deliberately NOT a test that a coin dies with its room.** That
-//! test names the two spawn sites that commit already touched, passes forever,
-//! and says nothing about the third site somebody adds next month — the same
-//! death path still mints a `GroundItem` weapon under session scope alone, and
-//! every future spawner is a fresh chance at the same mismatch. What is worth
-//! defending is the OBSERVABLE Jon actually had: cross a
-//! boundary and the stand-in population must settle back to where it was, and no
-//! single unclaimed id may survive the crossing. A stand-in that follows you into
-//! the next room is the defect *whatever entity caused it*.
-//!
-//! **A drop is unclaimed in the room it FELL in too** — that was a second, live
-//! defect when this file landed, and it is now the second thing asserted here.
-//! Measured 2026-08-07: `proving_grounds` settled at 0 stand-ins clean and at 8
-//! after seven defeats, one per coin and heart, because
-//! `rebuild_dynamic_feature_views` selects dropped pickups by
-//! `SpawnOrigin::Dynamic` and `drop_currency_coin` stamped no `SpawnOrigin` at
-//! all. No family claimed a drop, and the player walked over a magenta box
-//! instead of a coin. Fixed 2026-08-08 by giving the drops their provenance.
+//! **this is deliberately NOT a test that a coin dies with its room.** That test names the two
+//! spawn sites that commit already touched, passes forever, and says nothing about the third site
+//! somebody adds next month — the same death path still mints a `GroundItem` weapon under session
+//! scope alone, and every future spawner is a fresh chance at the same mismatch.
 //!
 //! ⚠ that history is also why the baseline below is the DESTINATION room's own
 //! clean population rather than the source room's: comparing against a source
@@ -82,7 +58,7 @@ const COMBAT_ROOM: &str = "proving_grounds";
 const HUB_TO_COMBAT_ZONE: &str = "proving_grounds_hub_door";
 /// Into the **Hall of Characters** — 129 bodies, the heaviest room the app has.
 /// ⭐ the flash test needs this one: the hub→combat crossing draws **no
-/// unclaimed placeholder at all** (measured 2026-08-09), so it cannot say
+/// unclaimed placeholder at all**, so it cannot say
 /// anything about a cover hiding one.
 const HUB_TO_HALL_ZONE: &str = "hall_of_characters_door";
 const COMBAT_TO_HUB_ZONE: &str = "proving_grounds_to_hub";
@@ -225,10 +201,7 @@ fn cross(app: &mut App, zone_id: &str) -> String {
 
 /// [`cross`], with a per-frame observer.
 ///
-/// ⭐ exists because the interesting frames of a crossing are the ones `cross`
-/// swallows: it returns the instant the active room flips, and the transition
-/// COVER is up for part of the window before that. A test that wants to know
-/// "was the cover ever actually up" cannot ask afterwards.
+/// A test that wants to know "was the cover ever actually up" cannot ask afterwards.
 fn cross_observing(app: &mut App, zone_id: &str, observe: &mut dyn FnMut(&mut App)) -> String {
     cross_observing_with(app, zone_id, observe, step)
 }
@@ -274,9 +247,8 @@ fn cross_observing_with(
             transition.arrival,
         )
     };
-    // A transition names the body that is crossing (D71). This one is recorded
-    // rather than walked, so the test names the avatar the same way detection
-    // would.
+    // This one is recorded rather than walked, so the test names the avatar the same way
+    // detection would.
     let subject = {
         let world = app.world_mut();
         let mut q = world.query_filtered::<
@@ -420,7 +392,7 @@ fn cover_is_up(app: &mut App) -> bool {
 /// `saw_placeholders` guard prevents a vacuous pass. Do not tune
 /// `presentation_settle_deadline` from this test until it observes the transient.
 #[test]
-#[ignore = "harness currently draws no unclaimed placeholders"]
+#[ignore = "cannot observe the magenta flash: this harness draws no unclaimed placeholder at all — see the doc comment, queue D46"]
 fn no_magenta_placeholder_is_visible_while_the_cover_is_down() {
     let mut app = gameplay_app();
     settle(&mut app);
@@ -498,14 +470,6 @@ fn no_magenta_placeholder_is_visible_while_the_cover_is_down() {
 
 /// **⛔⛔ THE COVER MUST READ THIS FRAME'S CENSUS, NOT LAST FRAME'S.**
 ///
-/// The room-transition cover retires when
-/// `UnclaimedFeatureViews` is empty — "every feature view the sim published has
-/// a picture on it". That is a `Resource`, republished at the tail of the
-/// presentation visual chain, and a resource is **not** self-synchronising:
-/// read it before its publisher runs and you get last frame's answer, so a
-/// one-frame-stale zero retires the cover during exactly the gap it exists to
-/// hide. That is the bug this whole split fixes, reintroduced silently.
-///
 /// ⚠ **and `.after` across SCHEDULES is vacuous in Bevy**, which is why the
 /// non-vacuity clauses below matter more than the edge itself: they assert both
 /// ends have members *in `Update`*. `632ecf1b4` recorded a cross-schedule
@@ -580,9 +544,7 @@ fn the_room_transition_cover_is_ordered_after_the_unclaimed_census() {
 #[test]
 fn crossing_a_room_boundary_leaves_no_repeating_unclaimed_population() {
     let mut app = gameplay_app();
-    // The hub's OWN settled population, before anything has been dropped
-    // anywhere. This is what "returns to baseline" is measured against when we
-    // come back to it — not the population of the room the drops happened in.
+    // The hub's OWN settled population, before anything has been dropped anywhere.
     let hub_clean = settle(&mut app);
 
     // Into the room with a cast, and let it draw itself.
@@ -672,9 +634,7 @@ fn crossing_a_room_boundary_leaves_no_repeating_unclaimed_population() {
 
     // ── Crossing two, immediately ───────────────────────────────────────────
     //
-    // Once is a race; twice is a population. The bug Jon hit repeated on EVERY
-    // transition, so one crossing could be excused as a slow room and two
-    // cannot.
+    // Once is a race; twice is a population.
     let landed = cross(&mut app, HUB_TO_COMBAT_ZONE);
     assert_eq!(landed, COMBAT_ROOM);
     let after_second = settle(&mut app);
@@ -689,10 +649,6 @@ fn crossing_a_room_boundary_leaves_no_repeating_unclaimed_population() {
 }
 
 /// The whole assertion, applied to one crossing.
-///
-/// Two clauses, because they fail on different shapes of the same defect: no
-/// unclaimed id may CARRY across the boundary, and the destination's population
-/// must come back to what that room settled at before anything was dropped.
 ///
 /// `clean` is the DESTINATION room's own settled population from a visit with
 /// nothing dropped in it. Measuring against the source room's population instead

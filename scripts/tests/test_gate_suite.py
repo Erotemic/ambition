@@ -72,7 +72,7 @@ def test_the_measurements_submodule_is_skippable():
     assert gate.is_skippable_only(
         ["docs/planning/queue.md", "dev/ambition_dev_measurements/run_tests_cost.jsonl"]
     )
-    # ⛔ and it does not extend to the rest of `dev/`, which is prose and memory
+    # and it does not extend to the rest of `dev/`, which is prose and memory
     # the agents read but also holds the ratchet's baseline.
     assert not gate.is_skippable_only(["dev/journals/lessons_learned.md"])
 

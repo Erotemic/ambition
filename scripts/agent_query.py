@@ -541,14 +541,7 @@ def build_catalog(*, quiet: bool = False) -> dict[str, Any]:
 
     # **Prune packets for crates that no longer exist.**
     #
-    # This loop only ever WROTE, so a renamed or deleted crate left its packet
-    # behind forever and an agent looking one up found a confident description of
-    # something that is gone. The platformer2d rename left nine such packets —
-    # named for crates that no longer exist, `ambition_actors` and its eight
-    # siblings — sitting beside the eleven new ones, indistinguishable to a
-    # reader from the live ones.
-    #
-    # ⚠ this is the regen invariant, not tidiness: regenerating in a FRESH CLONE
+    # this is the regen invariant, not tidiness: regenerating in a FRESH CLONE
     # would not produce these files, so their presence made the index depend on
     # the history of the machine it was built on. `index.json` is the catalog
     # itself and is written below, not by this loop.
@@ -710,7 +703,7 @@ It is generated navigation data, not architectural authority.
 - Query CLI: `python scripts/agent_query.py`
 - Navigation recipe: `docs/recipes/fresh-agent-navigation.md`
 
-## Start here
+# # Start here
 
 ```bash
 python scripts/agent_query.py overview
@@ -727,7 +720,7 @@ python scripts/agent_query.py tests \"ground contact\"
 python scripts/agent_query.py crate ambition_platformer2d_runtime
 ```
 
-## Available detail
+# # Available detail
 
 | Corpus | Count | Best entry point |
 |---|---:|---|
@@ -744,7 +737,7 @@ Each `.agent/index/crates/<crate>.json` packet combines that package's files,
 symbols, tests, module map, and links to its ECS inventory. Prefer those shards
 over loading the full flat indexes into context.
 
-## Dependency edges: TWO graphs, and they disagree on purpose
+# # Dependency edges: TWO graphs, and they disagree on purpose
 
 `python scripts/agent_query.py deps <crate>` prints both. Which one answers your
 question depends on the question:
@@ -766,7 +759,7 @@ that consumer's own workspace; see
 generation it carries `"available": false` and a reason, because a missing file
 cannot be told apart from a workspace with no dependencies.
 
-### Drawing one
+# ## Drawing one
 
     python scripts/agent_query.py graph                       # whole workspace, resolved
     python scripts/agent_query.py graph ambition_audio --depth 2
@@ -781,7 +774,7 @@ resolved edges are otherwise indistinguishable and mean different things.
 
 `./archive_agent_source.sh --dependency-graph` renders them into the archive.
 
-## Trust rule
+# # Trust rule
 
 Use generated data to locate likely owners and tests. Confirm the result in
 source before editing. Current source wins for implementation fact; active

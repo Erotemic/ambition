@@ -146,13 +146,11 @@ STALE_RECIPE_OR_SYSTEM_PATTERNS = [
 ]
 
 
-# A SOFT budget on the whole planning corpus, surfaced as a WARNING, never an error.
-# Planning legitimately runs ahead of the code — a long roadmap is not a defect — so
-# a hard cap on total lines is the wrong tool. The nudge it carries is real, though:
-# when the corpus grows, archive the parts that are LONG DONE rather than trimming
-# live plans. Size is NEVER a build-failing gate here (see the note on
-# PLANNING_FILE_MAX_LINES); the only hard planning gate is content correctness —
-# the stale-phrasing patterns below.
+# A SOFT budget on the whole planning corpus, surfaced as a WARNING, never an error. The nudge
+# it carries is real, though: when the corpus grows, archive the parts that are LONG DONE rather
+# than trimming live plans. Size is NEVER a build-failing gate here (see the note on
+# PLANNING_FILE_MAX_LINES); the only hard planning gate is content correctness — the
+# stale-phrasing patterns below.
 PLANNING_TOTAL_SOFT_BUDGET = 10_500
 # Per-file SOFT ceilings on the always-live index docs — warnings, not gates. A hard
 # line ceiling is a gameable proxy (pack everything onto one line and it passes), and
@@ -317,7 +315,7 @@ def check_agents_size(errors: list[str], warnings: list[str]) -> None:
     lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
     if len(lines) <= AGENTS_MAX_LINES:
         return
-    # ⭐ **REPORT THE READING COST, not only the line count.** The budget is
+    # **REPORT THE READING COST, not only the line count.** The budget is
     # LINE-based and this file's heaviest single item is one line of several
     # hundred words, so "you are N over" points at a number that can be satisfied
     # by moving the wrong things — join two short lines and the metric improves
@@ -325,8 +323,8 @@ def check_agents_size(errors: list[str], warnings: list[str]) -> None:
     # unactionable overage into a decision somebody can actually make: route THIS
     # paragraph into a concept doc, or waive the budget for it.
     #
-    # ⚠ the GATE is still the line count, deliberately. Which quantity to budget
-    # is a maintainer call (queue F6), and a checker that quietly switched to
+    # the GATE is still the line count, deliberately. Which quantity to budget
+    # is a maintainer call, and a checker that quietly switched to
     # words would be making it. This only stops the message hiding where the
     # weight is.
     #

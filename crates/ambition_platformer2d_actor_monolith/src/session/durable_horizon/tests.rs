@@ -35,13 +35,10 @@ fn horizon_app() -> App {
 fn every_whereabouts_survives_the_write_and_the_read() {
     let mut app = horizon_app();
     app.world_mut().resource_mut::<SaveRestored>().0 = true;
-    // ⭐ **the carried occurrence needs a LIVE, DURABLY-RESTORABLE custody behind
-    // it**, because the mirror will only put an `InCustody` claim on disk for a
-    // hand the load can rebuild — see `persist_occurrence_horizon_to_save`. This
-    // fixture used to state the ledger row and nothing else, which is a world
-    // production never has: a row saying somebody is holding an object, with no
-    // object and no holder. The row it wrote was the possessed-body shape, and
-    // that is precisely the claim the horizon now declines to make.
+    // **the carried occurrence needs a LIVE, DURABLY-RESTORABLE custody behind it**, because the
+    // mirror will only put an `InCustody` claim on disk for a hand the load can rebuild — see
+    // `persist_occurrence_horizon_to_save`. The row it wrote was the possessed-body shape, and that
+    // is precisely the claim the horizon now declines to make.
     let holder = app.world_mut().spawn(SimId::player_slot(0)).id();
     app.world_mut().spawn((
         SimId::placement("carried"),
@@ -107,14 +104,10 @@ fn every_whereabouts_survives_the_write_and_the_read() {
 /// state, so a fresh process starts with nobody driving anything and the row's
 /// other side simply does not exist.
 ///
-/// ⛔ **the failure that shape produces is a permanent DELETION**, not a
-/// duplication: the only reader of an `InCustody` row is a room build deciding
-/// whether to author the occurrence, so a surviving row means the enemy is gone.
-/// Driven end to end by
-/// `a_save_taken_mid_possession_does_not_delete_the_enemy_in_a_fresh_process`;
+/// Driven end to end by `a_save_taken_mid_possession_does_not_delete_the_enemy_in_a_fresh_process`;
 /// this is the same rule at the translation layer, where it is one assertion.
 ///
-/// ⚠ **both terms.** The `Placed` row proves the mirror ran and wrote SOMETHING,
+/// **both terms.** The `Placed` row proves the mirror ran and wrote SOMETHING,
 /// so "no custody row" cannot pass by the file being empty.
 #[test]
 fn an_in_custody_row_with_no_restorable_hand_behind_it_stays_out_of_the_file() {

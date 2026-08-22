@@ -73,11 +73,6 @@ pub fn fold_touch_gestures(
         return;
     };
 
-    // "Is this point on a touch control" is answered from the SAME resolved
-    // rectangles the controls are drawn and hit-tested at. It used to be a
-    // second, window-anchored description of the same geometry, which silently
-    // pointed at the old corners once controls could be placed into a reserved
-    // surround.
     let occupied = |pos: &Vec2| touch_control_area_contains(*pos, &placement);
     let touch_pos = touches
         .iter()

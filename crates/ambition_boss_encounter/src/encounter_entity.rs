@@ -1,6 +1,5 @@
 //! The ENCOUNTER as a first-class, OPTIONAL entity.
 //!
-//! Jon's three-layer model: an *archetype* is reusable creature data; an
 //! *entity instance* is one spawned creature (HP + phase + payload); and an
 //! *encounter* is the optional orchestration wrapped around one or more member
 //! creatures — a progress model derived from member state, a HUD binding, lock
@@ -228,7 +227,7 @@ pub fn sync_boss_encounter_entities(
 /// the fight with a fresh `Start`. A despawning wrap was the one encounter
 /// authority whose `encounter:` identity could be absent at snapshot-restore
 /// time, which would force restore to raise it as a naked entity — persistence
-/// removes that whole class (netcode.md N3.2b; GPT-5.6 review, 2026-07-16).
+/// removes that whole class.
 /// The HUD does not linger either way: an unresolved member contributes no
 /// `MemberProgress` row, and an empty progress renders nothing.
 pub fn update_encounter_progress(

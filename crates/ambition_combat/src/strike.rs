@@ -54,8 +54,6 @@ pub struct Hitbox {
     /// gravity-down). Thus `(0, -1)` launches up and `(0, 1)` spikes down.
     /// `None` uses the standard feel diagonal at the authored speed.
     pub launch_dir: Option<ae::Vec2>,
-    /// Owner gravity-down at spawn, used to orient non-box shapes. World-anchored
-    /// hazards author directly in world space.
     pub frame_down: ae::Vec2,
     /// Authored STRIKE SOUND identity (CM8): the sound THIS attack makes when it
     /// lands, carried from the volume's `hit_sfx` tag so a sword and a goblin
@@ -71,7 +69,6 @@ pub enum HitboxAnchor {
     /// per-strike local offset baked at spawn (facing encoded in
     /// `local_offset.x`'s sign, so a flipped attacker needs no re-spawn).
     FollowOwner { local_offset: ae::Vec2 },
-    /// Arena hazard / boss special — fixed world-space rectangle.
     #[allow(dead_code)]
     World { center: ae::Vec2 },
 }
@@ -201,13 +198,6 @@ pub fn spawn_damage_box(
 /// per-consumer behavior it replaces.
 /// **The set `apply_effects` runs in, so a caller can order against a NAME
 /// rather than against this function.**
-///
-/// ⛔ it did not exist until 2026-08-02, and its absence forced the defect the
-/// engine roadmap's Task 6 rules out: `combat_schedule.rs` had to write
-/// `CombatSet::ContentSpecials.before(crate::strike::apply_effects)` — a
-/// cross-crate ordering against a leaf function. A caller cannot tell from that
-/// line which phase the leaf lives in, which is precisely how a `GgrsSchedule`
-/// before/after cycle was produced on 2026-07-27.
 ///
 /// ⚠ this crate has no `Plugin` and deliberately keeps none: it is an effect
 /// VOCABULARY plus one executor, and the host decides when to run it. A set is

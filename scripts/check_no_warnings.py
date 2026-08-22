@@ -10,7 +10,7 @@ thing that would ever have said so was a push.
 
 This closes the asymmetry from the local side.
 
-## ⛔ why it does NOT set `RUSTFLAGS=-D warnings`, which is the obvious fix
+## why it does NOT set `RUSTFLAGS=-D warnings`, which is the obvious fix
 
 **`RUSTFLAGS` is part of cargo's fingerprint.** Setting it — in
 `.cargo/config.toml`, or per-invocation here — invalidates every artifact built
@@ -58,14 +58,11 @@ CARGO = os.path.expanduser("~/.cargo/bin/cargo")
 if not os.path.exists(CARGO):
     CARGO = "cargo"
 
-# ⛔ the FIRST version of this parser had it exactly backwards, and only a probe
-# said so. In `--message-format=short` a real diagnostic carries a
-# `path:line:col:` prefix, and a line that STARTS with `warning:` at column zero
-# is cargo's per-crate SUMMARY ("`x` (lib) generated 1 warning", "1 warning
-# emitted"). Matching `^warning:` therefore reported the summaries — which are
-# noise, and double-count — while dropping every actual warning. It fired on the
-# planted probe and was still wrong, which is the failure mode worth naming: a
-# red guard is not a working guard.
+# the FIRST version of this parser had it exactly backwards, and only a probe said so. In
+# `--message-format=short` a real diagnostic carries a `path:line:col:` prefix, and a line that
+# STARTS with `warning:` at column zero is cargo's per-crate SUMMARY ("`x` (lib) generated 1
+# warning", "1 warning emitted"). Matching `^warning:` therefore reported the summaries — which are
+# noise, and double-count — while dropping every actual warning.
 _WARNING = re.compile(r"^(?P<where>\S+?:\d+:\d+): warning: (?P<what>.*)$", re.M)
 
 

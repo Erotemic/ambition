@@ -11,11 +11,6 @@
 //! but is the UNIVERSAL actor body (pos/size/vel/facing) — enemies,
 //! NPCs, bosses, and projectiles all use the same type. It is NOT
 //! player-specific; only the other 17 `Player*` clusters here are.
-//!
-//! Every engine `update_player_*` helper consumes these cluster refs
-//! directly through [`ambition_platformer2d_core::BodyClustersMut`]; no
-//! `ae::Player` scratchpad or `engine_player_bridge` shim remains
-//! (both deleted 2026-05-28).
 
 // The shared body movement-cluster components now live on the neutral actor
 // vocabulary (`crate::actor`) under the `Body*` convention — they are not

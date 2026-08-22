@@ -70,7 +70,7 @@ fn base_kaleidoscope_test_app() -> App {
     app.init_resource::<ambition_platformer2d::menu::map::MapMenuState>();
     app.init_resource::<MenuControlFrame>();
     app.add_message::<PlayerHealRequested>();
-    // ⚠ nav and the pointer-release observer PUBLISH the chosen action now,
+    // nav and the pointer-release observer PUBLISH the chosen action now,
     // and the consumer dispatches it — so a fixture needs BOTH, or a click is
     // announced to nobody. Registered in each harness because every one of
     // them installs one of the publishers.
@@ -79,7 +79,7 @@ fn base_kaleidoscope_test_app() -> App {
         Update,
         kaleidoscope_menu_action_activated
             .after(kaleidoscope_focus_nav)
-            // ⚠ and BEFORE republish, exactly as production chains it: a
+            // and BEFORE republish, exactly as production chains it: a
             // republish that runs first draws the menu as it was before the
             // action it just announced.
             .before(republish_kaleidoscope_pages),
@@ -401,16 +401,12 @@ fn press_select(app: &mut App) {
     app.update();
 }
 
-/// REGRESSION: switching Cube→Grid while the cube is open must keep the cube's
-/// render set ticking until the fold-shut `amount` decays, so the camera can turn
-/// off. Before the fix, a non-cube backend short-circuited render to `false`
-/// immediately, freezing `amount` mid-fold → the cube stayed stuck on top.
 #[test]
 fn cube_render_keeps_folding_shut_after_backend_switch() {
     // Actively open on the cube backend → render.
     assert!(cube_render_needed(true, true, true, 1.0, 1.0));
-    // Switched to Grid mid-fold (amount still high): MUST still render so the fold
-    // completes and the camera deactivates. This is the bug fix.
+    // Switched to Grid mid-fold (amount still high): MUST still render so the fold completes and
+    // the camera deactivates.
     assert!(cube_render_needed(true, false, false, 0.0, 1.0));
     assert!(cube_render_needed(true, false, true, 0.0, 0.5));
     // Fully folded shut on a non-cube backend → stop (no churn, camera already off).
@@ -451,12 +447,9 @@ fn active_page(app: &App) -> Option<MenuPage> {
         .active
 }
 
-/// REGRESSION: the active backend's nav must CONSUME the frame's select edge, so
-/// the OTHER inventory backend's nav (which shares `Res<MenuControlFrame>` in the
-/// same frame) can't re-process it. Without this, selecting the "Menu Backend" row
-/// flipped `InventoryUiBackend` mid-frame and the second nav flipped it back —
-/// keyboard select on that row appeared to do nothing while a mouse click (a
-/// one-shot observer) worked.
+/// Without this, selecting the "Menu Backend" row flipped `InventoryUiBackend` mid-frame and the
+/// second nav flipped it back — keyboard select on that row appeared to do nothing while a mouse
+/// click (a one-shot observer) worked.
 #[test]
 fn active_backend_nav_consumes_the_select_edge() {
     let mut app = system_nav_app(MenuFocus::System(0));
@@ -523,11 +516,8 @@ fn placeholder_edge_nav_matches_other_faces() {
     );
 }
 
-/// REGRESSION: on the System face, SELECT while the cursor sits on a `>`/`<`
-/// page-turn edge button must ROTATE to that neighbour — exactly like every other
-/// face. The System branch used to fall through to the row dispatch with `current`
-/// normalised to `rows[0]`, so selecting `>Quest` wrongly activated the first
-/// System row instead of turning the page.
+/// REGRESSION: on the System face, SELECT while the cursor sits on a `>`/`<` page-turn edge
+/// button must ROTATE to that neighbour — exactly like every other face.
 #[test]
 fn select_on_system_edge_button_turns_the_page() {
     let mut right = system_nav_app(MenuFocus::EdgeRight);
@@ -672,11 +662,10 @@ fn clicking_a_radio_station_keeps_the_menu_open() {
 
 #[test]
 fn reset_sandbox_action_closes_and_unpauses() {
-    // Reset Sandbox closes the cube via a dispatched action (`close_menu = true`).
-    // When the menu was opened from gameplay (paused, not opened-from-pause), the
-    // action-close must ALSO restore `GameMode::Playing` — exactly like a normal
-    // Esc-close — instead of leaving the sim paused with the menu hidden. Before the
-    // fix the close path only did `ui_state.visible = false`, so this stayed Paused.
+    // Reset Sandbox closes the cube via a dispatched action (`close_menu = true`). When the
+    // menu was opened from gameplay (paused, not opened-from-pause), the action-close must ALSO
+    // restore `GameMode::Playing` — exactly like a normal Esc-close — instead of leaving the
+    // sim paused with the menu hidden.
     let (mut app, _player) = click_app();
     app.world_mut()
         .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
@@ -707,8 +696,6 @@ fn reset_sandbox_action_closes_and_unpauses() {
             .visible,
         "Reset Sandbox hides the cube"
     );
-    // The action-close set NextState(Playing); apply the transition and confirm the
-    // sim is unpaused (the bug left it stuck on Paused).
     app.update();
     assert_eq!(
         *app.world().resource::<State<GameMode>>().get(),
@@ -933,7 +920,7 @@ fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
     app.init_resource::<MenuControlFrame>();
     app.init_resource::<ambition_platformer2d::input::MenuInputState>();
     app.add_message::<PlayerHealRequested>();
-    // ⚠ nav and the pointer-release observer PUBLISH the chosen action now,
+    // nav and the pointer-release observer PUBLISH the chosen action now,
     // and the consumer dispatches it — so a fixture needs BOTH, or a click is
     // announced to nobody. Registered in each harness because every one of
     // them installs one of the publishers.
@@ -942,7 +929,7 @@ fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
         Update,
         kaleidoscope_menu_action_activated
             .after(kaleidoscope_focus_nav)
-            // ⚠ and BEFORE republish, exactly as production chains it: a
+            // and BEFORE republish, exactly as production chains it: a
             // republish that runs first draws the menu as it was before the
             // action it just announced.
             .before(republish_kaleidoscope_pages),
@@ -1071,10 +1058,6 @@ fn count_page_republishes(
     }
 }
 
-/// Regression for the 2026-07 FPS cliff: navigation systems held mutable access to
-/// `OwnedItems` and `UserSettings`, so both Bevy change ticks could remain dirty even
-/// when their values were unchanged. The old dirty gate treated those ticks as page
-/// changes and rebuilt every cube face every visible frame.
 #[test]
 fn dirty_resource_ticks_without_value_changes_do_not_republish_cube_pages() {
     let mut app = base_kaleidoscope_test_app();
@@ -1161,24 +1144,15 @@ fn real_inventory_and_settings_value_changes_republish_cube_pages() {
 
 // ---- Bug 2: click/tap activation survives a hover-driven republish ---------
 //
-// Root cause (now fixed): a `Pointer<Move>` changed `cursor.focus`, which the
-// republish baked into its dirty key, so it rewrote `ActiveMenuPages`; the lib's
-// `rebuild_cube_faces` then despawned + respawned every control. When that
-// happened BETWEEN a pointer press and release, Bevy dropped the `Pointer<Click>`
-// (the press entity no longer existed), so clicking a control did NOTHING while
-// mouse-over highlight worked. The fix moves the highlight + detail text in place
-// (no rebuild on a cursor-only move). These tests reproduce the drop and assert
-// the click now dispatches.
+// The fix moves the highlight + detail text in place (no rebuild on a cursor-only move). These
+// tests reproduce the drop and assert the click now dispatches.
 
-/// A faithful stand-in for the lib's `rebuild_cube_faces`: despawn every
-/// `AmbitionMenuControl` and respawn the actionable controls from `pages.pages`,
-/// under the SAME gate the real renderer uses — a change in the published
-/// `version` or `active` page, NEVER `pages.is_changed()`. The real renderer
-/// deliberately ignores Bevy's broad resource change tick; mirroring that gate
-/// here is what lets these tests catch a host republish that forgets the
-/// `version` bump (the 2026-07-20 "menu never updates on drill-down" break).
-/// The despawn/respawn reproduces the entity-id churn that dropped clicks
-/// (Bug 2) — the real renderer is too heavy to run headless.
+/// A faithful stand-in for the lib's `rebuild_cube_faces`: despawn every `AmbitionMenuControl`
+/// and respawn the actionable controls from `pages.pages`, under the SAME gate the real
+/// renderer uses — a change in the published `version` or `active` page, NEVER
+/// `pages.is_changed()`. The real renderer deliberately ignores Bevy's broad resource change
+/// tick; mirroring that gate here is what lets these tests catch a host republish that forgets
+/// the `version` bump (the "menu never updates on drill-down" break).
 fn fake_rebuild_cube_faces(
     mut commands: Commands,
     pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
@@ -1215,9 +1189,7 @@ fn fake_rebuild_cube_faces(
     }
 }
 
-/// A full Bug-2 fixture: the REAL republish + in-place highlight/detail systems +
-/// the `fake_rebuild` (mirroring the lib) + the real pointer observers, on the
-/// given active page. Drives the genuine despawn-on-republish path.
+/// Drives the genuine despawn-on-republish path.
 fn bug2_app(active: MenuPage) -> App {
     let mut app = base_kaleidoscope_test_app();
     app.add_systems(
@@ -1255,10 +1227,7 @@ fn control_entity(app: &mut App, action: MenuPageAction) -> Entity {
         .unwrap_or_else(|| panic!("no live control for {action:?}"))
 }
 
-/// Reproduce Bug 2 on the NEW release-dispatch path: PRESS the original
-/// `click_target` (arming its action), then hover-move onto `move_to` (which
-/// rebuilds the face and DESPAWNS the pressed control), then RELEASE. The action
-/// must still dispatch because it was captured at press time — entity-independent.
+/// The action must still dispatch because it was captured at press time — entity-independent.
 ///
 /// Under the OLD `Pointer<Click>` path this dropped the activation: the press
 /// entity was gone by release, so the compound click never resolved.
@@ -1378,13 +1347,8 @@ fn bug2_system_row_click_survives_a_hover_republish() {
     );
 }
 
-/// REGRESSION (2026-07-20, "the menu doesn't update when you drill down"): the
-/// renderer rebuilds ONLY on a published `version` or `active`-page change, and
-/// the host's republish assigned `pages.pages` directly WITHOUT bumping
-/// `version` — nav state and page data updated, but the cube kept rendering the
-/// stale entry list forever. Prove the whole seam end to end: a drill-in click
-/// republishes, bumps the version, and the (gate-faithful) renderer swaps the
-/// face's controls to the drilled-in screen.
+/// Prove the whole seam end to end: a drill-in click republishes, bumps the version, and the
+/// (gate-faithful) renderer swaps the face's controls to the drilled-in screen.
 #[test]
 fn drilling_into_a_system_entry_republishes_and_rebuilds_the_face() {
     let mut app = bug2_app(MenuPage::System);
@@ -1703,12 +1667,8 @@ fn fire_release(app: &mut App, entity: Entity) {
     app.update();
 }
 
-/// THE KEY TEST. The GUI failure exactly: a press is armed on a control, then the
-/// perspective cube REBUILDS its faces (despawns + respawns every control) BEFORE
-/// the release lands. With the old `Pointer<Click>` observer this dropped the
-/// activation (press/release no longer resolved to the same live entity). The new
-/// release-dispatch path stores the action at PRESS time, so it survives the
-/// rebuild: the release still equips the item.
+/// THE KEY TEST. The new release-dispatch path stores the action at PRESS time, so it survives
+/// the rebuild: the release still equips the item.
 #[test]
 fn release_dispatch_survives_a_control_rebuild_between_press_and_release() {
     let (mut app, _player) = click_app();
@@ -1797,7 +1757,6 @@ fn press_then_release_equips_an_item() {
     );
 }
 
-// ---- CURSOR HIGHLIGHT regression -----------------------------------------
 
 /// Build an app with the real lib cube plugin so `rebuild_cube_faces` spawns
 /// REAL controls (with their `MenuVisualState`, `KaleidoscopeControlStyle`, and
@@ -1866,12 +1825,7 @@ fn highlight_app_ordered(owned_item: Item, writer_first: bool) -> App {
         ..Default::default()
     });
 
-    // Wire it like the REAL app does. The sandbox writer lives in its own chain;
-    // the lib `Changed<MenuVisualState>` readers + the rebuild are added as plain,
-    // UNORDERED `Update` systems (exactly as `KaleidoscopeMenuPlugin::build` adds
-    // them). `writer_first` forces the writer to run before the readers (the fixed
-    // ordering); `!writer_first` leaves them unordered so the readers may be
-    // scheduled BEFORE the writer (the regression hazard).
+    // Wire it like the REAL app does.
     app.add_systems(
         Update,
         ambition_menu_kaleidoscope::rebuild_cube_faces::<MenuPage, MenuPageAction>,
@@ -1898,10 +1852,7 @@ fn highlight_app_ordered(owned_item: Item, writer_first: bool) -> App {
                 .after(kaleidoscope_sync_focus_visuals),
         );
     } else {
-        // The REGRESSION wiring: nothing orders the host writer against the lib
-        // rebuild, so `rebuild_cube_faces` can despawn+respawn controls (resetting
-        // `MenuVisualState` to focused:false) AFTER the writer flipped them, and the
-        // `Changed` readers run before the writer. The highlight is dropped.
+        // The highlight is dropped.
         app.add_systems(
             Update,
             (
@@ -1939,13 +1890,10 @@ fn highlight_app_ordered(owned_item: Item, writer_first: bool) -> App {
     app
 }
 
-/// REGRESSION pin: the cursor highlight stays on the ACTIVE face. The cube spawns
-/// every face's controls at once, so a control built `selected` (an equipped item
-/// / active station) on a rotated-away face spawns with `focused` pre-set. The
-/// writer must RESET it (the "flash"/stuck-lit bug), while still highlighting the
-/// same-focus control on the active face. We spawn two controls with the SAME
-/// matching action — one marked `KaleidoscopeActiveFaceControl`, one not — both
-/// pre-lit, and assert only the active-face one survives.
+/// The cube spawns every face's controls at once, so a control built `selected` (an equipped
+/// item / active station) on a rotated-away face spawns with `focused` pre-set. We spawn two
+/// controls with the SAME matching action — one marked `KaleidoscopeActiveFaceControl`, one not
+/// — both pre-lit, and assert only the active-face one survives.
 #[test]
 fn highlight_resets_inactive_face_controls() {
     let item = Item::PortalGun;
@@ -2011,15 +1959,11 @@ fn cursor_focus_highlights_the_control_and_reveals_its_corners() {
     assert_highlight_visible(&mut app, item);
 }
 
-/// REGRESSION reproduction: when the host republishes (a hover, a late texture
-/// load, an inventory change — all common in-game), `rebuild_cube_faces` despawns
-/// and respawns every control with a fresh `MenuVisualState { focused: false }`.
-/// With the UN-ordered wiring (lib rebuild + `Changed` readers added as plain
-/// `Update` systems, nothing ordering them against the host focus writer), that
-/// rebuild can run AFTER the writer flipped the focus flag, wiping it — and the
-/// `Changed` readers run before the writer — so the corners never show. The FIXED
-/// ordering (`cursor_focus_*`) keeps the writer after the rebuild and the readers
-/// after the writer, so the highlight survives a same-frame republish.
+/// With the UN-ordered wiring (lib rebuild + `Changed` readers added as plain `Update` systems,
+/// nothing ordering them against the host focus writer), that rebuild can run AFTER the writer
+/// flipped the focus flag, wiping it — and the `Changed` readers run before the writer — so the
+/// corners never show. The FIXED ordering (`cursor_focus_*`) keeps the writer after the rebuild and
+/// the readers after the writer, so the highlight survives a same-frame republish.
 #[test]
 fn republish_during_focus_keeps_the_highlight_under_fixed_ordering() {
     let item = Item::PortalGun;
@@ -2029,9 +1973,8 @@ fn republish_during_focus_keeps_the_highlight_under_fixed_ordering() {
     force_republish_and_focus(&mut fixed, item);
     assert_highlight_visible(&mut fixed, item);
 
-    // Do not assert the negative fixture: Bevy may still choose a lucky order in
-    // the intentionally under-constrained schedule. The durable invariant is the
-    // fixed ordering above.
+    // Do not assert the negative fixture: Bevy may still choose a lucky order in the
+    // intentionally under-constrained schedule.
 }
 
 /// Set the cursor onto `item` AND force a host republish the same frame (bump the
@@ -2194,7 +2137,7 @@ fn render_set_is_gated_off_under_the_grid_backend() {
     );
 }
 
-/// Gate 6 (GPT-5.6 review): the focused inventory item's verb resolves correctly
+/// Gate 6: the focused inventory item's verb resolves correctly
 /// — the pure decision the provider publishes. A HELD item focus → "Equip"; a
 /// consumable → "Use"; a page-turn / closed menu / absent roster / unowned slot →
 /// None (the prompt then uses its generic verb).
@@ -2256,14 +2199,7 @@ fn menu_confirm_label_resolves_the_focused_item_verb() {
 /// cursor + owned items + open overlay and publishes the inventory's `UiCue`; the
 /// sim-side `rebuild_control_prompt` folds that into `ControlPrompt.menu_confirm`.
 ///
-/// Crucially, the two systems are wired by the REAL `install_menu_confirm_provider`
-/// — the same helper `install_unified_menu_shared` calls — into the SIM schedule's
-/// `FeatureViewSync` set, `.before` the reader. The test does NOT hand-chain them
-/// in `Update`; a single sim tick must carry the focused Axe's verb all the way to
-/// the prompt, which only holds if the writer is ordered before the reader in the
-/// same schedule (the cross-schedule staleness bug this registration fixes). We
-/// pin the sim schedule to `Update` so one `app.update()` is one deterministic sim
-/// tick.
+/// We pin the sim schedule to `Update` so one `app.update()` is one deterministic sim tick.
 #[test]
 fn the_provider_publishes_the_focused_item_verb_into_the_control_prompt() {
     use ambition_platformer2d::platformer::schedule::{Platformer2dSimulationPhaseMonolith, SimScheduleExt};
@@ -2370,11 +2306,8 @@ fn overlay_camera_app(amount: f32) -> (App, Entity, Entity, Entity, Entity) {
 /// own camera and touches nothing else. The main gameplay camera keeps rendering
 /// underneath (the scrim, not a camera handoff, supplies text contrast).
 ///
-/// REGRESSION (2026-07-20): a perf pass rerouted the gate to suspend `MainCamera`
-/// while the fold was visible — the live world vanished ("the 2d camera turned
-/// off") the moment the menu opened. The actual open-menu frame cost was the
-/// per-frame face-rebuild churn, which the version-keyed rebuild gate prevents;
-/// the world render underneath is the intended design and must stay.
+/// The actual open-menu frame cost was the per-frame face-rebuild churn, which the version-keyed
+/// rebuild gate prevents; the world render underneath is the intended design and must stay.
 #[test]
 fn open_cube_leaves_the_main_gameplay_camera_active() {
     let (mut app, main, front, capture, cube) = overlay_camera_app(1.0);
@@ -2448,7 +2381,7 @@ fn game_cube_configuration_overlays_the_live_world_camera() {
 
 /// **A rebind row arms, then the NEXT press becomes the binding.**
 ///
-/// ⛔ the trap this pins: selecting the row is itself a key press, and it is
+/// the trap this pins: selecting the row is itself a key press, and it is
 /// still in `get_just_pressed` when the capture runs later the same frame. The
 /// first version ran the capture after the dispatch and called that the fix — it
 /// is not, because a just-pressed set is a fact about the FRAME, not about where

@@ -5,12 +5,6 @@ use crate::feel::Platformer2dFeelTuningMonolith;
 use ambition_characters::actor::BodyCombat;
 use ambition_platformer2d_core as ae;
 
-/// The ONE post-hit launch + stagger arming for ANY struck body (§A2 steps
-/// 6–7), called by the player's knockback path and the actor damage consumer:
-/// SET the resolved knockback velocity, then arm hitstun (feel-scaled and
-/// source-selected), the fixed recoil throw, and the hitstop beat. hit_flash +
-/// damage_invuln_timer are armed by `resolve_body_hit` before this runs —
-/// this owns only the launch + control-lock timers.
 /// **What the reaction DECIDED**, so a caller can explain it.
 ///
 /// The magnitude and direction of a launch are the product of the authored
@@ -55,7 +49,6 @@ pub fn apply_body_hit_reaction(
     knockback: Option<&crate::HitKnockback>,
     // The struck body's held control (local frame) for DI (CM2). `ZERO` = none.
     di_input_local: ae::Vec2,
-    // **How the victim was STANDING when the hit landed.** See [`VictimStance`].
     stance: VictimStance,
     feel: Platformer2dFeelTuningMonolith,
 ) -> BodyReactionOutcome {
@@ -90,15 +83,10 @@ pub fn apply_body_hit_reaction(
     // function has a `&mut Vec2` and no world and no `MotionModel`.
     flight.pending_launch = launch;
     combat.hitstun_timer = ae::hit_response::hitstun_duration(knockback, &response);
-    // Brief hard control-lock at the front of the hitstun window: the body is
-    // thrown with no authority, then regains the attack verb the instant it
-    // clears (while still in hitstun + i-frames). Fixed-length — the recoil is a
-    // readable beat, not something that scales with how hard the hit was.
-    // ⭐⭐ **A METEOR IS THE SAME SILENCE, LONGER.** A launch that points along
-    // the victim's own gravity while it is AIRBORNE is a spike, and what makes a
-    // spike a kill rather than a big hit is that you cannot answer it on the way
-    // down. The window ending IS the genre's "meteor cancel"; there is no second
-    // verb to press.
+    // Brief hard control-lock at the front of the hitstun window: the body is thrown with no
+    // authority, then regains the attack verb the instant it clears (while still in hitstun +
+    // i-frames). The window ending IS the genre's "meteor cancel"; there is no second verb to
+    // press.
     //
     // ⚠ a FLOOR under the ordinary recoil, never an addition, so a meteor is one
     // silence of a stated length rather than two stacked. And airborne only: a
@@ -113,9 +101,6 @@ pub fn apply_body_hit_reaction(
     } else {
         feel.knockback_recoil_lock_time
     };
-    // ⭐ **the same freeze the ATTACKER takes**, from the same law — a landed hit
-    // is one event. `max` because a body struck twice in a frame keeps the
-    // longer pause rather than the last one written.
     combat.hitstop_timer = combat
         .hitstop_timer
         .max(ae::hit_response::hitlag_duration(knockback, &response));
@@ -146,9 +131,6 @@ pub fn apply_body_hit_reaction(
     }
 }
 
-/// **How a victim was standing when a hit landed**, and the two facts a
-/// reaction reads off it.
-///
 /// ⛔ **a struct rather than the `(bool, bool)` it would otherwise be**, and the
 /// capture kit's own note is the argument: *"inserting it mid-list silently
 /// shifted two positional arguments into the wrong slots and the compiler

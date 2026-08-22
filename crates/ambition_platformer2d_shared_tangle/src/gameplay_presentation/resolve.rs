@@ -71,11 +71,9 @@ pub fn resolve_gameplay_presentation(
         }
     };
 
-    // Controls are placed BEFORE the subject-safe carve, because their
-    // occupancy is one of the things being carved against. The order is what
-    // makes the answer same-frame: footprints in, placement out, occupancy
-    // derived from that placement. Nothing here consults where the controls
-    // were drawn LAST frame, so there is no cycle to break with a delay.
+    // The order is what makes the answer same-frame: footprints in, placement out, occupancy
+    // derived from that placement. Nothing here consults where the controls were drawn LAST
+    // frame, so there is no cycle to break with a delay.
     let surround = surround_rects(display_safe_rect, gameplay_rect);
     let controls = resolve_control_regions(
         display_safe_rect,

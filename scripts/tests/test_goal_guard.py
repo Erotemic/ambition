@@ -509,7 +509,6 @@ def test_inject_is_silent_when_unarmed(repo: Path) -> None:
     assert run(repo, "--inject", stdin={"hook_event_name": "SessionStart"}) == {}
 
 
-# ── Which repository is this? (the 2026-08-05 four-hour hole) ─────────────────
 
 
 def test_a_nested_git_repo_does_not_hide_the_goal(repo: Path) -> None:
@@ -539,12 +538,7 @@ def test_a_nested_git_repo_does_not_hide_the_goal(repo: Path) -> None:
         "the guard must belong to the repository it is COMMITTED IN, "
         "not to whichever one the working directory happens to be inside"
     )
-    # Two companions to this were written and deleted: "found from a
-    # subdirectory" and "the checks run at the root". Both passed against the OLD
-    # `git rev-parse` implementation, because from a plain subdirectory of the
-    # same repo it answered correctly — so neither could ever have caught the bug
-    # they were written for. A test that is green through its own motivating case
-    # is not coverage, it is furniture.
+    # A test that is green through its own motivating case is not coverage, it is furniture.
 
 
 # ── Waiting on background work is not stopping ────────────────────────────────

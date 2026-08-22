@@ -4,11 +4,9 @@
 //! > engine edits (the oracle, executable)."*
 //! > — `docs/planning/engine/decomposition.md`, exit criterion 3
 //!
-//! The exit was "Jon-gated, not agent-gated" only because nothing had assembled
-//! the app. This file assembles it and steps the real simulation. If a future
-//! engine change breaks a demo's ability to boot from `PlatformerEnginePlugins` +
-//! `PlatformerHostPlugins` + a content crate, THIS test fails — before anyone
-//! builds the windowed half.
+//! This file assembles it and steps the real simulation. If a future engine change breaks a demo's
+//! ability to boot from `PlatformerEnginePlugins` + `PlatformerHostPlugins` + a content crate, THIS
+//! test fails — before anyone builds the windowed half.
 //!
 //! What it deliberately does NOT assert: anything about FEEL. The momentum
 //! tuning, the character sheet, and the drawn frame are the interactive build
@@ -40,10 +38,8 @@ fn sim_tick(app: &App) -> u64 {
     app.world().resource::<ambition_platformer2d::runtime::SimTick>().get()
 }
 
-/// Bevy's fixed-time accumulator can expend the activation frame before the
-/// provider publishes its player. Advance to the first post-activation frame
-/// that actually executes one simulation tick, then measure the strict
-/// one-frame/one-tick contract from that aligned boundary.
+/// Advance to the first post-activation frame that actually executes one simulation tick, then
+/// measure the strict one-frame/one-tick contract from that aligned boundary.
 fn align_post_activation_fixed_timeline(app: &mut App) {
     for _ in 0..4 {
         let before = sim_tick(app);
@@ -113,8 +109,7 @@ fn the_demo_steps_the_real_simulation_on_the_fixed_timeline() {
     let end_tick = sim_tick(&app);
     assert_eq!(end_tick - start_tick, 120);
 
-    // The body is in the REAL sim: it fell under gravity and landed on the
-    // authored speedway floor. (Feel is not asserted — only that physics ran.)
+    // (Feel is not asserted — only that physics ran.)
     let body = player_body(&mut app).expect("player still present");
     assert!(
         body.pos.y > spawn.y,
@@ -149,8 +144,8 @@ fn the_demos_own_rules_run_because_its_room_claims_its_mode() {
     }
     let end = clock_remaining(&mut app).expect("the level state persists across the session");
 
-    // 60 ticks at the fixed dt, counting DOWN. The level clock is the SIM clock,
-    // so bullet-time and pause slow it exactly as they slow everything else.
+    // The level clock is the SIM clock, so bullet-time and pause slow it exactly as they slow
+    // everything else.
     assert!(
         (start - end - 60.0 * TICK_DT).abs() < 1e-3,
         "the level clock runs on `WorldTime::scaled_dt`: expected -{}, got -{}",

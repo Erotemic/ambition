@@ -40,15 +40,6 @@ pub struct InputSeamMisuse(pub bool);
 /// ⭐ **one per handle, because publishing seat zero's frame to all of them —
 /// which is what `publish_local_inputs` did, back when there was only ever one —
 /// makes four pads move one fighter and checksum-compare a lie.**
-///
-/// ⛔⛔ **handle zero used to live in a separate `PendingLocalInput` resource,
-/// and that doc said "slot 0 is intentionally absent … two homes for one seat is
-/// how the two would come to disagree".** Two homes for one CONCEPT is the same
-/// hazard one level up: every reader branched on `handle == 0` to pick which
-/// resource to ask, and `reset_input_authority`'s own comment records the bug
-/// that shape already caused — some latches preserved across a session
-/// replacement and the rest cleared, which a single-player test could never
-/// notice.
 #[derive(Resource, Clone, Copy, Debug, Default, PartialEq)]
 pub struct PendingSeatInputs {
     seats: [ControlFrame; ambition_characters::control::SlotControls::MAX_SLOTS],
@@ -76,13 +67,10 @@ impl PendingSeatInputs {
 /// That is correct, and it silently invalidated the one assertion these
 /// counters existed for.
 ///
-/// The rollback exit oracle asserted `advance_runs > harness_steps`. Its route
-/// happened to produce a confirmed Track-B lifecycle commit at frame 587 of
-/// 600, which rebased the session atomically and by design — leaving
-/// `advance_runs: 40, last_simulated_frame: 12` to be compared against 600
-/// steps. The oracle went red reporting numbers that looked exactly like a GGRS
-/// session that had stopped being driven at frame 12, and was read that way for
-/// a day. It had in fact executed 2915 advances by frame 500.
+/// The rollback exit oracle asserted `advance_runs > harness_steps`. The oracle went red
+/// reporting numbers that looked exactly like a GGRS session that had stopped being driven at
+/// frame 12, and was read that way for a day. It had in fact executed 2915 advances by frame
+/// 500.
 ///
 /// ⚠ **so the numbers were not wrong, they were answering a different
 /// question**, and nothing in the type said which. The `lifetime_*` fields
@@ -141,22 +129,13 @@ pub struct RollbackSessionStatus {
 impl RollbackSessionStatus {
     /// Whether this timeline may still authorize confirmed host-side effects.
     ///
-    /// Both failure forms are terminal until somebody explicitly acknowledges
-    /// them: an exact session-contract invalidation, or a sync-test mismatch.
-    /// Keeping the predicate on the status itself gives every host-side gate the
-    /// same answer instead of re-deriving a subtly different idea of "healthy".
+    /// Keeping the predicate on the status itself gives every host-side gate the same answer
+    /// instead of re-deriving a subtly different idea of "healthy".
     pub fn is_healthy(&self) -> bool {
         self.invalidation.is_none() && self.mismatch_frames.is_empty()
     }
 
     /// **The status a NEW session starts from, given the outgoing one.** (AC23)
-    ///
-    /// Installing a session used to write `default()` unconditionally, which
-    /// laundered a divergence: a sync-test mismatch reported on the old timeline
-    /// vanished the moment a new session replaced it, and the replacement looked
-    /// clean. Exactly one of four call sites guarded against it, and its comment
-    /// explained precisely why it had to — which is a seam asking every caller to
-    /// remember a rule the seam could enforce.
     ///
     /// So the diagnostic CARRIES. An unhealthy timeline hands its reason to the
     /// timeline that replaces it, and the only way to clear it is to say so
@@ -291,12 +270,7 @@ pub fn start_sync_test_session_owned(
     settings: SyncTestSettings,
     owner: SyncTestOwner,
 ) -> Result<(), ggrs::GgrsError> {
-    // The ONLY fallible step — pure GGRS construction, touches no world — runs
-    // first. A caller that must not mutate the world until it knows the session
-    // will exist (the atomic lifecycle commit) instead calls
-    // `build_sync_test_session` before its destructive step and
-    // `install_rebased_sync_test_session` after; this convenience wrapper is for
-    // callers that own the whole rebase (startup / harness restart).
+    // The ONLY fallible step — pure GGRS construction, touches no world — runs first.
     let session = build_sync_test_session(settings)?;
     install_rebased_sync_test_session(world, session, settings, owner);
     Ok(())
@@ -304,10 +278,7 @@ pub fn start_sync_test_session_owned(
 
 /// Construct the replacement sync-test session WITHOUT touching the world.
 ///
-/// This is the sole fallible half of a rebase, and it depends only on
-/// `settings`, so it can be built BEFORE any destructive world mutation and the
-/// mutation skipped entirely if it fails — the atomicity the confirmed
-/// lifecycle commit needs. Pair it with [`install_rebased_sync_test_session`].
+/// Pair it with [`install_rebased_sync_test_session`].
 pub fn build_sync_test_session(
     settings: SyncTestSettings,
 ) -> Result<AmbitionGgrsSession, ggrs::GgrsError> {
@@ -344,7 +315,7 @@ pub fn build_sync_test_session(
 /// by construction. So the only people who meet it are exactly the ones with no
 /// way to diagnose it — an external consumer starting a session at boot gets
 /// frames 2, 3 and 4 mismatching forever. Outlander did precisely that
-/// (2026-07-27).
+/// .
 ///
 /// A warning and not a refusal: a fixture may legitimately want a session over an
 /// empty world, and the engine does not get to veto a composition it cannot see
@@ -362,14 +333,6 @@ fn warn_if_no_world_to_rewind(world: &World) {
 
 /// Whether a gameplay session world has been constructed **and is readable**.
 ///
-/// ⛔ **this asked a narrower question than the rest of the engine, and the gap
-/// only opens under a shell host.** It used to accept ANY `SessionRoot`
-/// entity; `session_world_entity` additionally requires the root's scope to
-/// equal the active one whenever `SessionGatedSimulation` is installed — which
-/// the shell installs. A root left by a RETIRED activation therefore satisfied
-/// the old check while every reader in the engine correctly saw no world, so
-/// the warning below stayed silent for exactly the case it exists to catch.
-///
 /// ⚠ **`session_world_entity` is `None` for a bare fixture too**, which is the
 /// same correct "no world" answer the `try_query` fallback gave, so nothing that
 /// legitimately runs without a session starts warning.
@@ -378,13 +341,6 @@ fn has_session_world_root(world: &World) -> bool {
 }
 
 /// **Replace the WHOLE input-authority cluster, atomically.**
-///
-/// Primary latch, per-seat latches, pending local input, pending seat inputs.
-/// They describe one rollback timeline between them, so preserving some across a
-/// session replacement and clearing the rest produces a session whose player one
-/// starts clean while players two through four carry the previous timeline's held
-/// levels — a jump or a direction edge captured just before a hot reload or a
-/// proof pulse, leaking into the new baseline (GPT 5.6, 2026-07-29).
 ///
 /// `SlotControlLatches` was the one being preserved, which is the half a
 /// single-player test could never notice.
@@ -419,12 +375,8 @@ pub fn install_rebased_sync_test_session(
     world.insert_resource(ConfirmedFrameCount(-1));
     reset_input_authority(world);
 
-    // GgrsTimePlugin derives deterministic elapsed time from RollbackFrameCount
-    // by calling Time::advance_to. Replacing a running session resets the frame
-    // counter to zero, so retaining the previous session's elapsed GGRS clock
-    // would ask Bevy to move time backwards on the first AdvanceWorld and panic.
-    // A session rebase is a new deterministic timeline: reset its clock along
-    // with its frame identity before the first frame-zero snapshot is saved.
+    // GgrsTimePlugin derives deterministic elapsed time from RollbackFrameCount by calling
+    // Time::advance_to.
     world.insert_resource(Time::<GgrsTime>::new_with(GgrsTime));
 
     install_session_with_ownership(
@@ -549,12 +501,10 @@ pub fn session_is_active(world: &World) -> bool {
 /// SILENTLY — the walk runs, the body never moves, nothing says why — so this
 /// exists to make the choice unnecessary rather than merely documented.
 ///
-/// The split is not an accident and cannot be merged away. Under a fixed-tick
-/// host [`ControlFrame`] is the input the sim reads. Under GGRS it is an
-/// OUTPUT: `publish_ggrs_input` writes it from the session's confirmed inputs
-/// every advance, so a driver writing it would be feeding resimulated input
-/// back in as new input. Handle zero of `PendingSeatInputs` is the input side
-/// there.
+/// The split is not an accident and cannot be merged away. Under GGRS it is an OUTPUT:
+/// `publish_ggrs_input` writes it from the session's confirmed inputs every advance, so a
+/// driver writing it would be feeding resimulated input back in as new input. Handle zero of
+/// `PendingSeatInputs` is the input side there.
 ///
 /// A device-backed host writes neither: it accumulates into
 /// [`ControlFrameLatch`], which both hosts drain at their own clock. If a latch
@@ -572,19 +522,14 @@ pub fn drive_control_frame(world: &mut World, frame: ControlFrame) {
     );
 }
 
-/// **ANY seat's input, delivered to whichever surface this composition has.**
-/// (queue Y1)
-///
 /// ⭐ this was TWO functions with the same four-arm shape, differing only in
 /// which resource each arm named — and the resources they named have since
 /// become one table each (`SlotControlLatches`, `PendingSeatInputs`). What is
 /// left of the fork is the last arm.
 ///
-/// ⛔ **it accepts every slot, and the version that did not was a bug.**
-/// `drive_seat_frame` refused slot zero with a bare `return`, on the argument
-/// that the primary seat belonged to [`drive_control_frame`]. A silent dropped
-/// input is precisely the wrong-seam failure this pair exists to remove, and
-/// the fixture asserting the refusal asserted the bug.
+/// **it accepts every slot, and the version that did not was a bug.** `drive_seat_frame` refused
+/// slot zero with a bare `return`, on the argument that the primary seat belonged to
+/// [`drive_control_frame`].
 pub fn drive_slot_frame(
     world: &mut World,
     slot: ambition_characters::control::PlayerSlot,
@@ -607,11 +552,8 @@ pub fn drive_slot_frame(
         pending.set(slot.0 as usize, frame);
         return;
     }
-    // ⭐ **ONE arm for every seat, and the `slot == 0` branch that stood here is
-    // the last of D175's third link.** It wrote the global `ControlFrame`,
-    // because that resource WAS seat zero's input. It is that seat's output
-    // mirror now, so writing it would deliver a press to nobody — the silent
-    // no-op this whole seam exists to prevent.
+    // It is that seat's output mirror now, so writing it would deliver a press to nobody — the
+    // silent no-op this whole seam exists to prevent.
     //
     // ⚠ **BOTH surfaces, and that is the helper's whole contract.** A driver
     // says *this seat is holding this frame* and must not have to know how the
@@ -637,10 +579,7 @@ pub(crate) fn install_session_bridge(app: &mut App) {
         app, LoadWorld,
     );
 
-    // ⭐ **THE SESSION OWNER, and it is the engine's.** A GGRS host that never
-    // installs a session never simulates; before this the only installer was the
-    // dev observatory, so the host choice was coupled to a feature flag. See
-    // `local_session`.
+    // See `local_session`.
     app.init_resource::<super::local_session::LocalSessionPolicy>()
         .init_resource::<super::local_session::LocalSessionOwnership>()
         // Present from boot so "where do this session's seats come from" always
@@ -653,28 +592,15 @@ pub(crate) fn install_session_bridge(app: &mut App) {
             super::local_session::maintain_local_session
                 .in_set(super::local_session::LocalSessionSet::Maintain),
         )
-        // ⛔ **THE SESSION IS SIZED AFTER THE ROSTER HAS SPOKEN, not before.**
-        // `freeze_local_seating_for_the_decided_match` runs in
-        // `InputSet::Collect` and publishes the topology a decided match
-        // declares; this maintainer captures one from connected DEVICES if it
-        // finds none. Both are in `Update` and nothing ordered them, so which
-        // authority sized the ggrs session was a race — and it resolved
-        // DIFFERENTLY on the two shipped routes: measured, versus took the pad
-        // count and smash took the roster's. The session is never resized
-        // afterwards (see the note in `maintain_local_session` for why
-        // detect-and-restart is worse), so whichever won, won for the whole
-        // match.
+        // Both are in `Update` and nothing ordered them, so which authority sized the ggrs
+        // session was a race — and it resolved DIFFERENTLY on the two shipped routes: measured,
+        // versus took the pad count and smash took the roster's. The session is never resized
+        // afterwards (see the note in `maintain_local_session` for why detect-and-restart is
+        // worse), so whichever won, won for the whole match.
         //
         // ⚠ **same schedule, so this is a REAL edge.** A cross-schedule `.after`
         // is silently vacuous in Bevy and this repo has been bitten by one; both
         // sets live in `Update`, which is what makes the constraint bite.
-        //
-        // ⚠ it narrows the race rather than removing the possibility: a session
-        // that starts before any roster is published still sizes itself from
-        // devices, which is correct for a host with no match to decide and wrong
-        // for one whose roster arrives a frame later. Closing that needs the
-        // maintainer to know a roster is COMING, which nothing currently tells
-        // it — queue G1 PICK 17 part 3.
         .configure_sets(
             Update,
             super::local_session::LocalSessionSet::Maintain
@@ -724,13 +650,8 @@ pub(crate) fn install_session_bridge(app: &mut App) {
             (
                 enforce_session_contract.before(RunGgrsSystems),
                 clear_historical_replay.after(RunGgrsSystems),
-                // Track B: execute a confirmed deferred lifecycle op in the
-                // exclusive world and rebase, after the advance batch is done.
-                // Ordered AFTER the external-effect Release: the rebase bumps the
-                // session generation, and the effect journal discards any pending
-                // confirmed effects stamped with the OLD generation — so they must
-                // be released to presentation first, or transition-adjacent
-                // SFX/VFX/debris confirmed before the rebase would be dropped.
+                // Track B: execute a confirmed deferred lifecycle op in the exclusive world and
+                // rebase, after the advance batch is done.
                 crate::lifecycle_commit::commit_confirmed_lifecycle
                     .after(RunGgrsSystems)
                     .after(clear_historical_replay)
@@ -759,12 +680,7 @@ fn capture_latched_local_input(
     latches: Option<ResMut<ambition_characters::control::SlotControlLatches>>,
     mut pending: ResMut<PendingSeatInputs>,
 ) {
-    // ONLY when a device is actually wired to this latch. An untouched latch
-    // means "nothing feeds me", not "the device said nothing" — and a
-    // composition that drives `PendingLocalInput` directly (every rollback
-    // harness, the equipment oracle's walker) would otherwise have its driven
-    // frame replaced by a neutral default on every tick, which is how four
-    // rollback oracles went red at once.
+    // ONLY when a device is actually wired to this latch.
     //
     // The predicate is STICKY rather than per-frame: a tick that sampled
     // nothing must still receive the retained levels, or a held direction
@@ -787,13 +703,6 @@ fn capture_latched_local_input(
     }
 }
 
-/// Hand GGRS one frame PER LOCAL HANDLE. (queue Y1)
-///
-/// This used to insert `pending.0` for every handle, which was correct while
-/// there was exactly one and silently wrong the moment there were two: four pads
-/// would drive one input stream and the sync test would checksum-compare a
-/// simulation nobody was playing.
-///
 /// Every handle is one row of [`PendingSeatInputs`], latched by the device layer
 /// and drained when GGRS asks. A handle nobody feeds reads neutral, exactly as a
 /// pad nobody plugged in should.
@@ -813,21 +722,11 @@ fn publish_local_inputs(
 
 /// Publish the session's confirmed inputs into what the simulation reads.
 ///
-/// Every handle becomes `SlotControls[handle]`, which is where
-/// `tick_controlled_brains` looks for the body driving that seat — so a rewind
-/// replays every seat's input, not just the first (queue Y1).
+/// ⚠ this is what puts seats 1.. INSIDE rollback.
 ///
-/// ⚠ this is what puts seats 1.. INSIDE rollback. Before it they were written
-/// on the feel clock by the host's own input path and GGRS never saw them: a
-/// resimulated frame replayed seat zero faithfully and gave every other seat
-/// whatever the device happened to be doing at replay time.
-///
-/// ⭐ **the `handle == 0` branch is gone (D175).** It wrote seat zero into the
-/// global [`ControlFrame`] and `continue`d, because that resource was the input
-/// bus every shaping stage read — which is why only seat zero had shaping stages.
-/// Every seat lands in one table now, and `ControlFrame` is written after the
-/// loop as what it has become: a MIRROR of what seat zero received, for the
-/// trace codec, the harness's action encoder, and the wrong-seam diagnostic.
+/// Every seat lands in one table now, and `ControlFrame` is written after the loop as what it
+/// has become: a MIRROR of what seat zero received, for the trace codec, the harness's action
+/// encoder, and the wrong-seam diagnostic.
 fn publish_ggrs_input(
     inputs: Res<PlayerInputs<AmbitionGgrsConfig>>,
     mut control: ResMut<ControlFrame>,
@@ -850,11 +749,9 @@ fn publish_ggrs_input(
 
 /// Publish the FACT "this frame number has been simulated before".
 ///
-/// Deliberately a fact, not a policy — but note how few consumers it has left.
-/// External effects (audio, VFX) no longer read it at all: "ran before" is not
-/// "is settled", and answering the wrong question is what made the old
-/// `SfxEmissionGate` keep phantoms and drop corrections. They now go through
-/// [`ambition_platformer2d_runtime::external_effects`], which defers rather than suppresses.
+/// Deliberately a fact, not a policy — but note how few consumers it has left. They now go
+/// through [`ambition_platformer2d_runtime::external_effects`], which defers rather than
+/// suppresses.
 ///
 /// What remains are consumers that genuinely need to know a frame is being
 /// revisited: the forensic trace uses it to avoid consuming per-logical-frame
@@ -1016,11 +913,8 @@ mod tests {
 
     /// **One call reaches whichever seam the host actually reads.**
     ///
-    /// The three cases are not interchangeable and getting one wrong is silent:
-    /// the driver keeps driving, the sim never sees the input, and nothing
-    /// reports a thing. Each arm is asserted separately because "it did not
-    /// panic" is not the claim — "it landed in the resource this host consumes"
-    /// is.
+    /// The three cases are not interchangeable and getting one wrong is silent: the driver keeps
+    /// driving, the sim never sees the input, and nothing reports a thing.
     #[test]
     fn the_driver_seam_writes_whichever_resource_this_host_reads() {
         let pressed = ControlFrame {
@@ -1030,13 +924,6 @@ mod tests {
 
         // A driver with no device and no latch: the press lands in the tables
         // the sim reads.
-        //
-        // ⛔⛔ **THIS ARM USED TO ASSERT `ControlFrame`, and that contract is
-        // gone.** It said *"`ControlFrame` IS the input the sim reads"* under a
-        // fixed-tick host — true while that resource was the input bus, which is
-        // exactly what made every shaping stage seat zero's (D175). It is seat
-        // zero's OUTPUT mirror now, on every host, so a driver writing it would
-        // be doing the silent no-op the arm below already forbids for GGRS.
         let mut fixed = World::new();
         fixed.insert_resource(ControlFrame::default());
         fixed.insert_resource(ambition_characters::control::SeatRawFrames::default());
@@ -1100,11 +987,8 @@ mod tests {
     /// The "no world to rewind" detector fires exactly when construction has not
     /// happened, and stays quiet once it has.
     ///
-    /// The condition is worth a test rather than a comment because the SYMPTOM it
-    /// explains is unattributable: GGRS reports a checksum difference on frames
-    /// 2, 3 and 4 and cannot know that a room was being built inside the window.
-    /// A detector that also fired on healthy sessions would be worse than none —
-    /// a warning every correct host prints is a warning nobody reads.
+    /// A detector that also fired on healthy sessions would be worse than none — a warning
+    /// every correct host prints is a warning nobody reads.
     #[test]
     fn a_session_started_over_an_empty_world_is_the_detectable_case() {
         use ambition_platformer2d_shared_tangle::lifecycle::{SessionRoot, SessionScopeId};
@@ -1160,14 +1044,10 @@ mod tests {
         );
     }
 
-    /// **The atomicity seam.** The fallible half of a rebase
-    /// (`build_sync_test_session`) takes no `World` and can therefore be
-    /// completed BEFORE any destructive mutation; the world-touching half
-    /// (`install_rebased_sync_test_session`) is infallible. A caller (the
-    /// confirmed lifecycle commit) that builds first and only mutates + installs
-    /// once the build succeeded can never half-commit. This test proves the two
-    /// halves compose into the same end state the fused wrapper produces — and,
-    /// by its very signature, that the build needs no world to fail against.
+    /// A caller (the confirmed lifecycle commit) that builds first and only mutates + installs
+    /// once the build succeeded can never half-commit. This test proves the two halves compose
+    /// into the same end state the fused wrapper produces — and, by its very signature, that
+    /// the build needs no world to fail against.
     #[test]
     fn a_session_can_be_built_before_the_world_and_installed_after() {
         let settings = SyncTestSettings {
@@ -1501,7 +1381,7 @@ mod multi_seat_input_tests {
         }
     }
 
-    /// **Every local handle gets its OWN frame.** (queue Y1)
+    /// **Every local handle gets its OWN frame.**
     ///
     /// `publish_local_inputs` inserted `pending.0` for every handle, which was
     /// correct while there was exactly one and silently wrong the moment there
@@ -1510,8 +1390,6 @@ mod multi_seat_input_tests {
     #[test]
     fn each_local_handle_submits_its_own_input_stream() {
         let mut app = App::new();
-        // ⚠ ONE table. This used to be two inserts — `PendingLocalInput` for
-        // handle zero and `PendingSeatInputs` for the rest.
         let mut pending = PendingSeatInputs::default();
         pending.set(0, frame_with_axis(1.0));
         pending.set(1, frame_with_axis(-1.0));
@@ -1627,12 +1505,6 @@ mod ac23_tests {
     use super::*;
 
     /// **A new session inherits an unhealthy timeline's reason.** (AC23)
-    ///
-    /// The defect: installing a session wrote `RollbackSessionStatus::default()`
-    /// unconditionally, so a divergence reported on the old timeline vanished
-    /// the instant a new session replaced it. One of four call sites guarded
-    /// against that, with a comment explaining exactly why it had to — a seam
-    /// asking every caller to remember a rule the seam can enforce.
     #[test]
     fn an_invalidated_session_hands_its_reason_to_its_replacement() {
         let previous = RollbackSessionStatus {
@@ -1714,19 +1586,11 @@ mod ac23_tests {
 
 /// **Say something when a consumer drives the seam this host does not read.**
 ///
-/// ⛔ **there are TWO input seams and which one is authoritative depends on the
-/// HOST.** A fixed-tick host consumes the [`ControlFrame`] resource. A GGRS host
-/// consumes [`PendingSeatInputs`], because the frame it simulates is the one the
-/// session CONFIRMED — and [`publish_ggrs_input`] overwrites `ControlFrame` from
-/// those confirmed inputs on every simulated frame. So a consumer that writes
-/// `ControlFrame` under a rollback host has it silently clobbered: the walk
-/// loop runs, the body never moves, and nothing anywhere says why.
-///
-/// The roadmap's Task 8 records this as *"the same class of defect one level
-/// up"*, found while giving Outlander a rollback host: *"Every in-repo caller
-/// happens to be on the right side of it, so no test could notice; a consumer
-/// outside hits it immediately."* That is the definition of a defect a guard has
-/// to speak for, because no assertion in this workspace can reach it.
+/// A GGRS host consumes [`PendingSeatInputs`], because the frame it simulates is the one the
+/// session CONFIRMED — and [`publish_ggrs_input`] overwrites `ControlFrame` from those
+/// confirmed inputs on every simulated frame. So a consumer that writes `ControlFrame` under a
+/// rollback host has it silently clobbered: the walk loop runs, the body never moves, and
+/// nothing anywhere says why.
 ///
 /// ⭐ **the predicate is exact, not a guess.** Under GGRS, `ControlFrame` is
 /// derived FROM handle zero's `PendingSeatInputs` by way of the session, so a

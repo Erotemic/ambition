@@ -117,7 +117,7 @@ pub struct PerceptionBody {
     pub grudge: Option<bevy::prelude::Entity>,
     /// This viewer's match TEAM, when it is seated in one.
     ///
-    /// ⚠ perception resolved hostility from FACTION alone, and the damage rule
+    /// perception resolved hostility from FACTION alone, and the damage rule
     /// stopped doing that when `damage_lands_between` gave teams precedence. In
     /// a free-for-all — every seat its own team, which is what the smash demo
     /// authors — `faction_for` alternates Player/Enemy by seat index, so seats 0
@@ -251,9 +251,6 @@ pub fn collect_perception_peers(
         &crate::actor::BodyKinematics,
         &ambition_characters::actor::BodyHealth,
         &ActorFaction,
-        // FB1: `on_ground` / `shield_raised` used to be hardcoded `false` here —
-        // the view LIED about every peer. A brain that read them (and FB1's L1
-        // classifier will) would think nobody was ever grounded or guarding.
         Option<&ae::BodyGroundState>,
         Option<&ae::BodyShieldState>,
         Option<&ambition_characters::actor::BodyCombat>,
@@ -344,12 +341,8 @@ pub struct PerceptionMemory(pub ambition_characters::perception::WorldMemory);
 /// [`Perception::Sighted`] policy (bounded viewport + memory pursuit) AND the
 /// [`PerceptionMemory`] belief store it pursues from. Runs before the brain tick.
 ///
-/// ⚠ this grants by POPULATION (brained, non-`PlayerEntity`, non-boss), and
-/// `tick_actor_brains` decides by BRAIN — since 2026-08-14 it skips any body
-/// carrying a participant's seat, so a possessed actor keeps the
-/// memory it was granted and stops having it rewritten by a world view nobody
-/// consulted. The belief is preserved across the possession rather than decayed
-/// by it, and re-enters use the moment an AI brain returns to the body.
+/// The belief is preserved across the possession rather than decayed by it, and re-enters use the
+/// moment an AI brain returns to the body.
 ///
 /// This is where ordinary actors OPT IN to sighted perception — they can be juked,
 /// lose sight of a foe, and give up. Everything WITHOUT a [`Perception`] component
@@ -546,7 +539,7 @@ fn perceived_solid_kind(kind: ae::BlockKind) -> Option<SolidKind> {
         ae::BlockKind::BlinkWall { .. } => Some(SolidKind::BlinkWall),
         ae::BlockKind::OneWay => Some(SolidKind::OneWay),
         ae::BlockKind::Hazard => Some(SolidKind::Hazard),
-        // ⚠ **a bonk-only block is not terrain to a brain.** It blocks neither
+        // **a bonk-only block is not terrain to a brain.** It blocks neither
         // sight nor a straight path — nothing can walk into it or stand on it —
         // so perceiving it as ground would route a patrol over a surface that
         // will not hold it.
@@ -560,7 +553,7 @@ mod tests;
 /// Project a live actor body into the perception input its own world view is
 /// built from.
 ///
-/// ⭐ **the projection belongs beside the type, not inside the tick.** This was
+/// **the projection belongs beside the type, not inside the tick.** This was
 /// sixty lines of struct literal in the middle of `tick_actor_brains`, between a
 /// snapshot build and a brain call, which is what made "what does a body know
 /// about itself" a question you answered by reading a decision loop. Every field
@@ -577,7 +570,7 @@ pub(crate) fn perception_body_for(
     // more precisely than its opponents know it.
     self_peer: Option<&PerceptionPeer>,
     aggression: Option<&crate::features::components::ActorAggression>,
-    // ⛔ **NOT `Option`, per ADR 0024 §1** ("absence is never a policy and no outer
+    // **NOT `Option`, per ADR 0024 §1** ("absence is never a policy and no outer
     // query may interpret a missing component as axis-swept"). The `None` arm of
     // the old signature did precisely that, and it was invisible to
     // `engine.movement-model-is-never-optional` because that rule matches the
@@ -589,7 +582,7 @@ pub(crate) fn perception_body_for(
     // reader of a relationship the combat layer owns.
     capture: ambition_combat::capture::systems::CaptureFacts,
 ) -> PerceptionBody {
-    // ⚠ the fallback below reads a PRESENT non-axis model (a crawler has no
+    // the fallback below reads a PRESENT non-axis model (a crawler has no
     // air-dodge window, so "no window open, no endlag" is the honest answer for
     // one) — never a missing component, which the signature now forbids.
     let axis_motion = match motion_model {
@@ -625,7 +618,7 @@ pub(crate) fn perception_body_for(
         // `AbilitySet` — the single authority every body
         // shares — not a parallel `CombatCapabilities` mirror.
         can_blink: body.abilities.abilities.blink,
-        // ⛔⛔ **THIS WAS `abilities.dash` / `abilities.dodge`,
+        // **THIS WAS `abilities.dash` / `abilities.dodge`,
         // AND A CAPABILITY IS NOT AN AVAILABILITY.** Dodge and
         // dash are one button; which maneuver a press produces
         // is decided by the body's live state, and `apply_dodge`
@@ -698,13 +691,6 @@ pub(crate) fn believed_target(
 /// which of those are enemies. A consumer needs all three or none of them —
 /// building a view from two of the three is not a smaller view, it is a wrong
 /// one — which is what makes this one concept rather than a bundle.
-///
-/// ⭐ **absence answers through the same accessors.** Each channel is optional so
-/// a bare fixture that registers none of them still satisfies the parameter, and
-/// each accessor degrades to empty: no peers, no shots, an all-peaceful table.
-/// That degradation used to be written out at every call site — a
-/// `relations_fallback` local kept alive purely to be borrowed, and an
-/// `.as_ref().map(…).unwrap_or_default()` around each channel.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct PerceivedWorld<'w, 's> {
     peers: Option<bevy::prelude::Res<'w, PerceptionPeers>>,
@@ -738,7 +724,7 @@ impl PerceivedWorld<'_, '_> {
 
     /// This body's OWN peer row.
     ///
-    /// ⭐ a body reads its own move phase and i-frames from the same snapshot
+    /// a body reads its own move phase and i-frames from the same snapshot
     /// every opponent reads them from, so it cannot know itself more precisely
     /// than it is known.
     pub fn peer(&self, body: bevy::prelude::Entity) -> Option<&PerceptionPeer> {

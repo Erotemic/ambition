@@ -163,12 +163,11 @@ fn both_tracks_resolve_when_their_conventional_files_exist() {
 
 // ── the fingerprint covers REGISTRY-LEVEL state, not only rows ───────────────
 //
-// ⛔ The pack fingerprint is taken over `out.define(...)` entries only. Defining
+// The pack fingerprint is taken over `out.define(...)` entries only. Defining
 // one entry per track/cue left `default_track`, the track ORDER, and
 // `sample_rate` outside the pack's identity — so two packs that start on
 // different music, sequence the radio differently, or synthesize at a different
 // rate were indistinguishable to a cache or a session-compatibility check.
-// (GPT 5.6 review, finding 1.)
 
 fn music_fingerprint(name: &str, text: &str) -> u64 {
     compile(&music_draft(name, text), &registry(), &AssetsUnchecked)
@@ -241,10 +240,10 @@ fn reformatting_the_registry_does_not_move_the_fingerprint() {
     );
 }
 
-/// ⛔ **A delimiter is not a serialization.** Track ids need only be non-empty
+/// **A delimiter is not a serialization.** Track ids need only be non-empty
 /// and unique, so commas are legal; `join(",")` let two different orders encode
 /// identically while the per-track entries stayed the same, holding the whole
-/// fingerprint still. (GPT 5.6 review, finding 4.)
+/// fingerprint still.
 #[test]
 fn two_orders_of_comma_bearing_track_ids_do_not_collide() {
     let pack = |name: &str, ids: [&str; 4]| {
@@ -253,7 +252,7 @@ fn two_orders_of_comma_bearing_track_ids_do_not_collide() {
             .map(|id| format!(r#"(id: "{id}", display_name: "n")"#))
             .collect::<Vec<_>>()
             .join(",");
-        // ⚠ default_track is held CONSTANT: my first version used `ids[0]`,
+        // default_track is held CONSTANT: my first version used `ids[0]`,
         // which differs between the two permutations and distinguished them by
         // itself — so the test passed against the buggy `join(",")` and proved
         // nothing. The ORDER must be the only thing that differs.

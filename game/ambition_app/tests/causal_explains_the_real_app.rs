@@ -5,20 +5,15 @@
 //! proves the substrate — the sink, the tick stamping, the explainer — and it
 //! proves nothing about whether the GAME publishes anything.
 //!
-//! ⛔ **it could not have, until today.** The feature chain
-//! (`ambition_platformer2d/causal` → runtime → monolith + combat → characters)
-//! was complete and **nothing enabled it**: measured 2026-08-01, `causal`
-//! resolved false for every crate in the default workspace build, and
-//! `ambition_app` had no such feature at all. The domain recorders — the brain's
-//! decision, the body's control frame, damage, lifecycle — were compiled out of
-//! every build the app produces. The per-crate feature jobs kept their unit
-//! tests green the whole time, which is exactly why it looked fine: they
-//! exercise the substrate and never the app.
+//! The domain recorders — the brain's decision, the body's control frame, damage, lifecycle — were
+//! compiled out of every build the app produces. The per-crate feature jobs kept their unit tests
+//! green the whole time, which is exactly why it looked fine: they exercise the substrate and never
+//! the app.
 //!
 //! So this asks the one question those cannot: **step the real sim, and does an
 //! `explain(tick, subject)` come back carrying facts a GAME published?**
 //!
-//! ⚠ it deliberately does not assert WHICH domains appear. Which systems publish
+//! it deliberately does not assert WHICH domains appear. Which systems publish
 //! is a design question that moves; that a real tick explains at all is the
 //! property the instrument's usefulness rests on, and the one that silently
 //! stopped holding.
@@ -40,7 +35,7 @@ fn recording_sim() -> Platformer2dSimHarness {
         Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz()),
     )
     .expect("the Ambition sim harness builds");
-    // ⚠ **the FEATURE and the PLUGIN are two switches, deliberately.** The
+    // **the FEATURE and the PLUGIN are two switches, deliberately.** The
     // `causal` feature compiles the publishers in; only `CausalPlugin` creates
     // the `CausalRecording` they write to, so a host can carry the publishers
     // without an inspector. `stamp_causal_frame` takes the log as `Option`
@@ -81,7 +76,7 @@ fn a_real_gameplay_tick_explains_itself() {
 
 #[test]
 fn the_recording_policy_is_what_decides_whether_it_costs_anything() {
-    // ⚠ the honest companion to the test above. `Off` is the shipped default,
+    // the honest companion to the test above. `Off` is the shipped default,
     // and a recorder that published regardless would make every shipped frame
     // pay for an instrument nobody is reading.
     let mut sim = Platformer2dSimHarness::new_with_options(

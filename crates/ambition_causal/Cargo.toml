@@ -8,7 +8,7 @@ description = "Structured causal facts and the tick explainer. Domains publish t
 # can depend on it without depending on each other, which is what lets the
 # explainer tolerate a composition that has movement and no combat.
 [dependencies]
-# ⚠ `bevy_ecs` ONLY, and only for the `Resource` impl on the log. The crate
+# `bevy_ecs` ONLY, and only for the `Resource` impl on the log. The crate
 # stays free of Bevy's renderer, its app, and every domain type — the property
 # that lets any domain publish facts without depending on any other domain.
 bevy_ecs = { version = "0.18.1", optional = true }

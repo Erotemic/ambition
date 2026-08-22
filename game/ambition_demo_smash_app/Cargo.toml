@@ -7,9 +7,6 @@ authors.workspace = true
 description = "The smash demo's thin SHELL. The first place a stock is actually spent in a running session rather than in a unit test."
 autotests = false
 
-# No `#[test]` in a bin entry point, so `cargo test` was compiling and LINKING a
-# test harness for each of these against the full engine graph. Nothing was in
-# them to run. (Compile-efficiency pass, 2026-07-31.)
 [[bin]]
 name = "smash_demo"
 path = "src/main.rs"

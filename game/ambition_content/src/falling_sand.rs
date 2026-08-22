@@ -15,14 +15,8 @@
 //! - presentation: `bevy_falling_sand`'s particle rendering, the sand-grid
 //!   texture, nozzle sprites, switch visuals, and diagnostics.
 //!
-//! # Status after the FS2/FS3 sand slice (2026-07-20)
-//!
-//! Sand is CORRECT (deterministic, conserving, settling — see
-//! `falling_sand_sim::sand_grid`); water and oil remain on the old path with
-//! its known defects (frame-locked stepping, no level-finding). The bfs-side
-//! sand plumbing below (`MaterialKind::Sand` arms, `project_sand`) is
-//! vestigial — it sees zero sand particles — and dies with the water/oil
-//! slice rather than churning that path now.
+//! The bfs-side sand plumbing below (`MaterialKind::Sand` arms, `project_sand`) is vestigial — it
+//! sees zero sand particles — and dies with the water/oil slice rather than churning that path now.
 
 use std::collections::{HashMap, HashSet};
 
@@ -38,15 +32,11 @@ use crate::falling_sand_sim::{
 };
 use crate::falling_sand_sim::{SandCell, FLOOR_WALL_THICKNESS};
 
-/// Per-tile minimum particle counts before we promote the tile into
-/// Ambition's collision/visual world. Tuned for "flood the room"
-/// — the room is 64×40 = 2560 tiles, so the previous 14/10
-/// thresholds left huge swaths of low-density spread invisible.
-/// Each tile holds up to TILE_SIZE² = 256 particle cells, so a
-/// count of 4 means ~1.5% fill — enough for a thin liquid film to
-/// register, low enough not to flicker on stray particles. Sand
-/// settles densely so its threshold can stay a bit higher than
-/// liquid's.
+/// Tuned for "flood the room" — the room is 64×40 = 2560 tiles, so the previous 14/10
+/// thresholds left huge swaths of low-density spread invisible. Each tile holds up to
+/// TILE_SIZE² = 256 particle cells, so a count of 4 means ~1.5% fill — enough for a thin liquid
+/// film to register, low enough not to flicker on stray particles. Sand settles densely so its
+/// threshold can stay a bit higher than liquid's.
 const SAND_THRESHOLD: usize = 6;
 const LIQUID_THRESHOLD: usize = 4;
 const MATERIAL_VISUAL_THRESHOLD: usize = 3;
@@ -111,10 +101,10 @@ impl Plugin for FallingSandRoomPlugin {
                     .with_map_size(32),
             )
             .add_systems(Startup, setup_particle_types)
-            // ⭐ **DERIVED, and said so rather than left on the sweep's ceiling.**
+            // **DERIVED, and said so rather than left on the sweep's ceiling.**
             // `project_particles_to_movement_world` runs in the SIM schedule and
             // takes `ResMut` of this, which is the exact shape that made
-            // `ActiveRoundScope` a real rollback defect (2026-08-03) — a resource
+            // `ActiveRoundScope` a real rollback defect — a resource
             // mutated inside the rewind window and never restored.
             //
             // The difference, and the only thing that makes this one safe: the
@@ -178,12 +168,9 @@ impl Plugin for FallingSandRoomPlugin {
 /// sim. Presence keeps it running until the last particle is gone, so a room
 /// exit never strands live particles mid-drain.
 ///
-/// Dirty chunks also hold the gate open: `advance_chunk_dirty_state` (gated)
-/// is the only thing that retires `ChunkDirtyState`, but the render collector
-/// `update_world_color_texture` (ungated) repacks every dirty texel every
-/// frame. Gating off with dirt outstanding pins a full-map GPU compute
-/// dispatch forever — measured at ~40% of CPU in desktop-lifecycle-2 after
-/// `redirty_all_chunks_on_pipeline_ready` fired with the gate closed.
+/// Dirty chunks also hold the gate open: `advance_chunk_dirty_state` (gated) is the only thing that
+/// retires `ChunkDirtyState`, but the render collector `update_world_color_texture` (ungated)
+/// repacks every dirty texel every frame.
 fn gate_bfs_simulation_to_room_presence(
     mut commands: Commands,
     state: Res<FallingSandRoomState>,
@@ -201,12 +188,8 @@ fn gate_bfs_simulation_to_room_presence(
 }
 
 fn setup_particle_types(mut commands: Commands) {
-    // bevy_falling_sand v0.7.0 lazy-loads chunk entities in
-    // `update_chunk_loading`, which early-returns if there's no
-    // `ChunkLoader` entity in the world. With no chunk entities, the
-    // movement-by-chunks system finds zero dirty chunks and skips
-    // every particle (silently — no warning) — exactly the bug we hit
-    // (sand spawned into the ParticleMap but never moved).
+    // bevy_falling_sand v0.7.0 lazy-loads chunk entities in `update_chunk_loading`, which
+    // early-returns if there's no `ChunkLoader` entity in the world.
     //
     // Spawn one static ChunkLoader at the world origin. The map's
     // initial loaded region is [-1024, 1024) on both axes, which
@@ -347,16 +330,11 @@ fn seed_falling_sand_room_boundaries(
     // (material rests at the surface), which keeps the particle count
     // bounded even for big floor blocks.
     //
-    // Only solid blocks (`Solid` / `BlinkWall`) get seeded as particle
-    // walls. **One-way platforms are deliberately skipped** — the
-    // user expects falling material to PASS THROUGH platforms (the
-    // way the player drops through them with the down-press), so
-    // seeding wall particles on top would trap material on every
-    // mid-height platform and never let it reach the actual floor.
-    // This was the cause of "everything pools on the top platform"
-    // — the room's high one-way ledges were acting as impenetrable
-    // lids that captured all the water and oil before it could
-    // settle on the floor.
+    // Only solid blocks (`Solid` / `BlinkWall`) get seeded as particle walls. **One-way
+    // platforms are deliberately skipped** — the user expects falling material to PASS THROUGH
+    // platforms (the way the player drops through them with the down-press), so seeding wall
+    // particles on top would trap material on every mid-height platform and never let it reach
+    // the actual floor.
     let mut block_wall_emits = 0usize;
     for block in &world.blocks {
         if !matches!(
@@ -501,9 +479,7 @@ fn sync_falling_sand_spout_nozzles(
         }
     }
 
-    // Iterate the switches in a FIXED order, not `desired`'s hash order: this spawns
-    // entities, and `desired` is a std `HashSet` whose iteration is per-process
-    // (ADR 0023 rule 3). `desired` stays a membership filter, which the rule allows.
+    // `desired` stays a membership filter, which the rule allows.
     for &id in &[SAND_SWITCH, WATER_SWITCH, OIL_SWITCH, MIXED_SWITCH] {
         if !desired.contains(id) || present.contains(id) {
             continue;
@@ -536,20 +512,11 @@ fn sync_falling_sand_spout_nozzles(
 
 /// Emit into **the grid, and only the grid** (FS1's single-owner rule).
 ///
-/// This function used to do two things at once: write `SpawnParticleSignal`s
-/// into the cellular automaton *and* spawn a parallel fleet of Ambition-side
-/// `FallingSandStreamParticle` sprites, "so the player gets immediate visual
-/// feedback that the spout opened." Those sprites were matter's second home.
-/// They fell on their own hardcoded gravity, ignored every block in the room,
-/// and despawned at an invented `world.size.y - 64` floor — so they poured
-/// straight THROUGH the platforms the real particles were pooling on and rained
-/// down below. That is Jon's reported defect, verbatim: *"water and oil pool on
-/// the top platform yet particles ALSO fall forever below."*
+/// They fell on their own hardcoded gravity, ignored every block in the room, and despawned at an
+/// invented `world.size.y - 64` floor — so they poured straight THROUGH the platforms the real
+/// particles were pooling on and rained down below.
 ///
-/// `falling-sand.md` §1: *"A particle exists in exactly one place: the grid …
-/// the fix is structural (single owner), not a patch."* The sprites are gone;
-/// `bevy_falling_sand`'s own `render` feature draws the falling matter, and
-/// `sync_material_visuals` draws what has settled. One owner, two views of it.
+/// One owner, two views of it.
 fn emit_falling_sand_spouts(
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
         ambition_platformer2d_actor_monolith::rooms::RoomSet,
@@ -609,12 +576,6 @@ fn emit_spout(
     for dx in 0..width {
         for dy in 0..height {
             let world_pos = ae::Vec2::new((start_x + dx) as f32, (start_y + dy) as f32);
-            // `overwrite_existing` rather than `new` because the spout
-            // mouth is hit again every Bevy frame: with `new` the signal
-            // silently fails whenever a previous frame's particle hasn't
-            // moved out yet, so the effective emit rate collapses far
-            // below what the dimensions suggest. Overwriting guarantees
-            // a constant supply at the source.
             writer.write(SpawnParticleSignal::overwrite_existing(
                 Particle::new(particle_type),
                 world_to_particle_grid(world, world_pos),
@@ -626,11 +587,6 @@ fn emit_spout(
 /// Reusable per-frame scratch buffers. Living in a `Local<>` keeps the
 /// allocations across frames; we just `.clear()` between runs so we don't
 /// hand the allocator three new HashMaps every tick.
-///
-/// `dense_sand` uses a `HashSet` so the liquid pass's "is this tile
-/// already a sand block?" check is O(1) instead of the O(n) `Vec::contains`
-/// it used to be — at 220 sand tiles × 360 liquid candidates the previous
-/// path was ~80k comparisons per frame.
 #[derive(Default)]
 struct ProjectionScratch {
     sand_tiles: HashMap<(i32, i32), usize>,
@@ -820,9 +776,6 @@ fn project_particles_to_movement_world(
         viscous_oil_spec(),
     );
 
-    // Record the funnel BEFORE returning: particles → tiles → over-threshold
-    // tiles → appended contributions → overlay totals. A stage that drops to
-    // zero while the previous one is non-zero names the regression outright.
     let over = |tiles: &HashMap<(i32, i32), usize>, threshold: usize| {
         tiles.values().filter(|count| **count >= threshold).count()
     };
@@ -850,9 +803,7 @@ fn project_particles_to_movement_world(
     sync_material_visuals(&mut commands, &world.0, &scratch.desired_visuals, &visuals);
 }
 
-/// Warn ONCE when the per-material tile cap truncates a projection. A truncated
-/// frame is indistinguishable from a settled one from the outside — a pool simply
-/// stops growing — so a silent cap reads as a physics bug. (`no silent caps`.)
+/// Warn ONCE when the per-material tile cap truncates a projection. (`no silent caps`.)
 fn warn_on_projection_cap(ledger: &TallyLedger, scratch: &ProjectionScratch, warned: &mut bool) {
     if *warned {
         return;
@@ -974,12 +925,9 @@ fn log_falling_sand_diagnostics(
         ambition_platformer2d_actor_monolith::rooms::RoomSet,
     >,
     particles: Query<(&Particle, &GridPosition)>,
-    // Component-presence query: every particle that has Particle should
-    // ALSO get Density/Speed/Movement/AirResistance/MovementRng inherited
-    // from its ParticleType via the sync propagators. If a particle is
-    // missing any of these, the movement query in PostUpdate skips it
-    // entirely and it just sits in the spout cell — exactly the
-    // "stuck at grid_y=230" symptom from the previous run.
+    // Component-presence query: every particle that has Particle should ALSO get
+    // Density/Speed/Movement/AirResistance/MovementRng inherited from its ParticleType via the
+    // sync propagators.
     movement_ready: Query<
         Entity,
         (
@@ -1010,17 +958,6 @@ fn log_falling_sand_diagnostics(
     *next_log_at = now + 1.0;
 
     let world = &room_set.active_spec().world;
-    // The expected floor band (where our seed walls live): the band of
-    // grid_y values covered by emit_wall_rect at each LDtk block top.
-    // We approximate "floor band" as the union of bands across blocks
-    // by taking the minimum block min.y, since that's the highest
-    // visible floor surface in world coords.
-    // The "floor band" is the seed-wall strip on top of the lowest
-    // visible LDtk block. World Y increases downward in our convention,
-    // so the floor is the block with the LARGEST `min.y` (the topmost
-    // edge of the lowest block). Previously this used `min(block.min.y)`
-    // which finds the topmost CEILING block — making `near_floor` and
-    // `below_floor` meaningless for the actual pile location.
     let floor_block_top_world_y = world
         .blocks
         .iter()

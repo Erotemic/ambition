@@ -10,13 +10,8 @@
 //! `boss_animation_keys_for_profile` (attack-profile -> sprite-row keys) and
 //! `canonical_boss_id_from` (resolves the boss kind from LDtk name + brain).
 
-//! ⚠ **the authoring VOCABULARY moved out on 2026-08-03.** `BossBehaviorProfile`
-//! and friends now live in `ambition_characters::brain::boss_pattern::profile`,
-//! because a schema must be registered by the crate owning its type and the
-//! content validator cannot afford to link this crate (708 crates + a renderer,
-//! against its 239). Nothing here needed this crate; the coupling was
-//! locational. They are re-exported below, so every existing path still
-//! resolves.
+//! Nothing here needed this crate; the coupling was locational. They are re-exported below, so
+//! every existing path still resolves.
 //!
 //! What genuinely needs this crate stayed: the `BossCatalog` lookups (now
 //! [`BossBehaviorProfileExt`], because the orphan rule does not let an inherent
@@ -32,7 +27,7 @@ pub use ambition_characters::brain::boss_pattern::profile::{
 
 /// The `BossCatalog` lookups for a [`BossBehaviorProfile`].
 ///
-/// ⛔ **an extension TRAIT, not inherent methods, and that is the orphan rule
+/// **an extension TRAIT, not inherent methods, and that is the orphan rule
 /// speaking rather than a style choice.** The profile type lives in
 /// `ambition_characters` now; an inherent `impl` for it can only be written
 /// there, and `BossCatalog` — which these need — lives HERE. The trait is the
@@ -51,14 +46,10 @@ pub trait BossBehaviorProfileExt {
     fn generic(catalog: &super::BossCatalog, id: impl Into<String>) -> Self;
     /// Resolve a boss profile from an authored display name or canonical id.
     ///
-    /// **The fallback is LOUD.** It used to be silent, and that is how
-    /// `sandbox.ldtk`'s `basement_boss` shipped for months carrying
-    /// `PhaseScript:tri_slam_sweep_halo` — a pattern name, not a boss id. The
-    /// slug matched nothing, `generic(slug)` cloned the warden's tuning under a
-    /// bogus id, and the render then looked up
-    /// `boss_sprites["tri_slam_sweep_halo"]`, missed, and drew the fallback
-    /// body. Nothing anywhere said a word. A boss that is generic BY ACCIDENT
-    /// looks exactly like a boss that is generic by design.
+    /// The slug matched nothing, `generic(slug)` cloned the warden's tuning under a bogus id, and
+    /// the render then looked up `boss_sprites["tri_slam_sweep_halo"]`, missed, and drew the
+    /// fallback body. Nothing anywhere said a word. A boss that is generic BY ACCIDENT looks
+    /// exactly like a boss that is generic by design.
     fn for_authored_boss(catalog: &super::BossCatalog, id_or_name: &str) -> Self;
 
     /// Clockwork Warden / Gradient Sentinel — the polished multi-phase Scripted
@@ -214,10 +205,6 @@ pub fn canonical_boss_id_from(
 /// representation for disjointed-piece bosses (head + body + arms).
 /// Either one or both may be populated; the consumer picks parts
 /// when present and falls back to bbox otherwise.
-///
-/// `frame_width` / `frame_height` are the sprite-frame dimensions
-/// (e.g. 128×128 for clockwork_warden) used to scale pixel-space
-/// coordinates into world-space via the boss's render size.
 ///
 /// `sprite_render_size` is the world-space extent of the rendered
 /// sprite quad — i.e. `BossSheetSpec::render_size(boss.size)`. The

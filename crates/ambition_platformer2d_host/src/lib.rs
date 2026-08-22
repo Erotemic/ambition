@@ -65,12 +65,8 @@ impl PluginGroup for PlatformerHostPlugins {
     }
 }
 
-/// The leafwing-input-manager plugin, the player-input attach startup system,
-/// and the bridge that keeps `Res<ControlFrame>` in sync with leafwing's
-/// `ActionState`. Behind the `input` feature so sim-only hosts can drop
-/// `leafwing-input-manager` from the dep graph; the sim itself reads
-/// `Res<ControlFrame>` (always-available) and is agnostic to where the frame
-/// came from.
+/// The leafwing-input-manager plugin, the player-input attach startup system, and the bridge
+/// that keeps `Res<ControlFrame>` in sync with leafwing's `ActionState`.
 #[cfg(feature = "input")]
 pub struct HostInputBindingsPlugin;
 
@@ -128,10 +124,7 @@ impl Plugin for HostInputBindingsPlugin {
                 .chain()
                 .before(leafwing_input_manager::plugin::InputManagerSystem::Update),
         );
-        // **WHO IS PLAYING, declared rather than counted.** Present from boot in
-        // every host, not only the rollback one that used to own the type: a
-        // surface must be able to state its seating without knowing which
-        // backend will consume it. See `ambition_input::seating`.
+        // See `ambition_input::seating`.
         app.init_resource::<ambition_input::SessionSeatingSource>();
         app.init_resource::<ambition_input::SeatInputContexts>();
         app.init_resource::<ambition_input::SeatBindings>();
@@ -145,21 +138,12 @@ impl Plugin for HostInputBindingsPlugin {
         // take the latest, press/release edges OR together so a sub-tick tap is
         // never swallowed and a single tap never fires twice.
         //
-        // This lives in the DEVICE plugin, not the engine group: headless, RL,
-        // and replay drivers have no device and author the per-tick
-        // `ControlFrame` themselves. Frame-stepped hosts skip it too — one
-        // frame IS one tick, so there is nothing to bridge.
-        // FIXED-TICK **OR** GGRS. Both advance the simulation on a cadence of
-        // their own, so several rendered frames can pass between ticks and a
-        // short press sampled in between must not be lost — which is the whole
-        // job of these latches.
-        //
-        // `sim_is_fixed_tick()` asks whether the sim runs on `FixedUpdate`, and
-        // under rollback it runs on `GgrsSchedule`, so the answer was NO and
-        // NEITHER latch was installed. Both consumers take them as `Option` and
-        // quietly fall back to live device state, so the visible rollback host
-        // sampled every seat from whatever the pad happened to be doing at
-        // replay time rather than from confirmed input (GPT 5.6, 2026-07-28).
+        // This lives in the DEVICE plugin, not the engine group: headless, RL, and replay
+        // drivers have no device and author the per-tick `ControlFrame` themselves.
+        // Frame-stepped hosts skip it too — one frame IS one tick, so there is nothing to
+        // bridge. Both advance the simulation on a cadence of their own, so several rendered
+        // frames can pass between ticks and a short press sampled in between must not be lost —
+        // which is the whole job of these latches.
         //
         // Asked through `SimulationHost` rather than by naming `GgrsSchedule`,
         // because this crate must not depend on `bevy_ggrs` — the schedule
@@ -168,8 +152,6 @@ impl Plugin for HostInputBindingsPlugin {
             .world()
             .get_resource::<ambition_platformer2d_runtime::SimulationHost>()
             .is_some_and(|host| host.is_rollback());
-        // BOTH LATCHES, for a fixed-tick host AND a rollback one.
-        //
         // `SlotControlLatches` needs no system of its own:
         // `populate_seat_control_frames` folds into it whenever the resource
         // exists and writes `SlotControls` straight through when it does not, so
@@ -178,18 +160,13 @@ impl Plugin for HostInputBindingsPlugin {
         // which is where a rollback host asks for input — and publishes each
         // seat into the session.
         //
-        // ⛔⛔ **THE PRIMARY LATCH USED TO BE ABSENT FROM THE ROLLBACK ARM, AND
-        // THAT COST JON A GAME THAT COULD NOT BE PLAYED.** The reasoning was
-        // "under GGRS the rollback observatory already owns `ControlFrameLatch`,
-        // so a second registration here is a doubled system rather than a fix".
-        // Every word of that is true about DESKTOP-DEV and none of it is an
-        // ownership boundary: `dev::rollback_observatory` is behind `dev_tools`,
-        // which the web persona does not enable. So the browser composed a live
-        // GGRS session, live leafwing actions, and seat latches — with no
-        // primary latch. `capture_latched_local_input` takes it as `Option` and
-        // leaves `PendingLocalInput` alone when it is missing, so seat zero
-        // published a NEUTRAL frame every tick, forever, in silence. Arrow keys
-        // navigated menus (those never enter the session) and moved nothing.
+        // Every word of that is true about DESKTOP-DEV and none of it is an ownership boundary:
+        // `dev::rollback_observatory` is behind `dev_tools`, which the web persona does not enable.
+        // So the browser composed a live GGRS session, live leafwing actions, and seat latches —
+        // with no primary latch. `capture_latched_local_input` takes it as `Option` and leaves
+        // `PendingLocalInput` alone when it is missing, so seat zero published a NEUTRAL frame
+        // every tick, forever, in silence. Arrow keys navigated menus (those never enter the
+        // session) and moved nothing.
         //
         // ⭐ **A DEVELOPER INSTRUMENT MAY NEVER BE LOAD-BEARING FOR GAMEPLAY.**
         // The device host owns the frame→tick bridge because the device host is
@@ -211,13 +188,8 @@ impl Plugin for HostInputBindingsPlugin {
                 .after(ambition_input::InputSet::Route)
                 .in_set(ambition_platformer2d_runtime::host_input::PrimarySlotInputCommit),
         );
-        // THE PUBLISHING HALF IS FIXED-TICK ONLY, and that asymmetry is the
-        // point: under rollback the SESSION publishes input, from the frame
-        // GGRS confirmed, so a host system writing `ControlFrame` and
-        // `SlotControls` from the latch would bypass the rollback stream
-        // entirely and hand a resimulated tick whatever the pad said just now.
-        // `capture_latched_local_input` drains the same latches on the
-        // `ReadInputs` edge instead, which is where a rollback host asks.
+        // `capture_latched_local_input` drains the same latches on the `ReadInputs` edge
+        // instead, which is where a rollback host asks.
         if app.sim_is_fixed_tick() {
             let sim = app.sim_schedule();
             // ⭐ **ONE drain for every seat.** This was two systems because
@@ -276,16 +248,12 @@ impl Plugin for HostInputBindingsPlugin {
                 leafwing_input_manager::plugin::InputManagerSystem::Tick
                     .before(leafwing_input_manager::plugin::InputManagerSystem::Unify),
             )
-            // Track which input device each SEAT most recently produced
-            // GENUINE input with (and, via `machine()`, the newest overall —
-            // which gates the menu mouse-hover handlers so a rebuild-induced
-            // `Pointer<Over>` under a stationary mouse can't snap the cursor
-            // back while a player navigates with keyboard / gamepad / touch).
-            // Runs in the input populate set so the value is fresh before
-            // this frame's menu consumers + before the hover observers fire
-            // on rebuilt controls. The detector covers keyboard / mouse /
-            // gamepad / raw touch; the touch virtual-device gesture adapter
-            // additionally marks `Touch` for overlay input a mouse can drive.
+            // Track which input device each SEAT most recently produced GENUINE input with
+            // (and, via `machine()`, the newest overall — which gates the menu mouse-hover
+            // handlers so a rebuild-induced `Pointer<Over>` under a stationary mouse can't snap
+            // the cursor back while a player navigates with keyboard / gamepad / touch). The
+            // detector covers keyboard / mouse / gamepad / raw touch; the touch virtual-device
+            // gesture adapter additionally marks `Touch` for overlay input a mouse can drive.
             .add_systems(
                 Update,
                 ambition_input::update_seat_active_devices.in_set(ambition_input::InputSet::Route),
@@ -359,19 +327,8 @@ impl Plugin for HostInputBindingsPlugin {
                         .before(ambition_input::InputSet::Route),
                 ),
             )
-            // ⭐ **ONE NAME FOR "EVERY READER OF THE MENU FRAME".** A gesture
-            // adapter that must land in the frame before anything consumes it
-            // used to pin `.before` each reader set by name, which is a pin that
-            // silently stops covering the readers as soon as a third one is
-            // added. Nesting rather than folding: `MenuNavConsume` keeps its own
-            // identity because the menu-backend switch pins `.after` it and must
-            // NOT start waiting on cutscene skip too.
-            //
-            // ⚠ `Update` specifically, and both members were measured to have
-            // their systems here before this was written — a set node belongs to
-            // one schedule, so an umbrella over members that live elsewhere
-            // constrains nothing at all. `app_it::update_schedule_census` keeps
-            // that measurement honest.
+            // Nesting rather than folding: `MenuNavConsume` keeps its own identity because the
+            // menu-backend switch pins `.after` it and must NOT start waiting on cutscene skip too.
             .configure_sets(
                 Update,
                 (MenuFrameCutsceneSkip, MenuNavConsume).in_set(MenuFrameConsume),
@@ -420,11 +377,8 @@ impl Plugin for HostInputBindingsPlugin {
                     // `.before` the way it rescues an `.after`: the sim has
                     // already run by the time `Update` starts.
                     //
-                    // What actually orders the device write against the sim read
-                    // is `ControlFrameLatch` + `publish_latched_control_frame`
-                    // (fixed tick) or the GGRS session on the `ReadInputs` edge
-                    // (rollback). Keep the pin for the `RenderFrame` host; do not
-                    // read it as proof the other two are ordered.
+                    // Keep the pin for the `RenderFrame` host; do not read it as proof the
+                    // other two are ordered.
                     .before(Platformer2dSimulationPhaseMonolith::CoreSimulation),
             );
     }
@@ -471,12 +425,9 @@ fn tune_clash_strategy_to_bindings(
 
 /// **Projectiles that were fired are projectiles that are drawn.**
 ///
-/// ⚠ **This lived in `game/ambition_app` until 2026-07-31**, which meant every
-/// other composition simulated projectiles it never rendered: the ring of
-/// bodies ticked, collided and expired with nothing on screen. Found by
-/// `scripts/check_engine_systems_are_engine_installed.py`, built after the same
-/// shape cost three defects in four days (the world-label pass, the parallax
-/// theme load, the parallax layer sync).
+/// Found by `scripts/check_engine_systems_are_engine_installed.py`, built after the same shape cost
+/// three defects in four days (the world-label pass, the parallax theme load, the parallax layer
+/// sync).
 ///
 /// It lives in the HOST rather than in `PlatformerPresentationPlugin` for a
 /// layering reason, not a taste one: the ordering edges name
@@ -523,26 +474,12 @@ impl Plugin for HostProjectileVisualsPlugin {
 
 /// **A `VfxMessage` that is written is a `VfxMessage` that is drawn.**
 ///
-/// ⚠ **This lived in `game/ambition_app` until 2026-08-15** — the same shape,
-/// and the same class, as [`HostProjectileVisualsPlugin`] above. `VfxMessage`
-/// has TWO presentation consumers and only ONE of them was engine-installed:
-/// `ambition_render::rendering::slash_visuals::spawn_slash_effects` is
-/// registered by `ambition_render`'s own plugin and reaches every composition,
-/// while `fx::vfx_spawn_messages` — the subscriber that draws `Burst` / `Dust`
-/// / `Impact` / `CoinPop` / `Explosion` / `BlinkEffects` / `ResetEffects` /
-/// `SpeechBubble` — was registered nowhere but the shipped app. So every demo
+/// `VfxMessage` has TWO presentation consumers and only ONE of them was engine-installed:
+/// `ambition_render::rendering::slash_visuals::spawn_slash_effects` is registered by
+/// `ambition_render`'s own plugin and reaches every composition, while `fx::vfx_spawn_messages` —
+/// the subscriber that draws `Burst` / `Dust` / `Impact` / `CoinPop` / `Explosion` / `BlinkEffects`
+/// / `ResetEffects` / `SpeechBubble` — was registered nowhere but the shipped app. So every demo
 /// binary wrote those messages into a queue nobody read.
-///
-/// ⭐ **Jon's coin-pop report is this bug.**
-/// `docs/planning/JONS_OBSERVATIONS_BUGS_AND_ISSUES.md` says of the Mary-O
-/// multi-coin block: *"the block flinches and the cue plays, but nothing draws
-/// a coin arcing out."* All three halves were built. The flinch
-/// (`flinch_struck_blocks`) is registered by `ambition_render`; the cue is
-/// audio; the coin (`VfxMessage::CoinPop` → `fx::spawn_coin_pop`) was the one
-/// of the three that needed this plugin. Mary-O's brick-break
-/// `VfxMessage::Burst` was swallowed the same way, and so was every impact
-/// spark in `ambition_demo_smash_app` — the proving ground the campaign
-/// measures hit feel by.
 ///
 /// It lives in the HOST rather than in `PlatformerPresentationPlugin` for the
 /// same layering reason `HostProjectileVisualsPlugin` gives: the ordering edge
@@ -559,15 +496,12 @@ impl Plugin for HostVfxPresentationPlugin {
         use ambition_platformer2d_shared_tangle::lifecycle::session_world_exists;
         use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith;
 
-        // ⛔ **spelled out on purpose — a short path is INVISIBLE to
-        // `scripts/check_engine_systems_are_engine_installed.py`.** That checker
-        // only recognises a registration whose FIRST path segment is an engine
-        // crate name, and the app registered these as `fx::update_particles` /
-        // bare `vfx_spawn_messages`. Measured 2026-08-15: it reported them as
-        // neither app-registered nor engine-registered, so the guard built for
-        // exactly this defect could not see the largest instance of it. The
-        // blind spot is already written down for `setup_capture_target` in that
-        // file's own waiver list; do not re-shorten these paths.
+        // **spelled out on purpose — a short path is INVISIBLE to
+        // `scripts/check_engine_systems_are_engine_installed.py`.** That checker only recognises a
+        // registration whose FIRST path segment is an engine crate name, and the app registered
+        // these as `fx::update_particles` / bare `vfx_spawn_messages`. The blind spot is already
+        // written down for `setup_capture_target` in that file's own waiver list; do not re-shorten
+        // these paths.
         app.add_systems(
             Update,
             // Reusable cue REQUESTS fan out into the typed visual/audio
@@ -586,10 +520,9 @@ impl Plugin for HostVfxPresentationPlugin {
             Update,
             ambition_render::fx::vfx_spawn_messages
                 .after(ambition_render::fx::process_fx_requests)
-                // A speech bubble is spawned here and PLACED by the shared
-                // world-label pass, so the edge buys the sync point that lets a
-                // line born this frame be placed this frame rather than drawing
-                // once at its raw anchor (D159).
+                // A speech bubble is spawned here and PLACED by the shared world-label pass, so
+                // the edge buys the sync point that lets a line born this frame be placed this
+                // frame rather than drawing once at its raw anchor.
                 .before(ambition_render::rendering::WorldLabelLayoutSet)
                 .run_if(session_world_exists),
         )
@@ -609,13 +542,8 @@ impl Plugin for HostVfxPresentationPlugin {
                 ambition_render::fx::update_speech_bubbles,
             )
                 .chain()
-                // ⛔ **`update_speech_bubbles` PUBLISHES an anchor, it does not
-                // place a bubble** (D159). A speech bubble is a `WorldLabel`, so
-                // the shared placement pass is the single writer of its
-                // transform and colour — and a pass that ran before this one
-                // would place every line against last frame's anchor. This is
-                // the same hard edge `ActorNameplateSet` already declares for
-                // the plate family.
+                // This is the same hard edge `ActorNameplateSet` already declares for the plate
+                // family.
                 .before(ambition_render::rendering::WorldLabelLayoutSet)
                 .run_if(session_world_exists),
         );
@@ -635,20 +563,13 @@ impl Plugin for HostCameraPlugin {
     fn build(&self, app: &mut App) {
         use ambition_render::rendering::camera_follow;
 
-        // Render-owned camera view state, initialized with the presentation
-        // half that reads it (nameplates, HUD, overlays) — the sim never
-        // touches it.
-        // `CameraViewState` is a COMPONENT on the view now (D116 M2) and is
-        // spawned with it by `CameraObservationPlugin`, so there is no global to
-        // initialise — and no frame where a reader finds the view but not its state.
-        // The observer facts (gameplay viewport + subject-safe region) are
-        // published by HostGameplayPresentationPlugin, which orders its whole
-        // cluster before the sim's observation resolve. `camera_follow` only
-        // APPLIES the resulting snapshot (E4-17).
+        // Render-owned camera view state, initialized with the presentation half that reads it
+        // (nameplates, HUD, overlays) — the sim never touches it. The observer facts (gameplay
+        // viewport + subject-safe region) are published by HostGameplayPresentationPlugin,
+        // which orders its whole cluster before the sim's observation resolve. `camera_follow`
+        // only APPLIES the resulting snapshot (E4-17).
         app.add_plugins(crate::gameplay_presentation::HostGameplayPresentationPlugin);
-        // A viewport-clipped camera never clears outside itself, so a
-        // fixed-aspect profile OWES the display a surround. Render owns the
-        // painting; the host owns the fact that it is owed.
+        // Render owns the painting; the host owns the fact that it is owed.
         app.add_plugins(ambition_render::gameplay_surround::GameplaySurroundPlugin);
         // The declared-HUD surface. A game gets a HUD by declaring slots on
         // its provider and publishing readouts; a route that declared none
@@ -662,18 +583,11 @@ impl Plugin for HostCameraPlugin {
             )
                 .chain()
                 .after(ambition_render::rendering::BossAnimation)
-                // Read THIS frame's resolved snapshot, not last frame's. Keyed
-                // on the observation SET: the resolve lives in `Update` for
-                // every host, so this edge is real under fixed-tick and GGRS
-                // too (naming the system worked only while the sim happened to
-                // share `Update`).
+                // Read THIS frame's resolved snapshot, not last frame's.
                 .after(ambition_sim_view::camera_snapshot::CameraObservationSet)
                 .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists),
         );
 
-        // The Ambition portal host-adapter observation glue (world-frame /
-        // viewer / focus / debug seam publishers, scene-body tagging, dev
-        // toggles, gun art) — sim-owned plugin, host-added (E4 slice 20).
         #[cfg(feature = "portal_render")]
         {
             app.add_plugins(crate::portal::PortalObservationPlugin);
@@ -762,14 +676,9 @@ mod clash_strategy_tests {
 /// **Hand the menu crate the font the render side resolved.**
 ///
 /// ⛔ `ambition_menu` set a font SIZE and no handle, so Bevy resolved
-/// `Handle::<Font>::default()` — its built-in `FiraMono-subset.ttf`. Every menu
-/// in every game drew a hollow box for `·` (U+00B7) or `—` (U+2014), invisibly,
-/// until a launcher footer was photographed. Ten hypotheses died on that bug:
-/// they checked the fonts the REPOSITORY ships — `JetBrainsMono-Regular.ttf` and
-/// `InterDisplay-Regular.otf`, both of which carry the glyphs — and none of them
-/// asked what `Handle::default()` points at. Forcing the default handle back
-/// reproduces the box; see `MenuFont`, which also records what about this is
-/// still UNEXPLAINED (the same handle renders those glyphs elsewhere).
+/// `Handle::<Font>::default()` — its built-in `FiraMono-subset.ttf`. Forcing the default handle
+/// back reproduces the box; see `MenuFont`, which also records what about this is still
+/// UNEXPLAINED (the same handle renders those glyphs elsewhere).
 ///
 /// ⚠ **this is the composition root because it is the only place the two crates
 /// can meet.** `ambition_render` must not depend on `ambition_menu`

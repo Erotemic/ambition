@@ -1,8 +1,4 @@
 //! Probes for the `encounter_waves` schema.
-//!
-//! Each negative case names the failure it prevents, not the prose of the
-//! message — a diagnostic's wording is a rendering detail and pinning it makes
-//! these fail on a reworded fix line.
 
 use super::*;
 use ambition_content_pack::{

@@ -155,11 +155,8 @@ pub struct ScrollThumb {
     pub size: f32,
 }
 
-/// Resolve a [`ScrollThumb`] into `(top_fraction, height_fraction)` in `[0, 1]`
-/// for a vertical scrollbar track. Single source of truth shared by BOTH menu
-/// renderers (the cube + the bevy-UI grid), which previously each carried their
-/// own mathematically-equivalent copy and had begun to drift cosmetically. The
-/// height is floored grabbable (min 8% of the track) and the thumb travels the
+/// Resolve a [`ScrollThumb`] into `(top_fraction, height_fraction)` in `[0, 1]` for a vertical
+/// scrollbar track. The height is floored grabbable (min 8% of the track) and the thumb travels the
 /// remaining `1 - height`.
 pub fn scrollbar_thumb_layout(thumb: ScrollThumb) -> (f32, f32) {
     let start = thumb.start.clamp(0.0, 1.0);
@@ -168,11 +165,8 @@ pub fn scrollbar_thumb_layout(thumb: ScrollThumb) -> (f32, f32) {
     (start * travel, size)
 }
 
-/// Map a pointer's position along a scrollbar track into the neutral `0..=1`
-/// drag fraction (0 = top, 1 = bottom). `None` if the track has no height yet.
-/// Single source of truth shared by both renderers (the cube extracts the track
-/// rect from its `MenuScrollbar` component; the grid reads its measured node
-/// rect) — the division used to be copied into each.
+/// Map a pointer's position along a scrollbar track into the neutral `0..=1` drag fraction (0 =
+/// top, 1 = bottom). `None` if the track has no height yet.
 pub fn scrollbar_fraction_from_rect(
     track_top_y: f32,
     track_height: f32,
@@ -516,10 +510,7 @@ pub struct MenuCubeGeometry {
 }
 
 impl MenuCubeGeometry {
-    /// The cube camera's VERTICAL field of view (radians). Single source of truth:
-    /// [`Self::oot_like`] derives the camera distance from it, AND the renderer sets
-    /// the camera's `PerspectiveProjection.fov` to it — so the two can't silently
-    /// disagree (previously the derivation implicitly assumed Bevy's 45° default).
+    /// The cube camera's VERTICAL field of view (radians).
     pub const CAMERA_FOV_RADIANS: f32 = core::f32::consts::FRAC_PI_4; // 45°
 
     /// Fraction of the half-screen-height the active face's top edge reaches; the

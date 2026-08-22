@@ -682,9 +682,8 @@ mod adapter_tests {
         app
     }
 
-    /// Live editing still works: the F3 panel's edit reaches the value the
-    /// simulation actually reads. Without this the K1a decoupling would be a
-    /// silent regression of the dev workflow rather than an ownership fix.
+    /// Live editing still works: the F3 panel's edit reaches the value the simulation actually
+    /// reads.
     #[test]
     fn an_inspector_edit_reaches_the_simulation_authority() {
         let mut app = app_with_adapter();

@@ -1,13 +1,6 @@
 //! The authorized room-transition commit: swap room authority, carry the
 //! transiting body across, apply the cross-domain per-transition resets, ask for
 //! the redraw, and log the landing.
-//!
-//! Came from `ambition_app::app::world_flow::room_flow` (2026-07-25). It was
-//! stuck app-side for one reason — it DREW the new room (`spawn_room_visuals`),
-//! which named `ambition_render`. Now it writes `RespawnRoomVisualsRequested`
-//! like the sandbox reset and the room stager already did, and nothing here is
-//! beyond an engine crate's reach. `reset_sandbox` made the same journey in
-//! 2026-07-21 (tracks §2.5) for the same reason.
 
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::{Commands, Entity, MessageWriter, Query, Res, ResMut, With};
@@ -128,16 +121,10 @@ fn ground_gap_below_feet(
 /// They differ in WHEN they are allowed to mutate the world, which is a
 /// scheduling fact, not a different transition.
 ///
-/// ⛔⛔ **THEY USED TO BE TWO IMPLEMENTATIONS, AND THE COPIES HAD ALREADY
-/// DIVERGED.** `commit_transition` declared itself a mirror of this path *"kept
-/// in sync by the line comments below"* — a citation, and citations go stale.
-/// Measured 2026-08-14: the confirmed copy never called `clear_carryover`, so on
-/// the SHIPPED rollback host a door carried every in-flight enemy projectile
-/// into the next room and left a room-modified ambient gravity in force. The
-/// same copy never recorded the Class-B transit either. Nobody wrote those
-/// omissions; they are simply what a second implementation becomes.
+/// The same copy never recorded the Class-B transit either. Nobody wrote those omissions; they are
+/// simply what a second implementation becomes.
 ///
-/// ⚠ **`Query`, not `Single`, for the session world.** `SystemState::get_mut`
+/// **`Query`, not `Single`, for the session world.** `SystemState::get_mut`
 /// PANICS when a `Single` matches nothing, and the confirmed host reaches this
 /// through a `SystemState` on `&mut World` — a missing session root there must
 /// be a refusal it can report, not a crash inside an exclusive system.
@@ -159,7 +146,7 @@ pub struct RoomTransitionApplication<'w, 's> {
     moving_platforms: ResMut<'w, ambition_platformer2d_world::collision::MovingPlatformSet>,
     dialogue: ResMut<'w, ambition_dialog::DialogState>,
     conversation: ResMut<'w, ambition_conversation::ActiveConversation>,
-    // ⭐ **RESIDENTS, not merely room-scoped.** An object a body is carrying is
+    // **RESIDENTS, not merely room-scoped.** An object a body is carrying is
     // scoped to a room and resident in none — it crosses with whoever holds it —
     // so it is not part of what the room being left retires. The distinction is
     // spelled once, on `RoomResident`; this operation still knows nothing about
@@ -173,9 +160,8 @@ pub struct RoomTransitionApplication<'w, 's> {
 
 /// Why an application refused, with the world still whole.
 ///
-/// ⛔ every variant is raised BEFORE the first destructive mutation. A
-/// transition that fails after `retire_outgoing` has despawned the source room
-/// and has nowhere to put the body, which is not a failure a caller can handle.
+/// A transition that fails after `retire_outgoing` has despawned the source room and has
+/// nowhere to put the body, which is not a failure a caller can handle.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RoomTransitionApplyError {
     /// No session root carries room authority — there is no world to transition.
@@ -281,17 +267,13 @@ impl RoomTransitionApplication<'_, '_> {
         // LEAVING.** Stated about the SUBJECT, which is the only thing that
         // matters here, rather than about what kind of body it is.
         //
-        // ⛔ this used to ask `presentation.contains(subject)` — *"does it carry
-        // home-only blink-camera state?"* — as a proxy for *"is this the primary
-        // player, which is not room-scoped and therefore not in the outgoing
-        // roster anyway?"*. The proxy bought nothing and could only ever lose:
-        // when it answered correctly the exemption was a no-op, and the one way
-        // it could answer WRONG is by calling a room-scoped body a home body,
-        // which despawns the thing mid-transition. ⇒ an unconditional exemption
-        // is strictly safer, because `retire_outgoing` skips an entity that is
-        // not in its roster and exempting an absent entity is already a no-op.
+        // The proxy bought nothing and could only ever lose: when it answered correctly the
+        // exemption was a no-op, and the one way it could answer WRONG is by calling a room-scoped
+        // body a home body, which despawns the thing mid-transition. ⇒ an unconditional exemption
+        // is strictly safer, because `retire_outgoing` skips an entity that is not in its roster
+        // and exempting an absent entity is already a no-op.
         //
-        // ⭐ and it removes a player-centrism: the transition no longer has an
+        // and it removes a player-centrism: the transition no longer has an
         // opinion about which body is the protagonist.
         let carry_body = Some(subject);
 
@@ -381,11 +363,6 @@ impl RoomTransitionApplication<'_, '_> {
         // operation that composes them does (anti-god rule 6). Optional
         // components are absent for a possessed non-home body, which is allowed.
         if let Ok(mut combat) = self.bodies.combat.get_mut(subject) {
-            // AC3.3: `reset()` IS the list of every reaction timer a body reset
-            // clears, so a transition ASKS for it rather than restating it —
-            // this list and its former twin were the only two places
-            // `landing_lag_timer` was cleared correctly, which is precisely why
-            // D108's four other lists could forget it without a visible symptom.
             // The arrival flash is the one thing a transition adds.
             combat.reset();
             combat.hit_flash = if edge_exit {
@@ -406,11 +383,9 @@ impl RoomTransitionApplication<'_, '_> {
             safety.last_safe_pos = arrival_pos;
         }
         self.dialogue.close();
-        // ⛔ **the AUTHORITY too, and it is not the same close.** `DialogState`
-        // going quiet only takes the text box away; the simulation's conversation
-        // names two BODIES, and this transition just despawned the room they were
-        // standing in. A conversation that survived would point at dead entities
-        // and hold an NPC that no longer exists.
+        // **the AUTHORITY too, and it is not the same close.** `DialogState` going quiet only
+        // takes the text box away; the simulation's conversation names two BODIES, and this
+        // transition just despawned the room they were standing in.
         self.conversation.close();
 
         if let Some(log) = self.bodies.class_b.as_mut() {
@@ -483,10 +458,9 @@ impl RoomTransitionApplication<'_, '_> {
 /// whichever body it is. `presentation` holds the home-only blink-camera +
 /// respawn-point state (a possessed actor has neither).
 ///
-/// ⭐ **`ControlledSubject` and the primary-player fallback are GONE from here**
-/// (D71). They answered *"who is driving right now"*, which is a different
-/// question from *"who walked through the door"* the moment readiness takes more
-/// than one frame. The request carries the answer; this only resolves it.
+/// They answered *"who is driving right now"*, which is a different question from *"who walked
+/// through the door"* the moment readiness takes more than one frame. The request carries the
+/// answer; this only resolves it.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct TransitBodies<'w, 's> {
     clusters: Query<'w, 's, ae::BodyClusterQueryData>,
@@ -584,10 +558,9 @@ fn cancel_eager_room_transition_transaction(
 }
 
 pub fn commit_ready_room_transition_system(
-    // ⭐ **THE APPLICATION, not fifteen pieces of it** (D71). What this system
-    // owns is the TRANSACTION — the staleness checks, the barrier, the cover
-    // bookkeeping — and it reaches the world only through the one operation the
-    // confirmed host also calls.
+    // What this system owns is the TRANSACTION — the staleness checks, the barrier, the cover
+    // bookkeeping — and it reaches the world only through the one operation the confirmed host
+    // also calls.
     mut application: RoomTransitionApplication,
     // Bundled into one tuple param to stay within Bevy's 16-param system limit.
     load_resources: (
@@ -624,7 +597,7 @@ pub fn commit_ready_room_transition_system(
         simulation_host,
         mut pending_lifecycle,
     ) = load_resources;
-    // ⛔ **the EAGER commit, and only the eager one.** A rollback host reaches an
+    // **the EAGER commit, and only the eager one.** A rollback host reaches an
     // identical room change through `commit_confirmed_lifecycle`, which runs
     // outside the rewound schedule and rebases the session afterwards. Both read
     // the same authorized transaction; they differ in what they must do to be
@@ -648,11 +621,8 @@ pub fn commit_ready_room_transition_system(
         return;
     };
 
-    // The host-side transaction is DERIVED from this exact simulation intent.
-    // Death can retract the intent earlier in this same simulation tick, before
-    // `RoomTransition::Apply`; a stale transaction must not commit merely because
-    // it reached authorization on the previous frame. A different pending intent
-    // is equally not this transaction's authority — keep that new intent, retire
+    // The host-side transaction is DERIVED from this exact simulation intent. A different
+    // pending intent is equally not this transaction's authority — keep that new intent, retire
     // only the stale transaction, and let readiness open the new one in `Update`.
     let intent_still_pending = pending_lifecycle.pending.as_ref().is_some_and(|pending| {
         matches!(
@@ -759,22 +729,15 @@ pub fn commit_ready_room_transition_system(
         return;
     }
 
-    // CLONED rather than moved out: the terminal-cancellation arm below hands
-    // `&active` to `cancel_eager_room_transition_transaction`, which reads the
-    // transaction's own `sequence` and `load_id`. Moving the intent out first
-    // would partially move the value those arms still need to describe.
+    // Moving the intent out first would partially move the value those arms still need to describe.
     let intent = active.intent.clone();
     // **The body that CROSSED is the body that ARRIVES** — resolved from the
     // `SimId` the DETECTION recorded, never re-derived here.
     //
-    // ⛔⛔ this asked `ControlledSubject`, falling back to the primary player,
-    // under a comment claiming *"this is the same subject the detect side
-    // resolves"*. A citation, and a false one across time: readiness takes
-    // several frames, and possession changing hands or a death inside that window
-    // silently transited a different body than the one that walked through the
-    // door. The rollback path never had this bug — `LifecycleIntent::Transition`
-    // has carried its subject since Track B — and D71 makes the richer contract
-    // the only one.
+    // this asked `ControlledSubject`, falling back to the primary player, under a comment claiming
+    // *"this is the same subject the detect side resolves"*. A citation, and a false one across
+    // time: readiness takes several frames, and possession changing hands or a death inside that
+    // window silently transited a different body than the one that walked through the door.
     //
     // A subject that no longer resolves is a VOID crossing: the crossing body is
     // gone, so the transition FAILS rather than substituting whoever is driving
@@ -782,14 +745,10 @@ pub fn commit_ready_room_transition_system(
     // **The body that CROSSED is the body that ARRIVES** — resolved from the
     // `SimId` the DETECTION recorded, never re-derived here.
     //
-    // ⛔⛔ this asked `ControlledSubject`, falling back to the primary player,
-    // under a comment claiming *"this is the same subject the detect side
-    // resolves"*. A citation, and a false one across time: readiness takes
-    // several frames, and possession changing hands or a death inside that window
-    // silently transited a different body than the one that walked through the
-    // door. The rollback path never had this bug — `LifecycleIntent::Transition`
-    // has carried its subject since Track B — and D71 makes the richer contract
-    // the only one.
+    // this asked `ControlledSubject`, falling back to the primary player, under a comment claiming
+    // *"this is the same subject the detect side resolves"*. A citation, and a false one across
+    // time: readiness takes several frames, and possession changing hands or a death inside that
+    // window silently transited a different body than the one that walked through the door.
     //
     // A missing subject is terminal. The confirmed host already calls this a
     // `CommitOutcome::Cancelled`; the eager host has no speculative frames, so it
@@ -825,10 +784,9 @@ pub fn commit_ready_room_transition_system(
     // wrong thing: the point is wall-clock cost to the player.
     #[cfg(not(target_arch = "wasm32"))]
     let commit_started = std::time::Instant::now();
-    // ⭐ **THE ONE APPLICATION OPERATION** (D71). Both hosts call this; what the
-    // eager host owns is the TRANSACTION around it — the staleness checks above
-    // and the barrier/cover bookkeeping below — not a second idea of what a room
-    // transition does to the world.
+    // Both hosts call this; what the eager host owns is the TRANSACTION around it — the
+    // staleness checks above and the barrier/cover bookkeeping below — not a second idea of
+    // what a room transition does to the world.
     if let Err(error) = application.apply(
         construction_plan,
         subject,
@@ -882,9 +840,6 @@ pub fn commit_ready_room_transition_system(
         current.commit_duration = commit_duration;
         current.committed_at = real_time.as_deref().map(|time| time.elapsed());
     }
-    // The crossing landed, so the intent that described it is spent. ⛔ NOT
-    // earlier: every failure path above leaves it pending on purpose, which is
-    // what lets Retry re-open the same crossing rather than invent a new one.
     pending_lifecycle.take();
     if active.cover_required {
         if let Some(current) = transition_state

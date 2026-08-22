@@ -1,12 +1,9 @@
 use super::*;
 use ambition_platformer2d_core as ae;
 
-/// PhaseScript brain wins over display name. The user-reported
-/// bug: BossSpawn named "System Boss" in `first_system_boss`
-/// derived encounter_id "system_boss" (no profile, no music).
-/// With `canonical_boss_id_from` reading the brain's
-/// `PhaseScript:clockwork_warden` it resolves to the
-/// authored profile and the boss fight gets its violin music.
+/// PhaseScript brain wins over display name. With `canonical_boss_id_from` reading the brain's
+/// `PhaseScript:clockwork_warden` it resolves to the authored profile and the boss fight gets
+/// its violin music.
 #[test]
 fn phase_script_brain_wins_over_display_name() {
     let id = canonical_boss_id_from(

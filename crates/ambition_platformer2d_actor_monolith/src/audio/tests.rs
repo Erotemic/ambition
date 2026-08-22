@@ -5,7 +5,7 @@
 //! `web_audio` implies `audio`.
 
 use super::*;
-// `SfxMessage` no longer re-exported by the parent module (§D1).
+// `SfxMessage` no longer re-exported by the parent module.
 use crate::session::data::{
     fixture_music_registry, fixture_sfx_registry, MusicRegistry, MusicTrack,
 };
@@ -306,14 +306,11 @@ fn no_runtime_references_to_retired_procedural_renderer() {
     );
 }
 
-/// Cargo-level guardrail: the sandbox crate's own `Cargo.toml` must
-/// not list `fundsp` as a runtime dependency or feature input. Pairs
-/// with `no_runtime_references_to_retired_procedural_renderer` —
-/// that one catches `use fundsp::` *inside* a `.rs` file, this one
-/// catches a `fundsp = "..."` line that hasn't been called yet but
-/// would silently re-arm the procedural path. Comments are stripped
-/// before scanning so the existing "fundsp was retired" prose
-/// blocks pass.
+/// Cargo-level guardrail: the sandbox crate's own `Cargo.toml` must not list `fundsp` as a
+/// runtime dependency or feature input. Pairs with
+/// `no_runtime_references_to_retired_procedural_renderer` — that one catches `use fundsp::`
+/// *inside* a `.rs` file, this one catches a `fundsp = "..."` line that hasn't been called yet
+/// but would silently re-arm the procedural path.
 #[test]
 fn ambition_platformer2d_actor_monolith_cargo_toml_has_no_fundsp_dep() {
     let manifest = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
@@ -348,14 +345,7 @@ fn ambition_platformer2d_actor_monolith_cargo_toml_has_no_fundsp_dep() {
     );
 }
 
-/// Cargo-level guardrail: `web_audio` MUST imply `audio`, not just
-/// `authored_audio`. The source uses `#[cfg(feature = "audio")]`
-/// gates everywhere; if `web_audio` only enables `authored_audio`,
-/// `bevy_kira_audio` is in the dep graph but every audio runtime
-/// module is compiled out — the wasm boots silent and the only
-/// symptom is "no `[ambition-audio] AudioContext created` log even
-/// though the boot banner says `web_served_assets`". That is exactly
-/// the regression Jon hit; pin it in CI.
+/// Cargo-level guardrail: `web_audio` MUST imply `audio`, not just `authored_audio`.
 #[test]
 fn web_audio_feature_implies_audio_feature() {
     let manifest = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");

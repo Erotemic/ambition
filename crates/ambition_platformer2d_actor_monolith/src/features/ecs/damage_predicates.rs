@@ -23,7 +23,7 @@
 //! * a BREAKABLE spells it as `broken()` / `trigger.allows_hit()` /
 //!   `pogo_refresh`, which is byte-for-byte the gate its applier's loop runs.
 //!
-//! ⛔ **precision is a DIFFERENT question, and these predicates deliberately do
+//! **precision is a DIFFERENT question, and these predicates deliberately do
 //! not all share it.** The boss predicate must test the authored part volumes —
 //! a multi-part boss's gross box is mostly not damageable, so the coarse box
 //! would over-trigger projectile termination on the body without ever applying
@@ -41,12 +41,6 @@ use super::{
     FeatureSimEntity, HitEvent,
 };
 
-/// True if `ignored_targets` contains the `"{prefix}:{id}"` disposition key,
-/// WITHOUT allocating that key. The old code `format!("enemy:{id}")`-ed a fresh
-/// `String` for every actor on every hit event just to compare it; this matches
-/// the same keys by slicing each ignored entry instead — removing per-hit
-/// allocator churn that compounds when RL steps the sim millions of times, and
-/// folding the six copies of the pattern into one helper.
 pub(super) fn target_is_ignored(ignored_targets: &[String], prefix: &str, id: &str) -> bool {
     ignored_targets.iter().any(|ignored| {
         ignored
@@ -72,9 +66,6 @@ pub fn ecs_hit_event_hits_breakable(
     })
 }
 
-/// ⚠ `Option<&DamageableVolumes>`, and the `Option` is load-bearing: requiring the
-/// component would silently drop every actor that lacks one from the query and
-/// turn this hit test into a partial no-op — the "my projectile does nothing" bug.
 /// Absent and empty mean OPPOSITE things here, which is the whole point of
 /// [`DamageableVolumes::intangible`].
 pub fn ecs_hit_event_hits_actor(
@@ -84,11 +75,7 @@ pub fn ecs_hit_event_hits_actor(
             &FeatureId,
             &CenteredAabb,
             &ActorDisposition,
-            // ⭐ AC3.1.A: the liveness AUTHORITY. This used to read
-            // `BodyCombat.alive`, a mirror written once per frame — so a body
-            // killed THIS frame could still be hit for a tick, which is the
-            // mirror-lag the field's own doc warned liveness-critical gameplay
-            // about. A damage gate is liveness-critical gameplay.
+            // AC3.1.A: the liveness AUTHORITY. A damage gate is liveness-critical gameplay.
             &ambition_characters::actor::BodyHealth,
             Option<&DamageableVolumes>,
         ),
@@ -112,7 +99,7 @@ pub fn ecs_hit_event_hits_actor(
             // case already agreed (the publisher clears AND `alive` goes false);
             // this is the live-but-intangible state the two disagreed on.
             //
-            // ⛔ this is the intangibility half ONLY. A tangible body is still
+            // this is the intangibility half ONLY. A tangible body is still
             // tested against its coarse box below, not against the volumes it
             // published — see the module doc.
             && !volumes.is_some_and(DamageableVolumes::intangible)
@@ -243,9 +230,8 @@ mod tests {
     /// not a patch: absent and unpublished must keep falling back to the coarse
     /// box (requiring the component, or reading an unpublished empty list as
     /// intangible, would silently turn this hit test into a no-op), and
-    /// published-non-empty must ALSO still answer from the coarse box — testing
-    /// the authored rectangles is the precision half, which is Jon's feel call and
-    /// is deliberately not taken here.
+    /// published-non-empty must also answer from the coarse box; authored rectangles are a
+    /// separate precision policy and are deliberately not used here.
     #[test]
     fn the_actor_hit_test_refuses_a_body_that_published_no_hurtbox() {
         assert!(

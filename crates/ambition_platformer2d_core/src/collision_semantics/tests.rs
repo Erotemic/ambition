@@ -237,9 +237,6 @@ fn feet_snap_and_separation_are_gravity_relative() {
     assert!((snap.y - 2.0).abs() < 1e-3 && snap.x.abs() < 1e-6);
 }
 
-/// **An invisible block is not a floor.** (Jon, 2026-08-05: *"you should not be
-/// able to stand on an invisible block."*)
-///
 /// The whole reason `BonkOnly` exists, stated where the predicate lives: a body
 /// resting exactly on its head face is NOT supported, where the same body on the
 /// same rectangle marked `Solid` or `OneWay` is.
@@ -307,29 +304,18 @@ fn a_bonk_only_block_never_blocks_a_side_axis() {
     assert!(!is_solid_for_axis(BlockKind::BonkOnly, Axis::X, down));
 }
 
-/// **Jon's sentence, as an assertion: you cannot stand on an invisible block.**
+/// **the rule, as an assertion: you cannot stand on an invisible block.**
 ///
-/// *"You should not be able to stand on an invisible block."* (2026-08-05) A
-/// `MaryOBlockLook::Hidden` block was drawn transparent and left
-/// `BlockKind::Solid`, so it was an invisible FLOOR — Mary-O landed on nothing.
-/// In SMB an invisible block is intangible until struck from below and solid
-/// after.
-///
-/// ⛔ **the vocabulary is the fix and this is the line that says so.**
-/// `BonkOnly` is the MIRROR of `OneWay`: `OneWay` is *"solid when crossed from
-/// above"*, `BonkOnly` is *"solid only against a head coming up into it"*. The
-/// three predicates below are the whole claim, and the middle one is the bug —
-/// `is_solid_for_axis` answers TRUE on the gravity axis (a rising head must be
-/// stopped), so any caller that filters on it alone and forgets
-/// `bonk_strike_from_head` gets a floor back. Two did: the controlled body's
-/// penetration repair and the generic kinematic sweep.
+/// **the vocabulary is the fix and this is the line that says so.** `BonkOnly` is the MIRROR of
+/// `OneWay`: `OneWay` is *"solid when crossed from above"*, `BonkOnly` is *"solid only against a
+/// head coming up into it"*. Two did: the controlled body's penetration repair and the generic
+/// kinematic sweep.
 ///
 /// ⚠ **not "just make it non-solid"** — the reward IS a `ContactKind::Head`
 /// contact the collision system produces, so a block with nothing to hit cannot
 /// be struck and the coin disappears with the ledge.
 #[test]
 fn an_invisible_block_is_not_a_floor_but_is_still_strikeable() {
-    // Jon's sentence.
     assert!(
         !is_support_surface(BlockKind::BonkOnly),
         "an invisible block reports itself as standable, which is the whole bug"
@@ -370,11 +356,6 @@ fn a_stack_reads_as_feet_on_a_head_in_every_cardinal_frame() {
     let size = Vec2::new(24.0, 40.0);
     let mut seen_true = 0;
     for dir in CARDINALS {
-        // ⭐ ORIENTED boxes, the way `BodyKinematics::aabb_oriented` builds them:
-        // a body lies along the wall under sideways gravity, so its extent along
-        // the gravity axis is its HEIGHT in every frame. Building raw boxes here
-        // instead measured the wrong extent and reddened this test — the fixture
-        // was wrong, not the rule.
         let half = crate::AccelerationFrame::new(dir).to_world_half(size * 0.5);
         let victim = Aabb::new(Vec2::ZERO, half);
         let stomper = Aabb::new(-dir * size.y, half);
@@ -406,7 +387,6 @@ fn hovering_above_a_head_is_not_standing_on_it() {
     let sunk = Aabb::new(Vec2::new(0.0, -size.y + 8.0), size * 0.5);
     assert!(feet_on_head(sunk, victim, down, BAND));
 
-    // Feet 8px ABOVE the head: a hover, and the bug both hand-rolled copies had.
     let hovering = Aabb::new(Vec2::new(0.0, -size.y - 8.0), size * 0.5);
     assert!(
         !feet_on_head(hovering, victim, down, BAND),

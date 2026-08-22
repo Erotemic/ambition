@@ -38,14 +38,6 @@ pub mod prelude {
 
     /// The room types this module's own signatures demand.
     ///
-    /// ⚠ Re-exported here because blind run 2 (2026-07-30) had to open
-    /// `crates/ambition_platformer2d_world/src/lib.rs` to find them — the ONE engine source
-    /// file it opened, and therefore the field §2c says names the next leak.
-    /// `ModuleDraft::playable` takes `Vec<RoomSpec>` and `ModuleDraft::room`
-    /// takes `RoomMetadata`; neither was reachable from the prelude that
-    /// declares them, rustdoc rendered both as unlinked text, and rustc offered
-    /// no import suggestion for `RoomSpec` at all.
-    ///
     /// A prelude that omits the types its own signatures require is a prelude
     /// that sends its reader into `crates/`.
     pub use crate::world::rooms::{RoomMetadata, RoomSpec};
@@ -53,11 +45,8 @@ pub mod prelude {
 
 /// **Did my game actually start?**
 ///
-/// The one question a consumer could not ask. Four of the eight ordering rules
-/// [`PlatformerApp`] owns fail SILENTLY, and before this there was no supported
-/// way to check — the 2026-07-30 blind agent fell back to
-/// `app.world().entities().len()`, which is raw Bevy and says nothing about
-/// routes. Every consumer would have invented that same smoke test, badly.
+/// The one question a consumer could not ask. Every consumer would have invented that same smoke
+/// test, badly.
 ///
 /// [`HostStatus::Running`] deliberately carries `prepared`, because "a route is
 /// active" and "a session was prepared for it" are different facts and the gap
@@ -75,11 +64,8 @@ pub enum HostStatus {
     Activating { route: String },
     /// Routing REFUSED this host, and this is why.
     ///
-    /// ⚠ Before slice C this state was indistinguishable from
-    /// [`HostStatus::Activating`]: the reason existed, reached `error!`, and
-    /// never reached the consumer. A headless test with no log subscriber saw a
-    /// host that simply never started, and the campaign burned a whole slice
-    /// discovering that on its own new consumer.
+    /// A headless test with no log subscriber saw a host that simply never started, and the
+    /// campaign burned a whole slice discovering that on its own new consumer.
     Refused { reasons: Vec<String> },
     /// A route is live.
     ///
@@ -96,9 +82,6 @@ pub enum HostStatus {
 impl HostStatus {
     /// Live AND backed by a prepared session — the state a consumer means when
     /// it asks "did it start?".
-    ///
-    /// Both halves on purpose. `Running { prepared: false }` answering `true`
-    /// here would make this read-model agree with the bug it exists to expose.
     pub fn is_running(&self) -> bool {
         matches!(self, Self::Running { prepared: true, .. })
     }
@@ -144,9 +127,6 @@ pub fn host_status(app: &App) -> HostStatus {
             prepared: active.prepared_session.is_some(),
         };
     }
-    // A recorded refusal outranks "still pending": the router can hold a
-    // pending route whose load already failed, which is exactly the state that
-    // used to read as `Activating` forever.
     if let Some(failures) = app
         .world()
         .get_resource::<crate::game_shell::ShellFailureLog>()
@@ -198,12 +178,6 @@ impl AssetSource {
 }
 
 /// How the simulation is clocked.
-///
-/// **Fixed-step only, deliberately.** Rollback is not a public knob in slice A:
-/// it is a far larger promise than a clock — frozen schema, complete
-/// authoritative baseline, stable participants, deterministic activation,
-/// lifecycle rebasing, confirmation boundaries — and it gets its own slice with
-/// its own acceptance tests. See the campaign's Deferred section.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum SessionMode {
     #[default]
@@ -251,35 +225,20 @@ impl ModuleManifest {
 /// A closure rather than `Box<dyn Plugin>` because `Plugin::build` takes
 /// `&self` and cannot move a boxed plugin out of a collection it borrows.
 ///
-/// `FnOnce`, drained through a `Mutex` by [`DeclaredCapabilities`]. The first
-/// version was `Fn` + a `Clone` bound on the plugin, and the 2026-07-30 blind
-/// run found what that costs: **the engine's own `CharacterCatalogPlugin` is
-/// not `Clone`, so an engine plugin could not go through the engine's own
-/// capability slot.** Every consumer would have written the same wrapper. A
-/// bound that excludes the API's own types is the API being wrong, not the
-/// caller.
+/// `FnOnce`, drained through a `Mutex` by [`DeclaredCapabilities`]. A bound that excludes the API's
+/// own types is the API being wrong, not the caller.
 type CapabilityInstaller = Box<dyn FnOnce(&mut App) + Send + 'static>;
 
 /// A character roster with nothing in it.
 ///
-/// Published because the 2026-07-30 blind agent had to RECOVER this value: it
-/// needed a `CharacterCatalog` to reach the windowed face, found no `Default`
-/// and no documented schema, fed the parser `"()"`, and scripted a loop over
-/// the resulting *"Unexpected missing field named X"* errors until the struct
-/// closed. A value obtainable only by brute-forcing diagnostics is a value the
-/// engine knows and would not say.
+/// A value obtainable only by brute-forcing diagnostics is a value the engine knows and would not
+/// say.
 pub const EMPTY_CHARACTER_ROSTER_RON: &str =
     "(brain_presets: {}, action_set_presets: {}, characters: {})";
 
 /// A playable experience, as a value.
 ///
-/// ⚠ **This exists because the SECOND consumer measured what the first could
-/// not.** The movement-only minimal game named five `ambition_platformer2d::` modules, and
-/// four of them were here: it had to build a `PreparedPlatformerSource` by hand
-/// (`ambition_platformer2d::runtime`), wrap it in `PlatformerExperienceAuthoring`
-/// (`ambition_platformer2d::provider`), and construct the room and geometry to put in it
-/// (`ambition_platformer2d::world`, `ambition_platformer2d::engine_core`). A game could COMPOSE through
-/// the SDK and still could not DECLARE what it was.
+/// A game could COMPOSE through the SDK and still could not DECLARE what it was.
 ///
 /// Outlander names all four for other reasons too, so with one consumer this
 /// hole was invisible. That is the consumer matrix earning its place.
@@ -293,14 +252,9 @@ struct ExperienceDefinition {
 
 /// **A roster with ONE character** — the case a game actually starts from.
 ///
-/// ⚠ Published because [`EMPTY_CHARACTER_ROSTER_RON`] solved the case nobody
-/// needs. Blind run 3 tried to derive this by starting from the empty roster
-/// and letting the parser name what was missing, and reported two things that
-/// make that route a dead end: the parser names exactly ONE missing field per
-/// build-and-run cycle, and it stops dead at the first ENUM-typed field
-/// (`tier: ""` → `Expected identifier`) because variant names cannot be
-/// guessed. It gave up after four cycles and opened a fixture — which is the
-/// SDK's acceptance test failing by the SDK's own remedy.
+/// ⚠ Published because [`EMPTY_CHARACTER_ROSTER_RON`] solved the case nobody needs. It gave up
+/// after four cycles and opened a fixture — which is the SDK's acceptance test failing by the
+/// SDK's own remedy.
 ///
 /// The enum-valued fields, since those are the ones no error message will tell
 /// you:
@@ -439,12 +393,11 @@ impl ModuleDraft {
     ///   one with a visible consequence, since a secondary experience's room
     ///   draws with the primary's blocks.
     ///
-    /// Stated rather than fixed, deliberately. Repairing it means per-experience
-    /// asset virtualization, and no consumer is blocked on it today — the
-    /// shipped host and both demos launch their primary, and the shipped host
-    /// folds one provider's music for the same reason. If your game needs a
-    /// secondary experience with its own art, install its assets through a
-    /// capability rather than expecting this to resolve them.
+    /// Repairing it means per-experience asset virtualization, and no consumer is blocked on it
+    /// today — the shipped host and both demos launch their primary, and the shipped host folds
+    /// one provider's music for the same reason. If your game needs a secondary experience with
+    /// its own art, install its assets through a capability rather than expecting this to
+    /// resolve them.
     pub fn experience(&mut self, id: impl Into<String>) -> &mut Self {
         let id = id.into();
         let owner = self.defining.clone();
@@ -558,13 +511,6 @@ impl ModuleDraft {
     /// declaring overlapping capabilities compose in either order — today they
     /// install in declaration order and whichever wrote last wins, which is
     /// Bevy's own behaviour and not a contract this API is defending.
-    ///
-    /// It stays this way until a real second consumer produces an overlap, a
-    /// conflict, or an ordering requirement. Building a capability plan with
-    /// stable identities and a dependency solver before then would fix the
-    /// shape of the answer to a question nobody has asked — and the one thing
-    /// the shape must not be is *guessed*, because a capability identity is the
-    /// part a third party would author against.
     pub fn capability<M>(&mut self, plugin: impl Plugins<M> + Send + 'static) -> &mut Self {
         self.capabilities.push(Box::new(move |app: &mut App| {
             app.add_plugins(plugin);
@@ -606,15 +552,9 @@ impl ModuleDraft {
 
     /// **Provide the rollback registration a required state needs.**
     ///
-    /// The other half of [`Self::requires_rollback`], and without it a module
-    /// could DECLARE what must rewind and had no supported way to supply it —
-    /// so a rollback-enabled game mounting a capability with required state
-    /// could not be composed at all through this API. The acceptance test for
-    /// the pulse sentinel worked around that by asserting on a REJECTED app and
-    /// reading the resources its failed installation had already written, which
-    /// proves that composition refuses and that installation mutates before
-    /// refusing — neither of which is "a game can run this capability"
-    /// (GPT 5.6, 2026-08-01, finding 3).
+    /// The other half of [`Self::requires_rollback`], and without it a module could DECLARE
+    /// what must rewind and had no supported way to supply it — so a rollback-enabled game
+    /// mounting a capability with required state could not be composed at all through this API.
     ///
     /// ```ignore
     /// module
@@ -636,9 +576,6 @@ impl ModuleDraft {
     /// capability that registered its own rollback state would have to link the
     /// simulation to reach the trait — `capability_demo` did, and cost 133
     /// crates. Declaring here keeps that closure at 8.
-    ///
-    /// Contributions are applied only when the composition declared
-    /// `rollback(n)`; a fixed-step game carries no registry to write into.
     #[cfg(feature = "rollback")]
     pub fn provides_rollback<T>(
         &mut self,
@@ -681,11 +618,9 @@ impl ModuleDraft {
 
     /// Apply an edit to the experience currently being declared.
     ///
-    /// ⚠ Declaring anything before `experience()` is a CONFLICT, not a silent
-    /// no-op. With one global experience the ordering did not matter; with
-    /// several, "which one did that route attach to" has a wrong answer, and a
-    /// route silently attached to nothing is precisely the empty host this
-    /// campaign spent slice C making impossible.
+    /// With one global experience the ordering did not matter; with several, "which one did
+    /// that route attach to" has a wrong answer, and a route silently attached to nothing is
+    /// precisely the empty host this campaign spent slice C making impossible.
     fn on_current(&mut self, what: &str, edit: impl FnOnce(&mut ExperienceDraft)) -> &mut Self {
         let owner = self.defining.clone();
         match self.current.and_then(|i| self.experiences.get_mut(i)) {
@@ -735,11 +670,7 @@ pub struct CompositionError {
 /// legitimately register its roster through one), so a draft that does not
 /// assemble cannot be asked whether its roster exists.
 ///
-/// That is a funnel, and it was a SILENT one until 2026-07-31, when the
-/// slice-H red probe walked into it: a fixture built without the render
-/// capability and declaring no cast was told only about the capability, and its
-/// error said `1 problem(s)` as if that were the whole list. Fix it, rebuild for
-/// ten minutes, discover the next one.
+/// Fix it, rebuild for ten minutes, discover the next one.
 ///
 /// Naming the stage does not merge the passes — that is not possible — but it
 /// turns a funnel into a STATED funnel, which is the difference between "this is
@@ -799,7 +730,7 @@ impl std::error::Error for CompositionError {}
 /// Where the host lands when it starts.
 ///
 /// ⚠ **Two policies, because there are two real hosts and the builder offered
-/// only one.** Measured 2026-07-30 against `game/ambition_app`: it boots into a
+/// only one.** against `game/ambition_app`: it boots into a
 /// LAUNCHER listing every registered experience, and had to configure that by
 /// hand — registering a shell experience as its home route and writing
 /// `ShellHostConfiguration.spec` itself — because `ShellComposition` boots into
@@ -907,12 +838,7 @@ impl PlatformerApp {
     ///
     /// `define` runs **now**, into an inert draft. Nothing is live.
     ///
-    /// ⚠ **The draft's experience cursor is MODULE-LOCAL, and it was not.**
-    /// `current` survived this boundary, so a module that called an
-    /// experience-scoped method before declaring its own experience silently
-    /// edited the PREVIOUS module's — module B's `gameplay_route` landing on
-    /// experience A, deterministically, with no diagnostic. A module may only
-    /// modify an experience it declared during its own `define`; anything
+    /// A module may only modify an experience it declared during its own `define`; anything
     /// cross-module has to name its target, and nothing does yet.
     pub fn mount(mut self, module: impl GameModule) -> Self {
         let manifest = module.manifest();
@@ -960,12 +886,7 @@ impl PlatformerApp {
     /// asset sources, the Bevy foundation and some capabilities are installed.
     /// Drop it and compose again.
     ///
-    /// This is a stated limit rather than a plan. A transactional installer —
-    /// prepared composition, then one infallible commit — is the 1.0 shape and
-    /// the engine already uses it where failure is cheap to defer (the rollback
-    /// rebase, the room reset, the cast prepared above). Extending it to the
-    /// whole installation is not worth a campaign while every consumer's
-    /// response to a refusal is to fix the declaration and rebuild.
+    /// This is a stated limit rather than a plan.
     ///
     /// ⚠ **This form cannot honor rule 1, and says so instead of pretending.**
     /// Asset sources must be registered before `AssetPlugin` builds; an `App`
@@ -1057,19 +978,9 @@ impl PlatformerApp {
         }
         // ── PREPARE the declared content, before anything is installed ──
         //
-        // ⚠ **the fallible half of the cast is PURE, and it used to run after the
-        // Bevy foundation was already in the App.** Parsing a roster's RON and
-        // constructing a silence fragment depend on nothing but the declaration,
-        // so a malformed roster was reported at the ASSEMBLY stage — after asset
-        // sources were registered and the whole foundation installed — when it
-        // could be reported before the `App` was touched at all.
-        //
-        // The review that asked for this ("run cheap validation before mutation
-        // where practical") is explicit that a fully transactional installer is
-        // NOT required. This is the practical half: everything that can be
-        // decided from the declaration is decided here, and what remains in
-        // assembly genuinely needs the built App to answer — a fragment conflict
-        // is a fact about what is already registered.
+        // This is the practical half: everything that can be decided from the declaration is
+        // decided here, and what remains in assembly genuinely needs the built App to answer —
+        // a fragment conflict is a fact about what is already registered.
         let mut prepared_casts: Vec<(String, PreparedCast)> = Vec::new();
         for experience in &draft.experiences {
             match prepare_declared_cast(experience) {
@@ -1307,23 +1218,9 @@ impl PlatformerApp {
         //
         // ⚠ Only when this composition ASKED FOR a rollback session.
         //
-        // The first version gated on "a `RollbackRegistry` resource exists" and
-        // was wrong: the headless foundation installs one unconditionally, so
-        // every composition looked rollback-capable and a headless game with no
-        // session was refused for a hazard it cannot have. What distinguishes
-        // them is the DECLARATION — `rollback(n)` — not the presence of a
-        // registry the engine installs either way.
-        // **APPLY WHAT THE MODULE PROVIDED, then check what it required.**
-        //
-        // Order is the whole contract: a contribution that ran after the check
-        // would satisfy nothing, and a check that ran without the contributions
-        // would refuse every composition that supplied them correctly — which
-        // is the state this API was in before `provides_rollback` existed
-        // (GPT 5.6, 2026-08-01, finding 3).
-        //
-        // Only under a declared rollback session: a fixed-step game carries no
-        // registry to write into, and registering against one it does not have
-        // would be a silent no-op dressed as a contribution.
+        // What distinguishes them is the DECLARATION — `rollback(n)` — not the presence of a
+        // registry the engine installs either way. **APPLY WHAT THE MODULE PROVIDED, then check
+        // what it required.**
         if rollback_participants.is_some() {
             for contribute in draft.provided_rollback {
                 contribute(app);
@@ -1476,7 +1373,7 @@ impl PlatformerApp {
             // 16_666_667ns; GGRS wants the truncated 16_666_666. Feeding a GGRS
             // host the rounded value cost the fixture's parity walk 192
             // `update()` calls to reach a state the fixed-tick host reached in
-            // 180. LEAK, found 2026-07-30 by migrating the fixture onto this
+            // 180. LEAK, found by migrating the fixture onto this
             // builder; the rule existed only in a comment on the code being
             // deleted.
             let frame_dt = if rollback_participants.is_some() {
@@ -1504,21 +1401,12 @@ impl PlatformerApp {
 
     /// Decode and publish this game's art even with no display.
     ///
-    /// A window implies it — something has to be drawn. Headless does not, and
-    /// the default is OFF because preparing art is not free: boot decode was
-    /// measured at 627 megapixels / 2.5 GB, which a headless test paying for
-    /// nothing it observes should not spend.
-    ///
-    /// ⚠ It is a POLICY knob rather than a face, and the difference is
-    /// load-bearing. The first draft of this builder tied asset preparation to
-    /// the windowed face, then moved it to BOTH faces citing ADR 0032's
-    /// "headless and visible hosts consume the same prepared-content
-    /// fingerprint". That was a misreading — the criterion is about content
-    /// identity in slice B, not about which plugins a display-less host
-    /// installs — and the fixture's rollback parity test caught it: under GGRS
-    /// the sim advances only through session requests, so extra asset frames
-    /// are frames the sim does not move, and the two hosts reached the same
-    /// world state twelve `update()` calls apart.
+    /// ⚠ It is a POLICY knob rather than a face, and the difference is load-bearing. That was a
+    /// misreading — the criterion is about content identity in slice B, not about which plugins
+    /// a display-less host installs — and the fixture's rollback parity test caught it: under
+    /// GGRS the sim advances only through session requests, so extra asset frames are frames
+    /// the sim does not move, and the two hosts reached the same world state twelve `update()`
+    /// calls apart.
     pub fn with_game_assets(mut self) -> Self {
         self.game_assets = true;
         self
@@ -1543,13 +1431,7 @@ impl PlatformerApp {
     /// guessed it guessed ONE, and the engine ran a rollback oracle over a
     /// single input stream for the week its couch versus mode seated four.
     ///
-    /// ⚠ **A count the session cannot seat is REFUSED here, not clamped
-    /// downstream.** `SyncTestSettings::player_count` clamps into `1..=MAX_SLOTS`
-    /// because it is settings data arriving from a dev tool, and that clamp used
-    /// to run *after* this value had already been reported back to the
-    /// consumer — `rollback(0)` returned a `RollbackSession` claiming zero
-    /// participants over a session GGRS built with one. A public API that
-    /// reports a topology the running session does not have is worse than one
+    /// A public API that reports a topology the running session does not have is worse than one
     /// that refuses, so this refuses.
     #[cfg(feature = "rollback")]
     pub fn rollback(mut self, participants: usize) -> Self {
@@ -1582,9 +1464,7 @@ impl PlatformerApp {
 
 /// One experience's declared content, built and ready to register.
 ///
-/// The output of the declaration pass's prepare step. Holding the fragments
-/// rather than re-deriving them at registration keeps ONE parse of a roster: the
-/// one whose failure is reported.
+/// The output of the declaration pass's prepare step.
 struct PreparedCast {
     characters:
         Option<crate::characters::actor::character_catalog::registry::CharacterCatalogFragment>,
@@ -1789,11 +1669,7 @@ mod tests {
 
     /// **A module cannot modify the experience the PREVIOUS module declared.**
     ///
-    /// The draft's cursor used to survive the `mount` boundary, so this exact
-    /// sequence — declare, mount, route — silently overwrote experience
-    /// `first`'s gameplay route with `second/play` and built a host where the
-    /// second game was unreachable and the first one led somewhere it never
-    /// asked for. Deterministic, and with no diagnostic anywhere.
+    /// Deterministic, and with no diagnostic anywhere.
     #[test]
     fn a_module_that_routes_before_declaring_an_experience_is_refused() {
         let refused = PlatformerApp::headless()
@@ -1821,11 +1697,7 @@ mod tests {
 
     /// **A roster that does not parse is refused BEFORE the `App` is touched.**
     ///
-    /// Parsing a declared roster depends on nothing but the declaration, and it
-    /// used to run after the asset sources and the whole Bevy foundation were
-    /// already installed — so a typo in a RON string was reported at the
-    /// ASSEMBLY stage, against an `App` the consumer had handed over and could
-    /// no longer use. The prepare step moved to the declaration pass.
+    /// The prepare step moved to the declaration pass.
     ///
     /// The `install_into` form is what makes this observable: the consumer owns
     /// the `App`, so "was anything installed" is a question it can ask.
@@ -2098,10 +1970,6 @@ mod tests {
     }
 
     /// **A participant count no session can seat is refused at composition.**
-    ///
-    /// Not clamped downstream and reported back as if it had been honoured:
-    /// `rollback(0)` used to return a `RollbackSession` claiming zero
-    /// participants over a GGRS session built with one.
     #[test]
     fn a_participant_count_the_session_cannot_seat_is_refused() {
         let seats = crate::characters::control::SlotControls::MAX_SLOTS;

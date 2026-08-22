@@ -59,14 +59,14 @@ pub struct ExperienceRegistration {
     pub availability: ExperienceAvailability,
     /// **Whether the launcher ADVERTISES this experience.**
     ///
-    /// ⭐⭐ **not the same question as [`availability`](Self::availability), and
+    /// **not the same question as [`availability`](Self::availability), and
     /// conflating them was the gap.** An unavailable experience is shown and
     /// greyed with a reason, because the player is meant to know it exists and
     /// why they cannot have it. An UNLISTED one is composed, routed and
     /// reachable — and simply not offered, because it is a test fixture or a
     /// development stage rather than something anyone came here to play.
     ///
-    /// ⚠ **it stays fully registered**, which is the whole point: its route is
+    /// **it stays fully registered**, which is the whole point: its route is
     /// in the catalog, its characters join the roster, and a test that activates
     /// it by route id works unchanged. Removing the composition instead would
     /// have deleted the only place two providers' casts coexist.
@@ -113,14 +113,12 @@ impl ExperienceRegistration {
 
     /// **Enter through a route other than the one that owns the session.**
     ///
-    /// The default — and what every experience did before this existed — is that
-    /// the launcher opens the gameplay route directly. That is right for a game
-    /// whose first frame IS gameplay, and wrong for one that asks a question
-    /// first: a character select, a stage select, a save-slot picker. Those are
-    /// not loading screens (nothing is loading) and not the launcher (the
-    /// launcher lists games, not fighters), so the shell had nowhere to put
-    /// them and the smash demo's select screen could only exist as its own
-    /// app's HOME — unreachable from a host that lists more than one game.
+    /// That is right for a game whose first frame IS gameplay, and wrong for one that asks a
+    /// question first: a character select, a stage select, a save-slot picker. Those are not
+    /// loading screens (nothing is loading) and not the launcher (the launcher lists games, not
+    /// fighters), so the shell had nowhere to put them and the smash demo's select screen could
+    /// only exist as its own app's HOME — unreachable from a host that lists more than one
+    /// game.
     ///
     /// The entry route is an ordinary shell route the provider registers itself,
     /// under an experience id of its own that is NOT a gameplay session (a
@@ -185,7 +183,7 @@ impl ShellExperienceRegistry {
 
     /// The derived launcher entries, in registration order.
     ///
-    /// ⚠ **UNLISTED registrations are omitted, and they are the only thing
+    /// **UNLISTED registrations are omitted, and they are the only thing
     /// omitted.** An *unavailable* experience still appears here — greyed, with
     /// its reason — because the player is meant to see that it exists. This
     /// filter is for the other case: a stage that is composed and routed but was
@@ -247,10 +245,8 @@ impl ShellExperienceAppExt for App {
                     .unwrap_or_default(),
             );
         }
-        // Validate the COMPLETE candidate against BOTH catalogs before mutating
-        // either, so a conflicting registration leaves prior valid state intact
-        // (transactional). Two failure modes, both deterministic composition
-        // errors with order-independent diagnostics:
+        // Two failure modes, both deterministic composition errors with order-independent
+        // diagnostics:
         //
         //  1. duplicate experience id — two providers claiming one launcher
         //     identity would make launcher order and routing ambiguous;

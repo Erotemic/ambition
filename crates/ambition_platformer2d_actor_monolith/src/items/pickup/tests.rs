@@ -45,7 +45,7 @@ fn spawn_player(app: &mut App, pos: Vec2) -> Entity {
 
 /// How many items are lying IN THE WORLD.
 ///
-/// ⚠ not `query::<&GroundItem>().count()`. A picked-up item keeps its entity now
+/// not `query::<&GroundItem>().count()`. A picked-up item keeps its entity now
 /// — it records [`ItemCustody::Held`] instead of being despawned — so counting
 /// components answers "how many item objects exist", which was never the
 /// question these tests were asking.
@@ -68,10 +68,9 @@ fn set_control(app: &mut App, player: Entity, attack: bool, shield: bool) {
     control.0.shield_held = shield;
 }
 
-// ---------------------------------------------------------------------------
-// D51: a held weapon owns the Attack press.
+// ---------------------------------------------------------------------------: a held weapon
+// owns the Attack press.
 //
-// Jon: "When I have the laser sword in ambition and I use it, I incorrectly
 // still use my normal jab attack. Holding an item should reroute normal attack
 // actions to the item action."
 //
@@ -111,7 +110,7 @@ fn timeline(id: &str, grounded: Option<bool>) -> MoveSpec {
 
 /// A wearer whose own repertoire answers Attack on the ground AND in the air.
 ///
-/// ⭐ **the aerial verb is the poison**, and it is the direction the ranged
+/// **the aerial verb is the poison**, and it is the direction the ranged
 /// precedent (`revoke_host_owned_ranged`) says shipped broken once already: a
 /// guard that took `attack` and left `attack_air` gives the jab straight back
 /// the moment the wearer leaves the ground.
@@ -235,11 +234,10 @@ fn a_thrown_item_owns_the_attack_press_too() {
     );
 }
 
-/// **An item that authors its OWN melee answers with THAT swing**, not with the
-/// wearer's jab and not with silence. This is the melee arm of Jon's rule ("they
-/// all route to the one action the item has").
+/// **An item that authors its OWN melee answers with THAT swing**, not with the wearer's jab and
+/// not with silence.
 ///
-/// ⚠ asserted on the swing's DAMAGE, not on a move id: the wearer's fixture jab
+/// asserted on the swing's DAMAGE, not on a move id: the wearer's fixture jab
 /// carries no hit volume at all, so a swing that lands the axe's authored 3 is
 /// the axe's and could not be the wearer's under any renaming.
 #[test]
@@ -615,20 +613,17 @@ fn javelin_is_thrown_on_plain_attack_use() {
     );
 }
 
-/// ⭐ **THE ITEM YOU THROW IS THE ITEM YOU PICKED UP.**
+/// **THE ITEM YOU THROW IS THE ITEM YOU PICKED UP.**
 ///
 /// The invariant: a custody change moves an item between world and hand without
 /// destroying it, so its identity — the `SimId` an authored ground item is
 /// stamped with by the construction executor — survives world → held → world.
 ///
-/// ⚠ asserted on the ENTITY and the `SimId` together, because either alone is
+/// asserted on the ENTITY and the `SimId` together, because either alone is
 /// weak: an entity id can be recycled, and a `SimId` can be re-minted with the
 /// same spelling. Both surviving means nothing was recreated.
 ///
-/// ⚠ and it asserts the item was genuinely OUT of the world in between. Without
-/// that, a "fix" that simply stopped despawning — leaving the axe lying on the
-/// floor while it is also in your hand — passes the identity half and is a
-/// worse bug than the one being fixed.
+/// and it asserts the item was genuinely OUT of the world in between.
 ///
 /// Falsified by restoring the old pair (despawn at pickup, `spawn_room_scoped`
 /// at throw): the entity lookup fails outright.
@@ -703,7 +698,7 @@ fn a_thrown_item_is_the_same_object_that_was_picked_up() {
 /// `OwnedItems` count table) throws a fresh instance, and that instance takes a
 /// `SimId::spawned` under its thrower rather than joining the world anonymously.
 ///
-/// ⚠ this pins the boundary of the unclosed inventory leg, not a feature: the
+/// this pins the boundary of the unclosed inventory leg, not a feature: the
 /// mint exists because a quantity has no identity to hand back.
 #[test]
 fn throwing_a_menu_equipped_item_mints_an_identity_under_the_thrower() {
@@ -732,8 +727,6 @@ fn throwing_a_menu_equipped_item_mints_an_identity_under_the_thrower() {
     );
 }
 
-/// **THE INVENTORY MENU'S STOW USED TO DESTROY THE OBJECT.**
-///
 /// `unequip_held` is what the menu's Stow (and its equip-SWAP) calls to empty a
 /// hand. It removes `HeldItem` and touches nothing else — so a picked-up axe was
 /// left recording `ItemCustody::Held` by a body with an empty hand: not in the
@@ -742,25 +735,18 @@ fn throwing_a_menu_equipped_item_mints_an_identity_under_the_thrower() {
 /// silently ceased to exist, through the menu, which is the exact loss
 /// `ItemCustody` was introduced to prevent at the despawn.
 ///
-/// ⭐ **the assertion that matters is the second half — the axe is RECOVERABLE.**
-/// A test that only checked the custody value would be a restatement of the fix;
-/// what the bug actually cost was the ability to pick the thing back up, with the
-/// identity it was authored with. So this walks the whole round trip: take it,
-/// stow it, take it again, and demand it is the SAME object.
+/// So this walks the whole round trip: take it, stow it, take it again, and demand it is the SAME
+/// object.
 ///
 /// **AND THE PRODUCTION PLUGIN ACTUALLY REGISTERS IT.**
 ///
-/// ⛔⛔ **the behaviour test below cannot see a deletion, and the ledger said so
-/// without answering it** (D125: *"its test pins the FUNCTION, not the WIRING:
-/// removing the system from the production chain leaves it green, because the
-/// test lists the system in its own chain. Recorded, not answered with a
-/// registration assertion."*). This is that assertion.
+/// Recorded, not answered with a registration assertion."*). This is that assertion.
 ///
-/// ⚠ **a schedule must be INITIALIZED before its systems are enumerable**, which
+/// **a schedule must be INITIALIZED before its systems are enumerable**, which
 /// is why the graph is built explicitly rather than after an `update()` — this
 /// plugin's schedule is the sim one, and a bare `App` never runs it.
 ///
-/// ⭐ matched on the system's own NAME rather than on a set or a node, because
+/// matched on the system's own NAME rather than on a set or a node, because
 /// naming a graph NODE walks the hierarchy and can panic on an app whose graph
 /// still references removed systems (see `update_schedule_census`, which
 /// documents that trap).
@@ -772,7 +758,7 @@ fn the_production_plugin_registers_the_custody_release() {
         use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
         app.sim_schedule()
     };
-    // ⚠ initialized against the APP's OWN world, not a fresh one: a schedule
+    // initialized against the APP's OWN world, not a fresh one: a schedule
     // built against an empty world has no systems to enumerate, which reads
     // exactly like a missing registration. The first draft did that and reported
     // "0 systems" for a system that is registered.
@@ -899,7 +885,7 @@ fn an_item_stowed_from_the_menu_returns_to_the_world_and_can_be_taken_again() {
         "dropped where the body that released it was standing",
     );
 
-    // ⭐ THE HALF THAT MATTERS: take it again, and it is the same object.
+    // THE HALF THAT MATTERS: take it again, and it is the same object.
     set_control(&mut app, player, true, false);
     app.update();
     assert!(
@@ -957,10 +943,6 @@ fn is_resident(app: &App, item: Entity) -> bool {
 /// **The invariant, both terms.** An object in a travelling body's custody is
 /// NOT a resident of the room, and the moment custody returns it to the world it
 /// IS one again — while never losing the room SCOPE that a reset sweeps on.
-///
-/// ⚠ the second half is the poison for "just drop the marker on pickup": an item
-/// that stopped being resident and never came back would pass a test that only
-/// looked at the first half, and would then be immortal.
 #[test]
 fn custody_suspends_and_restores_room_residency() {
     let mut app = residency_app();
@@ -1001,16 +983,12 @@ fn custody_suspends_and_restores_room_residency() {
 
 /// **A holder that is room-scoped AND ITSELF IN CUSTODY is travelling.**
 ///
-/// ⭐ this is the case possession creates: a possessed body keeps
+/// this is the case possession creates: a possessed body keeps
 /// `RoomScopedEntity` and suspends its own residency with `InCustodyOf`, so the
 /// thing in ITS hand must travel too. The projection asks the `RoomResident`
 /// roster rather than `Has<RoomScopedEntity>` precisely so custody is
 /// TRANSITIVE — a chain of any length resolves without this system counting its
 /// links.
-///
-/// ⛔ before that, this asked whether the holder carried a room scope, and a
-/// possessed body answered "yes, a room fixture" — so the object it carried
-/// stayed resident and was retired at the door it was carried through.
 #[test]
 fn an_item_held_by_a_possessed_body_travels_with_it() {
     let mut app = residency_app();

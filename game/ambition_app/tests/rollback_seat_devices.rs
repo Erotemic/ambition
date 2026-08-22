@@ -6,11 +6,7 @@
 //! tick. This file covers the DEVICE half: which pad each seat OWNS, and whether
 //! that ownership survives the same rewinds.
 //!
-//! ⛔ **the gap this closes made a previous probe vacuous.** A disconnect-under-
-//! rollback test was written, ran green, and proved nothing — the sim harness
-//! carries a rollback session but none of the host's device layer, so there were
-//! no `InputParticipant` entities for the query to find. It printed
-//! `[seat-probe] []` and passed. A test whose subject is absent is worse than a
+//! It printed `[seat-probe] []` and passed. A test whose subject is absent is worse than a
 //! missing test, because it reports coverage.
 //!
 //! So this composes both: `Platformer2dSimHarness::app_mut()` installs the four
@@ -19,7 +15,7 @@
 //! still holds pad one" is not an observation about one frame — it is an
 //! observation about every frame being replayable.
 //!
-//! ⚠ the systems are installed BEFORE the first step. `step` runs a full
+//! the systems are installed BEFORE the first step. `step` runs a full
 //! `app.update()`, and a system added mid-episode runs against a baseline taken
 //! without it — which desyncs on the next rewind rather than failing where it
 //! was added.
@@ -76,14 +72,10 @@ fn two_pad_rollback_harness() -> Platformer2dSimHarness {
     app.add_systems(
         Update,
         (
-            // ⛔ **seat ZERO is not the roster's to create.** The host spawns the
-            // primary participant at Startup, once, before any route — and
-            // `seat_input_participants_for_roster` only creates the SECONDARY
-            // seats. Without this the fixture seated exactly one participant,
-            // numbered 1, and every assertion about "two seats" failed on a
-            // world that only ever had one.
+            // Without this the fixture seated exactly one participant, numbered 1, and every
+            // assertion about "two seats" failed on a world that only ever had one.
             //
-            // ⚠ `Update`, where the host uses `Startup`: the harness has already
+            // `Update`, where the host uses `Startup`: the harness has already
             // updated by the time `app_mut()` is reachable, so a Startup system
             // added here would never run. Safe because the system is idempotent
             // by construction — it returns early if a PRIMARY already exists.
@@ -139,7 +131,7 @@ fn two_human_roster() -> MatchParticipantRoster {
 
 /// Which pad each seat's input map is restricted to, keyed by participant id.
 ///
-/// ⚠ read from the INPUT MAP rather than from `SeatDeviceOwnership`. The
+/// read from the INPUT MAP rather than from `SeatDeviceOwnership`. The
 /// ownership resource is what the assignment system WROTE; the map is what the
 /// input layer will actually READ. Asserting on the former proves the bookkeeping
 /// agrees with itself.
@@ -157,12 +149,7 @@ fn pad_per_seat(sim: &mut Platformer2dSimHarness) -> Vec<(u8, Option<Entity>)> {
     seats
 }
 
-/// Step until the roster has seated `want` participants **and the assignment
-/// pass has seen them**, or fail saying how far it got. Every tick is checked
-/// for rollback health, so a desync is reported on the tick it happens rather
-/// than as a confusing assertion later.
-///
-/// ⚠ **the extra frames are the point, not padding.** Seats are created in
+/// **the extra frames are the point, not padding.** Seats are created in
 /// `Update` (`seat_input_participants_for_roster`) and devices are assigned in
 /// `PreUpdate` (`assign_local_seat_devices`) — the host's own split, because an
 /// association made after leafwing resolves is read a frame late. So on the
@@ -188,9 +175,6 @@ fn step_until_seated(sim: &mut Platformer2dSimHarness, want: usize, what: &str) 
     );
 }
 
-/// Let the `PreUpdate` assignment pass run against whatever the last `Update`
-/// changed. Three frames rather than one so an ordering regression shows up as a
-/// failure here rather than as a flake somewhere downstream.
 fn settle(sim: &mut Platformer2dSimHarness, what: &str) {
     for tick in 0..3 {
         sim.step(AgentAction::default());
@@ -284,10 +268,7 @@ fn unplugging_one_pad_leaves_the_other_seat_alone_and_the_reconnect_goes_back() 
             .unwrap_or_else(|error| panic!("after the unplug, tick {tick}: {error}"));
     }
 
-    // ⛔ **the seat that did NOT lose its pad must not move.** This is the
-    // failure GPT 5.6 named: a reconnect pass that re-derives every seat from
-    // the current device order can hand seat zero the surviving controller,
-    // swapping two players because one of them unplugged.
+    // A surviving controller keeps its seat; reconnect must not rederive seats from device order.
     let after_unplug = pad_per_seat(&mut sim);
     assert_eq!(
         seat_of(&after_unplug, pad_one),

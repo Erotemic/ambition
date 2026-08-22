@@ -27,7 +27,7 @@ pub mod character_catalog;
 /// The authored encounter wave timelines, embedded once and read through the
 /// PACK — not `ron::from_str(include_str!(..))` at plugin-build time.
 ///
-/// ⛔ that call site was two readers of one file: the pack could validate bytes
+/// that call site was two readers of one file: the pack could validate bytes
 /// the runtime never consulted, and the runtime could `expect`-panic at startup
 /// on a serde message the pack never saw.
 pub const ENCOUNTER_WAVES_RON: &str =
@@ -76,9 +76,8 @@ pub mod intro;
 pub mod items;
 #[cfg(feature = "audio")]
 pub mod music;
-/// **What these tables SOUND like, asked of the running seam** (D149). Test-only:
-/// it owns the cross-table invariant no single fighter's module can state — that
-/// an authored burst is heard exactly once.
+/// Test-only: it owns the cross-table invariant no single fighter's module can state — that an
+/// authored burst is heard exactly once.
 #[cfg(test)]
 mod moveset_sound;
 pub mod ninja_shadow_oni_leader_moveset;
@@ -97,21 +96,14 @@ pub mod quests;
 /// **This game's Yarn vocabulary** — `<<give_item>>`, `<<buy_item>>`,
 /// `<<challenge>>` and the save-state mirror its `<<if>>` functions read.
 ///
-/// ⛔ it lived in the ENGINE crate until 2026-08-08. `ambition_dialog` exposes
+/// it lived in the ENGINE crate until. `ambition_dialog` exposes
 /// `YarnContentBindings` so a host pushes its own commands in from outside, and
 /// this crate already pushed two installers through it; this is the third and
 /// largest.
 #[cfg(feature = "ui")]
 pub mod yarn_vocabulary;
-// ⛔ no `vanity_card` module. The startup card USED to be a manifest of nine
-// rendered frames read from here and composed by the host as an image sequence;
-// it is now drawn by `presentation::vanity_card_made_this_meme` from baked rig
-// placements (⚠ this comment said `presentation::vanity_card` for three days —
-// a module that has never existed, in the comment whose whole job is to send a
-// reader to the ONE card authority), and
-// two card authorities is exactly the fork this project deletes on sight.
-// The rendered frames, their manifest and `tools/vanity_card_prep` stay on disk
-// as REFERENCE art (Jon, 2026-08-03) — nothing in the game reads them.
+// no `vanity_card` module. The rendered frames, their manifest and `tools/vanity_card_prep` stay on
+// disk as REFERENCE art — nothing in the game reads them.
 /// The LDtk world payload + Ambition's `WorldManifest` (install seam:
 /// `ambition_platformer2d_ldtk`).
 pub mod worlds;
@@ -128,9 +120,7 @@ pub const AMBITION_CONTENT_PROVIDER: &str = "ambition";
 // engine crates; this provider contributes only its authored fragments. The
 // character entries live in `assets/data/character_catalog.ron`.
 
-/// Facade: the data-manifest *machinery* (spec schema + asset wiring)
-/// moved to [`ambition_platformer2d_actor_monolith::session::data`]; the authored RON it loads is the
-/// content. Inbound `crate::data::…` paths keep working.
+/// Inbound `crate::data::…` paths keep working.
 pub use ambition_platformer2d_actor_monolith::session::data;
 
 /// Declare every rollback row owned by Ambition-specific content.

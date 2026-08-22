@@ -57,18 +57,13 @@ fn faction(world: &mut World, e: Entity) -> ActorFaction {
 /// Possess the actor 60 px to the player's right, returning its entity.
 /// Shared setup for the possession tests below.
 ///
-/// HOLD Down+Interact until the possession commits (the mechanic commits after each
-/// full `POSSESS_HOLD_S` window). The target is a Smash-duelist fighter that plays
-/// neutral-game FOOTSIES — it weaves in and out around its attack_range (≈ the 150 px
-/// possession radius), so on any single 2 s commit frame it may be spaced just out of
-/// reach. These tests pin the possession MECHANIC + post-possession behavior, not a
-/// race against the fighter's spacing, so hold across several commit windows until it
-/// lands (the sim is deterministic; a bounded hold catches an in-range commit). This
-/// oscillation crossing the radius knife-edge is what the ranged subsumption (E54)
-/// nudged us onto — the mechanic itself is unchanged.
+/// The target is a Smash-duelist fighter that plays neutral-game FOOTSIES — it weaves in and
+/// out around its attack_range (≈ the 150 px possession radius), so on any single 2 s commit
+/// frame it may be spaced just out of reach. This oscillation crossing the radius knife-edge is
+/// what the ranged subsumption (E54) nudged us onto — the mechanic itself is unchanged.
 fn spawn_and_possess(sim: &mut Platformer2dSimHarness) -> Entity {
     let p = player_pos(sim.world_mut());
-    // ⭐ **it NAMES its character** (D102). This said only
+    // This said only
 
     // `Custom("cellular_automaton_fighter")`, and that archetype row was
 
@@ -128,11 +123,7 @@ fn possessed_actor_reads_this_frame_slot_input() {
     );
 }
 
-/// THE reported-bug invariant, end-to-end through the real sim: pressing Attack
-/// while possessing starts the melee lifecycle on the POSSESSED actor (its
-/// `BodyMelee` swings and, at the active edge, it OWNS the spawned strike
-/// hitbox), while the vacated home avatar's melee never starts. Attack authority
-/// follows the primary seat, not the home body.
+/// Attack authority follows the primary seat, not the home body.
 #[test]
 fn attack_while_possessing_starts_the_possessed_actors_melee_not_the_home() {
     use ambition_platformer2d::actors::features::{BodyMelee, Hitbox};
@@ -147,11 +138,7 @@ fn attack_while_possessing_starts_the_possessed_actors_melee_not_the_home() {
     };
     let actor = spawn_and_possess(&mut sim);
 
-    // A swing's melee lifecycle ENGAGED this frame: either it is mid-swing, or its
-    // recovery cooldown is armed (a swing began and — under the fixed-timestep
-    // harness, where one `sim.step` can advance many sim frames — may already have
-    // run to completion). Robust to catch-up; still proves "attack started this
-    // body's melee".
+    // Robust to catch-up; still proves "attack started this body's melee".
     let melee_engaged = |sim: &mut Platformer2dSimHarness, e: Entity| {
         sim.world_mut()
             .get::<BodyMelee>(e)
@@ -159,13 +146,11 @@ fn attack_while_possessing_starts_the_possessed_actors_melee_not_the_home() {
             .unwrap_or(false)
     };
 
-    // Hold Attack across a window. The possessed actor holds the primary seat, so
-    // its `melee_pressed` edge starts its `"attack"` moveset move (the ONE body
-    // melee lifecycle: `trigger_moveset_moves` → `advance_move_playback`) and, at
-    // the active window, spawns a strike it OWNS. The
-    // vacated home avatar has no player brain, so its melee never engages and it
-    // owns no strike. Observed over a window (not one frame) to be robust to the
-    // fixed-timestep catch-up.
+    // Hold Attack across a window. The possessed actor holds the primary seat, so its
+    // `melee_pressed` edge starts its `"attack"` moveset move (the ONE body melee lifecycle:
+    // `trigger_moveset_moves` → `advance_move_playback`) and, at the active window, spawns a
+    // strike it OWNS. The vacated home avatar has no player brain, so its melee never engages
+    // and it owns no strike.
     let mut actor_engaged = false;
     let mut home_engaged = false;
     let mut actor_owns_strike = false;
@@ -228,7 +213,7 @@ fn a_player_can_possess_drive_and_release_an_actor_end_to_end() {
     // Drop a normal actor one short stride from the player — inside POSSESS_RADIUS
     // (150px). Same known-good melee archetype the enemy-attacks test uses.
     let p = player_pos(sim.world_mut());
-    // ⭐ **it NAMES its character** (D102). This said only
+    // This said only
 
     // `Custom("cellular_automaton_fighter")`, and that archetype row was
 
@@ -291,24 +276,8 @@ fn a_player_can_possess_drive_and_release_an_actor_end_to_end() {
         actor_after.x - actor_before.x > 20.0,
         "the possessed body moves right under player input: {actor_before:?} -> {actor_after:?}"
     );
-    // The guarantee is "the same input doesn't drive BOTH bodies": the vacated
-    // home avatar does NOT run right with `move_x` — it has no seat, so
-    // its `ActorControl` is neutral. Its x stays put while the possessed body
-    // travels. (Vertically the abandoned body may settle a little under gravity /
-    // ground-snap — not input-driven, so we pin the horizontal axis the input
-    // actually targets.)
-    // ⚠ **the sign matters, and `abs()` was the wrong test.** The guarantee is
-    // that the drive input does not reach this body — the input is `move_x(+1.0)`,
-    // so the failure mode is moving RIGHT. An `abs()` bound also fails on a body
-    // pushed LEFT, which is not the input reaching it: the vacated avatar is a
-    // live body in a live room and can be struck.
-    //
-    // It now is. Two 2026-07-29 fixes made enemies actually connect — a ranged
-    // poke that starved its own melee finish (queue AB4) and knockback that
-    // carries its launch (F0e) — and this assertion started failing on a body
-    // knocked 9.7px LEFT while the input drove right. That is the guarantee
-    // HOLDING, reported as a violation by a proxy that could not tell the two
-    // apart.
+    // It now is. That is the guarantee HOLDING, reported as a violation by a proxy that could not
+    // tell the two apart.
     assert!(
         player_after.x - player_before.x < 1.0,
         "the player's OWN body ran RIGHT with the drive input while possessing, so \
@@ -332,20 +301,7 @@ fn a_player_can_possess_drive_and_release_an_actor_end_to_end() {
 
 /// **A possessed body goes through the door, and arrives.**
 ///
-/// ⛔⛔ **this is the branch nothing exercised.** The room-transition commit
-/// resolves `carry_body` as *"the controlled subject, unless it is the home
-/// avatar"* — the home body is moved by its own presentation path
-/// (`PlayerBlinkCameraState`/`PlayerSafetyState`, a `PrimaryPlayerOnly` query),
-/// and a POSSESSED body is not in that query, so it is the one `carry_body`
-/// actually carries. Every possession test drove a body around one room; every
-/// room-transition test moved the home avatar. The two halves were only ever
-/// inferred to compose.
-///
-/// So this composes them: possess an actor, stand THAT body in an authored door,
-/// press interact, and assert the room changed AND the possessed body came with
-/// it. Position is the assertion because carrying is the thing under test — a
-/// transition that changed rooms and left the driven body at its old coordinates
-/// would satisfy "the room changed" and be the bug.
+/// The two halves were only ever inferred to compose.
 #[test]
 fn a_possessed_body_is_carried_through_a_room_transition() {
     let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
@@ -420,7 +376,7 @@ fn a_possessed_body_is_carried_through_a_room_transition() {
              that leaves it behind"
         );
     };
-    // ⚠ **a LARGE displacement, not merely a nonzero one.** The body falls a few
+    // **a LARGE displacement, not merely a nonzero one.** The body falls a few
     // pixels under gravity across the commit window, so `> 0` would pass on a
     // transition that carried nothing. An arrival is a jump into the target
     // room's coordinates — this one crosses ~2000 px into `vertical_shaft`.

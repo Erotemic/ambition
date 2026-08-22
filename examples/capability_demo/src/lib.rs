@@ -14,18 +14,17 @@
 //! + causal facts       → `pulse_fired`, published to the causal log
 //! ```
 //!
-//! ⚠ **the Cargo manifest is half the proof, and only half.** There is no
+//! **the Cargo manifest is half the proof, and only half.** There is no
 //! DIRECT `ambition_platformer2d_actor_monolith` dependency, no game and no content crate, so this
 //! crate's source cannot name an actor-crate item — the mechanic defines its own
 //! [`PulseBody`] and [`PulseAffected`] rather than borrowing `BodyKinematics`,
 //! and the compiler enforces that rather than a comment.
 //!
-//! ⛔ But `ambition_platformer2d_actor_monolith` IS in the TRANSITIVE closure, through
-//! `ambition_platformer2d_runtime`, and pretending otherwise would make this sentinel lie.
-//! Rollback registration lives in the runtime and only a crate above it can own
-//! a schema directly, so a capability that wants its own rollback state links
-//! the whole simulation whether it uses it or not. That is a measured cost of
-//! the seam and a row of its own — see the program doc.
+//! But `ambition_platformer2d_actor_monolith` IS in the TRANSITIVE closure, through
+//! `ambition_platformer2d_runtime`, and pretending otherwise would make this sentinel lie. Rollback
+//! registration lives in the runtime and only a crate above it can own a schema directly, so a
+//! capability that wants its own rollback state links the whole simulation whether it uses it or
+//! not.
 //!
 //! ## What is honestly still wired by hand
 //!
@@ -62,7 +61,7 @@ pub const PULSE_ACTION: ambition_input::SemanticActionDef = ambition_input::Sema
 
 /// **A body's pulse cooldown — the capability's own rollback state.**
 ///
-/// ⚠ it MUST be rewound. A cooldown is a gate on an action, so a rewind that
+/// it MUST be rewound. A cooldown is a gate on an action, so a rewind that
 /// restored the body and not the gate would let a pulse fire twice from one
 /// charge on the resimulated frame and desync. This is exactly the class the
 /// repo's own note names: *"a stock count that is not registered rollback state
@@ -103,7 +102,7 @@ pub struct PulseAffected;
 
 /// Position and velocity, in this capability's own terms.
 ///
-/// ⚠ **not `BodyKinematics`.** Using the actor crate's cluster would be the
+/// **not `BodyKinematics`.** Using the actor crate's cluster would be the
 /// convenient choice and would make this crate depend on it, which is the one
 /// thing the sentinel exists to avoid. A capability describes what it needs;
 /// the composition adapts its bodies to that.
@@ -115,7 +114,7 @@ pub struct PulseBody {
 
 /// Install the mechanic's behaviour.
 ///
-/// ⛔ **it does NOT register rollback state, and that is the fix rather than an
+/// **it does NOT register rollback state, and that is the fix rather than an
 /// omission.** The first version did, through `AmbitionRollbackApp`, and the
 /// cost was a dependency on `ambition_platformer2d_runtime` — the whole simulation, dragged
 /// into a mechanic that uses none of it, because the registration trait lives up
@@ -131,8 +130,8 @@ pub struct PulseBody {
 pub struct PulsePlugin {
     /// What the composition compiled, or `None` for the built-in defaults.
     ///
-    /// ⛔ **this field is the fix for an authority split the compiler program
-    /// exists to prevent** (GPT 5.6, 2026-08-01, finding 2). The schema was
+    /// **this field is the fix for an authority split the compiler program
+    /// exists to prevent**. The schema was
     /// registered, packs VALIDATED and LOWERED correctly, and the plugin then
     /// called `init_resource::<PulseProfiles>()` — the built-in defaults. So a
     /// game could author a radius, watch the compiler accept it, mount the
@@ -145,10 +144,8 @@ pub struct PulsePlugin {
 impl PulsePlugin {
     /// **Mount with the profiles a compiled pack prepared.**
     ///
-    /// Consumes the artifact `FacetOutcome::lower` produced — the same value the
-    /// compiler validated — rather than re-reading the authored file. A second
-    /// parse would be a second authority over the same bytes, which is the
-    /// defect `P1e` removed from the character catalog.
+    /// Consumes the artifact `FacetOutcome::lower` produced — the same value the compiler validated
+    /// — rather than re-reading the authored file.
     ///
     /// `Err` when the pack prepared no pulse profiles: a composition that asked
     /// for authored tuning and got none should hear about it, not silently run
@@ -189,18 +186,16 @@ impl Plugin for PulsePlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<PulseRequested>()
             .add_message::<PulseFired>();
-        // The composition's compiled profiles WIN. `init_resource` would not
-        // overwrite, and that asymmetry is how the defaults used to survive.
         match self.profiles.clone() {
             Some(profiles) => app.insert_resource(profiles),
             None => app.init_resource::<PulseProfiles>(),
         };
         // **THE AUTHORITATIVE SIMULATION SCHEDULE, through the public seam.**
         //
-        // ⛔ this was bare `Update`, which is the ordinary Bevy habit and is
+        // this was bare `Update`, which is the ordinary Bevy habit and is
         // exactly what this crate's own recipe tells a capability author NOT to
         // do — the worked example contradicted the documentation it exists to
-        // illustrate (GPT 5.6, 2026-08-01, finding 1). Two concrete failures:
+        // illustrate. Two concrete failures:
         //
         // * **fixed-tick host**: cooldowns aged once per RENDER update, so pulse
         //   timing followed the frame rate rather than the tick rate.
@@ -208,9 +203,6 @@ impl Plugin for PulsePlugin {
         //   so a rewind could restore `PulseCooldown` without re-running the
         //   behaviour that produced the surrounding result. Snapshotting the
         //   state does not help if the systems that move it never resimulate.
-        //
-        // `sim_schedule()` asks the HOST which schedule is authoritative and
-        // seals the answer; nothing here names GGRS or fixed-tick.
         let sim = app.sim_schedule();
         app.add_systems(
             sim,
@@ -239,7 +231,7 @@ impl Plugin for PulsePlugin {
 /// );
 /// ```
 ///
-/// ⚠ **omitting it is a desync, not a missing feature.** A cooldown is a gate
+/// **omitting it is a desync, not a missing feature.** A cooldown is a gate
 /// on an action: a rewind that restored the body and not the gate lets a pulse
 /// fire twice from one charge on the resimulated frame. [`REQUIRED_ROLLBACK`]
 /// is how a host finds that out at assembly rather than at a desync.
@@ -266,13 +258,10 @@ pub const REQUIRED_ROLLBACK: &[ambition_platformer2d_core::snapshot::RequiredRol
         why: "a pulse cooldown that is not rewound lets the action fire twice from one charge \
               on a resimulated frame",
     },
-    // ⛔ **the BODY was missing from this list, and the declaration was the
-    // point of the list** (GPT 5.6, 2026-08-01, finding 4). `fire_pulses`
-    // mutates `PulseBody::vel` — that is the mechanic's entire observable
-    // effect — so a rewind that restored the cooldown and not the push would
-    // resimulate from a body that is still moving from a pulse it is about to
-    // fire again. A contract that names only the cheap half is worse than none:
-    // the check passes and the desync remains.
+    // `fire_pulses` mutates `PulseBody::vel` — that is the mechanic's entire observable effect
+    // — so a rewind that restored the cooldown and not the push would resimulate from a body
+    // that is still moving from a pulse it is about to fire again. A contract that names only
+    // the cheap half is worse than none: the check passes and the desync remains.
     ambition_platformer2d_core::snapshot::RequiredRollbackState {
         owner: PULSE_CAPABILITY,
         name: BODY_ROLLBACK_STATE,
@@ -283,7 +272,7 @@ pub const REQUIRED_ROLLBACK: &[ambition_platformer2d_core::snapshot::RequiredRol
 
 /// **The pushed body's state** — the other half of what a rewind must restore.
 ///
-/// ⚠ a composition that adapts its own bodies to [`PulseBody`] should register
+/// a composition that adapts its own bodies to [`PulseBody`] should register
 /// whichever component is AUTHORITATIVE for that motion, under this name. What
 /// must not happen is registering neither because the sentinel only mentioned
 /// the cooldown.
@@ -371,7 +360,7 @@ pub fn fire_pulses(
 
 /// The capability's causal facts.
 ///
-/// ⚠ it publishes the PROFILE it used. "Which content supplied the active
+/// it publishes the PROFILE it used. "Which content supplied the active
 /// value" is one of the inspector's required questions, and a pulse that felt
 /// wrong is almost always a profile question rather than a code one.
 fn publish(

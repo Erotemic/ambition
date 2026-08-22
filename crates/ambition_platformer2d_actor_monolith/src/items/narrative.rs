@@ -1,12 +1,6 @@
 //! **What the narrative asked for, applied by the simulation.**
 //!
-//! `<<give_item>>`, `<<buy_item>>` and `<<sell_item>>` used to reach straight
-//! into [`OwnedItems`](ambition_items::OwnedItems) and
-//! [`BodyWallet`](ambition_characters::actor::BodyWallet) from the Yarn command
-//! system — which runs in `Update`, on the presentation side of the rollback
-//! boundary, against two pieces of rollback state.
-//!
-//! ⛔ **so the grant did not survive a rewind, and could not be replayed
+//! **so the grant did not survive a rewind, and could not be replayed
 //! either.** A rollback restored the bag and the balance to before the purchase,
 //! and nothing re-ran the command: the Yarn runner is not rewound (deliberately)
 //! and it does not execute between resimulated ticks. The player watched an item
@@ -16,7 +10,7 @@
 //! these systems apply it on the tick it was stamped for — in the original run
 //! and in every replay of that tick.
 //!
-//! ⚠ **the pure cores did not move and did not change.** `shop::buy`,
+//! **the pure cores did not move and did not change.** `shop::buy`,
 //! `shop::sell` and `OwnedItems::grant` are still the whole rule and still
 //! unit-tested without a `World`; what changed is who calls them and when.
 
@@ -118,7 +112,7 @@ mod tests {
             .map(|wallet| wallet.balance);
         assert_eq!(balance, Some(20));
 
-        // ⛔ the poison: a price the player cannot meet must move neither.
+        // the poison: a price the player cannot meet must move neither.
         app.world_mut().write_message(ShopTransactionRequested {
             item: Item::HealthCell,
             price: 5_000,

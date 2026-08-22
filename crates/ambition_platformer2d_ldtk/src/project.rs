@@ -167,15 +167,9 @@ impl LdtkLevel {
             .find(|layer| layer.identifier == AMBITION_LAYER)
     }
 
-    /// Every layer that holds entity instances, regardless of which
-    /// `__identifier` the author gave it. The conversion + validation
-    /// passes used to assume a single "Ambition" entities layer
-    /// (`ambition_layer`); promoting them to this iterator lets the
-    /// LDtk file carry multiple Entities-type layers — for example a
-    /// dedicated "AmbitionCameras" layer that holds only `CameraZone`
-    /// entities so the editor can toggle them off while painting other
-    /// content. Order: file order of layer_instances, then file order
-    /// of entityInstances within each layer.
+    /// Every layer that holds entity instances, regardless of which `__identifier` the author gave
+    /// it. Order: file order of layer_instances, then file order of entityInstances within each
+    /// layer.
     pub fn entity_layers(&self) -> impl Iterator<Item = &LdtkLayerInstance> {
         self.layer_instances
             .iter()

@@ -329,24 +329,16 @@ pub struct SelfView {
     pub can_blink: bool,
     /// **WHAT THE SHARED BURST BUTTON WOULD DO IF PRESSED THIS TICK.**
     ///
-    /// ⛔ this was two booleans, `can_dash` and `can_dodge`, and both were
-    /// wrong in the same way. Dodge and dash are ONE input; which one a press
-    /// produces is decided by the body's current state — grounded or not, dodge
-    /// cooldown, air-dodge budget and endlag, dash charges — and not by which
-    /// abilities the body owns. `apply_dodge` declines on cooldown WITHOUT
-    /// consuming the buffered press, so `apply_dash` takes it: a brain reading
-    /// capabilities decides *I am dodging* and the body dashes. The first repair
-    /// here read both flags and still got it wrong, because a driver
-    /// re-deriving the movement kernel's precedence rules is the failure mode,
-    /// not the particular rule it got wrong.
+    /// Dodge and dash are ONE input; which one a press produces is decided by the body's
+    /// current state — grounded or not, dodge cooldown, air-dodge budget and endlag, dash
+    /// charges — and not by which abilities the body owns. `apply_dodge` declines on cooldown
+    /// WITHOUT consuming the buffered press, so `apply_dash` takes it: a brain reading
+    /// capabilities decides *I am dodging* and the body dashes.
     ///
     /// ⇒ [`ambition_platformer2d_core::resolve_burst_maneuver`] is the one rule,
     /// and this field is its answer. The brain is handed a fact.
     pub burst: ambition_platformer2d_core::BurstManeuver,
-    /// **Mid-air jumps left before this body is out of options.** The other
-    /// `can_*` flags answer "may I press this"; this one answers "how many times
-    /// more", which is the question a body falling below a ledge is actually
-    /// asking. `0` on the ground is normal — the count refreshes on landing.
+    /// `0` on the ground is normal — the count refreshes on landing.
     pub air_jumps_left: u8,
     /// Reactive guard available (capability present).
     pub can_shield: bool,
@@ -363,7 +355,7 @@ pub struct SelfView {
     /// **Somebody is holding this body.** Its ordinary options are gone; what it
     /// can do about that is escape, which does not exist yet.
     ///
-    /// ⛔ **a READ MODEL, not the authority.** `CapturedBy` is the relationship
+    /// **a READ MODEL, not the authority.** `CapturedBy` is the relationship
     /// and it lives in combat; a brain that queried it directly would be a
     /// second reader of ECS state from inside a pure decision, which is the
     /// thing this whole perception layer exists to prevent.
@@ -373,8 +365,7 @@ pub struct SelfView {
     /// **This body is holding somebody.** Its ordinary options are gone too, and
     /// the ones it has instead are the capture context: pummel, or throw.
     pub holding_captive: bool,
-    /// How many pummels have landed on the hold this body owns. `0` when it
-    /// holds nobody. The capture policy's whole input today.
+    /// `0` when it holds nobody. The capture policy's whole input today.
     pub pummels_landed: u8,
 }
 
@@ -421,13 +412,11 @@ impl WorldView {
     /// reading "I cannot see the floor" as "the floor ends here" would freeze
     /// every brain in a composition that does not build terrain.
     ///
-    /// ⚠ **not [`StageView::distance_to_edge`], and the difference is a whole
-    /// class of bug.** The stage is the ROOM. On an enclosed room the room's edge
-    /// and the floor's edge coincide, which is why nothing needed this until the
-    /// smash stage — the first room in this engine you can walk out of. On a
-    /// platform stage a body at the very edge of the floor is still 110px from
-    /// the room boundary, so every "am I cornered" question answered against the
-    /// stage says no while the fighter walks into the sky.
+    /// On an enclosed room the room's edge and the floor's edge coincide, which is why nothing
+    /// needed this until the smash stage — the first room in this engine you can walk out of.
+    /// On a platform stage a body at the very edge of the floor is still 110px from the room
+    /// boundary, so every "am I cornered" question answered against the stage says no while the
+    /// fighter walks into the sky.
     ///
     /// One authority, because L1 asks it to classify and L2 asks it to score, and
     /// two implementations of "where does the floor end" would drift the moment
@@ -449,7 +438,7 @@ impl WorldView {
     /// has run out of ground).
     /// **The floor a body would land on, standing or not.**
     ///
-    /// ⛔ [`Self::supporting_floor`] answers only within about a body-height of
+    /// [`Self::supporting_floor`] answers only within about a body-height of
     /// the feet, because its question is *"what am I standing on"*. An AIRBORNE
     /// body has no supporting floor by that definition and therefore went blind
     /// about the platform exactly during recovery — the one moment the platform's
@@ -482,7 +471,7 @@ impl WorldView {
             .iter()
             .filter(|solid| matches!(solid.kind, SolidKind::Solid | SolidKind::OneWay))
             .filter(|solid| {
-                // ⚠ **the body's FOOTPRINT, not its centre.** This compared
+                // **the body's FOOTPRINT, not its centre.** This compared
                 // `me.pos.x` against the solid's span, so a body standing on the
                 // very lip of a platform — centre a few px past the edge, feet
                 // still on it, `on_ground` still true — matched NO solid, and
@@ -490,9 +479,6 @@ impl WorldView {
                 // ledge question in the brain reads through here, so the fighter
                 // went blind about the edge at exactly the position where the
                 // edge is the only thing that matters.
-                //
-                // Traced 2026-07-31 in `ladder_probe` (`AMBITION_FIGHTER_TRACE=1`),
-                // level 9, on the frame before a self-KO:
                 //
                 //     x=496 ... floor_edge=Some(34.0)   <- sees the lip
                 //     x=537 ... floor_edge=None         <- ON the lip, blind
@@ -521,7 +507,7 @@ impl WorldView {
     /// platform, and a body that has walked off the lip is over nothing, and
     /// those are different situations no matter what height either is at.
     ///
-    /// ⚠ **it exists because "offstage" was a question about the ROOM.**
+    /// **it exists because "offstage" was a question about the ROOM.**
     /// `StageView` is the room box, so on a platform stage a fighter that walked
     /// off the lip was still *inside the stage* for another hundred pixels of
     /// falling — L1 kept classifying `Neutral`, kept offering `Retreat`, and the
@@ -801,16 +787,11 @@ impl<'a> Perceived<'a> {
 /// gameplay layer `observe`s each tick's fresh view, and every L1/L2/L3 code path
 /// reads `perceive()`.
 ///
-/// **Warm-up is deliberately stale, never fresh.** Before the buffer fills, it
-/// returns the oldest view it holds — so a brain spawned mid-fight reacts *more*
-/// slowly than its profile for a few ticks, never faster. The failure direction
-/// matters: a buffer that returned the live view while filling would be a
-/// same-tick perceive→act cheat exactly at the moment a fight starts, which is
-/// the moment FB4's humanity check is looking at.
+/// **Warm-up is deliberately stale, never fresh.** Before the buffer fills, it returns the oldest
+/// view it holds — so a brain spawned mid-fight reacts *more* slowly than its profile for a few
+/// ticks, never faster.
 ///
-/// `delay_ticks == 0` is a legal profile (a frame-perfect brain, for RL rigs and
-/// regression fixtures) and returns the live view. Shipped difficulty rows never
-/// use it — §1.3: *"Level 9 = small numbers, never zero."*
+/// Shipped difficulty rows never use it — §1.3: *"Level 9 = small numbers, never zero."*
 #[derive(Clone, Debug, Default)]
 pub struct DelayedPerception {
     /// Oldest first. Length is capped at `delay_ticks + 1`.

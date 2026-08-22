@@ -1,10 +1,7 @@
 //! Gravity-zone mechanic plugin.
 //!
-//! Owns the registration that used to live inside `ambition_portal2d` (Stage 6
-//! follow-up): the ambient-gravity resources, the per-frame gravity-zone
-//! snapshot (oscillate → collect), the room-reset gravity reset, and the
-//! ambient gravity-flip switch. This is a *gravity mechanic*, so it owns its own
-//! scheduling and must not depend on `ambition_portal2d`.
+//! This is a *gravity mechanic*, so it owns its own scheduling and must not depend on
+//! `ambition_portal2d`.
 //!
 //! Note: `crate::physics::BaseGravity` (the ambient-gravity resource) STAYS in
 //! `crate::physics` because it is read widely; this plugin only owns the
@@ -44,12 +41,9 @@ impl Plugin for GravityPlugin {
         app.init_resource::<crate::physics::GravityZones>();
         app.init_resource::<ambition_platformer2d_shared_tangle::frame_env::ForceZones>();
 
-        // ⭐ **the gravity capability publishes its own construction schema**,
-        // exactly as the portal gun does — metadata only, so prepared-content
-        // fingerprinting names the domain while the executable constructor
-        // stays the closed `GravityZoneConstruction` dispatch. Nothing here can
-        // be used to SELECT a constructor; the catalog is descriptor-only by
-        // construction.
+        // **the gravity capability publishes its own construction schema**, exactly as the portal
+        // gun does — metadata only, so prepared-content fingerprinting names the domain while the
+        // executable constructor stays the closed `GravityZoneConstruction` dispatch.
         app.init_resource::<
             ambition_platformer2d_shared_tangle::construction::ConstructionSchemaCatalog,
         >();
@@ -65,12 +59,8 @@ impl Plugin for GravityPlugin {
             )
             .expect("the gravity-zone construction schema cannot conflict with itself");
 
-        // Snapshot all gravity + force zones once per frame BEFORE the frame
-        // resolution phase reads them, so every body can resolve its local frame
-        // from this tick's environment. Portal carve publishing pins
-        // `.after(collect_gravity_zones)` so the combined cadence is
-        // byte-identical to the pre-extraction `PortalSet::GravityAndCarves`
-        // chain.
+        // Portal carve publishing pins `.after(collect_gravity_zones)` so the combined cadence
+        // is byte-identical to the pre-extraction `PortalSet::GravityAndCarves` chain.
         app.add_systems(
             sim,
             (

@@ -17,24 +17,19 @@ use ambition_cutscene::CutsceneTriggerQueue;
 /// **A boss's exposed phase changed, announced by the system that committed the
 /// change.** (P0.2)
 ///
-/// ⛔⛔ **the edge must come from here and nowhere else.**
-/// `boss_phase_transition_feedback` used to re-derive it, diffing each boss's
-/// current phase against a `Local<HashMap<String, BossEncounterPhase>>`. A
-/// `Local` is not rollback state: it is not restored when the host rewinds. So
-/// after a rollback the map still held the phase the abandoned pass reached, the
-/// re-simulated frame's diff came out EMPTY, and the transition's gameplay
-/// consequence — a `DamageBox` shockwave the player is meant to dodge — was
-/// silently lost on the timeline the session actually settled on. The mirror
-/// failure is available too: any ordering that leaves the map holding an older
-/// phase manufactures a transition that never happened.
+/// A `Local` is not rollback state: it is not restored when the host rewinds. So after a rollback
+/// the map still held the phase the abandoned pass reached, the re-simulated frame's diff came out
+/// EMPTY, and the transition's gameplay consequence — a `DamageBox` shockwave the player is meant
+/// to dodge — was silently lost on the timeline the session actually settled on. The mirror failure
+/// is available too: any ordering that leaves the map holding an older phase manufactures a
+/// transition that never happened.
 ///
-/// ⭐ **and the authority already existed.** `ActorPhaseState::tick` returns
+/// **and the authority already existed.** `ActorPhaseState::tick` returns
 /// `BossPhaseEvent::PhaseChanged { from, to }` at the moment it commits the swap;
-/// `update_boss_encounters` was already fanning that event to `publish_events`
-/// for the banner and the cutscene. The feedback system was the one consumer
-/// reconstructing what it had been handed. This message carries it instead.
+/// `update_boss_encounters` was already fanning that event to `publish_events` for the banner
+/// and the cutscene. This message carries it instead.
 ///
-/// ⚠ **written and read in the SAME frame**, by systems in the same sim schedule
+/// **written and read in the SAME frame**, by systems in the same sim schedule
 /// (`ProgressionSet::BossAdvance` → `BossHazards`). That is what makes it
 /// rollback-correct without being rollback state: a re-simulation re-runs the
 /// phase machine, which re-produces the event from restored authoritative state

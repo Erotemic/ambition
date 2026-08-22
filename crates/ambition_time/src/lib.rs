@@ -86,11 +86,8 @@ impl Default for ClockState {
 /// instant and not a rendered frame. N0.2 input streams are keyed by it, N0.4
 /// hashes sim state per value of it, and rollback rewinds to one.
 ///
-/// It advances once per sim step in **both** schedule modes: frame-stepped
-/// (one step per rendered frame) and fixed-tick (one step per `Time<Fixed>`
-/// expenditure, which may be zero or several per frame). It advances even while
-/// gameplay is suspended — a paused world still has a timeline; its `sim_dt` is
-/// simply zero.
+/// It advances even while gameplay is suspended — a paused world still has a timeline; its
+/// `sim_dt` is simply zero.
 #[derive(Resource, Default, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SimTick(pub u64);
 
@@ -188,10 +185,7 @@ impl PresentationTime<'_> {
     }
 }
 
-/// Per-simulation-step dt snapshot. Prefer [`WorldTime::sim_dt`] for
-/// authoritative gameplay. Presentation systems running in [`Update`] use
-/// [`PresentationTime`] instead, because this resource deliberately retains
-/// the duration of the most recent fixed / rollback simulation step.
+/// Per-simulation-step dt snapshot. Prefer [`WorldTime::sim_dt`] for authoritative gameplay.
 ///
 /// Legacy fields remain aliases: `raw_dt == wall_dt`,
 /// `scaled_dt == sim_dt`. The active simulation host refreshes this resource
@@ -253,9 +247,8 @@ impl WorldTime {
     }
 }
 
-/// Refresh [`WorldTime`] from the schedule-local `Time × ClockState::time_scale`.
-/// The simulation schedule invokes this once per authoritative step. In a fixed
-/// or rollback host, Bevy exposes that schedule's tick duration through [`Time`].
+/// Refresh [`WorldTime`] from the schedule-local `Time × ClockState::time_scale`. The
+/// simulation schedule invokes this once per authoritative step.
 pub fn refresh_world_time(
     time: Res<Time>,
     clock: Res<ClockState>,
@@ -266,9 +259,8 @@ pub fn refresh_world_time(
     world_time.scaled_dt = raw * clock.time_scale;
 }
 
-/// Drop-in producer for a frame-stepped host: installs [`ClockState`] and
-/// [`WorldTime`], then refreshes the sim snapshot every [`Update`]. Fixed and
-/// rollback hosts schedule [`refresh_world_time`] in their own sim schedule.
+/// Drop-in producer for a frame-stepped host: installs [`ClockState`] and [`WorldTime`], then
+/// refreshes the sim snapshot every [`Update`].
 ///
 /// `init_resource` preserves a host-provided [`ClockState`] inserted
 /// before adding the plugin.

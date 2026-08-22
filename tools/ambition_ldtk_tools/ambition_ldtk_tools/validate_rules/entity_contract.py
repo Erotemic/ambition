@@ -405,7 +405,7 @@ def _instance_issues(
 
         # --- an authored value
 
-        # ⚠ **a conditional field's GRAMMAR is conditional too.** Nine
+        # **a conditional field's GRAMMAR is conditional too.** Nine
         # `Breakable*` placements in sandbox.ldtk carry `respawn_seconds: 0`
         # beside `respawn: OnRoomReload`, and `parse_breakable_respawn` never
         # looks at the number unless `respawn` is exactly `AfterSeconds`. Checking

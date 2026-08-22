@@ -3,16 +3,10 @@
 //! Smash proves "participants, character selection, atomic match lifecycle,
 //! scoped rules, rollback".
 //!
-//! ⚠ This file was a PARTIAL proof for one day and the matrix recorded it as
-//! such — four fifths, with rollback named as the single missing property
-//! because ADR 0031 deferred it to its own slice. Slice F landed that slice, so
-//! `the_versus_stage_rolls_back_with_two_participants` closes the fifth and the
-//! row.
+//! This file was a PARTIAL proof for one day and the matrix recorded it as such — four fifths, with
+//! rollback named as the single missing property because ADR 0031 deferred it to its own slice.
 //!
-//! Keeping the partial honest is what made this cheap. The campaign has caught
-//! itself three times claiming a row on a test that quietly dropped part of it;
-//! naming the missing fifth meant closing it was one test rather than a
-//! re-audit of what "Smash proven" had been taken to mean.
+//! Keeping the partial honest is what made this cheap.
 
 use ambition_platformer2d::app::prelude::*;
 
@@ -64,7 +58,7 @@ fn the_versus_stage_composes_and_seats_two_participants() {
         .world()
         .resource::<ambition_platformer2d::character::CharacterCatalog>();
     let ids: Vec<&String> = catalog.iter().map(|(id, _)| id).collect();
-    // ⚠ Spelled out rather than importing `versus::FIGHTERS`, which is private.
+    // Spelled out rather than importing `versus::FIGHTERS`, which is private.
     // AGENTS.md: never widen a production API to move a test. These are content
     // ids; if the cast changes, this failing is the correct outcome.
     for fighter in ["arena_duelist_long", "arena_duelist_close"] {
@@ -91,12 +85,9 @@ fn the_versus_stage_composes_and_seats_two_participants() {
 
 /// **The fifth property: rollback, with TWO participants.**
 ///
-/// ⚠ Two is the number that matters, and one would have been the easy version
-/// of this test. The defect this engine actually shipped was a rollback oracle
-/// proving determinism for ONE input stream during the week a 2–4 player couch
-/// versus mode seated four — every check green, and a desync in seat two with
-/// nowhere to appear. A single-participant Smash proof would reproduce exactly
-/// that blind spot in the test that exists to rule it out.
+/// Two is the number that matters, and one would have been the easy version of this test. A
+/// single-participant Smash proof would reproduce exactly that blind spot in the test that exists
+/// to rule it out.
 ///
 /// Participants are declared at COMPOSITION, so the count the session seats and
 /// the count the stage was built for are the same fact rather than two facts
@@ -122,14 +113,14 @@ fn the_versus_stage_rolls_back_with_two_participants() {
         session.participants()
     );
 
-    // ⚠ `session.participants()` is the DECLARATION, not the seating, and
+    // `session.participants()` is the DECLARATION, not the seating, and
     // blind run 7 proved the difference matters: it declared 1, 2 and 4 and got
     // one body every time. This test was written to avoid the one-input-stream
     // blind spot and reproduced a subtler version of it, so the seating is now
     // asserted separately against the composed cast — the two fighters checked
     // by name in the sibling test above.
     //
-    // ⚠ What is still NOT proven here: that two SEPARATE input streams reach
+    // What is still NOT proven here: that two SEPARATE input streams reach
     // two separate bodies. `ambition_platformer2d::actor::MatchSeat` now answers the QUERY
     // half (see the sibling test), but there is no public seam for driving
     // input to a NAMED seat — `drive_control_frame` writes one frame for the
@@ -178,12 +169,7 @@ fn the_versus_stage_rolls_back_with_two_participants() {
 
 /// **The match has two distinct seated bodies, and it simulates with both.**
 ///
-/// ⚠ **Read the limit before the assertion.** This does NOT prove that the
-/// declared participant count drives seating, and an earlier version of it
-/// claimed to. That version spawned two `Gamepad` entities first — and passed
-/// identically with them removed, because the versus stage seats two fighters
-/// on its own regardless of what the composition declared. The gamepads were
-/// theatre.
+/// The gamepads were theatre.
 ///
 /// Deleting the theatre leaves a sharper statement of blind run 7's finding (g)
 /// than the run made. It reported "N participants get one body". The truth is
@@ -253,17 +239,9 @@ fn the_match_has_two_distinct_seats_and_simulates_with_both() {
 /// **The versus stage's CPU roster is seatable by the composition the SDK
 /// builds.** (API 1.0 row (g))
 ///
-/// This is the guard for the bug that shipped here: `versus_roster_from` named
-/// `medium_striker`, a row in `ambition_content`'s archetype table that
-/// `compose_versus_experience` does not compose. The lookup fell back to a
-/// generic row whose brain is `stand_still`, so the SDK path had been seating a
-/// statue and calling it an opponent.
-///
-/// ⚠ **it has to run against THIS composition, not the full app.** Written first
-/// against `versus_app()` — the whole game, which composes `ambition_content` and
-/// therefore does have `medium_striker` — and it stayed green with the original
-/// bug put back. A guard that cannot go red on the defect it names is noise, and
-/// the population this one serves is the SDK consumer with no content crate.
+/// **it has to run against THIS composition, not the full app.** Written first against
+/// `versus_app()` — the whole game, which composes `ambition_content` and therefore does have
+/// `medium_striker` — and it stayed green with the original bug put back.
 #[test]
 fn the_versus_cpu_roster_is_satisfiable_by_the_sdk_composition() {
     let app = PlatformerApp::headless()
@@ -272,17 +250,12 @@ fn the_versus_cpu_roster_is_satisfiable_by_the_sdk_composition() {
         .try_build()
         .expect("the versus stage must compose through the public API");
 
-    // ⛔⛔ **THIS ASKED THE ARCHETYPE TABLE, AND THAT WAS THE INSTRUMENT'S BLIND
-    // SPOT** (repaired 2026-08-13, campaign P2.18). It called
-    // `unsatisfiable_seats(&archetypes, None)` — reading a `CharacterRoster` out
-    // of the composed app and passing NO policies — so the guard could only ever
-    // see one of the two places a seat's answer could live. It went red the day
-    // versus published `versus_duelist` as an `autonomous_profiles` entry and
-    // deleted the archetype row it replaced, reporting a seat unsatisfiable that
-    // the shipped composition satisfies perfectly. The archetype half is gone
-    // from the check entirely now.
+    // It called `unsatisfiable_seats(&archetypes, None)` — reading a `CharacterRoster` out of
+    // the composed app and passing NO policies — so the guard could only ever see one of the
+    // two places a seat's answer could live. The archetype half is gone from the check entirely
+    // now.
     //
-    // ⚠ the CLAIM is unchanged and still the one that shipped a statue: this
+    // the CLAIM is unchanged and still the one that shipped a statue: this
     // composition, with no content crate under it, must be able to seat its own
     // CPU.
     let profiles = app

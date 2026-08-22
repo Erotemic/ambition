@@ -154,16 +154,8 @@ pub fn ensure_projectile_portal_bodies(
 /// any transferred body carrying the flight cluster gets it — no
 /// player-casing.
 ///
-/// The transfer ROTATES momentum; it must not reclassify it. The
-/// controller-owned run (pre-transfer run velocity minus the old carried
-/// floor — walk/drift the stop assist was already braking) stays
-/// controller-owned through the portal: naively flooring the WHOLE exit run
-/// velocity promoted a walk-in residual into a permanent fling, and a
-/// vertical ground-pair bounce then marched sideways ~residual px/s per leg
-/// until it landed off the aperture and thudded dead (the momentum-kill
-/// regression Jon reported as "I don't come all the way back up"). A fall's
-/// gravity-earned speed is world-imparted, so a genuine fling (fall in, wall
-/// out) still floors at full strength.
+/// The transfer ROTATES momentum; it must not reclassify it. A fall's gravity-earned speed is
+/// world-imparted, so a genuine fling (fall in, wall out) still floors at full strength.
 pub fn apply_portal_carried_momentum(
     gravity: Option<
         Res<ambition_platformer2d_actor_monolith::platformer_runtime::gravity::GravityField>,
@@ -232,12 +224,6 @@ pub fn reconcile_kernel_bodies_after_portal_transit(
 ///   into the exit wall for a short window), and
 /// - inserts the [`PortalInputWarp`] held-input warp **iff** this convention's
 ///   map flips horizontal movement and a movement input is held.
-///
-/// These are INPUT-feel guards, so they follow the body the local input stream
-/// is driving — possess an actor and send it through a portal, and its
-/// emergence is protected exactly like the home avatar's (previously it got
-/// none of these and possession-through-a-portal felt wrong). Autonomous
-/// actors still carry no input guards; their brains hold no input to warp.
 ///
 /// `PlayerMovementIntent` / `PortalEmission` / `PortalInputWarp` are INPUT and
 /// must never be referenced by the portal core. This runs `.after(portal_transit)`

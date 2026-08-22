@@ -10,12 +10,7 @@
 //!   only while the MOUSE is the most recent input on the machine, whoever it
 //!   belongs to.
 //!
-//! Before this there were TWO global resources answering "what device is
-//! active", in two crates, that never consulted each other: `ActiveInputKind`
-//! (hover gates; knew about gamepads) and the actor monolith's
-//! `ActiveInputMethod` (glyphs; its gamepad detection was a TODO stub, so a
-//! player switching to a pad kept keyboard glyphs forever). Collapsing them is
-//! PA1's device-presentation half.
+//! Collapsing them is PA1's device-presentation half.
 //!
 //! This is a *marker*, not a mode switch. No source is ever disabled: a player
 //! may steer with the arrow keys while clicking with the mouse, or push a
@@ -140,7 +135,7 @@ impl ActiveDevice {
 
     /// How this device's gamepad buttons should be SPELLED.
     ///
-    /// ⚠ a device that is not a pad answers the default (Xbox-style), which is
+    /// a device that is not a pad answers the default (Xbox-style), which is
     /// what a label has to say when nothing better is known — it is not a claim
     /// that anybody is holding an Xbox pad. Callers that need to know whether
     /// there is a pad at all ask [`Self::draws_keyboard_glyphs`]; a style alone

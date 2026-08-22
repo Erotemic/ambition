@@ -1,12 +1,7 @@
 //! **Mary-O's repertoire, for the stage she visits rather than the one she
 //! lives on.**
 //!
-//! ⭐ **written 2026-08-16** (Jon: *"Let's complete the kit for all characters,
-//! authoring new moves when we need to."*). A census of the smash grid found her
-//! at **0/16**: no table, no action set, and no unarmed floor reaching her body,
-//! so every press was silence. She was one of four in that state.
-//!
-//! ⛔⛔ **AND IT CHANGES NOTHING IN HER OWN GAME**, which is the only reason this
+//! **AND IT CHANGES NOTHING IN HER OWN GAME**, which is the only reason this
 //! file is allowed to exist. Her catalog row authors `abilities: Some([RunJump])`
 //! — *"Mary-O Classic is deliberately only the run/jump floor"* — and `RunJump`
 //! does not include `attack`. A move table is *what the attack IS*; the ability
@@ -18,23 +13,17 @@
 //! grid" expressible instead of a contradiction. Her jump physics, her one-hit
 //! death and her two on-screen buttons are untouched.
 //!
-//! ⛔⛔ **THE PARAGRAPH ABOVE WAS AN INTENT, NOT AN IMPLEMENTATION, FOR ITS FIRST
-//! DAY.** Nothing read the ability: `combat_actions` derived the Attack and
-//! Special slots from the MOVESET alone, so attaching this table put all
-//! twenty-three of her swings on a press in her own platformer. Jon found it by
-//! playing (*"She should only have the run and jump in her game"*), a Sanic test
-//! that had gone red at the same cause was argued away rather than believed, and
-//! the ceiling now really is `AbilitySet::attack`. The guard is behavioural —
-//! `ambition_demo_mary_o_app`'s `mary_o_at_home_can_only_run_and_jump` presses
-//! every combat button in every aim and asserts nothing starts.
+//! **THE PARAGRAPH ABOVE WAS AN INTENT, NOT AN IMPLEMENTATION, FOR ITS FIRST DAY.** Nothing read
+//! the ability: `combat_actions` derived the Attack and Special slots from the MOVESET alone, so
+//! attaching this table put all twenty-three of her swings on a press in her own platformer. The
+//! guard is behavioural — `ambition_demo_mary_o_app`'s `mary_o_at_home_can_only_run_and_jump`
+//! presses every combat button in every aim and asserts nothing starts.
 //!
 //! ## The character
 //!
-//! She is a platformer, so her kit is FEET. Every heavy press in it is a stomp,
-//! a drop or a jump that landed on somebody, and the two moves that are not —
-//! the fireball pair — are the power-up her own game is built around. Light,
-//! quick, and the weakest kill power on the grid: what she has instead is the
-//! best down-air in it, because falling on things is the genre she comes from.
+//! She is a platformer, so her kit is FEET. Light, quick, and the weakest kill power on the grid:
+//! what she has instead is the best down-air in it, because falling on things is the genre she
+//! comes from.
 
 use ambition_platformer2d::characters::moveset_authoring::{
     committed_tail, impulse, on_contact, sfx, strike, vfx_at,
@@ -128,7 +117,7 @@ pub fn mary_o_moveset() -> MovesetContract {
     let d_tilt = on_contact(d_tilt, "player.hit");
 
     // **FORWARD SMASH — `shell_kick`.** She kicks something that is not there
-    // and it goes anyway. ⚠ the weakest forward smash on the grid: she is the
+    // and it goes anyway. the weakest forward smash on the grid: she is the
     // lightest fighter on it and the numbers say so rather than a comment.
     let f_smash = strike(
         "shell_kick",
@@ -279,7 +268,7 @@ pub fn mary_o_moveset() -> MovesetContract {
     let d_air = on_contact(d_air, "player.hit");
 
     // **NEUTRAL — `fireball`.** The power-up her game is built around, thrown
-    // rather than carried. ⚠ a swung volume rather than a spawned projectile:
+    // rather than carried. a swung volume rather than a spawned projectile:
     // spawning one would be a second authority on a pattern her own game already
     // owns.
     let n_b = strike(
@@ -366,16 +355,13 @@ pub fn mary_o_moveset() -> MovesetContract {
     let down_b = vfx_at(down_b, 0.16, "smoke_puff", (0.0, 18.0), FLAME_FX);
     let down_b = on_contact(down_b, "player.hit");
 
-    // ── 2026-08-16: THE OTHER POSTURE ────────────────────────────────────────
-    //
-    // Jon: *"A down-b that has special airborne properties should also have an
     // effect on ground. Think of bowser down b. In the air he just does a
     // downward slam, but on the ground, it causes him to jump in an arc and then
     // slam. Specials can have different effects in different contexts that
     // should be ok, and makes for a richer smash game, although in most cases
     // they shouldn't be context dependent."*
     //
-    // ⛔ a special gated to ONE posture is not answered in the other — the
+    // a special gated to ONE posture is not answered in the other — the
     // directional chain walks straight past it to the NEUTRAL special, so a
     // player pressing down-B in the air got the neutral-B. `special_air_down`
     // sits ahead of `special_down` in that chain and has the whole time; this is
@@ -404,7 +390,7 @@ pub fn mary_o_moveset() -> MovesetContract {
 
     // **MARY_O'S CAPTURE KIT.** The smallest capture box on the roster, because she is
     // the smallest body on it. Everything else is deliberately ordinary.
-    // ⚠ the grab draws `attack`, not `grab`: these sheets publish no `grab` row,
+    // the grab draws `attack`, not `grab`: these sheets publish no `grab` row,
     // and each table's own `every_clip_names_a_row_..._sheet_carries` guard says
     // so. `ClipBinding`'s fallbacks would have covered it at runtime, but a move
     // that NAMES a row nobody publishes is a lie the guard is right to refuse.
@@ -488,10 +474,9 @@ pub fn mary_o_moveset() -> MovesetContract {
         neutral_special: NeutralSpecial::Authored(n_b),
         side_special: side_b,
         up_special: up_b,
-        // ⭐ **AUTHORED 2026-08-19, at Jon's ask that every fighter in the smash
-        // roster have a grab.** The transitional `None` is gone: capture was
-        // proven on George and the Pirate Admiral, and the point of proving it
-        // was to stop being the only two.
+        // **AUTHORED, at the rule that every fighter in the smash roster have a grab.** The
+        // transitional `None` is gone: capture was proven on George and the Pirate Admiral, and
+        // the point of proving it was to stop being the only two.
         capture: SmashCaptureRepertoire {
             cues: CaptureCues::GENERIC,
             grab,
@@ -513,8 +498,6 @@ pub fn mary_o_moveset() -> MovesetContract {
 mod tests {
     use super::*;
 
-    // ⭐⭐ **RETIRED 2026-08-16 — the per-file verb-map test.**
-    //
     // Fourteen fighters each carried a copy of it: every bound verb names a move
     // this table defines, and the table binds the whole vocabulary. Both are now
     // unwritable defects rather than tested ones. `SmashRepertoire` owns the verb

@@ -89,12 +89,10 @@ impl fmt::Display for HeadlessReport {
 /// matching the production policy that an invalid LDtk file is a hard
 /// error rather than a `.expect()` panic.
 pub fn run_headless(max_ticks: u32) -> Result<HeadlessReport, String> {
-    // Validate the embedded LDtk file up front so we can return Err with a
-    // useful diagnostic. `init_sandbox_resources` does this too but exits
-    // the process on failure; tests want a structured error instead.
-    // Validate the embedded world before constructing the App. Provider-owned
-    // character, hostile-archetype, boss, and audio catalogs are composed as
-    // App-local resources by `AmbitionGameSimulationPlugin`.
+    // Validate the embedded LDtk file up front so we can return Err with a useful diagnostic.
+    // `init_sandbox_resources` does this too but exits the process on failure; tests want a
+    // structured error instead. Provider-owned character, hostile-archetype, boss, and audio
+    // catalogs are composed as App-local resources by `AmbitionGameSimulationPlugin`.
     let world_manifest = ambition_content::worlds::world_manifest();
     let project = ldtk_world::LdtkProject::load_default_for_dev(&world_manifest)?;
     let report = project.validate(&crate::composed_ldtk_vocabulary());
@@ -120,25 +118,15 @@ pub fn run_headless(max_ticks: u32) -> Result<HeadlessReport, String> {
     // headless entry point.
     ambition_platformer2d::runtime::add_headless_foundation(&mut app);
 
-    // ⭐ **K2b: the headless report runs the same host a player does.** It used
-    // to compose the simulation plugin alone and take its session root at
-    // plugin-build time — a second way to start a game, whose activation path
-    // nothing else exercised. Composing the shell and booting straight to the
-    // gameplay route makes this one of the ordinary entries; the settle below
-    // is what absorbs the resulting asynchrony.
-    //
-    // ⚠ inserted BEFORE the plugin builds: it is what stops
+    // inserted BEFORE the plugin builds: it is what stops
     // `publish_direct_prepared_session_root` publishing a second canonical root.
     crate::app::shell_host::compose_ambition_gameplay_host(&mut app);
 
-    // ⭐ **settle BEFORE counting ticks** (K2b.1). Direct entry spawns its root
-    // at plugin-build time, so this returns `Ok(0)` and the loop below is
-    // unchanged — which is exactly why the settle can land before anything is
-    // deleted. Under a shell-composed host the same call waits for the load
-    // barrier and the eight preparation work items instead, and the ticks a
-    // caller asked for are then ticks of GAMEPLAY rather than of activation.
+    // Under a shell-composed host the same call waits for the load barrier and the eight
+    // preparation work items instead, and the ticks a caller asked for are then ticks of
+    // GAMEPLAY rather than of activation.
     //
-    // ⛔ **and it names the barrier when it fails.** The read below is
+    // **and it names the barrier when it fails.** The read below is
     // `.expect("active session RoomSet")`, three lines later: a session that
     // never activated used to surface as a panic about a missing component,
     // with nothing pointing at the reason.

@@ -408,10 +408,8 @@ pub fn compile(
                         lowered.insert(schema, artifact);
                     }
                     None if refused => {}
-                    // Defined, clean, and yet nothing published: the merge ran
-                    // and produced no artifact, which is a handler bug rather
-                    // than a content one. Distinct from the `Runtime`-lowered
-                    // nothing check above — there, no source lowered at all.
+                    // Distinct from the `Runtime`-lowered nothing check above — there, no
+                    // source lowered at all.
                     None => aggregation_failures.push(
                         Diagnostic::error(
                             DiagnosticCode::MalformedProviderBinding,

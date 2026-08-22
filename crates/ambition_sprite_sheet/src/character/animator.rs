@@ -12,11 +12,6 @@ use super::anim::{non_looping, CharacterAnim};
 use super::sheets::{trimmed_render, CharacterSheetSpec};
 use super::{CharacterSpriteAsset, CharacterSpritePage};
 
-/// The untrimmed render size + feet anchor a character's sprite was built with.
-/// Cached so a trimmed (alpha-packed) sheet can recompute the per-frame
-/// `custom_size` + anchor that keeps the logical frame fixed (see
-/// [`super::sheets::trimmed_render`]). Set at spawn from the same values used to
-/// build the `Sprite` and `Anchor`.
 #[derive(Clone, Copy, Debug)]
 pub struct RenderBasis {
     pub render_size: Vec2,
@@ -35,12 +30,12 @@ pub struct CharacterAnimator {
     pub current: CharacterAnim,
     /// **An authored CLIP the sheet actually has, when one was requested.**
     ///
-    /// ⭐ sprite redirect P0. `current` is a [`CharacterAnim`] — 56 semantic body
+    /// sprite redirect P0. `current` is a [`CharacterAnim`] — 56 semantic body
     /// states — and the new fighter sheets carry rows it has no variant for
     /// (`smash_forward`, `air_dodge`, `tumble`). A move names its clip; when this
     /// sheet has it, the drawing is keyed by ROW and `current` stops deciding.
     ///
-    /// ⚠ `None` is the ordinary case and means *draw the semantic pose* — every
+    /// `None` is the ordinary case and means *draw the semantic pose* — every
     /// character without an authored move playing, and every sheet that has none
     /// of a move's chain.
     clip_slot: Option<usize>,
@@ -49,9 +44,7 @@ pub struct CharacterAnimator {
     /// Once a non-looping clip (Slash/Hit/Death) finishes its last frame
     /// we hold there until `set` switches to a new animation.
     pub clip_held: bool,
-    /// Base render size + anchor, set at spawn. `None` until provided; required
-    /// for trimmed sheets (the renderer falls back to the fixed spawn-time
-    /// size/anchor when absent or when the sheet is untrimmed).
+    /// Base render size + anchor, set at spawn.
     pub render_basis: Option<RenderBasis>,
 }
 
@@ -90,17 +83,8 @@ impl CharacterAnimator {
         }
     }
 
-    /// Per-frame `(custom_size, anchor)` for the CURRENT frame, or `None` when
-    /// the sheet is untrimmed (or no basis is set) — callers then keep the
-    /// fixed spawn-time size/anchor, so untrimmed sheets are unaffected.
-    /// ⛔ **an authored CLIP is keyed by ROW here too.** This used to read
-    /// `frame_trim(self.current, …)` unconditionally, so a body playing a clip
-    /// drew the clip's atlas cell at the trim of whatever semantic pose
-    /// `current` happened to still hold — a wrong per-frame size and anchor on
-    /// any trimmed sheet, and 122 of 185 shipped sheets are trimmed. Both
-    /// lookups clamp their row/frame, so nothing failed; the art just sat in
-    /// the wrong place. Same rule as [`Self::tick`]: if a clip is playing, the
-    /// slot decides.
+    /// Both lookups clamp their row/frame, so nothing failed; the art just sat in the wrong place.
+    /// Same rule as [`Self::tick`]: if a clip is playing, the slot decides.
     pub fn current_render(&self) -> Option<(Vec2, Vec2)> {
         if !self.spec.is_trimmed() {
             return None;
@@ -138,7 +122,7 @@ impl CharacterAnimator {
         if self.current == anim && self.clip_slot.is_none() {
             return;
         }
-        // ⚠ leaving a stale clip here would pin the body to one authored row
+        // leaving a stale clip here would pin the body to one authored row
         // forever: a semantic request is also a statement that no clip is playing.
         let had_clip = self.clip_slot.take().is_some();
         if self.current == anim && !had_clip {
@@ -153,13 +137,10 @@ impl CharacterAnimator {
     /// **Play an authored CLIP if this sheet has one of `chain`; otherwise the
     /// semantic pose.**
     ///
-    /// ⭐⭐ the whole of P0's preference rule in one call: the exact row, then the
-    /// author's fallbacks, then [`Self::request`]'s structural pose ladder. A
-    /// 132-row fighter sheet draws `smash_forward`; a sheet with only
-    /// `idle/walk/slash/hit` draws `slash`; a sheet with none of it draws the
-    /// pose the body is semantically in, exactly as before this existed.
+    /// the whole of P0's preference rule in one call: the exact row, then the author's
+    /// fallbacks, then [`Self::request`]'s structural pose ladder.
     ///
-    /// ⛔ **no `unwrap_or(0)`.** An unresolvable chain must fall to the SEMANTIC
+    /// **no `unwrap_or(0)`.** An unresolvable chain must fall to the SEMANTIC
     /// ladder, never to row zero — drawing idle for a missing attack row looks
     /// like a character that does not swing.
     pub fn request_clip<'a>(
@@ -182,7 +163,7 @@ impl CharacterAnimator {
 
     /// Advance the animation. Returns the flat atlas index for the current frame.
     pub fn tick(&mut self, dt: f32) -> usize {
-        // ⭐ an authored clip is keyed by ROW; everything else by pose.
+        // an authored clip is keyed by ROW; everything else by pose.
         if let Some(slot) = self.clip_slot {
             return self.tick_slot(slot, dt);
         }
@@ -213,7 +194,7 @@ impl CharacterAnimator {
 
     /// [`Self::tick`] for an authored clip, keyed by its resolved row slot.
     ///
-    /// ⚠ **an authored clip never loops.** A move's timeline owns how long it
+    /// **an authored clip never loops.** A move's timeline owns how long it
     /// runs; the drawing holds its last frame rather than restarting, which is
     /// what `non_looping` says about every attack pose in the semantic
     /// vocabulary too.

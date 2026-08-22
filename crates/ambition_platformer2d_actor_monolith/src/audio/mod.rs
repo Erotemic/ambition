@@ -1,11 +1,8 @@
 //! Audio runtime for the Ambition game.
 //!
-//! All Ambition-game audio playback is **authored**: pre-rendered OGG
-//! music tracks loaded through the asset manager catalog, and SFX served
-//! from the packed `.sfxbank` (also catalog-routed). Kira owns the
-//! backend, channels, fades, and looping. The old runtime fundsp
-//! procedural music generator + SFX synthesizer was retired; see
-//! `docs/archive/retired/fundsp-audio.md` for the historical note.
+//! All Ambition-game audio playback is **authored**: pre-rendered OGG music tracks loaded through
+//! the asset manager catalog, and SFX served from the packed `.sfxbank` (also catalog-routed). Kira
+//! owns the backend, channels, fades, and looping.
 //!
 //! Realtime DSP/effects (underwater muffle, low-pass filtering,
 //! reverb) live in [`environment`]. Today only a Kira-friendly
@@ -17,10 +14,7 @@
 
 #[cfg(all(test, feature = "audio"))]
 use ambition_platformer2d_core as ae;
-// `SfxMessage` lives in the reusable `ambition_sfx` crate (moved down so
-// mechanics request sound without naming a sandbox module). Fable review §D1:
-// this module no longer re-exports it — every caller names `ambition_sfx::
-// SfxMessage` at its true home. The audio runtime submodules import it directly.
+// The audio runtime submodules import it directly.
 #[cfg(all(test, feature = "audio"))]
 use ambition_sfx as sfx;
 

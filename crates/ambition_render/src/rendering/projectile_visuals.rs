@@ -34,9 +34,6 @@ use ambition_sprite_sheet::SheetRegistry;
 #[derive(Component)]
 pub struct ProjectileVisual;
 
-/// Back-reference from a projectile visual to its sim projectile entity. Used to
-/// refresh the visual's transform each frame and despawn it once the projectile
-/// entity is gone.
 #[derive(Component, Clone, Copy)]
 pub struct VisualProjectile(pub Entity);
 
@@ -89,7 +86,6 @@ fn render_size(size: ProjectileRenderSize, body: Vec2, frame_aspect: f32) -> Vec
         ProjectileRenderSize::Body { min, scale } => {
             Vec2::new(body.x.max(min), body.y.max(min)) * scale
         }
-        // Width fixed; height follows the source frame aspect (w/h).
         ProjectileRenderSize::FixedWidth(w) => Vec2::new(w, w / frame_aspect.max(0.0001)),
     }
 }
@@ -247,10 +243,8 @@ fn build_sheet_visual(
     }
 }
 
-/// Spawn + maintain one persistent sprite for each in-flight projectile (player
-/// and enemy alike). Runs after `step_projectiles`. Art is a pure function of
-/// the projectile's sim-built [`ProjectileView`] (E4 slice 13); this system
-/// never reads `owner_id` or the live kinematics.
+/// Spawn + maintain one persistent sprite for each in-flight projectile (player and enemy alike).
+/// Runs after `step_projectiles`.
 #[allow(clippy::too_many_arguments)]
 pub fn sync_projectile_visuals(
     mut commands: Commands,

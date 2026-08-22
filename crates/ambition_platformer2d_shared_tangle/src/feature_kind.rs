@@ -1,13 +1,10 @@
 //! The feature-visual TAXONOMY shared by the sim (which stamps it at spawn)
 //! and every read-model/presentation consumer.
 //!
-//! Actors|props is the whole taxonomy (see `feedback: actors vs props`): one
-//! actor kind covers enemy/NPC/boss/sandbag — those were never render *types*,
-//! only states of one actor. Lives in the foundation crate so the render layer
-//! and the sprite resolvers can name a kind without depending on the combat
-//! model, and the combat/actor sim can stamp it without knowing presentation.
-//! (Moved from `ambition_combat::events` — recon C2: it was the only reason
-//! the renderer depended on the combat crate.)
+//! Actors|props is the whole taxonomy (see `feedback: actors vs props`): one actor kind covers
+//! enemy/NPC/boss/sandbag — those were never render *types*, only states of one actor. Lives in the
+//! foundation crate so the render layer and the sprite resolvers can name a kind without depending
+//! on the combat model, and the combat/actor sim can stamp it without knowing presentation.
 
 use ambition_platformer2d_core as ae;
 use bevy::prelude::Component;

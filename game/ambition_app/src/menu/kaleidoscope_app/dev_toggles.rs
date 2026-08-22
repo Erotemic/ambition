@@ -1,8 +1,6 @@
 //! Developer-page toggle plumbing for the cube menu's System tab: the read/
 //! write context structs and the snapshot/apply functions shared with the
 //! pause-menu Developer rows.
-//!
-//! Split out of the (post-test-extraction) `kaleidoscope_app.rs` (2026-06-15).
 
 use super::*;
 

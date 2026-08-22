@@ -1,25 +1,17 @@
 //! **THE NAMESPACES CHARACTER PREPARATION RESOLVES AGAINST** — the vocabulary
 //! every cross-layer reference a character makes is checked in.
 //!
-//! ⛔⛔ **these lived in the actor monolith**, at the top of the 2,000-line file
-//! that also holds preparation and a Bevy `App` extension. Campaign P1.7 wants
-//! the authoritative character model in the lowest natural character crate, and
-//! Jon's brief is explicit that a dependency obstacle must not be solved by
-//! leaving it up there — so this is the first slice down, and it is the one that
-//! proves the direction: these seven marker types need nothing but
-//! [`Namespace`], from `ambition_binding`.
+//! **these lived in the actor monolith**, at the top of the 2,000-line file that also holds
+//! preparation and a Bevy `App` extension.
 //!
-//! ⛔⛔ **the first version of this took the edge to
-//! `ambition_platformer2d_shared_tangle` instead, and "the contracts pass" was
-//! the wrong test.** Nothing forbids that edge, and the note here argued its
-//! safety on exactly those grounds. What it did not weigh is that shared_tangle
-//! is ~18k lines across 51 files of platformer lifecycle, camera, transit,
-//! schedules and hotkeys, and this file uses ONE name from it — so every edit to
-//! any of those files invalidated the canonical character domain. Legality is
-//! not the same question as floor (GPT 5.6 review of `1579ab3`). The boundary is
-//! its own crate now, whose entire dependency list is `tracing`.
+//! **the first version of this took the edge to `ambition_platformer2d_shared_tangle` instead, and
+//! "the contracts pass" was the wrong test.** Nothing forbids that edge, and the note here argued
+//! its safety on exactly those grounds. What it did not weigh is that shared_tangle is ~18k lines
+//! across 51 files of platformer lifecycle, camera, transit, schedules and hotkeys, and this file
+//! uses ONE name from it — so every edit to any of those files invalidated the canonical character
+//! domain. The boundary is its own crate now, whose entire dependency list is `tracing`.
 //!
-//! ⚠ **a namespace is a MARKER, not a table.** Each one names a kind of
+//! **a namespace is a MARKER, not a table.** Each one names a kind of
 //! reference and supplies the word a diagnostic prints; the vocabulary a
 //! reference resolves against is supplied per-composition by `CharacterBindings`
 //! — which is why `RangedPayload` belongs here despite having no lookup table at
@@ -47,9 +39,8 @@ impl Namespace for MoveId {
 
 /// The input verbs the moveset runtime can actually press.
 ///
-/// Engine-scoped, unlike [`MoveId`]: a verb is a word content and runtime have to
-/// agree on, and the runtime's list is fixed. A moveset binding a verb outside it
-/// authors a perfectly valid move onto a button that does not exist.
+/// A moveset binding a verb outside it authors a perfectly valid move onto a button that does
+/// not exist.
 pub struct VerbId;
 
 impl Namespace for VerbId {
@@ -78,11 +69,7 @@ impl Namespace for PortraitTarget {
 
 /// The ranged payload an authored `ranged` move needs to throw.
 ///
-/// Not a lookup namespace like the others — there is no table of payloads to
-/// misspell. It is here because a `ranged` move whose action set supplies no
-/// projectile is the same CLASS of failure every other resolver reports (content
-/// disagreeing with content, silently, until a playtest), and reporting it
-/// through the same channel means one place to read and one guard to watch.
+/// Not a lookup namespace like the others — there is no table of payloads to misspell.
 pub struct RangedPayload;
 
 impl Namespace for RangedPayload {

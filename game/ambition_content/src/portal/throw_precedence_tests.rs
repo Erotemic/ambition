@@ -1,19 +1,10 @@
 //! **Shield+Attack, when a portal adapter and a held item both want it.**
 //!
-//! ⛔⛔ **the regression these exist for was invisible to every focused test.**
-//! `throw_held_item_system` was correct in isolation, the portal drop was
-//! correct in isolation, and each had its own green suite. The bug lived in the
-//! COMPOSITION: the portal input adapter cleared `ActorControl.melee_pressed`
-//! the moment it emitted `DropPortalGun`, and `drop_portal_gun_system`
-//! deliberately answers that intent only for `(With<PortalGun>,
-//! Without<HeldItem>)` — a throwable in hand takes precedence, which its own
-//! comment says. So a body holding a laser sword lost the press to an action
-//! that was then refused, and the axe could not be thrown at all.
+//! So a body holding a laser sword lost the press to an action that was then refused, and the axe
+//! could not be thrown at all.
 //!
-//! ⇒ the fix is the rule, not an ordering: **an action spends the input edge
-//! where it COMMITS**, never in a producer whose consumer may reject it. These
-//! tests run the real adapter beside the real held-item simulation, because
-//! that is the only place the defect existed.
+//! ⇒ the fix is the rule, not an ordering: **an action spends the input edge where it COMMITS**,
+//! never in a producer whose consumer may reject it.
 
 use bevy::prelude::*;
 
@@ -129,12 +120,6 @@ fn press_shield_attack(carrying: Carrying) -> Outcome {
     }
 }
 
-/// **⛔⛔ THE REGRESSION: Shield+Attack throws the held item, portal adapter or
-/// not.**
-///
-/// This body holds no portal gun at all, so every portal system refuses
-/// everything — and that is exactly the case the adapter used to spend the
-/// press on.
 #[test]
 fn shield_attack_throws_a_held_item_with_the_portal_adapter_installed() {
     let outcome = press_shield_attack(Carrying::Item);

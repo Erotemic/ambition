@@ -20,9 +20,6 @@
 //!
 //! # The absent case is the common case
 //!
-//! Ordinary render-frame and fixed-tick hosts never install this resource.
-//! Absent means "no speculation happens here", so every consumer treats every
-//! frame as confirmed and behaves exactly as it did before this type existed.
 //! Read it as `Option<Res<ConfirmedFrameBoundary>>` and default to *release*.
 
 use bevy_ecs::resource::Resource;

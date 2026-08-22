@@ -1,21 +1,10 @@
 //! **The combat rules a match plays under — resolved, not borrowed.** (AE6)
 //!
-//! The versus stage used to switch its rules on by WRITING the world's globals
-//! (`Platformer2dFeelTuningMonolith::di_max_angle`, `FriendlyFire::enabled`) on route entry
-//! and putting them back on exit. Saving and restoring made that correct, but
-//! correct *by discipline*: any other writer during the match wins silently, a
-//! crash between entry and exit leaves the borrow outstanding, and "restore"
-//! was one refactor away from meaning "reset to the engine default" — which it
-//! did mean, for a while, and no test could tell because every test started from
-//! the default.
-//!
-//! The shape was the bug, not the bookkeeping. A route mutating global tuning
-//! and undoing it afterwards is a lifecycle borrowing an authority it does not
-//! own. So the match DECLARES its rules ([`DeclaredCombatRules`]), a projection
-//! folds them over the world's baseline every tick, and combat reads the result
-//! ([`ResolvedCombatTuning`]). Nothing is written back, so there is nothing to
-//! restore and no window in which the restore has not happened yet: removing the
-//! declaration IS the exit.
+//! A route mutating global tuning and undoing it afterwards is a lifecycle borrowing an authority
+//! it does not own. So the match DECLARES its rules ([`DeclaredCombatRules`]), a projection folds
+//! them over the world's baseline every tick, and combat reads the result
+//! ([`ResolvedCombatTuning`]). Nothing is written back, so there is nothing to restore and no
+//! window in which the restore has not happened yet: removing the declaration IS the exit.
 //!
 //! ## Why the type is here and the projection is not
 //!
@@ -41,13 +30,9 @@ use bevy::prelude::Resource;
 pub struct DeclaredCombatRules {
     /// **Which shell experience declared these rules.**
     ///
-    /// ⛔ required, not optional, and it is a LIFECYCLE field rather than a
-    /// label. Two stages declare combat rules — the versus route and the smash
-    /// demo — and each gives its declaration back when its experience leaves. A
-    /// giveback that removed the resource BY TYPE would delete the other stage's
-    /// live rules on the way out, which is the "whichever left first deleted the
-    /// other's match" bug this repo has already paid for twice (the participant
-    /// roster, then the prepared match). Naming the declarer is what lets the
+    /// required, not optional, and it is a LIFECYCLE field rather than a label. Two stages
+    /// declare combat rules — the versus route and the smash demo — and each gives its
+    /// declaration back when its experience leaves. Naming the declarer is what lets the
     /// release ask *is this mine* instead of assuming it.
     pub declared_by: String,
     /// How far a launched body may steer its own trajectory (CM2). `0.0`
@@ -61,34 +46,31 @@ pub struct DeclaredCombatRules {
     /// hundred-percent one dies to the same jab. `0.0` is flat knockback, which
     /// is Ambition's PvE answer and the engine baseline.
     ///
-    /// ⭐ **a RULESET fact, not a per-move one, and that is the point.** A move
-    /// may still author its own `knockback_growth` on a hit volume and that wins
-    /// outright; this is what a stage says when its moves author none. Without
-    /// it, every prefab-derived swing in the game carries `knockback_growth: 0.0` — so
-    /// Smash's duelists launched identically at 0% and 150%, which is exactly
-    /// what Jon reported as *"there does not seem to be any knockback"*.
+    /// **a RULESET fact, not a per-move one, and that is the point.** A move may still author its
+    /// own `knockback_growth` on a hit volume and that wins outright; this is what a stage says
+    /// when its moves author none.
     ///
-    /// ⚠ it scales the move's BASE launch rather than being an absolute
+    /// it scales the move's BASE launch rather than being an absolute
     /// px/s-per-point, so a jab grows less than a smash out of one number. That
     /// is the property a per-move table would otherwise have to restate for
     /// every move.
     pub knockback_growth: f32,
     /// **What a DOWNWARD hit does to the attacker.**
     ///
-    /// ⭐⭐ **one move, two games** (Jon's redirect §16, ledger D82). The robot's
+    /// **one move, two games**. The robot's
     /// down-air is one authored swing with one hitbox and one launch direction —
     /// and Ambition reads it as a POGO that bounces the attacker up off whatever
     /// it hit, while a platform fighter reads it as a SPIKE that drives the
     /// victim down and ends a stock offstage. Both readings are correct for
     /// their game, and neither belongs on the move.
     ///
-    /// ⛔ **this is what stopped the protagonist carrying its own repertoire.**
+    /// **this is what stopped the protagonist carrying its own repertoire.**
     /// Attaching the canonical moveset to `player_robot_v3` turned
     /// `gravity_symmetry::pogo_bounces_away_from_gravity` red, and the wrong fix
     /// — authoring the robot a second, Ambition-only down-air — is the
     /// duplicate-moves outcome §16 explicitly forbids.
     ///
-    /// ⚠ [`DownwardHitStyle::Pogo`] is the baseline BECAUSE it is today's
+    /// [`DownwardHitStyle::Pogo`] is the baseline BECAUSE it is today's
     /// behaviour: the effect is authored on the volume, so an undeclared world
     /// keeps firing it. A stage that wants spikes says so.
     pub downward_hit: DownwardHitStyle,
@@ -97,26 +79,26 @@ pub struct DeclaredCombatRules {
     /// exploration game wants: a downward hit there is a pogo or a shove, not a
     /// sentence.
     ///
-    /// ⭐ **it belongs beside [`Self::downward_hit`] and nowhere else.** That
+    /// **it belongs beside [`Self::downward_hit`] and nowhere else.** That
     /// field already decides whether this game reads a downward hit as a rebound
     /// or a SPIKE; how long the spiked body is silent is the same question one
     /// step further, and a game that declares `Spike` is exactly the game that
     /// wants to answer it. It briefly lived on the global feel tuning, where it
     /// had no way to be true for one experience and false for another.
     ///
-    /// ⚠ what the genre calls "meteor cancel" is this window ENDING. There is no
+    /// what the genre calls "meteor cancel" is this window ENDING. There is no
     /// second verb to press.
     pub meteor_lock_time: f32,
     /// **RAGE — how much a body's OWN accumulated damage raises the knockback it
     /// DEALS**, per point. `0.0` (the baseline) is no rage at all.
     ///
-    /// ⭐ the mirror of the percent mechanic and the reason a losing fighter is
+    /// the mirror of the percent mechanic and the reason a losing fighter is
     /// dangerous: a body already scales the knockback it TAKES by its own
     /// damage, so without this the fighter behind is punished twice — easier to
     /// launch and no harder to be launched by. Rage is what makes a comeback a
     /// thing the rules produce rather than a thing a player hopes for.
     ///
-    /// ⚠ capped by [`Self::rage_max_scale`], because uncapped it turns the last
+    /// capped by [`Self::rage_max_scale`], because uncapped it turns the last
     /// stock into a coin flip.
     pub rage_per_damage: f32,
     /// The ceiling on [`Self::rage_per_damage`], as a multiplier. `1.0` = rage
@@ -125,12 +107,9 @@ pub struct DeclaredCombatRules {
     /// **STALING — how much of its strength a move loses per recent landing of
     /// the same move.** `0.0` (the baseline) is no staling.
     ///
-    /// ⭐ it exists to stop one good answer being the ONLY answer. A fighter
+    /// it exists to stop one good answer being the ONLY answer. A fighter
     /// with a reliable kill move should have to vary, and a fighter who has
     /// worn one out should find the others suddenly worth throwing.
-    ///
-    /// ⚠ what is remembered is what LANDED, not what was thrown. A whiff did
-    /// not answer anything.
     pub stale_step: f32,
     /// The floor [`Self::stale_step`] cannot take a move below, as a multiplier.
     /// `1.0` = staling can never weaken anything.
@@ -139,7 +118,7 @@ pub struct DeclaredCombatRules {
     /// by.** `1.0` (the baseline) = crouching buys nothing but a shorter
     /// hurtbox.
     ///
-    /// ⭐ it makes ducking a defensive READ rather than only a shape. ⚠ flat,
+    /// it makes ducking a defensive READ rather than only a shape. flat,
     /// with no percent threshold, because the threshold is emergent: 85% of a
     /// kill move is still a kill, so the option stops mattering by itself
     /// exactly where the genre stops using it.
@@ -149,10 +128,10 @@ pub struct DeclaredCombatRules {
     /// **How much longer per point of the CAPTIVE's damage.** Ultimate's 1.7
     /// frames per percent, so a fighter at 100% is held roughly twice as long.
     ///
-    /// ⭐ it makes the grab a percent mechanic like everything else here: the
+    /// it makes the grab a percent mechanic like everything else here: the
     /// body that is losing is the body a grab is worth throwing at.
     ///
-    /// ⚠ read ONCE, when the hold begins — pummelling does not extend it, which
+    /// read ONCE, when the hold begins — pummelling does not extend it, which
     /// is the genre's rule and the reason a pummel is a decision rather than a
     /// free extension of your own advantage.
     pub grab_hold_per_damage: f32,
@@ -165,15 +144,12 @@ pub struct DeclaredCombatRules {
     pub grab_mash_seconds: f32,
     /// Whether same-faction bodies damage each other.
     ///
-    /// ⚠ a match with declared TEAMS should leave this `false`. `MatchTeam`
-    /// outranks faction for "may this land", and switching global friendly fire
-    /// on to let two humans hit each other also makes teammates hittable — the
-    /// 2v2 bug this seam exists to stop recurring.
+    /// a match with declared TEAMS should leave this `false`.
     pub friendly_fire: bool,
     /// **What a body that authored NO melee swings, in this experience.**
     ///
-    /// ⭐⭐ **the third authority finally owning a scaffold that had been spelled
-    /// twice** (2026-08-12). Two places answered this question independently:
+    /// **the third authority finally owning a scaffold that had been spelled
+    /// twice**. Two places answered this question independently:
     /// Smash's `smash_fighter_kit()` granted a seated fighter one swipe, and the
     /// PROVOCATION path handed a peaceful body a whole enemy archetype to get a
     /// melee out of it. Putting their numbers side by side is what settled it —
@@ -186,11 +162,11 @@ pub struct DeclaredCombatRules {
     /// *what a stage says when the move authors nothing*. A character that
     /// states its own repertoire never reaches this.
     ///
-    /// ⚠ `None` means *this experience does not say*, and the engine's own
+    /// `None` means *this experience does not say*, and the engine's own
     /// exploration default stands — which is every room in Ambition, and is why
     /// this is an `Option` rather than a value every declaration must invent.
     ///
-    /// ⛔ its goal is DELETION, per character rather than per mode: when every
+    /// its goal is DELETION, per character rather than per mode: when every
     /// body in an experience authors its own kit, that experience's declaration
     /// goes back to `None` and the scaffold has no adopters left.
     pub unarmed_melee: Option<ambition_characters::brain::MeleeActionSpec>,
@@ -254,10 +230,6 @@ impl DeclaredCombatRules {
     }
 }
 
-/// **The hold an UNDECLARED world gives**, in seconds — flat, whatever the
-/// captive's damage. It is the `CAPTURE_HOLD_LIMIT_SECONDS` that used to live in
-/// `smash_capture`, kept here as the baseline so a world that declares no combat
-/// rules behaves exactly as it did rather than releasing everybody instantly.
 pub const FLAT_GRAB_HOLD_SECONDS: f32 = 4.0;
 /// **What one mash press buys in an undeclared world**, in seconds. Twenty
 /// presses cleared the old fractional accumulator, and twenty of these clear
@@ -288,7 +260,7 @@ impl ResolvedCombatTuning {
 
     /// **How long a grab holds a body at this damage**, in seconds, capped.
     ///
-    /// ⚠ the caller asks ONCE, as the hold begins, and stores the answer: this
+    /// the caller asks ONCE, as the hold begins, and stores the answer: this
     /// is the captive's percent AT THE GRAB, so damage dealt during the hold
     /// does not extend it.
     pub fn grab_hold_seconds(self, captive_damage_taken: i32) -> f32 {
@@ -320,13 +292,13 @@ impl ResolvedCombatTuning {
                 grab_mash_seconds: rules.grab_mash_seconds,
                 friendly_fire: rules.friendly_fire,
             },
-            // ⚠ growth has NO world baseline to fall back to, unlike DI and
+            // growth has NO world baseline to fall back to, unlike DI and
             // friendly fire: nothing outside a declaration authors it, so an
             // undeclared world is flat — which is every Ambition room today.
             None => Self {
                 di_max_angle: baseline_di,
                 knockback_growth: 0.0,
-                // ⚠ an undeclared world POGOS, because that is what the authored
+                // an undeclared world POGOS, because that is what the authored
                 // effect already does. Anything else would change every Ambition
                 // room to buy a Smash feature.
                 downward_hit: DownwardHitStyle::Pogo,
@@ -358,13 +330,6 @@ impl Default for ResolvedCombatTuning {
     /// The engine baseline: no directional influence, no friendly fire. Exists so
     /// a composition that never installs the projection still resolves rather
     /// than reading `None` as "zero rules".
-    ///
-    /// ⭐ **it now READS the feel default instead of restating it.** This said
-    /// *"Matches `Platformer2dFeelTuningMonolith::default().di_max_angle`"* and
-    /// then wrote `0.0` by hand — an agreement maintained by a COMMENT, which is
-    /// the kind that goes quietly wrong the day somebody retunes the feel. The
-    /// type moved into this crate on 2026-08-21 (D33), so the agreement can be
-    /// the compiler's.
     fn default() -> Self {
         Self {
             di_max_angle: crate::feel::Platformer2dFeelTuningMonolith::default().di_max_angle,
@@ -391,7 +356,7 @@ mod tests {
 
     /// **A GRAB HOLDS THE HURT FIGHTER LONGER, AND STILL LETS GO.**
     ///
-    /// ⛔ three points and not one: the base alone would pass with the rate at
+    /// three points and not one: the base alone would pass with the rate at
     /// zero, and the rate alone would pass with no ceiling — which is the shape
     /// that turns a grab at high percent into a body removed from the match.
     #[test]
@@ -409,7 +374,7 @@ mod tests {
             3.0,
             "a hold at high percent outlived its own ceiling"
         );
-        // ⚠ an undeclared world is FLAT, not zero: a rate of zero here would be
+        // an undeclared world is FLAT, not zero: a rate of zero here would be
         // an instant release rather than "no percent mechanic".
         let flat = ResolvedCombatTuning::default();
         assert_eq!(flat.grab_hold_seconds(0), flat.grab_hold_seconds(300));
@@ -521,7 +486,7 @@ mod rage_tests {
 
     /// **A LOSING FIGHTER HITS HARDER, UP TO A CEILING.**
     ///
-    /// ⛔ the reason rage exists at all: a body already scales the knockback it
+    /// the reason rage exists at all: a body already scales the knockback it
     /// TAKES by its own damage, so without this the fighter behind is punished
     /// twice — easier to launch and no harder to launch with. And the cap is not
     /// decoration: uncapped, the last stock stops being a fight.
@@ -541,7 +506,7 @@ mod rage_tests {
 
     /// **AND A GAME THAT DECLARES NO RAGE NEVER GETS ANY.**
     ///
-    /// ⛔ the floor that keeps Ambition's PvE unchanged: the baseline declares
+    /// the floor that keeps Ambition's PvE unchanged: the baseline declares
     /// `0.0`, and a rate of zero must be exactly `1.0` however hurt the attacker
     /// is — not `1.0 + 0.0 * n` rounded, but the early return.
     #[test]
@@ -551,7 +516,7 @@ mod rage_tests {
         for damage in [0, 1, 50, 999] {
             assert_eq!(plain.rage_scale(damage), 1.0);
         }
-        // ⚠ and a rate with a ceiling of 1.0 cannot help either, whatever the
+        // and a rate with a ceiling of 1.0 cannot help either, whatever the
         // rate says — the cap is the authority.
         assert_eq!(raging(0.05, 1.0).rage_scale(200), 1.0);
     }

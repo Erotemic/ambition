@@ -69,14 +69,10 @@ impl Namespace for HeldItemId {
 /// not read like "we looked and it was fine", which is the whole failure this
 /// boundary exists to prevent.
 ///
-/// ⛔⛔ **THE CHARACTER NAMESPACE LEFT WITH THE ARCHETYPE ROSTER** (AC6). It
-/// resolved each `EnemySpawn`'s BRAIN KEY against the roster's keys, because the
-/// lookup behind that key could not fail: a misspelling became the generic
-/// `combatant` body wearing the right name, and this sweep was the only place
-/// that could see it. Construction refuses an identifier that names no character
-/// now, which is a stronger statement than a report — and a brain key is
-/// controller policy rather than a body, so resolving one against a body table
-/// was the category error the campaign is named for.
+/// **THE CHARACTER NAMESPACE LEFT WITH THE ARCHETYPE ROSTER** (AC6). It resolved each
+/// `EnemySpawn`'s BRAIN KEY against the roster's keys, because the lookup behind that key could
+/// not fail: a misspelling became the generic `combatant` body wearing the right name, and this
+/// sweep was the only place that could see it.
 #[derive(Default)]
 pub struct RoomBindings;
 
@@ -115,7 +111,7 @@ impl RoomBindings {
             }
         }
 
-        // ⭐ **THE ENEMY BRAIN WAS NEVER THE ONLY REFERENCE THAT SHRUGS.** Three
+        // **THE ENEMY BRAIN WAS NEVER THE ONLY REFERENCE THAT SHRUGS.** Three
         // roads resolve a path id against this same table by string equality and
         // all three fall through to `None` in silence — an enemy's patrol brain,
         // an NPC placement's `patrol_path_id`, and a hazard's motion `path_id`.
@@ -134,7 +130,7 @@ impl RoomBindings {
                         ..
                     } = &interactable.kind
                     {
-                        // ⚠ resolved UNTRIMMED, because the NPC lowering road
+                        // resolved UNTRIMMED, because the NPC lowering road
                         // compares untrimmed (the enemy road trims at conversion,
                         // the hazard road trims at lookup). Predicting the runtime
                         // matters more than being tidy: trimming here would call a

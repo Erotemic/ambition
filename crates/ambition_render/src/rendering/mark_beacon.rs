@@ -19,10 +19,8 @@ const BEACON_RISE: f32 = 18.0;
 /// In-world display size of the beacon sprite (3:7, matching the rendered prop).
 const BEACON_SIZE: ae::Vec2 = ae::Vec2::new(30.0, 70.0);
 
-/// Draw a persistent glowing beacon at each player's dropped recall mark so they
-/// can see where `Blink` will recall them to (the mark used to be VFX-only).
-/// Clear-and-rebuild each frame — one mark per player, despawns when the mark is
-/// cleared. Visible build only.
+/// Clear-and-rebuild each frame — one mark per player, despawns when the mark is cleared. Visible
+/// build only.
 pub fn sync_mark_beacon_visual(
     mut commands: Commands,
     world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<

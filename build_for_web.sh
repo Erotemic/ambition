@@ -302,7 +302,7 @@ if [[ "$SKIP_BINDGEN" != true ]]; then
     OUT_JS="$OUT_DIR/ambition_app.js"
     if [[ -f "$OUT_WASM" ]]; then
         log "wasm-bindgen output: $(human_size "$OUT_WASM") wasm, $(human_size "$OUT_JS") js"
-        # ⚠ **SIZE IS A BOOT FAILURE MODE, not a nicety.** The browser must
+        # **SIZE IS A BOOT FAILURE MODE, not a nicety.** The browser must
         # download AND COMPILE this before a single line of Rust runs, and a
         # module in the hundreds of MB can take a minute or hang a tab outright —
         # which presents as "the page loads and nothing happens", indistinguishable
@@ -331,22 +331,19 @@ fi
 # `/assets/<path>` over HTTP, so `python3 -m http.server` must expose the same
 # composed view the game resolves on a desktop.
 #
-# ⛔⛔ **THIS USED TO SYMLINK ONE IMPLEMENTATION CRATE'S `assets/` DIRECTORY**
-# (`crates/ambition_platformer2d_actor_monolith/assets`), and that was wrong in
-# two ways at once. It named a crate the ongoing Bevy decomposition is actively
-# dismantling — rename it and the web build breaks for a reason nothing here
-# explains — and it published only ONE of the two roots, so everything the
-# content crate owns (every world addressed `game://worlds/...`, the vanity
-# card) was simply absent from the served tree.
+# It named a crate the ongoing Bevy decomposition is actively dismantling — rename it and the web
+# build breaks for a reason nothing here explains — and it published only ONE of the two roots, so
+# everything the content crate owns (every world addressed `game://worlds/...`, the vanity card) was
+# simply absent from the served tree.
 #
-# ⭐ **The composed tree is not this script's to invent.** `package_asset_guard.py
+# **The composed tree is not this script's to invent.** `package_asset_guard.py
 # compose` is the single seam that collapses the roots, forbids implicit
 # overrides between them, and emits a byte contract — the same one Android
 # verifies against its APK and the Steam Deck deploy verifies after rsync. Web
 # is now a fourth consumer of that one publication rather than a fourth opinion
 # about where assets live, and it names no crate at all.
 #
-# ⚠ `--materialize link` because this is a DEVELOPMENT loop: the composed tree
+# `--materialize link` because this is a DEVELOPMENT loop: the composed tree
 # is ~1.1 GB and would otherwise be duplicated on every wasm build. The contract
 # and its full hash audit run identically either way; only the bytes are shared.
 # A shipped package keeps the default `copy` — an APK cannot carry a link.
@@ -377,8 +374,7 @@ fi
 URL="http://localhost:$SERVE_PORT/"
 
 if [[ "$OPEN_BROWSER" == true ]]; then
-    # Open in the background so we don't race the server before it
-    # accepts connections. xdg-open is best-effort; failure is non-fatal.
+    # xdg-open is best-effort; failure is non-fatal.
     if command -v xdg-open >/dev/null 2>&1; then
         ( sleep 1 && xdg-open "$URL" >/dev/null 2>&1 ) &
     elif command -v open >/dev/null 2>&1; then

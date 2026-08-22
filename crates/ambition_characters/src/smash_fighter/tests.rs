@@ -1,9 +1,9 @@
-//! ⚠ **what is asked here is that PREPARATION LOSES NOTHING.** A facet is only
+//! **what is asked here is that PREPARATION LOSES NOTHING.** A facet is only
 //! worth having if the numbers an author wrote come back out of the runtime
 //! moves unchanged; a lowering that dropped `hold_offset` would compile, pass
 //! every shape assertion, and put every captive in the wrong place.
 //!
-//! ⛔ deliberately a local fixture rather than `include_str!` of a shipped file.
+//! deliberately a local fixture rather than `include_str!` of a shipped file.
 //! `ambition_characters` is an engine crate and `game/ambition_demo_smash` is a
 //! game; a test path climbing out of one into the other is a dependency the
 //! crate graph does not have. George's own facet is guarded where it lives.
@@ -151,7 +151,7 @@ fn an_authored_back_throw_arrives_and_the_others_stay_absent() {
     assert!(repertoire.down_throw.is_none());
 }
 
-/// ⭐ **the grab that plays and catches nobody.** Every field is a plausible
+/// **the grab that plays and catches nobody.** Every field is a plausible
 /// number and the move is a recovery animation. `author_standing_grab` asserts
 /// on it, so without this the failure would be a panic during preparation
 /// rather than a diagnostic naming the file.
@@ -179,7 +179,7 @@ fn a_reach_with_no_area_is_refused() {
     );
 }
 
-/// ⭐ **the sharpest one: a throw whose release is past its own end.** The move
+/// **the sharpest one: a throw whose release is past its own end.** The move
 /// plays, the wind-up reads, and the captive is still held when it finishes —
 /// which in a match looks like the grab being unbreakable rather than like a
 /// number being wrong.

@@ -17,12 +17,8 @@
 //! in the foundation). It has no ECS, no Bevy systems, no RNG — so the headless
 //! sim and the unit tests exercise the exact same geometry the game runs.
 //!
-//! Current implementation note: gameplay pieces are still AABB-backed, so
-//! production use is restricted to cardinal floor / wall / ceiling portals. The
-//! frame math (now `ambition_platformer2d_core::frame` — the CC5 aperture
-//! vocabulary) is angle-general; arbitrary-angle portals need polygon clipping
-//! and non-AABB body pieces before this can be a fully general standalone
-//! portal crate (docs/concepts/movement-collision.md).
+//! Current implementation note: gameplay pieces are still AABB-backed, so production use is
+//! restricted to cardinal floor / wall / ceiling portals.
 
 use ambition_platformer2d_core::{self as ae, AabbExt};
 use bevy::math::Vec2;
@@ -70,10 +66,6 @@ pub fn map_aabb(b: ae::Aabb, enter: &PortalFrame, exit: &PortalFrame) -> ae::Aab
     ae::Aabb::new(center, half)
 }
 
-/// Keep the part of `b` on the side of the plane (through `point`, axis-aligned
-/// outward `dir`) that `dir` points toward. `None` if `b` is entirely on the far
-/// side. Used to clip a body to one side of a portal plane.
-///
 /// (Cardinal-only, like the whole AABB piece layer — P3b generalizes.)
 pub fn clip_halfspace(b: ae::Aabb, point: Vec2, dir: Vec2) -> Option<ae::Aabb> {
     let (mut x0, mut y0, mut x1, mut y1) = (b.min.x, b.min.y, b.max.x, b.max.y);
@@ -211,11 +203,9 @@ pub fn front_distance(point: Vec2, frame: &PortalFrame) -> f32 {
 // ---------------------------------------------------------------------------
 // Host-surface carve: the floor / wall must become non-solid in the opening.
 //
-// The rectangle set-difference itself is `ae::geometry::subtract_aabb` — plain
-// AABB algebra, so it lives in the foundation (refactor-chain R3). It moved so
-// `ambition_platformer2d_world` could composite a carved collision world without depending on
-// this crate. The portal-specific part — how deep and how wide the hole is — is
-// below.
+// The rectangle set-difference itself is `ae::geometry::subtract_aabb` — plain AABB algebra, so
+// it lives in the foundation (refactor-chain R3). The portal-specific part — how deep and how
+// wide the hole is — is below.
 
 /// How deep (px) into the host surface a portal carves its doorway. Just past a
 /// body's half-depth so the leading slice can sink in up to the centroid before
@@ -238,11 +228,6 @@ pub fn carve_hole(ap: &PortalAperture) -> ae::Aabb {
     carve_hole_with_depth(ap, f32::INFINITY)
 }
 
-/// [`carve_hole`] bounded by the MEASURED host material depth: the aperture
-/// volume ends where the wall does. On a thin wall a full-depth hole would
-/// reach into the open room behind it, and anything keying off "inside the
-/// hole" (the transit rescue, the carve engagement) would wrongly engage a
-/// body standing behind the wall.
 pub fn carve_hole_with_depth(ap: &PortalAperture, host_depth: f32) -> ae::Aabb {
     let depth = CARVE_DEPTH.min(host_depth.max(0.0));
     let along = ap.frame.tangent();

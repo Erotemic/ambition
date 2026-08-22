@@ -22,9 +22,8 @@
 //!
 //! ## What it does and does not show
 //!
-//! It runs the REAL simulation: level 1-1 room, its rideable Sonic loop, a
-//! player body on the momentum kernel, and the mode-scoped act timer. It steps
-//! that sim on the fixed 60 Hz timeline and reports what the sim knows.
+//! It runs the REAL simulation: level 1-1 room, its rideable Sonic loop, a player body on the
+//! momentum kernel, and the mode-scoped act timer.
 //!
 //! By default it draws nothing and prints what the sim knows — the sim-only shell,
 //! which pays for no renderer at all. **Built with `--features visible` it opens a
@@ -61,8 +60,6 @@ fn main() {
 
     let ticks = ambition_platformer2d::demo_shell::headless_ticks(DEFAULT_TICKS);
 
-    // The assembly lives in `lib.rs` so the exit-3 regression test builds the
-    // SAME app this binary does.
     let mut app = ambition_demo_mary_o_app::build_demo_app();
     if let Some(room) = parse_room() {
         app.insert_resource(ambition_demo_mary_o::provider::MaryOEntryRoom(room));
@@ -78,12 +75,7 @@ fn main() {
 
 /// **Which room to open in.** Absent means 1-1, the shipped entry.
 ///
-/// ⭐ **this exists because an authored room was unreachable to review.** A level
-/// authored in LDtk costs no Rust to describe, and then could only be looked at
-/// by PLAYING 1-1 and 1-2 first — so the cheapest possible review of new content
-/// was the most expensive step in authoring it.
-///
-/// ⛔ **validated here, for the reason `capture_mary_o` already states at its own
+/// **validated here, for the reason `capture_mary_o` already states at its own
 /// `--room`: the seam it feeds does NOT refuse.** `RoomSet::from_parts` activates
 /// room 0 for an id it does not hold, so an unknown room would silently open 1-1
 /// and look like success — and a reviewer who asked for 1-3, got 1-1, and saw

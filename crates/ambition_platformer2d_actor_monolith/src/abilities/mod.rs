@@ -1,8 +1,5 @@
 //! Ambition's player ability / weapon kit.
 //!
-//! The 14 loose ability/weapon mechanics that used to live at the crate
-//! root now share one home here, grouped by kind:
-//!
 //! * [`traversal`] — blink, dive, grapple, possession, mark/recall
 //! * [`ranged`] — beam, meteor, shockwave, vortex, volley, bomb, sentry
 //! * [`thrown`] — gravity grenade, puppy-slug gun

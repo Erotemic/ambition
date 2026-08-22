@@ -27,7 +27,7 @@ use super::snapshot::BrainSnapshot;
 pub enum StateMachineCfg {
     /// No motion. Used by static NPCs and sandbag-style targets.
     StandStill,
-    /// Fixed waypoint loop. `aggressiveness` controls engagement.
+    /// `aggressiveness` controls engagement.
     Patrol { cfg: PatrolCfg, state: PatrolState },
     /// Move forward in `actor_facing`. Drives the puppy slug today. Surface
     /// wrapping belongs to the crawler motion model; a simple walker's choice to
@@ -227,9 +227,8 @@ impl AuthoredWorldPatrolLane {
     }
 }
 
-/// Fixed authored-world paddle around a lane center. Hostility is
-/// controlled separately — a hostile Patrol brain still emits
-/// melee_pressed when in range and can flip facing to chase.
+/// Hostility is controlled separately — a hostile Patrol brain still emits melee_pressed when
+/// in range and can flip facing to chase.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PatrolCfg {
     /// World/environment route lane. This is route-space, not local side.
@@ -271,7 +270,7 @@ fn local_target_side(snapshot: &BrainSnapshot) -> f32 {
     snapshot.target_delta_local().x
 }
 
-// ⭐ the two named conversions this module already routed everything through.
+// the two named conversions this module already routed everything through.
 // Typing them is what makes the naming convention enforceable rather than a
 // habit: a caller cannot reach world space except by passing through here.
 fn frame_to_world(snapshot: &BrainSnapshot, local: ae::LocalAxes) -> ae::WorldVec2 {
@@ -499,25 +498,18 @@ impl SkirmisherCfg {
 #[derive(Clone, Copy, Debug, Default)]
 pub struct SkirmisherState {
     pub mode: crate::actor::ai::CharacterAiMode,
-    /// Seconds remaining until the next shot can fire. Counts down
-    /// each tick by `snapshot.dt`. Reset to `cfg.fire_cooldown_s`
-    /// on fire. The previous shape compared an absolute `sim_time`
-    /// against `last_fire_t`, but the sandbox actors path doesn't
-    /// populate `snapshot.sim_time` — it's hard-coded to 0.0 — so
-    /// every comparison evaluated `0 - 0 >= 1.5` and Skirmisher
-    /// never fired in production. The decrementing-timer shape is
-    /// what MeleeBrute uses via `attack_cooldown_remaining` and
+    /// Counts down each tick by `snapshot.dt`. Reset to `cfg.fire_cooldown_s` on fire. The
+    /// previous shape compared an absolute `sim_time` against `last_fire_t`, but the sandbox
+    /// actors path doesn't populate `snapshot.sim_time` — it's hard-coded to 0.0 — so every
+    /// comparison evaluated `0 - 0 >= 1.5` and Skirmisher never fired in production. The
+    /// decrementing-timer shape is what MeleeBrute uses via `attack_cooldown_remaining` and
     /// avoids the global-clock dependency.
     pub cooldown_remaining: f32,
-    /// Per-actor orbital phase in radians. The Skirmisher orbits
-    /// the target on a circle of radius `cfg.standoff_px` and picks
-    /// its desired position via
-    /// `target_pos + (cos θ, sin θ) * standoff_px` where θ is this
-    /// phase. Seeding it from the actor's stable id-derived RNG
-    /// spreads a squadron of shark-riders around the player
-    /// (above / below / left / right) instead of stacking them all
-    /// at the same offset axis. The phase drifts slowly over time
-    /// (`drift_rate_rad_s`) so the orbit isn't fixed.
+    /// Per-actor orbital phase in radians. The Skirmisher orbits the target on a circle of
+    /// radius `cfg.standoff_px` and picks its desired position via `target_pos + (cos θ, sin θ)
+    /// * standoff_px` where θ is this phase. Seeding it from the actor's stable id-derived RNG
+    /// spreads a squadron of shark-riders around the player (above / below / left / right)
+    /// instead of stacking them all at the same offset axis.
     pub orbit_phase: f32,
 }
 
@@ -532,10 +524,8 @@ fn tick_skirmisher(
     // a Skirmisher that loses sight mid-cooldown doesn't get a free
     // first shot the moment the player re-enters aggro.
     state.cooldown_remaining = (state.cooldown_remaining - snapshot.dt).max(0.0);
-    // Orbital phase drifts continuously so the actor circles the
-    // target instead of locking onto a fixed offset. The per-actor
-    // initial phase (seeded at spawn) keeps a squadron spread out
-    // around the player.
+    // The per-actor initial phase (seeded at spawn) keeps a squadron spread out around the
+    // player.
     state.orbit_phase += cfg.orbit_drift_rad_s * snapshot.dt;
     if state.orbit_phase > std::f32::consts::TAU {
         state.orbit_phase -= std::f32::consts::TAU;
@@ -623,9 +613,7 @@ impl SniperCfg {
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct SniperState {
-    /// Seconds remaining until the next shot can fire. Decrements
-    /// each tick by `snapshot.dt`. See `SkirmisherState` doc for why
-    /// this replaces the previous `last_fire_t` / `sim_time` shape.
+    /// Decrements each tick by `snapshot.dt`.
     pub cooldown_remaining: f32,
 }
 

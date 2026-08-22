@@ -44,7 +44,7 @@ fn file_root_registry() -> &'static SheetRegistry {
 /// **File roots the index REFUSED for naming several records**, exposed so a
 /// caller that owns a character catalog can decide whether any of them matter.
 ///
-/// ⭐ same division of labour as `SheetRegistry::shadowed_targets`: this side can
+/// same division of labour as `SheetRegistry::shadowed_targets`: this side can
 /// see that a root is ambiguous, but only a catalog knows whether a character
 /// resolves its art by that root — and a character whose `manifest_target` were
 /// refused here would silently lose its authored blade and fall back to the
@@ -55,7 +55,7 @@ pub fn refused_file_roots() -> &'static [ambition_sprite_sheet::AmbiguousFileRoo
 
 /// Whether the file-root index resolves `root` to a sheet.
 ///
-/// ⭐ exists so a caller can prove its own comparison is not vacuous: a check
+/// exists so a caller can prove its own comparison is not vacuous: a check
 /// that a character's `manifest_target` is not a REFUSED root means nothing
 /// unless those two names live in the same namespace to begin with.
 pub fn resolves_by_file_root(root: &str) -> bool {
@@ -202,12 +202,10 @@ pub fn authored_attack_volume_resolver(
     }
 }
 
-/// Player-only GAMEPLAY hitbox enlargement (blind fix 2026-07-12, Jon: "make
-/// dair / up-tilt easier to pogo + test"). The authored polys are sized to the
-/// visual blade; this scales the player's strike reach + size about the feet
-/// anchor so the directional swings connect more forgivingly, WITHOUT touching
-/// the visual sprite or any actor's authored size. `1.0` = authored size. Pure
-/// feel knob — TUNE LIVE.
+/// The authored polys are sized to the visual blade; this scales the player's strike reach +
+/// size about the feet anchor so the directional swings connect more forgivingly, WITHOUT
+/// touching the visual sprite or any actor's authored size. `1.0` = authored size. Pure feel
+/// knob — TUNE LIVE.
 const PLAYER_ATTACK_HITBOX_SCALE: f32 = 1.3;
 
 /// authored melee box drives its attack.

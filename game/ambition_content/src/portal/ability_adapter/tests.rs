@@ -1,12 +1,5 @@
-//! Unit tests for the parent module, extracted from an inline
-//! `#[cfg(test)] mod tests` (test-organization campaign, 2026-07-10). Pure move:
-//! same test names + logic, now an adjacent child module with private access via
-//! `use super::*;`.
 
-//! The portal input-warp + wall-ability suppression adapters (Stage 19
-//! Phase 5a — moved out of the portal crate because they shape INPUT /
-//! mutate the PLAYER's abilities, neither of which the crate owns). These
-//! drive the REAL adapters + the portal-owned marker components.
+//! These drive the REAL adapters + the portal-owned marker components.
 use bevy::prelude::*;
 
 use ambition_characters::control::{DrivingParticipant, PlayerSlot, SeatRawFrames, SlotControls};
@@ -101,8 +94,6 @@ fn wall_ability_suppression_reapplies_every_frame_against_the_loadout_reset() {
     use ambition_platformer2d_actor_monolith::actor::BodyAbilities;
     let mut app = App::new();
     app.init_resource::<PortalTuning>();
-    // Stand in for the per-frame loadout reset that clobbered the old
-    // save-once suppression: re-enable ledge_grab BEFORE the suppressor runs.
     fn reenable_ledge_grab(mut q: Query<&mut BodyAbilities>) {
         for mut a in &mut q {
             a.abilities.ledge_grab = true;
@@ -219,10 +210,8 @@ fn wall_ability_suppression_is_body_generic_and_restores_from_the_base() {
     );
 }
 
-/// The emergence guard follows the DRIVEN body: possess an actor, send it
-/// through a portal, and ITS `PortalEmission` shapes the local input stream —
-/// previously only the primary player's guard was consulted, so a possessed
-/// emergence had no input protection at all.
+/// The emergence guard follows the DRIVEN body: possess an actor, send it through a portal, and
+/// ITS `PortalEmission` shapes the local input stream
 #[test]
 fn emission_guard_follows_the_possessed_body() {
     let mut app = App::new();

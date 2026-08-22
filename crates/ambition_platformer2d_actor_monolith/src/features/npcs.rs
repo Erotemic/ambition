@@ -14,22 +14,15 @@
 
 use super::*;
 
-/// Number of player attacks before a peaceful NPC turns hostile.
-/// Three lets the player commit to the choice intentionally without
-/// flipping by accident on a stray slash.
 pub const NPC_HOSTILE_STRIKE_THRESHOLD: i32 = 3;
 
-/// Fixed talk radius for patrolling NPCs. When the player gets
-/// within this many world pixels, a patrolling NPC stops and faces
-/// the player so the dialog interact is reachable. ~80 px ≈ 2.5
-/// player widths — close enough to commit to dialog, far enough
-/// that an NPC doesn't freeze the moment you walk past their
+/// When the player gets within this many world pixels, a patrolling NPC stops and faces the
+/// player so the dialog interact is reachable. ~80 px ≈ 2.5 player widths — close enough to
+/// commit to dialog, far enough that an NPC doesn't freeze the moment you walk past their
 /// patrol range.
 pub const NPC_TALK_RADIUS: f32 = 80.0;
 
-/// Patrol speed for NPCs. Moved to the brain (its consumer,
-/// `ambition_characters::brain::PatrolCfg::NPC_DEFAULT`); re-exported here for
-/// authoring-side reference.
+/// Patrol speed for NPCs.
 pub use ambition_characters::brain::NPC_PATROL_SPEED;
 
 /// Engine-generic on-hit barks for an interactable actor whose catalog row
@@ -68,10 +61,8 @@ const GENERIC_HOSTILE_BARK: &str = "That's it!";
 /// that DOES claim to own them.
 pub(crate) fn resolve_npc_brain(
     catalog: &CharacterCatalog,
-    // **The prepared cast**, consulted only for the character's own default
-    // autonomous profile (D73 phase 1). An EMPTY registry is a legal, meaningful
-    // value: no character states a default, which is what this path assumed
-    // before definitions could state one.
+    // An EMPTY registry is a legal, meaningful value: no character states a default, which is
+    // what this path assumed before definitions could state one.
     prepared: &crate::character_runtime::PreparedCharacterRegistry,
     interactable: &Interactable,
     spawn_world_x: f32,
@@ -99,23 +90,13 @@ pub(crate) fn resolve_npc_brain(
         return (ambition_characters::brain::Brain::stand_still(), None);
     };
     let authored = AuthoredBrainContext::from_placement(spawn_world_x, *patrol_radius);
-    // ⭐⭐ **THE PRECEDENCE RULE, AND IT IS JON'S** (2026-08-10, restated in the
-    // surviving vocabulary 2026-08-12):
-    //
     // ```text
     //   the placement's brain_override   a scene saying "this one is a guard"
     //   the CHARACTER's own profile      what a Goblin normally does
     //   the catalog row's default_brain  what a body gets when nobody migrated it
     // ```
     //
-    // ⛔ the middle rank used to be expressed by a `default_brain_profile` field
-    // on the definition — a `BrainPresetRef`, the ROW's vocabulary — and **no
-    // character in the repo ever authored one**, so in practice the row outranked
-    // the character on every body in the game. That field is deleted (D97); the
-    // rank it was standing in for is stated here, in the vocabulary characters
-    // actually use.
-    //
-    // ⚠ a content guard (`a_character_states_its_policy_in_one_place`) already
+    // a content guard (`a_character_states_its_policy_in_one_place`) already
     // forbids a character authoring a profile while its row names a preset, so
     // this branch and that guard agree today. The guard is the belt; this is the
     // structure — a rule that only holds because content happens not to violate
@@ -134,10 +115,6 @@ pub(crate) fn resolve_npc_brain(
             config.brain_profile = profile;
             return (
                 crate::features::ecs::enemy_default_brain(&config, abilities),
-                // ⛔ **NOT an empty preset id.** The defect this replaced was an
-                // absent default wearing the shape of a present one;
-                // `AutonomousDefault` exists so a body can say what it will
-                // actually go back to.
                 Some((BrainBinding::from_character_profile(), authored)),
             );
         }
@@ -149,20 +126,13 @@ pub(crate) fn resolve_npc_brain(
         &authored.build_context(),
     ) {
         Ok((binding, brain)) => (brain, Some((binding, authored))),
-        // ⭐⭐ **THE CHARACTER'S OWN POLICY IS THE DEFAULT** (GPT 5.6, 2026-08-12).
+        // **THE CHARACTER'S OWN POLICY IS THE DEFAULT**.
         //
-        // ⛔ this is the seam the migration left half-crossed. A migrated
-        // character states its normal behaviour as a `BrainProfile` and its
-        // catalog `default_brain` was emptied so one authority decides — but this
-        // road only spoke the PRESET vocabulary. The old code fabricated
-        // `BrainPresetId::new("")` and carried it: two shipped sandbox placements
-        // (`pirate_cove`'s parrot, `gravity_lab`'s puppy slug) name no
-        // `brain_override` and PANICKED here, and twenty-one Hall placements
-        // spawned holding `default_preset: Some("")`, so `RestoreDefault` after a
-        // possession was rejected as *"unknown brain preset ``"* and the body
-        // kept whatever mind it had — silently, for the rest of the session.
+        // this is the seam the migration left half-crossed. A migrated character states its normal
+        // behaviour as a `BrainProfile` and its catalog `default_brain` was emptied so one
+        // authority decides — but this road only spoke the PRESET vocabulary.
         //
-        // ⚠ the lowering happens HERE and not in `resolve_initial_brain` because
+        // the lowering happens HERE and not in `resolve_initial_brain` because
         // it needs the BODY: §4.7's seam is a policy's normalized effort against
         // the body's own top speed, and `ambition_characters` has no body. That
         // is why the resolver redirects rather than answering.
@@ -171,14 +141,14 @@ pub(crate) fn resolve_npc_brain(
                 ..
             },
         ) => {
-            // ⚠ **reaching here means NOTHING is authored anywhere.** The profile
+            // **reaching here means NOTHING is authored anywhere.** The profile
             // rank above already answered for every character that states one, and
             // the row is empty or this error would not exist — so this is a
             // genuinely unauthored character, not a vocabulary mismatch. A body
             // that stands still is the honest answer, and the same one the
             // anonymous-NPC arm gives.
             //
-            // ⛔ it is also reachable for a placement whose `brain_override` is
+            // it is also reachable for a placement whose `brain_override` is
             // present but blank, on a character that authors a profile — a case
             // the branch above deliberately routes through the profile rank by
             // treating a blank override as absent, exactly as
@@ -296,7 +266,7 @@ pub(crate) fn npc_ambient_bark_line<'a>(
     catalog: &'a CharacterCatalog,
     // The prepared cast, when this composition has one. A REGISTERED-only
     // character has no catalog row to hold pools, so without this it is mute —
-    // which is what four Hall pedestals were (Jon, 2026-07-29).
+    // which is what four Hall pedestals were.
     registry: Option<&'a crate::character_runtime::PreparedCharacterRegistry>,
     interactable: &Interactable,
     situation: BarkSituation,
@@ -331,12 +301,8 @@ pub(crate) fn npc_dialogue_request(
     name: &str,
     id: &str,
 ) -> NpcDialogueRequest {
-    // An authored id must be non-EMPTY, not merely present. LDtk stores an
-    // unset string field as `""`, so a spawn with no conversation arrives here
-    // as `Some("")` and used to be forwarded verbatim -- the dialogue bridge
-    // then logged `start(""): Yarn node not found` and the NPC opened nothing.
-    // Blank is the same statement as absent: this character has no bespoke
-    // scene, so it gets the generic one.
+    // An authored id must be non-EMPTY, not merely present. Blank is the same statement as absent:
+    // this character has no bespoke scene, so it gets the generic one.
     let dialogue_id = match &interactable.kind {
         InteractionKind::Npc {
             dialogue_id: Some(dialogue_id),
@@ -355,11 +321,8 @@ pub(crate) fn npc_dialogue_request(
 mod tests {
     use super::*;
 
-    /// LDtk writes an unset string field as `""`, so a pedestal with no bespoke
-    /// conversation reaches the dialogue bridge as `Some("")`. Forwarding that
-    /// produced `start(""): Yarn node not found` and an NPC that opened nothing
-    /// when you pressed interact -- the exact shape of "this character has no
-    /// dialogue", reported as a missing Yarn node.
+    /// LDtk writes an unset string field as `""`, so a pedestal with no bespoke conversation
+    /// reaches the dialogue bridge as `Some("")`.
     #[test]
     fn a_blank_dialogue_id_means_absent_not_a_yarn_node_named_nothing() {
         let blank = Interactable::new(
@@ -474,7 +437,7 @@ mod tests {
     /// The Hall's ambient ticker skips whoever `npc_ambient_bark_line` answers
     /// `None` for, so "registered but not in the catalog" and "mute on a
     /// pedestal" were the same state — which is what four characters in the
-    /// gallery were (Jon, 2026-07-29). Every character another game brings is
+    /// gallery were. Every character another game brings is
     /// registered-only, so this is the floor for consumers of the engine, not a
     /// detail of Ambition's own cast.
     #[test]
@@ -507,12 +470,8 @@ mod tests {
     /// **The voice is a floor for EVERY situation, not only the ambient one.**
     /// (AD8)
     ///
-    /// `CharacterDefinition::voice` calls itself the floor so that "the floor is
-    /// 'says something in character' rather than silence". It was reached by the
-    /// ambient ticker and by nothing else: a registered-only character that got
-    /// hit said "Hey." and one that turned hostile said "That's it!" — the
-    /// engine's words in a character's mouth, which is the failure the whole
-    /// registered-character voice seam exists to end.
+    /// `CharacterDefinition::voice` calls itself the floor so that "the floor is 'says something in
+    /// character' rather than silence".
     #[test]
     fn a_registered_characters_voice_is_the_floor_when_it_is_hit_and_provoked() {
         // A row that authors an IDLE pool and nothing for being hit or provoked
@@ -616,19 +575,14 @@ mod tests {
 
 /// **Answer a cut conversation's bark request.** (sim)
 ///
-/// ⭐ **the CAST half of the continuity port.** `ambition_conversation::rules` decides a
+/// **the CAST half of the continuity port.** `ambition_conversation::rules` decides a
 /// conversation broke and says WHO should speak; this decides WHAT they say,
 /// because that needs the character catalog, the prepared registry and the
 /// `Interactable` → character-id resolution — none of which is about continuity.
 /// Splitting it this way is what removes `conversation`'s only two edges back
 /// into this crate (`docs/planning/engine/actor-monolith-decomposition.md`).
 ///
-/// ⚠ **an empty pool is SILENCE, and that is the finished behaviour.** No
-/// character has a `conversation_cut` line yet; those are Jon's voice to write,
-/// not the engine's to invent. The mechanism is complete and the content is a
-/// seam.
-///
-/// ⚠ the catalog is OPTIONAL for the reason the break rule's was: a composition
+/// the catalog is OPTIONAL for the reason the break rule's was: a composition
 /// with no catalog (a demo, a headless fixture) must still break conversations,
 /// and losing an unwritten line is not worth failing over.
 pub fn speak_conversation_cut_barks(
@@ -663,7 +617,7 @@ pub fn speak_conversation_cut_barks(
     }
 }
 
-/// D73 phase 1: the NPC spawn path asks the CHARACTER what it normally does.
+/// : the NPC spawn path asks the CHARACTER what it normally does.
 #[cfg(test)]
 mod default_profile_tests {
     use super::*;
@@ -694,7 +648,7 @@ mod default_profile_tests {
 
     /// **The fixture catalog, ASSEMBLED — not parsed.**
     ///
-    /// ⛔ the difference is the whole test. A parsed fragment keeps its authored
+    /// the difference is the whole test. A parsed fragment keeps its authored
     /// keys raw (`patrol_peaceful`); assembly namespaces every preset as
     /// `provider::name`, which is what the game actually runs against. While
     /// this fixture skipped assembly, a definition whose provider qualified its
@@ -743,10 +697,9 @@ mod default_profile_tests {
     /// a hand-built `PreparedCharacterDefinition` would prove that this test can
     /// construct a struct.
     ///
-    /// ⚠ **a `BrainProfile`, which is the only vocabulary a character has.** This
-    /// took a `BrainPresetRef` and wrote `definition.default_brain_profile`, a
-    /// field no character in the repo ever authored and which is now deleted
-    /// (D97).
+    /// **a `BrainProfile`, which is the only vocabulary a character has.** This took a
+    /// `BrainPresetRef` and wrote `definition.default_brain_profile`, a field no character in
+    /// the repo ever authored and which is now deleted.
     fn registry_naming(
         profile: Option<ambition_characters::brain::CharacterBrainTemplate>,
     ) -> crate::character_runtime::PreparedCharacterRegistry {
@@ -780,11 +733,10 @@ mod default_profile_tests {
         .config
     }
 
-    /// ⭐ **the character's own policy reaches a spawned NPC, and OUTRANKS its
-    /// catalog row** — Jon's 2026-08-10 ruling, restated in the vocabulary that
-    /// survived D97.
+    /// **the character's own policy reaches a spawned NPC, and OUTRANKS its catalog row** — the
+    /// rule, restated in the vocabulary that survived.
     ///
-    /// ⛔ the previous version of this test authored a `BrainPresetRef` on the
+    /// the previous version of this test authored a `BrainPresetRef` on the
     /// definition, and it passed for months while being about a road **no
     /// character in the repo ever took**. The row therefore outranked the
     /// character on every body in the game, and the test said otherwise.
@@ -820,10 +772,8 @@ mod default_profile_tests {
         );
     }
 
-    /// ⛔ **the parity case, and it is the one that must not break**: a character
-    /// that authors nothing leaves the catalog row in charge. Most of the cast is
-    /// still this one, so a regression here is a silent behaviour change across
-    /// the whole Hall.
+    /// **the parity case, and it is the one that must not break**: a character that authors nothing
+    /// leaves the catalog row in charge.
     #[test]
     fn a_character_authoring_nothing_leaves_the_catalog_row_in_charge() {
         let catalog = assembled_catalog();

@@ -23,41 +23,29 @@ use ambition_platformer2d_core as ae;
 /// completely. A body dies once and drops at most one coin, one heart and one
 /// ability pickup, so a counter would number a thing that cannot repeat.
 ///
-/// ⛔ **this paragraph used to add "and there is nothing to count with" — a
-/// construction-built body was measured carrying a `SimId` and no
-/// `SimIdCounter`. `da1563ec1` made `SimId` `#[require(SimIdCounter)]` two
-/// commits later, so every body that has an identity now has a counter and the
-/// old measurement no longer reproduces.** The reason above is unaffected and
-/// was always the real one: `(parent, kind)` determines the drop, so there is
-/// nothing to count, whether or not a counter is available.
-///
-/// ⭐ and now that a counter EXISTS, the choice is worth stating rather than
+/// and now that a counter EXISTS, the choice is worth stating rather than
 /// inherited: a counter is rollback state and a derivation is not, so deriving
 /// keeps these ordinals stable across a rewind for free.
 ///
-/// ⚠ these ordinals reach snapshots inside `SpawnOrigin`. Append, never
+/// these ordinals reach snapshots inside `SpawnOrigin`. Append, never
 /// renumber.
 const DROP_SEQUENCE_COIN: u64 = 0;
 const DROP_SEQUENCE_HEALTH: u64 = 1;
 const DROP_SEQUENCE_ABILITY: u64 = 2;
-/// The weapon a defeated body was holding. ⚠ a body drops at most one, so this
+/// The weapon a defeated body was holding. a body drops at most one, so this
 /// stays a derivation like its siblings above.
 const DROP_SEQUENCE_WEAPON: u64 = 3;
 
 /// **A drop states the body it fell out of.**
 ///
-/// ⛔ **without this a drop is never DRAWN.** `rebuild_dynamic_feature_views`
-/// discovers loot the running simulation minted by construction PROVENANCE —
-/// "this pickup was not in the room spec" is exactly the condition under which
-/// the room-load visual pass could not have seen it. An authored pickup carries
-/// [`SpawnOrigin::Authored`] and is filtered out there; these carried NO
-/// provenance at all, so the query skipped them, no render family ever claimed
-/// them, and `draw_unclaimed_feature_views` gave each one a magenta diagnostic
-/// stand-in. Measured 2026-08-08: `proving_grounds` settles at 0 stand-ins
-/// clean and at 8 after seven defeats — one per coin and heart — and the player
-/// walked over a magenta box instead of a coin.
+/// **without this a drop is never DRAWN.** `rebuild_dynamic_feature_views` discovers loot the
+/// running simulation minted by construction PROVENANCE — "this pickup was not in the room spec" is
+/// exactly the condition under which the room-load visual pass could not have seen it. An authored
+/// pickup carries [`SpawnOrigin::Authored`] and is filtered out there; these carried NO provenance
+/// at all, so the query skipped them, no render family ever claimed them, and
+/// `draw_unclaimed_feature_views` gave each one a magenta diagnostic stand-in.
 ///
-/// ⚠ this is provenance, NOT identity: no `SimId` is minted here. A `SimId`
+/// this is provenance, NOT identity: no `SimId` is minted here. A `SimId`
 /// would enrol the coin in `TransactionBaseline::capture`, whose roster a
 /// room-scoped entity leaves mid-transition; giving drops durable identity is a
 /// step of the reconstruction migration, and drawing them does not wait on it.
@@ -105,26 +93,13 @@ pub fn drop_currency_coin(
                 format!("coin:{id}"),
                 ambition_interaction::PickupKind::Currency { amount },
             )),
-            // ⛔ **A DROP BELONGS TO THE ROOM IT FELL IN.** These were only
-            // SESSION-scoped, so a coin lying on 1-1's floor survived the room
-            // change while its VISUAL — a `RoomVisual`, and therefore
-            // room-scoped — did not. The sim kept publishing a Pickup view for
-            // an entity nothing was drawing, so `draw_unclaimed_feature_views`
-            // spawned a stand-in for it in the NEW room, every transition,
-            // forever. Jon's log, 2026-08-05: eight of
-            // `no render family claimed \`coin:EnemySpawn-…\`` per transition,
-            // repeating — and those stand-ins are what the room-transition cover
-            // waits on, so his screen stayed black for the full 8-second
-            // deadline. Two lifetimes for one thing is the bug; the entity and
-            // its picture now share one.
+            // The sim kept publishing a Pickup view for an entity nothing was drawing, so
+            // `draw_unclaimed_feature_views` spawned a stand-in for it in the NEW room, every
+            // transition, forever.
             RoomScopedEntity,
             dynamic_drop_origin(parent, DROP_SEQUENCE_COIN),
             super::reset::SpawnedThisAttempt,
             // Ambition's OWN combat drops keep the loot magnet, and now say so.
-            // It stopped being an engine default (Jon: coins and rings must not
-            // be magnetic), so the games that want it declare it — this one does,
-            // for the reason the old constant's comment gave: a coin that needs a
-            // pixel-perfect walk-over reads as a bug.
             super::pickups::PickupMagnet::classic(),
         ),
     );
@@ -183,18 +158,13 @@ const SPLIT_OFFSPRING_HALF: ae::Vec2 = ae::Vec2::new(15.0, 20.0);
 /// is exactly one level deep: no runaway recursion, just "kill the slow parent,
 /// then handle two quick children."
 ///
-/// ⭐⭐ **THE CHILDREN ARE PUPPY SLUGS** (Jon, 2026-08-13). They used to be
-/// `SmallSkitter` — an identifier naming no character and no roster row, which
-/// borrowed the `combatant` fallback and was one of the three entries keeping
-/// `character_archetypes.ron` alive. His ruling: *"all of the generic 'skitter'
-/// concepts were AI-invented and Jon does not care about preserving them as
-/// distinct identities. Skitters are Puppy Slug."*
+/// **THE CHILDREN ARE PUPPY SLUGS**. Skitters are Puppy Slug."*
 ///
-/// ⚠ **the repo had already answered this once**: the proving grounds' placement
+/// **the repo had already answered this once**: the proving grounds' placement
 /// literally named `pg_skitter` is cast as `npc_puppy_slug` today. The split was
 /// the site that had not caught up.
 ///
-/// ⛔ **an engine module still names an Ambition creature, and that is AC5.4's
+/// **an engine module still names an Ambition creature, and that is AC5.4's
 /// remainder rather than this line's.** What a character splits into is a CONTENT
 /// fact and belongs on the parent's definition; casting it correctly first is
 /// what makes moving it a move rather than a decision.
@@ -208,8 +178,7 @@ pub(super) fn spawn_split_offspring(
     session_scope: SessionSpawnScope,
     parent_id: &str,
     pos: ae::Vec2,
-    // ⭐ AC5.4: WHAT it splits into, from the parent character's own
-    // `divides_into`. This module used to hold the creature name.
+    // AC5.4: WHAT it splits into, from the parent character's own `divides_into`.
     offspring: &str,
 ) {
     let empty_cast = crate::character_runtime::PreparedCharacterRegistry::default();
@@ -259,10 +228,6 @@ pub fn drop_health_pickup(
             dynamic_drop_origin(parent, DROP_SEQUENCE_HEALTH),
             super::reset::SpawnedThisAttempt,
             // Ambition's OWN combat drops keep the loot magnet, and now say so.
-            // It stopped being an engine default (Jon: coins and rings must not
-            // be magnetic), so the games that want it declare it — this one does,
-            // for the reason the old constant's comment gave: a coin that needs a
-            // pixel-perfect walk-over reads as a bug.
             super::pickups::PickupMagnet::classic(),
         ),
     );
@@ -311,15 +276,6 @@ pub fn drop_ability_pickup(
 /// pirate's gun-sword, a boss's signature gauntlet — so the player can pick it
 /// up and wield it through the ordinary item road.
 ///
-/// ⛔⛔ **THIS EXISTS BECAUSE THE TWO SITES THAT USED TO SPAWN THESE INLINE WERE
-/// THE ONLY DEATH DROPS THE 2026-08-05 ROOM-SCOPE FIX NEVER REACHED.** The three
-/// pickup drops above each carry `RoomScopedEntity` and a `SpawnOrigin`, each
-/// under a comment explaining why; `actor_hit`'s dropped weapon and `boss_hit`'s
-/// signature gauntlet carried neither, because they were written in the damage
-/// systems rather than here and a rule stated three times in one file is not a
-/// rule the fourth writer ever reads. ⇒ **the class rule is a FUNCTION now, not
-/// a paragraph** — a drop cannot be spelled without it.
-///
 /// What the two missing halves cost, stated separately because they fail
 /// differently:
 ///
@@ -335,7 +291,7 @@ pub fn drop_ability_pickup(
 ///                    parent is a drop nothing can say where it came from
 /// ```
 ///
-/// ⚠ **provenance, NOT identity — deliberately, and for the same reason the
+/// **provenance, NOT identity — deliberately, and for the same reason the
 /// coin gives**: no `SimId` is minted here. Giving death drops durable identity
 /// is a step of the reconstruction migration and this is not it.
 pub fn drop_held_weapon(
@@ -363,7 +319,7 @@ pub fn drop_held_weapon(
             dynamic_drop_origin(parent, DROP_SEQUENCE_WEAPON),
             // The attempt produced it; the attempt's reset takes it back.
             //
-            // ⚠ **the boss's gauntlet did NOT carry this and its sibling reward
+            // **the boss's gauntlet did NOT carry this and its sibling reward
             // did.** Both fall out of one death, and an attempt reset that
             // un-fights the boss while leaving half its loot on the floor is two
             // answers to one question. They agree now.

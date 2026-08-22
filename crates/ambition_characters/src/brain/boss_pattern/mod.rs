@@ -48,10 +48,7 @@ pub enum BossMovementProfile {
         chase_limit: f32,
         speed: f32,
     },
-    /// Stationary giant: the entity barely moves — only a slow breath-like
-    /// sway. The hands and head do the attacking via hitbox volumes computed
-    /// relative to spawn; the entity itself stays nearly fixed so the large
-    /// background body sprite reads as immovable.
+    /// Stationary giant: the entity barely moves — only a slow breath-like sway.
     StationaryGiant {
         sway_amplitude: f32,
         sway_frequency: f32,
@@ -62,9 +59,7 @@ pub enum BossMovementProfile {
 /// Frame/route policy used by a boss movement profile.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BossMovementFramePolicy {
-    /// Move on an authored world-arena lateral lane. This deliberately uses
-    /// world X / fixed arena floor semantics; it should not rotate with the
-    /// controlled actor or a local acceleration frame.
+    /// Move on an authored world-arena lateral lane.
     WorldArenaLateral,
     /// Move freely in authored world-arena XY space.
     WorldArenaPlanar,
@@ -112,7 +107,6 @@ impl BossMovementProfile {
                 sway_frequency,
                 ..
             } => {
-                // Minimal sway around spawn — the GNU-ton body stays nearly fixed.
                 let _ = anchor_to_player; // giant ignores player for movement
                 ae::Vec2::new(
                     spawn.x + (movement_timer * sway_frequency).sin() * sway_amplitude,
@@ -148,12 +142,9 @@ impl BossMovementProfile {
         }
     }
 
-    /// True when this movement profile is explicitly locked to an authored
-    /// world-arena lateral lane. Macro Approach / Retreat can otherwise
-    /// introduce a vertical component by steering toward the player's center or
-    /// a retreat anchor. Smirking Behemoth authors this as
-    /// `AnchorSway(y_bob: 0, y_frequency: 0)`: it should slide along fixed
-    /// arena X like the YHTBTR boss, never rise or sink toward the player.
+    /// True when this movement profile is explicitly locked to an authored world-arena lateral
+    /// lane. Macro Approach / Retreat can otherwise introduce a vertical component by steering
+    /// toward the player's center or a retreat anchor.
     pub fn world_arena_lateral_only(&self) -> bool {
         self.frame_policy() == BossMovementFramePolicy::WorldArenaLateral
     }
@@ -380,16 +371,12 @@ impl BossAttackPattern {
 /// runtime.
 #[derive(Clone, Debug, PartialEq, serde::Deserialize)]
 pub enum BossAttackProfile {
-    /// A body-mounted GEOMETRY strike. The `String` is the strike **key**
-    /// (snake_case, e.g. `"floor_slam"`): it selects the move's body-local
-    /// hitbox rects from the strike-geometry table — a built-in engine default
-    /// (`floor_slam`, `side_sweep`, `full_body_pulse`, `wing_sweep`,
-    /// `dive_lane`, `broadside`, `hand_slam`, `hand_sweep`, `head_descent`,
-    /// `converging_shockwave`, `hazard_column`) OR the boss's RON
-    /// `strike_geometry` override. Damage flows through the moveset's
-    /// `HitVolume`s. A new geometry strike is a new key + authored rects, with
-    /// NO edit to this enum: the old per-variant `FloorSlam`/`SideSweep`/… all
-    /// collapsed into this carrier, their geometry moved to the keyed table.
+    /// A body-mounted GEOMETRY strike. The `String` is the strike **key** (snake_case, e.g.
+    /// `"floor_slam"`): it selects the move's body-local hitbox rects from the strike-geometry
+    /// table — a built-in engine default (`floor_slam`, `side_sweep`, `full_body_pulse`,
+    /// `wing_sweep`, `dive_lane`, `broadside`, `hand_slam`, `hand_sweep`, `head_descent`,
+    /// `converging_shockwave`, `hazard_column`) OR the boss's RON `strike_geometry` override.
+    /// Damage flows through the moveset's `HitVolume`s.
     Strike(String),
     /// A content-defined SPECIAL. The `String` is the technique **key**
     /// (snake_case, e.g. `"overfit_volley"`); a content-owned *Technique*
@@ -782,7 +769,6 @@ pub struct BossPatternState {
     /// Seconds accumulated toward each `OnTimer` rule's `every_s`.
     pub interrupt_timers: Vec<f32>,
     /// The boss's HP as of the previous tick, so `OnHitTaken` can read the drop.
-    /// `None` before the first tick — a boss cannot have been hit before it existed.
     pub last_hp: Option<i32>,
 }
 
@@ -991,19 +977,12 @@ pub struct BossPatternContext {
     /// collision extent — it is what makes *body contact* a fact about two
     /// bodies rather than about two points.
     ///
-    /// ⛔⛔ **COLLISION, not the coarse footprint, and the two genuinely
-    /// differ.** The caller must read the size the movement seam sweeps
-    /// (`BodyKinematics::size`), NOT the published `CenteredAabb` — that box is
-    /// the coarse hurtbox footprint, and for a boss it is deliberately the much
-    /// larger `BodyEnvelope` render envelope (the AJ5.1 envelope split). This
-    /// field said "the published `CenteredAabb`" for one day; against an ordinary
-    /// body the two agree and nothing showed, but a boss reading it about
-    /// ANOTHER boss would have measured contact against a render quad.
+    /// **COLLISION, not the coarse footprint, and the two genuinely differ.** The caller must read
+    /// the size the movement seam sweeps (`BodyKinematics::size`), NOT the published `CenteredAabb`
+    /// — that box is the coarse hurtbox footprint, and for a boss it is deliberately the much
+    /// larger `BodyEnvelope` render envelope (the AJ5.1 envelope split).
     ///
-    /// ⚠ `ZERO` (the default) means *a point target*, which is what every
-    /// distance rule here assumed before: surface separation then degenerates to
-    /// centre distance, so a fixture that declares no body keeps the old
-    /// arithmetic exactly. It is not an "unknown" — there is no second rule.
+    /// It is not an "unknown" — there is no second rule.
     pub target_body_size: ae::Vec2,
     /// World size (px). Used for the soft `desired_vel` clamp so the
     /// brain doesn't ask the boss to walk off the map. Real collision
@@ -1182,14 +1161,9 @@ pub mod control_flow;
 /// rules, run over authored data with per-game bands.
 pub mod validator;
 
-/// The boss SEED LIBRARY vocabulary (boss-design.md §2, slice BD4): attack
-/// archetypes with a written design intent, fair-counter set, and measured
-/// duration bands. The catalog itself is content.
 pub mod seeds;
 
-/// The boss-profile authoring vocabulary — the types `boss_profiles.ron`
-/// deserializes into. Moved here 2026-08-03 so the content compiler can own the
-/// family without linking the actor crate; see the module header.
+/// The boss-profile authoring vocabulary — the types `boss_profiles.ron` deserializes into.
 pub mod profile;
 
 /// The `boss_seed_library` and `boss_validator_bands` authored-content schemas
@@ -1212,9 +1186,8 @@ pub enum BossEncounterPhase {
     Transition,
     /// Second phase of attacks (faster patterns, more variety).
     Phase2,
-    /// Boss is staggered and vulnerable to a punish window. Triggered
-    /// by hitting a stagger HP threshold. Auto-recovers after a fixed
-    /// duration.
+    /// Boss is staggered and vulnerable to a punish window. Triggered by hitting a stagger HP
+    /// threshold.
     Stagger,
     /// Final low-HP phase: tighter, faster patterns. Visible "enraged"
     /// presentation cue.

@@ -1376,12 +1376,8 @@ class RobotAssembler:
         dst_len = max(1e-6, math.hypot(dx, dy))
         src_angle = math.degrees(math.atan2(src[1], src[0]))
         dst_angle = math.degrees(math.atan2(dy, dx))
-        # Do not clamp endpoint-solved scales.  Clamping makes the manifest say
-        # the wrist/ground target is one place while the transformed component
-        # endpoint lands somewhere else.  A connected rig joint must be exact;
-        # unusual proportions should be fixed by editing anchors, scale
-        # defaults, or endpoint deltas instead of silently violating the
-        # constraint.
+        # Do not clamp endpoint-solved scales. Clamping makes the manifest say the wrist/ground
+        # target is one place while the transformed component endpoint lands somewhere else.
         scale = dst_len / src_len
         angle = dst_angle - src_angle
         if not math.isfinite(scale) or not math.isfinite(angle):
@@ -1406,12 +1402,8 @@ class RobotAssembler:
         dst_len = max(1e-6, math.hypot(dx, dy))
         src_angle = math.degrees(math.atan2(src[1], src[0]))
         dst_angle = math.degrees(math.atan2(dy, dx))
-        # Do not clamp endpoint-solved scales.  Clamping makes the manifest say
-        # the wrist/ground target is one place while the transformed component
-        # endpoint lands somewhere else.  A connected rig joint must be exact;
-        # unusual proportions should be fixed by editing anchors, scale
-        # defaults, or endpoint deltas instead of silently violating the
-        # constraint.
+        # Do not clamp endpoint-solved scales. Clamping makes the manifest say the wrist/ground
+        # target is one place while the transformed component endpoint lands somewhere else.
         scale = dst_len / src_len
         angle = dst_angle - src_angle
         if not math.isfinite(scale) or not math.isfinite(angle):

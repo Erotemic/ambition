@@ -1,22 +1,9 @@
 // Portal integration test: only built with the portal mechanic + RL stepping
 // API. Compiled out (empty test binary) when `portal` is disabled.
 #![cfg(all(feature = "portal", feature = "rl_sim"))]
-//! Held ranged shots (gun-sword bolt / Fireball) transit portals through the
-//! SAME generic `portal_transit` algorithm the player uses (2026-06-09).
-//!
-//! Before this, a `HeldProjectile` was a separate motion representation with its
-//! own `pos`/`vel` and collided against the RAW world, so it could never transit
-//! and detonated on the wall at a portal. Now its kinematics live in the shared
-//! `BodyKinematics`, it carries the `ProjectileGameplay` projectile marker (so
-//! `ensure_projectile_portal_bodies` opts it into transit), and
-//! `held_projectile_step` collides against the PORTAL-CARVED world — so a bolt
-//! fired into a portal flies through the opening and emerges from the partner.
-//!
-//! Setup: spawn a held bolt straddling `portal_lab`'s first authored
-//! floor-to-floor portal pair, moving INTO its entry. The authored entry sits on
-//! a SOLID floor, so this also exercises carved-world collision (without it, the
-//! bolt's own solid-raycast would detonate on the floor before it could transit).
-//! Step the real app and assert the bolt jumps to the partner portal.
+//! Setup: spawn a held bolt straddling `portal_lab`'s first authored floor-to-floor portal
+//! pair, moving INTO its entry. Step the real app and assert the bolt jumps to the partner
+//! portal.
 
 use crate::common::{base, first_floor_authored_portal_pair, fixed_60hz_room_sim};
 

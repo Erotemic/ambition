@@ -53,9 +53,8 @@ where
         "republished from the authoritative collision world each frame",
     );
     registrar.clear_message_on_rollback::<crate::ClearPortals>(OWNER, "message.clear_portals");
-    // Historical alias retained so the full compatibility registration keeps
-    // the existing rollback schema byte-for-byte. A later protocol migration
-    // may retire aliases deliberately.
+    // Historical alias retained so the full compatibility registration keeps the existing
+    // rollback schema byte-for-byte.
     registrar.clear_message_on_rollback::<crate::ClearPortals>(OWNER, "message.portal_clear");
     registrar.clear_message_on_rollback::<crate::PortalBodyEntered>(
         OWNER,

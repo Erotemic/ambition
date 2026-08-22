@@ -1,13 +1,10 @@
 //! The GGRS bridge over the floor's snapshot vocabulary.
 //!
-//! ⚠ Everything else that was in this file moved to
-//! `ambition_platformer2d_core::snapshot` on 2026-07-30, and the ~100 impls that used
-//! to sit in `codecs.rs` moved to the crates that define their types. What is
-//! left is the part that could NOT move: `CanonicalCodecStrategy` implements
+//! What is left is the part that could NOT move: `CanonicalCodecStrategy` implements
 //! `bevy_ggrs::Strategy`, and `bevy_ggrs` is a patched fork. Pulling it into
-//! `ambition_platformer2d_core` would put the fork underneath every domain crate —
-//! the floor's whole value is that it depends on no workspace crate and only
-//! two Bevy subcrates, and that is what makes it a place a domain can reach.
+//! `ambition_platformer2d_core` would put the fork underneath every domain crate — the floor's
+//! whole value is that it depends on no workspace crate and only two Bevy subcrates, and that is
+//! what makes it a place a domain can reach.
 //!
 //! The vocabulary is re-exported here so `rollback::*` consumers inside this
 //! crate keep working; the trait is defined in the floor.

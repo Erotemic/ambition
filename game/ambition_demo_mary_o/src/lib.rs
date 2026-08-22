@@ -8,13 +8,11 @@
 //! completely different grammar, which is the only way "engine, not game" stops
 //! being a claim and starts being a measurement.
 //!
-//! **Parody names are policy** (Q28, Jon 2026-07-06): homage in grammar, never a
+//! **Parody names are policy**: homage in grammar, never a
 //! copy. The level below is the 1-1 GRAMMAR — open teach, pit rhythm, a stair
 //! pyramid, a goal — authored as original geometry, not a traced layout.
 //!
-//! What lives here is the LEVEL and the RULES. Tile art, the powerup equipment
-//! rows (M1), the camera scroll policy (M2), and the flagpole sequence (M3) are
-//! the rest of the M-track; see `docs/planning/demos/super-mary-o.md`.
+//! What lives here is the LEVEL and the RULES.
 
 pub mod ai_slop;
 #[cfg(test)]
@@ -52,13 +50,9 @@ use ldtk_vocabulary::{MaryOPipeMouth, MaryOPipeRole};
 /// Stable room id for level 1-1.
 pub const LEVEL_1_1_ROOM_ID: &str = "mary_o_1_1";
 
-// ⭐ **`LEVEL_1_3_ROOM_ID` IS GONE (2026-08-15), and its own doc asked for
-// that.** It said it was *"the LAST thing a new level should need, and it is
-// here only because `exit_for_room` has to name a successor"* — a successor is
-// an authored `next_room` field now, so nothing in Rust spells 1-3's id and
-// nothing has to. 1-1's id survives because it is the ENTRY: `MaryOEntryRoom`
-// defaults to it, and "which room does a session with no opinion start in" is
-// genuinely a shipped-game decision rather than a level's own property.
+// 1-1's id survives because it is the ENTRY: `MaryOEntryRoom` defaults to it, and "which room
+// does a session with no opinion start in" is genuinely a shipped-game decision rather than a
+// level's own property.
 
 /// The game-MODE tag this demo's rooms carry (decomposition D-C).
 ///
@@ -97,32 +91,16 @@ pub(crate) const T: f32 = 32.0;
 
 /// Ground thickness, in tiles.
 ///
-/// ⚠ **test-only since 2026-08-05.** Its last two runtime readers were the pole
-/// and the surface-return zone, and both are read off the authored file now.
-/// What is left are 1-1's own assertions, which still measure against the slab —
-/// deriving those from the room is the next thing this constant is waiting on.
+/// What is left are 1-1's own assertions, which still measure against the slab — deriving those
+/// from the room is the next thing this constant is waiting on.
 #[cfg(test)]
 const GROUND_TILES: f32 = 2.0;
 
-// ⭐ **THE COLUMN TABLES ARE GONE (2026-08-04)** — `POWER_BLOCK_COLUMNS`,
-// `QUASAR_BLOCK_COLUMNS`, `BRICK_COLUMNS`, their `_ROW`s, and the
-// `_LAYER`/`_BASE_INDEX` pairs that minted their `GeoId`s. Ten constants that
-// said where the special blocks were, in a language the level editor could not
-// read. Where they are is authored now; `authored_block` reads it back.
-//
-// ⚠ deleting them rather than leaving them "for reference" is the whole point.
-// A constant that still names a block's column is a second authority waiting to
-// disagree with the file the moment Jon drags one.
+// deleting them rather than leaving them "for reference" is the whole point.
 
 // ── THE AUTHORED VOCABULARY ────────────────────────────────────────────────
 //
-// ⛔ **A block's NAME is its meaning**, because the engine has no typed channel
-// for one game's nouns: an authored block carries `{id, name, aabb, kind,
-// velocity, art_color}` and nothing else. Sanic's monitor boxes work the same
-// way (`monitors.rs`), and the trade-off is written up in
-// `docs/archive/planning-superseded/2026-08-13/proposal-authored-vocabulary-2026-08-04.md` §4.
-//
-// ⚠ **these prefixes are the contract between the LDtk file and this crate.**
+// **these prefixes are the contract between the LDtk file and this crate.**
 // Renaming one silently unhooks every block that wore it — the level still
 // loads, the blocks are still solid, and they simply stop being special. Nothing
 // in the type system can catch that, so
@@ -135,7 +113,7 @@ pub const POWER_BLOCK_PREFIX: &str = "power_block_";
 pub const QUASAR_BLOCK_PREFIX: &str = "quasar_block_";
 /// Breakable masonry: a bonk from a grown body removes it.
 pub const BRICK_PREFIX: &str = "brick_";
-// ⭐⭐ **`WARP_PIPE_PREFIX` AND `PIPE_MOUTH_DOWN_SUFFIX` ARE GONE (2026-08-04)**,
+// **`WARP_PIPE_PREFIX` AND `PIPE_MOUTH_DOWN_SUFFIX` ARE GONE **,
 // and so is the naming convention they spelled. A pipe half is a `MaryOPipe`
 // entity now, carrying an explicit `link`, `mouth` and `role` as authored
 // FIELDS — see [`ldtk_vocabulary`] for the schema and why `PlacementSchema`
@@ -147,28 +125,11 @@ pub const GOAL_POLE_PREFIX: &str = "goal_pole";
 /// The secret chamber's stone — `vault_floor` and `vault_wall_<n>`.
 pub const VAULT_MASONRY_PREFIX: &str = "vault_";
 
-// ⭐ **`POLE_WIDTH` IS GONE (2026-08-05)**, and so is `POLE_COLUMN`. They were
-// the one number [`goal_pole`] and the `goal_pole` BLOCK both had to agree on —
-// which is exactly the agreement that stops being needed once the pole is read
-// off the block. [`authored_pole`] derives the whole grab band from the authored
-// shaft, for both levels, so a pole dragged in the editor takes its band with it.
 
-// ⭐ `LEVEL_WIDTH` / `LEVEL_HEIGHT` are GONE (2026-08-04). They were the level's
-// size as a Rust fact, and the level's size is now whatever Jon drew — read it
-// off the loaded room (`room.world.size`). Deleting them rather than leaving
-// them "for reference" is the point: a constant that still names the world is a
-// second authority waiting to disagree with the file.
+// `LEVEL_WIDTH` / `LEVEL_HEIGHT` are GONE. Deleting them rather than leaving them "for reference"
+// is the point: a constant that still names the world is a second authority waiting to disagree
+// with the file.
 
-// ⭐⭐ **THE DOUBLE-STAIRS CONSTANTS ARE GONE (2026-08-04)** —
-// `STAIR_FIRST_COLUMN`, `STAIR_STEPS`, `STAIR_GAP_TILES`,
-// `stair_far_first_column()` and `stair_steps()`.
-//
-// They were the ONE authority for the pyramid's columns, and their own comment
-// said why: the shape used to be inlined in `level_1_1` AND hand-copied into
-// `ai_slop.rs`, so moving the stairs left eight enemies floating where the steps
-// had been. Deriving both from one table fixed that — and the table is still a
-// Rust fact the level editor cannot read.
-//
 // The pyramid is authored geometry now and the slop that stands on it is an
 // authored placement, so the drift they guarded against is not possible: there
 // is no second place for the shape to live.
@@ -183,20 +144,17 @@ const VAULT_DEPTH_TILES: f32 = 9.0;
 
 /// Mary-O's two warp tubes, by the LINK ID their halves are authored with.
 ///
-/// ⛔ **`PIPE_NAME`, `VAULT_ENTRY_PIPE_NAME`, `EXIT_PIPE_NAME` and
-/// `SURFACE_EXIT_PIPE_NAME` are GONE (2026-08-04)** — four Rust constants
-/// spelling `warp_pipe_<link>_<up|down>`, which was the pairing. The comment
-/// that stood here said what was wrong with it: *"a typo pairs nothing and only
-/// a load-time check can catch it."*
+/// **`PIPE_NAME`, `VAULT_ENTRY_PIPE_NAME`, `EXIT_PIPE_NAME` and `SURFACE_EXIT_PIPE_NAME` are GONE**
+/// — four Rust constants spelling `warp_pipe_<link>_<up|down>`, which was the pairing.
 ///
-/// ⭐ **a link is not a name.** These two are still Rust strings, and that is
+/// **a link is not a name.** These two are still Rust strings, and that is
 /// fine and different: a link is the authored PAIRING KEY, so asking for the
 /// `descent` tube is asking the level a question it answers — exactly how
 /// `convert_portal` finds a portal's partner. Whether the tube exists, whether
 /// it has both halves, where they are and which way they open are all read off
 /// the file. Nothing about a half's spelling, position or draw order matters.
 ///
-/// ⚠ 1-1 is a two-way route made of two ONE-WAY tubes: you go down `descent`
+/// 1-1 is a two-way route made of two ONE-WAY tubes: you go down `descent`
 /// and come back up `ascent`, arriving twelve tiles further along. That is the
 /// classic shape, and it is why a half authors a `role` where a portal — which
 /// is symmetric — needs nothing.
@@ -234,12 +192,8 @@ const MOUTH_SLACK: f32 = 0.5 * T;
 /// **A pipe's mouth is its OPEN FACE** — the lip end — with [`MOUTH_SLACK`] of
 /// contact tolerance either side of it, spanning the pipe's own width.
 ///
-/// One rule, derived from the half's own geometry, for both ends of every tube:
-/// the mouth cannot drift away from the pipe it belongs to, and there is nothing
-/// to hand-measure. Both mouths used to be authored as bands across the SURFACE
-/// YOU STAND ON, which is right for a pipe you stand on top of and wrong for one
-/// hanging overhead — it put the ascent trigger on the vault floor, several tiles
-/// below the pipe, so pressing UP worked anywhere in the pipe's column of air.
+/// One rule, derived from the half's own geometry, for both ends of every tube: the mouth cannot
+/// drift away from the pipe it belongs to, and there is nothing to hand-measure.
 fn mouth_band(aabb: ae::Aabb, mouth: MaryOPipeMouth) -> ae::Aabb {
     let (min, size) = (aabb.min, aabb.max - aabb.min);
     let face = match mouth {
@@ -251,8 +205,6 @@ fn mouth_band(aabb: ae::Aabb, mouth: MaryOPipeMouth) -> ae::Aabb {
     ae::Aabb::new(corner + band * 0.5, band * 0.5)
 }
 
-/// **One authored half of a warp tube**, as the runtime uses it: the block Jon
-/// drew, plus the three answers the `MaryOPipe` entity carries.
 #[derive(Clone, Debug)]
 pub struct PipeHalf {
     /// The encoded block name, so a refusal can name the pipe an author sees.
@@ -269,9 +221,6 @@ impl PipeHalf {
         mouth_band(self.aabb, self.mouth)
     }
 
-    /// The press that ENTERS this mouth: down into an up-facing lip, up into a
-    /// down-facing one. **This is Jon's rule** — a pipe answers a direction, and
-    /// a generic Interact (neither `down` nor `up`) enters nothing.
     fn entered_by(&self, down: bool, up: bool) -> bool {
         match self.mouth {
             MaryOPipeMouth::Up => down,
@@ -281,12 +230,10 @@ impl PipeHalf {
 
     /// Where a body coming OUT of this half stands.
     ///
-    /// Derived from the mouth, not authored: out of a lip that hangs overhead
-    /// you fall, just clear of the face; out of one you stand on you arrive on
-    /// top. The two used to be separate hand-written functions
-    /// (`vault_arrival`, `pipe_arrival`) that happened to differ by this.
+    /// Derived from the mouth, not authored: out of a lip that hangs overhead you fall, just clear
+    /// of the face; out of one you stand on you arrive on top.
     ///
-    /// ⚠ `pub` since tubes became room-scoped: `vault_arrival` / `pipe_arrival`
+    /// `pub` since tubes became room-scoped: `vault_arrival` / `pipe_arrival`
     /// are 1-1's two answers by name, and a caller holding any other room's tube
     /// has no named function to ask. The whole type is already public data.
     pub fn arrival(&self) -> ae::Vec2 {
@@ -341,11 +288,7 @@ fn pipe_halves_of(room: &RoomSpec) -> Vec<(PipeHalf, ldtk_vocabulary::MaryOPipe)
 
 /// **THE LOAD-TIME CHECK: a pipe you enter has a pipe you come out of.**
 ///
-/// ⛔ this is the whole reason the pairing became a field. The name convention
-/// it replaced could not be checked at all — `warp_pipe_dscent_down` converted
-/// fine, stood there solid, and had silently stopped being half of a tube; the
-/// only thing that ever noticed was a Rust test naming all four halves, which
-/// meant a FIFTH pipe Jon drew was unpaired with nobody to say so.
+/// this is the whole reason the pairing became a field.
 ///
 /// A link now has to have exactly one `Entrance` and one `Exit`. Anything else
 /// names the half that is there and the partner it wants, because the author's
@@ -360,7 +303,7 @@ fn pipe_tubes(room: &RoomSpec) -> Result<Vec<PipeTube>, String> {
             .push((half, pipe.role));
     }
     let mut tubes = Vec::new();
-    // ⚠ every broken link, not the first — an author who mis-spelled one half
+    // every broken link, not the first — an author who mis-spelled one half
     // has TWO orphans (the link that lost a half and the one the typo invented),
     // and seeing them side by side is the whole diagnosis.
     let mut refusals = Vec::new();
@@ -411,26 +354,18 @@ fn pipe_tubes(room: &RoomSpec) -> Result<Vec<PipeTube>, String> {
 
 /// **Every authored area's warp tubes, keyed by the room that authors them.**
 ///
-/// ⛔⛔ **this was `authored_tubes()`: ONE flat list, built from 1-1 alone, and
-/// every tube in the game was 1-1's (2026-08-15).** The comment on the system
-/// that reads it promised the opposite — *"a third tube Jon draws works with no
-/// line of Rust"* — which was true INSIDE 1-1 and false one room along. Nothing
-/// in the vocabulary, the validator or the entity docs said so, so a tube
-/// authored in another room was a green box that did nothing, and the only way
-/// to find out was to stand on it. `mary_o_1_3` shipped with two correct,
-/// completely inert tube pairs.
+/// Nothing in the vocabulary, the validator or the entity docs said so, so a tube authored in
+/// another room was a green box that did nothing, and the only way to find out was to stand on it.
+/// `mary_o_1_3` shipped with two correct, completely inert tube pairs.
 ///
-/// ⚠ **and the flat list made a LINK NAME globally unique by accident.** Two
+/// **and the flat list made a LINK NAME globally unique by accident.** Two
 /// rooms that both call their tube `descent` would have collided in a
 /// single-keyed table, which is a naming rule no author was ever told. A link
 /// is scoped to the room that authors it, exactly like the pairing check that
 /// validates it.
 ///
-/// ⚠ a process-global `LazyLock` for the same reason `authored_named_blocks`
-/// is one: the input is fixed at COMPILE time, so there is no second value it
-/// could hold. The pairing refusal above becomes a panic here, which is the
-/// same call `authored_room` already makes about this file — and it now covers
-/// every area rather than 1-1's four halves.
+/// The pairing refusal above becomes a panic here, which is the same call `authored_room`
+/// already makes about this file — and it now covers every area rather than 1-1's four halves.
 fn tubes_by_room() -> &'static std::collections::BTreeMap<String, Vec<PipeTube>> {
     static TUBES: std::sync::LazyLock<std::collections::BTreeMap<String, Vec<PipeTube>>> =
         std::sync::LazyLock::new(|| {
@@ -449,7 +384,7 @@ fn tubes_by_room() -> &'static std::collections::BTreeMap<String, Vec<PipeTube>>
 /// **The warp tubes `room_id` authors** — empty for a room that draws none, and
 /// for the fixture course, which is a Rust-built probe room no world file holds.
 ///
-/// ⚠ an unknown id yields no tubes rather than a panic, and that is deliberate:
+/// an unknown id yields no tubes rather than a panic, and that is deliberate:
 /// this answers a question about the room a session is STANDING IN, and a room
 /// with no pipes and a room that is not in the file are the same answer to
 /// *"what can she press into here"*.
@@ -501,12 +436,6 @@ pub fn pipe_arrival() -> ae::Vec2 {
 /// The ascent tube's mouth — the open BOTTOM of the pipe hanging from the vault
 /// ceiling. The same [`mouth_band`] rule the descent uses, so both ends of a trip
 /// are one verb: **touch the mouth, press into it.**
-///
-/// It used to be a band across the vault FLOOR, several tiles below the pipe. A
-/// trigger that far from the thing it triggers reads as loose no matter how tight
-/// the band is — "Mary-O can be anywhere under the pipe and press up" is what a
-/// floor band feels like when the pipe is overhead. Now the pipe hangs at head
-/// height and you have to be at its lip.
 pub fn vault_exit() -> ae::Aabb {
     authored_tube(LEVEL_1_1_ROOM_ID, ASCENT_LINK)
         .entrance
@@ -515,39 +444,24 @@ pub fn vault_exit() -> ae::Aabb {
 
 /// **The art identity is AUTHORED now, and this function is gone.**
 ///
-/// It used to walk a converted room and rewrite each enemy's `name` to a catalog
-/// display name, because the render binder resolved art by matching that name
-/// against the catalog and the world file had no other way to say which
-/// character an enemy wears. Sanic's speedway carried the identical pass, and a
-/// third was about to be written for a new enemy.
-///
-/// `EnemySpawn` authors a `character_id` as of 2026-08-06, so the level says
+/// `EnemySpawn` authors a `character_id`, so the level says
 /// which character it placed and the join no longer runs through a
 /// human-readable string. `name` went back to meaning only what it says — the
 /// label — and is authored in the world file beside the id.
 ///
-/// ⚠ **kept as a doc comment on purpose.** The history is the argument: I
+/// **kept as a doc comment on purpose.** The history is the argument: I
 /// deleted the original writer in `07f0fc7cc` on the thesis that *"the identity
 /// is the BRAIN, not a display name"*, which is true of GAMEPLAY identity and
 /// false of render identity, and every enemy in the demo lost its art. Anyone
 /// who reaches for a post-conversion patch pass again should read that first.
 const _ENEMY_ART_IS_AUTHORED_NOT_PATCHED: () = ();
 
-// ⭐ `mary_o_roster_ron` is GONE (2026-08-13): the plane swarms — the fragment's
+// `mary_o_roster_ron` is GONE: the plane swarms — the fragment's
 // last rows, kept as a standalone-build fallback for characters Ambition
 // registered — are Mary-O's own registered characters now, and the demo ships
 // no archetype rows at all. Every enemy states its body as a character.
 
 /// World 1-1, which is [`authored_level`] and nothing else.
-///
-/// ⭐ **the two ends of the trip to World 1-2 are AUTHORED (2026-08-05).** They
-/// were built here from `vault_bounds()` and a ground constant — the last
-/// coordinates in 1-1 an editor could not move. A previous attempt to author
-/// them was reverted because the LDtk validator demands that every zone name a
-/// `target_room`/`target_zone` and 1-2 was a Rust room no world file contained.
-/// Both halves of that are fixed: 1-2 is an area in `mary_o.ldtk`, and the
-/// validator understands that the ARRIVAL end of a one-way trip names nothing
-/// (a zone that did would fire on the body that just landed on it).
 pub fn level_1_1() -> RoomSpec {
     authored_level(LEVEL_1_1_ROOM_ID)
 }
@@ -558,7 +472,7 @@ pub const MARY_O_WORLD_JSON: &str = include_str!("../assets/worlds/mary_o.ldtk")
 
 /// Load one authored area out of [`MARY_O_WORLD_JSON`].
 ///
-/// ⚠ **`.expect` on a level file is normally forbidden** (the LDtk authoring
+/// **`.expect` on a level file is normally forbidden** (the LDtk authoring
 /// contract says startup must print every validator error and exit nonzero, so a
 /// bad edit does not become a panic mid-play). It is acceptable HERE only because
 /// this file is EMBEDDED at compile time: a broken edit cannot reach a running
@@ -570,7 +484,7 @@ fn authored_room(area: &str) -> RoomSpec {
 
 /// The authored area with this id, or `None` when the file has no such area.
 ///
-/// ⚠ **`None` is not an error here, and there is exactly one caller that can
+/// **`None` is not an error here, and there is exactly one caller that can
 /// see it**: the fixture course is a Rust-built probe room no world file holds,
 /// so "which area is this" has no answer for it. Anything that needs the room
 /// to exist keeps using [`authored_room`], whose panic names the missing id.
@@ -583,29 +497,19 @@ fn authored_area(area: &str) -> Option<RoomSpec> {
 
 /// **One authored area, finished into the room the game plays.**
 ///
-/// ⛔ **there used to be a `level_1_N()` per level, and the cost was a NEW LEVEL
-/// COSTING RUST (2026-08-15).** `level_1_1` and `level_1_2` did the same four
-/// things in the same order, differing only in a colour — so a third level was
-/// a fourth copy plus an entry in `MARY_O_ROOM_IDS`, an entry in the provider's
-/// rooms vec, an arm in `pole_for_room` and an arm in `exit_for_room`, every one
-/// of which the LDtk file either already knew or can now be told. This is the
-/// single builder; the roster and the rooms vec are read off the file (see
-/// [`authored_levels`]), the pole off the room's own `goal_pole` block, and the
-/// successor off the room's authored `next_room` (see [`exit_for_room`]).
-/// **A new level costs no Rust.**
+/// This is the single builder; the roster and the rooms vec are read off the file (see
+/// [`authored_levels`]), the pole off the room's own `goal_pole` block, and the successor off the
+/// room's authored `next_room` (see [`exit_for_room`]). **A new level costs no Rust.**
 ///
-/// ⭐ **the pipe pairing is checked on EVERY level now**, not just 1-1. It was
-/// `level_1_1`'s alone, so a `MaryOPipe` typo in any other room degraded to a
-/// green box that had quietly stopped being a pipe — the exact failure the
-/// pairing check exists to refuse. A room with no pipes yields no tubes and no
-/// refusals, so this costs the pipeless levels nothing.
+/// **the pipe pairing is checked on EVERY level now**, not just 1-1. A room with no pipes
+/// yields no tubes and no refusals, so this costs the pipeless levels nothing.
 pub fn authored_level(area: &str) -> RoomSpec {
     finish_authored_room(authored_room(area))
 }
 
 /// **Every authored area, finished — the room list, read rather than written.**
 ///
-/// ⚠ the test course is NOT here on purpose: it is a Rust-built probe room that
+/// the test course is NOT here on purpose: it is a Rust-built probe room that
 /// no world file contains, and a session running it carries it INSTEAD of the
 /// shipped levels.
 pub fn authored_levels() -> Vec<RoomSpec> {
@@ -628,7 +532,7 @@ pub fn authored_area_ids() -> Vec<String> {
 /// The stone an area is cut from — the one thing about a level the LDtk file
 /// cannot say, since a block carries no authored colour.
 ///
-/// ⚠ **this is the whole remaining Rust-owned content datum, and it is here
+/// **this is the whole remaining Rust-owned content datum, and it is here
 /// rather than inline so it reads as the exception it is.** The elegant end
 /// state is an authored level field (`palette` is already declared in every
 /// project's `levelFields`) lowered into `RoomMetadata`; that is an engine
@@ -657,7 +561,7 @@ fn finish_authored_room(mut room: RoomSpec) -> RoomSpec {
 
 /// **Every authored area, and the graph between them.**
 ///
-/// ⛔ **THE READER SUPPLIES THE VOCABULARY, because the file cannot be read
+/// **THE READER SUPPLIES THE VOCABULARY, because the file cannot be read
 /// without it.** `MaryOBlock` is Mary-O's own LDtk noun; conversion refuses an
 /// identifier it has no converter for, loudly and by design. Doing this only in
 /// `MaryORulesPlugin::build` meant every test, tool and probe that loads the
@@ -676,13 +580,13 @@ fn authored_world() -> ambition_platformer2d::runtime::demo_fixture::RoomSet {
 
 /// **The room graph, as the file declares it.**
 ///
-/// ⛔ **these two links were written in Rust** (`provider.rs`), and the comment
+/// **these two links were written in Rust** (`provider.rs`), and the comment
 /// there said why: a link needs both ends, and one end was a room no world file
 /// contained. Every `LoadingZone` names its partner in `target_room` /
 /// `target_zone`, so with both levels authored the LINK is authored data like
 /// everything else — an editor can retarget the shaft without a line of Rust.
 ///
-/// ⚠ a zone that names NO target contributes no link on purpose: it is the
+/// a zone that names NO target contributes no link on purpose: it is the
 /// landing pad half of a one-way trip, and a pad with an outgoing edge fires on
 /// the body that just arrived on it.
 pub fn authored_room_links() -> Vec<ambition_platformer2d::world::rooms::RoomLink> {
@@ -708,21 +612,16 @@ pub fn authored_zone<'a>(
 
 /// Paint the authored blocks that wear something other than their kind's art.
 ///
-/// ⛔ **LDtk cannot author a block's colour, so the game says it here — BY NAME.**
-/// That is the whole authored vocabulary at work: a warp pipe and the flagpole
-/// are collision only (their look comes from the props below, laid over them), and
-/// the vault's masonry is its own stone. Doing this from the loaded names rather
-/// than at construction is what lets Jon add a fourth pipe and have it dressed.
+/// **LDtk cannot author a block's colour, so the game says it here — BY NAME.** That is the whole
+/// authored vocabulary at work: a warp pipe and the flagpole are collision only (their look comes
+/// from the props below, laid over them), and the vault's masonry is its own stone.
 fn dress_authored_blocks(room: &mut RoomSpec) {
     for block in &mut room.world.blocks {
-        // ⭐ **a HIDDEN block is drawn as nothing until it is struck.** Same
-        // seam the pipes and the pole use — the collision box stays exactly
-        // where the author put it (you find one by jumping into it, which is
-        // the whole game of a hidden block) and only the paint goes away.
-        // `dress_power_blocks` gives it the spent tile once it has paid, so it
-        // reveals itself by being used. Jon, 2026-08-05: *"a 'cammo' and
-        // 'hidden' reward block where the block looks like a brick or is
-        // invisible but it really is a reward block of some sort."*
+        // **a HIDDEN block is drawn as nothing until it is struck.** Same seam the pipes and the
+        // pole use — the collision box stays exactly where the author put it (you find one by
+        // jumping into it, which is the whole game of a hidden block) and only the paint goes away.
+        // `dress_power_blocks` gives it the spent tile once it has paid, so it reveals itself by
+        // being used.
         if ldtk_vocabulary::block_look_of(&block.name)
             == Some(ldtk_vocabulary::MaryOBlockLook::Hidden)
             || ldtk_vocabulary::pipe_of(&block.name).is_some()
@@ -759,7 +658,7 @@ fn authored_blocks_named(room: &RoomSpec, prefix: &str) -> Vec<(String, ae::Vec2
 /// collision blocks the file authors. Presentation only — none of it changes
 /// geometry, the grab band, or the warp mouths.
 ///
-/// ⭐ **derived from the loaded room**, so moving a pipe in the editor moves its
+/// **derived from the loaded room**, so moving a pipe in the editor moves its
 /// art with it and a new pipe is dressed without a line of Rust.
 fn scenery_for_authored_room(room: &RoomSpec) -> Vec<PropSpec> {
     let mut props = Vec::new();
@@ -855,24 +754,10 @@ fn scenery_for_authored_room(room: &RoomSpec) -> Vec<PropSpec> {
     props
 }
 
-// ⭐⭐ **`descent_to_1_2` AND `surface_return_from_1_2` ARE GONE (2026-08-05).**
+// The id is whatever the file says it is now (`GeoId::placement(<the LDtk iid>)`), and the position
+// is the authored block's own corner.
 //
-// They BUILT 1-1's two zones to World 1-2 out of `vault_bounds()` and a ground
-// constant, and they were the last coordinates in the level that nothing Jon did
-// in an editor could move. Both are `LoadingZone` entities in `mary_o.ldtk` now,
-// reached through [`authored_zone`] — and so is the link between the rooms, which
-// [`authored_room_links`] reads out of the same file.
-// ── The authored blocks, resolved by NAME ──────────────────────────────────
-//
-// ⛔ **These used to CONSTRUCT ids from constants; they now LOOK THEM UP in the
-// authored file.** `power_block_id(i)` was
-// `GeoId::tile_layer("mary_o_ground", 10 + i)` — an id computed from an index
-// into a Rust array, which is why nothing Jon did in an editor could move a
-// ?-block: the level drew one place and the runtime matched another. The id is
-// whatever the file says it is now (`GeoId::placement(<the LDtk iid>)`), and the
-// position is the authored block's own corner.
-//
-// ⚠ **the index survives on purpose, for now.** Every consumer — the spent set,
+// **the index survives on purpose, for now.** Every consumer — the spent set,
 // the broken-brick bitset, the dresser — is keyed by `i`, and `i` is the suffix
 // of the authored name (`power_block_2` is index 2). That keeps this change to
 // the LOOKUP and leaves the rollback-state shapes alone. It also means the
@@ -880,33 +765,16 @@ fn scenery_for_authored_room(room: &RoomSpec) -> Vec<PropSpec> {
 // they do not.
 
 /// The authored block a CONTACT names, looked up in the room the player is in.
-///
-/// ⛔ **this is what replaced the index tables.** `ContactSource::Block` carries a
-/// durable `GeoId` and nothing else, so a system that wants to know *what it
-/// hit* has to ask the room. It used to answer by comparing the id against ids
-/// RECONSTRUCTED from constant arrays (`power_block_id(i)` for i in 0..3), which
-/// is why nothing an author did could move a ?-block: the level drew one place
-/// and the runtime matched another.
 pub fn authored_block_by_id<'a>(world: &'a ae::World, id: &ae::GeoId) -> Option<&'a ae::Block> {
     world.blocks.iter().find(|block| block.id == *id)
 }
 
-// ⭐ **`authored_named_blocks` IS GONE (2026-08-05)** — a by-name index of every
-// authored block, `LazyLock`-cached over the embedded world file. It lost its
-// readers one at a time and it is worth naming both, because each was a small
-// lesson: the runtime reached the PIPES through it by their four spelled names
-// until they became authored `MaryOPipe` entities; then a filter in the one-way
-// platform rule, which was the reason that rule never ran (the map is keyed by
-// EVERY block's name, so "is this block named" was true for all of them); then
-// the pole oracle, and a pole is read off its own block now.
+// **`authored_named_blocks` IS GONE ** — a by-name index of every authored block,
+// `LazyLock`-cached over the embedded world file.
 //
-// ⚠ a cached index nothing indexes is a `LazyLock` waiting to be the reason
+// a cached index nothing indexes is a `LazyLock` waiting to be the reason
 // somebody asks whether it is rollback state.
 
-// ⭐⭐ **THE INDEX HELPERS ARE GONE (2026-08-04)** — `power_block_id`,
-// `power_block_min`, `power_block_index_for` and their quasar and brick twins,
-// plus `brick_name`, `brick_count` and `BRICK_CAPACITY`.
-//
 // They answered "which position in a Rust array is this block", which is a
 // question with no meaning once an author places the blocks: a converter sees one
 // entity and cannot know an ordinal, and inserting a block would renumber every
@@ -920,14 +788,11 @@ pub fn authored_block_by_id<'a>(world: &'a ae::World, id: &ae::GeoId) -> Option<
 
 /// **A room's flag, read off the shaft it is drawn as.**
 ///
-/// ⛔ **this used to be a pair of constants per level** — a column, a width, a
-/// height — that the `goal_pole` BLOCK was also built from, and the pole oracle
-/// existed to catch the two drifting apart. Once the block is authored there is
-/// nothing to keep in agreement: the block IS the pole, and the grab band is its
-/// own box. Both levels answer through here, so 1-2 did not need a second copy
-/// of the rule when it was authored.
+/// Once the block is authored there is nothing to keep in agreement: the block IS the pole, and the
+/// grab band is its own box. Both levels answer through here, so 1-2 did not need a second copy of
+/// the rule when it was authored.
 ///
-/// ⚠ the shaft is the block named exactly `goal_pole`; the finial and the banner
+/// the shaft is the block named exactly `goal_pole`; the finial and the banner
 /// wear suffixes and are decoration hung off it.
 pub fn authored_pole(room: &RoomSpec) -> flag::FlagPole {
     let aabb = room
@@ -952,22 +817,12 @@ pub fn goal_pole() -> flag::FlagPole {
 
 /// **Which pole a room finishes on.**
 ///
-/// ⛔ the pole was inserted at plugin build as 1-1's, unconditionally — so the
-/// entry-room seam could put a session in another room and that session had no
-/// reachable goal at all. `run_flag_sequence` compares her position against this
-/// resource and nothing else, so the failure is silent: the level simply never
-/// ends. Which room she is in already decides which world she gets
-/// ([`provider::mary_o_session_world_entering`]); it decides the goal by the same
-/// answer here.
+/// Which room she is in already decides which world she gets
+/// ([`provider::mary_o_session_world_entering`]); it decides the goal by the same answer here.
 ///
-/// ⛔ **AND THE `else` ARM WAS THE SAME SILENT BUG ONE ROOM ALONG (2026-08-15).**
-/// The chain named 1-2 and handed 1-1's pole to everything else, so the first
-/// authored level nobody remembered to add an arm for got a flagpole standing
-/// in another room's coordinates — the same "the level simply never ends" that
-/// the doc above complains about, with the arm that was supposed to prevent it.
-/// [`authored_pole`] reads the pole off the room's own `goal_pole` block, which
-/// every authored area has to have anyway, so there is nothing left to
-/// enumerate: a room with no pole is a loud panic naming the room.
+/// [`authored_pole`] reads the pole off the room's own `goal_pole` block, which every authored
+/// area has to have anyway, so there is nothing left to enumerate: a room with no pole is a
+/// loud panic naming the room.
 pub fn pole_for_room(room_id: &str) -> flag::FlagPole {
     if room_id == test_course::TEST_COURSE_ROOM_ID {
         // Not an authored area — a Rust-built probe room, pole included.
@@ -979,15 +834,7 @@ pub fn pole_for_room(room_id: &str) -> flag::FlagPole {
 
 /// **Where a level goes when its goal is reached.**
 ///
-/// ⛔ **the goal used to have exactly one answer, and it was compiled in.**
-/// `cycle_level_on_flag_tally` wrote `RoomReplayRequested` unconditionally —
-/// *"the next level is the same level"*, the classic arcade loop — so a level
-/// physically could not lead anywhere. Jon, 2026-08-04: *"we need to build a
-/// real world 1-2 that you go to when you complete world 1-1. So the end goal
-/// needs to be able to specify where the level transitions to. The end of 1-2
-/// should transition back to 1-1."*
-///
-/// ⭐ **`Replay` stays a first-class answer rather than becoming a special
+/// **`Replay` stays a first-class answer rather than becoming a special
 /// case.** A level with no successor genuinely does loop — the fixture course
 /// does, and so did every Mary-O level until this existed — so "loops" and
 /// "leads to 1-2" are two destinations, not a feature and its absence.
@@ -1001,31 +848,19 @@ pub enum LevelDestination {
 
 /// Where each room's goal leads.
 ///
-/// ⚠ **a room that names a destination it does not have is a WARNING, not a
+/// **a room that names a destination it does not have is a WARNING, not a
 /// crash** — see `cycle_level_on_flag_tally`. Answering here is a content
 /// decision; whether the world contains the room is a question only the loaded
 /// `RoomSet` can settle.
 ///
-/// ⛔ **THIS WAS A HAND-KEPT CHAIN, AND IT WAS THE LAST THING A NEW LEVEL COST
-/// IN RUST (2026-08-15).** It read *"1-1 → 1-2, else if 1-2 → 1-3, else if 1-3
-/// → 1-1, else replay"*. "Where does finishing this room lead" is a property OF
-/// the room, exactly like its biome or its mode, and every other such property
-/// is an LDtk level field lowered into `RoomMetadata` — authoring 1-3 needed no
-/// Rust for its geometry, its blocks, its enemies, its pickups, its ferry, its
-/// roster entry or its pole, and one arm here.
+/// A destination that lives in the level file cannot be one level behind the level file.
 ///
-/// ⛔⛔ **and the chain had already cost a test.** `level_circuit.rs` asserted
-/// *"finishing 1-2 returns to 1-1"* — true only while 1-2 was the last level —
-/// so authoring a third level reddened a file that had pinned the SHAPE of the
-/// world instead of the property it claimed. A destination that lives in the
-/// level file cannot be one level behind the level file.
-///
-/// ⭐ **the field is `next_room` on `RoomMetadata`**, authored as an LDtk level
+/// **the field is `next_room` on `RoomMetadata`**, authored as an LDtk level
 /// string field beside `mode` and `blast_margin`. There is no room id in this
 /// function: a fourth area drawn in the editor with `next_room` set is reachable
 /// and leads somewhere without a line of Rust, which is the whole claim.
 ///
-/// ⚠ **`Replay` is what a room with no `next_room` gets, and it stays a real
+/// **`Replay` is what a room with no `next_room` gets, and it stays a real
 /// answer rather than a failure.** The fixture course is a Rust-built probe room
 /// no world file holds, so it never reaches the metadata at all, and it loops
 /// for the same reason an authored level with a blank field does.
@@ -1050,7 +885,7 @@ fn install_goal_pole(
         .as_ref()
         .map_or(LEVEL_1_1_ROOM_ID, |room| room.0.as_str());
     commands.insert_resource(pole_for_room(room));
-    // ⚠ the pole and where it LEADS are answered together, off the same room id,
+    // the pole and where it LEADS are answered together, off the same room id,
     // because a goal you can reach in a room whose exit belongs to another one is
     // the shape of bug that took a whole session to find the first time.
     commands.insert_resource(exit_for_room(room));
@@ -1058,20 +893,13 @@ fn install_goal_pole(
 
 /// **Keep the goal pointed at the room you are actually in.**
 ///
-/// ⛔ **`install_goal_pole` alone was a bug, and a probe caught it riding.**
-/// It runs at Startup off [`provider::MaryOEntryRoom`], which is the room the
-/// session STARTS in — so once 1-1's goal sent the player to 1-2, the pole and
-/// the destination were both still 1-1's. Finishing 1-2 asked to go to 1-2, and
-/// the return leg silently never happened: the level ended, nothing moved, and
-/// no message said why.
-///
-/// ⚠ **that is the exact failure `install_goal_pole`'s own comment warns about**
+/// **that is the exact failure `install_goal_pole`'s own comment warns about**
 /// — *"a goal you can reach in a room whose exit belongs to another one"* — and
 /// it shipped anyway, because answering the question ONCE is what makes the two
 /// halves able to disagree. Answering it every time the active room changes is
 /// the only version that cannot.
 ///
-/// ⭐ **`RoomSet` is the authority, not a change-detected id.** It is the same
+/// **`RoomSet` is the authority, not a change-detected id.** It is the same
 /// value the transition itself resolves against, so "which room am I in" has one
 /// answer rather than two that must be kept in step.
 fn follow_the_active_room(
@@ -1092,31 +920,15 @@ fn follow_the_active_room(
     }
     commands.insert_resource(pole_for_room(&active));
     commands.insert_resource(exit_for_room(&active));
-    // ⛔ **A FLAG SEQUENCE BELONGS TO THE LEVEL IT GRABBED, and letting one
-    // outlive its room is what made finishing a level kill you** (Jon,
-    // 2026-08-06: *"when I end world 1-1, I get warped into 1-2 in what looks
-    // like the same place and then immediately die"*, and the same in reverse
-    // out of 1-2).
+    // `FlagSequence::driven` is a POSITION IN THE SOURCE ROOM — the pole she slid down — and
+    // `run_flag_sequence` writes it onto the body through `constrain_body_pose` every tick the
+    // phase is not `Idle`. `Tallied` returns `Some(driven)`, and `cycle_level_on_flag_tally`
+    // deliberately STAYS `Tallied` while departing so the transition keeps being asked for. So the
+    // sequence of events was: the transition placed her at the target room's spawn, and the very
+    // next run of the driver put her back at the old room's pole coordinates — inside the new
+    // geometry, where 1-1's x=3240 is 1300px past the end of 1-2.
     //
-    // `FlagSequence::driven` is a POSITION IN THE SOURCE ROOM — the pole she
-    // slid down — and `run_flag_sequence` writes it onto the body through
-    // `constrain_body_pose` every tick the phase is not `Idle`. `Tallied`
-    // returns `Some(driven)`, and `cycle_level_on_flag_tally` deliberately STAYS
-    // `Tallied` while departing so the transition keeps being asked for. So the
-    // sequence of events was: the transition placed her at the target room's
-    // spawn, and the very next run of the driver put her back at the old room's
-    // pole coordinates — inside the new geometry, where 1-1's x=3240 is 1300px
-    // past the end of 1-2. She then fell out of the world and the death beat
-    // restarted the level, which is exactly what Jon saw.
-    //
-    // ⭐ **the fix belongs HERE, not in an ordering.** This system is already the
-    // authority on "the active room changed" — it is why the pole and the
-    // destination are re-derived on this line — and a sequence whose pole has
-    // just been replaced is a sequence about a level that is over. Clearing it
-    // here also runs BEFORE `run_flag_sequence` by construction: they are
-    // adjacent in the same `.chain()`, so no commit can land between them.
-    //
-    // ⚠ **`current.is_some()` matters**: the first observation is not a change,
+    // **`current.is_some()` matters**: the first observation is not a change,
     // and rearming the level clock on session start would restate `MaryOLevelState`'s
     // own construction.
     if current.is_some() {
@@ -1131,24 +943,19 @@ fn follow_the_active_room(
 
 /// **Mary-O Classic's movement profile, authored ONCE.**
 ///
-/// Every form she wears — small, tall, fire — must move identically; growing
-/// changes her LOOK and size, never her physics. That was previously three
-/// hand-copied blocks, where a one-line divergence would silently shrink her
-/// jump on a power-up. It is now one string substituted into each row, so the
-/// forms cannot disagree by construction rather than by test.
+/// Every form she wears — small, tall, fire — must move identically; growing changes her LOOK and
+/// size, never her physics. It is now one string substituted into each row, so the forms cannot
+/// disagree by construction rather than by test.
 ///
 /// The numbers are the classic 16 px / 60 Hz tables converted to Mary-O's 32 px
 /// tile scale. The target is that she plays effectively the same as the original
-/// (Jon); the point of the demo is to show the ENGINE can express that as
+/// ; the point of the demo is to show the ENGINE can express that as
 /// parameters, so any deviation has to earn itself.
 ///
-/// `ground_coast_decel` is the FAITHFUL conversion: classic friction equals
-/// classic walk acceleration, so releasing the stick coasts to a stop in ~0.76 s
-/// over ~3.6 tiles. It was previously stiffened to 1200 because that slide read
-/// as skating — but "we deliberately flourished here" is not a licence to stop
-/// converging (Jon), so the deviation is gone and the classic slide is back.
+/// `ground_coast_decel` is the FAITHFUL conversion: classic friction equals classic walk
+/// acceleration, so releasing the stick coasts to a stop in ~0.76 s over ~3.6 tiles.
 ///
-/// ⚠ `ground_reverse_accel` (1500) is the one number still NOT sourced from the
+/// `ground_reverse_accel` (1500) is the one number still NOT sourced from the
 /// classic tables — the skid rate wants the real SMB1/SMB3 subpixel constant
 /// rather than a picked value. It is deliberately left visible here rather than
 /// blessed: converging it is a known outstanding item, not a settled choice.
@@ -1164,7 +971,7 @@ fn follow_the_active_room(
 /// exactly as in the original. `launch_offsets` ride on `jump_speed`, so that
 /// one knob still moves her whole jump family together.
 ///
-/// `coyote_time` and `jump_buffer` are 0 ON PURPOSE (confirmed by Jon): the
+/// `coyote_time` and `jump_buffer` are 0 ON PURPOSE: the
 /// original grants no ledge forgiveness and no pre-landing buffer, so neither
 /// does she. Do not "fix" these.
 ///
@@ -1252,14 +1059,10 @@ const MARY_O_CATALOG_RON_TEMPLATE: &str = r#"(
             ),
             hall_dialogue_id: Some("hall_mary_o"),
         ),
-        // TALL Mary-O: the grown form. A wand-powerup swaps the worn identity to
-        // this row (a distinct SHEET — `mary_o_v2_tall` — not a scaled copy of
-        // the small sheet, per Jon), and the powerup runtime bumps her body size so
-        // the taller art draws bigger. Kit is byte-identical to `mary_o` — same
-        // grant list, same Mary-O Classic `axis_tuning` (re-wearing re-reads
-        // `axis_tuning`, so a mismatch here would silently shrink her jump on grow)
-        // and the same peaceful Authored kit — so growing changes only her LOOK and
-        // size, never her moveset.
+        // TALL Mary-O: the grown form. Kit is byte-identical to `mary_o` — same grant list, same
+        // Mary-O Classic `axis_tuning` (re-wearing re-reads `axis_tuning`, so a mismatch here would
+        // silently shrink her jump on grow) and the same peaceful Authored kit — so growing changes
+        // only her LOOK and size, never her moveset.
         "mary_o_tall": (
             display_name: "Mary-O (Tall)",
             spritesheet: "sprites/mary_o_v2_tall_spritesheet.png",
@@ -1283,16 +1086,13 @@ const MARY_O_CATALOG_RON_TEMPLATE: &str = r#"(
             ),
             hall_dialogue_id: Some("hall_mary_o_tall"),
         ),
-        // FIRE Mary-O: the cinder beacon (fire-flower) form. A second power-up
-        // ABOVE the wand swaps the worn identity to this row — a DISTINCT fire sheet
-        // (`mary_o_v2_fire`, the white-and-red fire palette with its own
-        // fireball pose), the SAME height as the grown form so `sync_grown_form`
-        // changes only her LOOK + spark loadout, never her size, on the
-        // grown↔fire transition. Kit mirrors `mary_o_tall` byte-for-byte: the
-        // fireball is granted by WEARING the cinder beacon (see `MaryOSpark`), not
-        // by this row, so becoming fire never alters her base moveset. Before this
-        // she wore the plain tall sheet while spark-powered, so there was no
-        // visible fire form at all (Jon bug #10).
+        // FIRE Mary-O: the cinder beacon (fire-flower) form. A second power-up ABOVE the wand
+        // swaps the worn identity to this row — a DISTINCT fire sheet (`mary_o_v2_fire`, the
+        // white-and-red fire palette with its own fireball pose), the SAME height as the grown
+        // form so `sync_grown_form` changes only her LOOK + spark loadout, never her size, on
+        // the grown↔fire transition. Kit mirrors `mary_o_tall` byte-for-byte: the fireball is
+        // granted by WEARING the cinder beacon (see `MaryOSpark`), not by this row, so becoming
+        // fire never alters her base moveset.
         "mary_o_fire": (
             display_name: "Mary-O (Fire)",
             spritesheet: "sprites/mary_o_v2_fire_spritesheet.png",
@@ -1363,20 +1163,12 @@ const MARY_O_CATALOG_RON_TEMPLATE: &str = r#"(
                 "I was trained on a thousand walkers and became the average one.",
             ],
         ),
-        // ⭐ **the SNAKE-PLANE swarms, moved here from Ambition's catalog
-        // 2026-08-13** — Mary-O is their one provider now (rows AND
-        // definitions, see `plane.rs`), which is what retired the standalone
-        // build's archetype-row fallback. Their Hall pedestals and dialogue
-        // stay in Ambition's world files and resolve by ID from the merged
-        // catalog in hosted builds.
+        // Their Hall pedestals and dialogue stay in Ambition's world files and resolve by ID from
+        // the merged catalog in hosted builds.
         //
-        // ⭐ **Floating, not Standard — and that is what makes it FLY.** The
-        // chain is data all the way: `body_kind: Floating` -> `is_aerial` ->
-        // `gravity_scale: 0.0`. ⛔ both rows said `Standard` when they first
-        // landed, which had a snake riding a paper airplane falling out of the
-        // sky. The definitions also author `baseline_free_flight` so the fact
-        // travels with the character (a body that reads its gravity-freedom
-        // only from a row it cannot see falls out of the sky).
+        // The definitions also author `baseline_free_flight` so the fact travels with the character
+        // (a body that reads its gravity-freedom only from a row it cannot see falls out of the
+        // sky).
         "npc_snakes_on_a_cartesian_plane": (
             display_name: "Snakes on a Cartesian Plane",
             spritesheet: "sprites/snakes_on_a_cartesian_plane_spritesheet.png",
@@ -1456,13 +1248,9 @@ pub fn install_mary_o_content(app: &mut App) {
         // registered-only character has no bark pool anywhere, and the Hall's
         // ambient ticker skips whoever has nothing to say.
         //
-        // **All THREE forms, each handing its body to its own sheet.** Growing
-        // is a change of ART, and until now her boxes were hand-guessed against
-        // it: small was the engine's default 30x48 and tall was that times an
-        // authored 1.5, while the sheets say 11x16 and 12x22 pixels — a real
-        // ratio of 1.375. Two authorities for one silhouette, so the render had
-        // to reconcile them with a scale factor, and that factor is what drew
-        // her tall form far bigger than the body it belonged to.
+        // Two authorities for one silhouette, so the render had to reconcile them with a scale
+        // factor, and that factor is what drew her tall form far bigger than the body it
+        // belonged to.
         //
         // One `world_per_pixel` for all three is the point, not a shortcut: the
         // forms differ in SIZE because their art differs, at a shared scale.
@@ -1502,20 +1290,9 @@ pub fn install_mary_o_content(app: &mut App) {
                 ],
             ),
         ] {
-            // ⭐ **AND THE SMASH TABLE, on every form** (2026-08-16). A census
-            // of the crossover grid found her at 0/16 with every press silent.
-            // See `smash_moveset` for the whole argument.
+            // She should only have the run and jump in her game."*
             //
-            // ⛔⛔ **AND IT WAS REACHABLE IN HER OWN GAME FOR A DAY.** This spot
-            // used to claim the ability already stopped it — her rows author
-            // `abilities: Some([RunJump])`, which has no `attack` — and nothing
-            // consulted that: the Attack / Special slots were derived from the
-            // MOVESET alone, so all twenty-three of her swings answered a press
-            // in a platformer. Jon, playing: *"maryo seems to have gotten a
-            // bunch of moves from smash in her game, and its messing things up
-            // there. She should only have the run and jump in her game."*
-            //
-            // ⭐ the ability is a real ceiling now
+            // the ability is a real ceiling now
             // (`ambition_characters::action_scheme::combat_actions`), so the
             // table stays attached — the crossover grid wants exactly these
             // moves — and her own game still says there is no attack. What
@@ -1524,7 +1301,7 @@ pub fn install_mary_o_content(app: &mut App) {
             app.register_character(
                 CharacterDefinition::new(id, display, provider::MARY_O_EXPERIENCE)
                     .with_sheet(sheet)
-                    // ⭐ each form scales its own art to its own AUTHORED height
+                    // each form scales its own art to its own AUTHORED height
                     // (16 units small, 32 grown) rather than sharing one scale —
                     // the sheet's 1.4:1 pixel ratio cannot express a 1:2 world
                     // proportion. See `powerups::GROWN_FORM_HEIGHT`.
@@ -1535,43 +1312,29 @@ pub fn install_mary_o_content(app: &mut App) {
             );
         }
     }
-    // **Mary-O's enemies are CHARACTERS.** (D73 group A, 2026-08-11; the plane
-    // swarms joined 2026-08-13, retiring the demo's LAST roster fragment.)
-    //
-    // ⭐ Solid Snake, AI Slop and both plane swarms each state their own body —
+    // Solid Snake, AI Slop and both plane swarms each state their own body —
     // health, top speed, gait, contact damage and a policy — and every
     // placement names them by `character_id`. Their roster rows are gone, so
     // two authorities never describe one creature at once.
     //
-    // ⚠ registered here rather than in the catalog fragment because a catalog
+    // registered here rather than in the catalog fragment because a catalog
     // ROW is not a registration: the row says what a character is, and this is
     // what makes it buildable — which is exactly what an enemy placement needs
     // now that it is built character-first.
     //
-    // ⭐ the plane swarms used to be "registered by AMBITION, not here" with
-    // this demo carrying fallback ROWS for the standalone build — the exact
-    // two-authorities fork the line above forbids, kept alive by the archetype
-    // table. Ownership moved with the table's deletion: Mary-O is their one
-    // provider (definition AND catalog rows), and the Hall still stages them in
-    // hosted builds because characters are shared by ID across the merged
-    // catalog.
+    // Ownership moved with the table's deletion: Mary-O is their one provider (definition AND
+    // catalog rows), and the Hall still stages them in hosted builds because characters are shared
+    // by ID across the merged catalog.
     {
         snake::register_solid_snake_character(app);
         snake::register_ai_slop_character(app);
         plane::register_snakes_on_a_plane_characters(app);
     }
-    // ⛔ **Mary-O stages NO enemies of her own, and must not.** She used to
-    // register two `RoomContentStagingRegistry` closures that walked
-    // `room.enemy_spawns` and minted a `SpawnActorRequest` per matching brain.
-    // That was correct while the level authored no enemies — but once 1-1 moved
-    // into LDtk and DID author them, the engine's `authored_actor_requests`
-    // built one actor per placement and these closures built a second under a
-    // prefixed id. Seventeen placements, thirty-four actors, and only the
-    // prefixed half carried `SnakeShell` / `AiSlop`, so half of 1-1's enemies
-    // were un-stompable lookalikes. The ids differed, so the construction plan's
-    // duplicate-id check could not see it.
+    // Seventeen placements, thirty-four actors, and only the prefixed half carried `SnakeShell` /
+    // `AiSlop`, so half of 1-1's enemies were un-stompable lookalikes. The ids differed, so the
+    // construction plan's duplicate-id check could not see it.
     //
-    // ⭐ **one authored placement, one root.** The engine builds every authored
+    // **one authored placement, one root.** The engine builds every authored
     // enemy; this crate only decides what its own archetypes MEAN, in the tag
     // passes, keyed off `ActorConfig.brain`. The staging registry itself is
     // untouched and still right for content a room does not author (the duel
@@ -1593,13 +1356,13 @@ pub fn install_mary_o_content(app: &mut App) {
             snake::register_solid_snake_sheet,
             ai_slop::register_ai_slop_sheet,
             plane::register_snakes_on_a_plane_sheets,
-            // ⛔ **the bonus blocks' LOOK, and it was in the SIM chain first.**
+            // **the bonus blocks' LOOK, and it was in the SIM chain first.**
             // Registered beside `bonk_power_blocks` because that is where the
             // powerup rules live — and it mutates RENDER entities, from inside
             // the rollback schedule, which is a category error dressed as
             // tidiness. It drew nothing, the crate's tests passed, and only a
             // capture of the running demo showed the `?`-blocks as plain grey
-            // tiles (queue D11/D20, 2026-08-04).
+            // tiles.
             //
             // Presentation reads sim state and writes render components, in
             // `Update`, exactly like the two sheet registrations above it.
@@ -1613,30 +1376,17 @@ pub fn install_mary_o_content(app: &mut App) {
     // identity) includes these rows; a non-GGRS shell records metadata only.
     {
         use ambition_platformer2d::rollback::AmbitionRollbackApp;
-        // The ANCHOR comes first: the mode owner is a bare state-holder entity
-        // — no body, no projectile, no feature marker — so none of the
-        // engine's rollback anchors reach it, and a registered-but-unanchored
-        // component silently never snapshots (found by the behavioral restore
-        // test: a dirty score survived a GGRS rollback).
-        // ⭐ **the pole and where it LEADS are DERIVED from the active room**, and
-        // the rollback sweep is what made that explicit. Both are re-answered by
-        // `follow_the_active_room` whenever the active room id changes, out of
-        // `RoomSet` — so a rewind that crosses a room transition restores the
-        // room, and the next tick restores these from it. Snapshotting them
-        // would store a second copy of an answer the room already holds.
+        // **the pole and where it LEADS are DERIVED from the active room**, and the rollback
+        // sweep is what made that explicit. Both are re-answered by `follow_the_active_room`
+        // whenever the active room id changes, out of `RoomSet` — so a rewind that crosses a
+        // room transition restores the room, and the next tick restores these from it.
+        // Snapshotting them would store a second copy of an answer the room already holds.
         //
-        // ⚠ **the `Local` memo inside that system is a cache, NOT a gate on
+        // **the `Local` memo inside that system is a cache, NOT a gate on
         // behaviour** — the distinction this repo has been bitten by. It
         // suppresses only a write that would be a no-op, and it cannot go out of
         // step with the resources because none of the three rewinds: memo,
         // resource and room all carry whatever the last tick left, together.
-        //
-        // ⚠ `FlagPole` used to be WAIVED, with the reason "immutable after room
-        // load, so there is nothing to rewind". That was true when it was
-        // written once at Startup — and wrong for every room but the first,
-        // which is the bug this system exists to fix. Derived is the honest
-        // answer now, and it stops the waiver's text from quietly describing
-        // code that no longer behaves that way.
         app.declare_rollback_derived_resource::<LevelDestination>(
             "ambition_demo_mary_o",
             "content.level_destination",
@@ -1658,14 +1408,12 @@ pub fn install_mary_o_content(app: &mut App) {
                 "content.mary_o_flag_sequence",
                 rollback_probes::flag_sequence,
             )
-            // (The death beat used to be registered here as a third owner-entity
-            // component. It is engine state now — `DeathInterlude` / `OutOfPlay`
-            // on the body — and the engine registers it, so a game that states
-            // death rules cannot forget to make them rollback-safe. ADR 0033.)
-            // A snake's shell phase (and its stage timers) is authoritative sim
-            // state — two sims that disagree on where a shell is in its withdraw
-            // are in different states. It rides on the snake BODY, which the
-            // engine already anchors, so a plain component clone snapshots it.
+            // It is engine state now — `DeathInterlude` / `OutOfPlay` on the body — and the engine
+            // registers it, so a game that states death rules cannot forget to make them
+            // rollback-safe. ADR 0033.) A snake's shell phase (and its stage timers) is
+            // authoritative sim state — two sims that disagree on where a shell is in its withdraw
+            // are in different states. It rides on the snake BODY, which the engine already
+            // anchors, so a plain component clone snapshots it.
             .rollback_component_clone_probed::<snake::SnakeShell>(
                 "ambition_demo_mary_o",
                 "content.mary_o_snake_shell",
@@ -1702,20 +1450,16 @@ pub fn install_mary_o_content(app: &mut App) {
             // a block was struck must leave that block ARMED again, or the same
             // bonk on the re-simulated timeline finds a block that already gave
             // up its pickup and the two sims disagree about what is in the room.
-            // (GPT review of 5cc4337..47d7de3, finding 1.)
             .rollback_resource_clone_checksum::<powerups::SpentPowerBlocks>(
                 "ambition_demo_mary_o",
                 "content.mary_o_spent_power_blocks",
                 "bevy_ggrs clone snapshot + an order-independent checksum over the spent ids",
                 |spent| spent.checksum(),
             )
-            // ⭐ Its BRICK twin, and the same argument exactly: which bricks are
-            // broken decides what the room is MADE OF — the feature overlay
-            // subtracts them from collision — so a rewind that left a brick
-            // broken puts a hole in a wall the other timeline still has. Found
-            // by the shipped-composition resource sweep rather than by review;
-            // the sandbox sweep could never have seen it, because this resource
-            // only exists in Mary-O's composition.
+            // Its BRICK twin, and the same argument exactly: which bricks are broken decides
+            // what the room is MADE OF — the feature overlay subtracts them from collision — so
+            // a rewind that left a brick broken puts a hole in a wall the other timeline still
+            // has.
             .rollback_resource_clone_checksum::<bricks::BrokenBricks>(
                 "ambition_demo_mary_o",
                 "content.mary_o_broken_bricks",
@@ -1855,14 +1599,11 @@ pub struct MaryOLevelState {
     /// contact height; this accumulates them, so the HUD can show a career
     /// total rather than the last banner.
     pub score: u32,
-    /// Lives left. A death spends one, and nothing happens at zero.
-    /// ⭐ **SIGNED, and a run never ends.** Jon: *"When you die you should
-    /// restart the level with 1 less life. For now let's allow lives to go
-    /// NEGATIVE and the user to play forever, so no game over screen yet."*
-    /// This was a `u8` decremented with `saturating_sub`, which floors at zero
-    /// — and the floor had a consequence attached: reaching it silently
-    /// restarted the run and wiped the score, which is a game over in
-    /// everything but name and the one thing that sentence ruled out.
+    /// Lives left. For now let's allow lives to go NEGATIVE and the user to play forever, so no
+    /// game over screen yet."* This was a `u8` decremented with `saturating_sub`, which floors at
+    /// zero — and the floor had a consequence attached: reaching it silently restarted the run and
+    /// wiped the score, which is a game over in everything but name and the one thing that sentence
+    /// ruled out.
     pub lives: i8,
     /// Seconds left on the level-intro card. Counts down on the sim clock, and
     /// the card is published only while it is positive — an unpublished HUD
@@ -1906,13 +1647,8 @@ impl MaryORulesPlugin {
 impl Plugin for MaryORulesPlugin {
     fn build(&self, app: &mut App) {
         use bevy::prelude::IntoScheduleConfigs;
-        // ⭐ **NOTHING IS INSTALLED HERE ANY MORE, and that is the improvement.**
-        // This used to have to run before any world load, because the converter
-        // registry was process-wide: LDtk conversion runs from pure non-system
-        // code with no `World` in hand, so a plugin-build install was the only
-        // moment that reached it. The vocabulary is a value handed to the
-        // conversion now ([`ldtk_vocabulary::vocabulary`]), so a reader that
-        // forgets it cannot get a half-populated global — it does not compile.
+        // The vocabulary is a value handed to the conversion now ([`ldtk_vocabulary::vocabulary`]),
+        // so a reader that forgets it cannot get a half-populated global — it does not compile.
         let sim = ambition_platformer2d::platformer::schedule::SimScheduleExt::sim_schedule(app);
         // 1-1's pole up front so nothing that reads the resource before the first
         // frame finds it missing; `install_goal_pole` re-answers it from the entry
@@ -1933,15 +1669,12 @@ impl Plugin for MaryORulesPlugin {
         // engine registers it too (`NewGameResetPlugin`), but a thin host
         // may not, and `add_message` is idempotent — a no-op when already present.
         app.add_message::<ambition_platformer2d::actors::session::reset::RoomReplayRequested>();
-        // ⚠ **and the TRANSITION SLOT**, because a level's goal names where it
-        // leads now and `cycle_level_on_flag_tally` records a crossing whichever
-        // answer it gets. It used to be a message declared here; a transition is
-        // now a `PendingLifecycleCommit` record (D71), and a fixture that never
-        // transitions still has to have the slot to record into.
+        // **and the TRANSITION SLOT**, because a level's goal names where it leads now and
+        // `cycle_level_on_flag_tally` records a crossing whichever answer it gets.
         app.init_resource::<
             ambition_platformer2d::actors::session::lifecycle_commit::PendingLifecycleCommit,
         >();
-        // ⚠ declared HERE as well as engine-side, because a channel's EMITTER
+        // declared HERE as well as engine-side, because a channel's EMITTER
         // owes its existence: a composition that installs this demo without the
         // full sim-core resources (every one of this crate's own test apps) still
         // runs `bonk_power_blocks`, and an unregistered message fails parameter
@@ -1952,18 +1685,12 @@ impl Plugin for MaryORulesPlugin {
         // does not, and a missing message is a hard system-param panic rather
         // than a skip. Idempotent, same as the rest of this block.
         app.add_message::<ambition_platformer2d::actors::ActorDiedMessage>();
-        // **MARY-O'S DEATH RULES** (ADR 0033), and they are the whole of what
-        // used to be a 300-line beat: hold for as long as the music takes, then
-        // put the level back when nobody is left in play.
+        // **`WhenNoParticipantRemains` is the CO-OP value too.** With a roster of one that
+        // condition is met by the first death, so single player needs no special case — it is
+        // the one-element case of the co-op rule, not the base case the co-op rule is an
+        // exception to.
         //
-        // ⭐ **`WhenNoParticipantRemains` is the CO-OP value too.** Jon: *"say we
-        // make maryo 2 player like NSMB, the level reset would only happen if a
-        // player dies and all other players are also dead."* With a roster of one
-        // that condition is met by the first death, so single player needs no
-        // special case — it is the one-element case of the co-op rule, not the
-        // base case the co-op rule is an exception to.
-        //
-        // ⚠ **scoped by the SAME flag that gates her systems.** Hosted, these
+        // **scoped by the SAME flag that gates her systems.** Hosted, these
         // govern the rooms tagged `mary_o` and nothing else. As a bare resource
         // they were a process global inserted at plugin build, and the shell
         // composes her AFTER Sanic — so every Smash match in the shipped host
@@ -2007,9 +1734,6 @@ impl Plugin for MaryORulesPlugin {
         // settled tally and its clock reset is not immediately decremented.
         let rules = (
             spawn_mary_o_mode_owner,
-            // ⛔ **THIS USED TO RUN IN `Update`, and the resources it feeds are
-            // read by the two systems immediately below it in this chain.**
-            //
             // `FlagPole` and `LevelDestination` are declared rollback-DERIVED,
             // which is a promise that they are re-answered from rollback state
             // before anything reads them. They were re-answered once per
@@ -2019,9 +1743,8 @@ impl Plugin for MaryORulesPlugin {
             // pole and destination. The resources corrected themselves on the
             // next `Update`, long after the ticks that read them.
             //
-            // The comment on the declaration claimed *"memo, resource and room
-            // all carry whatever the last tick left, together"*. Only the room
-            // did. (GPT 5.6, review through `f0f97f5`, finding 1.)
+            // The comment on the declaration claimed *"memo, resource and room all carry whatever
+            // the last tick left, together"*. Only the room did.
             //
             // Derived state has to be derived in the schedule that consumes it.
             // The `Local` memo is still only a cache and still cannot drift: it
@@ -2050,11 +1773,6 @@ impl Plugin for MaryORulesPlugin {
         // Pipe input is authoritative rollback state on the player body. Entry
         // and transit run after ordinary WorldPrep movement, so the scripted
         // position wins this frame instead of racing the shared integrator.
-        //
-        // (Her transformation numbers used to be installed here, once per body.
-        // They ride the REQUEST now — `sync_grown_form` authors the policy for
-        // the tier change it is making, because a beat's clip and length are
-        // facts about that change, not standing facts about her body.)
         //
         // Mary-O's half of a body reset, answered wherever a body is restarted.
         // Outside the mode gate for the same reason Sanic's is: the observer is
@@ -2108,7 +1826,7 @@ impl Plugin for MaryORulesPlugin {
         // (re)load, pop wand on a head-bonk, and keep the tall form in sync with
         // wearing the wand. The engine's `collect_world_items` (touch → equip) sits
         // between the bonk and the grow — no demo wiring for it.
-        // ⛔ **BEFORE the engine's collector**, which is the whole point: it
+        // **BEFORE the engine's collector**, which is the whole point: it
         // equips whatever a body touches, so the only way a Mary-O rule reaches a
         // loose form item is to consume the redundant one first. Registered on
         // `Update` beside `collect_world_items` rather than in the sim set, so
@@ -2134,7 +1852,7 @@ impl Plugin for MaryORulesPlugin {
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::FeatureInteraction);
         // **The two systems that deliberately react AFTER the empowerment ends**,
         // saying so against the engine's set instead of by sitting next to
-        // `run_empowerments` in the chain above (queue D152).
+        // `run_empowerments` in the chain above.
         //
         // Contact harm must not flatten anything on the frame the star expires,
         // and the star's theme must be released on the frame `Empowered` leaves
@@ -2143,7 +1861,7 @@ impl Plugin for MaryORulesPlugin {
         // follow `EmpowermentExpiry` — which puts them in `GameplayEffects`
         // instead of `FeatureInteraction`.
         //
-        // ⚠ **and that costs nothing observable.** The `HitEvent` contact harm
+        // **and that costs nothing observable.** The `HitEvent` contact harm
         // writes is consumed by `apply_feature_hit_events` in
         // `CombatSet::Resolve`, inside `CoreSimulation` — which precedes BOTH
         // phases, so the hit lands on the next frame either way.
@@ -2177,14 +1895,11 @@ impl Plugin for MaryORulesPlugin {
         // takes — so the removals survive the per-frame clean slate.
         let bricks = bricks::break_bricks
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::FeatureInteraction);
-        // **Mary-O's per-attempt block state, on the engine's declared slot.**
-        // Which bricks are smashed and which ?-blocks are spent is exactly the
-        // "content-named per-attempt state" `ContentRoomReplayResetSet` exists
-        // for — the host anchors it before its generic replay consumer, so a
-        // death clears them the same frame the request lands. They used to hang
-        // off the `FeatureInteraction` chains reading `RoomLoaded` alone, which
-        // a death never emits; see `rearm_bricks_for_a_fresh_attempt`. The
-        // cut-rope boss reaches this slot the same way.
+        // **Mary-O's per-attempt block state, on the engine's declared slot.** Which bricks are
+        // smashed and which ?-blocks are spent is exactly the "content-named per-attempt state"
+        // `ContentRoomReplayResetSet` exists for — the host anchors it before its generic replay
+        // consumer, so a death clears them the same frame the request lands. The cut-rope boss
+        // reaches this slot the same way.
         let fresh_attempt = (
             bricks::rearm_bricks_for_a_fresh_attempt,
             powerups::rearm_power_blocks_for_a_fresh_attempt,
@@ -2279,10 +1994,6 @@ fn spawn_mary_o_mode_owner(
         commands
             .spawn_session_scoped(
                 spawn_scope,
-                // The death beat used to ride this owner as a third component.
-                // It rides the BODY now, as the engine's `DeathInterlude` — a
-                // participant's death is that participant's, and a level-owned
-                // beat could not say which of two players is dying (ADR 0033).
                 (MaryOLevelState::default(), flag::FlagSequence::default()),
             )
             .insert(
@@ -2325,15 +2036,12 @@ fn tick_level_clock(
 ///
 /// # Why this reads a message and not the respawn counter
 ///
-/// This used to watch `BodyLifetime.resets` for an increase. That counter is
-/// bumped by SIX unrelated callers — a combat death, a kernel hazard/pit reset,
-/// a room load, an avatar rebuild, a sandbox reset, and **a room replay's own
-/// body reset**. The last one closed a loop: a death spent a life and requested
-/// a replay, the replay reset the body, the reset bumped the counter, this
-/// system read that as a second death, spent another life, and requested another
-/// replay. Unbounded, at frame rate. Grabbing the FLAG entered the same loop,
-/// because the level-cycle also requests a replay. The counter cannot say why it
-/// moved, so no amount of edge-detection here could have fixed it.
+/// That counter is bumped by SIX unrelated callers — a combat death, a kernel hazard/pit reset,
+/// a room load, an avatar rebuild, a sandbox reset, and **a room replay's own body reset**. The
+/// last one closed a loop: a death spent a life and requested a replay, the replay reset the
+/// body, the reset bumped the counter, this system read that as a second death, spent another
+/// life, and requested another replay. Unbounded, at frame rate. Grabbing the FLAG entered the
+/// same loop, because the level-cycle also requests a replay.
 ///
 /// [`ActorDiedMessage`] is the engine's authoritative "the local player's
 /// attempt ended" fact, published from both real death paths — the hit resolver
@@ -2348,15 +2056,6 @@ fn tick_level_clock(
 /// agrees with it. A room replay and a room load cost no life either.
 ///
 /// # What happens at zero
-///
-/// ⛔ **NOTHING, and this paragraph used to say the opposite.** It described the
-/// run resetting — lives, score and clock back to their starting values — which
-/// is what the code did until D64 and is a game over in everything but name.
-/// Jon ruled one out in the same sentence that asked for the counter: *"For now
-/// let's allow lives to go negative and the user to play forever, so no game
-/// over screen yet."* The count goes below zero and the level simply comes back,
-/// exactly as it does for the first death. A doc that survived the behaviour it
-/// described is worse than no doc: the next reader restores it.
 fn spend_lives_on_death(
     mut level: bevy::prelude::Query<&mut MaryOLevelState>,
     bodies: bevy::prelude::Query<
@@ -2369,7 +2068,7 @@ fn spend_lives_on_death(
     // level, or a death that landed during a load would be re-read later and
     // charged to the next attempt.
     //
-    // ⚠ **drain FIRST, filter after.** The victim filter below needs the body
+    // **drain FIRST, filter after.** The victim filter below needs the body
     // query, and the early returns between here and there must not be allowed to
     // skip the drain — that is the invariant this comment has always been about.
     let victims: Vec<bevy::prelude::Entity> = deaths.read().map(|death| death.victim).collect();
@@ -2380,24 +2079,18 @@ fn spend_lives_on_death(
     let Some(body) = bodies.iter().next() else {
         return;
     };
-    // ⭐ **HER death, not any death.** This used to count every `ActorDiedMessage`
+    // **HER death, not any death.** This used to count every `ActorDiedMessage`
     // in the frame, which is right only while one body can die: an enemy dying
     // would have spent one of her lives the moment anything else emitted the
-    // fact (GPT 5.6 review, 2026-08-04).
+    // fact.
     if !victims.contains(&body) {
         return;
     }
 
-    // ⭐ **THE `life_spent` LATCH IS GONE, and nothing replaced it** (ADR 0033).
-    // It existed because a body pinned exactly where it fell is still in the pit,
-    // so the world reported the same death on every frame of the dwell and she
-    // spent a life for each one. Nothing pins her now and the world stops acting
-    // on a body that is out of play, so ONE attempt produces ONE death fact by
-    // construction — which is what a latch was always a substitute for.
-    // ⛔ **no floor and no reset.** Not `saturating_sub`: the count is allowed
-    // below zero on purpose, and the run carries on with its score. See the
-    // field's own note — the reset that used to sit here was a game over in
-    // everything but name, and Jon's ask ruled one out for now.
+    // Nothing pins her now and the world stops acting on a body that is out of play, so ONE
+    // attempt produces ONE death fact by construction — which is what a latch was always a
+    // substitute for. **no floor and no reset.** Not `saturating_sub`: the count is allowed
+    // below zero on purpose, and the run carries on with its score.
     level.lives -= 1;
     level.time_remaining = STARTING_TIME;
     // A fresh attempt gets a fresh card — it is how the player reads how many
@@ -2407,20 +2100,12 @@ fn spend_lives_on_death(
 
 /// **Running out of time is a death, so it goes out the same door.**
 ///
-/// The clock reaching zero used to arm the death beat directly, because a
-/// timeout has no engine death fact behind it and the beat was a component this
-/// crate owned. Now that the beat is the engine's, a timeout that armed anything
-/// itself would be a second death road — the exact fork this demo keeps being
-/// the example of. It publishes the FACT instead, and everything downstream (the
-/// interlude, the death row, the life, the level reset) happens for a timeout
-/// exactly as it happens for a pit.
-///
 /// The `Without<OutOfPlay>` filter is the whole re-entrancy guard: her clock is
 /// restored when the life is spent, and until then she is already out of play, so
 /// this cannot fire twice for one timeout.
 fn publish_timeout_death(
     level: bevy::prelude::Query<&MaryOLevelState>,
-    // ⚠ **the KINEMATICS are optional on purpose**, and this comment is older
+    // **the KINEMATICS are optional on purpose**, and this comment is older
     // than this system. Whether an attempt ends must not depend on being able to
     // read a position — a body that EXISTS is what says an attempt was in
     // progress — and requiring more silently skips the whole system for any body
@@ -2486,7 +2171,7 @@ fn publish_timeout_death(
 /// a player who entered the pipe while wall-clinging would arrive in the vault
 /// still clinging to a wall that is no longer there.
 ///
-/// The pipe is entered DIRECTIONALLY (Jon bug list #8): press DOWN standing on
+/// The pipe is entered DIRECTIONALLY: press DOWN standing on
 /// the entry mouth to drop in, press UP with your head in the return pipe's mouth
 /// to surface — the classic warp-pipe verb. That does NOT break the "a single Up/Down must not
 /// trigger a door" rule: a pipe is not a door, and the press has to point INTO
@@ -2523,14 +2208,14 @@ fn warp_through_secret_pipe(
     // normal gravity): press toward the ground to go DOWN a pipe, away to go UP.
     const DIR_DEADZONE: f32 = 0.5;
 
-    // ⭐ **THE TUBES OF THE ROOM SHE IS STANDING IN.** This read one flat
+    // **THE TUBES OF THE ROOM SHE IS STANDING IN.** This read one flat
     // process-global list built from 1-1, so every tube in the game was 1-1's
     // and a pipe authored anywhere else was scenery. `RoomSet` is the same
     // authority `follow_the_active_room` asks — read live rather than cached,
     // because a remembered room id is exactly how the goal pole and the level
-    // destination each drifted one room behind (2026-08-05, 2026-08-15).
+    // destination each drifted one room behind.
     //
-    // ⚠ **no room, no tubes — and the loop still runs.** Returning early here
+    // **no room, no tubes — and the loop still runs.** Returning early here
     // would leave `PipeEntryLatch` holding last frame's press, so the first
     // frame after a session appears could fire a warp off a stale edge. An
     // empty slice enters nothing and clears the latch, which is the same
@@ -2545,10 +2230,10 @@ fn warp_through_secret_pipe(
         let up = control.0.locomotion.y < -DIR_DEADZONE;
         let body = ae::Aabb::new(kin.pos, kin.size * 0.5);
 
-        // ⭐ **every AUTHORED tube IN THIS ROOM, not two hand-named ones.** Each
+        // **every AUTHORED tube IN THIS ROOM, not two hand-named ones.** Each
         // entrance answers only its own direction — the mouth field says which —
-        // so a third tube Jon draws works with no line of Rust, **in whichever
-        // level he draws it in**, and the opposite-direction ends still cannot
+        // so additional authored tubes work without Rust changes in any level, and
+        // opposite-direction ends still cannot
         // ping-pong a held press.
         let entered = tube_entered(body, down, up, tubes);
         let pressed = entered.is_some();
@@ -2578,7 +2263,7 @@ fn warp_through_secret_pipe(
     }
 }
 
-/// **The tube a directional press at `body` enters**, if any (Jon bug #8).
+/// **The tube a directional press at `body` enters**, if any.
 ///
 /// A mouth answers ONLY its own direction — [`PipeHalf::entered_by`] is the
 /// rule, and it comes from the authored `mouth` field. Pressing the wrong way,
@@ -2586,7 +2271,7 @@ fn warp_through_secret_pipe(
 /// a generic button, and two ends needing opposite directions is what stops a
 /// held press ping-ponging.
 ///
-/// ⚠ only an `Entrance` is enterable. Both of the vault's pipes hang from the
+/// only an `Entrance` is enterable. Both of the vault's pipes hang from the
 /// same ceiling with the same down-facing mouth, so geometry cannot tell the one
 /// you rise into from the one you fall out of — the authored `role` does.
 fn tube_entered<'a>(
@@ -2622,7 +2307,7 @@ fn at_mouth(body: ae::Aabb, mouth: ae::Aabb) -> bool {
 
 /// **Level completion goes where the level SAYS it goes.**
 ///
-/// ⛔ **this always replayed, and the comment that stood here said so proudly:**
+/// **this always replayed, and the comment that stood here said so proudly:**
 /// *"the next level is the same level," the classic arcade loop.* That was true
 /// of Mary-O and false of the engine seam underneath it — a level could not lead
 /// anywhere, because the destination was a compiled-in choice of message rather
@@ -2645,10 +2330,9 @@ fn at_mouth(body: ae::Aabb, mouth: ae::Aabb) -> bool {
 fn cycle_level_on_flag_tally(
     time: bevy::prelude::Res<ambition_platformer2d::time::WorldTime>,
     mut dwell: bevy::prelude::Local<f32>,
-    // ⛔ **THE ROOM SHE IS TRAVELLING TO, not a bare "already asked" flag.**
+    // **THE ROOM SHE IS TRAVELLING TO, not a bare "already asked" flag.**
     //
     // The first version of this was a `bool`, and it made the level PING-PONG:
-    // Jon's log showed three transitions in 45ms, 1-1→1-2, 1-2→1-1, 1-1→1-2.
     // The arrival test compared the active room against the destination
     // RE-DERIVED THIS TICK — and arriving in 1-2 re-derives the destination to
     // 1-2's own exit, which is 1-1. So "am I there yet" asked about the NEXT
@@ -2659,10 +2343,10 @@ fn cycle_level_on_flag_tally(
     // can change.
     mut departing: bevy::prelude::Local<Option<String>>,
     mut owners: bevy::prelude::Query<(&mut flag::FlagSequence, &mut MaryOLevelState)>,
-    // The body the flag sequence drove to the pole, by stable identity. A
-    // transition names the body it moves (D71); the flag sequence drives the
-    // primary avatar, so that is the body leaving for the next level, and saying
-    // so stops the commit re-deriving a subject several frames later.
+    // The body the flag sequence drove to the pole, by stable identity. A transition names the
+    // body it moves; the flag sequence drives the primary avatar, so that is the body leaving
+    // for the next level, and saying so stops the commit re-deriving a subject several frames
+    // later.
     subjects: bevy::prelude::Query<
         &ambition_platformer2d::platformer::sim_id::SimId,
         ambition_platformer2d::actors::actor::PrimaryPlayerOnly,
@@ -2725,12 +2409,12 @@ fn cycle_level_on_flag_tally(
         replay.write(ambition_platformer2d::actors::session::reset::RoomReplayRequested);
         return;
     };
-    // ⭐ **once she is EN ROUTE, the remembered target wins over the resource.**
+    // **once she is EN ROUTE, the remembered target wins over the resource.**
     // `LevelDestination` is re-derived from the ACTIVE room every tick, so the
     // moment the transition commits it describes the next leg rather than this
     // one. Asking it again mid-trip is what made the level ping-pong.
     let target = departing.clone().unwrap_or(target);
-    // ⚠ **naming a room this world does not have is a WARNING and a REPLAY, not
+    // **naming a room this world does not have is a WARNING and a REPLAY, not
     // a crash and not silence.** Following the shrine's checkpoint resume, which
     // reasons the same way about a save that names a room since removed: the
     // level still ends, the player still goes somewhere, and the log says what
@@ -2753,7 +2437,7 @@ fn cycle_level_on_flag_tally(
         return;
     };
 
-    // ⭐ **ARRIVED, and this branch is a BACKSTOP now rather than the rearm.**
+    // **ARRIVED, and this branch is a BACKSTOP now rather than the rearm.**
     // `follow_the_active_room` clears the sequence the moment the room changes,
     // for the reason its own comment gives at length — a sequence that outlives
     // its level drives the body back to the old level's pole coordinates and
@@ -2761,7 +2445,7 @@ fn cycle_level_on_flag_tally(
     // runs first, so on the arrival frame the phase is already `Idle` and the
     // guard at the top of this function has returned.
     //
-    // ⚠ kept anyway, and NOT as belt-and-braces: it is the answer for an arrival
+    // kept anyway, and NOT as belt-and-braces: it is the answer for an arrival
     // this function asked for that some other authority commits without the
     // active room ever changing under `follow_the_active_room` (a same-room
     // destination, which `LevelDestination::Room(<this room>)` can express).
@@ -2772,19 +2456,12 @@ fn cycle_level_on_flag_tally(
         return;
     }
 
-    // ⛔ **NOT arrived, so KEEP ASKING — and do not hand control back.**
+    // **NOT arrived, so KEEP ASKING — and do not hand control back.**
     //
-    // This used to reset the sequence to `Idle` and write the request once, in
-    // that order. `run_flag_sequence` releases `ScriptedControl` the moment the
-    // phase is `Idle`, so from the next frame the player was playing again and
-    // the single request was the only thing that could still move them. Every
-    // other producer of `RoomTransitionRequested` is a loading zone that
-    // re-emits every tick while the body overlaps it, and the transaction is
-    // built around exactly that — it dedupes by destination (*"trigger noise is
-    // not a new request"*) and every one of its failure paths simply stops,
-    // trusting the producer to ask again. The flag never asked again, so a
-    // dropped request read as the flag doing nothing at all: Jon's *"you can
-    // keep playing after you hit the flag"* (2026-08-05).
+    // Every other producer of `RoomTransitionRequested` is a loading zone that re-emits every tick
+    // while the body overlaps it, and the transaction is built around exactly that — it dedupes by
+    // destination (*"trigger noise is not a new request"*) and every one of its failure paths
+    // simply stops, trusting the producer to ask again.
     //
     // Staying `Tallied` is also the right LOOK: a tallied sequence holds her
     // still at the pole, which is what finishing a level should look like while
@@ -2795,10 +2472,7 @@ fn cycle_level_on_flag_tally(
         }
         *departing = Some(target.clone());
     }
-    // ...but not forever. A destination that never arrives would freeze her at
-    // the pole, and a silent freeze is only a better bug than a silent
-    // non-transition because it is visible. Say so and fall back to the loop
-    // every Mary-O level had before destinations existed.
+    // ...but not forever.
     if *dwell >= LEVEL_CYCLE_DWELL + LEVEL_DEPART_GIVE_UP {
         bevy::log::warn!(
             target: "ambition_demo_mary_o",
@@ -2814,16 +2488,15 @@ fn cycle_level_on_flag_tally(
         return;
     }
     let arrival = set.rooms[target_index].world.spawn;
-    // ⚠ no avatar, no crossing to describe. The sequence stays `Tallied` and this
-    // system re-asks every tick (see the ⛔ above), so returning here costs a
+    // no avatar, no crossing to describe. The sequence stays `Tallied` and this
+    // system re-asks every tick (see the above), so returning here costs a
     // frame rather than the level's departure.
     let Ok(subject) = subjects.single() else {
         return;
     };
-    // ⭐ **the SAME description a loading zone records** (D71). This wrote a
-    // `RoomTransitionRequested` around a SYNTHETIC loading zone, because the
-    // message could not describe a crossing nobody walked through; the intent
-    // can, so the invented door goes with it.
+    // This wrote a `RoomTransitionRequested` around a SYNTHETIC loading zone, because the
+    // message could not describe a crossing nobody walked through; the intent can, so the
+    // invented door goes with it.
     pending.record(
         boundary.map_or(0, |boundary| boundary.current),
         ambition_platformer2d::actors::session::lifecycle_commit::LifecycleIntent::Transition(
@@ -2848,9 +2521,7 @@ pub fn add_demo_content(app: &mut App) {
 mod tests {
     use super::*;
 
-    // ── Reading the AUTHORED level, instead of the names it used to be built with ──
-    //
-    // ⛔ **Seven tests here looked terrain up by the name `level_1_1` gave it —
+    // **Seven tests here looked terrain up by the name `level_1_1` gave it —
     // `ground_open_teach`, `stair_up_3`, `secret_pipe`.** Terrain is painted into
     // an IntGrid now, and `area create`'s lowering EATS the name (the merged
     // rectangles all come back as `ldtk solid`), so those lookups could not
@@ -2858,8 +2529,7 @@ mod tests {
     // ground run to still be CALLED something is pinned to how the level was
     // built, not to what it is.
     //
-    // ⭐ these ask the collision instead, which is the question they always meant
-    // and the version that survives Jon repainting the floor.
+    // Ask collision rather than art so floor appearance can change independently.
 
     /// Is any solid or one-way surface covering this world point?
     fn solid_at(room: &RoomSpec, at: ae::Vec2) -> bool {
@@ -2932,7 +2602,7 @@ mod tests {
         // Her three power forms are all catalog characters — the small starting
         // sheet, the grown (star wand) sheet, and the fire (cinder beacon) sheet.
         // Before the fire row existed she wore the grown sheet while spark-powered,
-        // so there was no distinct fire look (Jon bug #10).
+        // so there was no distinct fire look.
         assert!(
             catalog.get("mary_o_tall").is_some(),
             "the grown power form is a catalog character"
@@ -2995,24 +2665,16 @@ mod tests {
                 && !mary_o_kit.dash
                 && !mary_o_kit.fly
                 && !mary_o_kit.attack
-                // ⭐ **AND NO LEDGE GRAB** (Jon, 2026-08-16: *"we need to make
-                // sure mary-o and sanic do NOT get this ability in their
-                // games"*). She has one on the Smash grid, which is a rule of
-                // that MATCH and reaches her through a different door — a
-                // catalog grant list is what a session's own avatar wears, and
-                // a seat intersects the CHARACTER DEFINITION with the stage.
+                // She has one on the Smash grid, which is a rule of that MATCH and reaches her
+                // through a different door — a catalog grant list is what a session's own
+                // avatar wears, and a seat intersects the CHARACTER DEFINITION with the stage.
                 // Naming it here is what keeps the two doors from becoming one.
                 && !mary_o_kit.ledge_grab,
             "advanced movement and the full Ambition kit stay out of the classic core"
         );
-        // ⭐ **and no TALK verb.** Jon, from a phone: *"maryo has more than 2 on
-        // screen buttons … that shouldn't be the case for her."* The third was
-        // Interact, which `derive_action_scheme` used to upsert for every
-        // controllable body. It is an ability now, absent from `NONE` and
-        // therefore from any composed grant list — so the classic run-and-jump
-        // floor draws exactly two buttons, and her pipes are unaffected because
-        // they answer UP or DOWN and never a button (her own rule, in
-        // `level_1_2.rs`).
+        // It is an ability now, absent from `NONE` and therefore from any composed grant list — so
+        // the classic run-and-jump floor draws exactly two buttons, and her pipes are unaffected
+        // because they answer UP or DOWN and never a button (her own rule, in `level_1_2.rs`).
         assert!(
             !mary_o_kit.interact,
             "Mary-O Classic has no talk verb: the game she converges on has none, \
@@ -3103,19 +2765,10 @@ mod tests {
         );
     }
 
-    /// Jon reported "pit B is not a pit — it opens directly into the secret
-    /// vault", and the triage filed it as unfixed. It is NOT live at HEAD: the
-    /// level was lengthened (pit B and everything past it pushed 8 tiles right)
-    /// so the vault fits under UNBROKEN ground, which closed it as a side
-    /// effect. This pins that, because the bug is invisible until someone falls
-    /// in — a pit whose floor is the secret's ceiling reads as a normal pit
-    /// right up until you drop through it.
     #[test]
     fn no_pit_drops_into_the_secret_vault() {
         let room = level_1_1();
         let vault = vault_bounds();
-        // Each pit is the gap between consecutive ground runs, read off the
-        // authored collision rather than off the names the runs used to carry.
         let runs = authored_ground_runs(&room);
         assert!(runs.len() >= 2, "the level authors ground with pits in it");
         for pair in runs.windows(2) {
@@ -3196,17 +2849,16 @@ mod tests {
             widest.1
         );
 
-        // ⚠ every FLOATING platform in the level is one-way: you rise through
-        // them and never get stuck under one. Stated over the whole population
-        // rather than over two names, so a platform Jon adds is held to it.
+        // every FLOATING platform in the level is one-way: you rise through them and never get
+        // stuck under one.
         //
-        // ⛔ **this filter excluded EVERYTHING and the assertion never ran.** It
+        // **this filter excluded EVERYTHING and the assertion never ran.** It
         // ended `!authored_named_blocks().contains_key(&b.name)`, and that map
         // is keyed by the name of EVERY block in the room — so the predicate was
         // false for all of them and the loop body was unreachable. A check that
         // cannot fail, sitting inside a test that passed.
         //
-        // ⭐ **two things it was conflating, now separated.** A thin block high
+        // **two things it was conflating, now separated.** A thin block high
         // in the level is not automatically a platform:
         //
         // - a REACTIVE block is a placement this demo owns and is deliberately
@@ -3216,10 +2868,6 @@ mod tests {
         //   pyramid under it. Excluded by FLOATING, which is the property the
         //   rule was always about — "you get stuck under one" can only happen to
         //   something with air beneath it.
-        //
-        // Measured on the authored level: of seventeen thin high blocks, nine
-        // are reactive, two are the pole, and of the six terrain blocks left
-        // every floating one is already one-way and every solid one is a stair.
         let platform_top = SURFACE_HEIGHT - GROUND_TILES * T - 2.0 * T;
         let floats = |block: &ae::Block| {
             !room.world.blocks.iter().any(|other| {
@@ -3243,7 +2891,7 @@ mod tests {
                 block.name
             );
         }
-        // ⛔ **and the loop has to have RUN.** The defect this replaces was an
+        // **and the loop has to have RUN.** The defect this replaces was an
         // empty loop, so a rule stated over "the whole population" has to say out
         // loud that the population is not empty — otherwise the same failure
         // returns the next time someone tightens the filter.
@@ -3271,18 +2919,9 @@ mod tests {
     }
 
     /// **The trench between the double stairs is somewhere an enemy can PACE.**
-    ///
-    /// It was two tiles — barely wider than a slop, so the ones that tumbled in
-    /// were wedged rather than patrolling (Jon: *"more space between them for the
-    /// aislop to move around in"*). "Wide enough" is expressed against the thing
-    /// that has to move in it, not as a tile count, so a future slop that grows
-    /// takes this with it.
     #[test]
     fn the_trench_between_the_double_stairs_is_wide_enough_to_patrol() {
         let room = level_1_1();
-        // ⚠ the trench is the GAP between the two raised halves, found by walking
-        // the authored surface — not by naming `stair_up_4` and `stair_down_4`,
-        // which were how the pyramid used to be BUILT rather than what it is.
         let ground_top = SURFACE_HEIGHT - GROUND_TILES * T;
         let raised: Vec<f32> = (0..(room.world.size.x / T) as i32)
             .map(|c| c as f32 * T + T * 0.5)
@@ -3316,12 +2955,7 @@ mod tests {
 
     /// **Every authored enemy has ground under it.**
     ///
-    /// ⛔ the stair columns used to live in TWO files — the block builder here and
-    /// a hand-copied table in `ai_slop.rs` — so widening the trench left four slop
-    /// floating over where the far half used to be. Both then read one
-    /// `stair_steps()`, which fixed the drift and left the shape a Rust fact.
-    ///
-    /// ⭐ **there is no second place now**: the pyramid is authored geometry and
+    /// **there is no second place now**: the pyramid is authored geometry and
     /// the slop on it are authored placements, so they cannot disagree. What is
     /// still worth checking is the thing an author can get wrong by hand —
     /// dropping an enemy over a pit, where it falls out of the level before it is
@@ -3350,29 +2984,18 @@ mod tests {
 
     /// **Every enemy in the demo names the character it wears.**
     ///
-    /// The art used to be patched on after conversion by `name_enemies_for_render`,
-    /// which walked the room and rewrote each enemy's `name` to a catalog display
-    /// name. That pass is gone: `EnemySpawn` authors a `character_id`, so the
-    /// world file states its own cast.
+    /// That pass is gone: `EnemySpawn` authors a `character_id`, so the world file states its own
+    /// cast.
     ///
-    /// ⛔ **this exists because the failure is SILENT.** An enemy whose identity
-    /// resolves to nothing does not error — it draws the fighting-actor
-    /// placeholder, which is a red rectangle, and a red rectangle is what a
-    /// hostile placeholder is supposed to look like. That is how every enemy in
-    /// this demo lost its art once already (`07f0fc7cc`) and stayed that way. So
-    /// the check is on the AUTHORING, where the answer is unambiguous, rather
-    /// than on a picture.
+    /// That is how every enemy in this demo lost its art once already (`07f0fc7cc`) and stayed that
+    /// way. So the check is on the AUTHORING, where the answer is unambiguous, rather than on a
+    /// picture.
     ///
-    /// ⚠ it asserts against the catalog ids, not against a count: a level that
+    /// it asserts against the catalog ids, not against a count: a level that
     /// authors an id nothing in the demo's roster publishes fails.
     ///
-    /// ⭐ **the "forgot the field" half is GONE, and its deletion is the point.**
-    /// It used to unwrap `character_id` and panic on `None`. `EnemySpawnSpec::
-    /// character_id` became required on 2026-08-14, so an enemy that names no
-    /// character is no longer a value this test could be handed — the LOWERING
-    /// refuses it and the type will not hold it. What survives here is the half a
-    /// type cannot decide: whether the named character is one this demo actually
-    /// publishes a sheet for.
+    /// What survives here is the half a type cannot decide: whether the named character is one this
+    /// demo actually publishes a sheet for.
     #[test]
     fn every_authored_enemy_names_the_character_it_wears() {
         for (label, room) in [("1-1", level_1_1()), ("1-2", level_1_2::level_1_2())] {
@@ -3383,13 +3006,10 @@ mod tests {
             );
             for spawn in &room.enemy_spawns {
                 let character_id = spawn.payload.character_id.as_str();
-                // ⚠ **the list is "what the demo PUBLISHES", and it is four now.**
-                // It read `ai_slop | solid_snake` and the phrase "the two
-                // characters" was baked into the message, so adding the flying
-                // pair to 1-2 failed here — correctly, and for the right reason:
-                // nothing was publishing their sheets yet. The fix was
-                // `plane::register_snakes_on_a_plane_sheets`, not a longer list;
-                // this line only follows it.
+                // **the list is "what the demo PUBLISHES", and it is four now.** It read
+                // `ai_slop | solid_snake` and the phrase "the two characters" was baked into
+                // the message, so adding the flying pair to 1-2 failed here — correctly, and
+                // for the right reason: nothing was publishing their sheets yet.
                 assert!(
                     matches!(
                         character_id,
@@ -3494,19 +3114,17 @@ mod tests {
 
     /// **EVERY AUTHORED ENEMY STARTS FACING LEFT, AND THE FILE IS WHERE IT SAYS SO.**
     ///
-    /// ⛔ **the construction test one crate down pins the FUNCTION, not the
-    /// WIRING.** `a_placement_sets_initial_body_facing_on_the_construction_frame`
-    /// proves a spec carrying `Left` builds a body facing left; it says nothing
-    /// about whether Mary-O's world carries `Left` at all. Jon reported enemies
-    /// walking the wrong way while that test was green, because the field had
-    /// never been authored.
+    /// **the construction test one crate down pins the FUNCTION, not the WIRING.**
+    /// `a_placement_sets_initial_body_facing_on_the_construction_frame` proves a spec carrying
+    /// `Left` builds a body facing left; it says nothing about whether Mary-O's world carries
+    /// `Left` at all.
     ///
-    /// ⚠ **and this is exactly what a regenerate silently drops.** The field
+    /// **and this is exactly what a regenerate silently drops.** The field
     /// lives only in the `.ldtk`; a tool that rebuilds the world from specs
     /// that predate it writes a valid file with every enemy back on the `Right`
     /// default, and every other check passes on it.
     ///
-    /// ⭐ the count guard is not decoration: both loops below hold vacuously in
+    /// the count guard is not decoration: both loops below hold vacuously in
     /// a world with no enemies, and enemies are the subject.
     #[test]
     fn every_authored_enemy_starts_facing_left() {
@@ -3535,19 +3153,8 @@ mod tests {
 
     /// **A room offers exactly the tubes ITS OWN blocks author.**
     ///
-    /// ⛔⛔ **every tube in the game used to be 1-1's (2026-08-15).** The reader
-    /// held one flat process-global list built from `authored_room(1-1)`, so a
-    /// warp pipe drawn in any other level was a green box: paired, validated,
-    /// and completely inert. `mary_o_1_3` shipped with two such pairs.
-    ///
-    /// ⛔ **and the obvious wrong repair — one flat list of EVERY room's tubes —
-    /// is worse than the bug, which is why this compares two lists rather than
-    /// counting one.** An area's blocks are LEVEL-LOCAL (`compose_runtime_area`
-    /// takes `min_x`/`min_y` over that area's own levels, and every Mary-O area
-    /// is one level), so every room starts at the same origin and 1-1's pipes
-    /// live at coordinates 1-3 also uses. A flat list would let a body standing
-    /// in 1-3 press into 1-1's tube and arrive at 1-1's coordinates inside 1-3's
-    /// geometry — a warp into stone rather than a warp that does nothing.
+    /// A flat list would let a body standing in 1-3 press into 1-1's tube and arrive at 1-1's
+    /// coordinates inside 1-3's geometry — a warp into stone rather than a warp that does nothing.
     #[test]
     fn each_room_offers_exactly_the_tubes_its_own_blocks_author() {
         let mut offered_anywhere = 0;
@@ -3567,7 +3174,7 @@ mod tests {
             );
             offered_anywhere += authored_here.len();
         }
-        // ⚠ not decoration: it is what stops this being a check that cannot
+        // not decoration: it is what stops this being a check that cannot
         // fail. Both assertions above hold vacuously in a world where NO room
         // authors a pipe, and the whole subject of this test is a pipe.
         assert!(
@@ -3577,7 +3184,6 @@ mod tests {
         );
     }
 
-    /// Jon bug #8: the pipe is entered DIRECTIONALLY — DOWN drops in at the entry
     /// mouth, UP surfaces at the return mouth — and a generic press (Interact,
     /// which is neither direction, or the wrong direction) no longer warps you.
     #[test]
@@ -3585,7 +3191,7 @@ mod tests {
         use ambition_platformer2d::engine_core::AabbExt;
 
         let tubes = tubes_for_room(LEVEL_1_1_ROOM_ID);
-        // A small body sitting exactly at a mouth. ⚠ built from the AUTHORED
+        // A small body sitting exactly at a mouth. built from the AUTHORED
         // mouth rather than from a coordinate, so this asks the level where its
         // pipes are instead of restating it.
         let at = |mouth: ae::Aabb| ae::Aabb::new(mouth.center(), ae::Vec2::splat(0.4 * T));
@@ -3615,8 +3221,7 @@ mod tests {
             Some(pipe_arrival()),
             "...and surfaces you on that tube's own exit"
         );
-        // The bug: a generic press (Interact = no direction) used to warp. It
-        // must not anymore.
+        // It must not anymore.
         assert_eq!(
             entered(on_descent, false, false),
             None,
@@ -3634,7 +3239,7 @@ mod tests {
             None,
             "pressing DOWN at a mouth you enter by pressing UP does nothing"
         );
-        // ⭐ and an EXIT is not an entrance. Standing on the ascent tube's
+        // and an EXIT is not an entrance. Standing on the ascent tube's
         // surface pipe — the one you come out of — pressing DOWN enters nothing,
         // which is the whole job of the authored `role`: that pipe is the same
         // shape, in the same slab, with the same up-facing mouth as the descent
@@ -3652,12 +3257,10 @@ mod tests {
 
     /// **A link with one half is refused at load, and it says which.**
     ///
-    /// ⛔ this is the check the name convention could not have. Under
-    /// `warp_pipe_<link>_<up|down>` a typo'd half still converted and still
-    /// stood there solid — the only thing that ever noticed was a test that
-    /// spelled all four names, so a FIFTH pipe would have been unpaired with
-    /// nothing to say so. The refusal is on the LINK now, so it scales to
-    /// whatever Jon draws.
+    /// this is the check the name convention could not have. Under `warp_pipe_<link>_<up|down>` a
+    /// typo'd half still converted and still stood there solid — the only thing that ever noticed
+    /// was a test that spelled all four names, so a FIFTH pipe would have been unpaired with
+    /// nothing to say so.
     #[test]
     fn a_pipe_with_no_partner_is_refused_by_name() {
         let mut room = level_1_1();
@@ -3677,7 +3280,7 @@ mod tests {
         let typo = broken.name.clone();
 
         let why = pipe_tubes(&room).expect_err("a link with one half is not a tube");
-        // ⚠ the LINKS, quoted as links — not merely the substrings, which the
+        // the LINKS, quoted as links — not merely the substrings, which the
         // encoded pipe names below would have supplied on their own. That is
         // what a probe caught: the first spelling of this assertion passed over
         // a message that had stopped naming the link at all.
@@ -3730,10 +3333,6 @@ mod tests {
              arrival {arrival:?} vs {vault:?}"
         );
 
-        // The world is tall enough to contain the vault it was grown for.
-        // ⚠ read off the AUTHORED room, not a constant: Jon can resize the level
-        // in the editor, and the question is whether the vault fits in the world
-        // he drew.
         assert!(
             vault.max.y < authored.world.size.y,
             "the vault floor must be inside the world bounds"
@@ -3768,7 +3367,6 @@ mod tests {
             .aabb
             .min
             .y;
-        //
         // You enter a pipe by TOUCHING its mouth, so the pipe is hung at exactly
         // the height where a GROWN body standing on that floor reaches its lip.
         let standing = |size: ae::Vec2, x: f32| {
@@ -3788,8 +3386,6 @@ mod tests {
             !at_mouth(
                 standing(
                     powerups::tall_body_size(),
-                    // One pipe-width clear, measured off the AUTHORED pipe
-                    // rather than a constant tile count.
                     under + (vault_exit().max.x - vault_exit().min.x)
                 ),
                 vault_exit()
@@ -3819,12 +3415,8 @@ mod tests {
             vault_exit()
         );
 
-        // The level really does carry BOTH pipes and the coins that reward
-        // them. The return pipe is asserted because its absence is exactly the
-        // bug that shipped: the exit was a logical zone with no geometry, so
-        // the vault looked like a dead end and the only way out was knowing
-        // where to press Interact. A warp whose mouth you cannot see is not a
-        // warp, and no assertion about the ZONE would have caught it.
+        // The level really does carry BOTH pipes and the coins that reward them. A warp whose mouth
+        // you cannot see is not a warp, and no assertion about the ZONE would have caught it.
         let room = level_1_1();
         let authored_pipes: Vec<_> = pipe_halves_of(&room)
             .into_iter()
@@ -3836,7 +3428,7 @@ mod tests {
                 .any(|(link, role, _)| link == DESCENT_LINK && *role == MaryOPipeRole::Entrance),
             "the entrance pipe is authored into the level; got {authored_pipes:?}"
         );
-        // ⚠ the vault's return pipe is a BLOCK, asked for through the tube table
+        // the vault's return pipe is a BLOCK, asked for through the tube table
         // rather than by name — but it is still the block, not a zone, which is
         // the whole point of the assertion below it.
         let return_pipe = authored_tube(LEVEL_1_1_ROOM_ID, ASCENT_LINK).entrance.aabb;
@@ -3858,17 +3450,12 @@ mod tests {
              {return_pipe:?}",
             vault_exit()
         );
-        // ⚠ **an INVARIANT, not the authored count.** This used to pin exactly
-        // `VAULT_COINS`, which was right while a Rust constant stocked the
-        // chamber and is a tripwire now that Jon stocks it: adding a ninth coin
-        // is authoring, not a regression. What has to stay true is that the
-        // reward for finding the pipe EXISTS and is reachable — inside the
-        // chamber rather than buried in its stone.
-        // ⛔ **selected by WHERE THEY ARE, not by what they are called.** An
-        // authored pickup's id is its LDtk iid (`PickupSpawn-106857`), not a name
-        // the generator chose — so a filter on `vault_coin_` found nothing while
-        // all eight coins sat in the chamber. The invariant is the reward itself:
-        // the secret holds currency, inside the room you reach by pipe.
+        // What has to stay true is that the reward for finding the pipe EXISTS and is reachable —
+        // inside the chamber rather than buried in its stone. **selected by WHERE THEY ARE, not by
+        // what they are called.** An authored pickup's id is its LDtk iid (`PickupSpawn-106857`),
+        // not a name the generator chose — so a filter on `vault_coin_` found nothing while all
+        // eight coins sat in the chamber. The invariant is the reward itself: the secret holds
+        // currency, inside the room you reach by pipe.
         let coins: Vec<_> = room
             .placements
             .iter()
@@ -3890,9 +3477,6 @@ mod tests {
     }
 
     /// **A pipe you go INTO always has a pipe you come OUT of.**
-    ///
-    /// The three things Jon caught by looking at the level, which every test here
-    /// missed because they only ever checked a mouth against its own zone:
     ///
     /// 1. The descent pipe had NO output pipe — you pressed down on a pipe and
     ///    materialized in open stone, with nothing at the far end to come out of.
@@ -3917,10 +3501,6 @@ mod tests {
         let room = level_1_1();
         let vault = vault_bounds();
         let ground_top = SURFACE_HEIGHT - GROUND_TILES * T;
-        // ⭐ **EVERY tube the level authors**, not two hand-named pairs. That is
-        // what the `link` field bought: `pipe_tubes` refuses a half whose partner
-        // is missing (so (1) can no longer be authored at all), and this loop
-        // covers a fifth pipe Jon draws without anyone editing it.
         let tubes = pipe_tubes(&room).expect("1-1's pipes pair up");
         assert_eq!(
             tubes.len(),
@@ -3970,8 +3550,7 @@ mod tests {
                  not float: {:?}",
                 surface.aabb
             );
-            // ...and the vault half HANGS FROM THE CEILING, which is that same
-            // slab. (The bug: the return pipe sat on the vault FLOOR.)
+            // ...and the vault half HANGS FROM THE CEILING, which is that same slab.
             assert!(
                 (under.aabb.min.y - vault.min.y).abs() < 1.0,
                 "the `{link}` tube's vault half must hang from the vault ceiling — \
@@ -4041,7 +3620,7 @@ mod tests {
         let vault = vault_bounds();
         let ground_top = SURFACE_HEIGHT - GROUND_TILES * T;
         let room = level_1_1();
-        // ⚠ ASK THE COLLISION, not the name. Terrain is painted into an IntGrid
+        // ASK THE COLLISION, not the name. Terrain is painted into an IntGrid
         // and the merged blocks carry no `ground_*` name to match on — and the
         // question was never about names: is there slab over the secret at this
         // column, whatever drew it.
@@ -4064,12 +3643,7 @@ mod tests {
     /// `publish_kernel_reset_death` for the pit/drown/hazard reset that never
     /// reaches the resolver.
     ///
-    /// This deliberately no longer bumps `BodyLifetime.resets`. That counter is
-    /// bumped by six unrelated callers including a room replay's own body reset,
-    /// and driving it here made the old test structurally incapable of catching
-    /// the replay feedback loop — see
-    /// [`a_replay_reset_is_not_a_death_so_lives_cannot_drain`], which is the
-    /// regression the old oracle could not express.
+    /// This deliberately no longer bumps `BodyLifetime.resets`.
     #[test]
     fn a_death_or_a_timeout_spends_a_life_and_zero_is_not_a_floor() {
         use ambition_platformer2d::world::rooms::{ActiveRoomMetadata, RoomMetadata};
@@ -4152,13 +3726,6 @@ mod tests {
              cannot spend every remaining life on consecutive frames"
         );
 
-        // ── Spending the LAST life changes nothing ───────────────────────────
-        // ⛔ **RUNNING OUT IS NOT A GAME OVER — that is the whole ask.** Jon:
-        // *"For now let's allow lives to go negative and the user to play
-        // forever, so no game over screen yet."* This block used to assert the
-        // opposite: that spending the last life reset the run and wiped the
-        // score. It was a green test pinning behaviour the maintainer had ruled
-        // out in the same sentence that asked for the feature.
         let mut app = shell(0.0);
         app.update();
         {
@@ -4179,14 +3746,6 @@ mod tests {
     }
 
     /// **A replay's own body reset must not read as a death.**
-    ///
-    /// The regression for the feedback loop. Before the fix, lives were inferred
-    /// from `BodyLifetime.resets`, so this sequence was recursive: a death spent
-    /// a life and requested a replay; the replay consumer called
-    /// `reset_body_clusters`; that bumped `resets`; the bump was read as a second
-    /// death; another life, another replay — unbounded, at frame rate, wrapping
-    /// the counter forever. Grabbing the FLAG entered the same loop, because the
-    /// level cycle also requests a replay.
     ///
     /// This stands in for the replay consumer by doing the one thing it does to
     /// the body — bumping the respawn counter — and then asserting that nothing
@@ -4262,18 +3821,13 @@ mod tests {
     /// emit ran), and it must NOT fire early or the tally would never be seen.
     /// **The level-end transition is a REQUEST, and a request can be dropped.**
     ///
-    /// Jon, 2026-08-05: *"if you get to the end of a level with a quasar — or
     /// maybe that you get to it in a weird way — you can keep playing after you
     /// hit the flag instead of transitioning to the next level."*
     ///
-    /// Every other producer of `RoomTransitionRequested` is a loading zone that
-    /// re-emits every tick while the body overlaps it, and the transaction says
-    /// so in as many words — *"Zone overlap may emit every tick until the
-    /// eventual commit moves the body"* — deduping by destination. Its recovery
-    /// model IS the producer asking again. The flag asked once, reset itself to
-    /// `Idle` in the same call, and `run_flag_sequence` then handed control back
-    /// on the very next frame. Any of the transaction's several silent drop
-    /// paths therefore reads, from the couch, as the flag doing nothing.
+    /// Its recovery model IS the producer asking again. The flag asked once, reset itself to
+    /// `Idle` in the same call, and `run_flag_sequence` then handed control back on the very
+    /// next frame. Any of the transaction's several silent drop paths therefore reads, from the
+    /// couch, as the flag doing nothing.
     ///
     /// This test is that drop: a bare app with no host to commit a transition.
     /// She must stay held at the pole, still asking.
@@ -4395,23 +3949,14 @@ mod tests {
     /// **Every level's goal names where it goes, and the levels form a
     /// CIRCUIT.**
     ///
-    /// ⛔ **the destination was compiled in**, so a level physically could not
+    /// **the destination was compiled in**, so a level physically could not
     /// lead anywhere: completion wrote `RoomReplayRequested` unconditionally.
-    /// Jon, 2026-08-04: *"we need to build a real world 1-2 that you go to when
     /// you complete world 1-1 … The end of 1-2 should transition back to 1-1."*
     ///
-    /// ⚠ this asserts the WIRING — that the exits form a circuit, and that
+    /// this asserts the WIRING — that the exits form a circuit, and that
     /// `Replay` is still what an unnamed room gets — rather than driving a
     /// playthrough. The end-to-end run belongs to the fixture course, and the
     /// course deliberately loops, so the transition case has no route to ride.
-    ///
-    /// ⛔⛔ **THIS TEST USED TO NAME EVERY ROOM IN ORDER, and that is the exact
-    /// defect that reddened `level_circuit.rs` when 1-3 was authored.** Three
-    /// `assert_eq!`s spelling *1-1 → 1-2 → 1-3 → 1-1* pin the LENGTH of the
-    /// world, so a fourth level breaks a test that is not about a fourth level.
-    /// The claim is *"a circuit that visits every authored area and comes back
-    /// to the entry, with no dead end and no short loop"* — walk it and let the
-    /// roster say how long that takes.
     #[test]
     fn the_levels_name_each_other_and_anything_else_still_loops() {
         let authored = authored_area_ids();
@@ -4468,7 +4013,7 @@ mod tests {
              the absence of one"
         );
 
-        // ⭐ **and every named destination is a room this world actually has.**
+        // **and every named destination is a room this world actually has.**
         // A goal pointing at a room nobody built degrades to a replay with a
         // warning, which is deliberate but is not something to ship: it would
         // read as "the flag is broken" to a player and to nobody as a typo.
@@ -4487,7 +4032,7 @@ mod tests {
 
     /// **1-2 has a goal to reach, and it is a real block in the room.**
     ///
-    /// ⚠ the level had an EXIT — an alcove that walks you back to the surface —
+    /// the level had an EXIT — an alcove that walks you back to the surface —
     /// and no END. Those are different affordances: leaving is not finishing,
     /// and only one of them can name a destination.
     #[test]
@@ -4512,11 +4057,8 @@ mod tests {
             "the pole is ONE-WAY: a flagpole you can walk into is a wall, and a \
              wall parks the body outside its own grab band"
         );
-        // ⛔ **this used to say "clear of the exit alcove, or the two
-        // affordances race"**, and the alcove was deleted on 2026-08-06 with the
-        // rest of the mid-1-1 round trip. There is nothing left to race: the
-        // pole is now the ONLY way out of 1-2, which is a stronger claim than
-        // the one the alcove made necessary and is the one worth asserting.
+        // There is nothing left to race: the pole is now the ONLY way out of 1-2, which is a
+        // stronger claim than the one the alcove made necessary and is the one worth asserting.
         assert!(
             room.loading_zones.is_empty(),
             "1-2 authors a loading zone again ({:?}) — finishing is the only way \
@@ -4538,7 +4080,7 @@ mod tests {
 mod flag_geometry_oracle {
     use super::*;
 
-    // ⭐⭐ **`the_pole_resource_is_the_authored_block` IS GONE (2026-08-05), and
+    // **`the_pole_resource_is_the_authored_block` IS GONE, and
     // deleting it is the point of the change it was watching.** It compared
     // `goal_pole()` — built from `POLE_COLUMN` and `POLE_WIDTH` — against the
     // authored `goal_pole` block, because two descriptions of one flag can
@@ -4546,11 +4088,7 @@ mod flag_geometry_oracle {
     // and the comparison is `x == x`: a test that cannot fail, which is worse
     // than no test because it reads like coverage.
 
-    /// **Each room's goal is ITS OWN**, which is what survived the deletion
-    /// above and is the failure that actually shipped: the pole resource was
-    /// installed once from the entry room, so finishing 1-2 was measured
-    /// against a flag standing in 1-1 (`install_goal_pole` warns about exactly
-    /// this). Two rooms, two poles, no shared answer.
+    /// Two rooms, two poles, no shared answer.
     #[test]
     fn every_room_finishes_on_the_pole_that_stands_in_it() {
         let one_one = pole_for_room(LEVEL_1_1_ROOM_ID);
@@ -4578,9 +4116,7 @@ mod flag_geometry_oracle {
         }
     }
 
-    /// The grab band is narrower than the pole is tall, and the pole spans a real
-    /// slide. A pole with `top_y == base_y` would score every grab 100 and read as
-    /// a bug in the score table rather than in the level.
+    /// The grab band is narrower than the pole is tall, and the pole spans a real slide.
     #[test]
     fn the_pole_is_tall_enough_to_have_score_bands() {
         let pole = goal_pole();
@@ -4593,11 +4129,11 @@ mod flag_geometry_oracle {
 
 /// **Value projections for this demo's rollback state.**
 ///
-/// ⛔ **every one of these registrations was PRESENCE-ONLY**, and nothing caught
+/// **every one of these registrations was PRESENCE-ONLY**, and nothing caught
 /// it for months: `no_snapshot_registration_is_inert` and its sibling sweep run
 /// against `Platformer2dSimHarness`, and the harness composed
 /// `AmbitionGameSimulationPlugin` alone — Ambition's own content and none of the
-/// demos. Deleting the build-time `SessionRoot` (K2b edit 2, 2026-08-06) made the
+/// demos. Deleting the build-time `SessionRoot` made the
 /// harness compose the shipped shell host, and eighteen content registrations
 /// across three crates arrived on the checker at once.
 ///
@@ -4606,7 +4142,7 @@ mod flag_geometry_oracle {
 /// "something in Mary-O", which is the resolution the whole oracle exists to
 /// improve on.
 ///
-/// ⚠ **f32 goes through `to_bits`, deliberately.** A checksum that rounded would
+/// **f32 goes through `to_bits`, deliberately.** A checksum that rounded would
 /// call two timelines equal one ulp apart, and one ulp of a death timer is one
 /// frame of difference by the time it reaches a comparison.
 mod rollback_probes {
@@ -4628,7 +4164,7 @@ mod rollback_probes {
             }
             flag::FlagPhase::Tallied { score } => 4 ^ ((*score as u64) << 8),
         };
-        // ⚠ the DRIVEN position is half the state: while the flag sequence owns
+        // the DRIVEN position is half the state: while the flag sequence owns
         // the body, a rewind that restored the phase and not the position would
         // put the body somewhere the phase does not describe.
         let driven = sequence

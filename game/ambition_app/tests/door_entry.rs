@@ -1,6 +1,6 @@
 //! **A door, entered the way a player enters one.**
 //!
-//! Jon, 2026-07-31: *"in the last build I can't seem to enter doors anymore?"*
+//! *"in the last build I can't seem to enter doors anymore?"*
 //!
 //! Every existing room-transition test in this tree synthesises the transition:
 //! it reaches into the room graph, calls `transition_for_player(zone.aabb, ZERO,
@@ -103,13 +103,6 @@ fn standing_in_a_door_and_pressing_interact_changes_the_room() {
 }
 
 /// **And the same door, in the SHIPPED HOST, pressed as a key.**
-///
-/// The sim-harness case above is fixed-tick and session-free: it proves the
-/// buffer and the room graph agree, and it cannot see the two things the host
-/// puts between a finger and that buffer — the input CONTEXT (a live gameplay
-/// session has to own the participant's actions before `ControlFrame` carries
-/// anything) and the participant's own binding of `Platformer2dInputActionMonolith::Interact`.
-/// Jon plays the host, so the host is where "I can't enter doors" is answered.
 ///
 /// The key is READ from the live input map rather than hardcoded: the interact
 /// key differs per preset (`F` on the arrow presets, `E` on the WASD ones), and
@@ -336,24 +329,7 @@ fn holding_up_opens_a_door_and_a_short_hold_does_not() {
 
 /// **A DOOR under a ROLLBACK host — the combination nothing covered.**
 ///
-/// ⛔ this is one of the un-ruled-out candidates in S26 item 2 ("Jon cannot
-/// enter doors"), and it is the only one that could be tested without asking
-/// him which room he was in.
-///
-/// The two existing bodies of evidence miss between them:
-/// * `door_entry.rs` (above) drives DOORS, on a fixed-tick sim and in the
-///   shipped host — hosts with no `ConfirmedFrameBoundary`, so
-///   `detect_room_transition_system` takes its EAGER branch;
-/// * `rollback_room_transition.rs` drives the DEFERRED branch end to end — but
-///   through an `EdgeExit`, which fires on overlap.
-///
-/// A door is the one activation that needs a buffered INTERACT press, and the
-/// deferred branch calls `slot_gestures.primary_mut().clear()` before recording
-/// the intent. If the commit then failed or was never run, the press would be
-/// consumed and nothing would happen — which is exactly the reported symptom.
-///
-/// So: rollback host, real door, held interact, and the room must actually
-/// change.
+/// Covers the rollback-host door path: hold interact on a real door and require the room to change.
 #[cfg(feature = "rl_sim")]
 #[test]
 fn a_door_opens_under_a_rollback_host_and_not_only_a_fixed_tick_one() {
@@ -377,14 +353,10 @@ fn a_door_opens_under_a_rollback_host_and_not_only_a_fixed_tick_one() {
 
     let before = active_room(&mut sim);
 
-    // ⚠ **`teleport_player`, NOT a `world_mut()` write.** The body's position is
-    // ROLLBACK STATE: a direct write is restored out from under itself on the
-    // next resim, so the body never overlaps the zone on a frame the system
-    // sees. `stand_in_a_door` (used by the eager tests above) writes directly,
-    // which is correct for a host with no rollback and silently wrong here —
-    // it produced a convincing 600-frame reproduction of a bug that was not
-    // there. `teleport_player` rebases the baseline, which is what folds the new
-    // position into history.
+    // ⚠ **`teleport_player`, NOT a `world_mut()` write.** The body's position is ROLLBACK
+    // STATE: a direct write is restored out from under itself on the next resim, so the body
+    // never overlaps the zone on a frame the system sees. `teleport_player` rebases the
+    // baseline, which is what folds the new position into history.
     let door = {
         let world = sim.world_mut();
         let mut query = world.query::<&ambition_platformer2d::actors::rooms::RoomSet>();
@@ -429,12 +401,8 @@ fn a_door_opens_under_a_rollback_host_and_not_only_a_fixed_tick_one() {
     );
 }
 
-/// **THE SECOND HOST LEDGER ROW D75 NAMED, ASKED THE SAME WAY** — the registry
-/// out of the finished world, not a log line nobody can see.
-///
-/// ⛔ D75 recorded "registry has 0 ids: []" for the rollback door fixture on
-/// 2026-08-11, and read that as a composition bug. The shell host's half of the
-/// finding turned out to be stale when measured; this is the other half.
+/// **THE SECOND HOST LEDGER ROW NAMED, ASKED THE SAME WAY** — the registry out of the finished
+/// world, not a log line nobody can see.
 ///
 /// ⚠ **a `warn!` cannot settle it**: no `LogPlugin`, no output, and this row has
 /// already been fooled once by a green run that captured its own probe.
@@ -467,9 +435,7 @@ fn the_rollback_door_host_publishes_a_prepared_cast() {
          character-named placement in the rooms it loads falls back to a \
          generic — ledger D75, live"
     );
-    // ⭐ THE OTHER TERM: this harness composes AMBITION, so its own protagonist
-    // must be there. A non-empty registry holding somebody else's cast would
-    // satisfy the assertion above while describing a different bug.
+    // ⭐ THE OTHER TERM: this harness composes AMBITION, so its own protagonist must be there.
     assert!(
         ids.iter().any(|id| id == "player_robot_v3"),
         "the Ambition sim harness published a cast without Ambition's \

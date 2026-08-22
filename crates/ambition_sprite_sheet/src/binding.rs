@@ -1,19 +1,6 @@
 //! The [`AnimRow`] namespace: resolving an animation name against the sheet that
 //! actually has the rows.
 //!
-//! This is the namespace the binding boundary was built for. A sprite sheet's
-//! rows are named by the generator from the rig (`idle`, `walk`, `death`), and
-//! every consumer — character animator, boss animator, prop and melee-effect
-//! visuals, projectiles — addresses them by string. The old resolver was
-//! `SheetRecord::row_index_of(&str) -> Option<usize>`, and its callers spelled
-//! the failure `?`, `unwrap_or(0)`, or `unwrap_or(1)`.
-//!
-//! That is how Mary-O shipped without a death animation. The rig emitted a row
-//! called `death`; the policy asked for `dead`; `row_index_of` returned `None`;
-//! the caller drew frame 0 of row 0 and said nothing. The bug survived a
-//! playtest because an idle frame where a death should be is not obviously
-//! WRONG on screen — it is just not right, which is much quieter.
-//!
 //! So there is no name→row lookup on `SheetRecord` any more. A consumer asks the
 //! sheet for its [`Resolver`], resolves through a
 //! [`BindingLedger`](ambition_platformer2d_shared_tangle::binding::BindingLedger),
@@ -66,8 +53,8 @@ impl SheetRecord {
     /// error, not a content typo, so it is loud rather than degradable.
     /// **The first row of `chain` this sheet actually has.**
     ///
-    /// ⭐⭐ **the seam that lets an authored CLIP be drawn without an engine enum
-    /// variant** (sprite redirect P0, 2026-08-11). A `MoveSpec` names its clip
+    /// **the seam that lets an authored CLIP be drawn without an engine enum
+    /// variant**. A `MoveSpec` names its clip
     /// and its fallbacks — `smash_forward`, then `attack_side`, then `slash` —
     /// and the runtime's typed `CharacterAnim` vocabulary cannot grow one variant
     /// per expressive row without becoming the 271-entry fighter-motion catalog.
@@ -75,11 +62,11 @@ impl SheetRecord {
     /// it does have; a sheet with none of them gets `None` and the caller's
     /// semantic ladder answers instead.
     ///
-    /// ⛔ **it returns `Option`, never index 0.** The habit this replaces is
+    /// **it returns `Option`, never index 0.** The habit this replaces is
     /// `row_index_of(name).unwrap_or(0)`, which draws IDLE for a missing attack
     /// row and looks like a character that simply does not swing.
     ///
-    /// ⚠ order is the AUTHOR's, not this function's: the chain is tried left to
+    /// order is the AUTHOR's, not this function's: the chain is tried left to
     /// right and the first hit wins, so a fallback list is a preference and not a
     /// set.
     pub fn first_bound_row<'a>(
@@ -210,7 +197,7 @@ mod tests {
 
     /// **A lean sheet falls through the AUTHORED chain, in order.**
     ///
-    /// ⚠ two terms: the chain is tried left to right (so `attack_side` wins over
+    /// two terms: the chain is tried left to right (so `attack_side` wins over
     /// `slash` when both exist), and a sheet with NONE of them answers `None`
     /// rather than index 0 — the `unwrap_or(0)` habit draws idle for a missing
     /// attack row, which looks like a character that does not swing.

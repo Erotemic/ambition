@@ -414,12 +414,6 @@ fn touch_action_layout_keeps_visible_circles_apart() {
 #[cfg(feature = "mobile_touch")]
 #[test]
 fn the_drawn_stick_and_the_urld_glyphs_share_one_center() {
-    // The stick art and the U/R/L/D glyphs are drawn by two different systems
-    // into the same root rect. They used to derive their positions
-    // independently — the glyph root re-derived a corner inset from
-    // JOYSTICK_MARGIN while the joystick root took the resolver's rect, flush
-    // to the screen corner — so the stick sat up-and-LEFT of the glyphs it is
-    // supposed to sit inside. Both now key off `art_center`.
     use super::layout::movement_joystick_layout;
     use bevy::math::Vec2;
 

@@ -1,13 +1,10 @@
 //! The `fighter_brain_ladder` authored-content schema, owned by this capability.
 //!
-//! ⛔ **this family is not the shape the other migrations were.** Every other row
-//! in the authoring-loop program's ledger had TWO readers of one file — the pack
-//! and a bespoke `include_str!` parser — and migrating it made them one. This one
-//! had ZERO production readers. `fighter_brain_ladder.ron` was parsed by a content
-//! TEST and by nothing else in the workspace: Ambition authored a nine-rung
-//! difficulty ladder and the running game never read a row of it.
+//! This one had ZERO production readers. `fighter_brain_ladder.ron` was parsed by a content
+//! TEST and by nothing else in the workspace: Ambition authored a nine-rung difficulty ladder
+//! and the running game never read a row of it.
 //!
-//! ⭐ **the engine says outright that this is the case that must not happen.**
+//! **the engine says outright that this is the case that must not happen.**
 //! [`FighterBrainProfile::for_level`](super::FighterBrainProfile::for_level)
 //! describes itself as *"a FLOOR, not the ladder. A game that cares ships its own
 //! nine rows (`FighterBrainLadder::from_ron`) and this is never consulted."* Both
@@ -16,7 +13,7 @@
 //! [`profile_for_level`](super::profile_for_level); this module is how the
 //! winning source arrives.
 //!
-//! ⚠ **the invariant question was already answered, so this handler wires it up
+//! **the invariant question was already answered, so this handler wires it up
 //! rather than inventing it.** The template asks what a family can say that its
 //! own parser accepts and the runtime cannot use;
 //! [`FighterBrainLadder::problems`] is exactly that list and predates this module
@@ -69,7 +66,7 @@ impl ContentSchemaHandler for FighterBrainLadderSchema {
         let id = facet.content_id_in(FIGHTER_BRAIN_LADDER_SCHEMA, "ladder");
         out.define(id.clone(), canonical(&ladder));
 
-        // ⭐ every fault at once, at load, in one place. A ladder can be nonsense
+        // every fault at once, at load, in one place. A ladder can be nonsense
         // while every individual row looks fine — non-monotone reaction is the
         // clearest case — and the alternative to reporting it here is noticing it
         // as "the levels do not order correctly" after hours of self-play.

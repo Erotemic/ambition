@@ -16,11 +16,9 @@ use bevy::prelude::{App, IntoScheduleConfigs, Update};
 
 /// Register every message the shared feature-hit pipeline writes.
 ///
-/// `apply_feature_hit_events` fans out to sfx / vfx / debris / stimuli / wallet
-/// facts, and a Bevy `MessageWriter` for an unregistered message PANICS the
-/// system rather than no-opping. Each of these setups used to spell the list out
-/// by hand, so adding one writer to the pipeline meant editing fifteen tests and
-/// finding out which ones you missed by running them. One list, one edit.
+/// `apply_feature_hit_events` fans out to sfx / vfx / debris / stimuli / wallet facts, and a Bevy
+/// `MessageWriter` for an unregistered message PANICS the system rather than no-opping. One list,
+/// one edit.
 fn register_hit_pipeline_messages(app: &mut App) {
     app.add_message::<HitEvent>();
     app.add_message::<crate::combat::hitbox::LandedBodyHit>();
@@ -80,13 +78,8 @@ fn victim_side_enemy_body_hit_does_not_damage_features() {
         volume: event_volume.into(),
         damage: 1,
         source: HitSource::Contact,
-        // ⭐ **the emitter NAMES itself, which is what makes this test able to
-        // state its own claim.** It used to say `attacker: None` and pass
-        // because the drain skipped every victim-side broadcast wholesale — a
-        // direction rule standing in for self-exclusion. With one `Contact`
-        // cause there is no direction left to hide behind, and a hit with no
-        // attacker has no self to exclude, so the fixture was describing a
-        // contact nobody made.
+        // With one `Contact` cause there is no direction left to hide behind, and a hit with no
+        // attacker has no self to exclude, so the fixture was describing a contact nobody made.
         attacker: Some(actor_entity),
         target: HitTarget::Volume,
         mode: HitMode::Knockback,
@@ -106,12 +99,8 @@ fn victim_side_enemy_body_hit_does_not_damage_features() {
     );
 }
 
-/// CM8 END-TO-END (the actual bug): an enemy struck by another enemy runs
-/// through the REAL victim consumer (`apply_feature_hit_events` → `apply_actor_hit`)
-/// and reacts with its OWN `HurtFeedback::ENEMY` — a plain tick, NO
-/// `PLAYER_DAMAGE` grunt and NO red "you got hurt" burst. The attack's authored
-/// `strike_sfx` overrides only the sound, so a sword and the victim's default are
-/// heard apart without any `is_player` branch selecting the payload.
+/// The attack's authored `strike_sfx` overrides only the sound, so a sword and the victim's
+/// default are heard apart without any `is_player` branch selecting the payload.
 #[test]
 fn an_enemy_victim_reacts_with_its_own_profile_not_the_players() {
     use bevy::ecs::message::Messages;
@@ -223,11 +212,6 @@ fn player_melee_damage_scales_with_the_outgoing_slider() {
         register_hit_pipeline_messages(&mut app);
         app.add_systems(Update, apply_feature_hit_events);
         let victim = spawn_hostile_actor(&mut app); // health 5
-                                                    // ⭐ **the swing has to come from a human-controlled body, because that
-                                                    // is what the slider is about.** This used to leave `attacker: None` and
-                                                    // rely on the `PlayerSlash` spelling to mean "the player's". The gate
-                                                    // asks the attacker now, so a fixture with no attacker is describing a
-                                                    // swing nobody threw.
         let mut attacker = app.world_mut().spawn_empty();
         if human_controlled {
             attacker.insert(ambition_platformer2d_shared_tangle::markers::PlayerEntity);
@@ -278,7 +262,7 @@ fn player_melee_damage_scales_with_the_outgoing_slider() {
         2,
         "the OUTGOING player slider never touches enemy melee"
     );
-    // ⛔ **the poison, and the one the source word could never catch.** An
+    // **the poison, and the one the source word could never catch.** An
     // uncontrolled body swinging the very same melee cause must not be scaled by
     // a HUMAN's difficulty slider. While the gate read `matches!(source,
     // PlayerSlash)` this was unassertable — the spelling WAS the claim — and it
@@ -434,11 +418,6 @@ fn player_slash_damages_and_can_kill_a_hostile_actor() {
         "the enemy should still be alive after one slash"
     );
 
-    // Two DISTINCT slashes: in real play ~0.2 s+ separates them, so the actor's
-    // post-hit i-frame (`ACTOR_DAMAGE_IFRAME_S`) has elapsed by the second swing.
-    // This minimal app runs no integration tick to decay it, so clear it here to
-    // model the gap between attacks (without it, the i-frame correctly gates the
-    // back-to-back second hit — that is the regression fix working).
     app.world_mut()
         .get_mut::<ambition_characters::actor::BodyCombat>(actor_entity)
         .unwrap()
@@ -599,26 +578,18 @@ fn a_struck_peaceful_corpse_is_silent_but_a_living_one_barks() {
     );
 }
 
-/// **A COMBATANT IS DAMAGEABLE WHETHER OR NOT IT IS ANGRY.** (GPT 5.6,
-/// 2026-08-07, finding 4)
-///
-/// ⛔ `apply_actor_hit` read the DISPOSITION to decide whether a hit takes
+/// `apply_actor_hit` read the DISPOSITION to decide whether a hit takes
 /// health, so `ActorDisposition` answered two questions at once: how an actor
 /// regards combat, and whether its body can be hurt. A match fighter therefore
 /// had to stay `Hostile` merely to be damageable — and two participant-driven
 /// fighters hold no AI target, so both stood down to `Peaceful` and neither
 /// could hurt the other.
 ///
-/// ⭐ the same body, struck the same way, twice: a bystander is PROVOKED, and
+/// the same body, struck the same way, twice: a bystander is PROVOKED, and
 /// one that is IN A FIGHT takes the blow. Nothing about its brain, its mood or
 /// its faction changed between them.
 ///
-/// ⚠ **the authority is `ActiveCombatant`, and this test used to spawn
-/// `RulesetOwnsDeath`.** That marker answers a different question — whose
-/// business this body's death is — and it correlates with being in a fight
-/// right up until a fighter is eliminated, at which point the body keeps
-/// standing, keeps the marker, and is not fighting. The third case below is
-/// exactly that body.
+/// The third case below is exactly that body.
 #[test]
 fn a_peaceful_body_in_a_fight_takes_damage_instead_of_barking() {
     fn strike(in_a_fight: bool, ruleset_owns_death: bool) -> (i32, usize) {
@@ -682,12 +653,8 @@ fn a_peaceful_body_in_a_fight_takes_damage_instead_of_barking() {
         "and it does not bark a provocation line at somebody it is fighting"
     );
 
-    // ⛔ **THE POISON, and it is the eliminated fighter.** Death ownership
-    // without participation: the match still owns this body's KO and the body is
-    // out of the fight. Asking `RulesetOwnsDeath` — which is what this test used
-    // to do — reports it as a live combatant, so a corpse with no stocks left
-    // goes on absorbing hits, holding attack state, and standing on the
-    // anti-clump board among the fighters who are still playing.
+    // **THE POISON, and it is the eliminated fighter.** Death ownership without participation: the
+    // match still owns this body's KO and the body is out of the fight.
     let (eliminated_hp, eliminated_bubbles) = strike(false, true);
     assert_eq!(
         eliminated_hp, 9,
@@ -699,12 +666,8 @@ fn a_peaceful_body_in_a_fight_takes_damage_instead_of_barking() {
 
 #[test]
 fn a_sustained_overlap_lands_one_hit_per_iframe_window_not_one_per_frame() {
-    // Regression (Jon, 2026-06-27): a body pinned in a damaging volume — a lingering
-    // attack volume, body contact, or a dialog-locked body next to an enemy — used to
-    // re-register a hit (damage + sound + particles) EVERY frame, because actors had
-    // no post-hit i-frame (the player did). With the body-generic
-    // `ActorStatus::damage_invuln_timer`, the SAME hit fired twice with the window
-    // still hot lands exactly once. (This minimal app runs no integration tick, so the
+    // With the body-generic `ActorStatus::damage_invuln_timer`, the SAME hit fired twice with the
+    // window still hot lands exactly once. (This minimal app runs no integration tick, so the
     // window never decays between the two updates — exactly the sustained-overlap case.)
     let mut app = App::new();
     app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
@@ -1023,14 +986,9 @@ fn boss_signature_gauntlets_map_to_real_wielded_held_items() {
     use crate::abilities::ranged::{beam, meteor, sentry, shockwave, volley, vortex};
     use crate::abilities::traversal::dive;
     use crate::features::BossBehaviorProfile;
-    // Signature gauntlets are content data (`boss_profiles.ron`): each must
-    // resolve to a real held-item spec so the dropped GroundItem is
-    // pick-up-able. Read off the RON-loaded profile by id — so the reward is
-    // intrinsically keyed on the boss's REAL behavior id (the old
-    // `"smirking_behemoth"` vs `"smirking_behemoth_boss"` mis-key, where a
-    // literal-keyed lookup silently never fired, can no longer happen). The
-    // expected values pin the RON against the ability id consts so the two
-    // can't drift apart.
+    // Signature gauntlets are content data (`boss_profiles.ron`): each must resolve to a real
+    // held-item spec so the dropped GroundItem is pick-up-able. The expected values pin the RON
+    // against the ability id consts so the two can't drift apart.
     let expect: &[(&str, Option<&str>)] = &[
         ("trex_boss", Some(shockwave::SHOCKWAVE_ID)),
         ("mockingbird", Some(volley::VOLLEY_ID)),
@@ -1116,9 +1074,6 @@ fn dividing_mite_splits_into_two_hostile_offspring_on_death() {
          catalog: bevy::prelude::Res<
             ambition_characters::actor::character_catalog::CharacterCatalog,
         >| {
-            // ⭐ **the offspring is a registered CHARACTER** — a summon that
-            // names anything else is refused now (AC6), where it used to become
-            // whatever the fixture roster answered for the key.
             spawn_split_offspring(
                 &mut c,
                 &catalog,
@@ -1127,8 +1082,6 @@ fn dividing_mite_splits_into_two_hostile_offspring_on_death() {
                 ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
                 "divider_1",
                 ae::Vec2::new(100.0, 100.0),
-                // AC5.4: the offspring is the CALLER's to name, from the parent
-                // character's `divides_into`. This module used to hold it.
                 "npc_puppy_slug",
             );
         },
@@ -1177,13 +1130,10 @@ fn enemy_health_drop_is_deterministic_and_spawns_a_heart() {
     );
 }
 
-// ⛔⛔ **`an_armed_enemy_archetype_resolves_a_weapon_to_drop` WAS HERE AND IS
-// DELETED** (AC6). It asked a fixture archetype row for its `held_item_spec()`
-// and asserted a gun-sword came back — a test of the row's field resolver. A
-// body's weapon is authored on its CHARACTER (`held_item`) and inserted by the
-// road that believes the character, so the surviving claim is
-// `drops_held_item`'s: what a body drops is its LIVE `HeldItem`, not a table
-// row.
+// It asked a fixture archetype row for its `held_item_spec()` and asserted a gun-sword came
+// back — a test of the row's field resolver. A body's weapon is authored on its CHARACTER
+// (`held_item`) and inserted by the road that believes the character, so the surviving claim is
+// `drops_held_item`'s: what a body drops is its LIVE `HeldItem`, not a table row.
 
 // ── S3c: body-enforced reactive block ───────────────────────────────────────
 //
@@ -1263,8 +1213,6 @@ fn slash_at(center: ae::Vec2, damage: i32) -> HitEvent {
         attacker: None,
         target: HitTarget::Volume,
         mode: HitMode::Knockback,
-        // The shove a slash used to smuggle through `HitSource::Melee`'s
-        // own `knock_x` field, spelled the one way knockback is spelled now.
         // Same resolution as before: side +1, standard feel strength.
         knockback: Some(slash_knockback(center, 1.0)),
         ignored_targets: Vec::new(),
@@ -1374,7 +1322,7 @@ fn a_knockback_carrying_hit_launches_the_actor_like_a_player() {
     );
 }
 
-/// ⭐⭐ **A heavy attacker hits heavy because of WHAT IT IS, not what its hit is
+/// **A heavy attacker hits heavy because of WHAT IT IS, not what its hit is
 /// called.** `boss_hit` used to be `matches!(source, BossBody | BossAttack)` — a
 /// source-specific formula for a fact about the striker, and one that could only
 /// ever be true for a body the cause vocabulary happened to have a word for.
@@ -1415,7 +1363,7 @@ fn a_heavy_attacker_is_read_off_the_attacker_not_the_hit_source() {
             strike_sfx: None,
             volume: ae::Aabb::new(center, ae::Vec2::new(32.0, 40.0)).into(),
             damage: 1,
-            // ⚠ the SAME cause in both runs. If the vocabulary were still
+            // the SAME cause in both runs. If the vocabulary were still
             // deciding, both would land identically.
             source: HitSource::Melee,
             attacker: Some(attacker),
@@ -1445,12 +1393,6 @@ fn a_heavy_attacker_is_read_off_the_attacker_not_the_hit_source() {
 
 /// A slash's knockback rides the shared resolution: side from the payload's
 /// `dir`, strength from its magnitude.
-///
-/// ⛔ this used to be `a_slash_knock_x_folds_into_the_shared_knockback_resolution`
-/// and it pinned a SECOND physics channel — `HitSource::Melee { knock_x }`,
-/// folded in by a special arm in the actor consumer. Both are deleted; the
-/// resolution they fed is the thing worth keeping, so the test keeps it and
-/// reaches it the one way that exists now.
 #[test]
 fn a_slash_knockback_rides_the_shared_resolution() {
     let mut app = shield_test_app();
@@ -1672,15 +1614,12 @@ fn a_moveset_player_strike_hits_a_target_once_across_a_multi_tick_window() {
 
 #[test]
 fn a_lethal_hit_kills_without_speaking_a_hit_bark() {
-    // Reproduces the observed "it barks when it's dead" (Jon 2026-07-22). A
-    // struck enemy speaks a hit line every hit — and that INCLUDED the lethal
-    // one, so it said its hit bark on the very frame it died. A dying body should
-    // present its death (the Death SFX + burst + debris), not a conversational
-    // "ow!". Non-lethal hits still bark. NOTE: striking an ALREADY-dead corpse was
-    // never the culprit here — `resolve_body_hit` has always dropped hits on a
-    // zero-HP body, so that path is silent with or without this change; the
-    // reproducible bark was the death FRAME. Poison: drop the `&& !killed` guard
-    // in `apply_actor_hit` and the lethal case barks again.
+    // Reproduces the observed "it barks when it's dead". A dying body should present its death
+    // (the Death SFX + burst + debris), not a conversational "ow!". Non-lethal hits still bark.
+    // NOTE: striking an ALREADY-dead corpse was never the culprit here — `resolve_body_hit` has
+    // always dropped hits on a zero-HP body, so that path is silent with or without this
+    // change; the reproducible bark was the death FRAME. Poison: drop the `&& !killed` guard in
+    // `apply_actor_hit` and the lethal case barks again.
     fn hit_and_count_bubbles(start_hp: i32, damage: i32) -> (usize, bool) {
         let mut app = App::new();
         app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
@@ -1786,11 +1725,9 @@ fn leaving_the_world_outranks_an_authored_in_place_respawn() {
     use super::actor_hit::{kill_disposition, KillDisposition};
     use ambition_entity_catalog::placements::RespawnPolicy;
 
-    // ⚠ the policy is STATED here rather than resolved from a fixture archetype
-    // row (deleted, AC6). The claim under test belongs to `kill_disposition`:
-    // given a body that respawns in place, does leaving the world outrank it. A
-    // literal makes the precondition impossible to lose silently — which is what
-    // the assertion below it was guarding when the value came from a table.
+    // the policy is STATED here rather than resolved from a fixture archetype row (deleted,
+    // AC6). The claim under test belongs to `kill_disposition`: given a body that respawns in
+    // place, does leaving the world outrank it.
     let sandbag = RespawnPolicy::InPlace(0.85);
 
     assert_eq!(
@@ -1818,25 +1755,6 @@ fn leaving_the_world_outranks_an_authored_in_place_respawn() {
 }
 
 /// **A projectile hit does not flash its thrower.**
-///
-/// Jon, from play: *"maryo flashes when her fireball hits an enemy. that should
-/// not happen."* The attacker flash is CONTACT feel — it reads as "that
-/// connected on my body", which is true for a slash or a pogo bounce and false
-/// for a shot that landed across the room.
-///
-/// ⛔ **the fix landed unguarded.** It is one `if !matches!(…)` around the flash
-/// write in `apply_feature_hit_events`, and nothing pinned it, so any refactor
-/// of that branch hands the bug straight back. This is the guard, written after
-/// the fact and verified by POISONING it — the assertion was confirmed to fail
-/// with the condition removed, not merely observed to pass with it in.
-///
-/// ⭐ **both halves, because the fix is a discrimination and not a deletion.**
-/// The slash still flashes: a guard that only checked the projectile case would
-/// pass just as well against `hit_flash` being removed entirely.
-///
-/// ⚠ the HITSTOP is deliberately NOT asserted absent for the projectile — the
-/// brief hold on impact is what makes a shot feel like it connected, nobody
-/// reported it, and the fix kept it on purpose.
 #[test]
 fn a_projectile_hit_flashes_its_victim_but_never_its_thrower() {
     fn thrower_flash_after(source: HitSource) -> f32 {
@@ -1895,12 +1813,8 @@ fn a_projectile_hit_flashes_its_victim_but_never_its_thrower() {
     );
 }
 
-/// ⭐⭐ **A boss's "who may hurt me" rule used to be "who is allowed to
-/// broadcast".** The boss scan applied no relationship policy at all — it
-/// damaged any boss an attacker-side volume reached — and got away with it
-/// because only the player could emit one. That encoding lives in another
-/// crate, by omission, and it does not survive every body being able to swing
-/// under one shared melee cause.
+/// That encoding lives in another crate, by omission, and it does not survive every body being able
+/// to swing under one shared melee cause.
 ///
 /// So the boss is adjudicated by the same `damage_lands_between` every other
 /// victim already is. This pins the three answers that differ.
@@ -1925,8 +1839,6 @@ fn a_boss_is_adjudicated_by_the_same_relationship_rule_as_any_other_body() {
         ),
         "the shipped case must keep working: a player's hit reaches the boss"
     );
-    // ⛔ the poison. Same faction, friendly fire off — and before this the scan
-    // had no opinion, so it landed.
     assert!(
         !super::boss_damage_allowed(
             side(&ActorFaction::Boss, None),

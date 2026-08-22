@@ -50,13 +50,13 @@ mod tests;
 
 /// **Whose death rules govern the room this body died in.**
 ///
-/// ⭐ **the one place the question is asked**, so a third beat that needs the
+/// **the one place the question is asked**, so a third beat that needs the
 /// rules cannot re-derive them from a different pair of facts. It reads the
 /// active room's mode tag — the same fact `in_mode` gates a hosted game's
 /// systems on — and hands it to
 /// [`DeclaredDeathRules::governing`](ambition_combat::death_rules::DeclaredDeathRules::governing).
 ///
-/// ⚠ **both halves are optional and the absent case is the ENGINE DEFAULT.** A
+/// **both halves are optional and the absent case is the ENGINE DEFAULT.** A
 /// composition with no declarations and a harness with no session world are the
 /// same answer: hold for nothing, reset nothing. That is the conservative
 /// behaviour a host that has not thought about death should get, and it is never
@@ -83,14 +83,12 @@ impl GoverningDeathRules<'_, '_> {
 
 /// A participant died: mark it out of play and open its window.
 ///
-/// ⚠ **scoped to PARTICIPANT bodies.** An enemy's death is answered by the
+/// **scoped to PARTICIPANT bodies.** An enemy's death is answered by the
 /// authored respawn policy (ADR 0022) and has nothing to do with a run ending.
 ///
-/// The `Without<OutOfPlay>` filter is what makes a repeated report harmless: a
-/// body already out of play cannot re-open its own window, so the death that a
-/// still-falling corpse might report costs nothing. That used to be Mary-O's
-/// `life_spent` latch, and it was game-side because the engine had nowhere to
-/// put it.
+/// The `Without<OutOfPlay>` filter is what makes a repeated report harmless: a body already out of
+/// play cannot re-open its own window, so the death that a still-falling corpse might report costs
+/// nothing.
 pub fn open_death_interlude(
     mut commands: Commands,
     mut deaths: MessageReader<ActorDiedMessage>,
@@ -109,10 +107,6 @@ pub fn open_death_interlude(
             continue;
         };
 
-        // A fixed-tick host has no speculative frames: once this body dies, a
-        // crossing it owned is terminal and can be retracted immediately. That
-        // prevents a load opened before the death from surviving into the replay.
-        //
         // A rollback host is deliberately different. Absence from rollback state
         // is not confirmed merely because the current prediction contains a death,
         // so its confirmed lifecycle path remains the authority for retiring an
@@ -141,7 +135,7 @@ pub fn open_death_interlude(
         // *"gravity will happily walk an undriven body out from under its
         // pose"* is precisely the classic pit death.
         //
-        // ⛔ **stamping the marker directly was a real breach, not a style
+        // **stamping the marker directly was a real breach, not a style
         // point.** The marker is DERIVED — its presence means `ControlHolds`
         // is non-empty — so a death that set it without a bit left the two
         // disagreeing, and the disagreement is resolved by whoever releases
@@ -150,7 +144,7 @@ pub fn open_death_interlude(
         // `ScriptedControl` off a corpse mid-interlude. Claiming a bit makes
         // that release arithmetic instead of a guess.
         //
-        // ⚠ `Sequence` and not a bit of its own: a death fall is the first
+        // `Sequence` and not a bit of its own: a death fall is the first
         // case its doc names, and the level beats that share it — a flagpole
         // slide, a goal brake, an act clear — are states the SAME body cannot
         // also be in. A second bit is what two OVERLAPPING owners need, and
@@ -166,7 +160,7 @@ pub fn open_death_interlude(
 /// Count the open windows down on the SIM clock, and play the death row for as
 /// long as one is open.
 ///
-/// ⭐ **arming the death animation is the ENGINE's job now.** `death_anim_timer`
+/// **arming the death animation is the ENGINE's job now.** `death_anim_timer`
 /// had exactly one writer in the workspace — Mary-O's beat — which re-armed it
 /// EVERY TICK because the engine's respawn called `BodyAnimFacts::reset()` on
 /// the very frame she died. Nothing resets it out from under the interlude any
@@ -185,7 +179,7 @@ pub fn tick_death_interlude(
         if window.remaining > 0.0 {
             window.remaining = (window.remaining - dt).max(0.0);
         }
-        // ⚠ **only while the window is OPEN.** The component OUTLIVES the window
+        // **only while the window is OPEN.** The component OUTLIVES the window
         // (it carries the consequence debt until the body restarts), so arming
         // unconditionally would hold every corpse in its death row forever.
         if let Some(mut anim) = anim {
@@ -201,24 +195,20 @@ pub fn tick_death_interlude(
 
 /// The window closed: ask the roster whether the level goes back.
 ///
-/// ⭐ **the question is about the ROSTER, never about the death.** Hanging a
+/// **the question is about the ROSTER, never about the death.** Hanging a
 /// level reset off an individual death is player-centric and invisible in single
 /// player, where the two are the same event. Asking "is anybody still in play"
 /// makes NSMB co-op and a one-participant platformer the same rule.
-///
-/// The closing window is REMOVED here, so this fires exactly once however many
-/// times the frame is simulated — a state rather than an observation of the
-/// previous frame, which is what keeps it inside the rollback envelope.
 pub fn close_death_interlude(
     rules: GoverningDeathRules,
     mut closing: Query<&mut DeathInterlude>,
     still_playing: Query<Entity, (With<PlayerEntity>, Without<OutOfPlay>)>,
     mut replay: MessageWriter<RoomReplayRequested>,
-    // ⭐ **the horizon half of the same consequence.** `RoomReplayRequested`
+    // **the horizon half of the same consequence.** `RoomReplayRequested`
     // says "rebuild the active room"; this says "and rebuild it from the last
     // committed checkpoint rather than from the world that just killed you".
     //
-    // ⛔⛔ **they are two channels because `RoomReplayRequested` is ALSO how
+    // **they are two channels because `RoomReplayRequested` is ALSO how
     // content announces a level COMPLETION** — Mary-O's flag, Sanic's act
     // clear, a dialogue's "try again". Restoring a reset baseline when the
     // player just won would take the reward back off them, and a single
@@ -251,7 +241,7 @@ pub fn close_death_interlude(
     if still_playing.iter().next().is_some() {
         return;
     }
-    // ⚠ **ORDER OF WRITES IS IRRELEVANT; ORDER OF READS IS NOT.** Both land in
+    // **ORDER OF WRITES IS IRRELEVANT; ORDER OF READS IS NOT.** Both land in
     // this frame's channels and the schedule decides which consumer sees its
     // own first — `CheckpointRestore` is configured before `RoomReplayApplied`
     // precisely so the ledger is back to the baseline before anything rebuilds
@@ -277,7 +267,7 @@ pub fn clear_out_of_play_on_restart(
         commands
             .entity(restart.entity)
             .remove::<(OutOfPlay, DeathInterlude)>();
-        // ⭐ a RESET, not a release: a body that restarted cannot still be
+        // a RESET, not a release: a body that restarted cannot still be
         // mid-sequence for anybody, so the whole claim set goes rather than one
         // bit of it.
         ambition_characters::brain::clear_control_holds(&mut commands, restart.entity);

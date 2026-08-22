@@ -1,7 +1,3 @@
-//! Unit tests for the parent module, extracted from an inline
-//! `#[cfg(test)] mod tests` (test-organization campaign, 2026-07-10). Pure move:
-//! same test names + logic, now an adjacent child module with private access via
-//! `use super::*;`.
 
 use crate::features::{HitEvent, HitSource};
 use ambition_platformer2d_core as ae;
@@ -130,11 +126,8 @@ fn player_faction_shot_damages_an_overlapping_enemy_and_expires() {
         !projectile_hits.is_empty(),
         "the player-faction shot lands a projectile hit on the enemy"
     );
-    // ✔ **and it names who it hit.** This assertion used to demand
-    // `HitTarget::Volume` and carried a `▢` saying it was the thing that should
-    // change when the player-faction branch stopped broadcasting. It has: there
-    // is one victim loop now, whoever fired, so a player's bolt identifies its
-    // victim exactly as an enemy's always did.
+    // It has: there is one victim loop now, whoever fired, so a player's bolt identifies its victim
+    // exactly as an enemy's always did.
     assert!(
         projectile_hits
             .iter()
@@ -346,21 +339,13 @@ fn enemy_glider_damages_a_different_faction_actor_physically() {
     );
 }
 
-/// **TWO FIGHTERS ON ONE FACTION AND TWO TEAMS: THE SHOT LANDS.** (Jon,
-/// 2026-08-16: *"PCA's glider doesn't do any damage or hit anyone."*)
+/// Melee asks `targeting::team_allows_damage` and lands. This loop asked the faction-only
+/// `damage_lands` and spared every shot as an ally, so NO projectile from ANY fighter could hit
+/// anybody on a crossover grid.
 ///
-/// ⛔⛔ **it was never about the glider.** Measured on the shipped stage, every
-/// seat comes back `ActorFaction::Player` with a team of its own (`seat 1`,
-/// `seat 2`) — which is right, because a Hall NPC and a demo protagonist are not
-/// enemies of each other outside the match. Melee asks
-/// `targeting::team_allows_damage` and lands. This loop asked the faction-only
-/// `damage_lands` and spared every shot as an ally, so NO projectile from ANY
-/// fighter could hit anybody on a crossover grid.
-///
-/// ⭐ `StrikeVictim` has carried the victim's `team` the whole time — its own
-/// doc says *"Outranks faction for 'may this land'"* — and this loop was the one
-/// caller that never asked for it. The fix is `damage_lands_between`, the
-/// team-aware sibling melee already used.
+/// ⭐ `StrikeVictim` has carried the victim's `team` the whole time — its own doc says
+/// *"Outranks faction for 'may this land'"* — and this loop was the one caller that never asked
+/// for it.
 #[test]
 fn a_seated_fighters_shot_hits_a_same_faction_body_on_another_team() {
     use ambition_combat::targeting::MatchTeam;
@@ -422,17 +407,14 @@ fn a_seated_fighters_shot_hits_a_same_faction_body_on_another_team() {
     );
 }
 
-/// **A SHOT IN FLIGHT DOES NOT CHANGE SIDES WHEN ITS FIRER DIES (D150).**
+/// **A SHOT IN FLIGHT DOES NOT CHANGE SIDES WHEN ITS FIRER DIES.**
 ///
 /// The four-fighter case the queue names: a fighter fires, loses their final
 /// stock, and the ruleset takes the body out of play —
 /// `ambition_demo_smash::take_eliminated_fighters_out_of_play` DESPAWNS it, and
 /// says why in as many words. The bolt is still in the air.
 ///
-/// Allegiance used to be reconstructed every tick by querying the firing
-/// `Entity`, so the tick after that despawn the lookup failed and the shot fell
-/// into the OWNERLESS arm — "there is no one to be friendly to", indiscriminate
-/// environmental damage. It turned on its own team.
+/// It turned on its own team.
 ///
 /// ⭐ **the presentation half of this shot already knew better.**
 /// `inherit_projectile_presentation_sources` says it outright: *"the bolt is the
@@ -443,9 +425,6 @@ fn a_seated_fighters_shot_hits_a_same_faction_body_on_another_team() {
 /// Two shots, two victims, so neither assertion depends on victim iteration
 /// order: an indiscriminate shot despawns on the FIRST body it strikes, so a
 /// single shot overlapping both bodies would spare the teammate half the time.
-///
-/// The second assertion is the poison: a "fix" that makes an orphaned shot hit
-/// NOBODY satisfies the first one and is equally wrong.
 #[test]
 fn a_shot_outlives_its_firer_without_changing_sides() {
     use ambition_combat::targeting::MatchTeam;
@@ -529,19 +508,12 @@ fn a_shot_outlives_its_firer_without_changing_sides() {
 
 /// **A SHOT ORPHANED BEFORE ITS FIRST STEP DOES NOT BECOME A HAZARD.**
 ///
-/// The sibling of [`a_shot_outlives_its_firer_without_changing_sides`], for the
-/// one window that test cannot reach. D150's stamp is taken on the projectile's
-/// FIRST STEP, so there is exactly one tick where a bolt exists and the fact has
-/// not been frozen yet. A fighter who fires and is eliminated inside that tick
-/// leaves a shot with a named owner, no stamp, and no way to take one — the
-/// owner query wants a non-optional `&ActorFaction` and the body is gone.
+/// The sibling of [`a_shot_outlives_its_firer_without_changing_sides`], for the one window that
+/// test cannot reach. A fighter who fires and is eliminated inside that tick leaves a shot with
+/// a named owner, no stamp, and no way to take one — the owner query wants a non-optional
+/// `&ActorFaction` and the body is gone.
 ///
-/// ⛔ **that shot used to be promoted to ENVIRONMENTAL HAZARD, permanently.**
-/// `indiscriminate` was `allegiance.is_none()`, and an unstamped bolt re-asks
-/// (and re-fails) every tick for the rest of its life, so it hit its own team
-/// for as long as it flew. The comment beside it said "never had a living
-/// owner"; the expression said "the lookup came back empty". This test is the
-/// difference between those two sentences.
+/// This test is the difference between those two sentences.
 ///
 /// ⚠ **it asserts SAFETY only, deliberately.** The shot currently hits nobody,
 /// which is the safe direction but not the right answer — the right answer is
@@ -575,10 +547,8 @@ fn a_shot_orphaned_before_its_first_step_does_not_turn_on_its_team() {
         ))
         .id();
 
-    // In flight toward the teammate, and the firer is taken out of play BEFORE
-    // any tick runs — so the bolt is stepped for the first time with its owner
-    // already gone. That is the window D150's own test cannot enter: it despawns
-    // the firer only after a first update has frozen the stamp.
+    // In flight toward the teammate, and the firer is taken out of play BEFORE any tick runs —
+    // so the bolt is stepped for the first time with its owner already gone.
     spawn_owned_glider(&mut app, teammate_pos - ae::Vec2::new(150.0, 0.0), firer);
     app.world_mut().despawn(firer);
 

@@ -50,10 +50,7 @@ impl AmbitionLdtkEntity {
 
 /// Ambition-facing role for a plugin-spawned LDtk entity.
 ///
-/// These are deliberately narrower than the full LDtk identifier set. The
-/// first promoted runtime-spine categories are the low-risk entities that
-/// should be observable directly from `bevy_ecs_ldtk` before we migrate
-/// collision and gameplay-heavy objects.
+/// These are deliberately narrower than the full LDtk identifier set.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum LdtkRuntimeRole {
     PlayerStart,

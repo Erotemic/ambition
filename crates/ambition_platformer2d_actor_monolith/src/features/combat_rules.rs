@@ -9,7 +9,7 @@
 //! tuning. Ownership travels down with the type; the projection happens where
 //! the facts are visible.
 //!
-//! ⚠ **this is a DERIVED resource** — rebuilt every tick from inputs that are
+//! **this is a DERIVED resource** — rebuilt every tick from inputs that are
 //! themselves either rollback state or route lifecycle, so a rewind does not
 //! need to restore it and must not try to.
 

@@ -278,9 +278,7 @@ def ensure_toon_material(
 
 
 def add_outline_modifier(obj, bpy, thickness: float = 0.02) -> None:
-    # No-op by design. The old inverted-hull Solidify outline pass caused the
-    # black-silhouette failure in canonical renders. Outlines now come from
-    # Freestyle, configured once per scene.
+    # No-op by design. Outlines now come from Freestyle, configured once per scene.
     return None
 
 

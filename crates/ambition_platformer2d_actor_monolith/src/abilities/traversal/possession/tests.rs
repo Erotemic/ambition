@@ -199,16 +199,12 @@ fn possession_transfers_the_seat_and_release_hands_it_back() {
 
 /// **POSSESSION SUSPENDS RESIDENCY AND LEAVES THE LIFETIME ALONE.**
 ///
-/// ⛔⛔ **THIS TEST USED TO ASSERT THE OPPOSITE** — that possession promoted the
-/// body out of room scope into the active session — and that promotion was a
-/// defect. `InCustodyOf`'s doc states the rule the promotion broke: *"the
-/// LIFETIME is unchanged, and that is deliberate … no query that requires the
-/// scope silently loses sight of it"*. The query that lost sight of it was
-/// `project_custody_onto_authored_occurrences`, which reads
-/// `(With<InCustodyOf>, With<RoomScopedEntity>)` — so a possessed body was
-/// invisible to the occurrence ledger and its home room AUTHORED A SECOND COPY
-/// behind the same `SimId::placement(..)`. Measured at two, by
-/// `an_authored_actor_carried_out_of_its_room_and_back_does_not_meet_a_copy`.
+/// `InCustodyOf`'s doc states the rule the promotion broke: *"the LIFETIME is unchanged, and that
+/// is deliberate … no query that requires the scope silently loses sight of it"*. The query that
+/// lost sight of it was `project_custody_onto_authored_occurrences`, which reads
+/// `(With<InCustodyOf>, With<RoomScopedEntity>)` — so a possessed body was invisible to the
+/// occurrence ledger and its home room AUTHORED A SECOND COPY behind the same
+/// `SimId::placement(..)`.
 ///
 /// ⭐ the retirement the old assertion worried about ("so a room load can't
 /// despawn it") needs no promotion: `RoomResident` is
@@ -332,11 +328,8 @@ fn out_of_range_actors_are_not_possessed() {
     );
 }
 
-/// The mandate's headline invariant: while controlling a possessed target,
-/// pressing attack emits `ActorActionMessage` for the TARGET, and the vacated
-/// home avatar emits nothing. The collapse of the bug: attack authority
-/// follows the body holding the seat, resolved by the SAME
-/// `emit_brain_action_messages` stream for every body.
+/// The mandate's headline invariant: while controlling a possessed target, pressing attack emits
+/// `ActorActionMessage` for the TARGET, and the vacated home avatar emits nothing.
 #[test]
 fn attack_while_controlling_target_emits_only_for_the_target() {
     use ambition_characters::actor::ActorPose;
@@ -632,12 +625,9 @@ fn the_possession_projection_leaves_item_custody_alone() {
 
 /// **A candidate that was ALREADY session-scoped keeps that scope exactly.**
 ///
-/// ⛔ this used to assert that possession moved the body onto the ACTIVE
-/// session's scope and that release put the original back — a promote/restore
-/// round trip. Nothing promotes now, so the interesting claim is the stronger
-/// one: the scope is never written at all, in either direction. That is the
-/// poison for reintroducing a promotion, because a promote/restore pair would
-/// look identical at the end and differ HERE, in the middle.
+/// Nothing promotes now, so the interesting claim is the stronger one: the scope is never written
+/// at all, in either direction. That is the poison for reintroducing a promotion, because a
+/// promote/restore pair would look identical at the end and differ HERE, in the middle.
 #[test]
 fn a_session_scoped_candidate_keeps_its_own_scope_through_possession() {
     use ambition_platformer2d_shared_tangle::lifecycle::{

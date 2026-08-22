@@ -33,12 +33,9 @@ pub struct PortalShot {
     pub traveled: f32,
 }
 
-/// On a generic [`PortalFireIntent`], fire a portal *shot* of the intent's
-/// `channel` from `origin` along `dir`. The shot travels (see
-/// `step_portal_shot`) so the participant can see its path before it lands and
-/// opens a portal. Portal core no longer reaches for a primary actor or held
-/// gun — the host resolver may produce the intent from a gun, replay, script,
-/// AI, or any future emitter.
+/// On a generic [`PortalFireIntent`], fire a portal *shot* of the intent's `channel` from
+/// `origin` along `dir`. Portal core no longer reaches for a primary actor or held gun — the
+/// host resolver may produce the intent from a gun, replay, script, AI, or any future emitter.
 pub fn portal_fire_system(
     mut fires: MessageReader<PortalFireIntent>,
     mut commands: Commands,

@@ -26,7 +26,7 @@ pub type AuthoredAttackVolumeFn = fn(
 
 /// App-local bridge from combat to the linked sprite-metadata implementation.
 ///
-/// ## Why a CLOSURE and not a function pointer (queue U1 stage C)
+/// ## Why a CLOSURE and not a function pointer
 ///
 /// It was a bare `fn`, which is exactly as much as combat needs to know — and
 /// exactly one thing too few. Provider-authored sheets (`AuthoredSheets`) are a

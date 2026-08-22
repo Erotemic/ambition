@@ -397,15 +397,6 @@ fn goblin_melee_knockback_is_an_absolute_launch_speed() {
 /// ⭐⭐ **Hitstun scales with the LAUNCH, and never with the launch's bare
 /// number.**
 ///
-/// Two claims, and the second is why this test predates the first. An authored
-/// melee launch is a SPEED in engine units — reading `LaunchSpeed(120.0)` as a
-/// reaction scale would arm 120× the standard hitstun, which is the bug this
-/// test was originally written to forbid. It forbade it by returning a flat
-/// `1.0`, and that flatness was itself the defect: a jab and a fully-grown
-/// smash stunned a victim for exactly as long, so nothing could ever be
-/// followed up and the knockback growth the strike had already computed reached
-/// the victim's velocity and stopped there.
-///
 /// The launch scales against a reference speed. Both claims hold: proportional
 /// to the launch, and never the raw number.
 #[test]
@@ -546,7 +537,6 @@ fn scaled_launch_speed_conjugates_under_rotated_gravity() {
     }
 }
 
-// --- CM1: the authored launch DIRECTION (smash-style fixed angles) ---
 
 #[test]
 fn authored_launch_dir_sets_the_angle_and_keeps_the_authored_speed() {
@@ -556,9 +546,9 @@ fn authored_launch_dir_sets_the_angle_and_keeps_the_authored_speed() {
     let source_pos = victim_pos - ae::Vec2::new(40.0, 0.0); // hit from local left
     let authored_speed = 120.0;
 
-    // A pure up-launcher authors (0, -1): local `y` is TOWARD THE FEET, so
-    // "away from the feet" is negative — the same convention every authored
-    // volume in the tree writes (`+y = gravity-down`, D155).
+    // A pure up-launcher authors (0, -1): local `y` is TOWARD THE FEET, so "away from the feet"
+    // is negative — the same convention every authored volume in the tree writes (`+y =
+    // gravity-down`, ).
     let up = crate::combat::HitKnockback {
         dir: 0.0,
         magnitude: crate::combat::HitKnockbackMagnitude::LaunchSpeed(authored_speed),
@@ -634,8 +624,8 @@ fn authored_launch_dir_conjugates_under_rotated_gravity() {
     let feel = Platformer2dFeelTuningMonolith::default();
     let victim_pos = ae::Vec2::new(100.0, 200.0);
     let speed = 120.0;
-    // ⭐ the authored vector IS the local launch direction, so the expected
-    // local velocity is just `n * speed` — no negation anywhere (D155).
+    // ⭐ the authored vector IS the local launch direction, so the expected local velocity is
+    // just `n * speed` — no negation anywhere.
     let n = ae::Vec2::new(0.6, -0.8); // already unit-length
     let local_expected = n * speed;
     for gravity_dir in [
@@ -722,14 +712,8 @@ fn death_policy_gates_the_meter_kill() {
 
 /// **The meter is not the pool, and it does not stop where the pool does.** (S4)
 ///
-/// This test used to assert the opposite — `h.damage(100)` on a 20 pool left
-/// `damage_taken() == 20`, commented "clamps at the pool max" — and that
-/// assertion WAS the defect, written down as intent. `damage_taken()` was
-/// `max - current`, so it could not exceed `max` by construction, and
-/// `Health::damage` returns early once the body is not `alive()`, so a hit
-/// landing on an empty pool did not merely clamp: it was DROPPED. Knockback
-/// growth scales off this meter, so a body that reached 100% stopped launching
-/// farther, which is precisely what smash percent needs it to keep doing.
+/// Knockback growth scales off this meter, so a body that reached 100% stopped launching farther,
+/// which is precisely what smash percent needs it to keep doing.
 #[test]
 fn the_damage_meter_accumulates_past_the_pool_it_is_measured_against() {
     let mut h = test_health(20);
@@ -968,9 +952,7 @@ fn a3_worn_armor_absorbs_a_hit_downgrades_then_the_next_hit_damages_hp() {
     );
 }
 
-/// `player_damage_multiplier` is the OUTGOING scale. It must not appear in the
-/// incoming product — the exact bug this pins: the slider used to inflate
-/// damage TAKEN too (GPT-dialog verification, 2026-07-19).
+/// `player_damage_multiplier` is the OUTGOING scale.
 #[test]
 fn incoming_multiplier_ignores_the_outgoing_damage_slider() {
     use ambition_persistence::settings::GameplaySettings;
@@ -1049,12 +1031,8 @@ fn kernel_reset_death_reports_the_pre_respawn_impact_position() {
 /// may directly resolve another human-controlled body as its victim, while a
 /// legacy broadcast `PlayerSlash` remains on the feature-damage path.
 ///
-/// ⭐ **the victim carries `PlayerEntity`, the way a real one does.** The target
-/// used to be stamped `HitTarget::Player(e)` and this fixture could spawn a bare
-/// entity, because the stamp was the whole claim. There is one body variant now,
-/// so the stager asks the world which population the victim is in — and a
-/// fixture that spawns an unmarked entity is asserting about a body production
-/// never builds.
+/// There is one body variant now, so the stager asks the world which population the victim is in —
+/// and a fixture that spawns an unmarked entity is asserting about a body production never builds.
 #[test]
 fn explicit_player_target_is_staged_even_for_an_attacker_side_source() {
     let mut app = App::new();
@@ -1225,17 +1203,6 @@ fn wallet_shield_spends_currency_before_a_lethal_hit_reaches_health() {
 }
 
 /// **Losing your rings gets the same BEAT as losing a powerup.**
-///
-/// Jon, from play: *"When SANIC is hit, there it seems like he is given no
-/// iframes. He should also have some hitstun and be knocked back a bit."*
-///
-/// ⛔ **the lesson was learned one branch above and not applied to this one.**
-/// The armor branch carries a comment that says so in Jon's earlier words about
-/// Mary-O — *"AND THE BEAT, which this branch used to skip … she shrank
-/// mid-stride with no beat, which reads as the hit not landing at all"* — and the
-/// wallet branch, six lines below it, still skipped it. Spending a purse is the
-/// same event: the most consequential thing that happens to Sanic short of
-/// dying, and it happened with no pause at all.
 ///
 /// ⚠ the hitstop ONLY, exactly as for armor. The recoil lock and the carried
 /// launch belong to being thrown, and the outer handler already keeps the
@@ -1528,15 +1495,13 @@ fn even_an_unstoppable_hit_refuses_a_body_that_is_already_dead() {
     assert_eq!(res, BodyHitResolution::Ignored);
 }
 
-// ── The launch CHANNEL (D6) ────────────────────────────────────────────────
+// ── The launch CHANNEL ────────────────────────────────────────────────
 
 /// **The reaction publishes the launch, and not only the velocity.**
 ///
-/// Writing `BodyKinematics::vel` is authoritative for an axis-swept body and a
-/// MIRROR for a riding surface-momentum one, whose velocity is derived from `v_t`
-/// and republished every step. Sanic rides — so for as long as this reaction only
-/// wrote `vel`, his knockback was applied faithfully to a field nothing read, and
-/// the symptom was "no knockback" with every authored number non-zero.
+/// Writing `BodyKinematics::vel` is authoritative for an axis-swept body and a MIRROR for a
+/// riding surface-momentum one, whose velocity is derived from `v_t` and republished every
+/// step.
 ///
 /// This is the writer's half of the seam. `step_motion` drains it; the kernel's
 /// own tests cover what the model then does with it.
@@ -1615,9 +1580,6 @@ fn a_hit_with_no_knockback_publishes_no_launch() {
     );
 }
 
-/// **A RAISED SHIELD KEEPS ITS BODY'S HP — through the production resolver, not
-/// the rule underneath it.** (campaign P4.29)
-///
 /// ⛔⛔ **the pure rule was tested and the RESOLVER's `Blocked` branch was not.**
 /// `shield_blocks_hit` has six unit tests above and `resolve_body_hit` had none
 /// at all — so "the bubble blocks" was proven as geometry (*is this hit on the

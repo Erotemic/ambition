@@ -84,12 +84,9 @@ pub struct SheetRecord {
     pub label_width: u32,
     pub frame_width: u32,
     pub frame_height: u32,
-    /// Pixel offset from the top of the shared sheet PNG before this
-    /// target's first row. `0` for sheets whose row 0 starts at the
-    /// top of the image (the common case). Lab-prop entries on the
-    /// shared `creator_lab_props_spritesheet.png` set this to
-    /// `prop_index * frame_height` so each prop addresses its own row
-    /// band of the packed image.
+    /// `0` for sheets whose row 0 starts at the top of the image (the common case). Lab-prop
+    /// entries on the shared `creator_lab_props_spritesheet.png` set this to `prop_index *
+    /// frame_height` so each prop addresses its own row band of the packed image.
     #[serde(default)]
     pub y_offset: u32,
     /// Derived geometry the generator computed from the rendered art:
@@ -113,13 +110,13 @@ pub struct SheetRecord {
     /// `flip_x = (facing < 0) XOR authored_faces_left` — rather than
     /// `facing < 0`.
     ///
-    /// ⭐ **`false` is the whole population minus a handful**, so the default
+    /// **`false` is the whole population minus a handful**, so the default
     /// keeps every sheet that never mentions the field byte-identical. The
     /// generator only emits it when it is `true`, which today means an
     /// SVG-rigged sheet whose rig declares `features.facing: "west"` (the
     /// Patent Clerk, whose `Side Left` paperdoll view is the drawn source).
     ///
-    /// ⚠ this does NOT touch the body's `facing` value, its hitboxes, or its
+    /// this does NOT touch the body's `facing` value, its hitboxes, or its
     /// authored `launch_dir` — those were always right. Only the drawing was
     /// mirrored the wrong way.
     #[serde(default)]
@@ -253,17 +250,9 @@ pub struct BodyMetrics {
     /// **`body_pixel_bbox` is this character's GAMEPLAY BODY, not the extent of
     /// its art.**
     ///
-    /// The two rectangles were sharing one field. By default the generator
-    /// measures the idle frame's alpha bbox — hat, antenna, outstretched arms
-    /// and all — and a target that cares authors a tighter box instead
-    /// (`body_metrics_fn`, or a fractional `body_inset` of the measured one).
-    /// Nothing distinguished them, so a consumer asking "how big is this
-    /// character's body" could be handed a drawing, and the only way to scale a
-    /// character correctly was a hand-tuned [`SheetTuning::collision_scale`]
-    /// that nothing checked.
-    ///
-    /// `false` (the default, and the absent case) means MEASURED. Treat a
-    /// measured box as evidence about the art and not as a collision box.
+    /// The two rectangles were sharing one field. Nothing distinguished them, so a consumer asking
+    /// "how big is this character's body" could be handed a drawing, and the only way to scale a
+    /// character correctly was a hand-tuned [`SheetTuning::collision_scale`] that nothing checked.
     #[serde(default)]
     pub authored_body: bool,
 }
@@ -399,12 +388,6 @@ impl BodyMetrics {
     /// A disjoint-piece character (a boss with a head, a torso and two hands)
     /// publishes `body_pixel_parts` and its extent is their union; everything
     /// else is [`Self::pose_body_bbox`].
-    ///
-    /// ⭐ **the single reader of this fact.** It is asked by the collision
-    /// derivation, by the sprite-quad sizing, and by the sheet-authored actor
-    /// route, and those three used to ask three subtly different questions —
-    /// so a body could be DRAWN from one rectangle and COLLIDED from another.
-    /// Whatever the answer is, it is now the same answer everywhere.
     pub fn body_pixel_extent(&self, anim: character::CharacterAnim) -> Option<(f32, f32)> {
         if !self.body_pixel_parts.is_empty() {
             let mut min = (f32::MAX, f32::MAX);
@@ -554,17 +537,9 @@ pub struct SheetRegistry {
 /// One `*_spritesheet.ron` holding SEVERAL records, seen through a file-root
 /// key that can only name one of them.
 ///
-/// ⛔ **the file root stops identifying a sheet the moment the file holds two.**
-/// `creator_lab_props` packs 8 props into one PNG, so `creator_lab_props` names
-/// eight records and no single one of them. The old code took
-/// `records.into_iter().next()` and documented it as *"multi-record files keep
-/// only the first record"* — which is not a rule, it is whichever record the
-/// packer happened to emit first, and a quality change re-runs the packer.
-///
-/// ⚠ **measured 2026-08-21, and this is why it is a refusal and not a warning**:
-/// all four tiers emit those 8 in identical order today, so nothing is
-/// currently wrong — the trap is that nothing MAKES that true, and the symptom
-/// if it stopped being true is a body cropped by another prop's grid.
+/// **the file root stops identifying a sheet the moment the file holds two.** `creator_lab_props`
+/// packs 8 props into one PNG, so `creator_lab_props` names eight records and no single one of
+/// them.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AmbiguousFileRoot {
     pub file_root: String,
@@ -589,13 +564,11 @@ impl std::fmt::Display for AmbiguousFileRoot {
 /// One target claimed twice with different frame geometry: the winner crops the
 /// loser's image with the wrong grid, IF anything resolves art by that target.
 ///
-/// ⛔ **whether it does is not this crate's to know** (ledger D36). A rig name
-/// like `toon` is shared by 17 characters legitimately and nothing looks it up;
-/// a character id like `pirate_heavy_broadside_bess` is looked up, and a stale
-/// manifest winning that key cost a day and a bisect through the asset tree. The
-/// collision is visible only HERE, where both records pass through; which keys
-/// are resolvable is visible only to a caller that owns a catalog. So this type
-/// carries the fact across that gap instead of guessing at it.
+/// A rig name like `toon` is shared by 17 characters legitimately and nothing looks it up; a
+/// character id like `pirate_heavy_broadside_bess` is looked up, and a stale manifest winning that
+/// key cost a day and a bisect through the asset tree. The collision is visible only HERE, where
+/// both records pass through; which keys are resolvable is visible only to a caller that owns a
+/// catalog. So this type carries the fact across that gap instead of guessing at it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ShadowedTarget {
     pub target: String,
@@ -631,7 +604,7 @@ impl SheetRegistry {
     /// **Every target a later manifest took from an earlier one with a different
     /// grid**, in insertion order.
     ///
-    /// ⭐ **the caller decides which of these MATTER**, because only it knows
+    /// **the caller decides which of these MATTER**, because only it knows
     /// which targets something resolves art by — see [`ShadowedTarget`]. A
     /// consumer that reports all of them reproduces the ~30-per-boot Android
     /// noise this replaced; one that reports none re-opens the day-long bisect.
@@ -701,17 +674,7 @@ impl SheetRegistry {
             match ron::from_str::<Vec<SheetRecord>>(text) {
                 Ok(records) => {
                     for record in records {
-                        // ⛔ **LAST-WINS IS SILENT, AND IT COST A DAY.** A file
-                        // dated May — `pirate_heavy_spritesheet.ron`, declaring
-                        // 172x138 frames — still claimed the target
-                        // `pirate_heavy_broadside_bess`, sorted BEFORE her real
-                        // manifest's 319x250, and won the key. She then loaded the
-                        // right image and cropped it with rectangles laid out for
-                        // a sheet that no longer existed: "not cropping out the
-                        // right part of the sprite sheet", in Jon's words, and a
-                        // bisect through the asset tree to find it.
-                        //
-                        // ⚠ **a blanket collision warn would be noise**, which is
+                        // **a blanket collision warn would be noise**, which is
                         // why this sat: sheets legitimately share a target
                         // (`toon` x17, `robot` x18, `goblin` x9 — see the
                         // file-root index below). What is NEVER legitimate is two
@@ -719,15 +682,12 @@ impl SheetRegistry {
                         // geometry, because that is the case where the winner
                         // crops the loser's image with the wrong grid.
                         //
-                        // ⛔⛔ **THIS USED TO `warn!` HERE AND FIRED ~30 TIMES PER
-                        // ANDROID BOOT** (ledger D36, Jon's device log). The
-                        // condition cannot tell its harmful case from its harmless
-                        // one: 17 characters share the rig target `toon` and
-                        // legitimately have 17 different frame sizes, and nothing
-                        // resolves art by `toon` at all. Measured: 146 targets are
-                        // claimed by more than one record, and ZERO images are
-                        // described by two different grids — so the sharers differ
-                        // in IMAGE, every one of them.
+                        // The condition cannot tell its harmful case from its harmless one: 17
+                        // characters share the rig target `toon` and legitimately have 17 different
+                        // frame sizes, and nothing resolves art by `toon` at all. Measured: 146
+                        // targets are claimed by more than one record, and ZERO images are
+                        // described by two different grids — so the sharers differ in IMAGE, every
+                        // one of them.
                         //
                         // ⇒ recorded, not reported. The collision is visible only
                         // here; whether the loser is RESOLVABLE is visible only to
@@ -763,13 +723,7 @@ impl SheetRegistry {
         for (file, err) in failed {
             warn!("SheetRegistry: failed to parse baked {file}: {err}");
         }
-        // ⭐ **ONE line, not one per collision** (ledger D36). The per-record
-        // `warn!` this replaced fired ~30 times on every Android boot, and the
-        // count was a function of what LOADED rather than of what was wrong —
-        // N records sharing a target produce N−1 warnings, so the shared rig
-        // targets alone (`toon` x17, `robot` x18, `goblin` x9) can reach 45.
-        //
-        // ⛔ **NOT silenced, and the row says why not**: the case underneath is
+        // **NOT silenced, and the row says why not**: the case underneath is
         // real — a May-dated manifest won `pirate_heavy_broadside_bess`, so she
         // loaded the right image and cropped it with a dead grid, found by
         // bisecting the asset tree. What is wrong with the old warning is that it
@@ -781,25 +735,17 @@ impl SheetRegistry {
         // the catalog-aware filter is a separate slice that consumes it.
         //
         // ✔✔ **THAT SLICE EXISTS NOW, AND THIS LINE IS NO LONGER THE ALARM.**
-        // `report_shadowed_character_sheets` (in `ambition_app`) reads
-        // `shadowed_targets()` against the character catalog and warns only when
-        // a shadowed target is a character id — the case that cost a day. It is
-        // registered on `Startup`, and it is silent, because **no character id
-        // currently collides** (D162: 166 targets, 4 geometry collisions, every
-        // one a shared rig).
+        // `report_shadowed_character_sheets` (in `ambition_app`) reads `shadowed_targets`
+        // against the character catalog and warns only when a shadowed target is a character id
+        // — the case that cost a day.
         //
-        // ⛔⛔ **so this summary was shouting on EVERY boot about a condition a
-        // better-informed reader had already cleared** — *"39 target(s) claimed
-        // twice"* on a line that then explains it is probably fine. A warning
-        // that ends by talking you out of itself is training people to skim the
-        // channel, which is what the D36 note above was trying to prevent.
+        // **so this summary was shouting on EVERY boot about a condition a better-informed
+        // reader had already cleared** — *"39 target(s) claimed twice"* on a line that then
+        // explains it is probably fine.
         //
-        // ⚠ **DEBUG, not deleted, and not narrowed.** Every fact stays in the
-        // message; only the volume changes — the level split this repo's own
-        // doorway-diagnostic lesson landed on. A composition with no catalog
-        // (a headless tool, a demo mounting no cast) still gets the whole list
-        // one log level away, which is exactly the *"say nothing rather than
-        // report every rig target as suspicious"* policy the consumer states.
+        // A composition with no catalog (a headless tool, a demo mounting no cast) still gets the
+        // whole list one log level away, which is exactly the *"say nothing rather than report
+        // every rig target as suspicious"* policy the consumer states.
         if !registry.shadowed.is_empty() {
             debug!(
                 "SheetRegistry: {} target(s) claimed twice with different frame \
@@ -826,24 +772,11 @@ impl SheetRegistry {
     /// need a specific sheet variant (the player's `player_robot_v3`, not the
     /// enemy `robot`).
     ///
-    /// ⛔⛔ **A MULTI-RECORD FILE IS REFUSED, NOT SILENTLY TRUNCATED.** This used
-    /// to keep `records.into_iter().next()`. That is not a selection rule, it is
-    /// the packer's emission order — and the packer re-runs per quality tier, so
-    /// "the first record" is a value a quality change is allowed to move. The
-    /// refusal is recorded in [`Self::ambiguous_file_roots`].
-    ///
-    /// ⭐ **this is the posture the crate already had, joined late.**
+    /// **this is the posture the crate already had, joined late.**
     /// `AuthoredSheets::insert_ron` refuses a multi-record sheet outright rather
     /// than leaving its earlier records installed — *"a provider told 'rejected'
     /// and handed a half-populated registry is worse off than one told
     /// nothing"*. The file-root index was the one door still taking a guess.
-    ///
-    /// ⭐ **provably behaviour-preserving when it landed** (2026-08-21): of 4,948
-    /// baked sheets exactly one file root holds more than one record
-    /// (`creator_lab_props`, 8 props in one PNG), it is not any character's
-    /// `manifest_target`, and it publishes NO body — so the sole consumer
-    /// (`attack_hitbox`, which needs `body_metrics`) already answered `None` for
-    /// it by a longer route.
     pub fn from_baked_table_by_file_root(table: &[(&str, &str)]) -> Self {
         let mut registry = Self::default();
         for (file_root, text) in table {
@@ -864,7 +797,7 @@ impl SheetRegistry {
                 }
             }
         }
-        // ⚠ DEBUG for the same reason the shadowed summary is: a packed prop
+        // DEBUG for the same reason the shadowed summary is: a packed prop
         // atlas is a legitimate authoring choice, and a boot-time warning that
         // ends by explaining itself away trains people to skim the channel.
         if !registry.ambiguous_roots.is_empty() {
@@ -896,12 +829,6 @@ pub fn baked_sheet_registry() -> SheetRegistry {
 }
 
 /// Bevy plugin that installs and populates the baked character sheet registry.
-///
-/// This used to live behind `ambition_platformer2d_actor_monolith::character_sprites::registry`, but
-/// it is pure sprite-sheet presentation vocabulary: the data source is the
-/// baked `*_spritesheet.ron` table owned by this crate, and the installed
-/// resource is [`SheetRegistry`]. Keeping the plugin here lets apps/content
-/// install sheet metadata without routing through the actor crate.
 pub struct SheetRegistryPlugin;
 
 /// Present once [`SheetRegistryPlugin`] has built. See its `is_unique`.
@@ -909,18 +836,13 @@ pub struct SheetRegistryPlugin;
 struct SheetRegistryInstalled;
 
 impl Plugin for SheetRegistryPlugin {
-    /// ⚠ **Idempotent, because more than one plugin legitimately NEEDS this.**
+    /// **Idempotent, because more than one plugin legitimately NEEDS this.**
     /// Sprite metadata is not a game's choice — a render system that draws from
     /// a sheet cannot run without it — so any plugin that installs such a system
     /// installs this too, and the composition that already had it must not
     /// panic. `WorldLabelLayoutPlugin` carries the same pair for the same
     /// reason; a marker resource rather than `is_plugin_added` because the
     /// answer has to survive being asked by a plugin group mid-build.
-    ///
-    /// Until 2026-07-31 the only installer was `game/ambition_app`, which is
-    /// why `HostProjectileVisualsPlugin` could not simply be moved out of it:
-    /// the systems failed `Res<SheetRegistry>` validation the moment another
-    /// composition ran them.
     fn is_unique(&self) -> bool {
         false
     }
@@ -952,7 +874,7 @@ fn init_sheet_registry(mut registry: ResMut<SheetRegistry>) {
 /// through `CharacterCatalogFragment`, and says what their sheets look like
 /// through this. Before it existed, the second half was only expressible by
 /// putting a RON in the ENGINE's asset tree and rebuilding the engine — which a
-/// third party cannot do (queue U1).
+/// third party cannot do.
 pub trait AuthoredSheetAppExt {
     /// Panics on malformed RON, deliberately and with the file root in the
     /// message: a provider registering a broken sheet at plugin-build time has

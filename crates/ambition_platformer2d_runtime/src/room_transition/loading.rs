@@ -1,15 +1,11 @@
 //! Readiness-gated ordinary room transitions.
 //!
-//! A detected loading-zone crossing no longer tears down the active room in the
-//! same system pass. It first becomes an exact [`ambition_load`] transaction,
-//! preflights the target without mutating room authority, and may commit only on
-//! a later simulation tick after the required barrier is ready and one-shot
-//! authorization succeeds.
+//! It first becomes an exact [`ambition_load`] transaction, preflights the target without
+//! mutating room authority, and may commit only on a later simulation tick after the required
+//! barrier is ready and one-shot authorization succeeds.
 //!
-//! The transition now carries both construction preflight and concrete room
-//! presentation readiness. Target construction is still synchronous at commit
-//! time, but visible hosts cover it before authorization and neighboring-room
-//! prefetch can promote the same exact asset handles into this transaction.
+//! The transition now carries both construction preflight and concrete room presentation
+//! readiness.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -40,9 +36,7 @@ pub enum RoomTransitionLoadPhase {
 
 /// Marker installed only by presentation-capable hosts.
 ///
-/// When absent, a headless transition may commit as soon as readiness is
-/// authorized. When present, the visible adapter must prove an opaque cover
-/// survived a presentation frame before the synchronous commit can begin.
+/// When absent, a headless transition may commit as soon as readiness is authorized.
 #[derive(Resource, Default, Debug, Clone, Copy)]
 pub struct RoomTransitionPresentationAvailable;
 
@@ -91,18 +85,13 @@ impl RoomTransitionContentEpoch {
 
 /// Advance the transition content epoch when any construction input changes.
 ///
-/// ⛔⛔ **THE ROOM SET IS COMPARED BY VALUE, NOT BY `is_changed()`, AND THAT IS
+/// **THE ROOM SET IS COMPARED BY VALUE, NOT BY `is_changed()`, AND THAT IS
 /// NOT A STYLE CHOICE.** `RoomSet` is rollback-registered state, and a rollback
 /// host RESTORES it every frame — so `is_changed()` is TRUE every frame there,
 /// whatever the content is doing. This system's write is not idempotent (a bump
 /// is a bump), which is exactly the *"change ticks don't rewind"* trap.
 ///
-/// It was invisible until D71 (2026-08-14), because the rollback host opened no
-/// readiness transactions at all. The moment it did, the epoch advanced every
-/// frame, `same_destination` therefore matched nothing, and `begin` minted a
-/// FRESH transaction every frame that superseded the one before it — measured as
-/// `seq=1,2,3,… epoch=18,19,20,…`, a transaction that reached `Ready` and could
-/// never reach the next tick's commit gate because it was replaced first.
+/// It was invisible until, because the rollback host opened no readiness transactions at all.
 ///
 /// The registries below are ordinary content resources, are not restored, and
 /// keep their change-tick reads. The room set is compared against the ids it
@@ -158,7 +147,7 @@ pub struct ActiveRoomTransitionLoad {
     /// **What this transaction is FOR** — the semantic crossing, subject
     /// included, exactly as detection recorded it.
     ///
-    /// ⭐ this was a `RoomTransitionRequested` message (D71, 2026-08-14). The
+    /// this was a `RoomTransitionRequested` message. The
     /// message described the same crossing a second time, with a resolved zone
     /// and no subject, and only an eager host ever produced one — which is why
     /// the shipped rollback host opened no transaction at all and every room
@@ -180,20 +169,15 @@ pub struct ActiveRoomTransitionLoad {
     /// **When `last_asset_progress` last MOVED**, on the feel clock — the only
     /// thing that separates "waiting" from "stuck".
     ///
-    /// ⛔ **a barrier that knows it is blocked must be able to say what on, and
-    /// this one could not.** Jon's browser sat at 99% entering Hall of
-    /// Characters (a room staging 129 distinct characters), and 99% means only
-    /// *"not Ready"* — `LoadPresentationModel::from_snapshot` clamps every
-    /// un-Ready barrier to `0.999`. The poll computes `RoomAssetReadiness`,
-    /// which carries `pending` BY NAME, and then keeps `(settled, total)` and
-    /// drops the names. Every frame. So a barrier correctly waiting on the
-    /// slowest of 129 fetches and one deadlocked on an asset that will never
-    /// arrive looked identical, and they want opposite fixes.
+    /// The poll computes `RoomAssetReadiness`, which carries `pending` BY NAME, and then keeps
+    /// `(settled, total)` and drops the names. Every frame. So a barrier correctly waiting on the
+    /// slowest of 129 fetches and one deadlocked on an asset that will never arrive looked
+    /// identical, and they want opposite fixes.
     pub asset_progress_since: Option<Duration>,
     /// **The explanation for the current stall, once it has earned one** — which
     /// assets are still pending, how many, and for how long.
     ///
-    /// ⭐ STATE rather than only a log line, and deliberately: a test can assert
+    /// STATE rather than only a log line, and deliberately: a test can assert
     /// on it, a dev overlay can show it, and it stays available for whoever asks
     /// next instead of scrolling past once. `None` while the barrier is moving,
     /// which is also what makes it the "already explained" flag — one report per
@@ -214,15 +198,13 @@ impl ActiveRoomTransitionLoad {
     /// **Record what the asset barrier has settled, and keep the stall clock
     /// honest.** Returns whether the count actually MOVED.
     ///
-    /// ⛔ **two systems write this** — the contributor writes it once when it
-    /// builds the manifest, the poll writes it every time it changes — and the
-    /// stall clock was first taught to only one of them. The result was a
-    /// barrier stuck at `(0, 164)` whose `asset_progress_since` was `None`
-    /// forever, so it could never become old enough to explain itself: the
-    /// contributor had already stored the key the poll would have called a
-    /// change. Caught by the Hall pin on its first run, 2026-08-15.
+    /// **two systems write this** — the contributor writes it once when it builds the manifest, the
+    /// poll writes it every time it changes — and the stall clock was first taught to only one of
+    /// them. The result was a barrier stuck at `(0, 164)` whose `asset_progress_since` was `None`
+    /// forever, so it could never become old enough to explain itself: the contributor had already
+    /// stored the key the poll would have called a change.
     ///
-    /// ⭐ so the pair moves together or not at all. A caller cannot record
+    /// so the pair moves together or not at all. A caller cannot record
     /// progress without restarting the clock, because recording IS this call.
     pub fn observe_asset_progress(&mut self, settled: usize, total: usize, now: Duration) -> bool {
         let key = (settled, total);
@@ -243,14 +225,11 @@ impl ActiveRoomTransitionLoad {
         session_scope: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
         content_epoch: u64,
     ) -> bool {
-        // ⭐ **the SEMANTIC destination, which is not the zone and not the room.**
+        // **the SEMANTIC destination, which is not the zone and not the room.**
         //
-        // This ANDed in `zone.id` while its own caller's comment said *"one
-        // transaction owns that destination; trigger noise is not a new
-        // request"* — so two zones into one room opened two transactions, the
-        // comment's opposite. ⛔ but the fix is not "compare target_room": two
-        // doors can lead to the SAME room at DIFFERENT arrivals, and a room-only
-        // key silently lands the second crossing at the first one's coordinates.
+        // This ANDed in `zone.id` while its own caller's comment said *"one transaction owns
+        // that destination; trigger noise is not a new request"* — so two zones into one room
+        // opened two transactions, the comment's opposite.
         //
         // So the key is what a crossing IS: who is crossing, where they are
         // going, where they come out, and by which kind of exit. Repeated
@@ -259,7 +238,7 @@ impl ActiveRoomTransitionLoad {
         // can transit, two bodies differ in `subject` and do not either — which
         // is why `subject` is in the KEY and not merely in the payload.
         //
-        // ⚠ `arrival` is compared exactly, and that is correct rather than
+        // `arrival` is compared exactly, and that is correct rather than
         // sloppy: both sides come from the same authored `RoomSpec` field by the
         // same path, so trigger noise reproduces the same bits. A near-miss here
         // means a genuinely different destination.
@@ -362,9 +341,8 @@ fn close_discovery(
     );
 }
 
-/// Convert a post-authorization commit precondition failure into ordinary load
-/// evidence. The source room is still intact at every caller, so visible hosts
-/// can offer retry/cancel and headless hosts can retire the failed transaction.
+/// The source room is still intact at every caller, so visible hosts can offer retry/cancel and
+/// headless hosts can retire the failed transaction.
 pub fn fail_room_transition_commit_precondition(
     state: &mut RoomTransitionLoadState,
     loads: &mut LoadCoordinator,
@@ -405,13 +383,9 @@ pub fn fail_room_transition_commit_precondition(
 /// 16-parameter ceiling and because "is this crossing safe to act on yet" is one
 /// question, not three.
 ///
-/// ⛔ **`ConfirmedFrameBoundary` PRESENCE IS SESSION STATE, NOT HOST IDENTITY.**
+/// **`ConfirmedFrameBoundary` PRESENCE IS SESSION STATE, NOT HOST IDENTITY.**
 /// `rollback::stop_session` deliberately removes it while leaving
-/// [`crate::SimulationHost::Rollback`] installed. Treating an absent boundary as an
-/// eager host therefore turns a stopped / invalidated rollback timeline into a
-/// fixed-tick one for this system only: a pending crossing opens a loading cover,
-/// but no rollback schedule remains to perform the room commit. That is a permanent
-/// loading screen.
+/// [`crate::SimulationHost::Rollback`] installed. That is a permanent loading screen.
 ///
 /// The stable host owns the policy instead:
 /// - render/fixed hosts confirm on arrival;
@@ -482,24 +456,17 @@ impl ConfirmedRoomTransitionIntent<'_> {
 /// Convert loading-zone detections into exact load transactions and perform the
 /// mutation-free target preflight.
 ///
-/// Construction preflight is mutation-free, and presentation-capable hosts
-/// attach a concrete room asset manifest whose Bevy handles remain required
-/// work until they settle. The old room remains authoritative until a later
-/// tick observes the complete barrier and receives one-shot authorization.
+/// Construction preflight is mutation-free, and presentation-capable hosts attach a concrete
+/// room asset manifest whose Bevy handles remain required work until they settle.
 #[allow(clippy::too_many_arguments)]
 pub fn begin_room_transition_load_system(
     // **The one description of a crossing**, recorded by whatever detected it
     // (a loading zone, a checkpoint resume, a level flag, a retry) and read here
     // only once its originating frame can never be simulated again.
     //
-    // ⭐ this read a `MessageReader<RoomTransitionRequested>` until 2026-08-14,
-    // and only an EAGER host ever wrote one — so the shipped rollback host
-    // recorded intents that nothing opened a transaction for, and every room
-    // change in the game happened with no cover, no failure reporting and no
-    // asset accounting (D71). Host identity comes from `SimulationHost`; an
-    // eager host confirms on arrival, while a rollback host with no current boundary
-    // or an unhealthy timeline has no confirmation authority and must not open a
-    // transaction.
+    // Host identity comes from `SimulationHost`; an eager host confirms on arrival, while a
+    // rollback host with no current boundary or an unhealthy timeline has no confirmation authority
+    // and must not open a transaction.
     pending: ConfirmedRoomTransitionIntent,
     mut state: ResMut<RoomTransitionLoadState>,
     content_epoch: Res<RoomTransitionContentEpoch>,
@@ -514,19 +481,19 @@ pub fn begin_room_transition_load_system(
         // Provider-authored sheets (U1 stage B): room construction sizes bodies
         // from their sheets, so a transition needs it beside the catalog.
         Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
-        // ⭐ **WHAT BECAME OF THE OCCURRENCES THIS ROOM ALREADY MINTED.** A
+        // **WHAT BECAME OF THE OCCURRENCES THIS ROOM ALREADY MINTED.** A
         // transition is the one road that rebuilds a room the session has been
         // LIVING in, so it is the road that owes the question an answer: an
         // authored object carried out of a room and back is still alive, and
         // re-authoring its `SimId::placement(..)` would put two live things
-        // behind one identity. ⚠ `Option` — a composition that remembers
+        // behind one identity. `Option` — a composition that remembers
         // nothing carries no ledger, which is the ordinary case.
         //
-        // ⚠ **it is a seventh tuple member and not a seventeenth param because
+        // **it is a seventh tuple member and not a seventeenth param because
         // a Bevy system stops at sixteen**, and it belongs with the other
         // construction authorities in any case.
         Option<Res<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>>,
-        // ⭐ **THE SECOND DESCRIBER, for the debts no record can settle.** The
+        // **THE SECOND DESCRIBER, for the debts no record can settle.** The
         // ledger above says an occurrence lies here; for a RUNTIME MINT no room
         // authors a record to rebuild it from, and this is what does. They
         // travel together for the same reason `remembered` and `world` do —
@@ -538,17 +505,14 @@ pub fn begin_room_transition_load_system(
             >,
         >,
     ),
-    // The prepared cast (D73 phase 1), so an NPC rebuilt by a transition still
-    // takes its CHARACTER's default autonomous profile rather than only its
-    // catalog row's. ⚠ `Option`, and absence is a legal answer: a composition
-    // with no registered characters is the ordinary case, and an empty registry
-    // means "no character states a default" — which is what this route assumed
-    // before a definition could state one.
+    // `Option`, and absence is a legal answer: a composition with no registered characters is
+    // the ordinary case, and an empty registry means "no character states a default" — which is
+    // what this route assumed before a definition could state one.
     //
-    // ⛔ outside the `construction_services` tuple deliberately: that tuple reads
+    // outside the `construction_services` tuple deliberately: that tuple reads
     // positionally at the call site (`construction_services.5`), so one more
     // member would be one more number for a reader to decode.
-    // ⚠ **PAIRED, and only because a Bevy system stops at sixteen params.** The
+    // **PAIRED, and only because a Bevy system stops at sixteen params.** The
     // two authorities travel together anyway: a placement names a character and
     // may name the policy that drives it.
     character_authorities: (
@@ -572,12 +536,9 @@ pub fn begin_room_transition_load_system(
 ) {
     let (prepared_characters, brain_profiles) = character_authorities;
 
-    // A rollback app stays a rollback app when its session is stopped. The boundary is
-    // intentionally removed by `stop_session`; using that absence as the eager
-    // host discriminator is what opened an uncommittable transaction after a
-    // rollback-contract invalidation. If readiness was already in flight, retire
-    // only the HOST-SIDE derivative. The rollback-state intent is deliberately
-    // untouched here: `Update` is outside the rewound schedule and has no
+    // A rollback app stays a rollback app when its session is stopped. If readiness was already
+    // in flight, retire only the HOST-SIDE derivative. The rollback-state intent is
+    // deliberately untouched here: `Update` is outside the rewound schedule and has no
     // authority to spend it.
     //
     // `Committed` is exempt because the room mutation already happened and the
@@ -631,11 +592,9 @@ pub fn begin_room_transition_load_system(
         // the crossing body dies — the transaction has lost its authority and
         // must not outlive it.
         //
-        // `Committed` is the one deliberate exception: at that point the intent
-        // has been spent successfully and the transaction has been handed to the
-        // presentation adapter for its post-commit settle/telemetry retirement.
-        // Cancelling it here would tear the cover down before the target room has
-        // actually rendered.
+        // `Committed` is the one deliberate exception: at that point the intent has been spent
+        // successfully and the transaction has been handed to the presentation adapter for its
+        // post-commit settle/telemetry retirement.
         let orphan = state
             .active
             .as_ref()
@@ -667,9 +626,7 @@ pub fn begin_room_transition_load_system(
         if state.active.as_ref().is_some_and(|active| {
             active.same_destination(intent, current_session, content_epoch.get())
         }) {
-            // The intent SURVIVES until its commit moves the body, so this system
-            // sees it again every frame in between. One transaction owns that
-            // destination; a still-pending crossing is not a new one.
+            // One transaction owns that destination; a still-pending crossing is not a new one.
             return;
         }
 
@@ -752,17 +709,9 @@ pub fn begin_room_transition_load_system(
             ambition_platformer2d_shared_tangle::schedule::GameMode::RoomTransition,
             "room_transition_begin",
         );
-        // ⛔⛔ **A ROLLBACK HOST DOES NOT PAUSE FOR ITS OWN LOADING SCREEN.**
+        // **A ROLLBACK HOST DOES NOT PAUSE FOR ITS OWN LOADING SCREEN.**
         //
-        // `GameMode::RoomTransition` fails `gameplay_allowed`, which gates
-        // `detect_room_transition_system` and other SIM systems. Requesting it
-        // from here — host-side, outside the rewound schedule — makes the
-        // simulation's behaviour depend on non-rollback state: frames resimulated
-        // after the mode flipped skip work the original pass did, and the
-        // sync-test checksum diverges. Measured 2026-08-14: mismatch at frames
-        // [15, 16, 17] the moment the shipped host started opening transactions.
-        //
-        // ⭐ and it is not merely unsound, it is wrong for the thing this
+        // and it is not merely unsound, it is wrong for the thing this
         // enables: peers do not stop simulating because one of them is loading.
         // The COVER still goes up — it is driven off `RoomTransitionLoadState`,
         // not off the mode — so the player sees the same screen; the world
@@ -779,7 +728,7 @@ pub fn begin_room_transition_load_system(
         // behind `runtime.owner.take()`, so a transition that never spawned a
         // cover reports nothing at all — and a 34.6s desktop capture containing a
         // real hub -> Hall transition produced ZERO lines from that target while
-        // this module's other logs printed fine (2026-07-30). An instrument that
+        // this module's other logs printed fine. An instrument that
         // is silent exactly when the thing it measures goes wrong is worse than
         // no instrument: it reads as "no transitions happened".
         //
@@ -955,7 +904,7 @@ pub fn begin_room_transition_load_system(
         // feeding the write-only `construction_preflight_duration` diagnostic,
         // observed by no sim decision and not rollback-registered. Preflight cost
         // is a player-facing latency question, so the feel clock is the right one.
-        // ⛔ **THIS WAS `#[cfg(not(target_arch = "wasm32"))] std::time::Instant`,
+        // **THIS WAS `#[cfg(not(target_arch = "wasm32"))] std::time::Instant`,
         // so the one platform whose numbers would explain a slow transition was
         // the one platform that recorded none.** `bevy::platform::time::Instant`
         // is `web-time` on wasm and `std` elsewhere, already in the graph, and
@@ -965,7 +914,7 @@ pub fn begin_room_transition_load_system(
         // What the world remembers right now, read once: it decides both
         // whether a cached plan still describes this world and what a fresh
         // plan must leave out.
-        // ⚠ **the outlook is ROOM-SCOPED**, so it is derived for the room being
+        // **the outlook is ROOM-SCOPED**, so it is derived for the room being
         // built and for no other: the same ledger answers differently for two
         // rooms, because an occurrence lying in one of them is reinstated there
         // and is simply not that other room's business.
@@ -1007,12 +956,12 @@ pub fn begin_room_transition_load_system(
                     active_binding.as_deref(),
                     prepared_characters.as_deref(),
                     brain_profiles.as_deref(),
-                    // ⭐ **THE ROAD THAT REBUILDS A ROOM THE SESSION LIVED IN.**
+                    // **THE ROAD THAT REBUILDS A ROOM THE SESSION LIVED IN.**
                     // This is the only construction road that can meet an
                     // occurrence of its own making still alive, and it is
                     // therefore the only one that states a ledger.
                     //
-                    // ⭐⭐ **and it states the WORLD'S DEFINITIONS with it**,
+                    // **and it states the WORLD'S DEFINITIONS with it**,
                     // because an occurrence lying in the destination may have
                     // been minted by a record next door: a body carried it
                     // through this very road and put it down. The ledger has
@@ -1278,11 +1227,9 @@ mod tests {
             commit_duration: None,
             committed_at: None,
         };
-        // Trigger noise: the same body re-detecting the same crossing. The
-        // intent SURVIVES until its commit moves the body, so the transaction
-        // sees it again every frame in between.
+        // Trigger noise: the same body re-detecting the same crossing.
         assert!(active.same_destination(&request("b"), None, 1));
-        // ⛔⛔ **THE POISON, and the reason the key is not just `target_room`.**
+        // **THE POISON, and the reason the key is not just `target_room`.**
         // Two exits can lead to the same room at different arrivals. A room-only
         // key collapses them and lands this crossing at the other one's
         // coordinates.
@@ -1291,7 +1238,7 @@ mod tests {
             None,
             1
         ));
-        // ⛔ and a DIFFERENT BODY crossing to the same place is a different
+        // and a DIFFERENT BODY crossing to the same place is a different
         // crossing, not noise. Nothing can trigger this today — one participant
         // transits — which is why it is asserted rather than discovered later.
         assert!(!active.same_destination(

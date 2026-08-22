@@ -15,7 +15,7 @@
 #   apt_ensure_optional <pkg>...  packages whose absence is acceptable. Always
 #                                 returns 0.
 #
-# ⚠ An OPTIONAL package must never escalate on its own. Optional packages are
+# An OPTIONAL package must never escalate on its own. Optional packages are
 # permanently missing on purpose -- a headless box does not want the Tracy GUI
 # libraries, and a package the configured repositories do not carry can never
 # be installed at all. Treating "an optional package is absent" as "escalate to
@@ -69,7 +69,7 @@ apt_ensure_available() {
 # Echo the command prefix for a privileged apt-get, or return non-zero when
 # this process cannot get privileges.
 #
-# ⚠ sudo reads a password from the terminal, not stdin, so a sudo that needs
+# sudo reads a password from the terminal, not stdin, so a sudo that needs
 # one HANGS in a context with no terminal instead of failing. `sudo -n` asks
 # whether privileges are already cached; only when they are not do we care
 # whether there is a terminal to type into.

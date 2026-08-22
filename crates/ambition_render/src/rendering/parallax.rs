@@ -6,9 +6,9 @@
 //! fallback-friendly loading behavior without forcing the room renderer through
 //! an external API.
 //!
-//! # ⭐ ONE PANEL SET PER LOCAL VIEW
+//! # ONE PANEL SET PER LOCAL VIEW
 //!
-//! ⛔⛔ **a parallax panel's transform is a function of the camera that draws
+//! **a parallax panel's transform is a function of the camera that draws
 //! it, so one shared panel cannot serve two views.** The offset is derived from
 //! where the camera stands inside the room, and the panel's SIZE and travel
 //! budget are derived from that camera's viewport rectangle — two observers
@@ -25,12 +25,9 @@
 //! [`super::view_isolation::isolate_per_view_projections`] decides which camera
 //! may draw which set.
 //!
-//! ⛔ **and the viewport is the VIEW's, never `WINDOW_W`/`WINDOW_H`.** The panel
-//! extent and the travel budget used to be baked at spawn from the design-window
-//! constants — a global that is wrong for a letterboxed gameplay rectangle today
-//! and wrong for every split layout tomorrow. They are re-derived each frame from
-//! the owning view's [`ambition_sim_view::camera_snapshot::CameraViewport`],
-//! which in a single-view composition still defaults to exactly those constants.
+//! They are re-derived each frame from the owning view's
+//! [`ambition_sim_view::camera_snapshot::CameraViewport`], which in a single-view composition still
+//! defaults to exactly those constants.
 
 use ambition_platformer2d_core as ae;
 use bevy::camera::visibility::RenderLayers;
@@ -49,7 +46,7 @@ use ambition_sprite_sheet::game_assets::{GameAssets, ParallaxLayerAsset, Paralla
 
 /// A camera-relative background panel.
 ///
-/// ⚠ **four of these fields are the layer's SPEC and one is DERIVED.**
+/// **four of these fields are the layer's SPEC and one is DERIVED.**
 /// `factor`, `z`, `panel_scale` and `world_size` are decided when the room
 /// spawns the panel and never change; [`Self::travel`] is re-resolved every
 /// frame by [`sync_parallax_layers`] from the viewport of the view this panel
@@ -145,7 +142,7 @@ const RUNTIME_PARALLAX_LAYERS: &[RuntimeParallaxLayerSpec] = &[
 
 /// The layers every main camera renders the room's backdrop on.
 ///
-/// ⛔ **it is declared as this panel's RESTING mask, not only set.** The per-view
+/// **it is declared as this panel's RESTING mask, not only set.** The per-view
 /// isolation pass is the single writer of `RenderLayers` on anything keyed by
 /// `PresentedForView`, and while isolating it replaces the mask outright — so the
 /// layer a panel returns to when a session collapses back to one view cannot be
@@ -181,7 +178,7 @@ pub fn spawn_parallax_layers(
         let Some(image) = assets.parallax_layers.get(theme, spec.asset) else {
             continue;
         };
-        // ⛔ **no size here, and that is the point.** The panel's extent is a
+        // **no size here, and that is the point.** The panel's extent is a
         // function of the viewport it is drawn into, and this call site has no
         // view in scope — the room spawns visuals, it does not know who is
         // watching. `sync_parallax_layers` sizes it against the owning view's
@@ -218,7 +215,7 @@ pub fn spawn_parallax_layers(
     }
 }
 
-/// ⚠ **The two session-world reads are OPTIONAL, and that is a fact about who
+/// **The two session-world reads are OPTIONAL, and that is a fact about who
 /// runs this now.** While it was registered by `game/ambition_app` alone, its
 /// `Single` params were always satisfied — that host's session root carries both.
 /// Installing it engine-side (S12) ran it in compositions whose root carries
@@ -228,7 +225,7 @@ pub fn spawn_parallax_layers(
 /// out. A world with no room geometry has no parallax to refresh, which is an
 /// ordinary state and not an error.
 ///
-/// ⚠ the despawn sweep takes ROOTS AND COPIES alike — every entity carrying
+/// the despawn sweep takes ROOTS AND COPIES alike — every entity carrying
 /// [`ParallaxLayerVisual`] that is not a portal capture copy — because the whole
 /// backdrop is being rebuilt and a copy of a despawned root belongs to nobody.
 /// [`mirror_parallax_layers_per_view`] rebuilds the per-view set from the fresh
@@ -285,7 +282,7 @@ pub fn refresh_parallax_layers_on_quality_change(
 /// **Load the ACTIVE room's parallax theme, in whatever composition is
 /// running.**
 ///
-/// ⚠ **This was app-local, and it is the recurring class.** The lazy load lived
+/// **This was app-local, and it is the recurring class.** The lazy load lived
 /// in `game/ambition_app`'s room-transition machinery
 /// (`build_room_asset_manifest`), so the shipped host got a backdrop in every
 /// biome and every other composition — the demos, the external consumer, any
@@ -356,23 +353,23 @@ pub fn ensure_active_room_parallax_theme(
 
 /// **ONE BACKDROP PANEL SET PER LIVE VIEW.**
 ///
-/// ⛔ **the reason is that one entity cannot hold two views' transforms.** A
+/// **the reason is that one entity cannot hold two views' transforms.** A
 /// panel is offset by where ITS camera stands in the room and sized against THAT
 /// camera's viewport rectangle; two views legitimately want the same sky at two
 /// positions and two sizes, so naming which view a single shared entity serves
 /// could not have made it correct.
 ///
-/// ⭐ **a second view is a COUNT, not a special case, and the single-view case
+/// **a second view is a COUNT, not a special case, and the single-view case
 /// stays exactly one entity per layer.** The panel the room spawned is CLAIMED
 /// by the lowest-id view rather than demoted to an un-drawn template; a template
 /// would make a one-view game allocate two entities per layer to draw one. Views
 /// past the first get copies.
 ///
-/// ⚠ **the claim is keyed on `LocalViewId`, not on query order** — which entity
+/// **the claim is keyed on `LocalViewId`, not on query order** — which entity
 /// is "the root's view" has to be the same answer on every frame and every run,
 /// and archetype iteration is neither.
 ///
-/// ⛔ **and a view is retracted by DESPAWNING its copies, never by clearing their
+/// **and a view is retracted by DESPAWNING its copies, never by clearing their
 /// key.** A copy that keeps its `Sprite` and loses its `PresentedForView` is
 /// still drawn by the renderer while dropping out of every query that selects by
 /// view. The root is the one exception and is RE-KEYED onto the surviving lowest
@@ -452,13 +449,7 @@ pub fn mirror_parallax_layers_per_view(
                 continue;
             }
             let mut copied_sprite = sprite.clone();
-            // ⛔ **the copy is NOT given the root's size.** The root's
-            // `custom_size` was resolved against the ROOT view's viewport, and
-            // this copy is about to be drawn into a different rectangle;
-            // inheriting it would make the second view's backdrop the first
-            // view's size until something happened to change it, which is the
-            // window-global defect restored one level down. `sync_parallax_layers`
-            // sizes it against its own view on the frame it appears.
+            // `sync_parallax_layers` sizes it against its own view on the frame it appears.
             copied_sprite.custom_size = None;
             let mut copied_layer = *layer;
             copied_layer.travel = Vec2::ZERO;
@@ -478,7 +469,7 @@ pub fn mirror_parallax_layers_per_view(
                     parallax_resting_layers(),
                     ProjectionRestingLayers(parallax_resting_layers()),
                     RoomVisual,
-                    // ⛔ **no `Name`.** `entity.name` is registered for rollback
+                    // **no `Name`.** `entity.name` is registered for rollback
                     // and the coverage contract sweeps any entity carrying a type
                     // the rollback knows about, so labelling these would enlist a
                     // whole view's presentation set in the sim sweep.
@@ -494,33 +485,29 @@ pub fn mirror_parallax_layers_per_view(
 /// **Each panel follows the camera that draws it, inside that camera's own
 /// viewport.**
 ///
-/// ⛔⛔ **THIS USED TO `.single()` THE MAIN CAMERA.** With one main camera that
-/// resolves; with two it returns `Err(MultipleEntities)` and the system returned
-/// — leaving every backdrop panel sitting at the world origin, full-screen, in
-/// whatever corner of the level the origin happens to be. That is the
-/// silent-wrong fallback `awaiting-maintainer-decision.md` §11 names, one family
-/// over from the two it names explicitly: not a focus invented at `Vec2::ZERO`,
-/// but a POSITION left at it.
+/// That is the silent-wrong fallback `awaiting-maintainer-decision.md` §11 names, one family over
+/// from the two it names explicitly: not a focus invented at `Vec2::ZERO`, but a POSITION left at
+/// it.
 ///
-/// ⭐ **each camera resolves its own view through `PresentsView`**, by the same
+/// **each camera resolves its own view through `PresentsView`**, by the same
 /// `ambition_sim_view::ViewsOnHand` rule the follow camera, the physical viewport
 /// applier and the draw-side lookup share — and each panel resolves its view
 /// through `PresentedForView`, the other end of that seam.
 ///
-/// ⛔ **a panel whose view or camera cannot be resolved DECLINES TO DRAW.** It is
+/// **a panel whose view or camera cannot be resolved DECLINES TO DRAW.** It is
 /// hidden and its transform is left exactly where it was, rather than being
 /// synced against somebody else's camera or abandoned at the origin: a backdrop
 /// that is absent is an obvious defect, and a backdrop plastered over the world
 /// origin looks like a level-authoring mistake in a far corner of the map.
 ///
-/// ⚠ **and the viewport is the view's, not `WINDOW_W`/`WINDOW_H`.** Panel extent
+/// **and the viewport is the view's, not `WINDOW_W`/`WINDOW_H`.** Panel extent
 /// and travel budget are re-derived here from
 /// [`ambition_sim_view::camera_snapshot::CameraViewport`] every frame, so a
 /// letterboxed gameplay rectangle and a split-screen half are described by the
 /// same arithmetic the full window was.
 #[allow(clippy::type_complexity)]
 pub fn sync_parallax_layers(
-    // ⛔ **the viewport is OPTIONAL here, and that is load-bearing.** Requiring
+    // **the viewport is OPTIONAL here, and that is load-bearing.** Requiring
     // `&CameraViewport` would make a view that lacks one invisible to this query
     // — and `ViewsOnHand::survey` would then count ONE view where the session has
     // two, so an unkeyed panel would be handed the complete view instead of being
@@ -561,7 +548,7 @@ pub fn sync_parallax_layers(
 
     // Where each view's camera stands, and how big that view's rectangle is.
     //
-    // ⚠ two cameras naming ONE view is not ambiguous: `camera_follow` hands both
+    // two cameras naming ONE view is not ambiguous: `camera_follow` hands both
     // of them the same view's framing, so `or_insert` records the same position
     // whichever the archetype yields first. Two cameras naming two views is the
     // split case and produces two rows.
@@ -623,7 +610,7 @@ pub fn sync_parallax_layers(
 pub fn sync_portal_capture_parallax_layers(
     mut commands: Commands,
     active_session: Option<Res<ActiveSessionScope>>,
-    // ⚠ **the ROOT set only** (`Without<MirroredParallaxLayer>`). Every live view
+    // **the ROOT set only** (`Without<MirroredParallaxLayer>`). Every live view
     // now owns a panel per layer, and a rig that copied all of them would stack N
     // identical skies in one capture. Portal camera continuity is still one
     // process-global host view (`PortalCameraContinuityState`/`HostView`), so the
@@ -708,19 +695,14 @@ fn sync_parallax_transform_to_camera(
     layer: &ParallaxLayerVisual,
     camera_xy: Vec2,
 ) {
-    // ⛔⛔ **THE `+ 0.5` IS THE WHOLE FIX, and without it half of every room had a
-    // static sky.** `camera_xy` is the camera's BEVY transform, which is centred:
-    // `camera.rs` builds it as `center_world.x - world.size.x * 0.5`, so it runs
-    // −size/2 ..= +size/2 while `world_size` is the FULL span. Dividing one by
-    // the other therefore gave −0.5 ..= +0.5, and the clamp turned the entire
-    // negative half into a flat 0 — so across the whole LEFT half of every room
-    // the backdrop sat pinned at maximum travel and did not move, and only the
-    // right half parallaxed, over half the intended range.
+    // Dividing one by the other therefore gave −0.5 ..= +0.5, and the clamp turned the entire
+    // negative half into a flat 0 — so across the whole LEFT half of every room the backdrop
+    // sat pinned at maximum travel and did not move, and only the right half parallaxed, over
+    // half the intended range.
     //
-    // ⚠ **a unit error the clamp HID.** Nothing ever read out of range or
-    // crashed; the wrong half simply stopped animating, which reads as "this
-    // background is far away" rather than as a defect. Found 2026-08-20 while
-    // making this pass per-view.
+    // **a unit error the clamp HID.** Nothing ever read out of range or crashed; the wrong half
+    // simply stopped animating, which reads as "this background is far away" rather than as a
+    // defect.
     let tx = if layer.world_size.x > 1.0 {
         (camera_xy.x / layer.world_size.x + 0.5).clamp(0.0, 1.0)
     } else {
@@ -823,9 +805,7 @@ mod theme_load_tests {
         app.insert_resource(packaged_catalog());
         app.world_mut()
             .spawn((SessionRoot(SessionScopeId(1)), room_set_in("cave")));
-        // ⚠ the PLUGIN, not the system: the defect was never that the load did
-        // not work, it was that only one composition installed it. A test that
-        // adds the system by hand cannot go red on the thing that was wrong.
+        // A test that adds the system by hand cannot go red on the thing that was wrong.
         app.add_plugins(crate::platformer_presentation::SessionRoomVisualsPlugin);
 
         // Non-vacuity: nothing has this theme before the frame runs, so the
@@ -860,7 +840,7 @@ mod theme_load_tests {
     /// about that reads as a missing system: the art is correct, in the wrong
     /// place, and only when you walk.
     ///
-    /// ⚠ **the fixture now spawns a LOCAL VIEW as well as a camera**, because
+    /// **the fixture now spawns a LOCAL VIEW as well as a camera**, because
     /// the sync resolves a camera through the view it presents. That is the same
     /// requirement `layout_world_labels` and `sync_actor_nameplates` already
     /// impose — a per-view draw system needs an observation seam to draw for —
@@ -920,12 +900,6 @@ mod theme_load_tests {
     }
 
     /// **And it does not touch `GameAssets` once the theme is in.**
-    ///
-    /// A mutable deref alone marks the resource changed, and
-    /// [`refresh_parallax_layers_on_quality_change`] answers that by despawning
-    /// and respawning every parallax layer in the world. A load that ran every
-    /// frame would rebuild the backdrop every frame — the fix that is worse than
-    /// the bug.
     #[test]
     fn a_theme_already_loaded_is_not_reloaded_every_frame() {
         let mut app = App::new();
@@ -972,15 +946,13 @@ mod parallax_travel_tests {
         t.translation.x - camera_x
     }
 
-    /// ⛔ **The backdrop must travel across the WHOLE room, not the right half.**
+    /// **The backdrop must travel across the WHOLE room, not the right half.**
     ///
-    /// `camera_xy` is the camera's centred Bevy transform (`camera.rs` builds it
-    /// as `center_world.x - size.x * 0.5`), so it runs −size/2 ..= +size/2 while
-    /// `world_size` is the full span. Before the `+ 0.5`, dividing one by the
-    /// other gave −0.5 ..= +0.5 and the clamp flattened the entire negative half
-    /// to zero — the left half of every room had a backdrop that did not move.
+    /// `camera_xy` is the camera's centred Bevy transform (`camera.rs` builds it as
+    /// `center_world.x - size.x * 0.5`), so it runs −size/2 ..= +size/2 while `world_size` is
+    /// the full span.
     ///
-    /// ⚠ the assertion is on the SPAN and the MIDPOINT together. Either alone
+    /// the assertion is on the SPAN and the MIDPOINT together. Either alone
     /// passes for a broken mapping: a half-range still has two distinct ends, and
     /// a centred midpoint says nothing about how far it reaches.
     #[test]
@@ -1005,10 +977,8 @@ mod parallax_travel_tests {
         );
     }
 
-    /// The poison, stated as its own claim: a camera in the room's left half must
-    /// MOVE the backdrop. Under the old mapping every position from the left edge
-    /// to the centre produced an identical offset, which is what made the defect
-    /// invisible — nothing was out of range, one half simply stopped animating.
+    /// The poison, stated as its own claim: a camera in the room's left half must MOVE the
+    /// backdrop.
     #[test]
     fn a_camera_in_the_left_half_still_moves_the_backdrop() {
         let w = 2000.0;
@@ -1046,13 +1016,8 @@ mod two_views_one_backdrop_tests {
     /// inside the clamp at both ends, so no expectation below is secretly an
     /// assertion about the clamp.
     ///
-    /// ⛔ **these were +500 and +1500 and both were wrong**, because the formula
-    /// they were derived from was wrong: it divided a centred coordinate by a
-    /// full span and never added the half. +1500 is not "the far end of the
-    /// room", it is 500px PAST the right edge, and it only looked reasonable
-    /// while `tx` was being computed in 0..size. Fixing the mapping is what
-    /// exposed it — the constants and the code agreed with each other and with
-    /// nothing else.
+    /// Fixing the mapping is what exposed it — the constants and the code agreed with each
+    /// other and with nothing else.
     const CAMERA_X: f32 = -500.0;
 
     /// The far camera: `tx = 500/2000 + 0.5 = 0.75`, `centered.x = +0.5`, so its
@@ -1109,16 +1074,10 @@ mod two_views_one_backdrop_tests {
             .x
     }
 
-    /// **⛔⛔ A PANEL IS SIZED AND OFFSET BY ITS OWN VIEW'S VIEWPORT, NOT BY A
+    /// **A PANEL IS SIZED AND OFFSET BY ITS OWN VIEW'S VIEWPORT, NOT BY A
     /// WINDOW GLOBAL.**
     ///
-    /// The panel extent and the travel budget used to be baked at spawn from
-    /// `WINDOW_W`/`WINDOW_H` (1600x900), so every panel in the process shared one
-    /// budget no matter what rectangle it was drawn into — wrong already for a
-    /// letterboxed gameplay rect, and wrong by construction for a split layout
-    /// where the two halves are one world seen through two smaller rectangles.
-    ///
-    /// ⭐ **the two views are given DIFFERENT viewports and the SAME camera
+    /// **the two views are given DIFFERENT viewports and the SAME camera
     /// position**, so the only thing that can produce two different answers is the
     /// viewport itself. Neither viewport is 1600x900, so a build that still read
     /// the window constants would agree with neither.
@@ -1180,14 +1139,14 @@ mod two_views_one_backdrop_tests {
         );
     }
 
-    /// **⛔⛔ EACH PANEL FOLLOWS THE CAMERA THAT DRAWS IT.**
+    /// **EACH PANEL FOLLOWS THE CAMERA THAT DRAWS IT.**
     ///
     /// Both views are given the SAME viewport here, so the only thing that can
     /// separate the two answers is which camera each panel's view is presented by.
     /// The near camera pushes its panel right (`500 + 400/2 = 700`); the far one
     /// pulls its panel left (`1500 - 400/2 = 1300`).
     ///
-    /// ⚠ **the falsifier is inside the test.** The second run swaps only which
+    /// **the falsifier is inside the test.** The second run swaps only which
     /// view each camera presents — same spawn order, same entities, same
     /// viewports, same panels — and the two backdrops must swap with them. An
     /// implementation that takes the first camera the archetype yields (which is
@@ -1228,7 +1187,7 @@ mod two_views_one_backdrop_tests {
         }
     }
 
-    /// **⛔⛔ AN UNRESOLVABLE PANEL DRAWS NOTHING — IT DOES NOT DRAW AT THE WORLD
+    /// **AN UNRESOLVABLE PANEL DRAWS NOTHING — IT DOES NOT DRAW AT THE WORLD
     /// ORIGIN.**
     ///
     /// Two things make a panel unresolvable, and under an adaptive split layout
@@ -1236,13 +1195,6 @@ mod two_views_one_backdrop_tests {
     ///
     /// - it names no view while several exist, so `ViewsOnHand` refuses to guess;
     /// - it names a view that no camera presents this frame.
-    ///
-    /// Before this, the sync `.single()`d the main camera, got
-    /// `Err(MultipleEntities)` the moment a second one existed, and returned —
-    /// leaving every panel in the room at its spawn transform, which is the world
-    /// origin. A screen-sized sky pinned to the origin reads as a level-authoring
-    /// mistake in a far corner of the map; a backdrop that is absent reads as the
-    /// defect it is.
     #[test]
     fn a_panel_with_no_resolvable_camera_is_hidden_rather_than_drawn_at_the_origin() {
         let mut world = World::new();
@@ -1304,7 +1256,7 @@ mod two_views_one_backdrop_tests {
         );
     }
 
-    /// **⭐ A SECOND VIEW GETS ITS OWN PANEL SET, AND THE FIRST ONE'S IS THE
+    /// **A SECOND VIEW GETS ITS OWN PANEL SET, AND THE FIRST ONE'S IS THE
     /// ENTITY THE ROOM ALREADY SPAWNED.**
     ///
     /// The single-view case must stay exactly one entity per layer: a mirror that

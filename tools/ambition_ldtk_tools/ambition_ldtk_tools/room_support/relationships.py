@@ -37,7 +37,7 @@ from typing import Iterator
 # The hand-kept half: string conventions that LDtk cannot describe.
 #
 # Each row is (entity identifier, field, what it points at, who owns resolution).
-# ⚠ a row here is a relationship that a tool cannot see without being told. That
+# a row here is a relationship that a tool cannot see without being told. That
 # is the cost being paid, and the reason L2 wants these migrated to `EntityRef`.
 # ---------------------------------------------------------------------------
 STRING_CONVENTIONS: tuple[tuple[str, str, str, str], ...] = (
@@ -58,13 +58,9 @@ STRING_CONVENTIONS: tuple[tuple[str, str, str, str], ...] = (
 # resolution) — the SAME five facts a string-convention row carries, in the same
 # order, because they are the same kind of row.
 #
-# ⛔ **the owner is DATA here for a reason.** The report site used to spell one
-# resolver for every prefix row, so `BossSpawn.brain = "PhaseScript:<id>"` was
-# reported as resolved by `KinematicPathSpec::matches_id` — the owner of
-# `EnemySpawn`'s patrol references, which has nothing to do with phase scripts.
-# The whole value of this half of the tool is naming the right authority to go
-# read, so a report that names the wrong one is worse than no report. A row that
-# carries its own owner cannot inherit somebody else's by being added.
+# The whole value of this half of the tool is naming the right authority to go read, so a report
+# that names the wrong one is worse than no report. A row that carries its own owner cannot inherit
+# somebody else's by being added.
 PREFIX_CONVENTIONS: tuple[tuple[str, str, str, str, str], ...] = (
     (
         "BossSpawn",
@@ -141,7 +137,7 @@ def relationship_report(project: dict, level_id: str | None = None) -> dict:
                     "target_iid": target_iid,
                     "target_kind": target[1] if target else None,
                     "target_level": target[0] if target else None,
-                    # ⭐ the ONE verdict this tool is entitled to: LDtk's own
+                    # the ONE verdict this tool is entitled to: LDtk's own
                     # referential integrity. It is the file's pointer, not an
                     # engine rule, so checking it re-derives nothing.
                     "broken": target is None,
@@ -184,12 +180,12 @@ def relationship_report(project: dict, level_id: str | None = None) -> dict:
                     "field": field,
                     "spelling": value[len(prefix):],
                     "points_at": points_at,
-                    # ⛔ read off the ROW, never spelled here. One resolver name
+                    # read off the ROW, never spelled here. One resolver name
                     # at this site is one resolver name for every prefix row,
                     # which is how a phase-script reference came to be reported
                     # as owned by the kinematic-path resolver.
                     "resolution_owned_by": authority,
-                    # ⛔ the least visible shape: the field is called `brain`
+                    # the least visible shape: the field is called `brain`
                     # and its TYPE is String. Nothing but this table knows a
                     # reference is in there.
                     "shape": f"reference hidden inside `{field}` behind `{prefix}`",
@@ -197,7 +193,7 @@ def relationship_report(project: dict, level_id: str | None = None) -> dict:
             )
 
     # --- what is declared and never used -----------------------------------
-    # ⚠ a field every world declares and no world authors is a relationship the
+    # a field every world declares and no world authors is a relationship the
     # docs describe and the content does not have. Measuring it is how you find
     # out that the "first proof" relationship has no instances to prove on.
     for kind, field in sorted(seen_string_fields):
@@ -239,7 +235,7 @@ def format_report_text(report: dict, *, world: str, detail: bool = True) -> str:
     for key, count in _tally(conv):
         out.append(f"    string   {key:<34s} {count:4d}\n")
 
-    # ⛔ a dangling native ref is the one verdict this tool owns, so it is never
+    # a dangling native ref is the one verdict this tool owns, so it is never
     # hidden behind --detail: it names the offending entity every time.
     if broken:
         out.append("\n  BROKEN native references:\n")

@@ -5,11 +5,8 @@
 //! consumer is `app::scene_setup::try_load_static_sfx_bank`, gated on the
 //! `ambition_static_sfx_bank_path` cfg this script sets.
 //!
-//! A build script's `rustc-cfg` / `rustc-env` only apply to ITS OWN crate, so
-//! this must live next to the consumer. It previously lived in
-//! `ambition_platformer2d_actor_monolith/build.rs` and silently went dead (cfg never set, env never
-//! exported) when the loader moved up to `ambition_app` — which is exactly the
-//! `unexpected cfg` warning + dead static-bank path this restores.
+//! A build script's `rustc-cfg` / `rustc-env` only apply to ITS OWN crate, so this must live next
+//! to the consumer.
 
 use std::path::PathBuf;
 

@@ -17,12 +17,12 @@
 //! so the capability's own closure is exactly what it was; the same reasoning
 //! `ambition_platformer2d_runtime` and the SDK already sit here under.
 //!
-//! ⛔ **a sync test is not a flavour of "run it twice".** Every frame is saved,
+//! **a sync test is not a flavour of "run it twice".** Every frame is saved,
 //! rewound and resimulated, and `rollback_health` compares the checksums. So an
 //! assertion here is not about one frame's value — it is that the value is
 //! reconstructible from the snapshot on every frame it existed.
 //!
-//! ⚠ if `PulseCooldown` were NOT registered, this is the test that fails: the
+//! if `PulseCooldown` were NOT registered, this is the test that fails: the
 //! body would restore and the gate would not, and a pulse would fire twice from
 //! one charge on the resimulated frame. That is the desync the offer exists to
 //! prevent, and until now nothing ran it.
@@ -66,7 +66,7 @@ fn compose(
     insert_session_world_component(app.world_mut(), set);
     app.insert_resource(ControlFrame::default());
 
-    // ⛔ **the HOST half, which the harness does not supply.** Choosing the GGRS
+    // **the HOST half, which the harness does not supply.** Choosing the GGRS
     // schedule is not the same as installing GGRS: `AmbitionRollbackPlugin` is
     // what adds `GgrsPlugin`, the snapshot storage and `RollbackOrdered`.
     // Without it, `require_rollback` still fires its hook and the first
@@ -107,7 +107,7 @@ fn compose(
     );
     // Presence of the body component is what marks the entity for GGRS.
     //
-    // ⚠ its own NAME, not `BODY_ROLLBACK_STATE`. The registry refuses two
+    // its own NAME, not `BODY_ROLLBACK_STATE`. The registry refuses two
     // registrations of different KINDS under one name — the clone above and this
     // marker are different facts about the same type — and the engine's own
     // domains follow the same split (`entity:transform_beat` for the marker,

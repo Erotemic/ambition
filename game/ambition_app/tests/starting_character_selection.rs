@@ -1,22 +1,14 @@
 //! **Choosing a starting character still starts the game.**
 //!
-//! `AMBITION_START_CHARACTER=<id>` (and `capture_scene --character <id>`) insert
-//! a `StartingCharacterOverride`, which preparation moves onto the session root
-//! as `StartingCharacter`. Until 2026-08-08 the shell's preparation barrier
-//! failed `validate-provider-defaults` whenever that selection differed from the
-//! provider's authored default — `retryable(false)`, before publishing anything
-//! — so the session NEVER ACTIVATED. There was no world, no body and no message
-//! a player sees; Jon reported it as "sanic grants the wrong verbs and loses
-//! move/jump", and sanic was only the id he happened to type.
+//! `AMBITION_START_CHARACTER=<id>` (and `capture_scene --character <id>`) insert a
+//! `StartingCharacterOverride`, which preparation moves onto the session root as
+//! `StartingCharacter`.
 //!
-//! ⚠ **the identical check had already been deleted from
-//! `prepare_platformer_content` on 2026-07-29**, whose own commit says
-//! `--character` "had never worked for any id". It stayed broken because the
-//! corrected copy runs at `PREPARE_SESSION`, downstream of the barrier's early
-//! return — one question asked at two sites, and the site that answered first
-//! was the one nobody changed. `a_starting_character_other_than_the_default_prepares`
-//! (in `ambition_platformer2d_provider`) covers the pure function; only a
-//! composed App reaches the barrier, which is why this test is here.
+//! It stayed broken because the corrected copy runs at `PREPARE_SESSION`, downstream of the
+//! barrier's early return — one question asked at two sites, and the site that answered first was
+//! the one nobody changed. `a_starting_character_other_than_the_default_prepares` (in
+//! `ambition_platformer2d_provider`) covers the pure function; only a composed App reaches the
+//! barrier, which is why this test is here.
 //!
 //! Sanic is deliberately the id under test: its row is owned by ANOTHER provider
 //! (`ambition_demo_sanic`), so this also states that a linked provider's
@@ -55,9 +47,6 @@ fn a_selected_starting_character_activates_a_controllable_session() {
             ambition_app::rl_sim::ambition_sim_composition(app, options)
         },
     )
-    // ⚠ before the fix the failure was NOT here — preparation reported a failed
-    // load work item and the harness came up worldless, so the first `step`
-    // panicked on a missing session instead.
     .expect("the sandbox sim builds with a selected starting character");
 
     // A live session exists at all (this reads the session-root `RoomSet`).

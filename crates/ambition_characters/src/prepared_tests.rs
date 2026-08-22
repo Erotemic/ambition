@@ -1,4 +1,4 @@
-//! Preparation's own tests, in preparation's own crate (campaign P1.7).
+//! Preparation's own tests, in preparation's own crate.
 //!
 //! ⛔ these test PREPARATION — what a definition resolves to, what it reports,
 //! what it refuses. The tests that drive an `App` through
@@ -162,9 +162,6 @@ fn a_definition_carries_no_controller_binding() {
         // What the body does when it DIES — a property of the creature, and one
         // no controller changes. A possessed mite still splits.
         death_traits: _,
-        // A DEFAULT autonomous profile, which §4.7 now permits and Jon's
-        // 2026-08-10 ruling authorised: what this character does when nobody is
-        // driving it. The CURRENT controller is still nowhere on this type.
         moveset: _,
         // A CAPABILITY, not a controller binding, and the distinction is the
         // whole of §4.7: this says what the body can reach for, and says nothing
@@ -189,11 +186,10 @@ fn a_definition_carries_no_controller_binding() {
         // is dangerous to touch whoever is steering it.
         locomotion: _,
         contact_damage: _,
-        // ⚠ **a DEFAULT policy, which §4.7 permits and Jon's ruling authorised,
-        // and the reason this test survives rather than being deleted.** What
-        // it guards is that the CURRENT controller is nowhere on this type: a
-        // character may say what it does when nobody is driving it, and may not
-        // say who is driving it now.
+        // ⚠ **a DEFAULT policy, which §4.7 permits and the rule authorised, and the reason this
+        // test survives rather than being deleted.** What it guards is that the CURRENT
+        // controller is nowhere on this type: a character may say what it does when nobody is
+        // driving it, and may not say who is driving it now.
         autonomous_profile: _,
         // The same authority by NAME instead of by value — a shared policy
         // several characters point at. Still a character fact: it says what this
@@ -290,16 +286,12 @@ fn a_derived_vfx_tag_no_renderer_knows_is_named() {
     );
 }
 
-/// A verb the runtime cannot press is named at preparation. (queue L10)
+/// A verb the runtime cannot press is named at preparation.
 ///
 /// The dangling-move-id check has always covered "the verb points at nothing".
 /// This is the other side: the move exists, the binding is well-formed, and the
 /// VERB is a word the trigger path never asks for — so the move is authored,
 /// prepared, projected onto the body, and never triggered by anything.
-///
-/// Worth a check rather than a convention because the failure has no symptom.
-/// A character with an unreachable move reads exactly like a character with no
-/// moves, which is a legitimate thing to be.
 #[test]
 fn a_verb_the_runtime_never_presses_is_named_at_preparation() {
     let unreachable =
@@ -360,8 +352,7 @@ fn a_verb_the_runtime_never_presses_is_named_at_preparation() {
 /// half is individually valid. The verb is real, the move is real, the set is
 /// real, and the button does nothing.
 ///
-/// Only preparation holds both, so only preparation can see it (GPT 5.6,
-/// 2026-07-28).
+/// Only preparation holds both, so only preparation can see it.
 #[test]
 fn an_authored_ranged_move_with_no_ranged_payload_is_reported() {
     use crate::brain::ActionSet;
@@ -447,14 +438,7 @@ fn a_ranged_move_without_an_authored_action_set_is_left_to_the_catalog() {
     );
 }
 
-/// **A body cannot end up with two owners of one press.** (GPT 5.6)
-///
-/// A character that takes the host-code kit gets the host's charge-projectile
-/// mechanic on its ranged press. If its authored moveset also binds a ranged
-/// verb, both fire — the charge path because the kit installed it, the moveset
-/// because the verb resolves. The first version of this guard REPORTED the
-/// contradiction and published the kit anyway, which named the bug without
-/// preventing it.
+/// **A body cannot end up with two owners of one press.**
 ///
 /// The whole verb FAMILY, not the base alone: `directional_verb_chain` resolves
 /// a press through `ranged_air_forward` → `ranged_forward` → `ranged_air` →
@@ -495,17 +479,9 @@ fn a_host_code_kit_cannot_also_carry_an_authored_ranged_verb() {
 
 /// **A cast has a version, so a derivation can know it went stale.** (X4)
 ///
-/// Nothing downstream could say WHICH cast a body's kit came from. "This was
-/// built before the cast changed" was not a question the code could ask; it
-/// could only compare values and guess, which is the shape of every
-/// stale-derivation bug in this repo.
-///
-/// ⚠ this used to describe the registry as "a live resource — a room transition
-/// builds a fresh one and registration mutates it in place". Since the
-/// finalization barrier (2026-07-29) it is published once, whole, and a late
-/// registration panics. The generation is per PUBLICATION now; the hatch this
-/// test uses stamps each insert as its own publication because a test has no
-/// barrier to publish for it.
+/// Since the finalization barrier it is published once, whole, and a late registration panics. The
+/// generation is per PUBLICATION now; the hatch this test uses stamps each insert as its own
+/// publication because a test has no barrier to publish for it.
 #[test]
 fn the_cast_generation_advances_on_every_published_change() {
     let mut registry = PreparedCharacterRegistry::default();
@@ -638,12 +614,6 @@ fn gravity_freedom_is_resolved_at_preparation_rather_than_at_construction() {
 
 /// **Completeness is a NAMED contract, not an inferred bool.**
 ///
-/// ⛔ this replaces `is_complete_body()` (Jon's redirect §5), which answered
-/// `locomotion.is_some()`. That was true by coincidence — a character that had
-/// stated its top speed had, so far, also stated everything else — and the day
-/// it stopped being true nothing would have said so: the body would have taken
-/// the archetype road and looked unmigrated rather than incomplete.
-///
 /// Two terms, both observed: an incomplete character NAMES what it is missing,
 /// and a complete one hands over a blueprint carrying the facts construction
 /// actually reads.
@@ -754,14 +724,8 @@ fn two_characters_can_name_one_shared_policy() {
     );
 }
 
-/// **Inline AND named is a REFUSAL, not a precedence rule** (Jon's redirect §9).
-///
-/// ⛔ this assertion is the INVERSE of the one that stood here until
-/// 2026-08-11, and the reversal is the point. The old behaviour — inline wins,
-/// named is the fallback — was documented as "specialization", and nothing
-/// merged: the shared policy was discarded whole. An author who writes both
-/// wants a patch type that does not exist, and telling them so is cheaper than
-/// silently answering half their question.
+/// An author who writes both wants a patch type that does not exist, and telling them so is
+/// cheaper than silently answering half their question.
 #[test]
 #[should_panic(expected = "authors an inline autonomous profile AND names")]
 fn authoring_a_policy_twice_is_refused_rather_than_ranked() {
@@ -784,12 +748,6 @@ fn authoring_a_policy_twice_is_refused_rather_than_ranked() {
 }
 
 /// **A named policy nobody authored is a preparation failure.**
-///
-/// ⛔ also an inversion: this used to assert `None`, on the reading that a miss
-/// means the same as saying nothing. It does not. Saying nothing leaves the
-/// archetype in charge on purpose; naming a policy that does not exist leaves
-/// the archetype in charge while the content file says the opposite — the
-/// explicit-`CharacterId` mistake, one layer down.
 #[test]
 #[should_panic(expected = "is not published")]
 fn a_named_policy_that_does_not_exist_is_a_failure_rather_than_silence() {
@@ -809,11 +767,8 @@ fn a_named_policy_that_does_not_exist_is_a_failure_rather_than_silence() {
 /// **A HOST THAT PUBLISHED NO POLICY AUTHORITY IS FINE — UNTIL A CHARACTER
 /// NAMES ONE.**
 ///
-/// ⛔⛔ these two were inconsistent, and the inconsistency was the defect: a
-/// registry that merely LACKED the name panicked (above), while no registry at
-/// all warned and returned `None`. The same authoring error produced a content
-/// error or a silent absence depending on a composition detail the author cannot
-/// see (GPT 5.6 review, priority 6).
+/// The same authoring error produced a content error or a silent absence depending on a composition
+/// detail the author cannot see.
 ///
 /// ⚠ **the first half is what stops this becoming "headless hosts must publish a
 /// registry".** They must not — a composition with no shared policies at all is
@@ -848,14 +803,9 @@ fn naming_a_policy_in_a_composition_with_no_registry_is_a_composition_error() {
 
 /// **THE AUTHORED MIRROR-SYMMETRY TRAIT SURVIVES THE WHOLE FOLD.**
 ///
-/// ⭐ this is the plumbing test, and it is the one that would have caught the
-/// interesting failure: the trait is decided by a CHARACTER and consumed by
-/// `enemy_default_brain` three crates away, through
-/// `definition → PreparedCharacterOverrides → PreparedCharacterDefinition →
-/// CharacterBodyBlueprint → ActorConfig`. Every link is a hand-written field
-/// assignment, so a trait that is authored and never arrives looks exactly like a
-/// trait nobody authored — the shape this repo calls *a hand-listed chain pins
-/// the FUNCTION, not the WIRING*.
+/// Every link is a hand-written field assignment, so a trait that is authored and never arrives
+/// looks exactly like a trait nobody authored — the shape this repo calls *a hand-listed chain
+/// pins the FUNCTION, not the WIRING*.
 ///
 /// ⚠ **both directions**, because a fold that hard-coded `true` would pass a
 /// one-sided test while giving every character in the game Emmy's trait.

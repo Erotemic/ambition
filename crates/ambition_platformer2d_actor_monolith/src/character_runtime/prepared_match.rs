@@ -2,14 +2,8 @@
 //!
 //! ## Why this exists
 //!
-//! Seating used to answer three different questions in one pass — *can this
-//! fighter be built*, *what is it physically*, and *who drives it* — one seat at
-//! a time, mid-construction, against live authority tables. Every failure it had
-//! came from that shape: a seat it could not resolve made it `return` from the
-//! whole system, so ONE unbuildable fighter meant no match at all, silently and
-//! forever. Jon met it twice in one sitting (2026-08-06): *"only one character
-//! spawns in"* — and the one character was the session's home body, which was
-//! never a fighter.
+//! Every failure it had came from that shape: a seat it could not resolve made it `return` from the
+//! whole system, so ONE unbuildable fighter meant no match at all, silently and forever.
 //!
 //! ```text
 //! MatchParticipantRoster   stable, serializable INTENT — what somebody chose
@@ -39,7 +33,7 @@
 //! earlier values — activation runs again from the same immutable plan, and
 //! rebuilds the same cast.
 //!
-//! ⚠ **the plan is NOT rollback state, and that is deliberate.** It is a
+//! **the plan is NOT rollback state, and that is deliberate.** It is a
 //! DECISION, made before the session it describes; registering it would delete
 //! it on a rewind to before it was made and leave activation with nothing to
 //! replay. What rewinds is the receipt and the bodies.
@@ -55,11 +49,7 @@ use super::{
 
 /// **What will drive a fighter, once the fighter exists.**
 ///
-/// ⚠ [`ControllerBinding`] is what a lobby or a save file SAYS; this is what the
-/// engine will attach. The difference matters most for the variant that used to
-/// be spelled `Human`.
-///
-/// ⛔ **"a person" and "a local input channel" are not one fact.** Conflating
+/// **"a person" and "a local input channel" are not one fact.** Conflating
 /// them is how a CPU seat came to size a rollback session: the GGRS handle count
 /// was `participants.len()` and the frozen input topology counted
 /// `ControllerBinding::Human`, each with a comment claiming to be the
@@ -67,7 +57,7 @@ use super::{
 /// channel; a spectator is a participant with no fighter. Neither is
 /// expressible while one word means both.
 ///
-/// ⚠ **exactly the two kinds this engine can ATTACH, and no more.**
+/// **exactly the two kinds this engine can ATTACH, and no more.**
 /// `ControllerBinding` also names `Replay` and `Policy`; those are real roster
 /// vocabulary and there is no code anywhere that binds a driver for either. A
 /// variant here for each would be a set with no members — the shape this repo
@@ -79,15 +69,15 @@ pub enum ControlAuthority {
     /// A local person drives it: the SOURCE they are holding, and the dense
     /// CHANNEL the simulation reads them on.
     ///
-    /// ⛔ **two fields because they are two facts, and collapsing them broke
-    /// every sparse lobby** (GPT 5.6, 2026-08-07). A roster names a source —
+    /// **two fields because they are two facts, and collapsing them broke
+    /// every sparse lobby**. A roster names a source —
     /// pad 3, the keyboard — and a lobby is right to keep those numbers stable
     /// when a seat empties. A rollback host requires the opposite: handles
     /// `0..player_count`, dense, no holes. This carried only the first and
     /// handed it to `PlayerSlot`, so a fighter could sit on a channel the
     /// session never opened and receive nothing for the whole match.
     ///
-    /// ⭐ **the channel is DERIVED here and nowhere else**, from
+    /// **the channel is DERIVED here and nowhere else**, from
     /// [`MatchParticipantRoster::local_channel_plan`], so the number that sizes
     /// the session and the number the fighter reads are the same number by
     /// construction rather than by two matching derivations.
@@ -101,9 +91,6 @@ pub enum ControlAuthority {
 
 impl ControlAuthority {
     /// The local rollback channel this authority occupies, if any.
-    ///
-    /// ⭐ **the ONE definition of "how many people are playing on this
-    /// machine".** Two call sites used to answer it separately and disagreed.
     pub fn local_channel(&self) -> Option<ambition_input::ParticipantId> {
         match self {
             Self::LocalInput { channel, .. } => Some(*channel),
@@ -125,14 +112,10 @@ impl ControlAuthority {
     /// human among the roster's humans — and is what makes a sparse source safe
     /// to carry.
     ///
-    /// ⛔ **every variant, no catch-all — and the catch-all is what this fixes.**
-    /// The pass this replaces ended in `_ => { let Some(profile) =
-    /// controller.brain_profile() else { return; }; .. }`, and `brain_profile()`
-    /// answers `None` for `Replay` and `Policy` BY DESIGN — its own doc says *"a
-    /// replay that consulted a brain profile would stop being a replay"*. So a
-    /// replay seat silently returned from the whole system and no fighter was
-    /// ever built: the identical defect as the unbuildable character, already
-    /// present on two more paths and never reported by anything.
+    /// **every variant, no catch-all — and the catch-all is what this fixes.** The pass this
+    /// replaces ended in `_ => { let Some(profile) = controller.brain_profile() else { return;
+    /// }; .. }`, and `brain_profile()` answers `None` for `Replay` and `Policy` BY DESIGN — its
+    /// own doc says *"a replay that consulted a brain profile would stop being a replay"*.
     fn resolve(
         controller: &ControllerBinding,
         channel: Option<ambition_input::ParticipantId>,
@@ -159,12 +142,8 @@ impl ControlAuthority {
                         .to_owned(),
                 ),
             },
-            // ⛔ **REFUSED, out loud, and that is an improvement.** Both were
-            // silently unbuildable before — they fell into the catch-all, had no
-            // brain profile by design, and returned from the whole system — so a
-            // roster naming one produced an empty stage and no explanation. The
-            // engine genuinely has no driver to attach for either; saying so is
-            // the honest version of what it already did.
+            // The engine genuinely has no driver to attach for either; saying so is the honest
+            // version of what it already did.
             ControllerBinding::Replay => Err(
                 "is driven by a REPLAY, and nothing in this engine attaches a \
                  recorded control stream to a seated fighter yet. The roster \
@@ -187,13 +166,13 @@ pub struct PreparedSeat {
     /// Which seat of the match this is. Stable across a rewind, unlike an
     /// `Entity`, which is why placement and the view policy are keyed on it.
     pub seat: usize,
-    /// ⭐ typed for the same reason the participant's is (P0.3): this is the id
+    /// typed for the same reason the participant's is (P0.3): this is the id
     /// the prepared registry is keyed on, and `Borrow<str>` keeps every existing
     /// `&str` lookup working without minting an id to ask a question.
     pub character_id: ambition_entity_catalog::CharacterId,
     /// **This BODY's stable identity**, distinct from the character it wears.
     ///
-    /// ⛔ a match may legitimately be a MIRROR — two seats, one character — and
+    /// a match may legitimately be a MIRROR — two seats, one character — and
     /// this id is what presentation, the anti-clump slot board, the steering
     /// neighbour index and the target/faction maps are ALL keyed on
     /// (`HashMap<String, _>`, every one of them). Keying it on the character made
@@ -206,11 +185,6 @@ pub struct PreparedSeat {
     pub definition: PreparedCharacterDefinition,
     /// **The owned pre-spawn cluster**, built from the character authorities
     /// during preparation and never re-derived.
-    ///
-    /// ⭐ `ActorClusterSeed` already described itself as *"Owned seed used to
-    /// construct the enemy ECS component cluster before spawn"*. The engine had
-    /// the right value the whole time; seating simply built one at spawn time
-    /// against live tables instead of carrying one.
     pub seed: crate::features::ecs::actor_clusters::ActorClusterSeed,
     /// The body box this fighter was resolved to occupy.
     pub body_px: Vec2,
@@ -222,38 +196,22 @@ pub struct PreparedSeat {
     /// **The kit this MATCH gives this seat**, if it gives one — see
     /// [`MatchParticipant::action_set`](super::staging::MatchParticipant::action_set).
     ///
-    /// ⭐ **resolved at PREPARATION, which is the whole point** (ledger D85, and
-    /// Jon's second redirect P0). The roster is in scope exactly once — here —
-    /// and the seat used to be built with an EMPTY action set because only the
-    /// persona derive could see it, which is why ordinary seating still carries
-    /// `RecharacterizeBody` and asks to be finished. A prepared seat that knows
-    /// its own kit does not have to ask.
+    /// A prepared seat that knows its own kit does not have to ask.
     ///
-    /// ⚠ this is grant ONE of five (D85 names them: kit, `IdentityKit`,
-    /// `CombatKit`, the moveset, the motion-model switch and the physical
-    /// baseline). The applied-template stamp goes LAST, when the list is empty —
-    /// stamping first is how a stamp certifies work nobody does.
+    /// The applied-template stamp goes LAST, when the list is empty — stamping first is how a
+    /// stamp certifies work nobody does.
     ///
     /// `None` = this match says nothing, and the CHARACTER's own kit stands.
     pub match_kit: Option<ambition_characters::brain::ActionSet>,
-    /// **What the character overlay produced for this seat**, resolved ONCE at
-    /// preparation — grants three and four of D85's five.
+    /// **What the character overlay produced for this seat**, resolved ONCE at preparation —
+    /// grants three and four of five.
     ///
-    /// ⭐ **preparation is where the catalog is in scope**, which is why these
+    /// **preparation is where the catalog is in scope**, which is why these
     /// could only be derived by the persona pass before: `realize_seat` has no
     /// catalog and cannot run the overlay. Running it HERE and carrying the
     /// result is the same move `match_kit` makes, and it is what "one
     /// materializer" means in practice — the overlay is called once per seat,
     /// not once at preparation and again on the body's first tick.
-    ///
-    /// ⛔⛔ **AND THE `ActionSet` AND `CombatKit` ARE STORED TOO, since
-    /// 2026-08-11** (GPT 5.6 §2). They were discarded here on the reasoning that
-    /// `match_kit` plus the definition's kit could reproduce them — and
-    /// `realize_seat` then did exactly that, which is a SECOND resolution of
-    /// *what kit does this seat have*. One expensive call made once is not the
-    /// property that matters; ONE ANSWER is. A second derivation from the same
-    /// inputs is a fork the moment either side gains a term the other lacks —
-    /// and §3's effective-abilities mask is precisely such a term.
     pub identity_kit: ambition_characters::brain::action_set::IdentityKit,
     /// See [`Self::identity_kit`]. The moveset the same overlay derived.
     pub moveset: ambition_entity_catalog::MovesetContract,
@@ -267,18 +225,15 @@ pub struct PreparedSeat {
     /// widened by what the match GUARANTEES and narrowed by what it PERMITS
     /// (see [`effective_abilities`]).
     ///
-    /// ⛔⛔ **resolved BEFORE the kit is derived, and this is not a refactor.**
-    /// The overlay ran against the seed's PRE-MASK abilities and the mask was
-    /// applied to the body after spawn — harmless only while the persona pass
-    /// came back and repaired any ability-dependent kit. D85 removed that pass,
-    /// so a match that forbids `shield` would otherwise seat a fighter whose kit
-    /// was derived as though it still had one, with nothing coming to correct it.
+    /// **resolved BEFORE the kit is derived, and this is not a refactor.** The overlay ran
+    /// against the seed's PRE-MASK abilities and the mask was applied to the body after spawn —
+    /// harmless only while the persona pass came back and repaired any ability-dependent kit.
     pub effective_abilities: Option<ambition_platformer2d_core::AbilitySet>,
     /// **The body this seat plays with** — the character's own movement feel, or
     /// the one the match supplies to a character that authored none (see
     /// [`MatchRules::body_over`]).
     ///
-    /// ⭐ **resolved here for the same reason
+    /// **resolved here for the same reason
     /// [`Self::effective_abilities`](Self::effective_abilities) is**: the seat
     /// carries the answer, so the body that is BUILT and the body a test or a
     /// UI reads cannot be two derivations of one question. It is handed to
@@ -315,7 +270,7 @@ pub struct MatchRules {
     /// built, which is what every match did before this existed and is the
     /// honest reading of `opens_suspended` for a ruleset with no opening.
     ///
-    /// ⛔ **TICKS, not seconds, and that is a determinism requirement rather
+    /// **TICKS, not seconds, and that is a determinism requirement rather
     /// than a taste.** The release is a comparison against the sim clock, so a
     /// rollback re-runs it and reaches the same answer; a wall-clock timer
     /// would drift a peer's release by a frame and diverge the whole cast.
@@ -327,7 +282,7 @@ pub struct MatchRules {
 /// **Where an opening ceremony has got to** — derived from the clock, never
 /// stored.
 ///
-/// ⭐ **no ticking timer anywhere, on purpose.** A countdown is the obvious
+/// **no ticking timer anywhere, on purpose.** A countdown is the obvious
 /// place to put a `f32` that counts down, and doing that would add authoritative
 /// mutable state inside the rollback window — the trap this file already paid
 /// for once with `effective_from` (*"the original frame 8 ran with no plan and
@@ -350,12 +305,7 @@ impl MatchRules {
     /// **The pool a seat gets**: the match's, if it declared one, else the
     /// character's own.
     ///
-    /// ⭐ the same shape as [`Self::death_policy`] one function down, and the
-    /// pairing is the point. A stocks match already overrules the character on
-    /// *whether the pool kills*; D131 was half of one decision taken and the
-    /// other half left with the character — the match said the pool would never
-    /// drain and then read a percent against a number four different games had
-    /// each authored for themselves.
+    /// the same shape as [`Self:death_policy`] one function down, and the pairing is the point.
     pub fn pool_over(&self, authored: i32) -> i32 {
         self.health_pool.map(|pool| pool.max(1)).unwrap_or(authored)
     }
@@ -368,7 +318,7 @@ impl MatchRules {
     ///   match declares       ->  MatchBody::over(the character's body, else the built one)
     /// ```
     ///
-    /// ⭐ **it is not a precedence question, which is why it does not read like
+    /// **it is not a precedence question, which is why it does not read like
     /// [`Self::pool_over`] one function up.** A pool is ONE number and two
     /// authorities have to be ranked; a body is fifty numbers and a mode has an
     /// opinion about six of them.
@@ -376,18 +326,6 @@ impl MatchRules {
     /// six, so the composition disturbs nothing else and the character keeps its
     /// gait, its jump arc and its gravity whether or not it authored a
     /// `MovementTuning` at all.
-    ///
-    /// ⛔ **a whole `MovementTuning` here was tried first and was wrong.** It
-    /// carried `..DEFAULT_TUNING`, so it stated every field whether or not the
-    /// stage had an opinion — and
-    /// `the_puppy_slug_forced_onto_the_stage_keeps_the_body_it_authored` caught
-    /// it: the crawler's authored 80 px/s became the engine's 270 px/s run.
-    ///
-    /// ⚠ **`built` is what the body would have moved by with no marker at all**
-    /// — its `ActorConfig` tuning, which is what
-    /// `EnemyRuntime::integrate_body` falls back to. It is a parameter rather
-    /// than a default because a mode composing over the WRONG base is exactly
-    /// the bug above wearing a smaller hat.
     pub fn body_over(
         &self,
         authored: Option<ambition_platformer2d_core::MovementTuning>,
@@ -422,7 +360,7 @@ impl MatchRules {
 
     /// Where the ceremony stands `elapsed` ticks after the cast was built.
     ///
-    /// ⚠ **a match with no ceremony is `Live` from tick zero**, which is what
+    /// **a match with no ceremony is `Live` from tick zero**, which is what
     /// makes this safe to consult unconditionally: a ruleset that never asked
     /// for a countdown cannot accidentally acquire one.
     pub fn opening_phase(&self, elapsed: u64) -> OpeningPhase {
@@ -444,7 +382,7 @@ impl MatchRules {
     /// **How many ticks are left on the match clock**, or `None` for an untimed
     /// match — which is every roster that declares no limit.
     ///
-    /// ⚠ **derived, never counted down.** `elapsed` is
+    /// **derived, never counted down.** `elapsed` is
     /// `ActiveMatch::ticks_since_activation`, so this is a pure function of two
     /// numbers the rollback window already carries: a rewind RECOMPUTES the
     /// clock rather than restoring it, and a match clock costs no wire format.
@@ -475,59 +413,44 @@ pub struct PreparedMatch {
     /// The [`PreparedCharacterRegistry`] generation these seats were resolved
     /// against.
     ///
-    /// ⚠ **a staleness ASSERTION, never a re-resolution trigger.** If the
-    /// published cast has moved on, this plan describes a world that no longer
-    /// exists and the honest response is to say so. Silently re-resolving would
-    /// put a live authority back inside activation, which is the one property
-    /// this module exists to remove.
+    /// Silently re-resolving would put a live authority back inside activation, which is the
+    /// one property this module exists to remove.
     cast_generation: super::CharacterCatalogGeneration,
     /// The frozen seat topology the ROSTER was agreed under, carried through so
     /// the activation can cite it.
     ///
-    /// ⚠ carried rather than re-read: a later disagreement about who is playing
+    /// carried rather than re-read: a later disagreement about who is playing
     /// is only answerable if the live match can say which topology decided it,
     /// and asking the world at activation would answer with whatever is true
     /// then rather than with what this plan was built from.
     seat_topology: Option<u64>,
     /// **The first `SimTick` this plan may build on.**
     ///
-    /// ⛔ **WHEN a decision takes effect is part of the decision, and leaving it
-    /// out is a determinism hole.** The plan is deliberately not rollback state,
-    /// so it survives a rewind — but its ARRIVAL did not: the original frame 8
-    /// ran with no plan and activated on 9, while the RESIMULATED frame 8 found
-    /// the plan already standing and activated on 8. Every actor component then
-    /// diverged at once, which is the signature of a cast that exists in one
-    /// run of a frame and not the other, and GGRS reported it as a checksum
-    /// mismatch three frames wide.
+    /// **WHEN a decision takes effect is part of the decision, and leaving it out is a
+    /// determinism hole.** The plan is deliberately not rollback state, so it survives a rewind
+    /// — but its ARRIVAL did not: the original frame 8 ran with no plan and activated on 9,
+    /// while the RESIMULATED frame 8 found the plan already standing and activated on 8.
     ///
-    /// ⭐ stamping the tick makes activation a pure function of the plan and the
+    /// stamping the tick makes activation a pure function of the plan and the
     /// clock, which is the property that lets a rewind reconstruct the SAME
     /// match instead of a similar one built a frame early.
     effective_from: u64,
     /// **The gameplay session this plan was decided FOR.**
     ///
-    /// ⛔ **a plan is about ONE activation of one route, and without this it was
-    /// about the process.** Jon, 2026-08-07: *"a fresh restart and then player
-    /// vs cpu works, but the next match does not work … there is some bad
-    /// global state."* Returning to the select screen and starting a second
-    /// match left the FIRST match's plan and receipt standing, so preparation
-    /// returned early (a plan exists) and activation returned early (a receipt
-    /// exists) and the new match seated nothing at all.
-    ///
-    /// ⚠ **content cannot answer this.** The obvious repair — re-prepare when
+    /// **content cannot answer this.** The obvious repair — re-prepare when
     /// the roster differs — fails on the case that actually happens: a rematch
     /// with the same two picks publishes an IDENTICAL roster. What changed is
     /// not what was chosen, it is that this is a different SESSION.
     session: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
     /// **Which experience's roster this plan was built from.**
     ///
-    /// ⭐ **inherited, never authored.** It is copied from
+    /// **inherited, never authored.** It is copied from
     /// [`MatchParticipantRoster::published_by`] in [`prepare_match`], so a
     /// provider that already says who it is on the roster says it here for free
     /// — and a plan whose owner disagreed with its roster's would be describing
     /// a match nobody asked for.
     ///
-    /// ⚠ **this is what makes teardown safe in a host that runs more than one
+    /// **this is what makes teardown safe in a host that runs more than one
     /// game.** `PreparedMatch` is a GLOBAL resource shared by every experience
     /// that stages a cast, so a scope that removed it by type would be one game
     /// deleting another's plan — the roster's own lesson, one resource later.
@@ -550,19 +473,17 @@ impl PreparedMatch {
     /// **How many fighters this match GAVE a side**, named the way the ruleset
     /// names sides.
     ///
-    /// ⛔⛔ **the question every consumer got wrong by asking the world instead**
-    /// (D148). A scoreboard wanting to know whether a side is a person or a team
-    /// counted the bodies standing on it — and an eliminated fighter is
-    /// DESPAWNED, so a two-person team that lost a member early has one body at
-    /// victory and gets announced as that member. Measured, not reasoned: the
-    /// card read `WINNER: Robot v3` for a side called `Red`.
+    /// A scoreboard wanting to know whether a side is a person or a team counted the bodies
+    /// standing on it — and an eliminated fighter is DESPAWNED, so a two-person team that lost
+    /// a member early has one body at victory and gets announced as that member. Measured, not
+    /// reasoned: the card read `WINNER: Robot v3` for a side called `Red`.
     ///
-    /// ⭐ **the plan is the frozen answer.** Who is IN a match was decided when
+    /// **the plan is the frozen answer.** Who is IN a match was decided when
     /// it was prepared and cannot change while it runs; who is still STANDING is
     /// the match itself. The two stop agreeing the first time somebody dies,
     /// which is exactly when a scoreboard starts asking.
     ///
-    /// ⚠ the label rule is [`stocks::side_label`](crate::combat::stocks::side_label)
+    /// the label rule is [`stocks::side_label`](crate::combat::stocks::side_label)
     /// — the same call `decide_stocks_match` folds bodies into sides with, so a
     /// side named by the outcome is a side this can count.
     pub fn seats_on_side(&self, side: &str) -> usize {
@@ -583,12 +504,10 @@ impl PreparedMatch {
 
     /// **Has the published cast moved on since this plan was made?**
     ///
-    /// ⛔⛔ **this was a bare `cast_generation()` accessor with no caller**, and
-    /// the field it exposed was threaded through three constructors and read by
-    /// nothing (ledger D107). The field's own doc calls it *"a staleness
-    /// ASSERTION, never a re-resolution trigger"*, and nothing asserted it.
+    /// The field's own doc calls it *"a staleness ASSERTION, never a re-resolution trigger"*, and
+    /// nothing asserted it.
     ///
-    /// ⛔ **the obvious consumer is the one this module exists to prevent.** The
+    /// **the obvious consumer is the one this module exists to prevent.** The
     /// natural fix — re-prepare when the generation moves — is refused fifteen
     /// lines from the field by `prepare_the_match`'s own comment: re-resolving a
     /// live plan against a republished registry is the authority-in-activation
@@ -610,11 +529,9 @@ impl PreparedMatch {
 
     /// **Was this plan built from `experience_id`'s roster?**
     ///
-    /// The question a shell experience scope asks before tearing a plan — and
-    /// the activation that came from it — down. An UNOWNED plan (no publisher on
-    /// its roster) answers `false` to everyone, which leaks rather than deletes:
-    /// the safe direction, because the cost of a leak is one stale plan and the
-    /// cost of a wrong delete is another game's live match.
+    /// An UNOWNED plan (no publisher on its roster) answers `false` to everyone, which leaks
+    /// rather than deletes: the safe direction, because the cost of a leak is one stale plan
+    /// and the cost of a wrong delete is another game's live match.
     pub fn is_published_by(&self, experience_id: &str) -> bool {
         self.published_by.as_deref() == Some(experience_id)
     }
@@ -643,11 +560,11 @@ impl PreparedMatch {
 
     /// **Which local source drives which channel in this match.**
     ///
-    /// ⛔ **NOT `seats().len()`.** That number sized the GGRS session while the
+    /// **NOT `seats().len()`.** That number sized the GGRS session while the
     /// frozen input topology used a different one. A CPU is a participant and
     /// not a channel; a match of two CPUs needs none at all.
     ///
-    /// ⛔ **and not a count either.** `plan.channels()` is the handle count, and
+    /// **and not a count either.** `plan.channels()` is the handle count, and
     /// the rest of the plan is the half that says whose controller each handle
     /// listens to — which is what a sparse lobby cannot survive losing.
     pub fn channel_plan(&self) -> ambition_input::LocalChannelPlan {
@@ -689,7 +606,7 @@ const SEAT_BODY_PX: Vec2 = Vec2::new(30.0, 48.0);
 
 /// **Resolve a roster into a match, or say exactly why it cannot be one.**
 ///
-/// ⭐ **every problem, not the first.** A lobby wants to be told everything that
+/// **every problem, not the first.** A lobby wants to be told everything that
 /// is wrong with its choice; returning on the first would make fixing a
 /// four-seat roster a four-attempt guessing game.
 #[allow(clippy::too_many_arguments)]
@@ -699,13 +616,12 @@ pub fn prepare_match(
     catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     // **THE CONTROLLER POLICIES THIS COMPOSITION PUBLISHED** — the only place a
-    // seat's policy can come from (Jon's second redirect, P4; finished P2.18).
+    // seat's policy can come from.
     //
-    // ⛔ a `&CharacterRoster` stood beside this and was asked FIRST. A match's
-    // public API is *character + controller + team*, and the implementation
-    // resolved the controller half through an ENEMY ARCHETYPE table, so Smash
-    // was not yet proving the controller architecture it advertises. That arm is
-    // deleted; preparation no longer takes the roster at all.
+    // a `&CharacterRoster` stood beside this and was asked FIRST. A match's public API is
+    // *character + controller + team*, and the implementation resolved the controller half
+    // through an ENEMY ARCHETYPE table, so Smash was not yet proving the controller
+    // architecture it advertises.
     profiles: Option<&ambition_characters::actor::character_catalog::BrainProfileRegistry>,
     centre: Vec2,
     // The first `SimTick` the resulting plan may build on — see
@@ -740,7 +656,7 @@ pub fn prepare_match(
     // maps to a controller, and the number the fighter's `PlayerSlot` carries
     // are one number by construction.
     let plan = roster.local_channel_plan();
-    // ⛔ **ONE CONTROLLER CANNOT DRIVE TWO FIGHTERS.** Refused before the match
+    // **ONE CONTROLLER CANNOT DRIVE TWO FIGHTERS.** Refused before the match
     // exists rather than after: the second claimant's channel is real, its
     // handle is opened, and nothing ever writes it — a fighter that stands
     // still all match with no error anywhere. Two seats defaulting to pad 0 is
@@ -776,14 +692,7 @@ pub fn prepare_match(
 
         // **THE POPULATION THAT CAN ACTUALLY BE BUILT.**
         //
-        // ⛔ this check did not exist anywhere. `unsatisfiable_seats` validated
-        // brain profiles and said of character ids: *"`PreparedCharacterRegistry`
-        // answers that, refuses on its own, and asking twice would put two
-        // authorities on one question."* It did refuse on its own — with a bare
-        // `return` from inside the construction pass, no log and no record — so
-        // the failure had no words anywhere in the engine, and a select screen
-        // that filtered its grid by the CATALOG could offer eight fighters this
-        // host cannot seat.
+        // this check did not exist anywhere.
         let Some(definition) = registry.get(participant.character.as_str()) else {
             seat_problem(format!(
                 "asks for character `{}`, which this composition has not REGISTERED. \
@@ -816,16 +725,7 @@ pub fn prepare_match(
         // **TWO CLAIMANTS ON ONE LOCAL CHANNEL, NAMED HERE INSTEAD OF PANICKING
         // FOUR SYSTEMS DEEP.**
         //
-        // A session that lowers a home avatar has already given that body the
-        // session's local control channel. A match seat asking for a local
-        // channel in the same session is a SECOND claimant, and the engine's
-        // answer used to be an adopted body: seat zero silently became the home
-        // avatar. With construction unified, both bodies get built and
-        // `resolve_controlled_subject` aborts the frame with
-        // *"2 entities hold DrivingParticipant(PRIMARY)"* — true, useless, and
-        // reported by a system that had nothing to do with the mistake.
-        //
-        // ⭐ a match experience declares `InitialBodyPolicy::NoInitialBody`;
+        // a match experience declares `InitialBodyPolicy::NoInitialBody`;
         // that is what the policy is FOR. Seating a local match into an
         // exploration session is a composition error, and this is the boundary
         // that knows it — before one entity exists.
@@ -843,11 +743,6 @@ pub fn prepare_match(
         }
 
         // A CPU's profile must name a policy this composition PUBLISHED.
-        //
-        // ⚠ the failure it prevents is not a crash: an unresolved key used to
-        // fall back to a generic `combatant` row, so the fighter that arrived
-        // was not the fighter the roster asked for. It cost an hour in this demo
-        // on 2026-07-31, with a diagram.
         if let ControlAuthority::Brain { profile } = &authority {
             if seat_brain_profile(
                 profile,
@@ -857,9 +752,9 @@ pub fn prepare_match(
             )
             .is_none()
             {
-                // ⛔ this listed the roster's archetype keys beside the published
+                // this listed the roster's archetype keys beside the published
                 // ones and called the archetype table "the LEGACY half — a seat
-                // should name a published policy" (deleted 2026-08-13, P2.18).
+                // should name a published policy".
                 // A seat CANNOT name one now: `seat_brain_profile` has one arm.
                 // Printing an authority that cannot answer sends the reader to
                 // add a row that would change nothing.
@@ -901,28 +796,24 @@ pub fn prepare_match(
         // what `seat.body_px` below reads.
         let hint_px = baseline.explicit_size().unwrap_or(SEAT_BODY_PX);
         let aabb = ambition_platformer2d_core::Aabb::new(at, hint_px / 2.0);
-        // ⛔ **THE SEAT, not the character.** A mirror match is two bodies
+        // **THE SEAT, not the character.** A mirror match is two bodies
         // wearing one character, and every id-keyed index in the actor runtime
         // would collapse them into one: `entity_to_id`, the anti-clump slot
         // board's `requests`, `faction_by_id` and `target_entity_by_id`
         // (`features/ecs/actors/update.rs`), plus `ActorIdentity` itself. The
         // ART still resolves from the character — a body whose id is not its
-        // costume's name. ⚠ this cited an `art_identity` accessor that no longer
+        // costume's name. this cited an `art_identity` accessor that no longer
         // exists anywhere in the workspace (AC7.1).
         let body_id = format!("{}#seat{index}", participant.character);
-        // ⭐ **CHARACTER-FIRST.** This built through `new_in`, which starts
+        // **CHARACTER-FIRST.** This built through `new_in`, which starts
         // `roster.spec_for_brain(&brain)` — so every fighter on the grid was
         // physically a `combatant` with a character painted over it, and the
         // seat then took the health and the weight back one field at a time.
-        // Jon's brief forbids exactly that shape: *"No ordinary constructor
         // should first build an `ArchetypeSpec` creature and then patch the
         // character over it."*
         //
-        // The CONTROLLER's policy is resolved below and handed in as a VALUE —
-        // a profile is a decision, and this constructor takes it rather than
-        // looking up a body to get one. ⚠ it said "from the roster"; the roster
-        // is deleted (AC6.1) and what `roster` names here is the MATCH's
-        // participant roster, which is a different thing wearing the same word.
+        // The CONTROLLER's policy is resolved below and handed in as a VALUE — a profile is a
+        // decision, and this constructor takes it rather than looking up a body to get one.
         let profile = match &authority {
             ControlAuthority::Brain { profile } => seat_brain_profile(
                 profile,
@@ -930,25 +821,22 @@ pub fn prepare_match(
                 &definition.provider,
                 profiles,
             ),
-            // A human seat's body carries no autonomous policy at all. It used
-            // to inherit `combatant`'s, which nothing read and which said this
-            // body would chase somebody.
             _ => None,
         }
         .unwrap_or_default();
-        // ⭐ **the character, as ONE value, with the MATCH's overrides named.**
+        // **the character, as ONE value, with the MATCH's overrides named.**
         // A seat differs from a room placement in exactly three ways, and each
         // is a line rather than a parameter buried in a list of fourteen.
         let mut body = definition.seat_blueprint(ambition_platformer2d_core::MAX_RUN_SPEED);
-        // **THE MATCH'S POOL, or the character's own.** `baseline` already
-        // folded the definition's authored maximum; `pool_over` is where a
-        // crossover match overrules it, because a percent read against four
-        // different games' authored maxima is four different percents (D131).
+        // **THE MATCH'S POOL, or the character's own.** `baseline` already folded the
+        // definition's authored maximum; `pool_over` is where a crossover match overrules it,
+        // because a percent read against four different games' authored maxima is four
+        // different percents.
         body.max_health = rules.pool_over(baseline.max_health_over(1));
         // The policy is the MATCH's decision, not the character's default: a
         // human seat's body carries none at all.
         body.autonomous_profile = Some(profile);
-        // ⚠ a MATCH seat is never a practice target, whatever the character
+        // a MATCH seat is never a practice target, whatever the character
         // says: a stage seats fighters, and a body excluded from the save and
         // skipped by targeting would be a seat nobody can fight.
         body.practice_target = false;
@@ -962,9 +850,7 @@ pub fn prepare_match(
             // A stage has no authored patrol paths; a seat is driven.
             &[],
         );
-        // The seed's own pool stands for a character that authored none — which
-        // used to be impossible to express, because an unauthored `Vitals`
-        // defaulted to a one-hit pool and every seated fighter silently took it.
+        // The seed's own pool stands for a character that authored none
         seed.health =
             ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(
                 rules.pool_over(baseline.max_health_over(seed.health.health.max.max(1))),
@@ -981,27 +867,13 @@ pub fn prepare_match(
         }
         seed.kin.facing = facing;
 
-        // ⛔ **ONE BODY, ONE BOX — and for a day it was two.** This recorded
-        // `hint_px`, so a fighter's POSE and `CenteredAabb` were the 30x48
-        // placeholder while its `BodyKinematics` carried the authored sprite
-        // collision. Hit tests read the pose, so a seated fighter could not
-        // reach another one: `fb6_shadow_fidelity` measured the shadow model
-        // predicting a hit at a 34px gap with 51px of reach and the real sim
-        // landing nothing, and `duel_arena` watched two fighters throw zero
-        // melee swings across a whole bout.
-        //
-        // ⚠ the placeholder is still right for a character that authors no
+        // the placeholder is still right for a character that authors no
         // size — it is deliberately small so an unresolved body looks wrong
         // rather than plausible — but it must not outrank a size the seed
         // actually resolved.
         let body_px = seed.kin.size;
-        // ⭐⭐ **THE CHARACTER OVERLAY, RUN ONCE, HERE** — grants three and four
-        // (ledger D85). `realize_seat` has no catalog and so could never do this;
-        // the persona derive did it on the body's first tick, which is exactly
-        // the second template application Jon's redirect is about.
-        // ⭐⭐ **THE MASK, RESOLVED BEFORE THE KIT** (GPT 5.6 §3). Everything
-        // below that asks "what can this body do" asks THIS, so the kit, the
-        // body's abilities and the AI's capability read can never disagree.
+        // Everything below that asks "what can this body do" asks THIS, so the kit, the body's
+        // abilities and the AI's capability read can never disagree.
         let seat_abilities = effective_abilities(definition.abilities, rules.abilities);
         let mut overlay_name = Name::new(definition.display_name.clone());
         let mut overlay_action_set = participant
@@ -1022,16 +894,13 @@ pub fn prepare_match(
             &mut identity_kit,
             Some(&mut overlay_combat_kit),
             participant.character.as_str(),
-            // ⛔ NOT `seed.body.0.abilities.abilities` — that is the pre-mask set,
+            // NOT `seed.body.0.abilities.abilities` — that is the pre-mask set,
             // and deriving the kit against it is exactly the ordering §3 names.
             seat_abilities.unwrap_or(seed.body.0.abilities.abilities),
             participant.action_set.as_ref(),
         );
         let moveset = moveset.0;
-        // **THE BODY THIS SEAT WOULD HAVE MOVED BY**, read before the seed is
-        // handed over: it is the fallback `EnemyRuntime::integrate_body` uses
-        // for a body carrying no authored feel, and it is the base a match's own
-        // numbers compose over. See `MatchRules::body_over`.
+        // See `MatchRules::body_over`.
         let built_body = seed
             .config
             .tuning
@@ -1056,11 +925,11 @@ pub fn prepare_match(
             action_set: overlay_action_set,
             combat_kit: overlay_combat_kit,
             effective_abilities: seat_abilities,
-            // ⭐ **THE BODY, RESOLVED BESIDE THE VERBS** — and it has to be, or
+            // **THE BODY, RESOLVED BESIDE THE VERBS** — and it has to be, or
             // the stage grants a verb whose window never opens. See
             // `MatchRules::body_over`.
             //
-            // ⚠ the base is the seed's OWN tuning, which is what the integrator
+            // the base is the seed's OWN tuning, which is what the integrator
             // falls back to when a body carries no marker — so a mode's six
             // numbers land on the body this fighter would otherwise have had,
             // and nothing else about it moves.
@@ -1073,13 +942,13 @@ pub fn prepare_match(
         return Err(MatchPreparationProblems { problems });
     }
 
-    // ⚠ **WHERE THE CAMERA LOOKS IS NOT DECIDED HERE, YET.** A draft of this
+    // **WHERE THE CAMERA LOOKS IS NOT DECIDED HERE, YET.** A draft of this
     // module returned a `MatchViewPolicy` (follow the first local seat, else
     // frame the whole cast) and nothing read it. An unread value is dead code
     // dressed as intent — the same objection this module makes to control
     // authorities nothing can attach — so it is not here.
     //
-    // ⭐ **WHERE THE CAMERA LOOKS IS ANSWERED NOW**, and the answer is not here:
+    // **WHERE THE CAMERA LOOKS IS ANSWERED NOW**, and the answer is not here:
     // the match DECLARES its cast (`FramedCast`) once the bodies exist, and the
     // camera resolver frames them when nothing local is driving one. A draft of
     // this function returned a `MatchViewPolicy` and nothing read it; the value
@@ -1103,15 +972,10 @@ pub fn prepare_match(
 ///   effective = (authored ∪ granted) ∩ permitted
 /// ```
 ///
-/// ⛔ **the direction is the architecture, and it has run backwards in both
-/// directions.** A match first declared one flat set and STAMPED it onto every
-/// body, which is why a Puppy Slug in a fighter seat jumped and dashed like a
-/// humanoid — capabilities the body never had. Replacing the stamp with a MASK
-/// fixed that and lost the other half: a mode could then only ever take verbs
-/// away, so a character whose kit was written for somewhere else arrived on a
-/// platform-fighter stage missing its double jump and the stage had no way to
-/// say otherwise (Jon, 2026-08-16). [`MatchAbilities`] says both, and this is
-/// where its two statements meet the character's.
+/// **the direction is the architecture, and it has run backwards in both directions.** A match
+/// first declared one flat set and STAMPED it onto every body, which is why a Puppy Slug in a
+/// fighter seat jumped and dashed like a humanoid — capabilities the body never had.
+/// [`MatchAbilities`] says both, and this is where its two statements meet the character's.
 ///
 /// ```text
 /// character authors verbs   +   the match's two statements   ⇒   this body
@@ -1121,7 +985,7 @@ pub fn prepare_match(
 /// unauthored, match says nothing   →  whatever construction built
 /// ```
 ///
-/// ⭐ **it takes the two AUTHORITIES rather than a built seat** (GPT 5.6 §3), so
+/// **it takes the two AUTHORITIES rather than a built seat**, so
 /// preparation can answer this BEFORE deriving the kit. It could only be asked
 /// after construction while a persona pass came back to repair any
 /// ability-dependent kit; with that pass gone the ordering became observable.
@@ -1156,7 +1020,7 @@ mod tests;
 
 /// **A seat's team, which is what decides who it may fight.**
 ///
-/// ⛔ **this replaces `faction_for(index)`, which handed seats alternating
+/// **this replaces `faction_for(index)`, which handed seats alternating
 /// FACTIONS — `Player, Enemy, Player, Enemy` — so that two fighters could hit
 /// each other at all.** That was a hack with a real cost: seat 2 of a
 /// four-player free-for-all was an ally of seat 4 and could not touch it, a
@@ -1164,7 +1028,7 @@ mod tests;
 /// sit, and the AI's target selection (which read the faction matrix) and the
 /// damage rule (which read teams) disagreed about the same pair.
 ///
-/// ⭐ **a match relationship is what a match runs on**, so every seat gets one.
+/// **a match relationship is what a match runs on**, so every seat gets one.
 /// An authored team is honoured; a seat with none gets a team of its own, which
 /// is the literal statement of free-for-all — everyone opposes everyone. The
 /// authored faction is then free to stay what the CHARACTER says it is.
@@ -1178,47 +1042,19 @@ fn team_for(index: usize, authored: Option<&String>) -> crate::combat::targeting
 
 /// **Build one fighter's body. Infallible, and reads no authority.**
 ///
-/// ⭐ **ONE path for every fighter, whatever drives it.** The function this
-/// replaces had two: a local player's seat ADOPTED the session's existing body
-/// and a CPU's seat SPAWNED a new one, and that fork is what every symptom of
-/// the 2026-08-06 report came from — the costume handshake, seat 0's privilege,
-/// the health/box/mass/ability divergences unified one at a time over three
-/// weeks, and the impossibility of a match with nobody local in it. Control is
-/// attached to the finished body by [`bind_seat_control`]; it does not get to
-/// decide how the body is made.
-/// **The controller policy a CPU seat names.** Published policies, and nothing
-/// else.
+/// What a miss looks like now is what a miss looked like for a published name before it —
+/// preparation REFUSES the seat, loudly, rather than seating a fighter that quietly stands
+/// still.
 ///
-/// ⭐⭐ **THE ARCHETYPE ARM IS DELETED (2026-08-13, campaign P2.18)** — the
-/// migration this doc has been describing as "the direction" since Jon's second
-/// redirect (P4) is finished. A match's public API is
-/// *character + controller + team*, and the controller half used to be resolved
-/// through `CharacterRoster` — an enemy ARCHETYPE table — so a seat asking for a
-/// policy got one by way of a body definition. A published `BrainProfile` is
-/// what a controller policy IS.
-///
-/// ⚠ **it shrank to nothing in two migrations, not by disuse**: Smash's six rows
-/// became `smash::duelist_l{n}` policies (D87) and the versus stage's single row
-/// became `ambition_versus::versus_duelist` (P2.18), after which no production
-/// seat in the workspace named an archetype key. What a miss looks like now is
-/// what a miss looked like for a published name before it — preparation REFUSES
-/// the seat, loudly, rather than seating a fighter that quietly stands still.
-///
-/// ⛔⛔ **THE REFERENCE IS PROVIDER-RELATIVE AND THIS USED TO RESOLVE IT AGAINST
-/// NO PROVIDER**, which made the registry arm VACUOUS rather than merely
-/// unpopular. The assembled registry holds `provider::name` exclusively
-/// (`registry.rs`'s `namespaced`), a seat names a BARE key (`"duelist"`), and a
-/// bare key matches nothing — so every CPU seat fell through to the archetype
-/// table however many policies were published. Smash's own `duelist` profile,
+/// The assembled registry holds `provider::name` exclusively (`registry.rs`'s `namespaced`), a seat
+/// names a BARE key (`"duelist"`), and a bare key matches nothing — so every CPU seat fell through
+/// to the archetype table however many policies were published. Smash's own `duelist` profile,
 /// published for exactly this, was never once read.
 ///
-/// ⚠ **that is why publishing a policy did not shrink the archetype arm.** The
-/// arm was not shrinking because seats preferred archetypes; it was the only arm
-/// that could answer. `SMASH_ROSTER_RON` existed solely to hold brain-only rows
-/// for this lookup, and it went in D87 once the resolution was fixed — which is
-/// what let the arm itself go in P2.18.
+/// **that is why publishing a policy did not shrink the archetype arm.** The arm was not
+/// shrinking because seats preferred archetypes; it was the only arm that could answer.
 ///
-/// ⭐ **THE PROVIDER IS THE MATCH'S, THEN THE CHARACTER'S** — in that order,
+/// **THE PROVIDER IS THE MATCH'S, THEN THE CHARACTER'S** — in that order,
 /// because *a seat names a policy the MATCH published*. Smash publishes
 /// `smash::duelist` and seats Mary-O in it; Mary-O is `ambition_content`'s
 /// character, so resolving in the character's provider alone would miss the
@@ -1226,7 +1062,7 @@ fn team_for(index: usize, authored: Option<&String>) -> crate::combat::targeting
 /// The character's provider is the second question, for a policy a character
 /// ships with itself.
 ///
-/// ⚠ neither is a bare-key match: `duelist` on a Smash stage means
+/// neither is a bare-key match: `duelist` on a Smash stage means
 /// `smash::duelist` and can never silently mean another game's.
 fn seat_brain_profile(
     key: &str,
@@ -1236,7 +1072,7 @@ fn seat_brain_profile(
 ) -> Option<ambition_characters::brain::BrainProfile> {
     profiles.and_then(|profiles| {
         let reference = ambition_entity_catalog::BrainProfileRef::new(key);
-        // ⛔ and NOTHING else — no bare-key fallback. It looks like harmless
+        // and NOTHING else — no bare-key fallback. It looks like harmless
         // generosity and is the exact hole that was here: it makes the
         // provider decorative, so one game's `duelist` can drive another's
         // fighter. An already-qualified name is handled by `resolve_in`.
@@ -1256,9 +1092,7 @@ fn realize_seat(
     cast_generation: super::definition::CharacterCatalogGeneration,
 ) -> Entity {
     let mut seed = seat.seed.clone();
-    // ⭐ **WHAT THIS BODY DOES WHEN IT DIES** — grant two of five (ledger D85).
-    //
-    // ⛔ **set on the SEED, not inserted beside it.** `CombatCapabilities` is
+    // **set on the SEED, not inserted beside it.** `CombatCapabilities` is
     // already a member of the cluster bundle, so a second insert in the same
     // spawn is a duplicate component and Bevy refuses the whole bundle — which
     // is what a first attempt did, taking five seat tests down with it. The
@@ -1271,48 +1105,32 @@ fn realize_seat(
     let at = seed.kin.pos;
     let facing = seed.kin.facing;
     let centered = ambition_platformer2d_core::CenteredAabb::from_center_size(at, seat.body_px);
-    // ⚠ the seed's model, which `grant_prepared_character_body` then switches to
+    // the seed's model, which `grant_prepared_character_body` then switches to
     // the CHARACTER's below. Switching rather than replacing is ADR 0024: a
     // cross-model change preserves every shared body fact and initializes only
     // the destination solver's private state.
     let motion_model = seed.config.tuning.motion_model();
     let (identity, _seed_disposition, combat) =
         crate::features::ecs::enemy_component_snapshot(&seed);
-    // A match participant is a COMBATANT, whatever drives it. The disposition
-    // the seed derives follows the authored brain, and a local-input seat
-    // authors `Passive` — `apply_actor_hit` reads the disposition first, and a
-    // peaceful body takes NO health damage. A seated fighter was once
-    // unkillable, and the symptom was a swing that connected, played its sound
-    // and did nothing.
+    // A match participant is a COMBATANT, whatever drives it. The disposition the seed derives
+    // follows the authored brain, and a local-input seat authors `Passive` — `apply_actor_hit`
+    // reads the disposition first, and a peaceful body takes NO health damage.
     let disposition = crate::combat::components::ActorDisposition::Hostile;
-    // ⭐ **THE SEAT'S REAL KIT, ON ITS CONSTRUCTION FRAME** — grant one of five
-    // (ledger D85). This was `ActionSet::default()`, empty, with a note saying
-    // the real attacks arrive from the persona derive; the MATCH's kit outranks
-    // the character's because a crossover stage is the one place allowed to arm
-    // somebody else's peaceful Hall NPC, and a seat the match says nothing about
-    // keeps what its character authored.
-    //
-    // ⚠ the derive still runs and still writes this — it resolves the same two
-    // inputs — and that duplication is deliberate and temporary: the stamp that
-    // silences it goes in only when all five grants have moved.
-    // ⭐ **THE KIT PREPARATION RESOLVED**, not a second derivation from the same
-    // inputs. This rebuilt `match_kit or definition kit or default` and let the
-    // overlay's own answer be thrown away — two answers to one question, which
-    // is the divergence this campaign exists to remove.
+    // **THE KIT PREPARATION RESOLVED**, not a second derivation from the same inputs. This
+    // rebuilt `match_kit or definition kit or default` and let the overlay's own answer be
+    // thrown away — two answers to one question, which is the divergence this campaign exists
+    // to remove.
     let action_set = seat.action_set.clone();
     // **THE AUTONOMOUS POLICY THIS SEAT WILL HAVE, chosen once and spawned WITH
     // the body.**
     //
-    // ⛔ this used to be the archetype's brain unconditionally, with a follow-up
-    // `commands.entity(body).insert(Brain::Player(..))` for a local seat. Two
-    // steps to say one thing, and this repo's own rule about that is
-    // "an authority that needs a FOLLOW-UP CALL — the second step belongs inside
-    // the first". Here the cost was concrete: for one command-queue ordering
-    // there existed a world in which a seated fighter is AI-brained, and a
-    // rollback snapshot that captures THAT world restores it forever, because
-    // activation is one-shot and never rebinds.
+    // Two steps to say one thing, and this repo's own rule about that is "an authority that needs a
+    // FOLLOW-UP CALL — the second step belongs inside the first". Here the cost was concrete: for
+    // one command-queue ordering there existed a world in which a seated fighter is AI-brained, and
+    // a rollback snapshot that captures THAT world restores it forever, because activation is
+    // one-shot and never rebinds.
     //
-    // ⭐⭐ **and that race is now structurally impossible, not merely avoided.**
+    // **and that race is now structurally impossible, not merely avoided.**
     // A local seat's driver is [`DrivingParticipant`], a SEPARATE component from
     // the policy — the two are no longer competing values of one field, so a
     // dropped write cannot leave the body wearing the other one's answer. What
@@ -1322,7 +1140,7 @@ fn realize_seat(
     let derived_brain = match &seat.authority {
         ControlAuthority::LocalInput { .. } => ambition_characters::brain::Brain::stand_still(),
         ControlAuthority::Brain { .. } => {
-            // ⭐ the AI's capability read asks the SAME effective set the kit was
+            // the AI's capability read asks the SAME effective set the kit was
             // derived against: a driver that believes it may shield in a match
             // that forbids shielding reaches for a verb the body does not have.
             crate::features::ecs::enemy_default_brain(
@@ -1343,7 +1161,7 @@ fn realize_seat(
             (
                 crate::features::EnemyActorBundle::new(
                     crate::features::FeatureBaseBundle::new(
-                        // ⛔ **THE SEAT, not the character.** This passed
+                        // **THE SEAT, not the character.** This passed
                         // `character_id`, so two fighters wearing one character
                         // WERE ONE FEATURE: `spawn_dynamic_feature_visuals`
                         // dedupes by id and drew only the first, and the slot
@@ -1351,15 +1169,10 @@ fn realize_seat(
                         // target/faction maps are all `HashMap<String, _>` keyed
                         // on it — a mirror match corrupted every one of them.
                         //
-                        // ⚠ it was UNREACHABLE before and is not a new mistake so
-                        // much as a newly possible one: seat 0 used to be the
-                        // ADOPTED player body, which carries no `FeatureId` at
-                        // all, so a match could never hold two seated features.
-                        // Unifying construction is what made two of them exist —
-                        // the same shadow the registration gap and the couch
-                        // crosstalk came out of.
+                        // Unifying construction is what made two of them exist — the same shadow
+                        // the registration gap and the couch crosstalk came out of.
                         //
-                        // ⭐ a body's render/simulation identity is the BODY.
+                        // a body's render/simulation identity is the BODY.
                         // What it WEARS is `WornCharacter`, and a mirror match is
                         // an ordinary thing a platform fighter must allow.
                         seat.feature_id.as_str(),
@@ -1379,29 +1192,23 @@ fn realize_seat(
                 action_set,
                 derived_brain,
                 Name::new(seat.definition.display_name.clone()),
-                // ⭐ **THE MOVESET THE OVERLAY DERIVED** — grant four (D85). This
-                // was an empty contract with the persona derive expected to fill
-                // it on the body's first tick.
+                // This was an empty contract with the persona derive expected to fill it on the
+                // body's first tick.
                 (
                     crate::combat::moveset::ActorMoveset(seat.moveset.clone()),
-                    // ⭐ **AND THE IDENTITY KIT** — grant three. `WornCharacter`
-                    // requires this component, so it used to arrive DEFAULT and be
-                    // overwritten a tick later; a seat that will stop asking for a
-                    // persona pass has to arrive with the real one.
+                    // **AND THE IDENTITY KIT** — grant three.
                     seat.identity_kit.clone(),
                 ),
                 // The body WEARS the character. Everything that makes it that
                 // fighter rather than a generic actor follows from this one
                 // component.
                 ambition_characters::actor::WornCharacter::new(seat.character_id.as_str()),
-                // ⭐⭐ **AND IT NO LONGER ASKS TO BE FINISHED** (ledger D85). Both
-                // applied-template records are stamped by
-                // `grant_prepared_character_body` below, which is also what
-                // installs the hurtboxes, the posed body, the movement tuning and
-                // the motion model — see the call for why they are not here.
-                // The MATCH owns this fighter's death, not the world. Without it
-                // a KO runs the exploration economy — a bounty coin, a heart, an
-                // in-place respawn timer — none of which an arena has a use for.
+                // Both applied-template records are stamped by `grant_prepared_character_body`
+                // below, which is also what installs the hurtboxes, the posed body, the movement
+                // tuning and the motion model — see the call for why they are not here. The MATCH
+                // owns this fighter's death, not the world. Without it a KO runs the exploration
+                // economy — a bounty coin, a heart, an in-place respawn timer — none of which an
+                // arena has a use for.
                 crate::combat::components::RulesetOwnsDeath,
                 // And it is IN the fight — which is a different fact from whose
                 // business its death is, and the one every other combat system
@@ -1432,19 +1239,14 @@ fn realize_seat(
         None,
         super::PhysicalRetraction::NONE,
     );
-    // ⭐⭐ **THE SHARED PREPARED-CHARACTER BODY GRANT** — the other half of D85,
-    // and the half I first reported done without checking (GPT 5.6 §1,
-    // 2026-08-11).
+    // **removing `RecharacterizeBody` silences the PERSONA derive and nothing else.**
+    // `project_prepared_character_definitions` is a SECOND template observer, it fires on
+    // `Changed<WornCharacter>`, and a seated body had no `ProjectedCharacterKit` — so a seat
+    // that asked the derive for nothing was still finished a tick later by the projector:
+    // hurtboxes, the authored posed body, movement tuning, the motion model. Two observers, and
+    // I had verified one.
     //
-    // ⛔ **removing `RecharacterizeBody` silences the PERSONA derive and nothing
-    // else.** `project_prepared_character_definitions` is a SECOND template
-    // observer, it fires on `Changed<WornCharacter>`, and a seated body had no
-    // `ProjectedCharacterKit` — so a seat that asked the derive for nothing was
-    // still finished a tick later by the projector: hurtboxes, the authored
-    // posed body, movement tuning, the motion model. Two observers, and I had
-    // verified one. That is the same mis-verification D78 cost a session to.
-    //
-    // ⭐ **so the seat calls the ONE materializer** instead of hand-copying a
+    // **so the seat calls the ONE materializer** instead of hand-copying a
     // third subset of it. `CallerResolved` says what is true here and nowhere
     // else: this caller already resolved its own kit — a match repertoire is the
     // character's overlaid with the match's override — so the grant must not
@@ -1455,11 +1257,10 @@ fn realize_seat(
         &seat.definition,
         cast_generation,
         crate::character_runtime::presentation::KitOwnership::CallerResolved,
-        // ⭐ **AND THE BODY THE MATCH RESOLVED**, for the same reason the kit is
-        // `CallerResolved`: preparation already weighed the character's own feel
-        // against the stage's (`MatchRules::body_over`), and a materializer that
-        // re-read the definition would silently drop the stage's body — which is
-        // the whole of D146 slice 1b.
+        // **AND THE BODY THE MATCH RESOLVED**, for the same reason the kit is `CallerResolved`:
+        // preparation already weighed the character's own feel against the stage's
+        // (`MatchRules:body_over`), and a materializer that re-read the definition would
+        // silently drop the stage's body — which is the whole of slice 1b.
         seat.effective_movement_tuning,
     );
     body
@@ -1473,13 +1274,13 @@ fn realize_seat(
 fn bind_seat_control(commands: &mut Commands, body: Entity, authority: &ControlAuthority) {
     match authority {
         ControlAuthority::LocalInput { channel, .. } => {
-            // ⚠ the POLICY is not here — it is in the spawn bundle, deliberately;
+            // the POLICY is not here — it is in the spawn bundle, deliberately;
             // see `realize_seat`. What is left is the local-input plumbing, and
             // it has no archetype counterpart to race with: an autonomous seat
             // writes no seat at all, so a dropped write here can only leave the
             // component ABSENT, never holding somebody else's answer.
             //
-            // ⭐ **through the one correspondence**, not `PlayerSlot(raw)`: the
+            // **through the one correspondence**, not `PlayerSlot(raw)`: the
             // seat the simulation reads is a projection of the participant
             // channel, and `participant_seat` is where that projection lives.
             commands.entity(body).insert((
@@ -1513,7 +1314,7 @@ pub fn prepare_the_match(
     // The published controller policies a CPU seat may name (P4). `Option` like
     // every other reader: a composition that publishes none is ordinary.
     //
-    // ⛔ a `Res<CharacterRoster>` stood beside this — REQUIRED, so every host
+    // a `Res<CharacterRoster>` stood beside this — REQUIRED, so every host
     // that prepared a match had to install an enemy archetype table to seat a
     // fighter. Preparation reads no roster at all now (P2.18).
     profiles: Option<Res<ambition_characters::actor::character_catalog::BrainProfileRegistry>>,
@@ -1537,7 +1338,7 @@ pub fn prepare_the_match(
     // WHEN this plan becomes effective is part of the plan; see
     // `PreparedMatch::effective_from`.
     //
-    // ⛔ **`Option`, for the reason spelled out on `FramedCast` below.** A plain
+    // **`Option`, for the reason spelled out on `FramedCast` below.** A plain
     // `Res` is a whole-app panic in any composition that assembles this crate
     // without the timeline, and 32 of this crate's own unit tests were exactly
     // that. A world with no `SimTick` has no rollback timeline, so the tick the
@@ -1549,13 +1350,10 @@ pub fn prepare_the_match(
     let session = active_session
         .as_deref()
         .and_then(ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope::current);
-    // ONE plan per match — but a plan belongs to ONE SESSION, and this used to
-    // read `if prepared.is_some() { return; }`, which made it one plan per
-    // PROCESS. Re-preparing every tick would rebuild the seeds under a live
-    // match and re-resolve them against a possibly-republished registry, which
-    // is the authority-in-activation this module exists to remove; re-preparing
-    // for a NEW session is the opposite of that — it is the only way the second
-    // match of a sitting gets a plan at all.
+    // Re-preparing every tick would rebuild the seeds under a live match and re-resolve them
+    // against a possibly-republished registry, which is the authority-in-activation this module
+    // exists to remove; re-preparing for a NEW session is the opposite of that — it is the only way
+    // the second match of a sitting gets a plan at all.
     if prepared.is_some_and(|prepared| prepared.session() == session) {
         return;
     }
@@ -1565,7 +1363,7 @@ pub fn prepare_the_match(
     if roster.participants.is_empty() {
         return;
     }
-    // ⛔ **A PROPOSED ROSTER DOES NOT PREPARE.** A roster nobody has agreed to
+    // **A PROPOSED ROSTER DOES NOT PREPARE.** A roster nobody has agreed to
     // is a WAIT, not a problem — publishing a refusal for one would cry wolf on
     // every ordinary route entry.
     if !roster.seating.may_seat() {
@@ -1602,9 +1400,6 @@ pub fn prepare_the_match(
             commands.insert_resource(plan);
         }
         Err(problems) => {
-            // ⛔ **OUT LOUD, in every build.** The per-seat `debug_assert!` this
-            // class of check used to rely on was invisible in release, which
-            // reintroduced the very bug it guarded.
             bevy::log::error!(
                 target: "ambition_platformer2d::match_preparation",
                 "this composition cannot prepare the published match: {problems}"
@@ -1620,7 +1415,7 @@ pub fn prepare_the_match(
 /// nothing here to refuse and no way for this to half-apply: either the match
 /// activates completely on one tick or it has not started.
 ///
-/// ⚠ **it BORROWS the plan.** Consuming it would make a rewind to before
+/// **it BORROWS the plan.** Consuming it would make a rewind to before
 /// activation unreplayable: `bevy_ggrs` restores the ABSENCE of
 /// [`ActiveMatch`](super::ActiveMatch), so activation re-runs — and it must find
 /// the same plan waiting, or the cast it rebuilds is not the cast it built.
@@ -1634,8 +1429,7 @@ pub fn activate_the_prepared_match(
     already_seated: Query<&super::MatchSeat>,
     // `Option` for the reason given on preparation's own `tick`.
     tick: Option<Res<ambition_time::SimTick>>,
-    // **THE LIVE CAST, read ONLY to say whether this plan is still about it**
-    // (D107). ⛔ not to re-resolve anything: see `PreparedMatch::cast_moved_on`.
+    // not to re-resolve anything: see `PreparedMatch:cast_moved_on`.
     registry: Option<Res<super::PreparedCharacterRegistry>>,
 ) {
     let Some(prepared) = prepared else {
@@ -1647,7 +1441,7 @@ pub fn activate_the_prepared_match(
 
     // **A PLAN BELONGS TO ONE SESSION, AND MAY ONLY BE BUILT INTO THAT ONE.**
     //
-    // ⛔ preparation stamps the session and NOTHING CHECKED IT HERE. The stamp
+    // preparation stamps the session and NOTHING CHECKED IT HERE. The stamp
     // was consulted only by preparation, deciding whether to re-prepare — so a
     // plan that outlived its session was structurally able to realize its cast
     // into the next one. Saying it here makes that unreachable rather than
@@ -1659,17 +1453,7 @@ pub fn activate_the_prepared_match(
     // **HAVE I ALREADY BUILT *THIS* MATCH?** — asked of the receipt's identity,
     // not of the world's fighters.
     //
-    // ⛔ this read `active.is_some() && !already_seated.is_empty()`, and the
-    // presence half was wrong for a platform fighter. `ActiveMatch` with no
-    // `MatchSeat` bodies is not a dead session's paperwork: eliminated fighters
-    // are DESPAWNED, and a simultaneous final-stock ring-out is a supported
-    // draw, so a match that has legitimately just finished sits at zero seats
-    // for the whole time the winner card is up. Activation would have fallen
-    // through and rebuilt the cast with fresh stocks underneath the
-    // announcement. (GPT 5.6 review, 2026-08-07 — caught by reading, not by
-    // playing.)
-    //
-    // ⭐ the receipt names its session now, so the question is one comparison
+    // the receipt names its session now, so the question is one comparison
     // and fighter presence cannot affect the answer. A receipt for a DIFFERENT
     // session is stale and this same call replaces it below — activation
     // remains the single writer, which is what the
@@ -1679,7 +1463,7 @@ pub fn activate_the_prepared_match(
     if active.is_some_and(|active| active.session() == prepared.session()) {
         return;
     }
-    // ⛔ **NOT "the first tick the plan exists".** The plan does not rewind, so
+    // **NOT "the first tick the plan exists".** The plan does not rewind, so
     // its arrival time is not a fact the simulation shares between a frame and
     // that frame's replay — the original ran without it and the resimulation
     // found it standing, and the cast appeared a tick early. The plan names the
@@ -1691,7 +1475,7 @@ pub fn activate_the_prepared_match(
     // No active session means no owner for the bodies. Activation waits rather
     // than spawning orphans; the plan is still there next tick.
     //
-    // ⚠ this is the SPAWN policy, not the identity above: a composition with no
+    // this is the SPAWN policy, not the identity above: a composition with no
     // session lifecycle at all resolves to `UNSCOPED` and still builds, and its
     // plan is stamped `None` so the identity comparison holds too.
     let Some(session_scope) =
@@ -1701,13 +1485,12 @@ pub fn activate_the_prepared_match(
     else {
         return;
     };
-    // **THE PROVENANCE, SAID OUT LOUD** (D107). A plan is frozen against the
-    // cast it was made from, so a character registered between planning and
-    // activation is simply not in this match — correct, and for a match an
-    // anomaly worth one line: somebody expected a fighter that will not appear,
-    // and no other signal would tell them why.
+    // A plan is frozen against the cast it was made from, so a character registered between
+    // planning and activation is simply not in this match — correct, and for a match an anomaly
+    // worth one line: somebody expected a fighter that will not appear, and no other signal
+    // would tell them why.
     //
-    // ⚠ `warn_once!` because activation re-runs on every rewind to before it
+    // `warn_once!` because activation re-runs on every rewind to before it
     // (`bevy_ggrs` restores the ABSENCE of `ActiveMatch`), and a per-frame line
     // about a condition that cannot change is how a real warning gets muted.
     if let Some(registry) = registry.as_deref() {
@@ -1746,7 +1529,7 @@ pub fn activate_the_prepared_match(
     // fighter is ever observable in a state the ruleset did not ask for.
     for (body, seat) in &bodies {
         let mut entity = commands.entity(*body);
-        // ⭐ resolved at PREPARATION, and the same value the kit was derived
+        // resolved at PREPARATION, and the same value the kit was derived
         // against — not a second intersection reached after the body exists.
         if let Some(abilities) = seat.effective_abilities {
             // `AbilityBase` too, not only the effective set: the effective set
@@ -1762,11 +1545,11 @@ pub fn activate_the_prepared_match(
             entity.try_insert(crate::combat::components::FighterStocks::new(stocks));
         }
         if rules.opens_suspended {
-            // ⭐ the OPENING bit, distinct from the interlude a KO card claims:
+            // the OPENING bit, distinct from the interlude a KO card claims:
             // two authorities that can hold the same fighter need two bits, or
             // whichever released first would free a body the other still holds.
             //
-            // ⚠ deferred like everything else in this flush, so it is written
+            // deferred like everything else in this flush, so it is written
             // through `commands` rather than the `entity` builder above.
             ambition_characters::brain::claim_control_hold(
                 &mut commands,
@@ -1776,20 +1559,10 @@ pub fn activate_the_prepared_match(
         }
     }
 
-    // ⛔⛔ **THE STOCKS RULESET'S LATCH USED TO BE RETRACTED HERE, AND IT IS
-    // NOT ANY MORE** (D140, then D147).
+    // This road inserted a fresh `false` beside the receipt, in the same flush, and that
+    // WORKED.
     //
-    // D140's defect was real — Jon, 2026-08-16: *"the GO stays on the screen for
-    // the entire match, and the match does not end"* — and its cause was that
-    // `StocksMatchSettled` was a process-global `bool` with no owner willing to
-    // clear it between two matches on one stage. This road inserted a fresh
-    // `false` beside the receipt, in the same flush, and that WORKED. What it
-    // cost was the dependency direction: generic match activation knew that one
-    // particular ruleset keeps a private boolean, and installed the resource
-    // even in a composition that never had the ruleset — the comment written at
-    // the time conceded exactly that and did it anyway.
-    //
-    // ⭐ **the receipt below IS the retraction now.** A stocks verdict is
+    // **the receipt below IS the retraction now.** A stocks verdict is
     // stamped with the `MatchInstance` it is about, so a new activation is a new
     // identity and the previous match's verdict simply stops applying — no
     // clearing, no ordering, and nothing here that names a ruleset.
@@ -1813,13 +1586,9 @@ pub fn activate_the_prepared_match(
 /// creates them, so no body is ever observable in a state the ruleset did not
 /// ask for. This is the other half: the tick the hold comes off.
 ///
-/// ⛔ **it lived in the Smash STAGE and released on "the match is live"**, which
-/// was the honest reading while no ruleset had a ceremony — and it meant the
-/// countdown could never be added without also moving this, because a stage
-/// system that fires on activation cannot be talked out of it by a rule. The
-/// release belongs to match FLOW, next to the thing that applied the hold.
+/// The release belongs to match FLOW, next to the thing that applied the hold.
 ///
-/// ⭐ **atomic by construction.** Every held seat is released in one command
+/// **atomic by construction.** Every held seat is released in one command
 /// flush against one clock reading, so there is no tick on which one fighter can
 /// act and another cannot — the property a countdown exists to give and the one
 /// a per-fighter timer would quietly lose.
@@ -1836,7 +1605,7 @@ pub fn release_the_opening_hold(
     let (Some(active), Some(prepared)) = (active, prepared) else {
         return;
     };
-    // ⛔ **A CEREMONY THIS RULESET DID NOT DECLARE IS NOT THIS SYSTEM'S TO
+    // **A CEREMONY THIS RULESET DID NOT DECLARE IS NOT THIS SYSTEM'S TO
     // END.** `opens_suspended` with no countdown means somebody ELSE owns the
     // opening — the versus stage's `Starting` arm reaching zero is the live
     // case — and releasing here would take the hold off underneath them on the
@@ -1857,7 +1626,7 @@ pub fn release_the_opening_hold(
         }
     }
     for (body, mut holds) in &mut held {
-        // ⛔ ONLY the opening's hold. A fighter this ceremony never suspended,
+        // ONLY the opening's hold. A fighter this ceremony never suspended,
         // or one a capture is holding when the countdown ends, keeps whatever
         // else has a claim on it.
         ambition_characters::brain::release_control_hold(
@@ -1871,20 +1640,16 @@ pub fn release_the_opening_hold(
 
 /// **Declare the match's cast as what the camera frames.**
 ///
-/// ⛔ **the missing reader.** An earlier draft of this module computed a
-/// `MatchViewPolicy` and it was deleted as "a value nothing reads" — which was
-/// the right objection to the wrong half. The value was not the mistake; having
-/// no consumer was. Jon's run found the consequence directly: *"when I seated 2
-/// CPUs and pressed start, nothing shows up. No stage."* The camera resolves its
-/// subject from `ControlledSubject` and returns without one, so a match with no
-/// local participant framed nothing at all.
+/// The value was not the mistake; having no consumer was. No stage."* The camera resolves its
+/// subject from `ControlledSubject` and returns without one, so a match with no local
+/// participant framed nothing at all.
 ///
-/// ⭐ **published, not guessed.** The camera could scan for `MatchSeat` bodies
+/// **published, not guessed.** The camera could scan for `MatchSeat` bodies
 /// itself, and then presentation would own a question about what a session is
 /// FOR. The match already knows; saying so is one line and keeps the resolver
 /// generic — a cutscene or a replay viewer publishes the same resource.
 ///
-/// ⚠ **ordered by SEAT.** A `Vec<Entity>` built in query order is a different
+/// **ordered by SEAT.** A `Vec<Entity>` built in query order is a different
 /// vector frame to frame, and this one is read by a framing computation whose
 /// output a person looks at.
 ///
@@ -1894,7 +1659,7 @@ pub fn release_the_opening_hold(
 pub fn declare_the_match_cast_as_the_view(
     active: Option<Res<super::ActiveMatch>>,
     seats: Query<(Entity, &super::MatchSeat)>,
-    // ⛔ **`Option`, and it is not defensive.** A plain `ResMut` here panicked 53
+    // **`Option`, and it is not defensive.** A plain `ResMut` here panicked 53
     // of this crate's own unit tests with *"Parameter `ResMut<FramedCast>` failed
     // validation: Resource does not exist"* — the resource is initialised by the
     // ABILITIES plugin and this system is registered by `character_runtime`, so

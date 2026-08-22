@@ -17,11 +17,8 @@ use ambition_sfx::PresentationSourceId;
 fn session_app() -> App {
     let mut app = App::new();
     app.add_plugins(CharacterRuntimePlugin);
-    // The routing markers (`MovesetMelee` / `MovesetRanged`) are DERIVED from the
-    // live `ActorMoveset` by a system this plugin owns. Installing it here is not
-    // fixture padding: a projection test that asserts on routing while the
-    // deriver is absent is asserting on whatever the projection happened to write,
-    // which is exactly the arrangement that hid the `ActorMoveset` retraction bug.
+    // The routing markers (`MovesetMelee` / `MovesetRanged`) are DERIVED from the live
+    // `ActorMoveset` by a system this plugin owns.
     app.add_plugins(crate::action_scheme::ActionSchemePlugin);
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
@@ -75,11 +72,7 @@ fn stage(app: &mut App, character_id: &str) {
 /// **The gap this closes.** A secondary provider's cue was DENIED in production.
 ///
 /// `write_from` tags a request with the emitting character's provider, and
-/// `authorize_sfx_source` is what makes that tag resolvable. Only a rendered test
-/// ever called the second one, so in a real session a correctly-tagged cue from
-/// any provider other than the session owner hit the audio authority, found no
-/// authorization, and was dropped — with nothing reported, because the request was
-/// well-formed and the refusal was silent.
+/// `authorize_sfx_source` is what makes that tag resolvable.
 #[test]
 fn seating_a_cast_authorizes_every_participants_presentation_source() {
     let mut app = session_app();
@@ -136,11 +129,9 @@ fn a_registered_only_character_still_names_its_provider() {
 
 /// **A room stages a display name, and the right provider is authorized.**
 ///
-/// Rooms author characters by the name a designer typed — `demand_room_character_sheets`
-/// pushes `enemy.name` and an interactable's `character_id` straight through — while
-/// every provider map is keyed by stable id. The load ledger records the token it
-/// was handed, so a cast read off that ledger asked for the provider of `"Mary-O"`,
-/// found nothing, and skipped her: the character loaded correctly and was silent.
+/// Rooms author characters by the name a designer typed — `demand_room_character_sheets` pushes
+/// `enemy.name` and an interactable's `character_id` straight through — while every provider
+/// map is keyed by stable id.
 #[test]
 fn staging_a_character_by_display_name_authorizes_its_provider() {
     let mut app = session_app();
@@ -237,14 +228,11 @@ fn an_unclaimed_character_authorizes_nothing() {
 /// different sources — and no component at all for a body wearing nothing, which
 /// is materially different from an empty source.
 ///
-/// It deliberately does not claim that every emitter reads it, which is what an
-/// earlier version of this comment said while eighty-six call sites still wrote
-/// through the session context (GPT 5.6, 2026-07-26 — the claim was wider than the
-/// code). What each emitter is credited with is asserted where that emitter runs:
-/// `fight_tests::a_dying_body_dies_in_its_own_voice` for the death branch,
-/// `two_provider_characters_trade_damage_through_the_real_damage_path` for the move
-/// timeline, and [`a_projectile_keeps_its_firers_source_after_the_firer_is_gone`]
-/// for a bolt. A cue with no such test is a cue nobody has checked.
+/// What each emitter is credited with is asserted where that emitter runs:
+/// `fight_tests:a_dying_body_dies_in_its_own_voice` for the death branch,
+/// `two_provider_characters_trade_damage_through_the_real_damage_path` for the move timeline,
+/// and [`a_projectile_keeps_its_firers_source_after_the_firer_is_gone`] for a bolt. A cue with
+/// no such test is a cue nobody has checked.
 #[test]
 fn a_body_emits_under_its_own_characters_provider() {
     let mut app = session_app();
@@ -493,7 +481,7 @@ fn an_unregistered_character_leaves_the_body_as_its_spawn_built_it() {
 ///
 /// Insert-only projection kept the old moveset, the old silhouette, and the old
 /// `MovesetMelee` routing marker whenever the new definition was quieter than the
-/// old one (GPT 5.6, 2026-07-27). That is not hypothetical: Sanic's super form and
+/// old one. That is not hypothetical: Sanic's super form and
 /// Mary-O's power tiers are exactly this — one body, a new worn character — and a
 /// stale melee marker keeps diverting attacks into a move timeline the new form
 /// does not have.
@@ -553,16 +541,13 @@ fn wearing_a_quieter_character_retracts_the_previous_ones_moves() {
         .insert(ambition_characters::actor::WornCharacter::new("unarmed"));
     settle(&mut app);
 
-    // ⚠ NOT `is_none()`, which is what this asserted when it was written.
+    // NOT `is_none()`, which is what this asserted when it was written.
     //
-    // `ActorMoveset` must SURVIVE the identity change, because
-    // `apply_worn_character_gameplay` takes it as a required query column: a body
-    // that loses the component stops matching the PERSONA DERIVE ENTIRELY and
-    // never gets a name, an action set or an identity kit again. Removing it
-    // looked like careful retraction and was silent, permanent damage (GPT 5.6,
-    // 2026-07-27). This fixture could not see it, because it installs
-    // `CharacterRuntimePlugin` alone and the persona derive is not in it — the
-    // exact shape of the trap.
+    // `ActorMoveset` must SURVIVE the identity change, because `apply_worn_character_gameplay`
+    // takes it as a required query column: a body that loses the component stops matching the
+    // PERSONA DERIVE ENTIRELY and never gets a name, an action set or an identity kit again.
+    // This fixture could not see it, because it installs `CharacterRuntimePlugin` alone and the
+    // persona derive is not in it — the exact shape of the trap.
     //
     // Replacing the VALUE on a swap belongs to the persona derive, which is the
     // single writer for a worn body; that half is pinned in
@@ -587,12 +572,6 @@ fn wearing_a_quieter_character_retracts_the_previous_ones_moves() {
 }
 
 /// **The routing markers follow the moveset, whoever wrote it.**
-///
-/// The catalog persona path replaces `ActorMoveset` wholesale on a kit swap and
-/// has never touched `MovesetMelee` / `MovesetRanged`, so before these became
-/// derived, a swap between two CATALOG characters left the previous one's
-/// routing attached — a case the prepared-registry projection could not fix
-/// because it never runs for a character it does not know.
 ///
 /// Driven by writing the moveset directly, which is exactly what an unknown
 /// third writer would do.
@@ -665,9 +644,6 @@ fn routing_markers_are_derived_from_whatever_wrote_the_moveset() {
     );
 }
 
-/// **A body wearing the same character through a CAST REPLACEMENT rebuilds.**
-/// (H6, closed 2026-07-29)
-///
 /// `CharacterCatalogGeneration` existed for a day with no production reader — X4
 /// was marked done on the strength of a counter nothing compared against. The
 /// projection early-exits when the worn id is unchanged, so replacing the cast
@@ -753,12 +729,9 @@ fn replacing_the_cast_reprojects_a_body_wearing_the_same_character() {
 }
 
 /// **A character that becomes UNAUTHORED in a new cast loses what it granted.**
-/// (GPT 5.6, 2026-07-29)
 ///
-/// Retraction used to look the previously-projected id up in the CURRENT registry
-/// and remove whatever THAT definition carried. For a same-id replacement whose
-/// new definition authors nothing, the lookup returns the new, empty definition —
-/// so nothing is retracted and the body keeps the retired hurtbox document
+/// For a same-id replacement whose new definition authors nothing, the lookup returns the new,
+/// empty definition — so nothing is retracted and the body keeps the retired hurtbox document
 /// forever, with the projection reporting success.
 ///
 /// Historical ownership is not a property of the new authority.
@@ -811,8 +784,6 @@ fn a_character_that_stops_authoring_hurtboxes_has_them_retracted() {
     );
 }
 
-/// **An authored `BodySource` reaches the body.** (Y″5, 2026-07-29)
-///
 /// `CharacterDefinition.body` has existed since §4.11 with no consumer anywhere
 /// in the repository: a provider could author `SpriteAuthored { world_per_pixel }`
 /// and receive a body of some other size entirely. `SpritePosedBody` — which

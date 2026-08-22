@@ -133,8 +133,7 @@ pub(crate) fn dispatch_menu_action(
             info!("cube system action: quit to title");
         }
         MenuPageAction::SystemAction(SystemMenuAction::Quit) => {
-            // Immediate: request application exit and fold the menu shut. Mirrors
-            // the old pause-menu Quit row (which is removed in a later phase).
+            // Immediate: request application exit and fold the menu shut.
             commands.write_message(bevy::app::AppExit::Success);
             *close_menu = true;
             play_ui(sfx, ambition_platformer2d::sfx::ids::UI_MENU_ACCEPT);

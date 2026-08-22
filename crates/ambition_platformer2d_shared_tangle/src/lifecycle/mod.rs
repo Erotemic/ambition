@@ -13,23 +13,19 @@
 //! (`despawn_departed_round_entities`), [`SessionScopedEntity`]
 //! (`despawn_retired_session_entities`).
 //!
-//! ⭐ **a scope is a LIFETIME; where an entity lives right now is RESIDENCY, and
+//! **a scope is a LIFETIME; where an entity lives right now is RESIDENCY, and
 //! they are not the same question.** An object in a body's custody is scoped to
 //! a room and resident in nobody's room — see [`InCustodyOf`] and the
 //! [`RoomResident`] roster a room CHANGE retires.
 //!
-//! ⭐ **and there is a THIRD question, which is what a rebuild asks: WHERE is
+//! **and there is a THIRD question, which is what a rebuild asks: WHERE is
 //! the occurrence this authored record minted last time?** That is a
 //! WHEREABOUTS, it is durable room state rather than a component on anything,
 //! and it lives in [`AuthoredOccurrences`]. A scope says when an occurrence
 //! dies, residency says whose sweep sees it, and a whereabouts says whether
 //! reconstruction owes the world a new one — and, if it does, WHERE.
 //!
-//! ⚠ **the whereabouts ledger owns exactly one of three horizons** (current /
-//! checkpoint baseline / durable save); its module header states which and what
-//! the other two would need.
-//!
-//! ⛔ **there is no marker for "persistent", and that is the design.** Every
+//! **there is no marker for "persistent", and that is the design.** Every
 //! sweep culls on the PRESENCE of its own marker, so an entity carrying none
 //! already survives all four boundaries; a `PersistentEntity` tag beside a
 //! `RoomScopedEntity` would have been a claim the room sweep silently overrules.

@@ -69,9 +69,6 @@ fn three_real_providers_compose_independent_of_registration_order() {
         reverse.world().resource::<CharacterCatalog>()
     );
     assert_eq!(audio_providers(&forward), audio_providers(&reverse));
-    // ⭐ **the hostile half is asserted through the OWNERS map now** (AC6): the
-    // provider-keyed archetype registry this line used to compare is deleted, and
-    // every creature that lived in it is a character owned by the same provider.
     for id in ["sanic", "npc_snakes_on_a_paper_plane", "npc_ai_slop"] {
         assert_eq!(
             forward
@@ -116,12 +113,9 @@ fn three_real_providers_compose_independent_of_registration_order() {
         .combined_music_registry("ambition")
         .expect("real provider music ids must compose without collision");
 
-    // ⭐ **THERE IS NO HOSTILE-ROSTER LIST TO LEAVE ANY MORE** (AC6). Sanic's
-    // badnik left it on 2026-08-11 and Mary-O's plane swarms on 2026-08-13, and
-    // the ontology itself went the same day the last provider stopped publishing
-    // one. Every creature in every provider is a CHARACTER, so the composition
-    // property this test exists for is asserted against the authority they
-    // actually live in: the owners map.
+    // **THERE IS NO HOSTILE-ROSTER LIST TO LEAVE ANY MORE** (AC6). Every creature in every provider
+    // is a CHARACTER, so the composition property this test exists for is asserted against the
+    // authority they actually live in: the owners map.
     assert_eq!(
         owners.provider_for("sanic"),
         Some("sanic"),
@@ -167,17 +161,15 @@ fn separate_apps_select_independent_provider_sets() {
         .get_resource::<AudioCatalogRegistry>()
         .is_none());
 
-    // **Sanic's enemy is a character** — the badnik's archetype fragment was
-    // deleted with it (2026-08-11), and the ontology followed (AC6). The
-    // App-local property is asserted over the character owners map: Sanic's own
-    // provider, and nobody else's.
+    // The App-local property is asserted over the character owners map: Sanic's own provider,
+    // and nobody else's.
     let sanic_owners = sanic
         .world()
         .get_resource::<CharacterCatalogOwners>()
         .expect("Sanic content publishes its own catalog");
     assert_eq!(sanic_owners.provider_for("sanic"), Some("sanic"));
 
-    // **Mary-O's every enemy is a character too** (2026-08-13): the plane
+    // **Mary-O's every enemy is a character too**: the plane
     // swarms — her last rows, kept as a standalone-build fallback — are her own
     // registered characters, like the snake and the slop before them.
     let mary_o_owners = mary_o
@@ -255,12 +247,9 @@ fn the_full_hall_validates_with_all_three_provider_catalogs() {
             let entry = catalog
                 .get(&character_id)
                 .unwrap_or_else(|| panic!("validated Hall character {character_id} disappeared"));
-            // The exhibit must have SOMETHING to say. Resolved through `bark`,
-            // not the raw `hall` pool: a character generated from its sprite
-            // target ships suggested lines and no per-situation pools, and it
-            // speaks those on its pedestal. Requiring a hand-written `hall` pool
-            // would mean every new character stands mute until someone writes
-            // four of them, which is the failure this pipeline exists to remove.
+            // The exhibit must have SOMETHING to say. Resolved through `bark`, not the raw `hall`
+            // pool: a character generated from its sprite target ships suggested lines and no
+            // per-situation pools, and it speaks those on its pedestal.
             assert!(
                 entry
                     .bark(

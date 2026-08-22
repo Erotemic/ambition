@@ -1,24 +1,13 @@
-//! **How tall each hall character actually STANDS, measured rather than eyeballed.**
-//!
-//! Jon, in his observations: *"In the hall of characters, the humanoid characters
 //! are all dramatically out of scale with each other. Alice and bob are great,
 //! but characters like the vikings, or jeff hinter render as tiny little
 //! characters and look out of place compared to the rest of the cast. The
 //! character art needs to be rescaled (probably at the generator level, not via
 //! some post-hoc fix)."*
 //!
-//! ⚠ **and the exception is in the same paragraph**: *"Note the player robot v3
+//! **and the exception is in the same paragraph**: *"Note the player robot v3
 //! is supposed to be chibi and short compared to other humanoids."* So the rule
 //! is NOT "everyone is the same height", and no ratchet here can be written
 //! until somebody says which characters are meant to be alike. That decision is
-//! Jon's; this is the number it needs.
-//!
-//! ⭐ **the same shape as `enemy_quad_matches_its_box`**: ask
-//! `posed_body_geometry` at `world_per_pixel = 1.0` so the answer comes back in
-//! SHEET PIXELS, which is the unit the generator works in — the one Jon named as
-//! where the fix belongs. A capture would measure the drawn quad instead, which
-//! folds in the camera, the pose and the frame padding, and two previous
-//! attempts at a sprite-size question measured badly for exactly that reason.
 //!
 //! Run the report:
 //!
@@ -82,24 +71,10 @@ fn print_how_tall_every_character_stands() {
 
 /// **The instrument cannot rot silently.**
 ///
-/// ⛔ a measurement whose scan quietly stops finding anything reports the
-/// success condition — the failure mode this repo has hit with a portrait
-/// checker, a regen census and a rollback ratchet. So the population is asserted
-/// even though the spread is not: if `posed_body_geometry` stops answering, or
-/// the catalog stops naming sheets this way, the report above would print an
-/// empty table and look fine.
-///
-/// ⚠ it deliberately does NOT bound the spread. Jon named an exception in the
-/// same breath as the complaint — robot v3 is meant to be short — so a limit
-/// here would be a taxonomy invented by a test rather than decided by him.
+/// it deliberately does NOT bound the spread.
 #[test]
 fn the_hall_scale_report_is_actually_measuring_something() {
     let rows = measured_bodies();
-    // ⚠ **SKIP, not fail, when the baked art is absent.** Sheets are generated
-    // and gitignored, so a clean checkout has none — and a source test that goes
-    // red because a working tree was not rendered is a false alarm that teaches
-    // people to ignore it. (GPT 5.6, 2026-08-05, about the sibling gauntlet test
-    // this lesson cost.)
     if rows.is_empty() {
         eprintln!("[skip] no baked character sheets — run ./regen_sprites.sh");
         return;

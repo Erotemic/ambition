@@ -1,15 +1,15 @@
 //! **Does a `.yarn` line actually reach a domain that published a condition —
 //! through the real interpreter, with no edit to any binding?**
 //!
-//! ⭐⭐ **these tests publish their conditions FROM HERE**, under a domain name
+//! **these tests publish their conditions FROM HERE**, under a domain name
 //! nothing in the engine mentions, using only
 //! [`PublishCondition`](ambition_platformer2d_shared_tangle::authored_logic::PublishCondition).
 //! That is the whole claim: if asking required a bridge to learn a question's
-//! name, a test crate could not have taught it one. ⛔ they deliberately do NOT
+//! name, a test crate could not have taught it one. they deliberately do NOT
 //! assert which conditions the engine ships — pinning that list would make every
 //! new provider a failing test, which is the opposite of the property.
 //!
-//! ⚠ **and the Yarn runtime is REAL here.** A test that called
+//! **and the Yarn runtime is REAL here.** A test that called
 //! [`super::ask_condition`] directly would prove the function works and prove
 //! nothing about whether authored `<<if>>` can reach it — the interpreter's
 //! `call_with_world` path, its arity assertion and its value coercion are exactly
@@ -70,7 +70,7 @@ fn carried_descriptor() -> ConditionDescriptor {
     }
 }
 
-/// ⚠ **this evaluator would say YES**, for `SimId::placement("axe")`, in the
+/// **this evaluator would say YES**, for `SimId::placement("axe")`, in the
 /// world the reference test builds. It is the poison: the only way the authored
 /// line can take the satisfied branch is if something coerced the quoted string
 /// `"axe"` into an occurrence identity.
@@ -86,9 +86,8 @@ fn carried(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
 
 // ===== Harness ==================================================
 //
-// ⭐ **the harness moved to [`crate::dialog::yarn_harness`]** when the COMMAND
-// verb wanted the same thing. A second copy would have been a fork of the one
-// piece of test code whose whole job is to be the production path.
+// A second copy would have been a fork of the one piece of test code whose whole job is to be
+// the production path.
 
 use crate::dialog::yarn_harness::{advance, lines, start};
 
@@ -102,12 +101,12 @@ fn app_running(source: &str) -> App {
 /// **A CONDITION PUBLISHED BY A DOMAIN NOTHING NAMES IS ASKABLE FROM AUTHORED
 /// `.yarn`, WITH NO EDIT TO ANY BINDING.**
 ///
-/// ⭐⭐ this is the behavioural test, and the thing it pins is an ABSENCE: no
+/// this is the behavioural test, and the thing it pins is an ABSENCE: no
 /// vocabulary module, no installer, no mirror slice and no `add_function` call
 /// learned the word `gossip.heard`. The only thing that happened is that a plugin
 /// published it.
 ///
-/// ⚠ **and the answer tracks live state.** Asking twice across a mutation is what
+/// **and the answer tracks live state.** Asking twice across a mutation is what
 /// separates *"the catalog was consulted"* from *"a value was copied at
 /// startup"* — the mirror this replaces could have passed the first half.
 #[test]
@@ -138,7 +137,7 @@ second: nobody has mentioned the bell.
         "the rumour has not been heard, and the authored else-branch says so"
     );
 
-    // ⭐ the domain's own state changes MID-CONVERSATION. Nothing re-registers,
+    // the domain's own state changes MID-CONVERSATION. Nothing re-registers,
     // re-mirrors, refreshes or restarts anything — the next `<<if>>` is the same
     // authored expression in the same running interpreter.
     app.world_mut()
@@ -160,7 +159,7 @@ second: nobody has mentioned the bell.
 
 /// **A QUESTION NOBODY PUBLISHED IS UNSATISFIED, NOT A CRASH AND NOT A YES.**
 ///
-/// ⚠ the id is well-formed; only the publication is missing. ⛔ `ConditionId::new`
+/// the id is well-formed; only the publication is missing. `ConditionId::new`
 /// would have PANICKED on the malformed one below, which is why authored content
 /// goes through `parse`.
 #[test]
@@ -198,7 +197,7 @@ Refused.
 
 /// **THE HOST PLUGIN ACTUALLY PUSHES THE VERB.**
 ///
-/// ⛔ **this is the one failure in this file that would CRASH the shipped game
+/// **this is the one failure in this file that would CRASH the shipped game
 /// rather than close a gate.** Authored `.yarn` now calls `condition(…)`; a Yarn
 /// call to a function no runner registered is `FunctionNotFound`, and
 /// `bevy_yarnspinner` pipes that into `panic_on_err`. Everything else here proves
@@ -221,7 +220,7 @@ fn the_bindings_plugin_installs_the_condition_verb() {
 
 /// **A PREPARED REFERENCE IS REFUSED RATHER THAN GUESSED.**
 ///
-/// ⭐⭐ **the fixture is poisoned so that only the WRONG implementation can pass
+/// **the fixture is poisoned so that only the WRONG implementation can pass
 /// it.** The world really does contain `placement:axe`; the published evaluator
 /// really would answer `Satisfied` if it were handed that identity. The only way
 /// the authored line can print "Carried." is if something turned the quoted
@@ -241,7 +240,7 @@ Refused.
 ";
     let mut app = app_running(SOURCE);
     app.publish_condition(carried_descriptor(), carried);
-    // ⚠ the identity the evaluator would say YES about, really present.
+    // the identity the evaluator would say YES about, really present.
     app.world_mut().spawn(SimId::placement("axe"));
 
     start(&mut app, "Start");

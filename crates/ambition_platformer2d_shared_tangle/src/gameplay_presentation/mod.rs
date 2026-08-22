@@ -14,10 +14,6 @@
 //! content, no provider. The host resolves once per frame and every consumer
 //! reads the single [`ResolvedGameplayPresentation`] — no camera, HUD, touch,
 //! pointer, or transition system recalculates margins on its own.
-//!
-//! **The world-space actor is never constrained by presentation.** The camera
-//! and UI adapt around the actor; simulation is identical on desktop, mobile,
-//! full-bleed, and fixed-aspect.
 
 use ambition_platformer2d_core as ae;
 use bevy::prelude::{Component, Resource};
@@ -256,7 +252,6 @@ impl ScreenInsets {
 #[derive(Resource, Clone, Copy, Debug, Default, PartialEq)]
 pub struct DisplaySafeAreaInsets(pub ScreenInsets);
 
-/// Width:height ratio for a fixed-aspect gameplay viewport.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct AspectRatio {
     pub width: f32,
@@ -303,7 +298,6 @@ pub enum GameplayViewportPolicy {
     },
 }
 
-/// Where a fixed-aspect rectangle sits when the safe display leaves slack.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum FixedAspectFit {
     #[default]
@@ -485,19 +479,9 @@ impl ScreenOcclusionPurpose {
     /// Whether a READING panel — dialogue body, choice list, any block of text
     /// the player has to parse and tap — should be kept out of this region.
     ///
-    /// ⭐ **the sibling of [`Self::reserves_subject_space`], and its absence was
-    /// the defect.** The engine already knew not to frame the PLAYER behind the
-    /// buttons; nothing said the same about TEXT, so `dialog_ui` laid its panel
-    /// out in percentages of the whole screen and ran straight under the action
-    /// cluster. Jon, 2026-08-03, on a Pixel 5: *"the trick is that space for
-    /// dialogue on a phone is so tight… I am able to navigate it, but it's
-    /// frustrating and error prone."* Both halves of that are this: text behind a
-    /// button is unreadable, and a tap there goes to the button.
-    ///
     /// It differs from the subject predicate in one place, and the difference is
     /// the point. `SystemMenuControl` does not shrink gameplay framing — it is
     /// small, cornered and glanced at — but it is exactly the corner Back button
-    /// Jon says he has to rely on, and text underneath it is the collision he
     /// described. A camera can afford to ignore it; a paragraph cannot.
     ///
     /// `Dialogue` is false because it is the panel itself. Carving a region
@@ -729,11 +713,9 @@ pub struct ScreenOcclusion {
 
 /// The stable presentation environment a profile is selected for.
 ///
-/// **Stable is the point.** This must not follow the most recent input device:
-/// glyphs may change the instant a gamepad is touched, but the gameplay
-/// viewport and camera framing hold for the session (or until the participant
-/// changes the preference explicitly). A camera that recomposes because a thumb
-/// left the glass is a bug, not a feature.
+/// **Stable is the point.** This must not follow the most recent input device: glyphs may
+/// change the instant a gamepad is touched, but the gameplay viewport and camera framing hold
+/// for the session (or until the participant changes the preference explicitly).
 #[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum PresentationEnvironment {
     #[default]
@@ -749,7 +731,6 @@ pub enum PresentationEnvironment {
 // Surround + HUD
 // ---------------------------------------------------------------------------
 
-/// What fills the display outside a fixed-aspect gameplay rectangle.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum SurroundPolicy {
     /// There is no surround (full-bleed), or the game wants none drawn.
@@ -805,7 +786,7 @@ pub struct GameplayPresentationProfile {
     /// rectangle. Separate from [`Self::hud`] because a game may well want its
     /// score in the surround while its controls still overlay, or the reverse.
     pub controls: ControlPlacementPolicy,
-    /// How the camera EASES and SHAKES for this route. (D14)
+    /// How the camera EASES and SHAKES for this route.
     ///
     /// The zoom rates, the snap epsilon and the shake ceiling were single global
     /// resources and constants, so two games in one host could not ease or shake
@@ -860,7 +841,7 @@ impl GameplayPresentationProfile {
         self
     }
 
-    /// Declare this route's camera feel. (D14)
+    /// Declare this route's camera feel.
     pub fn with_camera_feel(mut self, feel: CameraFeelPolicy) -> Self {
         self.camera_feel = feel;
         self
@@ -984,11 +965,6 @@ impl GameplayPresentationProfileCatalog {
 }
 
 /// Ordering handle for the host's resolve-and-publish cluster.
-///
-/// Lives here rather than in the host because the PROVIDER layer must order
-/// its profile selection before it — a selection that landed after the resolve
-/// would show one frame of the previous experience's viewport on every switch
-/// — and the provider crate cannot see `ambition_platformer2d_host`.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub struct GameplayPresentationSet;
 
@@ -1076,14 +1052,7 @@ impl ResolvedGameplayPresentation {
     /// **Where a block of text belongs: the safe display, carved back from
     /// everything a reader must not sit behind.**
     ///
-    /// The sibling of [`Self::subject_safe_rect`], answering
-    /// [`ScreenOcclusionPurpose::reserves_reading_space`] instead of the subject
-    /// question, through the same carve. `dialog_ui` laid out in percentages of
-    /// the whole screen before this existed, so on a 640x360 phone viewport its
-    /// panel spanned x≈90..550 while the action cluster sat at x 407..640 — a
-    /// third of the panel behind live buttons.
-    ///
-    /// ⚠ **the floor is load-bearing.** A small screen with a full control
+    /// **the floor is load-bearing.** A small screen with a full control
     /// overlay can be carved down to nothing, and a dialogue that resolves to a
     /// zero-height box is a game that cannot be played at all — strictly worse
     /// than one that overlaps. [`Self::READING_MIN_FRACTION`] is where the carve
@@ -1113,12 +1082,10 @@ impl ResolvedGameplayPresentation {
     /// The largest surround rectangle, when HUD prefers the surround.
     /// Every part of the PHYSICAL display the gameplay camera does not draw.
     ///
-    /// Distinct from [`Self::surround_rects`], which is safe-area-relative and
-    /// answers "where may HUD live". This answers "what must be painted": a
-    /// Bevy camera with a viewport never clears outside it, so whatever these
-    /// rectangles cover is undefined until something fills it. A fixed-aspect
-    /// profile therefore OWES the display a surround, and this is the region
-    /// it owes.
+    /// Distinct from [`Self::surround_rects`], which is safe-area-relative and answers "where
+    /// may HUD live". This answers "what must be painted": a Bevy camera with a viewport never
+    /// clears outside it, so whatever these rectangles cover is undefined until something fills
+    /// it.
     pub fn letterbox_rects(&self) -> Vec<NamedScreenRect> {
         let display = self.display_rect;
         let gameplay = self.gameplay_rect;

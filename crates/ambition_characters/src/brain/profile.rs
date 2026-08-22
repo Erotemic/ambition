@@ -51,14 +51,10 @@ fn default_chase_effort() -> f32 {
 /// factions, teams. The driver is handed eligible targets and decides what to do
 /// about them.
 ///
-/// ⛔ **`attacks_player` used to live here and was deleted 2026-08-11** (Jon's
-/// redirect §6). It came across from `ArchetypeSpec`, where body and AI and
-/// social role were one thing, and it was wrong twice over: it is not a policy,
-/// and it is player-centric vocabulary in the one type that must never be. The
-/// giant GNU was its motivating case and it is the proof it was unnecessary —
-/// the mount is a `StandStill` driver with a zero aggro radius, so its POLICY
-/// already said it never seeks anybody, and its placement now says `Peaceful`
-/// because that is where "this creature is not your enemy" belongs.
+/// The giant GNU was its motivating case and it is the proof it was unnecessary — the mount is
+/// a `StandStill` driver with a zero aggro radius, so its POLICY already said it never seeks
+/// anybody, and its placement now says `Peaceful` because that is where "this creature is not
+/// your enemy" belongs.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct BrainProfile {
@@ -125,17 +121,10 @@ pub struct BrainProfile {
     /// **How often this driver commits to a swing** — `ENEMY_ATTACK_COOLDOWN *
     /// attack_cooldown_mult` paces the brain's next attack.
     ///
-    /// ⭐ **the FOURTH of the knobs the doc above calls "the three CharacterAI
-    /// knobs that used to live in `ActorTuning`"** (moved 2026-08-13, campaign
-    /// P2.19). It reads as a body number and is not one, by exactly the argument
-    /// already made for `aggro_radius` and `attack_range`: a radius at which a
-    /// driver notices, a range at which it commits, and a rate at which it
-    /// commits again are all decisions about how to PLAY a body, and a human or
-    /// scripted controller in the same body must not inherit them.
-    ///
-    /// ⚠ it was the last controller fact in `ActorTuning`. The other two the
-    /// campaign counted — `patrol_speed` and `chase_speed` — turned out to be
-    /// this profile's normalized efforts already, resolved against a body.
+    /// It reads as a body number and is not one, by exactly the argument already made for
+    /// `aggro_radius` and `attack_range`: a radius at which a driver notices, a range at which it
+    /// commits, and a rate at which it commits again are all decisions about how to PLAY a body,
+    /// and a human or scripted controller in the same body must not inherit them.
     #[serde(default = "default_attack_cooldown_mult")]
     pub attack_cooldown_mult: f32,
 }
@@ -187,11 +176,6 @@ mod tests {
 
     /// **A profile authored with only a template is complete**, and its
     /// defaults are the ones the runtime used to hard-code.
-    ///
-    /// ⚠ the poison this guards: `#[serde(default)]` on `turns_at_walls` or
-    /// `fighter_level` would silently author `false` / `0` — a walker that
-    /// stops turning at walls, and a fighter refused for being off the ladder.
-    /// Both were live defaults elsewhere before this type existed.
     #[test]
     fn a_template_only_profile_keeps_the_runtime_defaults() {
         let profile: BrainProfile = ron::from_str("(template: Wanderer)")

@@ -1,36 +1,19 @@
-//! **THE GOBLIN BRUTE** — the goblin lab's heavy, and the one identifier in
-//! `OPEN_CASTING` Jon decided should become a real character rather than a
-//! deletion.
+//! Author a distinct Goblin Brute character for `large_brute`. It should be a separate reusable
+//! character identity rather than a generic archetype row or an alias for an existing named goblin
+//! … Give it an explicit complete character definition/body rather than retaining `combatant` as an
+//! unresolved casting fallback."*
 //!
-//! ⭐⭐ **his ruling, 2026-08-13, verbatim in the parts that decide this file:**
-//! *"This one SHOULD become a real authored reusable character. Author a
-//! distinct Goblin Brute character for `large_brute`. It should be a separate
-//! reusable character identity rather than a generic archetype row or an alias
-//! for an existing named goblin … Give it an explicit complete character
-//! definition/body rather than retaining `combatant` as an unresolved casting
-//! fallback."*
-//!
-//! ⚠ **"not an alias for an existing named goblin" is the load-bearing clause.**
+//! **"not an alias for an existing named goblin" is the load-bearing clause.**
 //! The cheap close was `large_brute → goblin` — the goblin already exists, it
 //! already fights, and three encounter waves would have stopped drawing magenta
 //! boxes immediately. That would have made the lab's heavy the same creature as
 //! its regulars at a different size, which is the archetype muddle wearing a
 //! character's name.
 //!
-//! ⭐ **its sprite generator already existed, which is why this is cheap
-//! anyway.** `configs/review/goblin_brute_hammer.yaml` is a SEPARATE target
-//! (`target: goblin`, its own `name`, `seed: 77`, `archetype: brute`,
-//! `variant: bruiser_heavy`) whose sheet is generated and on disk — exactly the
-//! arrangement he asked for: *"it may initially use the same broad goblin visual
-//! design/template, scaled/designed as a bigger brute. However, its sprite must
-//! have a SEPARATE Python sprite generator/target, even if that generator
-//! initially shares helpers or visual vocabulary with the ordinary goblin. The
-//! reason for the separate generator is to preserve a clean future path for
-//! making the brute visually distinct without having to separate shared assets
-//! later."* Nothing was drawn for this commit and nothing needed to be; the
-//! character had a body waiting for somebody to declare it.
+//! However, its sprite must have a SEPARATE Python sprite generator/target, even if that
+//! generator initially shares helpers or visual vocabulary with the ordinary goblin.
 //!
-//! ⚠ **the numbers preserve the `large_brute` waves**, per *"the brute's initial
+//! **the numbers preserve the `large_brute` waves**, per *"the brute's initial
 //! gameplay/body values may preserve the current `large_brute` behavior closely;
 //! exact balance is tunable later."* Its policy is the `melee_brute_brute`
 //! preset the generator config already names — aggro 240, reach 44, chase 75 —
@@ -60,7 +43,7 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
             strength: 0.85,
             amount: 1,
         })
-        // ⛔ **its own swing, not `medium_striker`'s.** The goblin band NAMES a
+        // **its own swing, not `medium_striker`'s.** The goblin band NAMES a
         // shared policy because several creatures point at it; the brute's
         // numbers are its own and are stated inline, which is the P2.16 rule —
         // an indirection earns itself when it has adopters.
@@ -85,8 +68,6 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
             chase_effort: 1.0,
             ..Default::default()
         });
-    // Between the goblin's 5 and a boss. Tuning, in Jon's sense: a number to
-    // change after playing, not a decision to reopen.
     definition.vitals.max_health = Some(8);
     definition
 }

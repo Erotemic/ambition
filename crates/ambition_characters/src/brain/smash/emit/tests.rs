@@ -103,13 +103,6 @@ fn idle_zeros_locomotion_but_keeps_facing() {
 
 /// **A CHOSEN SHIELD REACHES THE BODY'S GUARD BIT.**
 ///
-/// ⛔⛔ **this arm used to drop to Idle with the note "no engine-side input bit
-/// yet"** — and `shield_held` is a field on the very frame it was writing to,
-/// the same one a player's guard travels (`shield_held` → `resolve_shield`).
-/// The comment described the world when the variant was added; nothing re-read
-/// it, and P5.38 recorded `Shield` as having "zero producers" with the reason
-/// assumed to be further downstream.
-///
 /// ⚠ **nothing chooses `Shield` yet, and that is the point of pinning it here.**
 /// The remaining gap is upstream: `ObservationFrame` carries no channel for what
 /// the TARGET is doing, so the brain cannot see an incoming swing and has no
@@ -136,13 +129,7 @@ fn a_chosen_shield_presses_the_guard_and_stops_moving() {
     );
 }
 
-/// **AND A DODGE STILL DOES NOT**, which is a different fact and worth its own
-/// assertion so the two are not assumed to have been fixed together.
-///
-/// ⚠ `ActorControlFrame` has no dodge bit. A dodge reaches a body through the
-/// DASH buffer, and P5.38 records that `apply_dodge` claims that buffer before
-/// `apply_dash` can see it — so a body owning `dodge` never dashes. Emitting a
-/// dash here would ride that defect rather than route around it.
+/// ⚠ `ActorControlFrame` has no dodge bit.
 #[test]
 fn a_chosen_dodge_is_still_reserved_and_says_so() {
     let mut frame = crate::actor::control::ActorControlFrame::neutral();

@@ -1,6 +1,5 @@
 //! **The stocks demo — a platform fighter where the world does the killing.**
 //!
-//! Jon, 2026-07-31: *"stocks are more important. maybe start the smash demo.
 //! versus can be a generic fighter demo and test things smash doesn't."* So the
 //! shipped versus stage keeps its ROUNDS settled on health — a generic fighter,
 //! testing what a health-based ruleset tests — and this is the stocks one.
@@ -31,7 +30,7 @@
 //! What this crate owns is the two answers the engine refuses to guess: WHERE a
 //! respawning fighter comes back, and WHAT HAPPENS when one side is left.
 
-// ⚠ **no `ambition_platformer2d::prelude::*`.** Declaring a match needs the ACTOR
+// **no `ambition_platformer2d::prelude::*`.** Declaring a match needs the ACTOR
 // vocabulary, not the room-authoring one, and reaching for the prelude here
 // would import nothing this file uses. That the prelude does not cover a match
 // is a fact about what a prelude is for, not a gap.
@@ -64,34 +63,20 @@ pub const STARTING_STOCKS: u32 = 3;
 /// which is exactly why it has to be declared: an undeclared pool is whatever
 /// the CHARACTER authored, and a meter divided by one reports 14000%.
 ///
-/// ⛔⛔ **THE MATCH declares it, not the characters** (queue D131). It was
-/// stamped onto the three ids this demo registers until 2026-08-16, which fixed
-/// three fighters out of fourteen: everybody else walks onto this stage carrying
-/// a pool their own game authored, and Mary-O and Sanic are one-hit-kill
-/// platformer protagonists whose games say `1`. See `apply_smash_match_rules`.
+/// **THE MATCH declares it, not the characters**. See `apply_smash_match_rules`.
 pub const SMASH_PERCENT_REFERENCE: i32 = 100;
 
 /// The **published controller policy** a CPU seat asks for — `smash::duelist`,
 /// resolved in this stage's own provider.
 ///
-/// ⭐ **and it is now what its name always claimed.** Until 2026-08-11 a
-/// `ControllerBinding::Cpu { brain_profile }` was a `CharacterRoster` ARCHETYPE
-/// key, so asking for a fighting style meant declaring a whole creature — this
-/// demo shipped `SMASH_ROSTER_RON`, six near-identical archetype rows carrying a
-/// body no seat had read since a fighter's body came from its character, whose
-/// only difference from each other was `fighter_level`. They are deleted; the
-/// six are `autonomous_profiles` in the catalog above.
+/// They are deleted; the six are `autonomous_profiles` in the catalog above.
 ///
-/// ⚠ the older bug this doc recorded — CPU seats standing still because the
-/// lookup consulted a namespace the catalog did not publish into — had a second
-/// life worth remembering: publishing the policy did not fix it, because
-/// `seat_brain_profile` resolved a BARE key against a registry keyed
-/// `provider::name`. Two vocabularies sharing one word cost the same day twice.
+/// Two vocabularies sharing one word cost the same day twice.
 pub const SMASH_DUELIST_BRAIN: &str = "duelist";
 
 /// Where a respawning fighter comes back, above the stage centre.
 ///
-/// ⚠ **above**, not at the spawn point. A fighter that reappears on the floor
+/// **above**, not at the spawn point. A fighter that reappears on the floor
 /// reappears inside whatever is standing there — and in a fight, what is
 /// standing there is the opponent who just knocked it off. Respawn height is the
 /// oldest rule in the genre and it is a rule about SAFETY, not about drama.
@@ -99,7 +84,7 @@ pub const RESPAWN_HEIGHT_PX: f32 = 160.0;
 
 /// Build the roster for a stocks match between `characters`.
 ///
-/// ⚠ **`fighter_stocks` declares BOTH halves at once** — the count AND
+/// **`fighter_stocks` declares BOTH halves at once** — the count AND
 /// `DeathPolicy::Unbounded` — because neither is meaningful alone: stocks over a
 /// meter that kills at max are never consulted, and an unbounded meter with no
 /// stocks is a fighter that cannot lose. That pairing is the engine's, not this
@@ -140,15 +125,6 @@ where
 }
 
 /// **WHAT KIND OF MATCH THIS IS** — the Smash ruleset, in one place.
-///
-/// ⛔ **it was in TWO places and they had drifted.** `smash_roster` (the fixed
-/// two-fighter rig the tests and the standalone open with) and the select
-/// screen's assembled roster each declared stocks, the opening hold and the
-/// ability floor separately, with the same forty lines of comment copied
-/// between them. Adding a 3–2–1–GO countdown to one of them produced a shipped
-/// stage whose fighters were never released — held forever by a hold whose
-/// owner only existed on the other path, which is exactly the failure two
-/// copies of a rule are for.
 pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster) {
     roster.opens_suspended = true;
     // **THE OPENING CEREMONY: 3 — 2 — 1 — GO.**
@@ -157,20 +133,20 @@ pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster) {
     // for, so it came off on the tick the cast was built and the round began
     // with two fighters already moving before a player had looked at the stage.
     //
-    // ⛔ ticks rather than seconds, because the release is a comparison against
+    // ticks rather than seconds, because the release is a comparison against
     // the sim clock — see `MatchRules::opening_countdown_ticks`.
     roster.opening_countdown_ticks = 3 * 60;
-    // ⭐ **THE MATCH CLOCK.** Ultimate's default stock match runs eight minutes,
+    // **THE MATCH CLOCK.** Ultimate's default stock match runs eight minutes,
     // and the clock exists so a match between two fighters who will not approach
     // each other still ends — the stock economy alone has no answer to that.
-    // ⚠ derived from `ActiveMatch::activated_on`, so it costs no rollback state;
+    // derived from `ActiveMatch::activated_on`, so it costs no rollback state;
     // see `MatchRules::time_remaining`.
     roster.time_limit_ticks = 8 * 60 * 60;
     roster.fighter_stocks = Some(STARTING_STOCKS);
     // **EVERY FIGHTER IN THIS MATCH IS READ AGAINST THE SAME 100%.**
     //
-    // ⛔⛔ **the crossover cast does not author its percent, and cannot be asked
-    // to** (queue D131, measured through the shipped host 2026-08-16). An
+    // **the crossover cast does not author its percent, and cannot be asked
+    // to**. An
     // authored `max_health` is a statement made under the AUTHORING GAME's
     // rules: Mary-O and Sanic are one-hit-kill platformer protagonists and both
     // author `max_health: 1`, which is exactly right in their own games. Seated
@@ -180,16 +156,11 @@ pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster) {
     // points of damage. It looked like percent accruing on a clock on half the
     // cast. It was four fighters divided by 1, 1, 60 and 100.
     //
-    // ⛔ **and this REPLACES three per-character writes**, which is why it is
-    // here and not there. This demo used to stamp the reference onto the three
-    // characters it happens to register — a fix that could only ever cover its
-    // own fighters, and the roster is fourteen. The pool a percent is read
-    // against is a rule of the MATCH, exactly like the stock count above it and
-    // the death policy that count implies.
+    // **and this REPLACES three per-character writes**, which is why it is here and not there. The
+    // pool a percent is read against is a rule of the MATCH, exactly like the stock count above it
+    // and the death policy that count implies.
     roster.fighter_health_pool = Some(SMASH_PERCENT_REFERENCE);
     // **EVERY FIGHTER IN THIS MATCH HAS THE SAME VERBS.**
-    //
-    // ⛔ Measured 2026-08-01, both seats wearing the right duelist:
     //
     //     seat 0 (ADOPTED)     every ability true - fly, blink,
     //                          blink_through_hard_walls, glide, swim, shield
@@ -207,16 +178,10 @@ pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster) {
     // "what a fighter may do is a rule of the match" - and this demo declared
     // nothing, so the levelling never ran.
     //
-    // ⚠ WHICH verbs is a product call and [`SMASH_FIGHTER_KIT`] is the one place
+    // WHICH verbs is a product call and [`SMASH_FIGHTER_KIT`] is the one place
     // to change it; that the two seats agree is not.
     //
-    // ⭐⭐ **IT IS A LEVELLING, AND IT SAYS SO IN ONE WORD** (Jon, 2026-08-16:
-    // *"in smash all characters should be sure they are granted the basic smash
-    // abilities"*). `MatchAbilities::levelled` GRANTS this kit to every fighter
-    // and PERMITS nothing outside it, so the answer does not depend on what a
-    // character happened to author.
-    //
-    // ⛔ **it was a lone MASK for five days and that could not guarantee
+    // **it was a lone MASK for five days and that could not guarantee
     // anything.** A mask can only ever REMOVE, so a character whose kit was
     // written somewhere else arrived here missing verbs the stage thought it had
     // handed out: the Perfect Cellular Automaton's kit is a duel arena's, built
@@ -224,12 +189,12 @@ pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster) {
     // no fast fall, no dodge and no ledge grab. Twelve of the fourteen author no
     // kit at all, so nothing exercised the rule and the gap was invisible.
     //
-    // ⚠ **and it is not a GRANT either**, which is the trap on the other side —
+    // **and it is not a GRANT either**, which is the trap on the other side —
     // see `MatchAbilities`. The ceiling is what keeps an exploration
     // protagonist's flight and blink out of the fight, and what stops a mode
     // handing back a verb a character deliberately refused.
     //
-    // ⭐ the day a fighter should bring its own flavour here — a wall jump on
+    // the day a fighter should bring its own flavour here — a wall jump on
     // the characters that have one, the way a real platform fighter does — this
     // becomes a `MatchAbilities` whose `permitted` is wider than its `granted`,
     // and nothing else changes.
@@ -237,20 +202,7 @@ pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster) {
         Some(ambition_platformer2d::engine_core::MatchAbilities::levelled(SMASH_FIGHTER_KIT));
     // **AND THE BODY THOSE VERBS RUN ON.**
     //
-    // ⛔⛔ **a granted verb whose WINDOW is zero is a DEAD GRANT**, and the line
-    // above was handing out exactly that. `dodge` reached all fourteen fighters;
-    // `DEFAULT_TUNING.air_dodge_time` is `0.0`, so `available_dodge` fell
-    // straight through for every fighter whose character had not authored a
-    // fighter's body — which, measured on the composed host on 2026-08-16, was
-    // TWELVE of the fourteen (`player_robot_v3` among them: the demo's careful
-    // tuning was on `smash_duelist_a`, the STAND-IN the host drops).
-    //
-    // ⚠ **it did not read as broken until slice 1.** Those twelve had `dash`
-    // from the kit, so an airborne burst press fell out of the dodge and into
-    // `apply_dash` and they air-dashed. Removing `dash` — correctly — left the
-    // press meaning nothing at all.
-    //
-    // ⭐ the same shape as `fighter_abilities` one line up, one layer down: what
+    // the same shape as `fighter_abilities` one line up, one layer down: what
     // a fighter's body IS was a property of the CHARACTER, so a stage could
     // promise a verb and had no way to supply what the verb needs.
     roster.fighter_body = Some(SMASH_FIGHTER_BODY);
@@ -259,7 +211,7 @@ pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster) {
 /// **SMASH'S READING OF A CHARACTER** — a function from what the character
 /// AUTHORED to what this match's seat plays with.
 ///
-/// ⭐⭐ **PURE, and that is the requirement** (Jon, 2026-08-16). Two of this
+/// **PURE, and that is the requirement**. Two of this
 /// ruleset's three adjustments already go through one named composition site —
 /// [`apply_smash_match_rules`] declares them and `MatchRules::body_over` /
 /// `MatchRules::pool_over` compose them. The third did not: the registration
@@ -268,29 +220,18 @@ pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster) {
 /// grepping the name below finds every place the smash ruleset interprets
 /// authored character data.
 ///
-/// ⭐ **the orthogonality this expresses is not new here.** Character authoring
+/// **the orthogonality this expresses is not new here.** Character authoring
 /// and ruleset specificity are independent axes: data may live WITH the
 /// character while being owned SEMANTICALLY by the smash capability. Mary-O's
 /// move table already works exactly this way — it sits in her own crate, is
 /// unreachable in her own game, and speaks smash's vocabulary.
 ///
-/// ⛔⛔ **IT TAKES NO POSITION ON WHERE WEIGHT ULTIMATELY BELONGS.** Jon
-/// deliberately deferred that (*"do not design the final universal
-/// character/game composition model from one weight customer"*), so this is one
-/// customer and one seam and no facet type. What it buys is that the eventual
-/// answer — character-owned, game-owned, or composed — is ONE edit either way.
+/// What it buys is that the eventual answer — character-owned, game-owned, or composed — is ONE
+/// edit either way.
 ///
-/// ⚠ **the authored numbers and their reasoning are unchanged.** Weight is a
-/// SPREAD around the reference body rather than three absolute numbers: v3 is
-/// the middleweight the stage is tuned against, v2 is the lighter older build,
-/// George is the heavy. `scaled_knockback` divides the growth term by the
-/// victim's weight, so this is what decides who dies early and who survives to
-/// 150% — without it all three seat through `combatant` and weigh the same,
-/// which is three of the same fighter (D73 phase 1).
-///
-/// ⚠ **and it is still only three of fourteen**, for the same reason the percent
-/// reference used to be: it can only reach the characters this demo REGISTERS.
-/// That is the deferred question, stated rather than fixed.
+/// **the authored numbers and their reasoning are unchanged.** Weight is a SPREAD around the
+/// reference body rather than three absolute numbers: v3 is the middleweight the stage is tuned
+/// against, v2 is the lighter older build, George is the heavy.
 pub fn smash_reading_of_character(
     definition: ambition_platformer2d::actors::character_runtime::CharacterDefinition,
 ) -> ambition_platformer2d::actors::character_runtime::CharacterDefinition {
@@ -312,20 +253,20 @@ pub fn smash_reading_of_character(
 /// **THE PLATFORM-FIGHTER BODY** — the movement feel every fighter on this
 /// stage plays with, said ONCE.
 ///
-/// ⚠ **it states SIX numbers and disturbs nothing else** — see
+/// **it states SIX numbers and disturbs nothing else** — see
 /// [`MatchBody`](ambition_platformer2d::engine_core::MatchBody). Mary-O keeps
 /// her SMB1 gravity and jump arc on this stage and gets an air dodge; the
 /// crawler keeps its crawl. The composition is stated in
 /// `MatchRules::body_over` and nowhere else.
 ///
-/// ⛔ **authored HERE, not in the engine.** Every number below is zero or
+/// **authored HERE, not in the engine.** Every number below is zero or
 /// otherwise in `DEFAULT_TUNING` for a reason that is still correct, and the
 /// reasons are the point:
 ///
 /// * **`slash_recoil: 0.0`.** The engine's 110 px/s backwards on every melee
 ///   press is a feel detail for the exploration protagonist, whose swings are
 ///   occasional and whose rooms have walls. A fighter brain presses attack on
-///   most decisions, so the recoils RATCHET — measured 2026-07-31 with
+/// most decisions, so the recoils RATCHET — with
 ///   `AMBITION_FIGHTER_TRACE=1`: 200, 310, 420, 530 px/s in exact 110 steps
 ///   against a 270 px/s run, while the brain's own emitted input pointed the
 ///   other way. **Every CPU on this stage swung itself off the edge,
@@ -350,7 +291,7 @@ pub fn smash_reading_of_character(
 /// * **`sdi_step: 3.0` — SMASH DIRECTIONAL INFLUENCE.** DI bends the launch a
 ///   fighter is about to take; SDI moves it out of the NEXT hit's way while the
 ///   current one is still frozen. Three pixels a hitlag tick is small on one hit
-///   and decisive across a combo, which is the shape the mechanic wants. ⚠ ours
+///   and decisive across a combo, which is the shape the mechanic wants. ours
 ///   rewards the HOLD where the genre counts fresh stick inputs — the
 ///   simplification is named on `MovementTuning::sdi_step`.
 /// * **`tumble_speed: 500.0` — THE FLOOR GAME.** Above this launch speed a hit
@@ -361,13 +302,11 @@ pub fn smash_reading_of_character(
 ///   to stand up after every hit would be a different game for the exploration
 ///   side.
 ///
-/// ⭐ **it was authored on THREE CHARACTERS and is now authored on the STAGE**
-/// (D146 slice 1b). The three blocks were one expression in one loop, so they
-/// could not disagree with each other — and they could not reach the other
-/// eleven fighters either, two of the three are stand-ins the composed host
-/// drops, and the demo's own comment had already named the shape: *"The match
-/// then stamped one flat set over every body, so what a fighter could do was a
-/// property of the MATCH."*
+/// The three blocks were one expression in one loop, so they could not disagree with each other
+/// — and they could not reach the other eleven fighters either, two of the three are stand-ins
+/// the composed host drops, and the demo's own comment had already named the shape: *"The match
+/// then stamped one flat set over every body, so what a fighter could do was a property of the
+/// MATCH."*
 pub const SMASH_FIGHTER_BODY: ambition_platformer2d::engine_core::MatchBody =
     ambition_platformer2d::engine_core::MatchBody {
         slash_recoil: 0.0,
@@ -375,7 +314,7 @@ pub const SMASH_FIGHTER_BODY: ambition_platformer2d::engine_core::MatchBody =
         air_dodge_time: ambition_platformer2d::engine_core::AIR_DODGE_TIME,
         air_dodge_speed: ambition_platformer2d::engine_core::AIR_DODGE_SPEED,
         air_dodge_endlag: ambition_platformer2d::engine_core::AIR_DODGE_ENDLAG,
-        // ⭐ **SPOT DODGE, 0.16s.** The grounded evade had one shape, so the
+        // **SPOT DODGE, 0.16s.** The grounded evade had one shape, so the
         // option a cornered fighter takes — nowhere to roll TO, waiting out a
         // committed swing — did not exist. Shorter than the roll's window
         // because it covers no distance; a spot dodge that lasted as long would
@@ -383,7 +322,7 @@ pub const SMASH_FIGHTER_BODY: ambition_platformer2d::engine_core::MatchBody =
         // choice. The engine default is `0.0`: an exploration body keeps the
         // roll that press already means.
         spot_dodge_time: ambition_platformer2d::engine_core::SPOT_DODGE_TIME,
-        // ⭐ **WHICH GAME'S PERFECT SHIELD.** Smash 4 opens the window on the
+        // **WHICH GAME'S PERFECT SHIELD.** Smash 4 opens the window on the
         // press and Ultimate on the release, and the stage declares which — the
         // engine has no opinion. This stage plays the press-timed one for now
         // because it is what shipped; flipping it to `OnRelease` is a one-word
@@ -392,7 +331,7 @@ pub const SMASH_FIGHTER_BODY: ambition_platformer2d::engine_core::MatchBody =
         // `the_parry_window_opens_where_the_ruleset_says_it_does`).
         parry_timing: ambition_platformer2d::engine_core::ParryTiming::OnRaise,
         tumble_speed: 500.0,
-        // ⭐ **SDI, 3px a hitlag tick.** DI already lets a launched fighter bend
+        // **SDI, 3px a hitlag tick.** DI already lets a launched fighter bend
         // where it is thrown; this is the other half — shifting out of the NEXT
         // hit's way while the current one is still frozen, which is what makes a
         // combo answerable rather than a sentence. The engine default is `0.0`:
@@ -404,42 +343,28 @@ pub const SMASH_FIGHTER_BODY: ambition_platformer2d::engine_core::MatchBody =
 
 /// **THE BASIC SMASH ABILITIES** — the verbs every fighter on this stage has.
 ///
-/// Jon named this list on 2026-08-16 (*"all characters should be sure they are
 /// granted the basic smash abilities"*) and it is one constant so that the
 /// stage, the tests and any future reader read the same one.
 ///
-/// ⚠ **SPELLED OUT rather than a named engine set, and both candidates were
-/// tried and measured first.** `basic()` has no double jump and no attack, so it
-/// would REMOVE verbs the duelists already had. `sane_subset()` reads like a
-/// fighter's kit in its first ten lines and is not one — measured, it also
-/// grants fly, blink, precision_blink, wall climb and pogo, so declaring it made
-/// two seats agree that they could both FLY.
-///
-/// ⚠ **`fly` and `blink` are absent deliberately**: this is a platform fighter's
+/// **`fly` and `blink` are absent deliberately**: this is a platform fighter's
 /// ground game, not the exploration protagonist's traversal kit, and the July
 /// measurement of two seats disagreeing was exactly a duelist meeting a body
 /// that could fly. `interact` and `reset` are absent for the same reason a
 /// fighter has no talk button and no teleport home.
 ///
-/// ⚠ **`shield`, `dodge` and `ledge_grab` are what make this a platform fighter**
+/// **`shield`, `dodge` and `ledge_grab` are what make this a platform fighter**
 /// rather than two bodies running at each other. All three already existed in
 /// the engine with nothing switched on.
 ///
-/// ⭐⭐ **`dash` IS ABSENT, AND THAT IS THE POINT** (Jon, 2026-08-16: *"now that
-/// each character has an up-b, I think we can likely also remove everyone's
-/// ability to dash in smash. Dash should be an ability for ambition, it doesn't
-/// map into a smash vocabulary."*). `AbilitySet::dash` is not running — running
-/// is `move_horizontal` against the body's own top speed, and it consults no
-/// ability bit beyond that one. `dash` is a DISCRETE charge-gated burst that
-/// REPLACES the velocity vector for a window (`apply_dash`), which is a
-/// traversal verb from Ambition's exploration kit and not one of a platform
-/// fighter's sixteen presses. Dropping it leaves the burst BUTTON meaning
-/// exactly one thing here — the dodge — which is what it means in the genre.
+/// Dash should be an ability for ambition, it doesn't map into a smash vocabulary."*).
+/// `AbilitySet::dash` is not running — running is `move_horizontal` against the body's own top
+/// speed, and it consults no ability bit beyond that one. `dash` is a DISCRETE charge-gated burst
+/// that REPLACES the velocity vector for a window (`apply_dash`), which is a traversal verb from
+/// Ambition's exploration kit and not one of a platform fighter's sixteen presses. Dropping it
+/// leaves the burst BUTTON meaning exactly one thing here — the dodge — which is what it means in
+/// the genre.
 ///
-/// ⛔ removing it was a two-part change, not a deleted line: the kernel used to
-/// fill the shared burst buffer only for `abilities.dash`, so this edit alone
-/// would have deleted the DODGE from all fourteen fighters in silence. See
-/// `apply_intent` in `movement/abilities.rs`.
+/// See `apply_intent` in `movement/abilities.rs`.
 pub const SMASH_FIGHTER_KIT: ambition_platformer2d::engine_core::AbilitySet =
     ambition_platformer2d::engine_core::AbilitySet {
         move_horizontal: true,
@@ -495,15 +420,10 @@ where
 /// never acts — every stock lost was a self-KO, which made the number clean and
 /// made it impossible to measure a fight.
 ///
-/// ⚠ **`opens_suspended` and the stock count are inherited deliberately.** A rig
+/// **`opens_suspended` and the stock count are inherited deliberately.** A rig
 /// that quietly ran a different ruleset from the shipped stage would measure a
 /// game nobody plays; the ONLY difference from a real match is who is holding
 /// the controllers.
-///
-/// ⛔ **it takes one level per seat, not a base and an offset.** `N vs N−1` is
-/// the ladder's first question and not its last — `N vs N−3`, `N vs N`, and a
-/// rung against a fixed reference are all things this measures — and encoding
-/// the subtraction here would have to be undone by the second caller.
 pub fn smash_roster_at_levels<I, S>(characters: I, levels: &[u8]) -> MatchParticipantRoster
 where
     I: IntoIterator<Item = S>,
@@ -518,7 +438,7 @@ where
             brain_profile: Some(format!("{SMASH_DUELIST_BRAIN}_l{level}")),
         };
     }
-    // ⛔⛔ **AND IT SAYS WHOSE ROSTER IT IS.** `smash_roster` above ends with the
+    // **AND IT SAYS WHOSE ROSTER IT IS.** `smash_roster` above ends with the
     // same call and this one silently did not — which cost nothing while a CPU
     // seat's `brain_profile` could still be an ARCHETYPE key, because an
     // archetype table is global. It costs everything now that a published POLICY
@@ -526,30 +446,20 @@ where
     // `seat_brain_profile` resolves a provider-relative name in the MATCH's
     // provider, an unpublished roster has none, and every levelled seat this
     // helper builds was refused with *"`duelist_l1` … Known keys: [combatant]"*.
-    //
-    // ⚠ the regression was invisible to the run's gate — `cargo check -p
-    // ambition_app --all-targets` plus `app_it` never builds
-    // `ambition_demo_smash_app`'s tests, where all four of its CPU-roster
-    // regressions were red (ledger D88).
     roster.published_by(SMASH_EXPERIENCE)
 }
 
 /// Horizontal spread between adjacent respawn points, in stage pixels.
 ///
 /// Two 32px tiles — wider than a standing body, so two fighters returning on the
-/// same frame land clear of each other rather than inside one another. ⭐ derived
+/// same frame land clear of each other rather than inside one another. derived
 /// against [`PLATFORM_WIDTH`]: seat `n` sits at most `(n/2 + 0.5)` spacings from
 /// the centre, so even eight seats stay within ±224px of a 480px platform.
 const RESPAWN_SEAT_SPACING_PX: f32 = 64.0;
 
 /// **Where a fighter comes back, and it is not where its opponent comes back.**
 ///
-/// ⛔⛔ **this took no seat at all**, so every fighter respawned on one point:
-/// two knockouts on the same frame put both bodies inside each other over the
-/// centre of the stage, at the exact moment neither has information or options.
-/// (D128 defect 3.)
-///
-/// ⭐ **seats alternate outward from the centre** — 0 left, 1 right, 2 further
+/// **seats alternate outward from the centre** — 0 left, 1 right, 2 further
 /// left, 3 further right — so the arrangement is symmetric at any roster size
 /// and no seat is privileged. An offset that simply grew with the index would
 /// push seat 3 twice as far out as seat 1 for no reason a player could read.
@@ -642,19 +552,15 @@ pub fn smash_stage() -> RoomSpec {
     room
 }
 
-/// The stage centre a respawn is measured from.
 pub fn stage_centre() -> Vec2 {
     Vec2::new(STAGE_SIZE.x / 2.0, PLATFORM_TOP)
 }
 
 /// What the match announces when it ends.
 ///
-/// ⭐ **"WINNER: <name>", in Jon's own words** (2026-08-16): *"the time in the
-/// game should freeze with 'WINNER: <name>' to show the match is over"*. It read
-/// `seat 2 wins` before — which is what he was looking at when he asked — and
-/// the SIDE is not a name. `announce_the_winner` resolves the winning side into
-/// the fighter's own name before it gets here; this owns the wording alone, so
-/// the card and any test of it read one function.
+/// It read `seat 2 wins` before — which is what he was looking at when he asked — and the SIDE is
+/// not a name. `announce_the_winner` resolves the winning side into the fighter's own name before
+/// it gets here; this owns the wording alone, so the card and any test of it read one function.
 pub fn victory_banner(winner: Option<&str>) -> String {
     match winner {
         Some(side) => format!("WINNER: {side}"),
@@ -716,7 +622,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // alternative is a frame of latency on every grab, which in a fighting
         // game is a mechanic change rather than a rounding error.
         //
-        // ⚠ **`Materialize`, beside the projectile spawns**, because that set's
+        // **`Materialize`, beside the projectile spawns**, because that set's
         // own doc says what it is for: *"a thing must EXIST before it can hit
         // anything"*. A capture relationship is exactly such a thing — the
         // pummel and throw that target it are moves that come later.
@@ -725,7 +631,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             (
                 crate::capture::translate_smash_capture_effects,
                 ambition_platformer2d::combat::capture::systems::acquire_captures,
-                // ⭐ **and posed the SAME tick it is caught.** The pose sync also
+                // **and posed the SAME tick it is caught.** The pose sync also
                 // runs in `WorldPrep`, which is EARLIER in the tick than this —
                 // so without this second call a body grabbed now would hang where
                 // it stood until the next frame, one visible frame of a captive
@@ -739,7 +645,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 // it has just left.
                 ambition_platformer2d::combat::capture::systems::apply_capture_throws,
                 ambition_platformer2d::combat::capture::systems::constrain_captive_bodies,
-                // ⭐ the captive's POSE, published beside the constraint that
+                // the captive's POSE, published beside the constraint that
                 // holds it. `CharacterAnim` has no held row, so this draws the
                 // hurt one — a body in somebody's hands reading as idle was the
                 // last thing about a grab that did not look like one.
@@ -748,7 +654,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 .chain()
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Materialize),
         );
-        // ⛔⛔ **THE FOOTSTOOL CLAIMS THE PRESS BEFORE THE KERNEL SPENDS IT, so
+        // **THE FOOTSTOOL CLAIMS THE PRESS BEFORE THE KERNEL SPENDS IT, so
         // it runs in `PlayerInput` and NOT in `Settle`.** It shipped in `Settle`
         // on the argument that a later velocity write wins; that is true of the
         // velocity and false of the air jump, which the kernel had already spent
@@ -761,11 +667,11 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::PlayerInput,
             ),
         );
-        // ⭐ **THE LEDGE TRUMP RESOLVES AFTER THE KERNEL, so it sees the grabs
+        // **THE LEDGE TRUMP RESOLVES AFTER THE KERNEL, so it sees the grabs
         // this tick made.** Two bodies can catch one edge on the same frame, and
         // arbitrating before `PlayerSimulation` would judge LAST tick's
         // occupancy and leave both hanging for a frame — which is the frame an
-        // edge-guard reads. ⚠ `CombatSet::Settle` is not a claim that a trump is
+        // edge-guard reads. `CombatSet::Settle` is not a claim that a trump is
         // combat; it is the established post-kernel bookkeeping slot, beside the
         // capture release and the stale-move recorder.
         app.add_systems(
@@ -793,26 +699,15 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             publish_smash_hud,
             announce_the_opening_countdown,
             place_respawning_fighters,
-            // ⭐ **`run_empowerments` used to sit right here**, and the note
-            // beside it said a component whose expiry depends on each game
-            // scheduling a system is a grant that silently becomes permanent in
-            // the game that forgets — *"probably an engine-side registration
-            // later"*. That landed (queue D152): the engine installs the clock
-            // in `EmpowermentExpiry`, so the respawn protection this file grants
-            // ends whether or not anybody remembers. Nothing here reads the
-            // grant, so nothing here needs an ordering edge against it — the
-            // stamp lands in `GameplayEffects`, still ahead of the next frame's
-            // `CombatSet::Resolve` that consults it, exactly as it did from this
-            // slot.
             announce_the_winner,
         )
             .chain()
             .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle)
             .after(ambition_platformer2d::combat::stocks::FighterStocksSpent);
-        // ⛔⛔ **THE ONE RULE THAT CANNOT RUN ALONGSIDE THE DECISION**, pulled out
+        // **THE ONE RULE THAT CANNOT RUN ALONGSIDE THE DECISION**, pulled out
         // of the chain above and ordered behind it.
         //
-        // Reported from the couch (2026-08-15): *"there seems like several cases
+        // Reported from the couch: *"there seems like several cases
         // where everyone but one player dying will not cause a match to end
         // correctly."* This system DESPAWNS an eliminated body, and
         // `decide_stocks_match` reads the sides off the bodies that still exist —
@@ -826,7 +721,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // on how the scheduler broke a tie — which is why it was *"several
         // cases"* rather than always.
         //
-        // ⚠ **only this one waits.** The HUD, the countdown and the respawn
+        // **only this one waits.** The HUD, the countdown and the respawn
         // placement are still meant to run beside the engine's answer rather than
         // behind it — see `FighterStocksSpent`'s own note — and putting the whole
         // chain behind the decision would take that away to fix one member.
@@ -846,12 +741,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
 
 /// The stage's own readouts: one per fighter, plus the match card.
 ///
-/// ⛔ Until 2026-08-01 this demo declared NO HUD, so it inherited Ambition's
-/// adventure one and a platform-fighter match was drawn with `HP 100/100`,
-/// `MP 100` and `$0` — a health bar, a mana bar and a money counter, none of
-/// which describe this game. Photographed, not reasoned about.
-///
-/// ⚠ the data was already shaped for these readouts and nothing consumed it:
+/// the data was already shaped for these readouts and nothing consumed it:
 /// `BodyHealth::damage_percent()` is deliberately UNCLAMPED with a test named
 /// `damage_percent_is_unclamped_so_a_hud_can_print_188`, and `FighterStocks`
 /// keeps `started_with` with the comment *"so a HUD can draw '2 of 3' rather
@@ -868,9 +758,8 @@ pub const SMASH_ANNOUNCE_HUD_SLOT: &str = "smash_announce";
 
 /// **What one remaining stock is drawn as**, under the sprites asset root.
 ///
-/// ⚠ generated, not committed — `regen_sprites.sh` names it in its publish
-/// roster, which is what lets a fresh clone produce it. Art that exists only
-/// where it was once rendered is a trap this repo has already paid for twice.
+/// generated, not committed — `regen_sprites.sh` names it in its publish roster, which is what
+/// lets a fresh clone produce it.
 pub const STOCK_ICON_ASSET: &str = "sprites/hud_stock_icon.png";
 
 /// **What plays on the stage.**
@@ -882,14 +771,14 @@ pub const SMASH_SELECT_TRACK: &str = "super_smash_siblings_character_select";
 /// **The scores written for this demo**, rendered from
 /// `tools/ambition_music_renderer/scores/active/super_smash_siblings_*.music.yaml`.
 ///
-/// ⚠ **all three are registered, not only the one that plays.** A track in this
+/// **all three are registered, not only the one that plays.** A track in this
 /// fragment is a track this experience is ALLOWED to play — the radio, a future
 /// stage select, and the winner card all pick from it — so registering only the
 /// default would make the other two unreachable from inside a smash session
 /// even though they were written for it. The default is what plays with nobody
 /// asking.
 ///
-/// ⚠ the asset path is derived (`audio/music/generated/<id>/full.ogg`) rather
+/// the asset path is derived (`audio/music/generated/<id>/full.ogg`) rather
 /// than written out, because that layout is the renderer's own contract and
 /// three hand-typed copies of it is three chances to typo one.
 pub const SMASH_TRACKS: &[(&str, &str)] = &[
@@ -903,7 +792,7 @@ pub const SMASH_TRACKS: &[(&str, &str)] = &[
 
 /// Publish percent and stocks for every seated fighter.
 ///
-/// ⚠ percent is NOT health and the gauge fill says so: it fills as damage
+/// percent is NOT health and the gauge fill says so: it fills as damage
 /// ACCUMULATES, and the number keeps counting past 100% because a platform
 /// fighter's does. Clamping the fill is a rendering decision; clamping the
 /// number would be a lie about the game.
@@ -911,80 +800,66 @@ pub const SMASH_TRACKS: &[(&str, &str)] = &[
 /// **THE COMBAT RULES THIS STAGE DECLARES**, in one place so the publisher and
 /// its guard cannot hold different copies.
 ///
-/// ⛔⛔ **they did.** The roster publisher read the `DeclaredCombatRules`
-/// RESOURCE for its unarmed floor while the same system inserted that resource
-/// fifty lines later through a deferred `Commands::insert_resource` — so on the
-/// frame the match is decided the resource does not exist and `None` was
-/// published (measured on the shipped select screen: `present = false`). Every
-/// kit-less fighter reached the stage unable to hit anybody.
-/// ⚠ and the guard could not catch it, because it passed the swipe in BY HAND:
-/// *"a fixture that manufactures the value under test cannot fail on its
-/// absence."* Both now call this.
+/// Every kit-less fighter reached the stage unable to hit anybody. and the guard could not catch
+/// it, because it passed the swipe in BY HAND: *"a fixture that manufactures the value under test
+/// cannot fail on its absence."* Both now call this.
 ///
-/// ⚠ **reading the resource would be wrong even when it exists**: on a second
+/// **reading the resource would be wrong even when it exists**: on a second
 /// visit it holds the PREVIOUS match's declaration. A function has no such tense.
 pub fn smash_declared_combat_rules() -> ambition_platformer2d::combat::rules::DeclaredCombatRules {
     ambition_platformer2d::combat::rules::DeclaredCombatRules {
-        // ⛔ BY OWNER. The versus route declares combat rules too, and a
+        // BY OWNER. The versus route declares combat rules too, and a
         // giveback that removed this by TYPE would delete ITS live rules the
         // moment smash left — the lesson the roster and the prepared match each
         // taught once already.
         declared_by: SMASH_EXPERIENCE.to_string(),
         di_max_angle: SMASH_DI_MAX_ANGLE,
         knockback_growth: SMASH_KNOCKBACK_GROWTH,
-        // ⭐⭐ **A DOWN-AIR IS A SPIKE HERE**, not a pogo (ledger D82). The robot's
-        // down-air is ONE authored swing that says it can rebound its attacker;
-        // Ambition takes it up on that, and a platform fighter must not — a
-        // d-air that bounced you back to safety offstage would be the opposite
-        // of a kill. Same move, two games, and the difference is declared rather
-        // than authored twice.
+        // The robot's down-air is ONE authored swing that says it can rebound its attacker;
+        // Ambition takes it up on that, and a platform fighter must not — a d-air that bounced you
+        // back to safety offstage would be the opposite of a kill. Same move, two games, and the
+        // difference is declared rather than authored twice.
         downward_hit: ambition_platformer2d::combat::rules::DownwardHitStyle::Spike,
-        // ⭐ **and the spike is a SENTENCE, not just a shove.** ~18 frames in
+        // **and the spike is a SENTENCE, not just a shove.** ~18 frames in
         // which a body knocked down out of the air cannot recover — long enough
         // that a spike offstage is a kill and short enough that one over the
         // stage is survivable. The window ENDING is what the genre calls the
         // meteor cancel; there is no second verb.
         meteor_lock_time: 0.30,
-        // ⭐ **RAGE, capped at 1.4x.** The percent mechanic already makes a hurt
+        // **RAGE, capped at 1.4x.** The percent mechanic already makes a hurt
         // fighter easier to launch; without this it is punished twice, and the
         // last stock stops being a fight. The cap is what keeps a comeback a
         // chance rather than a coin flip.
         rage_per_damage: 0.004,
         rage_max_scale: 1.4,
-        // ⭐ **STALING, floored at 0.55.** One reliable kill move should not be
+        // **STALING, floored at 0.55.** One reliable kill move should not be
         // the only answer a fighter needs; nine landings of it and it is worth
         // barely half. Vary and the old one recovers — the ring forgets.
         stale_step: 0.05,
         stale_floor: 0.55,
-        // ⭐ **CROUCH CANCEL, 0.85x.** Ducking is a defensive read, not just a
+        // **CROUCH CANCEL, 0.85x.** Ducking is a defensive read, not just a
         // shorter hurtbox — and the 15% is what makes it one at low percent
         // without saving anybody from a kill move.
         crouch_cancel_scale: 0.85,
-        // ⭐ **A GRAB HOLDS THE HURT FIGHTER LONGER**, which is Ultimate's
+        // **A GRAB HOLDS THE HURT FIGHTER LONGER**, which is Ultimate's
         // 90 + 1.7p frames: 1.5s at 0%, ~4.3s at 100%. It makes the grab a
         // percent mechanic like the launch is, so the body that is losing is
         // the body a grab is worth spending your commitment on.
         //
-        // ⚠ the percent is read AT THE GRAB, so pummelling does not extend the
+        // the percent is read AT THE GRAB, so pummelling does not extend the
         // hold it earns you — a pummel is a decision, not a free extension.
         grab_hold_base_seconds: 90.0 / 60.0,
         grab_hold_per_damage: 1.7 / 60.0,
         // The captor's answer to the same question: however hurt the captive
         // is, a hold nobody ends still ends.
         grab_hold_max_seconds: 6.0,
-        // ⚠ 14.4 frames per press, Ultimate's rate, so mashing is the captive's
+        // 14.4 frames per press, Ultimate's rate, so mashing is the captive's
         // real option rather than a gesture at one.
         grab_mash_seconds: 14.4 / 60.0,
-        // ⚠ teams already decide who may hit whom. Switching global friendly
+        // teams already decide who may hit whom. Switching global friendly
         // fire on to let two humans trade would make TEAMMATES hittable too.
         friendly_fire: false,
-        // ⭐⭐ **THE STAGE'S FLOOR, DECLARED** (P3.24/P2.20, 2026-08-12). This
-        // lived in `select::smash_fighter_kit()` — a helper this crate applied to
-        // every seat whose character says nothing — while EXPLORATION answered
-        // the same question with a different swipe. Two spellings of "what does
-        // an unarmed body swing", neither owned by anybody.
-        //
-        // ⛔ these numbers are the helper's VERBATIM: 0.22 / 0.08 / 0.26, 4
+        // these numbers are the helper's VERBATIM: 0.22 / 0.08 / 0.26, 4
         // damage, 34 reach. A stage's floor is faster, harder and longer than an
         // exploration provoke's, and moving it here is not the place to decide
         // that differently.
@@ -1010,7 +885,7 @@ pub fn publish_smash_hud(
         // is a display string; a portrait is resolved from the character id.
         Option<&ambition_platformer2d::characters::actor::WornCharacter>,
     )>,
-    // ⚠ **the GAME resolves the portrait path, not the renderer.** `HudFigure`'s
+    // **the GAME resolves the portrait path, not the renderer.** `HudFigure`'s
     // variants are presentation primitives and "which character" is content —
     // see the note on `HudStanding::portrait`. This is the side that knows.
     catalog: Option<
@@ -1045,17 +920,14 @@ pub fn publish_smash_hud(
             continue;
         };
         written[*seat] = true;
-        // ⛔ **the percent ONLY.** It used to read `"88%  ·  2/3"`, because a
-        // string was the only thing a readout could carry — Jon, 2026-08-21:
-        // *"currently in a match we just give players text boxes that are
-        // percent"*. Stocks are ICONS now and a fraction printed beside them
-        // would be the same fact said twice.
+        // Stocks are ICONS now and a fraction printed beside them would be the same fact said
+        // twice.
         let value = format!("{:.0}%", percent * 100.0);
         let (remaining, started) = stocks.unwrap_or((0, 0));
         readouts.set(
             *slot,
             ambition_platformer2d::presentation::HudReadout::standing(
-                // ⛔ **NO LABEL, and the first capture is why.** `text()` joins
+                // **NO LABEL, and the first capture is why.** `text()` joins
                 // the label and the value, so passing the fighter's name here
                 // drew "George Booul 0%" across a 132px panel — two panels'
                 // worth of text colliding in the middle of the screen. The
@@ -1089,34 +961,17 @@ pub fn publish_smash_hud(
 /// ends (`release_the_opening_hold`), atomically, for every seat on one tick.
 /// This system is the part a stage owns: saying the numbers out loud.
 ///
-/// ⚠ **this demo had no countdown and released the instant the match went
-/// live.** The comment that stood here recorded the day it had no release
-/// either — the fighters seated, stood exactly where seating put them, and
-/// never moved while every test passed, because they existed, wore seats,
-/// carried stocks and were correctly suspended forever. The tell was a diagram
-/// printing `travel: [0.0, 0.0]`.
+/// The tell was a diagram printing `travel: [0.0, 0.0]`.
 ///
-/// ⭐ **DERIVED from the clock, so it cannot drift from the release.** The
+/// **DERIVED from the clock, so it cannot drift from the release.** The
 /// number on screen and the tick the bodies are freed are two readings of one
 /// pure function of `now - activated_on`; a separate timer for the card would
 /// be a second authority on when the round starts, and the two would disagree
 /// on the frame anybody looked closely.
 ///
-/// ⛔⛔ **AND IT USED TO BE INVISIBLE** — reported from the couch, 2026-08-15:
-/// *"I think there is also a countdown to start the match, but there is no
-/// visual indication of that countdown, like a 3, 2, 1, go."* Exactly right, and
-/// the reason is that this wrote a `GameplayBannerRequested`. Nothing DRAWS a
-/// `GameplayBanner`: its one reader in the whole workspace is the app's debug
-/// HUD text, which prefixes it `FEATURE:` and is gated on `player.single()` — so
-/// in a CPU-versus-CPU match, which has no primary player, not even the debug
-/// line appeared. The ceremony ran, the fighters were held and released, and the
-/// screen said nothing.
+/// Same road as the fighter percents beside it, which are visibly drawn.
 ///
-/// ⇒ it writes [`SMASH_ANNOUNCE_HUD_SLOT`] instead — the centred 34pt gold card
-/// this demo has DECLARED since the HUD landed and never once written to. Same
-/// road as the fighter percents beside it, which are visibly drawn.
-///
-/// ⭐ **and the `Local` is gone with the banner.** A readout is idempotent (a map
+/// **and the `Local` is gone with the banner.** A readout is idempotent (a map
 /// insert), so writing the same word every tick is free, while a banner message
 /// re-requested every tick would never let the next card through — which is what
 /// the state existed to prevent. The system is now a pure function of the clock
@@ -1147,21 +1002,10 @@ fn announce_the_opening_countdown(
     if !rules.opens_suspended || rules.opening_countdown_ticks == 0 {
         return;
     }
-    // ⛔⛔ **THE CEREMONY STOPS TALKING THE MOMENT THE MATCH IS DECIDED** (D140).
+    // **THE CEREMONY STOPS TALKING THE MOMENT THE MATCH IS DECIDED**.
     //
-    // The card has exactly one owner at a time and the ORDER is the whole rule:
-    // the opening owns it until there is an outcome, and then the outcome does,
-    // for as long as the results stand. This used to be expressed as "do not
-    // CLEAR the winner's card", which guarded the wrong half — the `Some(word)`
-    // arm was ungated, so a match decided while GO! was still up (its card holds
-    // one beat past the release, and a knockout can land inside that beat)
-    // overwrote the victory card with GO! on the very next tick. Measured on
-    // this stage: `["3", "2", "1", "GO!", "seat 1 wins", "GO!"]`.
-    //
-    // ⚠ and the same line is why a stuck GO! was UNCLEARABLE. Once the previous
-    // match's verdict could not be retracted (the defect above this one), the
-    // clear was gated off forever and the card sat on a live match announcing
-    // its start. Both halves of D140 met on this one `if`.
+    // The card has exactly one owner at a time and the ORDER is the whole rule: the opening owns it
+    // until there is an outcome, and then the outcome does, for as long as the results stand.
     if settled.is_some_and(|settled| settled.settled(&active)) {
         return;
     }
@@ -1191,7 +1035,7 @@ fn announce_the_opening_countdown(
 
 /// Put a respawning fighter back over the platform.
 ///
-/// ⚠ through `reset_body_clusters`, not `transit_body`, and the difference is a
+/// through `reset_body_clusters`, not `transit_body`, and the difference is a
 /// leak. Both re-resolve a body's pose against the world (ADR 0024 — a body
 /// appearing somewhere has to ARRIVE there, not be teleported into whatever is
 /// standing at the coordinates), but `transit_body` documents that "axis
@@ -1200,24 +1044,17 @@ fn announce_the_opening_countdown(
 /// losing a stock: a fighter came back holding the dash timer and buffered jump
 /// it died with.
 ///
-/// `reset_body_clusters` is the verb that means "this body starts again" — the
-/// same one the sandbox reset and the versus round boundary use — and it raises
-/// `BodyLifetime::restart_pending`, so `announce_body_restarts` triggers
-/// `ae::BodyRestarted` and every PROVIDER hears about the respawn too. Through
-/// `transit_body` none of them did: a ball-dash charge or a rolling form would
-/// have survived a knockout in silence.
-///
-/// This is the versus stage's 2026-07-28 bug reintroduced in a new demo three
-/// days later, which is the argument for the announcement being DERIVED rather
-/// than announced by hand — the derivation is what makes this a one-line fix
-/// instead of a hunt for every provider that cares.
+/// `reset_body_clusters` is the verb that means "this body starts again" — the same one the
+/// sandbox reset and the versus round boundary use — and it raises
+/// `BodyLifetime::restart_pending`, so `announce_body_restarts` triggers `ae::BodyRestarted`
+/// and every PROVIDER hears about the respawn too.
 fn place_respawning_fighters(
     mut commands: bevy::prelude::Commands,
     mut spent: bevy::prelude::MessageReader<ambition_platformer2d::actor::FighterStockSpent>,
     mut bodies: bevy::prelude::Query<(
         ambition_platformer2d::actor::BodyClusterQueryData,
         &mut ambition_platformer2d::actors::features::MotionModel,
-        // ⭐ the SEAT, so two fighters returning on one frame do not land inside
+        // the SEAT, so two fighters returning on one frame do not land inside
         // each other. `Option` because a body without one is not a seated
         // fighter, and this system must not stop placing it.
         Option<&ambition_platformer2d::actor::MatchSeat>,
@@ -1233,8 +1070,6 @@ fn place_respawning_fighters(
         let Ok((clusters, mut model, seat)) = bodies.get_mut(event.body) else {
             continue;
         };
-        // A body with no seat falls back to seat 0's point — the same place it
-        // used to get, so an unseated body is no worse off than before.
         let seat = seat.map_or(0, |seat| seat.0);
         let mut item = clusters;
         let mut clusters = item.as_clusters_mut();
@@ -1259,16 +1094,10 @@ fn place_respawning_fighters(
         // `Empowered` is the generic timed-untouchable grant a star pickup uses,
         // it is rollback-registered, and it expires on its own.
         //
-        // ⛔ **the RULESET grants it, not the character.** The same fighter in
+        // **the RULESET grants it, not the character.** The same fighter in
         // Ambition has no stocks to lose and gets none of this; a mode that
         // wants none simply does not insert it. That is why this is here rather
         // than on a `CharacterDefinition`.
-        //
-        // ⚠ it expires on TIME alone today. Jon's brief also allows clearing it
-        // when the returning fighter commits an attack ("and/or"), which is the
-        // stricter rule and wants a system watching the attack edge — worth
-        // adding once there is a real complaint about a protected fighter
-        // swinging.
         commands.entity(event.body).try_insert(
             ambition_platformer2d::actors::features::empowerment::Empowered::for_seconds(
                 ambition_platformer2d::actors::features::empowerment::Empowerment::UNTOUCHABLE,
@@ -1288,17 +1117,10 @@ const RESPAWN_PROTECTION_SECONDS: f32 = 2.0;
 
 /// **Take an eliminated fighter OUT OF PLAY.**
 ///
-/// `ambition_combat::stocks` says this in as many words — a fighter with no
-/// stocks left "is still standing until a ruleset removes it" — and for a day
-/// this ruleset did not. The result, measured over sixty seconds of real
-/// fighting: the loser fell out of the world, was correctly eliminated, and then
-/// KEPT FALLING, taking a fresh `LeftTheWorld` hit every tick. It reached
-/// y=34430 and **270900%**.
-///
-/// Nothing was wrong upstream. The stock was spent exactly once — the engine's
-/// `Without<FighterEliminated>` filter held — the match was decided, and the
-/// body simply never stopped being a body. That is the difference between "the
-/// count is correct" and "the match is over", and it is the ruleset's half.
+/// The stock was spent exactly once — the engine's `Without<FighterEliminated>` filter held —
+/// the match was decided, and the body simply never stopped being a body. That is the
+/// difference between "the count is correct" and "the match is over", and it is the ruleset's
+/// half.
 ///
 /// Despawn rather than park: a fighter that is out has no state anybody reads,
 /// and leaving it somewhere off-screen is how a match ends with an invisible
@@ -1326,47 +1148,34 @@ const RETURN_TO_SELECT_AFTER: f32 = 4.5;
 
 /// **When the match ends, go back and choose again.**
 ///
-/// Jon, 2026-07-29, specifying Smash Siblings: *"Its 3 stocks, and then when the
 /// game ends it goes back to the character select screen."* Recorded as a
 /// decision that day (`maintainer-decisions.md`) and never built — the banner
 /// went up, and the demo then sat on a decided stage with nothing left to
 /// decide and no way back but the pause menu.
 ///
-/// ⚠ **`Update` and REAL time, not the sim schedule.** Leaving a match is shell
+/// **`Update` and REAL time, not the sim schedule.** Leaving a match is shell
 /// lifecycle: the countdown must keep running while the simulation is over, and
 /// the route change is a shell command, not a rule.
 ///
-/// ⚠ **armed once.** `StocksMatchDecided` is written from the sim, so a rollback
+/// **armed once.** `StocksMatchDecided` is written from the sim, so a rollback
 /// can re-deliver it; re-arming on the second copy would restart the countdown
 /// and hold the players on a finished match.
 /// **A match on this stage always plays by smash's rules, however it was
 /// entered.**
-///
-/// ⛔⛔ **MEASURED 2026-08-20: it did not.** `smash_declared_combat_rules()` was
-/// called from exactly one place — `start_the_battle_when_asked`, the system
-/// that leaves the LOBBY — so a match reached any other way ran the undeclared
-/// baseline. Probed inside a live `the_stage_kills` run, every tick for 2398
-/// ticks:
 ///
 /// ```text
 /// crouch_cancel_scale = 1.0    declared 0.85 by smash   ← the BASELINE
 /// DeclaredCombatRules present = false
 /// ```
 ///
-/// ⇒ meteor lock, rage, staling, crouch cancel, grab depth, SDI and the parry
-/// timing were ALL inert there. **Four entry points skip the lobby**:
-/// the five `the_stage_kills` tests, and the `match_diagram`, `capture_probe`
-/// and `ladder_rig` bins — the last of which EVALUATES FIGHTER AI, so its
-/// numbers were measured in a different game.
-///
-/// ⭐ **a safety net, not a second authority.** The lobby is still the declarer:
+/// **a safety net, not a second authority.** The lobby is still the declarer:
 /// it computes the ruleset from the cast it just assembled and refreshes it on
 /// every battle start. This only notices that the stage is live with somebody
 /// else's rules — or none — and puts smash's on. Re-entering by the ordinary
 /// road is untouched, because by the time this runs the lobby's declaration is
 /// already ours.
 ///
-/// ⚠ **keyed by OWNER, like every other giveback here.** A world where versus
+/// **keyed by OWNER, like every other giveback here.** A world where versus
 /// declared last and smash's stage is somehow live is a bug worth correcting;
 /// one where our own declaration is already present is the normal case and must
 /// not be rewritten every frame.
@@ -1390,24 +1199,13 @@ fn the_stage_always_plays_by_smash_rules(
 
 /// **SMASH'S FIGHTERS ARE SOLID TO EACH OTHER — this is jostle.**
 ///
-/// ⭐⭐ **the capability is the ENGINE's and the word is SMASH'S.** Jon's ruling
-/// on §25 (2026-08-20): AVOID PUSHOUT is about portals; a body mechanic may
-/// express contact, it *"should never be a mandatory part of the movement
-/// kernel"*, and *"games will want this, so we should be able to express it"*.
-/// The engine therefore owns an unnamed constraint — one body's proposed motion
-/// reduced by the bodies it is touching
-/// (`ambition_platformer2d_core::movement::body_contact`) — and this ruleset
+/// The engine therefore owns an unnamed constraint — one body's proposed motion reduced by the
+/// bodies it is touching (`ambition_platformer2d_core::movement::body_contact`) — and this ruleset
 /// grants it to its cast. Nothing in the kernel knows the word jostle.
 ///
-/// ⛔⛔ **AND IT IS NOT A FORCE.** The previous attempt at this added an
-/// acceleration beside the controller and had eight passing unit tests;
-/// `bbbc5e46c` deleted it. The axis-swept kernel treats `vel.x` as a velocity
-/// TARGET that `approach()` overwrites every tick, so a term summed into it is
-/// erased before integration — the tests passed because their fixture had no
-/// movement kernel in it. **A test that supplies its own precondition cannot
-/// prove the mechanism reaches production.**
+/// **A test that supplies its own precondition cannot prove the mechanism reaches production.**
 ///
-/// ⚠ **granted to `MatchBody`-seated fighters, which is the cast.** A projectile
+/// **granted to `MatchBody`-seated fighters, which is the cast.** A projectile
 /// or a stage prop that happens to be a body is not a fighter and does not get
 /// it; the grant follows the thing the ruleset seated.
 fn smash_fighters_are_solid_to_each_other(
@@ -1428,7 +1226,7 @@ fn smash_fighters_are_solid_to_each_other(
     if !on_stage {
         return;
     }
-    // ⚠ `Without<BodyContact>` in the filter IS the idempotence: a body that
+    // `Without<BodyContact>` in the filter IS the idempotence: a body that
     // already has it is not in the query, so nothing is written on the frames
     // where nothing changed, and no change tick moves.
     for fighter in &fighters {
@@ -1455,14 +1253,6 @@ fn return_to_the_select_screen_when_the_match_ends(
         // countdown belongs to THIS visit to the stage.
         *countdown = None;
         decided.clear();
-        // ⭐ **AND THE CARD BELONGS TO THIS VISIT TOO** (D140). It used to be
-        // left standing on the argument that "the experience's whole HUD
-        // declaration goes with the route", which is true about what is DRAWN
-        // and not about what is HELD — so the next match arrived on the stage
-        // with the previous winner still in the slot, and it showed for the two
-        // frames before that match activated and the ceremony took the slot
-        // over. A card that outlives its match is exactly the defect D140 is
-        // about, in miniature.
         readouts.clear_slot(SMASH_ANNOUNCE_HUD_SLOT);
         return;
     }
@@ -1482,7 +1272,7 @@ fn return_to_the_select_screen_when_the_match_ends(
     }
 }
 
-// ⛔ **`dress_the_primary_player_as_their_own_pick` IS GONE, and so is the whole
+// **`dress_the_primary_player_as_their_own_pick` IS GONE, and so is the whole
 // class of bug it was made of.**
 //
 // It existed to reconcile two facts that should never have needed reconciling:
@@ -1494,7 +1284,7 @@ fn return_to_the_select_screen_when_the_match_ends(
 // the body wore the CPU's costume, the human seat waited for one it would never
 // be given, and because one unresolved seat returned from the whole system,
 // NOBODY was seated. The stage opened with the home body standing on it and
-// nothing anywhere said why (Jon, 2026-08-06).
+// nothing anywhere said why.
 //
 // A match now builds its own cast — every fighter by one path, control attached
 // afterwards — so there is no pre-existing body to reconcile with and no costume
@@ -1504,27 +1294,22 @@ fn return_to_the_select_screen_when_the_match_ends(
 
 /// Say who won, once.
 ///
-/// ⛔⛔ **this wrote a `GameplayBannerRequested` too, and so the winner card was
+/// **this wrote a `GameplayBannerRequested` too, and so the winner card was
 /// as invisible as the countdown was** — see
 /// [`announce_the_opening_countdown`] for why nothing draws that channel. The
 /// demo has declared a centred announce slot the whole time; this writes it.
 ///
-/// ⚠ **written once, and it stands until the stage is LEFT.** A readout
+/// **written once, and it stands until the stage is LEFT.** A readout
 /// persists until somebody replaces or clears it, and nothing on this stage
 /// replaces it — [`announce_the_opening_countdown`] hands the slot over the
 /// moment a match is decided. 4.5 s later
 /// [`return_to_the_select_screen_when_the_match_ends`] takes the card down as it
 /// goes, so the card stands for exactly as long as the results screen does with
 /// no timer to keep in step with the route change.
-///
-/// ⛔ **it used to rely on the HUD DECLARATION leaving with the route instead**,
-/// and that is a claim about what is DRAWN, not about what is HELD — the next
-/// match arrived on the stage still holding the last one's winner (D140).
 fn announce_the_winner(
     mut decided: bevy::prelude::MessageReader<ambition_platformer2d::actor::StocksMatchDecided>,
-    // **WHO IS IN THIS MATCH — the FROZEN answer** (D148). Whether a side is a
-    // person or a team is a fact about the match that was prepared, and the plan
-    // is the only thing that still knows it once fighters start being removed.
+    // Whether a side is a person or a team is a fact about the match that was prepared, and the
+    // plan is the only thing that still knows it once fighters start being removed.
     prepared: Option<
         bevy::prelude::Res<ambition_platformer2d::actors::character_runtime::PreparedMatch>,
     >,
@@ -1533,8 +1318,7 @@ fn announce_the_winner(
     // answer to "who won" and the wrong thing to put on a screen. The bodies
     // still standing are the ones that know their names.
     //
-    // ⚠ read for the NAME only. It used to decide the team-or-person question
-    // too, by counting the rows on the winning side — see below.
+    // read for the NAME only.
     fighters: bevy::prelude::Query<(
         &ambition_platformer2d::actors::character_runtime::MatchSeat,
         Option<&ambition_platformer2d::combat::targeting::MatchTeam>,
@@ -1543,22 +1327,19 @@ fn announce_the_winner(
     mut readouts: bevy::prelude::ResMut<ambition_platformer2d::presentation::HudReadouts>,
 ) {
     for outcome in decided.read() {
-        // ⚠ **a TEAM keeps its own name.** Substituting one member's name for
+        // **a TEAM keeps its own name.** Substituting one member's name for
         // "Red" would name a player on a side that won together, so the swap
         // only happens for a side of one — which is the only case where the
         // side and the fighter are the same thing.
         //
-        // ⛔⛔ **and "a side of one" is asked of the PLAN, not of the bodies**
-        // (D148). This counted the fighters still standing on the winning side,
-        // which is a different question the moment anybody dies:
-        // `take_eliminated_fighters_out_of_play` despawns an eliminated body, so
-        // Red = Alice + Bob with Alice knocked out early has exactly ONE Red
-        // body at victory and the card announced `WINNER: Bob` — contradicting
-        // the rule stated one paragraph above it. Body residency recovering
-        // match-participant identity, which is the error this campaign keeps
-        // paying for.
+        // This counted the fighters still standing on the winning side, which is a different
+        // question the moment anybody dies: `take_eliminated_fighters_out_of_play` despawns an
+        // eliminated body, so Red = Alice + Bob with Alice knocked out early has exactly ONE
+        // Red body at victory and the card announced `WINNER: Bob` — contradicting the rule
+        // stated one paragraph above it. Body residency recovering match-participant identity,
+        // which is the error this campaign keeps paying for.
         //
-        // ⚠ **and the fallback is the SIDE, not a panic.** A simultaneous
+        // **and the fallback is the SIDE, not a panic.** A simultaneous
         // ring-out despawns every body, so a card can legitimately be asked to
         // name a winner with nobody left standing to ask.
         let named = outcome.winner.as_deref().map(|side| {
@@ -1596,7 +1377,7 @@ fn announce_the_winner(
 /// match is decided it publishes the roster and asks the shell to go to the
 /// stage.
 ///
-/// ⚠ **the roster is inserted BEFORE the route changes**, and the order is the
+/// **the roster is inserted BEFORE the route changes**, and the order is the
 /// whole correctness argument. Seating runs on the sim schedule and reads
 /// `MatchParticipantRoster`; if the route changed first, the stage would come up
 /// with no roster, seating would find nothing to do, and the match would open
@@ -1635,11 +1416,6 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
         // yet. Declared HERE, beside the route, because the two are one fact
         // about one screen; a host naming smash's music would be a host knowing
         // a provider's content.
-        //
-        // ⚠ this was impossible until 2026-08-07: frontend audio was one
-        // process-global resource, so the select score played in the standalone
-        // app and NOWHERE else, and the comment in `ambition_demo_smash_app`
-        // recorded that as a gap in the seam rather than a decision.
         {
             use ambition_platformer2d::audio::selection::FrontendAudioAppExt;
             app.declare_route_frontend_audio(
@@ -1668,22 +1444,18 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
         app.init_resource::<select_screen::LeaveRequested>();
         // **THE ROSTER IS A COMPOSITION FACT, so it is resolved once, late.**
         //
-        // ⚠ `Startup` rather than `build`, and the ordering is the reason: the
-        // assembled `CharacterCatalog` is replaced every time ANY plugin
-        // registers a fragment, so a roster computed while plugins are still
-        // being added would see whichever cast had been registered so far. By
-        // `Startup` every provider in the composition has declared itself.
+        // By `Startup` every provider in the composition has declared itself.
         app.init_resource::<select::SmashRoster>();
         app.add_systems(bevy::prelude::Startup, assemble_the_smash_roster);
         // **THE PORTRAIT SHEETS' OWN MANIFESTS, so a face is one FRAME.**
         //
-        // ⛔ without this the grid drew each portrait PNG whole, which is right
+        // without this the grid drew each portrait PNG whole, which is right
         // for the single-frame sheets that are most of them and visibly wrong
         // for `alice` and `oiler` — 2048x320 each, eight frames of a
         // default/speaking/focused clip set, drawn as a strip of eight tiny
         // Alices. Found by looking at a capture.
         //
-        // ⚠ **guarded, because Ambition's dialogue box installs the same plugin**
+        // **guarded, because Ambition's dialogue box installs the same plugin**
         // and Bevy panics on a duplicate. This demo is composed both standalone
         // and inside that host; whichever gets there first wins and the registry
         // is the same baked table either way.
@@ -1742,13 +1514,10 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
         );
         // **AND IT SAYS WHAT ITS CONFIRM CONTROL DOES.**
         //
-        // A claim says who the presses are FOR; a cue says what confirming
-        // MEANS, in this screen's own words. They are two facts and the screen
-        // only published the first, so every prompt surface fell back to the
-        // generic "Select" — measured in the host, `top_cue` was `None` on this
-        // route while the screen was up.
+        // A claim says who the presses are FOR; a cue says what confirming MEANS, in this screen's
+        // own words.
         //
-        // ⚠ **the cue is also the only evidence a prompt has when no context
+        // **the cue is also the only evidence a prompt has when no context
         // resolver is installed.** `publish_frontend_context_prompt` reads the
         // resolved owner, but a composition without the host's resolver has none
         // and falls through to the no-subject exit, which now asks for a cue and
@@ -1773,13 +1542,6 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                     maintain_smash_local_seat_offer,
                     reset_select_frontend_on_arrival,
                     present_select_screen_ui,
-                    // **DRIVE BEFORE DRAW.**
-                    // The cursor hit-tests the MEASURED layout, which Bevy
-                    // computes in `PostUpdate` — so both of these read last
-                    // frame's rectangles. Drawing first would place the tokens
-                    // from a decision the click on this frame is about to
-                    // change, and a dragged token would lag the cursor by a
-                    // frame for no reason anybody could see.
                     bevy::prelude::IntoScheduleConfigs::run_if(
                         select_screen::drive_the_cursor,
                         the_select_screen_owns_its_input,
@@ -1794,11 +1556,11 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                     select_screen::sync_select_chrome,
                     select_screen::sync_select_tokens_and_cursors,
                     start_the_battle_when_asked,
-                    // ⛔ the safety net for every entry that skips the lobby —
+                    // the safety net for every entry that skips the lobby —
                     // the dev bins and the stage tests. See its doc.
                     the_stage_always_plays_by_smash_rules,
                     smash_fighters_are_solid_to_each_other,
-                    // ⚠ **AFTER the driver that sets the flag, and in the same
+                    // **AFTER the driver that sets the flag, and in the same
                     // chain**, so a press and the route change it asks for are
                     // one frame apart at most. The screen would otherwise keep
                     // drawing a lobby somebody has already left.
@@ -1817,7 +1579,7 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
 /// multi-game host offers the whole crossover cast and the standalone demo
 /// offers the fighters it declares itself, from one list.
 fn assemble_the_smash_roster(
-    // ⛔ the SEATABLE authority, not the catalog — see `SmashRoster::assemble`.
+    // the SEATABLE authority, not the catalog — see `SmashRoster::assemble`.
     // Optional because a composition may reach this route before any character
     // is registered; an empty grid then says so honestly rather than offering
     // portraits nothing can build.
@@ -1875,10 +1637,8 @@ fn maintain_smash_local_seat_offer(
 
 /// Reset frontend-only select state exactly once when this route is entered.
 ///
-/// `SmashSelect` is the lobby decision, while cursor/page/request state is
-/// interaction state. A rematch must start with neither the previous decision
-/// nor the previous hand positions. The UI root is the route-occurrence marker:
-/// before it exists we are entering; once it exists these values are left alone.
+/// `SmashSelect` is the lobby decision, while cursor/page/request state is interaction state. A
+/// rematch must start with neither the previous decision nor the previous hand positions.
 fn reset_select_frontend_on_arrival(
     mut commands: bevy::prelude::Commands,
     router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
@@ -1937,17 +1697,14 @@ fn present_select_screen_ui(
 
 /// **Claim input for the seats this screen drives, while it is up.**
 ///
-/// ⛔ without this the screen was a surface nothing arbitrated. With the
+/// without this the screen was a surface nothing arbitrated. With the
 /// universal pause menu open OVER it, the arrows drove BOTH — the menu's cursor
 /// and the CPU count — because the two read different channels
 /// (`MenuControlFrame` and `SeatMenuFrames`) and neither could consume the
 /// other's edge.
 ///
-/// ⚠ **the fix is not a feature edge to the shell.** This demo cannot name
-/// `ShellPauseMenu`: `basic_shell_presentation` is not in `all_capabilities`,
-/// which is the oracle rule working as intended. It names an input CONTEXT —
-/// vocabulary the facade already exposes — and the pause menu's higher-priority
-/// capturing claim does the rest. Neither side knows the other exists.
+/// It names an input CONTEXT — vocabulary the facade already exposes — and the pause menu's
+/// higher-priority capturing claim does the rest. Neither side knows the other exists.
 fn declare_the_select_input_context(
     router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
     mut participants: bevy::prelude::Query<
@@ -1972,9 +1729,7 @@ fn declare_the_select_input_context(
 
 /// **Is the select screen the active route?**
 ///
-/// One answer, three askers — the context claim, the cue, and the "may I drive"
-/// gate. It was written out three times; the third copy is how a screen ends up
-/// claiming input on a route it no longer draws on.
+/// One answer, three askers — the context claim, the cue, and the "may I drive" gate.
 fn on_the_select_route(router: &ambition_platformer2d::game_shell::ShellRouter) -> bool {
     router
         .active
@@ -1984,7 +1739,7 @@ fn on_the_select_route(router: &ambition_platformer2d::game_shell::ShellRouter) 
 
 /// **Publish this screen's submit verb while it is up.**
 ///
-/// ⚠ `sync` rather than a declare/retract pair, so LEAVING retracts. A cue left
+/// `sync` rather than a declare/retract pair, so LEAVING retracts. A cue left
 /// behind outlives its surface, and the next screen inherits a prompt telling
 /// the player to choose a fighter.
 fn publish_the_select_ui_cue(
@@ -2005,12 +1760,12 @@ fn publish_the_select_ui_cue(
 
 /// **Is this screen the one the presses belong to?**
 ///
-/// ⛔ without this the screen was a surface nothing arbitrated. With the
+/// without this the screen was a surface nothing arbitrated. With the
 /// universal pause menu open OVER it, the arrows drove BOTH — the menu's cursor
 /// and the lobby — because the two read different channels (`MenuControlFrame`
 /// and `SeatMenuFrames`) and neither could consume the other's edge.
 ///
-/// ⚠ **it asks whether ANY seat still owns `SELECT_CONTEXT`, not whether seat 0
+/// **it asks whether ANY seat still owns `SELECT_CONTEXT`, not whether seat 0
 /// does.** There is one cursor and four people may drive it, so the screen
 /// stops when the whole screen is outranked and not when player one's claim
 /// happens to be the one that lost. `None` (no resolver installed, as in a bare
@@ -2038,7 +1793,7 @@ fn the_select_screen_owns_its_input(
 /// lifecycle, and the sim is not even running yet — the stage has no session
 /// until the route this system requests actually resolves.
 ///
-/// ⚠ **it waits for START to be CLICKED**, where the previous version left the
+/// **it waits for START to be CLICKED**, where the previous version left the
 /// instant `ready()` became true. Two reasons, and the second is the one that
 /// mattered: the real thing has a ready button, and a screen that launches on
 /// the frame its last token lands is a screen nobody can photograph. Every
@@ -2057,19 +1812,16 @@ fn start_the_battle_when_asked(
     // the roster and the label disagreeing about who is holding what.
     assignment: bevy::prelude::Res<ambition_platformer2d::input::LocalSeatOffer>,
     // **WHO ALREADY HAS A REPERTOIRE**, so a seat whose character authors its own
-    // moves is not handed this stage's generic kit (Jon's redirect §17).
+    // moves is not handed this stage's generic kit.
     // `Option`, like every other reader of the cast.
     prepared: Option<
         bevy::prelude::Res<
             ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry,
         >,
     >,
-    // ⭐ **THE STAGE'S OWN DECLARATION**, read rather than re-stated. The floor a
-    // kit-less seat gets used to be a helper in `select.rs`; it is
-    // `DeclaredCombatRules::unarmed_melee` now, which is where a ruleset fact
-    // lives. `Option` because this system runs before the resource exists on the
-    // very first frame of a boot, and a screen with no rules yet has no floor to
-    // hand out either.
+    // **THE STAGE'S OWN DECLARATION**, read rather than re-stated. `Option` because this system
+    // runs before the resource exists on the very first frame of a boot, and a screen with no rules
+    // yet has no floor to hand out either.
     mut shell: bevy::prelude::MessageWriter<ambition_platformer2d::game_shell::ShellCommand>,
 ) {
     if !asked.0 {
@@ -2087,14 +1839,14 @@ fn start_the_battle_when_asked(
     }
     // **THE SEED FOR THIS MATCH'S RANDOM SQUARES.**
     //
-    // ⚠ ADR 0023: no ambient RNG. This is the shell ACTIVATION this select
+    // ADR 0023: no ambient RNG. This is the shell ACTIVATION this select
     // screen is running under — a monotonic id minted per route entry — so two
     // visits to the screen draw differently and one visit draws the same thing
     // twice if it somehow started twice. Mixed with the participant count so a
     // three-way and a two-way opened from the same visit do not walk the same
     // sequence.
     //
-    // ⛔ NOT the wall clock, and not a thread RNG. A match is decided in
+    // NOT the wall clock, and not a thread RNG. A match is decided in
     // `Update`, but everything it produces is read inside the rollback window,
     // and "where did this fighter come from" must have an answer that survives a
     // replay.
@@ -2121,22 +1873,15 @@ fn start_the_battle_when_asked(
                     .map(|(id, _)| id.to_string())
                     .collect()
             }),
-        // ⭐⭐ **FROM THE DECLARATION THIS FUNCTION IS ABOUT TO MAKE, not from the
-        // resource** (D143). `rules` was read here and the swipe never arrived:
-        // this same system inserts `DeclaredCombatRules` fifty lines below, and
-        // `Commands::insert_resource` is DEFERRED — so on the frame that decides
-        // the match the resource does not exist yet and `None` was published.
-        // Measured on the shipped select screen through its own taps:
-        // `DeclaredCombatRules present = false`.
-        // ⚠ and reading the resource would be wrong even once it existed: on a
-        // SECOND visit it holds the PREVIOUS match's declaration, which is a
-        // stale answer dressed as a live one. `declared_rules` is the value this
-        // match declares, so the roster and the resource cannot disagree.
+        // `rules` was read here and the swipe never arrived: this same system inserts
+        // `DeclaredCombatRules` fifty lines below, and `Commands:insert_resource` is DEFERRED —
+        // so on the frame that decides the match the resource does not exist yet and `None` was
+        // published.
         declared_rules.unarmed_melee.clone(),
     ) else {
         return;
     };
-    // ⭐ **THE SEAT COUNT THIS MATCH DECIDED, published with the roster and
+    // **THE SEAT COUNT THIS MATCH DECIDED, published with the roster and
     // under this experience's name.** Devices are not participants — a keyboard
     // seat has no controller entity, a spare pad may not be playing, a CPU seat
     // has none at all — so a session sized from what is plugged in is sized
@@ -2145,16 +1890,10 @@ fn start_the_battle_when_asked(
     // has never seen a smash gameplay world without them.
     commands.insert_resource(ambition_platformer2d::input::SessionSeatingSource::decided(
         SMASH_EXPERIENCE,
-        // ⛔ **CHANNELS, not participants.** This said `participants.len()`,
-        // so a one-person-one-CPU lobby built a two-handle rollback session
-        // whose second handle nothing ever wrote — while
-        // `freeze_local_seating_for_the_decided_match` counted humans for
-        // the same decision, each citing itself as authoritative. A CPU is a
-        // participant and occupies no channel; a lobby of two CPUs needs
-        // none at all, which is the case that makes the difference
-        // impossible to ignore.
+        // A CPU is a participant and occupies no channel; a lobby of two CPUs needs none at
+        // all, which is the case that makes the difference impossible to ignore.
         //
-        // ⛔ **and the whole PLAN, not the count of it.** A count sizes the
+        // **and the whole PLAN, not the count of it.** A count sizes the
         // session and leaves every consumer to guess which controller feeds
         // each handle — which they did, from the lobby's SPARSE source
         // numbers, so seating the CPU first put the human's fighter on a
@@ -2163,22 +1902,14 @@ fn start_the_battle_when_asked(
     ));
     commands.insert_resource(decided);
     commands.insert_resource(declared_rules);
-    // ⭐⭐ **AND THE PAD THIS GAME IS PLAYED ON** (D146 slice 3). Jon:
-    // *"my preferred smash layout for an xbox controller is a=normal,
-    // x=special, b=jump, y=grab (we don't have grab yet), left trigger is
-    // shield. The rest of the bindings are normal I think"* — followed by the
-    // ruling that makes it a declaration rather than an edit:
-    // *"B=jump is the way I like my smash controller, it's probably non
-    // standard. **Will need to have control profiles eventually.**"*
-    //
-    // ⛔ so this is emphatically NOT a change to `insert_gamepad_bindings`.
+    // so this is emphatically NOT a change to `insert_gamepad_bindings`.
     // A=Jump stays right for Ambition; a fighting game says otherwise for the
     // duration of its own experience, and gives the pad back on the way out.
     // Same declare-don't-borrow shape as the rules above, owner and all —
     // the versus route is another provider in the same binary that could
     // eventually declare its own.
     //
-    // ⭐ this is also the ONLY thing that gives gamepad-Special a button.
+    // this is also the ONLY thing that gives gamepad-Special a button.
     // The default pad is fully assigned (`presets.rs` refuses to double-bind),
     // so Special was keyboard- and touch-only; a layout PERMUTES an assigned
     // pad, which is exactly the freedom an addition does not have.
@@ -2186,11 +1917,7 @@ fn start_the_battle_when_asked(
         SMASH_EXPERIENCE,
         ambition_platformer2d::input::BindingLayout::Smash,
     ));
-    // **PLAIN BUTTON NAMES.** Jon, 2026-08-20: *"I also just want the button
-    // indicators to be plain. E.g. \"Attack\" \"Special\" \"Jump\" \"Grab\", no
-    // context sensitive naming of the move in smash, at least not yet."*
-    //
-    // ⭐ **the default reads well for a platformer and badly for a fighter, and
+    // **the default reads well for a platformer and badly for a fighter, and
     // that is the whole reason this is a knob.** Mary-O has a handful of
     // signature techniques, so naming her button "Spin Dash" tells the player
     // something true and stable. A smash fighter's Attack slot hosts a dozen
@@ -2199,7 +1926,7 @@ fn start_the_battle_when_asked(
     // label that changes as you walk and never answers the question the prompt
     // exists for, which is WHICH BUTTON.
     //
-    // ⚠ "at least not yet" — the move-naming road stays live and default
+    // "at least not yet" — the move-naming road stays live and default
     // everywhere else; this only declines it here.
     commands.insert_resource(ambition_platformer2d::sim_view::PromptNaming::ByButton);
     shell.write(ambition_platformer2d::game_shell::ShellCommand::GoTo(
@@ -2209,21 +1936,16 @@ fn start_the_battle_when_asked(
 
 /// **Leave the lobby through the character-select screen's own Back affordance.**
 ///
-/// ⭐ Jon, 2026-08-16: *"in the smash character select, there is no way to quit
 /// to title, you can only do this if you start a match."* There are TWO useful
 /// roads now, and they should stay distinct: Esc/Start opens the universal
 /// system menu, whose `Quit to Title` row is available on frontend subroutes as
 /// well as live sessions; this handler is the CSS-native Back / held-B route.
 /// Both emit the same host-relative `QuitToHome` command.
 ///
-/// Home is the host's declared `home_route` — the Ambition launcher in the
-/// multi-game host — so this reaches the title by the one road that already
-/// knows where it is, clears route history, and lets every experience scope
-/// release what it claimed. Spelling a `GoTo(some_title_route)` here would be
-/// this demo naming a route it does not own, and it would be wrong in the next
-/// composition.
+/// Spelling a `GoTo(some_title_route)` here would be this demo naming a route it does not own,
+/// and it would be wrong in the next composition.
 ///
-/// ⚠ **nothing to unwind by hand, and that is a claim worth stating.** What this
+/// **nothing to unwind by hand, and that is a claim worth stating.** What this
 /// route CLAIMED on arrival is released by the systems that claimed it, because
 /// each is keyed on the route rather than on a shutdown hook:
 /// `maintain_smash_local_seat_offer` releases its seat claim and
@@ -2248,7 +1970,7 @@ fn leave_the_select_screen_when_asked(
     if !asked.0 {
         return;
     }
-    // ⚠ **spend the request WHATEVER happens next.** A latch that says "leave"
+    // **spend the request WHATEVER happens next.** A latch that says "leave"
     // and survives its own frame is the shape `StartRequested` is reset on
     // arrival to avoid — one left standing re-fires on the next route this
     // system happens to run under. Cleared before the refusals below, never
@@ -2301,7 +2023,7 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
         // the platform with nobody to fight.
         // **THE STAGE'S OWN READOUTS.** Without this the route inherited
         // Ambition's adventure HUD and drew a health bar, a mana bar and a money
-        // counter over a platform fighter (photographed 2026-08-01). Four slots
+        // counter over a platform fighter. Four slots
         // because the stage seats four; a 1v1 fills two and the publisher clears
         // the rest, the same rule the versus stage states.
         .with_hud({
@@ -2309,10 +2031,6 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
             for (seat, slot) in FIGHTER_HUD_SLOTS.iter().enumerate() {
                 hud = hud.slot(
                     ambition_platformer2d::presentation::HudSlotSpec::new(*slot)
-                        // **THE BOTTOM**, where a platform fighter puts its
-                        // players. It was `Top` because a text row had to go
-                        // somewhere; a portrait panel belongs where Jon asked
-                        // for it and where the genre puts it.
                         .with_region(ambition_platformer2d::presentation::SurroundRegion::Bottom)
                         .with_font_size(22.0)
                         .with_min_px(ambition_platformer2d::engine_core::Vec2::new(220.0, 30.0))
@@ -2341,12 +2059,7 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
 
         // **WHAT THIS EXPERIENCE OWNS, AND WHAT LEAVES WITH IT.**
         //
-        // ⛔ the roster is what the reported regression was made of: pick Oni
-        // Leader, quit to the title, enter Ambition, and the body you control is
-        // still Oni Leader. A global resource with no lifetime is inherited by
-        // whoever comes next.
-        //
-        // ⚠ **`covering` the select screen is load-bearing.** The lobby and the
+        // **`covering` the select screen is load-bearing.** The lobby and the
         // match are two shell experiences of one provider, and the lobby
         // publishes the roster FOR the match — a scope that named only the
         // gameplay id would delete it on the way in.
@@ -2363,15 +2076,8 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
                 // is the next game's seating refusing to run because a match is
                 // already "live".
                 //
-                // ⛔ **by OWNER, and the owner is on the PLAN.** This removed the
-                // activation by TYPE until 2026-08-07, as did the versus stage's
-                // scope in the host that lists BOTH of us — so whichever left
-                // first deleted the other's live match. `ActiveMatch` names the
-                // SESSION whose plan it receipts and no publisher, so the plan
-                // it came from is what answers "which GAME is this".
-                //
-                // ⚠ **two different questions, and both are needed.** The
-                // session id (added 2026-08-07 so a finished match cannot be
+                // **two different questions, and both are needed.** The
+                // session id ( so a finished match cannot be
                 // rebuilt by its own activation) says WHICH ACTIVATION of one
                 // game; the witness here says WHICH GAME, which is the only one
                 // that matters when two providers share a host.
@@ -2379,18 +2085,7 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
                     ambition_platformer2d::actors::character_runtime::ActiveMatch,
                     ambition_platformer2d::actors::character_runtime::PreparedMatch,
                 >(|plan, owner| plan.is_published_by(owner.as_str()))
-                // ⛔ **AND THE PLAN, which is the same lesson one resource later.**
-                // `PreparedMatch` is global and had no lifetime when it was
-                // introduced, so it outlived every smash route — and because the
-                // latch above IS released, the next experience's session found a
-                // plan with no activation and dutifully built smash's fighters
-                // into Ambition's world. Two bodies then carried
-                // `Brain::Player(PRIMARY)` and `resolve_controlled_subject`
-                // panicked on its own hard invariant, which is the loudest this
-                // class of bug has ever been and the reason it took minutes
-                // rather than the afternoon the roster version took.
-                //
-                // ⚠ declared AFTER the activation above, which reads it as its
+                // declared AFTER the activation above, which reads it as its
                 // witness: releases run in declaration order.
                 .releasing_owned::<
                     ambition_platformer2d::actors::character_runtime::PreparedMatch,
@@ -2402,7 +2097,7 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
                 // budget would follow the player into Ambition's PvE, which
                 // answers `0.0` on purpose.
                 //
-                // ⚠ `releasing_owned`, not `resetting`: every reader takes it
+                // `releasing_owned`, not `resetting`: every reader takes it
                 // as `Option<Res<_>>`, so absence is the meaningful "no
                 // declaration" answer — and the OWNED form is what keeps two
                 // stages that both declare rules from deleting each other's.
@@ -2414,10 +2109,8 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
                 // layer inside `BindingRecipe::build`, so the next rebuild
                 // returns every seat to the base preset with nothing to restore.
                 //
-                // ⛔ this release is the whole difference between "a profile"
-                // and "we changed the defaults". Left standing, B would jump in
-                // Ambition after one smash match, and the bug would look like
-                // the engine forgetting its own controls.
+                // this release is the whole difference between "a profile" and "we changed the
+                // defaults".
                 .releasing_owned::<
                     ambition_platformer2d::input::DeclaredBindingLayout,
                 >(|layout, owner| layout.is_declared_by(owner.as_str()))
@@ -2447,7 +2140,7 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
 /// **How far a launched fighter may steer its own knockback**, in radians —
 /// ~18°, Smash Ultimate's DI budget.
 ///
-/// ⭐ this is the difference between a knock-off that is a READ and one that is
+/// this is the difference between a knock-off that is a READ and one that is
 /// a coin flip: the victim of a launch is still playing. Authored per game
 /// because Ambition's PvE answers `0.0` — being hit there is a punishment, not
 /// the opening of a negotiation.
@@ -2457,15 +2150,7 @@ const SMASH_DI_MAX_ANGLE: f32 = 0.31;
 /// move's own base launch, per point of damage. `0.01` doubles a hit's launch at
 /// 100%.
 ///
-/// ⭐ **this is the mechanic Jon reported missing**: *"in smash there does not
-/// seem to be any knockback."* Every piece of the engine was already there — the
-/// growth term, hitstun and hitlag scaling off the resulting launch, DI steering
-/// it — and the duelists reached none of it, because their swings come from the
-/// `simple_melee` prefab and a prefab swing authors `knockback_growth: 0.0`. A hit at
-/// 150% launched exactly as far as a hit at 0%, so percent accumulated and moved
-/// nothing.
-///
-/// ⚠ **authored HERE, like the DI budget and the jump squat**, and for the same
+/// **authored HERE, like the DI budget and the jump squat**, and for the same
 /// reason: knockback that grows with damage is what a platform fighter IS and it
 /// is wrong for Ambition's PvE, where being hit is a punishment rather than a
 /// meter. The world baseline stays flat; a stage that wants the loop says so.
@@ -2474,14 +2159,14 @@ const SMASH_DI_MAX_ANGLE: f32 = 0.31;
 /// launches at 360 and at 200 damage at 600 — a fresh opponent is hard to move
 /// and a worn one flies, which is the read the whole stage is built around.
 ///
-/// ⚠ **bumped 0.01 → 0.02 (Jon, 2026-08-11)**: *"knockback multiplier in smash
+/// **bumped 0.01 → 0.02**: *"knockback multiplier in smash
 /// is currently zero? I'd like to bump that number up so it's non zero."* It was
 /// not literally zero, but doubling at 100% is barely a curve when a stock ends
 /// somewhere north of 120% — the launch a player feels grows over the whole
 /// match rather than at the end of it. Tripling at 100% is the genre's shape.
 /// See `moveset.rs` for the unit trap that made the authored moves ignore this
 /// entirely, which is the half that actually read as zero.
-/// ⚠ **`pub` so the ROSTER-WIDE guard can read it.** `moveset.rs`'s unit check
+/// **`pub` so the ROSTER-WIDE guard can read it.** `moveset.rs`'s unit check
 /// only ever swept `fighter_moveset()` — the eleven-verb fallback the two robot
 /// stand-ins carry — so the fourteen fighters who author their own tables were
 /// outside the one guard that exists to catch this. The host census
@@ -2492,7 +2177,7 @@ pub const SMASH_KNOCKBACK_GROWTH: f32 = 0.02;
 /// Stable ids the shell routes and lists this demo by.
 pub const SMASH_EXPERIENCE: &str = "smash";
 pub const SMASH_GAMEPLAY_ROUTE: &str = "smash_gameplay";
-/// **Where the demo STARTS.** (Jon, 2026-07-31)
+/// **Where the demo STARTS.**
 ///
 /// Not the stage. A platform fighter that opens on the stage has already decided
 /// who you are, and the whole point of up-to-four-players is that it has not.
@@ -2504,13 +2189,10 @@ pub const SMASH_GAMEPLAY_ROUTE: &str = "smash_gameplay";
 pub const SMASH_SELECT_ROUTE: &str = "smash_select";
 /// **The select screen is its OWN shell experience, and it has to be.**
 ///
-/// Not `smash`: an activation carrying the gameplay experience id starts a
-/// gameplay SESSION, and this screen has no prepared world to activate — the
-/// shell would panic with *"requires an exact prepared-session publication"*
-/// before a single panel drew. Not the basic launcher's id either, which is
-/// what the standalone demo used to say and why the select panels rendered on
-/// top of a list of experiences. A screen a provider draws itself is a frontend
-/// experience of its own.
+/// Not `smash`: an activation carrying the gameplay experience id starts a gameplay SESSION, and
+/// this screen has no prepared world to activate — the shell would panic with *"requires an exact
+/// prepared-session publication"* before a single panel drew. A screen a provider draws itself is a
+/// frontend experience of its own.
 pub const SMASH_SELECT_EXPERIENCE: &str = "smash.select";
 /// The fighter a lone visitor wears. The MATCH seats its own cast from the
 /// roster; this is who is standing there before one starts.
@@ -2523,24 +2205,19 @@ pub const SMASH_GEORGE_BOOUL: &str = "smash_george_booul";
 
 // **THE ONE FIGHTER THIS DEMO ADDS TO THE CROSSOVER.**
 //
-// ⭐ he wears a sheet that ALREADY SHIPS and that no other catalog claims, which
+// he wears a sheet that ALREADY SHIPS and that no other catalog claims, which
 // is the only kind of fighter this demo may declare: the rest of the grid is
 // Ambition's own cast and the other demos' protagonists, named by ID in
 // `select::SMASH_ROSTER` rather than copied here. The two robot rows below are
 // STAND-INS for the lineage the content catalog owns; see `select::STAND_INS`.
 //
-// ⚠ **he could not be SEATED for two commits and nothing on the select screen
-// said so** — he rendered perfectly, and the tell was a stage test finding no
-// stocks. Jon: *"I liked him there."* So the seating gap is the thing that got
-// fixed, not the roster.
-//
-// ⚠ **every fighter shares one kit.** See `SmashSelect::roster` — one ability
+// **every fighter shares one kit.** See `SmashSelect::roster` — one ability
 // set, one brain, one action set. Different LOOKS and one game. Per-character
 // movement, reach and weight is the obvious next question and is deliberately
 // not this one; a roster where the choice already changed the match would have
 // made the select screen impossible to judge on its own terms.
 
-/// ⚠ **this demo authors its own two fighters, and the reason is a leak worth
+/// **this demo authors its own two fighters, and the reason is a leak worth
 /// recording.**
 ///
 /// The first version borrowed Ambition's robot lineage — a crossover stage
@@ -2559,16 +2236,13 @@ pub const SMASH_GEORGE_BOOUL: &str = "smash_george_booul";
 /// catalogs are present.
 const SMASH_CATALOG_RON: &str = r#"(
     autonomous_profiles: {
-        // ⭐⭐ **THE STAGE'S CPU POLICY, PUBLISHED** (Jon's second redirect, P4).
+        // **THE STAGE'S CPU POLICY, PUBLISHED**.
         // A CPU seat named `duelist` and the match resolved it through
         // `CharacterRoster` — an enemy ARCHETYPE table — so the controller half
         // of `character + controller + team` was arriving by way of a body
         // definition. This is what a controller policy IS.
         //
-        // ⚠ the numbers are the archetype row's controller half verbatim. Its
-        // BODY half (100 HP, 200 run speed, a 4-damage contact) stays on the row
-        // until the fighters that use it author their own, which is a different
-        // migration.
+        // the numbers are the archetype row's controller half verbatim.
         "duelist": (
             template: Fighter,
             aggro_radius: 600.0,
@@ -2577,14 +2251,8 @@ const SMASH_CATALOG_RON: &str = r#"(
             chase_effort: 1.0,
             fighter_level: 5,
         ),
-        // ⭐⭐ **THE DIFFICULTY LADDER, AS POLICIES** — the whole of what
-        // `SMASH_ROSTER_RON`'s six archetype rows were (deleted 2026-08-11).
-        // Those rows differed from each other in ONE field, `fighter_level`, and
-        // carried a body (100 HP, 200 run speed, a 4-damage contact) that no
-        // seat has read since a fighter's body came from its character.
-        //
-        // ⚠ that is the whole D73 thesis in six rows: a difficulty setting is a
-        // CONTROLLER fact, and stating it required declaring a whole creature.
+        // that is the whole thesis in six rows: a difficulty setting is a CONTROLLER fact, and
+        // stating it required declaring a whole creature.
         "duelist_l1": (
             template: Fighter, aggro_radius: 600.0, attack_range: 48.0,
             patrol_effort: 1.0, chase_effort: 1.0, fighter_level: 1,
@@ -2608,7 +2276,7 @@ const SMASH_CATALOG_RON: &str = r#"(
     },
     brain_presets: {
         "stand_still": StandStill,
-        // **The FB4b fighter brain, selected from content.** Until 2026-07-31
+        // **The FB4b fighter brain, selected from content.** Until
         // there was no `BrainPreset` variant for it, so the rig existed and no
         // catalog row could ask for it — the demo's duelists stood still because
         // standing still was the only thing they could be told to do.
@@ -2633,7 +2301,7 @@ const SMASH_CATALOG_RON: &str = r#"(
     },
     characters: {
         "smash_duelist_a": (
-            // ⚠ NOT "Duelist A" (Jon, 2026-08-05). It wears `player_robot_v3`'s
+            // NOT "Duelist A". It wears `player_robot_v3`'s
             // sheet and is a STAND-IN for that character in compositions that do
             // not carry it; naming it anything else pretended it was somebody
             // new. Distinct from the content catalog's "Player Robot v3",
@@ -2646,11 +2314,6 @@ const SMASH_CATALOG_RON: &str = r#"(
             composition: None,
             default_brain: "duelist",
             default_action_set: "duelist",
-            // ⭐ **AUTHORED, 2026-08-11.** This said `HostCode` while the line
-            // above authored a `duelist` action set — so the row declared a kit
-            // and then asked engine code to build a different one. `HostCode`
-            // exists to be deleted (GPT 5.6 §5); a row that already authors its
-            // kit is the cheapest adopter to remove.
             tags: ["player", "smash"],
             fallback_dialogue: ["Off the edge is the only way out."],
         ),
@@ -2683,7 +2346,7 @@ const SMASH_CATALOG_RON: &str = r#"(
 
 /// Register this demo's content.
 ///
-/// ⚠ **thin, but not empty — and the difference is a refusal that fired.** The
+/// **thin, but not empty — and the difference is a refusal that fired.** The
 /// fighters are Ambition's own robot lineage, which is the point of a crossover
 /// stage: a demo that authored its own duelists would prove the stocks loop
 /// against content nobody else has, and the interesting claim is that it works
@@ -2719,7 +2382,7 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
         use ambition_platformer2d::actors::character_runtime::{
             CharacterDefinition, CharacterDefinitionAppExt,
         };
-        // ⛔ **EVERY id this demo can SEAT, not just the two it opens with.**
+        // **EVERY id this demo can SEAT, not just the two it opens with.**
         // A catalog row declares what a character IS; registration is what makes
         // it spawnable, and the comment above says what a catalog-only character
         // draws. `smash_george_booul` was added to the grid and left off this
@@ -2731,43 +2394,23 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
             (SMASH_GEORGE_BOOUL, "George Booul", "george_booul"),
         ] {
             let definition = CharacterDefinition::new(id, name, SMASH_EXPERIENCE).with_sheet(sheet);
-            // ⛔⛔ **THE PERCENT REFERENCE IS NOT WRITTEN HERE ANY MORE**
-            // (2026-07-31 found it; queue D131 moved it, 2026-08-16).
+            // **THE PERCENT REFERENCE IS NOT WRITTEN HERE ANY MORE**
+            // .
             //
-            // It used to be `definition.vitals.max_health =
-            // Some(SMASH_PERCENT_REFERENCE)`, on this line, for these three ids
-            // — and it was right about the symptom and wrong about the owner. A
-            // character that authors no vitals gets a ONE-HIT pool, and
-            // `damage_percent()` is `accumulated / max`, so a 140-damage hit
-            // read as **14000%**. Stamping the reference onto the characters
-            // this demo happens to REGISTER fixed the three fighters it could
-            // reach and could never reach the other eleven: `mary_o` and `sanic`
-            // walked onto the same stage carrying the `max_health: 1` their own
-            // one-hit-kill games authored, and read 4200% and 800%.
+            // A character that authors no vitals gets a ONE-HIT pool, and `damage_percent()` is
+            // `accumulated / max`, so a 140-damage hit read as **14000%**.
             //
-            // ⭐ what 100% means is a rule of the MATCH, so
+            // what 100% means is a rule of the MATCH, so
             // `apply_smash_match_rules` declares it and seating applies it to
             // every seat — see `MatchParticipantRoster::fighter_health_pool`.
             // These three now author what they ARE and nothing about how a
             // stocks match reads them.
             //
-            // ⛔⛔ **AND NEITHER IS THE KNOCKBACK WEIGHT** (D146 slice 4,
-            // 2026-08-16). `definition.vitals.knockback_weight = Some(match id
-            // { .. })` stood on this line: a reach-in performed mid-loop, on the
-            // way past, while the ruleset's other two adjustments went through
-            // one named composition site. The values and their reasoning are
-            // unchanged — they are in
-            // [`smash_reading_of_character`], which is a pure function from what
-            // a character authored to what this match's seat plays with.
-            //
-            // ⚠ **that move implies NO direction.** Whether per-character
+            // **that move implies NO direction.** Whether per-character
             // per-game properties belong to the character or to the game is
             // deliberately still open; the seam exists so the answer is one edit
             // either way.
             let mut definition = smash_reading_of_character(definition);
-            // ⛔⛔ **THE PLATFORM FIGHTER'S BODY IS NOT AUTHORED HERE ANY MORE**
-            // (2026-07-31 authored it; D146 slice 1b moved it, 2026-08-16).
-            //
             // Six numbers stood on this line — `slash_recoil: 0.0`, a
             // three-frame jump squat, the air-dodge window and a 500 px/s tumble
             // floor. Every one was right and none of them could reach the other
@@ -2780,19 +2423,12 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
             // [`SMASH_FIGHTER_BODY`] once and seating composes it onto every
             // seat — see `MatchParticipantRoster::fighter_body`.
             //
-            // ⭐⭐ **WHAT IS LEFT IS THE OTHER HALF OF WHAT THAT BLOCK WAS
-            // SAYING, and it was invisible until the six moved.** It spread
-            // `..DEFAULT_TUNING`, so it also declared these three to be
-            // PLAYER-GRADE bodies — gravity 2500, run accel 5200, air accel
-            // 3100 — while a seat that authors nothing takes
-            // `BodyMovementTuning::BASELINE`, the generic ACTOR body: gravity
-            // 1450, run accel 650. Deleting the line outright made George
-            // floaty and sluggish, and the smash app's own repertoire probes
-            // caught it in one run (three distinct moves out of sixteen, and no
-            // recovery thrown in 1800 ticks).
+            // Deleting the line outright made George floaty and sluggish, and the smash app's
+            // own repertoire probes caught it in one run (three distinct moves out of sixteen,
+            // and no recovery thrown in 1800 ticks).
             //
-            // ⚠ **so it is stated deliberately now, as the one thing it means.**
-            // ⛔ **and it is a FINDING, not a resolution: eleven of the fourteen
+            // **so it is stated deliberately now, as the one thing it means.**
+            // **and it is a FINDING, not a resolution: eleven of the fourteen
             // fighters on the grid still play on the ACTOR baseline** — a
             // levelled stage where thirteen bodies are floatier than the
             // fourteenth is half a decision, and which base a platform fighter
@@ -2803,7 +2439,7 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
             // which is why the shield, the dodge and the ledge exist in this
             // demo at all.**
             //
-            // ⛔ the machinery was all already there and unreachable. The engine
+            // the machinery was all already there and unreachable. The engine
             // has a bubble shield with a parry window, a grounded dodge roll
             // with i-frames, and a full ledge system (grab / hang / climb /
             // roll / getup attack / jump / drop / regrab cooldown) — and none of
@@ -2814,11 +2450,11 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
             // MATCH. Three verbs were simply missing from that set and nothing
             // could add them per character.
             //
-            // ⚠ `fly`/`blink` deliberately absent: this is a platform fighter's
+            // `fly`/`blink` deliberately absent: this is a platform fighter's
             // ground game, not the exploration protagonist's traversal kit, and
             // the July measurement of two seats disagreeing was exactly a
             // duelist meeting a body that could fly. `dash` left for the same
-            // reason on 2026-08-16 — see [`SMASH_FIGHTER_KIT`], which this must
+            // reason — see [`SMASH_FIGHTER_KIT`], which this must
             // keep agreeing with or the stage's ceiling silently trims it.
             definition =
                 definition.with_abilities(ambition_platformer2d::engine_core::AbilitySet {
@@ -2838,18 +2474,10 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
                 });
             // **THE REPERTOIRE, ON THE CHARACTER.**
             //
-            // ⭐ this is what stops the seat needing `smash_fighter_kit()`: a
-            // definition that authors its own moveset says something more
-            // specific than anything derivable from an action-set preset, and
-            // preparation uses it verbatim. Eleven moves — jab, two tilts, three
-            // smashes, five aerials — where the seat used to carry one swipe
-            // that answered every direction and both strengths.
-            // ⚠ **the shared table is the STAND-INS', and George has his own.**
-            // `smash_duelist_a/b` stand in for `player_robot_v3`/`v2`, whose
-            // canonical repertoire lives on the real Robot provider and reaches
-            // them when a host composes it (redirect §15) — so a third robot
-            // table here would be the copy that redirect forbids. George is the
-            // one fighter this demo owns, and he is the one who gets authored.
+            // this is what stops the seat needing `smash_fighter_kit()`: a definition that authors
+            // its own moveset says something more specific than anything derivable from an
+            // action-set preset, and preparation uses it verbatim. George is the one fighter this
+            // demo owns, and he is the one who gets authored.
             definition = definition.with_moveset(if id == SMASH_GEORGE_BOOUL {
                 crate::george_booul_moveset::george_booul_moveset()
             } else {
@@ -2858,16 +2486,6 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
             app.register_character(definition);
         }
     }
-    // ⛔⛔ **A COMMENT ABOUT A DELETED ARCHETYPE FRAGMENT STOOD HERE, ABOVE THE
-    // AUDIO REGISTRATION** (removed 2026-08-13). It read *"THE ARCHETYPE A CPU
-    // SEAT ACTUALLY NAMES… `ControllerBinding::Cpu { brain_profile }` is a
-    // `CharacterRoster` key, not a catalog preset… Without this fragment the seat
-    // is now REFUSED"*, and the fragment it described went with `SMASH_ROSTER_RON`
-    // in ledger D87. It survived the deletion, drifted onto the next statement,
-    // and told a reader that a `brain_profile` is an archetype key — which is the
-    // opposite of what this demo proves. A CPU seat names a PUBLISHED policy
-    // (`autonomous_profiles`, above), and since campaign P2.18 there is nowhere
-    // else it could come from.
     app.register_audio_catalog_fragment(
         AudioCatalogFragment::new(
             SMASH_EXPERIENCE,
@@ -2903,11 +2521,8 @@ fn smash_prepared_session_world() -> ambition_platformer2d::runtime::PreparedPla
     let room = smash_stage();
     let geometry = ae::RoomGeometry(room.world.clone());
     let metadata = ActiveRoomMetadata(room.metadata.clone());
-    // ⛔ **`for_match`, so this stage builds NO home body.** It used to build one
-    // wearing `SMASH_CHARACTER_ID`, and match seating then adopted that body for
-    // the human seat — which is where every symptom of Jon's 2026-08-06 report
-    // came from. The match realizes its own cast; the id below is only this
-    // experience's catalog DEFAULT, which its worn fighters still fall back to.
+    // The match realizes its own cast; the id below is only this experience's catalog DEFAULT,
+    // which its worn fighters still fall back to.
     ambition_platformer2d::runtime::PreparedPlatformerSource::for_match(
         SMASH_EXPERIENCE,
         RoomSet::from_parts(SMASH_STAGE_ROOM_ID, vec![room], Vec::new()),
@@ -2922,16 +2537,16 @@ mod tests {
     use super::*;
     use ambition_platformer2d::engine_core::AabbExt;
 
-    /// **THE STAGE OPENS A WINDOW FOR EVERY VERB IT GRANTS.** (D146 slice 1b)
+    /// **THE STAGE OPENS A WINDOW FOR EVERY VERB IT GRANTS.** ( slice 1b)
     ///
-    /// ⛔⛔ **a granted verb whose tuning window is zero is a DEAD GRANT**, and
+    /// **a granted verb whose tuning window is zero is a DEAD GRANT**, and
     /// it is invisible: nothing refuses it, nothing logs it, and the press
     /// simply means nothing. [`MatchAbilities::is_coherent`] asks the same
     /// question about the two ABILITY statements — *is everything granted also
     /// permitted* — and this is the same question one layer down, against the
     /// numbers the verbs run on.
     ///
-    /// ⚠ **the pairs are hand-listed and that is the point**: adding a verb to
+    /// **the pairs are hand-listed and that is the point**: adding a verb to
     /// [`SMASH_FIGHTER_KIT`] whose window the engine defaults to zero is exactly
     /// the mistake this catches, and only a list written against the KIT can
     /// catch it. The air dodge is here because it was the one that bit; the
@@ -2967,7 +2582,7 @@ mod tests {
             "the stage GRANTS {dead:?} and supplies a body in which the verb \
              does nothing — see `MatchParticipantRoster::fighter_body`"
         );
-        // ⛔ **NON-VACUITY, and it is the whole test.** Every window above is
+        // **NON-VACUITY, and it is the whole test.** Every window above is
         // non-zero in `DEFAULT_TUNING` EXCEPT the air dodge, which the engine
         // holds at 0.0 deliberately — so a body that had stopped carrying the
         // stage's own numbers would still pass the loop above.
@@ -3049,11 +2664,7 @@ mod tests {
 
     /// **Two fighters do not come back to the same point.**
     ///
-    /// ⛔⛔ **they did** — `respawn_placement` took no seat, so a double knockout
-    /// put both bodies over the centre of the stage inside one another, at the
-    /// exact moment neither has information or options (D128 defect 3).
-    ///
-    /// ⭐ the arrangement is symmetric about the centre and stays ON the
+    /// the arrangement is symmetric about the centre and stays ON the
     /// platform, which is the pair of properties that makes it a placement
     /// rather than an offset: an eight-seat roster is still a fair start.
     #[test]
@@ -3078,7 +2689,7 @@ mod tests {
             "the first two seats are not symmetric about the stage centre"
         );
 
-        // ⚠ and every one of them is still over the platform, not past its lip —
+        // and every one of them is still over the platform, not past its lip —
         // an offset that grew without bound would respawn seat 7 into the blast
         // zone, which is a worse bug than the overlap it fixed.
         let half = PLATFORM_WIDTH / 2.0;
@@ -3098,10 +2709,7 @@ mod tests {
     /// **A respawn is ABOVE the stage, not on it.** A fighter that comes back on
     /// the floor comes back inside the opponent who just knocked it off.
     ///
-    /// ⚠ this asserted `respawn.x == centre.x` until 2026-08-18, which was the
-    /// SEAT-INDEPENDENCE defect stated as an invariant — every fighter returning
-    /// to one point is exactly what D128 defect 3 was. The height is this test's
-    /// subject; the column belongs to
+    /// The height is this test's subject; the column belongs to
     /// `every_seat_comes_back_to_its_own_point_on_the_platform`.
     #[test]
     fn a_respawn_is_above_the_stage_centre() {
@@ -3227,21 +2835,16 @@ mod tests {
     /// actually writes rather than by calling `victory_banner` directly — which
     /// would test the string and not the wiring.
     ///
-    /// ⛔ **it asserted a `GameplayBannerRequested` until 2026-08-15, and that is
-    /// why the winner card was invisible while this test was green.** Nothing in
-    /// the workspace DRAWS a `GameplayBanner`: its only reader is the app's debug
-    /// HUD line, gated on `player.single()`, so a CPU-versus-CPU ending showed
-    /// nothing at all. The claim is now made against the readout the stage
-    /// declares and the HUD actually renders — the same road as the fighter
-    /// percents — which is strictly the stronger thing to assert.
+    /// The claim is now made against the readout the stage declares and the HUD actually renders —
+    /// the same road as the fighter percents — which is strictly the stronger thing to assert.
     ///
-    /// ⚠ the old test also guarded *"a ruleset that announces twice announces on
+    /// the old test also guarded *"a ruleset that announces twice announces on
     /// every frame after the match ends"*. That hazard is gone by construction
     /// rather than by assertion: a readout is a map insert, so writing it twice
     /// is writing it once.
     #[test]
     fn deciding_the_match_shows_a_card_naming_the_winner() {
-        // ⚠ the WORDING comes from `victory_banner`, which is where it is
+        // the WORDING comes from `victory_banner`, which is where it is
         // decided; this fixture seats no bodies, so the card falls back to the
         // side label and that fallback is part of what is being asserted.
         assert_eq!(
@@ -3328,9 +2931,9 @@ mod tests {
         assert_eq!(authored.starting_character, SMASH_CHARACTER_ID);
     }
 
-    /// ⭐⭐ **the stage declares a DI budget, and gives it back on the way out.**
+    /// **the stage declares a DI budget, and gives it back on the way out.**
     ///
-    /// ⛔ the DI law, its tuning field and the victim's live stick were all
+    /// the DI law, its tuning field and the victim's live stick were all
     /// wired, and this demo declared no combat rules at all — so `di_max_angle`
     /// fell to the engine baseline of `0.0` and directional influence was OFF on
     /// the one stage built to need it. Nothing failed; a launched fighter simply
@@ -3348,11 +2951,7 @@ mod tests {
             SMASH_DI_MAX_ANGLE > 0.0,
             "⛔ a zero budget makes `di_adjust` a no-op, so declaring the rules              at all would be theatre — DI would be off and every test still green"
         );
-        // ⛔ **the same trap, one field over** (queue D75). Zero growth makes
-        // `scaled_knockback` return the base immediately, so percent would
-        // accumulate and launch nothing — which is exactly the state Jon
-        // reported as "there does not seem to be any knockback", with every
-        // test green because the engine was working on a number nobody set.
+        // **the same trap, one field over**.
         assert!(
             SMASH_KNOCKBACK_GROWTH > 0.0,
             "⛔ a platform fighter whose launch does not grow with percent is a \
@@ -3407,8 +3006,8 @@ mod tests {
     }
 
     /// **The MATCH declares what 100% means, so a crossover fighter cannot bring
-    /// its own.** (2026-07-31 found the number; queue D131 found the owner,
-    /// 2026-08-16)
+    /// its own.** ( found the number; found the owner,
+    /// )
     ///
     /// A character that authors no vitals gets a ONE-HIT pool, and under
     /// `DeathPolicy::Unbounded` the pool never kills — so nothing goes wrong
@@ -3417,14 +3016,14 @@ mod tests {
     /// the meter accumulated correctly and divided correctly, by a denominator
     /// nobody had authored.
     ///
-    /// ⛔⛔ **and the first fix was per-CHARACTER, which is why it held for a
+    /// **and the first fix was per-CHARACTER, which is why it held for a
     /// fortnight and then failed on eleven fighters.** This demo stamped the
     /// reference onto the three ids it registers; every other name on
     /// [`select::SMASH_ROSTER`] belongs to another game. Mary-O and Sanic author
     /// `max_health: 1` — correct for a one-hit-kill platformer — and read 4200%
     /// and 800% off ordinary melee damage on this stage.
     ///
-    /// ⚠ so the assertion is about the ROSTER, not about a catalog row: the
+    /// so the assertion is about the ROSTER, not about a catalog row: the
     /// character-side write is DELETED and re-adding it would not make this pass.
     #[test]
     fn the_match_declares_the_pool_every_fighters_percent_is_read_against() {
@@ -3453,15 +3052,10 @@ mod tests {
     /// never installed — which is what the match diagram printed for an hour
     /// **EVERY DIFFICULTY THIS DEMO CAN ASK FOR IS A PUBLISHED POLICY.**
     ///
-    /// ⭐ the guard on a deletion (ledger D87). `SMASH_ROSTER_RON` was six
-    /// archetype rows existing only to answer a CPU seat's controller question —
-    /// each carrying a body (100 HP, 200 run speed, a 4-damage contact) that no
-    /// seat has read since a fighter's body came from its character, and
-    /// differing from one another in exactly one field. They are gone, and
-    /// `smash_roster_at_levels` builds `duelist_l{level}` keys that now have to
-    /// resolve as `autonomous_profiles`.
+    /// They are gone, and `smash_roster_at_levels` builds `duelist_l{level}` keys that now have
+    /// to resolve as `autonomous_profiles`.
     ///
-    /// ⚠ what a miss looks like: `seat_brain_profile` finds nothing in either
+    /// what a miss looks like: `seat_brain_profile` finds nothing in either
     /// authority and preparation REFUSES the seat — loud, not a fighter that
     /// quietly stands still, which is how the same lookup failed twice before.
     #[test]
@@ -3494,7 +3088,7 @@ mod tests {
                 "`{key}` is not a Fighter, so this seat is not a fighter"
             );
         }
-        // ⚠ and the unlevelled name the roster's default seats use.
+        // and the unlevelled name the roster's default seats use.
         assert!(
             profiles.contains_key(SMASH_DUELIST_BRAIN),
             "the bare `duelist` policy is gone, so an ordinary CPU seat is refused"
@@ -3534,11 +3128,6 @@ mod tests {
 
     /// A draw has a name. The engine's `winner: Option<String>` exists so this
     /// case does not need a sentinel, and the banner has to honour that.
-    ///
-    /// ⭐ **and a winner is announced as one, in Jon's words** (D140): the card
-    /// reads `WINNER: <name>` rather than `<side> wins`, because a player
-    /// looking at the end of a match should be told who WON rather than be
-    /// handed the engine's word for a side.
     #[test]
     fn a_draw_is_announced_as_a_draw_rather_than_as_a_winner() {
         assert_eq!(victory_banner(Some("Robot v3")), "WINNER: Robot v3");
@@ -3567,7 +3156,7 @@ mod pause_arbitration_tests {
         app.init_resource::<select_screen::cursor::SelectCursors>();
         app.init_resource::<select_screen::SelectPage>();
         app.init_resource::<select_screen::SelectInteractionPolicy>();
-        // ⚠ **the CLOCK, because the cursor roams now.** `drive_the_cursor`
+        // **the CLOCK, because the cursor roams now.** `drive_the_cursor`
         // integrates a held stick against `Time`, so a hand-built app without
         // one fails validation on a resource rather than on anything this test
         // is about. A real composition always has `TimePlugin`; a fixture has
@@ -3576,11 +3165,6 @@ mod pause_arbitration_tests {
         app.init_resource::<select_screen::StartRequested>();
         app.init_resource::<select_screen::LeaveRequested>();
         app.add_message::<ambition_platformer2d::game_shell::ShellCommand>();
-        // **A HOST WITH A TITLE TO GO BACK TO**, which is the multi-game
-        // composition — the one Jon reported the lobby trapping him in. Without
-        // a spec `exit_leads_somewhere` answers NO and the way out is correctly
-        // absent, so stating the host here is what makes the BACK tests be about
-        // the press rather than about the composition.
         app.init_resource::<ambition_platformer2d::game_shell::ShellHostConfiguration>();
         app.world_mut()
             .resource_mut::<ambition_platformer2d::game_shell::ShellHostConfiguration>()
@@ -3588,7 +3172,7 @@ mod pause_arbitration_tests {
             SMASH_SELECT_ROUTE,
             "ambition_launcher",
         ));
-        // ⚠ the DEFAULT roster (this demo's own fighters), not an assembled one:
+        // the DEFAULT roster (this demo's own fighters), not an assembled one:
         // there is no catalog in this fixture and none is needed. What is under
         // test is the arbitration, and the roster only has to be non-empty so
         // the layout has a grid to put a cursor on.
@@ -3598,7 +3182,7 @@ mod pause_arbitration_tests {
             (
                 resolve_active_input_context,
                 select_screen::drive_the_cursor.run_if(the_select_screen_owns_its_input),
-                // ⭐ **the real consumer, in the real order.** Asserting on
+                // **the real consumer, in the real order.** Asserting on
                 // `LeaveRequested` alone would prove a flag was set and nothing
                 // about whether anybody acts on it — the flag is this test's
                 // subject only if the system that spends it is here too.
@@ -3614,7 +3198,7 @@ mod pause_arbitration_tests {
             ambition_platformer2d::input::SELECT_CONTEXT,
             context_priority::SELECT,
         ));
-        // The pause menu's claim, at its real priority. ⚠ this test names it
+        // The pause menu's claim, at its real priority. this test names it
         // only because it is standing in for the host; neither the screen nor
         // the pause menu names the other.
         if pause_open {
@@ -3952,14 +3536,8 @@ mod pause_arbitration_tests {
     /// card 2   Controller { device: 1 }
     /// ```
     ///
-    /// The second person reports on input seat ONE — the numbering their pad,
-    /// their menu frame and their cursor all share — and the screen indexed the
-    /// CARDS with it too. Every press they made landed on the CPU's card, and
-    /// their own was unreachable from the only controller that owned it.
-    ///
-    /// ⚠ **through `SeatMenuFrames`**, the one channel a pad, a keyboard and the
-    /// touch overlay all reduce to. A test that reached into the cursor and
-    /// called the arbitration itself would agree with the bug.
+    /// The second person reports on input seat ONE — the numbering their pad, their menu frame and
+    /// their cursor all share — and the screen indexed the CARDS with it too.
     #[test]
     fn a_cpu_between_two_people_does_not_swallow_the_second_ones_presses() {
         let mut app = app_with(false);
@@ -3998,7 +3576,7 @@ mod pause_arbitration_tests {
             Some(select::SlotPick::Fighter(1)),
             "the second person's press did not reach the card their controller drives"
         );
-        // ⚠ **the other half, and the half that was actually broken.** Landing on
+        // **the other half, and the half that was actually broken.** Landing on
         // card 2 is only right if it did NOT also land on the machine's.
         assert_eq!(
             select.slot(1).pick,
@@ -4014,13 +3592,13 @@ mod pause_arbitration_tests {
 
     /// **ONE TOKEN HAS AT MOST ONE CARRIER.**
     ///
-    /// ⭐ a human may pick up a CPU's token — one person setting up two machine
-    /// opponents is this lobby's most ordinary use. ⛔ but EVERY human could,
+    /// a human may pick up a CPU's token — one person setting up two machine
+    /// opponents is this lobby's most ordinary use. but EVERY human could,
     /// with nothing arbitrating, so two cursors carried the same piece and
     /// `carrier_of` returned whichever the array reached first. Two people then
     /// dragged one token to two different fighters and the last writer won.
     ///
-    /// ⚠ **the incumbent keeps it**, resolved in seat order — deterministic, so
+    /// **the incumbent keeps it**, resolved in seat order — deterministic, so
     /// this cannot pass on one run and fail on the next.
     #[test]
     fn two_people_reaching_for_one_cpu_token_do_not_both_get_it() {
@@ -4079,7 +3657,7 @@ mod pause_arbitration_tests {
 
     /// **ESCAPE OPENS THE PAUSE MENU AND DOES NOT ALSO QUIT.**
     ///
-    /// ⛔⛔ one key, two semantic actions: `presets.rs` binds Escape to BOTH
+    /// one key, two semantic actions: `presets.rs` binds Escape to BOTH
     /// `Start` and `MenuBack`, deliberately and with `rebind.rs` testing that it
     /// does. The shell's pause menu opens on `start` and this screen's chain
     /// runs in the SAME `InputSet::Consume` with no order between them, so a
@@ -4183,7 +3761,7 @@ mod pause_arbitration_tests {
     /// **The screen publishes its submit verb while it is up, and takes it back
     /// when it leaves.**
     ///
-    /// ⚠ the retraction is the half that bites. A cue outlives its surface if
+    /// the retraction is the half that bites. A cue outlives its surface if
     /// nothing withdraws it, and the next screen then inherits a prompt telling
     /// the player to choose a fighter on a screen with no fighters.
     #[test]

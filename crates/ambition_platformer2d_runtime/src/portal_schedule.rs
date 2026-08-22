@@ -3,7 +3,7 @@
 //! placement for portal's internal sets — each mapped to its sandbox phase,
 //! cross-set ordering edge, and gameplay run condition.
 //!
-//! ⚠ ORDERING LANDMINES (the feel/correctness contract; moved verbatim from
+//! ORDERING LANDMINES (the feel/correctness contract; moved verbatim from
 //! `ambition_app::app::plugins::wire_portal_schedule`). The portal-continuity,
 //! gravity-room, and projectile-transit app suites are the parity harness —
 //! any break here goes RED there, not silently wrong:
@@ -104,7 +104,7 @@ impl Plugin for PortalSchedulePlugin {
 }
 
 /// **Why the portal-gun CONSTRUCTION LANE and the portal-gun SCHEMA cannot
-/// disagree about whether the capability is installed** (2026-08-19 review).
+/// disagree about whether the capability is installed**.
 ///
 /// The two facts have different owners, and that is the thing worth writing
 /// down rather than assuming:
@@ -121,7 +121,7 @@ impl Plugin for PortalSchedulePlugin {
 ///                       prepared-content fingerprinting sees.
 /// ```
 ///
-/// ⚠ **so a composition that compiled `portal` and installed only
+/// **so a composition that compiled `portal` and installed only
 /// [`PortalSimulationPlugin`](ambition_portal2d::PortalSimulationPlugin) would
 /// fingerprint content as gun-less while its rooms still built authored gun
 /// pickups.** `PortalSimulationPlugin` is public and its own doc invites
@@ -130,14 +130,14 @@ impl Plugin for PortalSchedulePlugin {
 /// the whole `ambition_portal2d` dependency is optional and that feature is what
 /// turns it on. The invitation and the lane are therefore inseparable.
 ///
-/// ⭐ **what actually prevents the divergence is one line in this file**: this
+/// **what actually prevents the divergence is one line in this file**: this
 /// plugin installs `PortalPlugin`, which is simulation PLUS gun, and it is the
 /// only place in the workspace that installs portal simulation at all
 /// (`PlatformerEnginePlugins` adds this plugin, unconditionally, under the same
 /// `portal` feature that compiles the lane). No engine composition can express
 /// "portal simulation, no portal gun" today.
 ///
-/// ⛔ **that is a coincidence of composition, not a type**, which is why the
+/// **that is a coincidence of composition, not a type**, which is why the
 /// test below exists instead of an abstraction. Threading a runtime capability
 /// token into room planning would mean a seventh authority on
 /// `ActorConstructionContext::for_room_construction` and a new parameter on the

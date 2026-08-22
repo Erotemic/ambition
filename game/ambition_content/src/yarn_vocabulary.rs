@@ -150,11 +150,6 @@ pub fn cmd_challenge(
         warn!("<<challenge>>: speaker has no SimId; ignoring");
         return;
     };
-    // ⛔ **this used to INSERT `PendingChallenge` from here**, which is a
-    // structural write into the simulation from a system that is not part of it,
-    // carrying an `Entity` across a boundary that remaps entity handles. The
-    // simulation arms it now (`arm_requested_challenges`), which is also what
-    // makes the armed state rollback state — see `PendingChallenge`.
     narrative.write(
         ambition_platformer2d_actor_monolith::features::ChallengeRequested {
             target: target.clone(),
@@ -398,16 +393,9 @@ pub fn register_functions(runner: &mut DialogueRunner, mirror: &YarnStateMirror)
             .map(|snap| snap.bosses_cleared.contains(&id))
             .unwrap_or(false)
     });
-    // ⛔ **`flag(id)` USED TO BE HERE, and its deletion is what this file's
-    // mirror-shaped design cost.** A save flag is a world fact, the world-fact
-    // domain publishes `world.flag_set` into the condition catalog, and authored
-    // dialogue now asks it through the engine's generic
-    // `condition("world.flag_set", "<id>")` verb — the same road a lock wall
-    // takes. Two mechanisms answering one question is exactly the second
-    // authority this project refuses elsewhere. See
-    // `ambition_conversation::dialog::authored_conditions`.
-    // visit_count(id) -> f32: how many times the named dialogue
-    // node has been entered. Returns f32 because Yarn arithmetic
+    // Two mechanisms answering one question is exactly the second authority this project refuses
+    // elsewhere. See `ambition_conversation::dialog::authored_conditions`. visit_count(id) -> f32:
+    // how many times the named dialogue node has been entered. Returns f32 because Yarn arithmetic
     // is f32-typed (`<<if visit_count("oiler") == 1>>` etc.).
     let m = Arc::clone(&mirror.0);
     lib.add_function("visit_count", move |id: String| -> f32 {
@@ -422,15 +410,11 @@ pub fn register_functions(runner: &mut DialogueRunner, mirror: &YarnStateMirror)
             .map(|snap| snap.quests_active.contains(&id))
             .unwrap_or(false)
     });
-    // ⛔ **`inventory_has(item)` USED TO BE HERE**, over a mirrored copy of the
-    // bag with its own spelling-normalisation and its own legacy-alias table.
-    // The inventory domain publishes `inventory.holds` into the condition
-    // catalog, so authored dialogue asks
-    // `condition("inventory.holds", "<item>")` and reads the live `OwnedItems`
-    // — with `Item::from_dialog_id` as the single owner of loose spelling. See
-    // `ambition_platformer2d_actor_monolith::items::conditions`.
-    // wallet_balance() -> number: the player's current money, so a merchant node
-    // can show it ("You have {wallet_balance()}g").
+    // The inventory domain publishes `inventory.holds` into the condition catalog, so authored
+    // dialogue asks `condition("inventory.holds", "<item>")` and reads the live `OwnedItems` — with
+    // `Item::from_dialog_id` as the single owner of loose spelling. See
+    // `ambition_platformer2d_actor_monolith::items::conditions`. wallet_balance() -> number: the
+    // player's current money, so a merchant node can show it ("You have {wallet_balance()}g").
     let m = Arc::clone(&mirror.0);
     lib.add_function("wallet_balance", move || -> f32 {
         m.read()

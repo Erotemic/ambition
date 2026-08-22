@@ -132,12 +132,9 @@ impl ActorFireRequest {
             }
             GameplayFramePolicy::WorldSpace => self.dir,
             GameplayFramePolicy::ScreenSpace => {
-                // ⚠ **the release build used to return `self.dir` in silence**,
-                // which is a SCREEN-space vector handed to gameplay as a world
-                // one. Under any rotated gravity that is a shot going the wrong
-                // way, with nothing to grep for — and the `debug_assert!` that
-                // stood here alone said so only in a debug build, which is not
-                // where a player fires it.
+                // Under any rotated gravity that is a shot going the wrong way, with nothing to
+                // grep for — and the `debug_assert!` that stood here alone said so only in a debug
+                // build, which is not where a player fires it.
                 //
                 // Still returns `self.dir`: there is no better answer available
                 // here, and the two policies share a basis today, so the value is
@@ -182,7 +179,7 @@ pub struct ActorControlFrame {
     /// [`crate::brain::BrainSnapshot::locomotion_for`]. Human input must resolve
     /// raw device axes before writing this.
     ///
-    /// ⛔ **the type is the contract, because the prose was not enough.** This
+    /// **the type is the contract, because the prose was not enough.** This
     /// field was a bare `Vec2` and two shipped brains got its frame wrong in
     /// opposite directions (S48): the fighter brain wrote raw world `x` into it,
     /// and `brain/player.rs` wrote this body-local vector into the WORLD-space
@@ -200,20 +197,20 @@ pub struct ActorControlFrame {
     /// Deliberately distinct from locomotion (a different control modality, not a
     /// different actor type), so it does not reintroduce a player/enemy split.
     ///
-    /// ⚠ **[`WorldVec2`] because "world-space" was already written here and a
+    /// **[`WorldVec2`] because "world-space" was already written here and a
     /// brain still wrote a body-local vector into it.** A possessed flyer flew
     /// world-UP when the player pushed right; see the note on
     /// [`Self::locomotion`]. The wrapper is what makes the two fields refuse to
     /// be assigned to each other.
     pub velocity_target: WorldVec2,
-    // ⛔ **THERE IS NO `drop_through` FIELD, AND ITS ABSENCE IS THE DESIGN**
-    // (deleted D126.2, 2026-08-15). It sat here for months documented as
+    // **THERE IS NO `drop_through` FIELD, AND ITS ABSENCE IS THE DESIGN**
+    // . It sat here for months documented as
     // "suppress the OneWay vertical block this tick", and every part of that
     // sentence was true of the ENGINE and false of this struct: no brain ever
     // set it, `to_input_state` never mapped it, and the mount hand-off
     // dutifully copied `false` from rider to mount every tick.
     //
-    // ⭐ the wire was REFUSED, not forgotten, and the refusal is older than the
+    // the wire was REFUSED, not forgotten, and the refusal is older than the
     // field's doc. Drop-through is a DERIVED GESTURE — `descend > 0.35 &&
     // jump_pressed`, owned by `movement::integration::wants_drop_through` and
     // computed at the consumer so it is gravity- and input-mode-relative. There
@@ -246,7 +243,7 @@ pub struct ActorControlFrame {
     /// back-air, …). Brains that don't care about directional melee leave this
     /// zero.
     ///
-    /// ⚠ typed with [`Self::locomotion`] rather than left bare: it is the third
+    /// typed with [`Self::locomotion`] rather than left bare: it is the third
     /// frame-carrying field on this struct, it says "local frame" in prose only,
     /// and it had exactly the property that let the other two go wrong.
     pub attack_axis: LocalAxes,
@@ -281,7 +278,7 @@ pub struct ActorControlFrame {
     pub shield_held: bool,
     /// **Rising edge: this body wants to CAPTURE somebody this tick.**
     ///
-    /// ⭐ the human's Grab button and a CPU's decision write this SAME field.
+    /// the human's Grab button and a CPU's decision write this SAME field.
     /// There is deliberately no `cpu_wants_grab` beside it — the whole point of
     /// the semantic control surface is that a brain asks for a grab the way a
     /// person does, and everything downstream reads one answer.
@@ -307,7 +304,7 @@ pub struct ActorControlFrame {
     /// Rising edge on the MODE-SWITCH verb — [`ControlSlot::Utility`]'s device
     /// edge on this frame.
     ///
-    /// ⚠ **not "the fly button", despite the name.** Flight was the first thing
+    /// **not "the fly button", despite the name.** Flight was the first thing
     /// to claim the slot, so the field wears its verb; what the press MEANS is
     /// whatever the body's action scheme puts there. A body that declares a
     /// technique on Utility (Sanic's transformation) has this routed to its
@@ -338,12 +335,6 @@ pub struct ActorControlFrame {
     pub blink_held: bool,
     /// Falling edge: blink released — commit the blink target.
     pub blink_released: bool,
-    /// WORLD-space quick-blink direction, resolved at the brain seam through the
-    /// MOVEMENT frame mode (locomotion-framed). The movement engine consumes this
-    /// directly so it stays frame-agnostic; `ZERO` → fall back to facing.
-    /// ⚠ **WORLD**, and the kernel seam already said so by wrapping this in
-    /// `WorldVec2` on the way in — a reinterpretation that claimed a frame the
-    /// field did not carry. Typed 2026-08-02 so the wrap is a move.
     pub blink_quick_dir: WorldVec2,
     /// WORLD-space precision-blink steer vector, resolved at the brain seam
     /// through the AIM frame mode (screen-directed by default). Decoupled from
@@ -353,13 +344,6 @@ pub struct ActorControlFrame {
     /// Aim direction for charged ranged attacks in the controlled actor's local
     /// frame. `(0,0)` = use actor facing; non-zero = explicit twin-stick / mouse
     /// aim after crossing the input seam.
-    ///
-    /// ⚠ **this struct has SIX frame-carrying fields, not the three typed
-    /// first.** `locomotion`, `velocity_target` and `attack_axis` were done on
-    /// 2026-08-02 and the commit said "the three frame-carrying fields"; `aim`
-    /// (local, per the line above), `blink_quick_dir` and `blink_aim_step` (both
-    /// WORLD — the kernel seam wraps them in `WorldVec2`) were missed. Counting
-    /// the fields whose DOC names a frame is how the other three were found.
     pub aim: LocalAxes,
     /// Sustain: the modifier slot is held this tick.
     ///
@@ -482,15 +466,6 @@ impl ActorControlFrame {
     /// brain that CARRIES a frame between decisions — an edge is a thing that
     /// happened once, and a frame cloned forward re-fires every edge on it.
     ///
-    /// ⚠ **this said "all" and cleared eight of fifteen** (GPT 5.6, 2026-07-31,
-    /// finding 3). Blink, projectile, pogo, fast-fall, fly-toggle and modifier
-    /// were left set, so the fighter brain — which clones its held
-    /// frame every tick between decisions — emitted one `Blink` decision as a
-    /// press edge on every tick until the next decision overwrote it. Cooldowns
-    /// masked some of the consequences; the control stream was still wrong, and
-    /// anything reading `blink_pressed` directly saw several presses for one
-    /// choice.
-    ///
     /// A helper that omits fields while claiming completeness is worse than no
     /// helper: the fighter's own tick had open-coded three of these and was
     /// RIGHT to distrust it. The rule for anything added to this frame is the
@@ -551,16 +526,11 @@ mod tests {
         assert!(input.attack_pressed, "melee_pressed → attack_pressed");
     }
 
-    /// **A brain CAN ask for a drop-through, and this is how** — the two
-    /// ingredients of the engine's derived gesture (`wants_drop_through` =
-    /// descend toward the feet + jump) both survive the brain→engine bridge in
-    /// ONE frame. This is the guard on D126.2's deletion of the dead
-    /// `drop_through` boolean: the field is gone because the capability was
-    /// never missing, only mis-declared, and if a future edit strips the
-    /// locomotion axis or the jump edge on the way through, the gesture stops
-    /// being expressible and THAT is the regression — not the absent bool.
+    /// **A brain CAN ask for a drop-through, and this is how** — the two ingredients of the
+    /// engine's derived gesture (`wants_drop_through` = descend toward the feet + jump) both
+    /// survive the brain→engine bridge in ONE frame.
     ///
-    /// ⚠ deliberately does not restate the 0.35 threshold: that number is the
+    /// deliberately does not restate the 0.35 threshold: that number is the
     /// kernel's, `wants_drop_through` is kernel-private, and a copy here would
     /// be a second spelling of the rule this test exists to keep single.
     #[test]

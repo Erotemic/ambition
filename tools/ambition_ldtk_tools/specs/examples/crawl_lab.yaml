@@ -36,10 +36,6 @@ px_hei: 384
 fill_collision: empty
 biome: lab
 connect_to:
-  # Reciprocal LoadingZone added to central_hub_basement so the crawl
-  # lab is reachable from the basement door per Jon's "every new room
-  # reachable from the basement" rule. The px is far-right of the
-  # basement (1900x?), placed in a gap between existing zones.
   - target_room: central_hub_basement
     # Door slot in the basement corridor. Existing zones live at
     # x=144/348/576/788/1025/1253/1497/1712 with y=832 — pick a gap

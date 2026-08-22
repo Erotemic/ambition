@@ -85,12 +85,9 @@ fn frame_basis_resolves_atlas_and_plain() {
 
 /// **AN ATLASED SPRITE RESOLVES WITH NO IMAGE IN THE MAIN WORLD AT ALL.**
 ///
-/// ⛔ this is the claim that matters, not a micro-optimisation. Bevy loads
-/// images as `RenderAssetUsages::MAIN_WORLD | RENDER_WORLD`, so every decoded
-/// sheet keeps its full RGBA in main-world RAM for the lifetime of the handle —
-/// measured at **1803 MB** entering Hall of Characters. Dropping `MAIN_WORLD`
-/// frees essentially all of it, and this function was the only main-world reader
-/// of a loaded sprite sheet standing in the way. It wanted two integers.
+/// this is the claim that matters, not a micro-optimisation. Dropping `MAIN_WORLD` frees
+/// essentially all of it, and this function was the only main-world reader of a loaded sprite sheet
+/// standing in the way. It wanted two integers.
 ///
 /// ⚠ **the sizes deliberately DISAGREE**, because the pre-existing test used a
 /// 64x32 image and a 64x32 layout and therefore could not tell which one the UV

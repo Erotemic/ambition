@@ -1,24 +1,14 @@
-//! **The fixed-tick half of the presentation/camera handoff, soft-framing side.**
-//!
-//! Bevy ordering constraints are SCHEDULE-LOCAL. The gameplay-presentation
-//! cluster runs in `Update`; the camera observation resolve used to run in
-//! `app.sim_schedule()`, which for this demo is `FixedUpdate`. The
-//! `.before`/`.after` edges between them were therefore inert here — they
-//! compiled, they read as guarantees, and they constrained nothing.
-//!
-//! The symptom is not a crash. It is a one-frame MIXTURE: the physical
-//! `Camera.viewport` describes this frame's layout while the camera snapshot
-//! still describes last frame's, so the world is framed for a viewport it is
-//! no longer being drawn into.
+//! It is a one-frame MIXTURE: the physical `Camera.viewport` describes this frame's layout
+//! while the camera snapshot still describes last frame's, so the world is framed for a
+//! viewport it is no longer being drawn into.
 //!
 //! This is the real Sanic composition — the same `build_windowed_demo_app` the
 //! demo binary uses, on `PlatformerEnginePlugins::fixed_tick()`, with the real
 //! provider, route, session and `high_speed_full_bleed` profile.
 //!
-//! Sanic is the complementary case to Mary-O: FULL BLEED with soft framing
-//! ACTIVE, so it exercises the `CameraScreenFraming` publication and the
-//! cleared-viewport path rather than the pillarboxed one. A handoff fix that
-//! only worked for fixed-aspect profiles would pass Mary-O and fail here.
+//! Sanic is the complementary case to Mary-O: FULL BLEED with soft framing ACTIVE, so it
+//! exercises the `CameraScreenFraming` publication and the cleared-viewport path rather than
+//! the pillarboxed one.
 
 #![cfg(feature = "visible")]
 
@@ -160,8 +150,6 @@ fn player_exists(app: &mut App) -> bool {
         .is_some()
 }
 
-/// Sanic's declared full-bleed soft-framing profile reaches every consumer
-/// coherently on a fixed-tick host, both at rest and across a live resize.
 #[test]
 fn fixed_tick_sanic_keeps_one_layout_across_a_resize() {
     let mut app = sanic_app(DISPLAY);

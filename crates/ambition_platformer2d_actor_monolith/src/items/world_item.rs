@@ -39,16 +39,13 @@ pub struct WorldItem {
     /// `None` keeps the draw-blind quad.
     pub sprite: Option<String>,
 
-    // ⛔ **`emerging: bool` LIVED HERE and is GONE (2026-08-04).** Mary-O set it
-    // `true` when a ?-block popped a reward and nothing ever set it back — the
-    // comment named a `clear_emerged_powerups` that was never written — so an item
-    // finished rising, began its ordinary arc, and stayed drawn BEHIND the world
-    // for the rest of its life (GPT 5.6 review of `1a05b98`, finding 3).
+    // **`emerging: bool` LIVED HERE and is GONE.** Mary-O set it `true` when a ?-block popped a
+    // reward and nothing ever set it back — the comment named a `clear_emerged_powerups` that
+    // was never written — so an item finished rising, began its ordinary arc, and stayed drawn
+    // BEHIND the world for the rest of its life ( of `1a05b98`, ).
     //
-    // ⭐ the fact was already derivable: `ItemMotion::emerging()` compares elapsed
-    // rise against the authored one, every frame, and cannot go stale. `SimView`
-    // asks that instead. A second mutable copy of a derived fact is a bug with a
-    // schedule.
+    // the fact was already derivable: `ItemMotion::emerging()` compares elapsed rise against
+    // the authored one, every frame, and cannot go stale. `SimView` asks that instead.
 }
 
 impl WorldItem {
@@ -87,7 +84,7 @@ pub enum WorldItemPayload {
 /// Spawn a `WorldItem` into the active session, room-scoped so it despawns with
 /// the room (never leaks across a reload) — the same scoping a thrown
 /// [`GroundItem`](super::pickup::GroundItem) uses.
-/// ⭐ **returns the entity so the caller can SCOPE what it spawned.** Room-scoping
+/// **returns the entity so the caller can SCOPE what it spawned.** Room-scoping
 /// is this function's business; whether the item is also residue of one ATTEMPT is
 /// the caller's, and it could not say so while this returned `()`. See
 /// `SpawnedThisAttempt` — *"one scope cannot answer both"*.
@@ -123,14 +120,12 @@ pub fn spawn_moving_world_item(
 /// item is despawned. Granted verbs are reconciled from the worn set, not
 /// applied here.
 ///
-/// ⛔ **this read `Res<ControlledSubject>` and served ONE body**, which made it
-/// a fork with `collect_ecs_pickups` — and the two were wrong in opposite
-/// directions. A coin was collectible by all four couch seats and not by a
-/// possessed body; a mushroom was collectible by a possessed body and not by
-/// seat two. One population now answers both, and it is a superset of each.
-/// The reasoning and the counter-example are on [`TouchCollectorFilter`].
+/// A coin was collectible by all four couch seats and not by a possessed body; a mushroom was
+/// collectible by a possessed body and not by seat two. One population now answers both, and it
+/// is a superset of each. The reasoning and the counter-example are on
+/// [`TouchCollectorFilter`].
 ///
-/// ⚠ **the item is DESPAWNED, and that is not the destroy-and-recreate this
+/// **the item is DESPAWNED, and that is not the destroy-and-recreate this
 /// slice removed elsewhere.** A `WorldItem` is a CONSUMABLE: its payload
 /// transfers into the collector's worn set and the object genuinely ends. A
 /// [`GroundItem`](super::pickup::GroundItem) is an INSTANCE that changes hands,
@@ -153,9 +148,7 @@ pub fn collect_world_items(
             Option<&mut WornEquipment>,
         ),
         (
-            // A body the game is driving does not shop. Collection is proximity-
-            // based, so blanking the control frame cannot stop it — a corpse held
-            // where it fell would still pocket whatever it landed on.
+            // A body the game is driving does not shop.
             Without<ambition_characters::brain::ScriptedControl>,
             TouchCollectorFilter,
         ),
@@ -190,14 +183,10 @@ pub fn collect_world_items(
             continue;
         };
         match &item.payload {
-            // Collecting RECORDS the row and nothing else. Any verb the row grants
-            // is applied by `reconcile_equipment_grants`, which derives the live
-            // action set + moveset from identity + worn equipment. Pickup used to
-            // apply grants itself, which made it one of two places that could
-            // change a body's action set — and the only one that could add a verb
-            // but never remove one. Now there is exactly one derivation, and a hit
-            // that spends a granting row revokes its verb on the same path this
-            // pickup granted it.
+            // Collecting RECORDS the row and nothing else. Any verb the row grants is applied by
+            // `reconcile_equipment_grants`, which derives the live action set + moveset from
+            // identity + worn equipment. Now there is exactly one derivation, and a hit that spends
+            // a granting row revokes its verb on the same path this pickup granted it.
             WorldItemPayload::Equip(row) => match worn {
                 Some(mut worn) => worn.equip(row.clone()),
                 None => {
@@ -350,7 +339,7 @@ mod tests {
     /// of the player population and any body a player is currently driving —
     /// not one body, and not `PlayerEntity` alone.
     ///
-    /// ⚠ **it is a paired assertion because either half alone passes on the
+    /// **it is a paired assertion because either half alone passes on the
     /// broken code.** A test with only the second couch seat is green under the
     /// old `PlayerEntity`-filtered `collect_ecs_pickups`; a test with only the
     /// possessed body is green under the old `ControlledSubject` lookup. What

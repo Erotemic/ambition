@@ -3,7 +3,7 @@
 //! and construction reads gravity-freedom from there — one authority for
 //! "does this creature fly", which the archetype row was duplicating.
 //!
-//! ⚠ `mass: 0.5` is not carried either. Mass weights a mount+rider centre
+//! `mass: 0.5` is not carried either. Mass weights a mount+rider centre
 //! of gravity (ADR 0020) and a parrot is neither, so it was inert on the
 //! row; the first mountable character to migrate is the one that needs a
 //! home for it.
@@ -21,11 +21,9 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
         .with_locomotion(CharacterLocomotion {
             run_speed: 240.0,
             move_style: MoveStyleSpec::Float,
-            // ⭐ **IT FLIES, AND IT SAYS SO** (ledger D89). This was
-            // inferred from `body_kind: Floating` in its catalog row —
-            // a presentation/footprint fact that was doubling as
-            // locomotion authority. The fold is deleted; a bird states
-            // its own flight.
+            // This was inferred from `body_kind: Floating` in its catalog row — a
+            // presentation/footprint fact that was doubling as locomotion authority. The fold is
+            // deleted; a bird states its own flight.
             baseline_free_flight: Some(true),
             ..Default::default()
         })
@@ -41,8 +39,8 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
             attack_range: 60.0,
             ..Default::default()
         })
-        // ⛔⛔ **AND ITS CATALOG ROW STILL NAMES `parrot_lively`, WHICH
-        // DISAGREES WITH THIS** (found 2026-08-12, ledger D81). That
+        // **AND ITS CATALOG ROW STILL NAMES `parrot_lively`, WHICH
+        // DISAGREES WITH THIS**. That
         // preset says `aggro_radius: 120.0` and `attack_range: 0.0`
         // against this profile's 620 and 60 — one bird, two authorities,
         // different answers. THIS one wins (`resolve_npc_brain` ranks a
@@ -50,7 +48,7 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
         // the enemy road builds character-first), so the preset is dead
         // weight stating wrong numbers rather than a live conflict.
         //
-        // ⛔ it cannot be deleted yet, and the blocker is a SCHEMA one:
+        // it cannot be deleted yet, and the blocker is a SCHEMA one:
         // `default_brain` is a required `String`, so the row has to name
         // SOME preset — and `parrot_lively` has exactly one namer, this
         // bird. A character whose definition states its policy should not

@@ -14,11 +14,6 @@ use ambition_platformer2d::render::rendering::spawn_room_visuals;
 
 /// Presentation-side debug hotkey reader.
 ///
-/// Slice 5 of the events refactor moved this out of the legacy
-/// `sandbox_update` orchestrator so the gameplay loop no longer
-/// reads `Res<ButtonInput<KeyCode>>`. That lets the player tick run
-/// on the headless App-builder track.
-///
 /// Runs before the player tick so preset/debug-flag mutations land
 /// before the gameplay loop reads them this frame.
 pub(super) fn handle_debug_hotkeys(
@@ -44,11 +39,6 @@ pub(super) fn handle_debug_hotkeys(
     }
 }
 
-// `sync_preset_input_map` lived here until 2026-08-06. It is replaced by the
-// engine-owned `sync_primary_recipe_from_settings` +
-// `ambition_input::rebuild_maps_from_recipes` (host input pipeline): the local
-// version reached its participant with `single_mut()`, so a second couch seat
-// made a preset change reach nobody, and no demo app had any resync at all.
 
 fn local_ggrs_restart_policy(
     ownership: Option<ambition_platformer2d::rollback::RollbackSessionOwnership>,
@@ -60,15 +50,6 @@ fn local_ggrs_restart_policy(
         Some(ambition_platformer2d::rollback::RollbackSessionOwnership::LocalSyncTest { settings, .. }) => {
             // THE SAME SESSION, RESTARTED — so it inherits from the session it
             // replaces, and only the deliberate override is spelled out.
-            //
-            // This read `..Default::default()`, which silently reset the local
-            // player count to one: a two-to-four-player couch session came back
-            // from any LDtk hot reload single-player, seats 1..3 keeping their
-            // bodies while quietly leaving the rollback session (GPT 5.6,
-            // 2026-07-28). Naming `players: settings.players` repaired that ONE
-            // field and left the shape that caused it — every field added to
-            // this struct would have been opt-OUT of surviving a reload, and
-            // "who is playing" was not the last topology this struct will carry.
             //
             // `..settings` inverts it: preservation is the default and dropping
             // something is the thing you have to type. `check_distance: 0` is
@@ -129,12 +110,6 @@ pub(super) fn handle_ldtk_hot_reload(
         Res<ambition_platformer2d::actors::features::RoomContentStagingRegistry>,
         Res<ambition_platformer2d::actors::construction::ActorConstructionRegistry>,
         Res<world_manifest::WorldManifest>,
-        // **The prepared cast and the published policies.** Hot reload rebuilds
-        // a room, so it consults exactly what every other room-construction road
-        // consults — and it was the fourth road found carrying neither
-        // (2026-08-15). A reload that plans archetype-first rebuilds a
-        // registered character's body as a stranger with its name, which is the
-        // defect AC6 deleted the fallback to expose.
         Option<Res<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>>,
         Option<
             Res<ambition_platformer2d::characters::actor::character_catalog::BrainProfileRegistry>,
@@ -200,9 +175,8 @@ pub(super) fn handle_ldtk_hot_reload(
         }
     };
 
-    // ⚠ the SETTINGS are no longer carried across the reload: the session owner
-    // holds the policy, and a content reload does not change it. What this marks
-    // is only "the world under the session was replaced, rebase it".
+    // the SETTINGS are no longer carried across the reload: the session owner holds the policy,
+    // and a content reload does not change it.
     if restart_local_ggrs.is_some() {
         ambition_platformer2d::rollback::stop_session_deferred(&mut commands);
         commands.insert_resource(RestartLocalGgrsAfterLdtkReload);
@@ -287,12 +261,8 @@ pub(super) fn restart_local_ggrs_after_hot_reload(world: &mut World) {
     if ambition_platformer2d::rollback::session_is_active(world) {
         ambition_platformer2d::rollback::stop_session(world);
     }
-    // ⭐ **STOP, and let the OWNER rebuild.** This used to call
-    // `start_sync_test_session` itself, which made the hot-reload path a third
-    // place that installed a session — beside the observatory and, now, beside
-    // the rollback backend's `local_session`. Releasing ownership is the whole of
-    // what this path owes: `maintain_local_session` sees no session on the next
-    // frame and starts one, with the SAME policy and the SAME frozen seating,
+    // Releasing ownership is the whole of what this path owes: `maintain_local_session` sees no
+    // session on the next frame and starts one, with the SAME policy and the SAME frozen seating,
     // because neither of those is what a content reload changed.
     world
         .resource_mut::<ambition_platformer2d::rollback::local_session::LocalSessionOwnership>()
@@ -416,7 +386,7 @@ pub(super) fn reload_ldtk_world_from_disk(
             RoomGeometry(transaction.next_spec.world.clone()),
             rooms::ActiveRoomMetadata(transaction.next_spec.metadata.clone()),
         )
-        // ⚠ `with_world` carries the OLD index forward on purpose, so the road
+        // `with_world` carries the OLD index forward on purpose, so the road
         // that reloaded an LDtk project has to state its replacement. This is
         // that road, and the reload is exactly what changed the index.
         .with_installed_ldtk_index(candidate_index.clone());
@@ -593,7 +563,7 @@ mod hot_reload_session_tests {
     /// session of two to four silently became single-player after any LDtk hot
     /// reload, with seats 1..3 keeping their bodies and leaving the rollback
     /// session. `check_distance` going to zero is deliberate (a fresh baseline);
-    /// WHO IS PLAYING is not a baseline, it is topology (GPT 5.6, 2026-07-28).
+    /// WHO IS PLAYING is not a baseline, it is topology.
     #[test]
     fn a_reload_keeps_every_local_player_in_the_session() {
         let restart = local_ggrs_restart_policy(Some(RollbackSessionOwnership::LocalSyncTest {

@@ -79,18 +79,13 @@ impl ResolvedMotionFrame {
     /// Publish this tick's resolved frame. ONLY the frame resolution phase may
     /// call this — `engine.only-the-frame-phase-publishes-the-resolved-frame`.
     ///
-    /// ⛔ **it was called `publish`, and that name is why the claim "guarded by
+    /// **it was called `publish`, and that name is why the claim "guarded by
     /// workspace policy" was FALSE for as long as it stood.** A
     /// forbidden-source rule can only match text, and `.publish(` collides with
     /// `sprites.publish`, `damageable.publish`, `sessions.publish` and
     /// `registry.publish` — so no rule could name this one without firing on four
     /// unrelated seams. The invariant held on inspection (two callers, both in
     /// the resolve phase) and nothing was checking it.
-    ///
-    /// ⚠ the general lesson, and the second instance found on 2026-08-02: **a
-    /// doc comment that claims enforcement is a claim about the code, and goes
-    /// stale like any other.** The first was ADR 0024's pose/velocity contract,
-    /// enforced for `pos` and not `vel`.
     pub fn publish_resolved_frame(&mut self, frame: MotionFrame) {
         self.frame = frame;
     }

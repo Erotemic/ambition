@@ -1,9 +1,6 @@
 //! App-side simulation-resource residue (E5 step 6 slimmed this file).
 //!
-//! The engine-generic sim messages + resource defaults moved to
-//! `ambition_platformer2d::runtime::SimCoreResourcesPlugin` (in the engine group), so a
-//! demo app gets a bootable sim without this crate. What remains here is
-//! genuinely Ambition-assembly:
+//! What remains here is genuinely Ambition-assembly:
 //!
 //! - App-local Ambition character-fragment registration (CONTENT choice),
 //! - the LDtk data-asset Startup chain (`load_data_asset_handle` →

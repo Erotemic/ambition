@@ -91,9 +91,6 @@ fn player_clear_of_a_hazard_takes_no_hit() {
     );
 }
 
-/// Fable review 2026-07-02 §A4: hazards are world danger for EVERY body —
-/// an NPC standing in the spikes takes the same hit a player would
-/// (previously the damage query was player-scoped and NPCs were immune).
 #[test]
 fn a_non_player_body_touching_a_hazard_takes_the_hit_too() {
     let mut app = app_with_hazard_system();

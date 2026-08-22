@@ -1,13 +1,9 @@
 //! Ordinary room transitions, end to end — the ENGINE's copy.
 //!
-//! Detection (`detect_room_transition_system`) and the per-room feature reset
-//! have always been engine-side. Everything between them — turning the request
-//! into an exact `ambition_load` transaction, preflighting the target while the
-//! source room stays authoritative, waiting for readiness, taking one-shot
-//! authorization on a later tick, and performing the commit — used to live in
-//! `ambition_app`. That made room transitions a GAME capability: no demo host
-//! could change rooms, which is why Super Mary-O's secret vault had to be dug
-//! into the same `RoomSpec` as the surface instead of being a second room.
+//! Detection (`detect_room_transition_system`) and the per-room feature reset have always been
+//! engine-side. That made room transitions a GAME capability: no demo host could change rooms,
+//! which is why Super Mary-O's secret vault had to be dug into the same `RoomSpec` as the surface
+//! instead of being a second room.
 //!
 //! The blocker was never a dependency. It was one call: the commit drew the new
 //! room itself (`spawn_room_visuals`), which named `ambition_render`. Now it
@@ -51,10 +47,6 @@ pub use loading::{
 };
 pub use prefetch::RoomConstructionPlanPrefetch;
 
-/// The readiness transaction + authorized commit, registered into the gap
-/// `RoomTransitionSchedulePlugin` documents: after detection, before the
-/// per-room feature reset.
-///
 /// Part of [`crate::PlatformerEnginePlugins`], so every host — Ambition, a demo
 /// app, an external provider — gets the same transition without registering
 /// anything. Registering a second copy is a hard schedule error in a host that
@@ -74,17 +66,14 @@ impl Plugin for RoomTransitionComposerPlugin {
         // one-shot commit authorization — so the engine group owes the
         // coordinator rather than requiring every host to remember it.
         //
-        // Unconditional: the plugin is idempotent by construction now, so a host
-        // or shell group that also adds it composes in any order. The guard that
-        // used to be here worked for THIS caller and could not help the shell
-        // group, which adds the plugin as a `PluginGroupBuilder` member and
-        // cannot make that conditional.
+        // Unconditional: the plugin is idempotent by construction now, so a host or shell group
+        // that also adds it composes in any order.
         app.add_plugins(ambition_load::AmbitionLoadPlugin);
         app.init_resource::<RoomTransitionContentEpoch>()
             .init_resource::<RoomTransitionLoadState>()
             .init_resource::<RoomConstructionPlanPrefetch>();
         let sim = app.sim_schedule();
-        // ⭐⭐ **READINESS IS HOST-SIDE; THE ROOM CHANGE IS SIMULATION** (D71).
+        // **READINESS IS HOST-SIDE; THE ROOM CHANGE IS SIMULATION**.
         //
         // These four ask a question — is the destination prepared, are its assets
         // accounted for, is the cover up, may this commit — and answering it
@@ -118,7 +107,7 @@ impl Plugin for RoomTransitionComposerPlugin {
                 // THE transaction phase — detection has run, the reset has not.
                 .in_set(ambition_platformer2d_shared_tangle::schedule::RoomTransitionSet::Apply),
         );
-        // ⛔ **STATED, not inferred.** On a host whose sim IS `Update` all three
+        // **STATED, not inferred.** On a host whose sim IS `Update` all three
         // phases share one graph, and leaving Bevy's parameter-conflict
         // resolution to order them would be luck wearing a deterministic face. On
         // a `FixedUpdate` or GGRS host the sim runs in its own schedule and

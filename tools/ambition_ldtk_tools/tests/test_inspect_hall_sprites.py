@@ -33,10 +33,6 @@ def test_inspect_hall_sprites_reports_high_coverage():
     assert rc == 0, f"inspect_hall_sprites exited non-zero; output:\n{output}"
     # Header line names the count of pedestals.
     assert "NpcSpawn pedestals" in output
-    # Summary section names the counts. Pin that ≥95 entries classify
-    # as `ok`. (Today the number is 97 — full coverage as of 2026-05-24;
-    # floor at 95 leaves slack for a one-off broken publisher without
-    # failing CI on every legitimate single-character outage.)
     summary = output.split("# summary:")[-1]
     assert "ok:" in summary, summary
     # Extract the integer after `ok:`.

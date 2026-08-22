@@ -245,8 +245,6 @@ fn the_sides_kill_only_when_a_stage_says_they_do() {
     );
 }
 
-/// **The ceiling too, and it is measured against gravity, not against `-y`.**
-///
 /// A body launched straight up leaves through the top under down-gravity and
 /// through the BOTTOM of the screen under up-gravity. Both are "the direction
 /// you do not fall toward", which is the only frame-agnostic way to say it.

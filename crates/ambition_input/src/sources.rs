@@ -6,13 +6,9 @@
 //! keyboard bindings live in every seat's `InputMap`, put there by a
 //! [`crate::presets`] preset, and nothing owns them.
 //!
-//! For solo play that is not a bug, it is the feature: one person with a
-//! keyboard and a pad drives the same character with either hand, and Jon's
-//! couch brief names it as a milestone that must keep working. With two
-//! participants it is the couch bug — **both seats answer the keyboard**, so
-//! player one's WASD also moves player two if player two's preset overlaps, and
-//! a keyboard player and a pad player cannot coexist because the keyboard has no
-//! owner to be.
+//! With two participants it is the couch bug — **both seats answer the keyboard**, so player one's
+//! WASD also moves player two if player two's preset overlaps, and a keyboard player and a pad
+//! player cannot coexist because the keyboard has no owner to be.
 //!
 //! ## The two questions, kept apart
 //!
@@ -37,7 +33,7 @@ use crate::participant::ParticipantId;
 /// mouse while somebody else has the keys, and modelling them separately would
 /// invent an ownership question no player ever asks.
 ///
-/// ⚠ a gamepad is identified by its `Entity`, which is only meaningful while it
+/// a gamepad is identified by its `Entity`, which is only meaningful while it
 /// stays connected. That is deliberate and is why [`InputAssignmentPolicy`]
 /// exists separately: a frozen assignment is what survives a disconnect, not the
 /// entity id. Bevy recycles entity indices, so an id that outlived its device
@@ -62,16 +58,14 @@ impl InputSourceId {
 /// Default is [`Self::UnifiedPrimary`], which is today's behaviour exactly: this
 /// type must be installable without changing what any existing game does, or the
 /// couch work has to be finished before anything can ship.
-/// ⚠ **not a `Resource` — it is carried by [`crate::LocalSeatOffer`].** A
+/// **not a `Resource` — it is carried by [`crate::LocalSeatOffer`].** A
 /// policy with no owner could only be given back by value equality, which is
 /// how one surface's teardown erased a successor's identical claim.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum InputAssignmentPolicy {
     /// Keyboard, gamepads and everything else drive the PRIMARY participant.
     ///
-    /// Solo play. A spare controller on the desk is another way to move the same
-    /// character, which is what a single player expects and what they would
-    /// report as a bug if it stopped.
+    /// Solo play.
     #[default]
     UnifiedPrimary,
     /// An unassigned source claims a participant by joining.
@@ -98,7 +92,7 @@ pub struct KeyboardOwner(pub Option<ParticipantId>);
 /// that need it — the binding pass and any UI that wants to say "keyboard:
 /// player one" — cannot drift apart by re-deriving it.
 ///
-/// ⚠ `seats < 2` returns `None` under EVERY policy, including `JoinToClaim`.
+/// `seats < 2` returns `None` under EVERY policy, including `JoinToClaim`.
 /// A lone participant owning the keyboard exclusively is the same state as
 /// nobody owning it, and returning `Some` there would make the binding pass
 /// rewrite an `InputMap` that did not need to change — which marks it changed

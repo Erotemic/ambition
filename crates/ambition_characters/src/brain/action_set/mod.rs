@@ -38,13 +38,9 @@ pub struct ActionSet {
     /// templates that emit `desired_vel` get their motion drawn via
     /// this style.
     pub move_style: MoveStyleSpec,
-    /// CAPABILITY marker: `Some(Special(move_id))` means this body HAS a signature
-    /// special — the brain reads `special.is_some()` to decide whether to press
-    /// `special_pressed`. It no longer EXECUTES anything here: the special is a
-    /// data-driven move in the body's `ActorMoveset`, triggered on the `special`
-    /// verb and run by the moveset runtime (fable review §A1 — the moveset subsumes
-    /// the old flat `special` resolution). Sourced from the archetype's
-    /// `signature_move` at spawn. `None` = no special.
+    /// CAPABILITY marker: `Some(Special(move_id))` means this body HAS a signature special —
+    /// the brain reads `special.is_some()` to decide whether to press `special_pressed`.
+    /// Sourced from the archetype's `signature_move` at spawn. `None` = no special.
     pub special: Option<SpecialActionSpec>,
 }
 
@@ -75,12 +71,8 @@ pub struct IdentityKit {
 impl IdentityKit {
     /// **Publish what identity alone derived**, from the pair it derived.
     ///
-    /// Both construction paths built this struct literally — the spawn bundle and
-    /// the persona derive — which is two places deciding what "the baseline"
-    /// contains. Harmless while it is two fields; the failure it invites is a
-    /// third field added in one place and defaulted in the other, and a defaulted
-    /// baseline silently REVOKES the body's own kit the first time it picks
-    /// anything up (the spawn site's comment already warns about exactly that).
+    /// Both construction paths built this struct literally — the spawn bundle and the persona
+    /// derive — which is two places deciding what "the baseline" contains.
     ///
     /// One constructor, so the pair that defines a baseline is stated once.
     pub fn of(action_set: ActionSet, moveset: ambition_entity_catalog::MovesetContract) -> Self {
@@ -109,22 +101,16 @@ impl ActionSet {
 
     /// **This repertoire, narrowed to what the body may currently do.**
     ///
-    /// ⭐ **the general form of what host code did for one character** (GPT 5.6
-    /// §5, 2026-08-11). `default_player_action_set` built the protagonist's kit
-    /// from scratch every time, gating melee on `attack` and the special on
-    /// `shield` — so *what actions the robot HAS* and *which of them are unlocked
-    /// right now* were one expression, in Rust, for one character.
-    ///
     /// Splitting them is what lets a character AUTHOR its canonical repertoire
     /// and progression filter it: the definition says the robot has a swipe, a
     /// bolt and a bubble shield; this says today it has two of them.
     ///
-    /// ⚠ **`ranged` is deliberately ungated**, and that is inherited rather than
+    /// **`ranged` is deliberately ungated**, and that is inherited rather than
     /// chosen: there is no projectile ability in `AbilitySet`, so gating it here
     /// would silently disarm every ranged character. When such a flag exists this
     /// is the one place that changes.
     ///
-    /// ⚠ `move_style` is a BODY fact and is never filtered — a body that may not
+    /// `move_style` is a BODY fact and is never filtered — a body that may not
     /// attack still walks the way it walks.
     pub fn gated_by(&self, abilities: ambition_platformer2d_core::AbilitySet) -> Self {
         Self {
@@ -459,12 +445,9 @@ pub enum MeleeActionSpec {
 /// How a shot FLIES once it leaves the barrel — the authored physics of a
 /// projectile, independent of who fired it.
 ///
-/// Ranged actions used to describe only how fast a shot travels and how much it
-/// hurts; every other property of the flight was a constant at the spawn site, so
-/// two different abilities firing through the same pool were forced to fly
-/// identically. This is the authoring seam for the rest: content states the arc,
-/// the bounce policy, and the lifetime it wants, and the shared projectile body
-/// steps exactly that. Nothing here names an ability or a firer.
+/// This is the authoring seam for the rest: content states the arc, the bounce policy, and the
+/// lifetime it wants, and the shared projectile body steps exactly that. Nothing here names an
+/// ability or a firer.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
 pub struct ProjectileFlight {
     /// Downward acceleration along gravity, px/s². `0` flies straight.
@@ -808,13 +791,13 @@ pub enum ActionRequest {
         spec: MeleeActionSpec,
         origin: ae::Vec2,
         facing: f32,
-        /// ⚠ **body-LOCAL**, and typed so the request cannot lose the frame the
+        /// **body-LOCAL**, and typed so the request cannot lose the frame the
         /// control frame already established. It was `Vec2`, so the resolver had
         /// to call `.vec()` on a typed field and hand the request a vector that
         /// no longer said which space it was in — a round trip through an
         /// untyped seam for no gain.
         ///
-        /// ⚠ nothing in production READS this today; the directional resolution
+        /// nothing in production READS this today; the directional resolution
         /// the doc on `ActorControlFrame::attack_axis` describes happens in
         /// `ambition_combat::moveset`, from the frame directly. Kept rather than
         /// deleted because that is a design question about where the resolution
@@ -1000,27 +983,21 @@ pub fn resolve(
             });
         }
     }
-    // NOTE: `special_pressed` is resolved by the MOVESET, not here. A body's special
-    // is a data-driven move in its `ActorMoveset` (`combat::moveset`), triggered on
-    // the `special` verb edge; the flat `ActionSet.special → ActionRequest::Special`
-    // arm that used to live here is RETIRED (fable review §A1: the moveset subsumes
-    // `ActionSet.special`). `ActionSet.special` is now a pure CAPABILITY marker the
-    // brain reads to decide whether to press special; the move executes through the
-    // moveset runtime, and content techniques fire via the `Effect{key}` bridge in
-    // `dispatch_move_events`. Bosses already dispatched their multi-special
-    // repertoire through `dispatch_boss_special`, never this arm.
+    // NOTE: `special_pressed` is resolved by the MOVESET, not here. `ActionSet.special` is now a
+    // pure CAPABILITY marker the brain reads to decide whether to press special; the move executes
+    // through the moveset runtime, and content techniques fire via the `Effect{key}` bridge in
+    // `dispatch_move_events`. Bosses already dispatched their multi-special repertoire through
+    // `dispatch_boss_special`, never this arm.
     out
 }
 
 #[cfg(test)]
 mod tests;
 
-// ⭐⭐ **THE ONE FIELD TYPE THAT KEPT `CharacterDefinition` IN THE MONOLITH.**
+// **THE ONE FIELD TYPE THAT KEPT `CharacterDefinition` IN THE MONOLITH.**
 //
-// D73 checklist item 2 moves the authored character type down into this crate,
-// and item 1 says the compiler is the instrument. Asking it once, the answer was
-// short: every other field on that struct is already an `ambition_characters`,
-// `ambition_platformer2d_core` or `ambition_entity_catalog` type — and
+// Asking it once, the answer was short: every other field on that struct is already an
+// `ambition_characters`, `ambition_platformer2d_core` or `ambition_entity_catalog` type — and
 // `ranged_execution` was a monolith one, so the struct could not follow.
 //
 // It belongs here on its own merits, not only to unblock a move. It decides how
@@ -1031,8 +1008,6 @@ mod tests;
 // rename: *"Charging is a fact about a CHARACTER's ranged attack, not about
 // which crate happens to build that character today."*
 
-/// **HOW a body fires — the single fact four decisions used to make separately.**
-///
 /// A body that fires has exactly one mechanism for it, and which one it is
 /// decides more than it looks:
 ///
@@ -1041,13 +1016,9 @@ mod tests;
 /// * whether the protagonist's blade SFX is stamped over the derived melee,
 /// * and whether the body carries `ChargesProjectiles` and its projectile state.
 ///
-/// All four are the same question, and until this enum they were asked in three
-/// places in two spellings: a `bool` named for the fourth, and two hard-coded
-/// arguments (`None` for ranged here, `None` for special at the catalog site)
-/// each carrying a comment explaining that it was the opposite of the other. A
-/// fifth consultation could have been written in a third spelling without
-/// contradicting anything, which is what the queue meant by warning that a new
-/// name is only worth having if it becomes the SOLE switch.
+/// A fifth consultation could have been written in a third spelling without contradicting
+/// anything, which is what the queue meant by warning that a new name is only worth having if
+/// it becomes the SOLE switch.
 ///
 /// It is not a component. `ChargesProjectiles` is the runtime marker and stays
 /// exactly as it was; this is the derivation-time decision that installs it.
@@ -1056,16 +1027,7 @@ pub enum RangedExecution {
     /// **A CHARGEABLE PROJECTILE owns the ranged press** — hold to build, release
     /// to fire.
     ///
-    /// ⭐ **this was called `HostCharge`, and the rename is the point** (GPT 5.6
-    /// §4, 2026-08-11). Charging is a fact about a CHARACTER's ranged attack, not
-    /// about which crate happens to build that character today. The old name
-    /// exposed the special case and made the mechanic look like scaffolding to be
-    /// deleted along with `HostCode` — but Jon's product rule is that Player
-    /// Robot v3 is the same character with the same repertoire in Ambition and in
-    /// Smash, so removing the charge to delete a host-code branch would be a
-    /// gameplay regression wearing a refactor's commit.
-    ///
-    /// ⚠ its ranged verb is NOT a moveset move — folding one in would make one
+    /// its ranged verb is NOT a moveset move — folding one in would make one
     /// press do two things, which is the test that went red when the queue's H2
     /// first tried passing `set.ranged` unconditionally.
     ChargedProjectile,

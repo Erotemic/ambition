@@ -12,7 +12,7 @@
 //! screen is split permanently, one pane per participant, each resolved by the
 //! engine's own per-view seams.
 //!
-//! ⭐ **NOTHING HERE IS CONDITIONAL ON A SECOND CONTROLLER, and that is the
+//! **NOTHING HERE IS CONDITIONAL ON A SECOND CONTROLLER, and that is the
 //! design.** A seat with no pad reads neutral input — `assign_local_seat_devices`
 //! clears an association it cannot satisfy rather than handing seat two player
 //! one's controller — so with one pad Emmy simply stands still in the
@@ -21,11 +21,8 @@
 //! watching it is the point: the exhibit compares two frames, and one of them
 //! being unattended does not make it less of a frame.
 //!
-//! ⛔ **the split is NOT a view mode.** It used to be `TwinTrackViewMode::SplitObservers`,
-//! reachable only by cycling an in-world console, which is why Jon never saw it.
-//! Two participants are two views for as long as there are two participants; the
-//! ordering diagram that shares the word "split" is still an instrument you
-//! bring up, and it is a different thing.
+//! Two participants are two views for as long as there are two participants; the ordering diagram
+//! that shares the word "split" is still an instrument you bring up, and it is a different thing.
 
 use bevy::prelude::*;
 
@@ -48,9 +45,7 @@ use crate::{
 /// session's own avatar spawn.
 pub const LAB_TWIN_SLOT: PlayerSlot = PlayerSlot(1);
 
-/// How many local seats this experience offers. Fixed, because TwinTrack's
-/// exhibit IS two observers — a one-seat TwinTrack would have nothing to
-/// compare.
+/// How many local seats this experience offers.
 const TWINTRACK_SEATS: u8 = 2;
 
 /// The construction id of the laboratory twin's body, which is also how the
@@ -63,14 +58,14 @@ const LAB_TWIN_VIEW: LocalViewId = LocalViewId(1);
 
 pub(crate) fn install(app: &mut App) {
     app.init_resource::<ambition_platformer2d::input::LocalSeatOffer>()
-        // ⛔ **and the third, for the same reason the other two are here.** A
+        // **and the third, for the same reason the other two are here.** A
         // composition without the host input group never inits it, and a
         // `ResMut` of a missing resource does not skip the system — Bevy 0.18
         // fails param validation and panics the whole `Main` schedule, so one
         // demo's declaration took down every app that links it (measured
-        // 2026-08-20 against the door suite, minutes after it landed).
+        // against the door suite, minutes after it landed).
         .init_resource::<ambition_platformer2d::input::SessionSeatingSource>()
-        // ⚠ **NEITHER is gated on the experience**, because half of each one's
+        // **NEITHER is gated on the experience**, because half of each one's
         // job is RETIRING what it declared. A system that only ran while
         // TwinTrack was live would leave the second pane standing over Mary-O
         // and leave a couch policy on a solo player's spare controller.
@@ -92,7 +87,7 @@ struct TwinTrackPaneCamera;
 
 /// **THE SECOND PANE EXISTS FOR AS LONG AS THE SECOND PARTICIPANT DOES.**
 ///
-/// ⛔⛔ **and that is why it is not composed at plugin BUILD time.** A view
+/// **and that is why it is not composed at plugin BUILD time.** A view
 /// spawned there is a view the WHOLE HOST has: `ambition_app` links this crate
 /// beside Mary-O, Smash and the launcher, so a build-time second view split the
 /// screen of every route in the game and left the shared camera-spawn site with
@@ -101,7 +96,7 @@ struct TwinTrackPaneCamera;
 /// every reader assumes; a view APPEARING is the ordinary couch-co-op event of
 /// somebody joining, and it is allowed to happen when they do.
 ///
-/// ⚠ **`spawn_local_view`'s facts, not a hand-built row.** A view missing one
+/// **`spawn_local_view`'s facts, not a hand-built row.** A view missing one
 /// component does not error — it simply stops matching the resolve's query, and
 /// the pane freezes at the origin with nothing in the log.
 fn compose_the_panes(
@@ -152,14 +147,14 @@ fn compose_the_panes(
 
 /// **THE RIG FOR THE SECOND PANE, bound to the view it presents.**
 ///
-/// ⭐ **the shared presentation plugin's rig is untouched and still binds the
+/// **the shared presentation plugin's rig is untouched and still binds the
 /// first view.** `spawn_main_camera` runs at `Startup`, when TwinTrack's session
 /// has not begun and there is exactly one view to bind — so the host keeps its
 /// gameplay camera, its front HUD camera, its room visuals and its sprite chain,
 /// and this composition adds precisely the one rig the engine could not have
 /// known about. Nothing is spawned and later deleted.
 ///
-/// ⚠ **the rig is the caller's, deliberately** — see `compose_local_views`, whose
+/// **the rig is the caller's, deliberately** — see `compose_local_views`, whose
 /// contract this follows. What a camera IS (layers, projection, order) is a
 /// composition decision; only the `PresentsView` link is engine vocabulary.
 #[cfg(feature = "visible")]
@@ -195,8 +190,7 @@ fn spawn_pane_camera(_commands: &mut Commands, _view: Entity) {}
 /// whose exhibit is two observers, which is the same kind of statement a
 /// character-select surface makes while it is up.
 ///
-/// ⛔⛔ **AND THE SEAT COUNT ALONE IS NOT ENOUGH — measured on real hardware.**
-/// Jon, 2026-08-20: *"I have a keyboard and controller hooked up to twin track,
+/// **AND THE SEAT COUNT ALONE IS NOT ENOUGH — measured on real hardware.**
 /// but they both control patent clerk, neither controls emmy."* Two seats
 /// existed and seat one was inert, because the default assignment policy is
 /// `UnifiedPrimary` — *"Keyboard, gamepads and everything else drive the PRIMARY
@@ -208,7 +202,7 @@ fn spawn_pane_camera(_commands: &mut Commands, _view: Entity) {}
 /// controller are two people at TwinTrack, which is the whole point of the
 /// exhibit.
 ///
-/// ⚠ **and the headless suite could not have caught it.** The integration tests
+/// **and the headless suite could not have caught it.** The integration tests
 /// build without the `input` feature, so they have no `InputParticipant`s, no
 /// devices and no assignment pass to be wrong — they drive `SlotControls`
 /// directly. That is why the declaration is asserted where a test CAN read it,
@@ -222,7 +216,7 @@ fn declare_the_couch(
     // couch, and the one whose absence made the other two useless — see the
     // block comment below.
     mut seating: ResMut<ambition_platformer2d::input::SessionSeatingSource>,
-    // ⛔⛔ **WHETHER THIS EXPERIENCE IS THE ONE HOLDING THE CLAIM.** Both
+    // **WHETHER THIS EXPERIENCE IS THE ONE HOLDING THE CLAIM.** Both
     // resources are process-global and TwinTrack is one route in a host that
     // also runs Mary-O, Smash and a launcher — so "not live ⇒ write the
     // default" is a demo plugin stamping a global while another game owns the
@@ -232,9 +226,6 @@ fn declare_the_couch(
     // (`smash_in_the_host::two_participants_start_a_match_and_can_still_pause_it`).
     //
     // A claim is released by whoever made it.
-    //
-    // ⛔⛔ **and "only if the value still equals mine" was the WRONG way to ask
-    // it**, which is what this used to do for the seat count and the policy:
     //
     // ```text
     // if seats == 2      { seats = 0 }
@@ -247,7 +238,7 @@ fn declare_the_couch(
     // Both facts now live in an OWNED `LocalSeatOffer`, so the question is *is
     // this mine* and the value never enters into it.
 ) {
-    // ⛔⛔ **THE ROUTE, NOT THE ROOM, and the difference is a whole frame that
+    // **THE ROUTE, NOT THE ROOM, and the difference is a whole frame that
     // matters.** This asked `ActiveRoomMetadata`, which exists only once the
     // plaza has been CONSTRUCTED — and the rollback session is sized the moment
     // a gameplay world appears, which is the same tick. A claim that lands with
@@ -261,7 +252,7 @@ fn declare_the_couch(
     let couch = ambition_platformer2d::input::InputAssignmentPolicy::JoinToClaim;
     if live {
         // Written only on a change: this is read by a system that spawns and
-        // despawns seat entities. ⚠ **but OWNERSHIP counts as a change** — an
+        // despawns seat entities. **but OWNERSHIP counts as a change** — an
         // offer that already reads the way this one wants it still has to become
         // TwinTrack's, or the surface that made it will withdraw TwinTrack's
         // seats when it leaves.
@@ -271,21 +262,15 @@ fn declare_the_couch(
         {
             offer.claim(TWINTRACK_EXPERIENCE, TWINTRACK_SEATS, couch);
         }
-        // ⛔⛔ **AND THE TWO ABOVE ARE STILL NOT ENOUGH — measured a second time,
-        // on the same hardware.** Jon, 2026-08-20: *"in twin track I still
-        // cannot control emmy with the game pad."* Two seats existed, seat one
-        // held the only controller, and the laboratory twin was inert — because
-        // the SHIPPED host is a rollback host, where a seat's frame is published
-        // by the GGRS session from the handles that session opened. Nothing had
-        // told it to open two, so it sized itself from connected DEVICES (one
-        // pad ⇒ one handle) and a GGRS session is never resized afterwards.
+        // Nothing had told it to open two, so it sized itself from connected DEVICES (one pad ⇒ one
+        // handle) and a GGRS session is never resized afterwards.
         //
-        // ⭐ **the plan, not a count.** Which SOURCE drives each channel is the
+        // **the plan, not a count.** Which SOURCE drives each channel is the
         // half a number cannot carry: the traveler is on the keyboard and the
         // laboratory twin on the first pad, and a bare `2` leaves every consumer
         // to re-derive that and disagree.
         //
-        // ⚠ **it does not go through `pending` first.** That state is for a
+        // **it does not go through `pending` first.** That state is for a
         // surface whose answer is not known yet — a lobby waiting on people to
         // pick. TwinTrack's exhibit IS two observers, so the answer exists
         // before the route opens and holding the session for it would be a stall
@@ -294,7 +279,7 @@ fn declare_the_couch(
             ambition_platformer2d::input::LocalInputSource::Keyboard,
             ambition_platformer2d::input::LocalInputSource::FIRST_PAD,
         ]);
-        // ⚠ **the same ownership rule as the offer above.** Acquiring a plan
+        // **the same ownership rule as the offer above.** Acquiring a plan
         // that already reads the way this one wants it must still establish the
         // owner; concluding "no claim is necessary, the value already matches"
         // leaves the previous owner holding a claim TwinTrack depends on.
@@ -306,7 +291,7 @@ fn declare_the_couch(
         }
         return;
     }
-    // ⭐ **no `Local<bool>` guard, and none is needed.** Both releases are
+    // **no `Local<bool>` guard, and none is needed.** Both releases are
     // no-ops on a claim that is not this owner's, so running them on every frame
     // this route is not live says exactly what one run of them says. The flag
     // existed to make "exactly once" true; ownership makes it irrelevant.
@@ -316,20 +301,13 @@ fn declare_the_couch(
 
 /// **Each pane watches its own participant** — and now it says so.
 ///
-/// ⚠ the traveler's pane names NOTHING on purpose. A view that names neither a
+/// the traveler's pane names NOTHING on purpose. A view that names neither a
 /// subject nor a participant frames the session's controlled body, which is what
 /// seat zero's is — including while that seat is possessing something else.
 /// Naming it here would be a second answer to a question the engine already
 /// answers, and the two would disagree the moment possession moved the seat.
 ///
-/// ⛔⛔ **and the second pane used to name a BODY, which is the same mistake the
-/// first one refuses.** It wrote `ViewSubject(laboratory_twin)` — Emmy, by
-/// entity — so the argument above applied to it in full and nobody noticed:
-/// the moment participant one possessed something else the pane would stay on a
-/// body nobody was driving, while the person it belongs to walked off camera.
-/// `ViewParticipant(LAB_TWIN_SLOT)` is the same sentence pane zero makes.
-///
-/// ⚠ **the two resolve to the same entity today**, because the twin is what
+/// **the two resolve to the same entity today**, because the twin is what
 /// carries `DrivingParticipant(LAB_TWIN_SLOT)`. That is what makes this safe to
 /// land; it is not what makes it right.
 fn frame_each_participant(
@@ -350,7 +328,7 @@ fn frame_each_participant(
 
 /// The request that builds the laboratory twin's body.
 ///
-/// ⭐ **through the actor construction road, not by hand.** Every other body in
+/// **through the actor construction road, not by hand.** Every other body in
 /// this plaza is a bare entity the demo assembles itself, which is why none of
 /// them can be steered: a hand-built entity has no movement clusters, so nothing
 /// integrates the intent a participant produces. A constructed character has
@@ -375,7 +353,7 @@ pub(crate) fn laboratory_twin_request() -> SpawnActorRequest {
 
 /// **Adopt the constructed body as the laboratory twin.**
 ///
-/// ⚠ **a separate system because construction is a MESSAGE.** The request is
+/// **a separate system because construction is a MESSAGE.** The request is
 /// drained by the engine's spawn applier, so the body does not exist on the tick
 /// the session asks for it. This runs until it finds one and then never matches
 /// again — the clock facts, the worldline and the seat are inserted exactly once.
@@ -402,19 +380,19 @@ pub(crate) fn adopt_the_laboratory_twin(
         RelativityClockLabel("laboratory".to_owned()),
         WorldlineTracked2d::new("laboratory"),
         OpticalSource2d::new("laboratory", 180.0, 1.0, 18.0),
-        // ⭐⭐ **SHE SEES, she is not only seen.** An `OpticalSource2d` is what
+        // **SHE SEES, she is not only seen.** An `OpticalSource2d` is what
         // OTHER observers receive light FROM; this is what makes the laboratory
         // twin an observer in her own right, with her own retarded image of
         // every source and her own null intercepts — the second half of an
         // exhibit whose whole claim is that two observers disagree.
         //
-        // ⛔ **it is also what makes every `Deref` read of those two resources a
+        // **it is also what makes every `Deref` read of those two resources a
         // lie**, because "laboratory" sorts before "traveler" and the first row
         // is now hers. Every TwinTrack consumer names its observer explicitly;
         // adding this without that would have silently redrawn the traveler's
         // instruments from the lab twin's eyes.
         RelativisticObserver2d("laboratory".to_owned()),
-        // ⛔ **NOT `ZERO`, and the difference is the whole reference frame.**
+        // **NOT `ZERO`, and the difference is the whole reference frame.**
         // The laboratory twin is at rest in the laboratory, so her proper time
         // IS the plaza's coordinate time — that identity is what every other
         // clock in the exhibit is compared against. Starting her at zero on the
@@ -447,7 +425,7 @@ mod tests {
     use super::*;
     use ambition_platformer2d::input::{InputAssignmentPolicy, LocalSeatOffer};
 
-    /// ⚠ **the ROUTER is the fixture now, not a hand-spawned room.** The claim
+    /// **the ROUTER is the fixture now, not a hand-spawned room.** The claim
     /// keys off the route (see `declare_the_couch`), and a fixture that
     /// manufactured room metadata would be testing a question the system no
     /// longer asks.
@@ -501,7 +479,7 @@ mod tests {
         LocalSeatOffer::offered("another surface", seats, policy)
     }
 
-    /// **⛔⛔ A DEMO PLUGIN MAY NOT RETRACT A CLAIM IT DID NOT MAKE.**
+    /// **A DEMO PLUGIN MAY NOT RETRACT A CLAIM IT DID NOT MAKE.**
     ///
     /// This is a process-global and `ambition_app` links this crate beside
     /// Mary-O, Smash and the launcher. The first version wrote the DEFAULTS on
@@ -509,11 +487,6 @@ mod tests {
     /// on every frame of every smash match, and its select screen then offered
     /// one seat to two people
     /// (`app_it::smash_in_the_host::two_participants_start_a_match_and_can_still_pause_it`).
-    ///
-    /// ⚠ **and the plaza is ALWAYS live in its own standalone app**, which is
-    /// why this is a unit over the system rather than a run of the demo: the
-    /// dormant case does not exist there and the regression was invisible until
-    /// another game was in the process.
     #[test]
     fn a_dormant_plaza_leaves_another_surfaces_couch_alone() {
         let mut app = couch_app(false);
@@ -533,11 +506,6 @@ mod tests {
     }
 
     /// **A LIVE PLAZA CLAIMS THE OFFER, and a count alone would not be enough.**
-    ///
-    /// Two seats gets seat one an `InputParticipant`; it does NOT get it a
-    /// device, because `UnifiedPrimary` means every local source drives the
-    /// primary participant. Jon measured exactly that on hardware, which is why
-    /// the count and the policy are one value.
     #[test]
     fn a_live_plaza_claims_two_seats_and_the_couch_policy() {
         let mut app = couch_app(true);
@@ -552,19 +520,12 @@ mod tests {
         );
     }
 
-    /// **⛔⛔ AND THE THIRD CLAIM, WHICH IS THE ONE THAT WAS MISSING.**
+    /// **AND THE THIRD CLAIM, WHICH IS THE ONE THAT WAS MISSING.**
     ///
-    /// The two above were both landing and Jon still could not drive the
-    /// laboratory twin (2026-08-20). A rollback host publishes a seat's frame
-    /// from the GGRS handles its SESSION opened, and that session sizes itself
-    /// once — from connected devices, unless somebody declares otherwise — and is
-    /// never resized. So a plaza that declared two seats into a one-handle
-    /// session had a second participant holding a controller and no way for its
-    /// input to reach the simulation.
-    ///
-    /// ⚠ **the PLAN, not the count.** `channels()` alone would pass while
-    /// naming the wrong device for each seat, which is the failure one layer up
-    /// that `LocalChannelPlan` exists for.
+    /// A rollback host publishes a seat's frame from the GGRS handles its SESSION opened, and that
+    /// session sizes itself once — from connected devices, unless somebody declares otherwise — and
+    /// is never resized. So a plaza that declared two seats into a one-handle session had a second
+    /// participant holding a controller and no way for its input to reach the simulation.
     #[test]
     fn a_live_plaza_declares_which_source_drives_each_channel() {
         use ambition_platformer2d::input::LocalInputSource;
@@ -595,7 +556,7 @@ mod tests {
     /// **A DORMANT PLAZA DECLARES NO SEATING, so every single-player
     /// composition still seats from what is plugged in.**
     ///
-    /// ⛔ the falsifier that matters is not the plaza's own claim — it is every
+    /// the falsifier that matters is not the plaza's own claim — it is every
     /// OTHER route in the host. A declaration left standing sizes the next
     /// game's session, and a session is never resized.
     #[test]
@@ -617,7 +578,7 @@ mod tests {
         );
     }
 
-    /// **⛔ AND IT GIVES BACK ONLY ITS OWN.** `release` is a no-op on a stranger's
+    /// **AND IT GIVES BACK ONLY ITS OWN.** `release` is a no-op on a stranger's
     /// claim, and this pins that the plaza routes through it rather than
     /// resetting the resource.
     #[test]
@@ -643,7 +604,7 @@ mod tests {
 
     /// **THE RELEASE UNDOES ITS OWN CLAIM AND NOTHING ELSE.**
     ///
-    /// ⛔ the falsifier is the value written BETWEEN: somebody else's claim
+    /// the falsifier is the value written BETWEEN: somebody else's claim
     /// arrives while TwinTrack is still the one that made the last one, and the
     /// release must find a claim that is no longer its own and leave it there.
     #[test]
@@ -676,10 +637,7 @@ mod tests {
         );
     }
 
-    /// **⛔⛔ A SUCCESSOR THAT WANTS THE SAME NUMBERS IS STILL A DIFFERENT OWNER.**
-    ///
-    /// This is the case the test above could not see, because its successor
-    /// claimed FOUR seats. The teardown used to read:
+    /// **A SUCCESSOR THAT WANTS THE SAME NUMBERS IS STILL A DIFFERENT OWNER.**
     ///
     /// ```text
     /// if seats == 2      { seats = 0 }
@@ -717,10 +675,9 @@ mod tests {
     /// **AND TAKING OVER AN OFFER THAT ALREADY READS RIGHT STILL MAKES YOU THE
     /// OWNER.**
     ///
-    /// ⛔ the other end of the same bug. A live plaza that skipped the write
-    /// because the values already matched would leave the claim in the previous
-    /// surface's name — and that surface's own teardown would then withdraw the
-    /// seats TwinTrack is relying on.
+    /// A live plaza that skipped the write because the values already matched would leave the
+    /// claim in the previous surface's name — and that surface's own teardown would then
+    /// withdraw the seats TwinTrack is relying on.
     #[test]
     fn a_live_plaza_takes_ownership_of_an_offer_that_already_reads_right() {
         let mut app = couch_app(true);

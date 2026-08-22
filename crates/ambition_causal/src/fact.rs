@@ -217,7 +217,6 @@ pub struct CausalFact {
     /// that is the whole reason to look. Without this the inspector groups them
     /// into one explanation and cannot say which attempt produced a result
     ///
-    ///
     /// `0` is the original execution. The HOST bumps it, for the same reason it
     /// stamps the tick: a domain five hops down cannot know a rewind happened.
     pub attempt: u32,

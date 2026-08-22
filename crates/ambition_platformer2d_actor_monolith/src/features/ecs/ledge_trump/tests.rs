@@ -60,7 +60,7 @@ fn app() -> App {
 
 /// **THE LATER ARRIVAL KEEPS THE EDGE, AND THE EARLIER ONE KEEPS NOTHING.**
 ///
-/// ⛔ all three halves: the trumper stays on, the trumped comes off, and the
+/// all three halves: the trumper stays on, the trumped comes off, and the
 /// window it bought with airtime it no longer has comes off with it. A body
 /// dropped while still intangible would be the safest thing on the stage.
 #[test]
@@ -94,7 +94,7 @@ fn the_body_that_caught_the_edge_last_keeps_it() {
 
 /// **A BODY ON ITS OWN EDGE IS LEFT ALONE.**
 ///
-/// ⛔ the floor, and without it the test above would also pass on a system that
+/// the floor, and without it the test above would also pass on a system that
 /// simply knocked every hanging body off.
 #[test]
 fn two_bodies_on_two_edges_both_keep_them() {
@@ -111,7 +111,7 @@ fn two_bodies_on_two_edges_both_keep_them() {
 
 /// **THREE ON ONE EDGE LEAVES ONE, AND A TIE IS BROKEN BY IDENTITY.**
 ///
-/// ⚠ two fighters that grabbed on the same tick have the same `elapsed` to the
+/// two fighters that grabbed on the same tick have the same `elapsed` to the
 /// float. Resolving that by query order would be stable within a run and NOT
 /// stable across a rollback resimulation, which is the definition of a desync.
 #[test]
@@ -131,7 +131,7 @@ fn a_tie_is_broken_the_same_way_every_time() {
 
 /// **A BODY ALREADY PULLING ITSELF UP IS NOT CONTESTING THE EDGE.**
 ///
-/// ⛔ trumping it would cancel a getup that has already left the hang, which is
+/// trumping it would cancel a getup that has already left the hang, which is
 /// a different mechanic — and a worse one, because the getup is the beat a
 /// fighter is committed to and cannot answer.
 #[test]

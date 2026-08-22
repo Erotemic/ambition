@@ -219,15 +219,9 @@ fn a_stomp_from_above_stops_a_sliding_shell_and_bounces() {
 
 /// **Landing on a resting shell kicks it, and bounces you.**
 ///
-/// ⚠ This test asserted the OPPOSITE until 2026-07-25, and the history is worth
-/// keeping because both rules are defensible in isolation. The original bug was
-/// that a player standing over a resting shell kicked it AND took a side hit
-/// from the same overlap, over and over; the fix at the time was to make a top
-/// touch never kick. That made a stomped shell stay put — so a shell under a
-/// ?-block trapped her in an endless bounce, which the classic never does, and
-/// Jon reported it. The kick is back; what keeps the original bug from returning
-/// is `KICK_GRACE_S`, which did not exist then: a freshly kicked shell cannot
-/// hurt the player at all, so the kick-then-hit loop cannot form.
+/// That made a stomped shell stay put — so a shell under a ?-block trapped her in an endless
+/// bounce, which the classic never does, and is `KICK_GRACE_S`, which did not exist then: a
+/// freshly kicked shell cannot hurt the player at all, so the kick-then-hit loop cannot form.
 #[test]
 fn landing_on_a_resting_shell_kicks_it_out_from_under_you() {
     let fx = step(
@@ -315,21 +309,9 @@ fn a_stomp_shoves_a_peeking_or_emerging_snake_back_into_its_shell() {
 
 /// **THE WALKING SNAKE AND THE BOXED SNAKE RESCALE TOGETHER.**
 ///
-/// Jon, 2026-08-21: *"we should make sure the scale of the snake and its
 /// in-the-box form are consistent if we ever change the scale of the snake."*
 ///
-/// Both forms are the same sheet read at [`snake_world_per_pixel`] — the walking
-/// row and the `boxed_idle` row — so a rescale is ONE number and both follow it.
-/// This pins that: measured at a scale and at twice it, every dimension of both
-/// forms doubles. A path that hardcoded either form's size, or read a second
-/// scale, breaks this and nothing else in the suite would notice.
-///
-/// ⭐ measured while writing this: the walking form is 21.33 x 9.48 and the boxed
-/// form 9.48 x 6.93. The boxed snake is SHORTER still, so the fixed 16px stomp
-/// band this session replaced misclassified side contact with a shell as well as
-/// with a walking snake — the clamp to half the body covers both.
-///
-/// ⚠ it asserts PROPORTIONALITY rather than the sizes themselves, on purpose:
+/// it asserts PROPORTIONALITY rather than the sizes themselves, on purpose:
 /// the numbers are the art's to choose and change, and a test that pinned them
 /// would fail on an ordinary redraw. What may not change is that the two forms
 /// answer to the same scale.
@@ -356,7 +338,7 @@ fn both_snake_forms_follow_one_scale() {
         // relationship between two measurements, not about their presence — and
         // a fixture with no sheet cannot produce either one.
         //
-        // ⚠ VERIFIED NOT TAKEN in this tree (2026-08-21) by making it panic and
+        // VERIFIED NOT TAKEN in this tree by making it panic and
         // watching the test still pass — the check below really runs, rather
         // than skipping the way three other checks in this session did.
         return;

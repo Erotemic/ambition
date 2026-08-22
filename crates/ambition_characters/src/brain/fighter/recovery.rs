@@ -12,32 +12,22 @@
 //! [`ae::World`], the body's own kit becomes an [`ae::BodyClusterScratch`], and
 //! the answer comes back as an [`ae::movement::recovery::RecoveryOutlook`].
 //!
-//! ⭐ **and it stops there.** The query reports what physically happened; what a
+//! **and it stops there.** The query reports what physically happened; what a
 //! `NoSupportFoundBy` MEANS is the brain's business, and the brain spends it in
 //! exactly one place ([`super::rollout::refine_by_rollout`]) as a veto on
 //! movement lines. There is no fighting-game rule in here and no capability list
 //! in the rollout — the split `FrameEvents` already draws for contacts.
 //!
-//! ⛔⛔ **AND THE VETO IS BOUNDED BY A SEARCH POLICY — say it out loud, because it
-//! used to be implicit.** The outcome is `NoSupportFoundBy { search, .. }`, and
-//! this lens probes under `RecoveryPolicy::DRIFT_AND_JUMP`, which presses
-//! **only** `side ∈ {0, -1, +1}` plus jump. A body that recovers by
-//! dash, blink, flight, wall verb or ledge grab is **not**
-//! explored, so a negative here means *"this steering policy found nothing
-//! within this horizon"* — ⛔ never *"this body cannot get back."*
+//! A body that recovers by dash, blink, flight, wall verb or ledge grab is **not** explored, so a
+//! negative here means *"this steering policy found nothing within this horizon"* — never *"this
+//! body cannot get back."*
 //!
-//! ⭐ **the recovery ATTACK is the one that is no longer missing, and the
-//! header's own warning is why.** It said this bound *"is the first thing to
-//! re-check the day a fighter gains one"*, and that day arrived: a body whose
-//! repertoire commands a displacement hands it to the probe as a
-//! [`RecoveryLift`], the policy becomes `drift+jump+burst`, and the veto is
-//! taken against the body that will actually be throwing its recovery. Without
-//! it the rollout condemned exactly the lines a real recovery saves. Read the
-//! bound off the value with `RecoveryOutlook::bounded_by()` rather than assuming
-//! it; a positive returns `None`, because finding a route proves one exists
-//! while failing to find one is only ever a claim about the searcher.
+//! Without it the rollout condemned exactly the lines a real recovery saves. Read the bound off
+//! the value with `RecoveryOutlook::bounded_by()` rather than assuming it; a positive returns
+//! `None`, because finding a route proves one exists while failing to find one is only ever a
+//! claim about the searcher.
 //!
-//! ⭐⭐ **AND THE ROUTES ARE SEARCHED, NOT RANKED — this is the module's
+//! **AND THE ROUTES ARE SEARCHED, NOT RANKED — this is the module's
 //! architectural claim.** The first version took ONE route: whichever authored
 //! move advertised the largest against-gravity speed, picked before anything
 //! knew where the body was. That is a static property standing in for a question
@@ -72,13 +62,6 @@ use ambition_platformer2d_core as ae;
 use crate::perception::{SolidKind, WorldView};
 
 /// **How long the probe watches.**
-///
-/// Sized to the QUESTION, not to a stage: an air jump's rise plus the fall that
-/// follows it. At the engine baseline a jump takes ~0.29 s to its apex and a
-/// body crosses a 480 px room in ~0.65 s, so two seconds contains a full
-/// recovery attempt with room to spare — and a probe that stops before the body
-/// would have landed reports "no support" for the wrong reason, which is the
-/// exact arithmetic that broke this rollout in the first place.
 pub const RECOVERY_PROBE_SECONDS: f32 = 2.0;
 
 /// **The body's own kit, in the movement kernel's vocabulary.**
@@ -89,12 +72,10 @@ pub const RECOVERY_PROBE_SECONDS: f32 = 2.0;
 /// heavier fighter's gravity and a lighter one's extra jump are the same kind of
 /// fact and neither is guessed here.
 ///
-/// ⚠ **this is NOT the brain reading capability flags to re-derive a rule** —
-/// the failure mode [`crate::perception::SelfView::burst`] records. Nothing here
-/// interprets the set; it is handed straight to the kernel, which is the
-/// authority on what a body owning these verbs can do.
+/// Nothing here interprets the set; it is handed straight to the kernel, which is the authority on
+/// what a body owning these verbs can do.
 ///
-/// ⚠ **the ROUTES a body could press are NOT in here, and that split is the
+/// **the ROUTES a body could press are NOT in here, and that split is the
 /// point.** A kit is what a body IS; a route is one thing it could DO from a
 /// particular place. Keeping them apart is what stopped the lens from having to
 /// pick a body's recovery move before it knew where the body was.
@@ -111,7 +92,7 @@ pub struct BodyKit {
 /// [`lifting_candidates`](super::options::lifting_candidates); nothing here
 /// names a move, a verb or a character.
 ///
-/// ⛔ **a route is a PROPOSAL, never a claim.** Holding one says the body can
+/// **a route is a PROPOSAL, never a claim.** Holding one says the body can
 /// throw this displacement, and says nothing about whether throwing it helps —
 /// that question belongs to [`RecoveryLens::best_route`], which asks the kernel.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -123,13 +104,9 @@ pub struct RecoveryLift {
     /// move that hauls its owner backwards — the recoil of firing forwards is a
     /// real authored shape.
     ///
-    /// ⭐ zero for a straight-up recovery, which is why every seat that had one
-    /// is unaffected. It was hardcoded to zero here for one slice, with the
-    /// reason *"the move commands a rise; where the body goes sideways is the
-    /// drift's business"* — true of a vertical Up-B and false of every recovery
-    /// that gets home by crossing rather than climbing. A `Set` impulse
-    /// overrides the drift outright, so a probe that dropped this half searched
-    /// a move the body cannot throw.
+    /// zero for a straight-up recovery, which is why every seat that had one is unaffected. A
+    /// `Set` impulse overrides the drift outright, so a probe that dropped this half searched a
+    /// move the body cannot throw.
     pub side: f32,
     /// Proper-time seconds from the press to the burst — the windup the body has
     /// to survive first. A probe that ignored it would certify recoveries the
@@ -151,21 +128,21 @@ pub struct RecoveryQuery {
 
 /// **How many authored routes one lens will spend kernel time on.**
 ///
-/// ⚠ a bound, not a taste. Each route is a whole `probe_recovery` — three
+/// a bound, not a taste. Each route is a whole `probe_recovery` — three
 /// efforts of up to [`RECOVERY_PROBE_SECONDS`] — and the lens is queried once
 /// per rolled movement line, so the cost is linear in this number. Three plus
 /// the buttons-only baseline is four searches per query, which is what a body
 /// with a real repertoire needs (a recovery, a stall, and one more) and far
 /// short of the dozen a full kit would offer.
 ///
-/// ⛔ the routes are ordered by [`super::options::lifting_candidates`] and the
+/// the routes are ordered by [`super::options::lifting_candidates`] and the
 /// cut is a prefix of that order, so which three get probed never depends on
 /// iteration luck (ADR 0023).
 pub const MAX_PROBED_ROUTES: usize = 3;
 
 /// **Which route got the body home, and what the search saw.**
 ///
-/// ⭐ `route` is the whole product: `None` with a positive outlook means *"you
+/// `route` is the whole product: `None` with a positive outlook means *"you
 /// are getting back without throwing anything"*, `Some(i)` names the route that
 /// worked, and `None` with a negative means no search this lens ran found
 /// anything. Those are three different instructions to a caller and the old
@@ -204,7 +181,7 @@ pub struct RecoveryLens {
     /// The buttons-only search. Every armed search is this one plus a burst, so
     /// the horizon and timestep can never differ between routes.
     probe: ae::movement::recovery::RecoveryProbe,
-    /// ⭐ **the displacements this body could throw, in probe order.** Capped at
+    /// **the displacements this body could throw, in probe order.** Capped at
     /// [`MAX_PROBED_ROUTES`].
     routes: Vec<RecoveryLift>,
 }
@@ -217,7 +194,7 @@ impl RecoveryLens {
     /// when the stage is degenerate, or when the body's gravity is zero — a
     /// free-mover has no fall to recover from and the frame cannot be built.
     ///
-    /// ⚠ **`routes` may be empty**, and for every seat that is not a platform
+    /// **`routes` may be empty**, and for every seat that is not a platform
     /// fighter it is. An empty set leaves the lens exactly as it was before any
     /// of this existed: one buttons-only search, bounded by
     /// [`ae::movement::recovery::RecoveryPolicy::DRIFT_AND_JUMP`].
@@ -261,7 +238,7 @@ impl RecoveryLens {
             .collect();
         Some(Self {
             world: ae::World::new("perceived stage", size, ae::Vec2::ZERO, blocks)
-                // ⭐ the envelope IS the death line — see the module header. One
+                // the envelope IS the death line — see the module header. One
                 // model of dying, shared with `StageView::offstage`.
                 .with_blast_margin(0.0)
                 .with_side_blast_margin(0.0)
@@ -277,7 +254,7 @@ impl RecoveryLens {
 
     /// The body this lens probes, as this line left it.
     fn scratch(&self, at: RecoveryQuery) -> ae::BodyClusterScratch {
-        // ⚠ the velocity is said at CONSTRUCTION, not patched on after: the whole
+        // the velocity is said at CONSTRUCTION, not patched on after: the whole
         // point of this scratch is "the body as this line left it", and its speed
         // is part of that state rather than a change to it.
         let mut body =
@@ -290,7 +267,7 @@ impl RecoveryLens {
         body.kinematics.size = self.body_size;
         body.base_size.base_size = self.body_size;
         body.ground.on_ground = false;
-        // ⛔ NOT a refresh. `new_with_abilities` hands out a full air-jump budget
+        // NOT a refresh. `new_with_abilities` hands out a full air-jump budget
         // and the question is about the body as this line left it — a line that
         // already spent its jump must be probed without it.
         body.jump.air_jumps_available = at.air_jumps_left;
@@ -314,28 +291,23 @@ impl RecoveryLens {
         )
     }
 
-    /// ⭐⭐ **ASK THE KERNEL WHICH OF THIS BODY'S ACTIONS IS USEFUL FROM HERE.**
+    /// **ASK THE KERNEL WHICH OF THIS BODY'S ACTIONS IS USEFUL FROM HERE.**
     ///
     /// The buttons-only search first, then each route in order, stopping at the
     /// first one that regains support.
     ///
-    /// ⛔⛔ **this replaces ranking the repertoire by a number, and that is the
-    /// whole architectural point of the change.** The lens used to be handed ONE
-    /// route — whichever authored move advertised the largest against-gravity
-    /// speed — chosen before anything knew where the body was. That makes a
-    /// scalar into a recovery ontology: any move with a positive lift is *the
-    /// way home*, a tiny rising aerial outranks a grapple that trades its energy
-    /// for distance, and the route that would actually have worked is never
-    /// explored. Usefulness is a question about the CURRENT STATE and the only
-    /// authority on it is the movement kernel, so the kernel is asked.
+    /// That makes a scalar into a recovery ontology: any move with a positive lift is *the way
+    /// home*, a tiny rising aerial outranks a grapple that trades its energy for distance, and the
+    /// route that would actually have worked is never explored. Usefulness is a question about the
+    /// CURRENT STATE and the only authority on it is the movement kernel, so the kernel is asked.
     ///
-    /// ⭐ **the buttons-only baseline goes first on purpose.** A body that is
+    /// **the buttons-only baseline goes first on purpose.** A body that is
     /// already getting home does not need to throw anything, and a caller told
     /// so can save the move — which is a real fighting-game fact (spending your
     /// recovery early is how you die to an edgeguard) that fell out of the
     /// ordering rather than being encoded.
     ///
-    /// ⚠ **the negative belongs to the LAST search run.** When nothing regains,
+    /// **the negative belongs to the LAST search run.** When nothing regains,
     /// the outlook returned is the widest search's, and its
     /// `NoSupportFoundBy { search, .. }` names that policy — so a consumer
     /// reading `bounded_by()` learns what the final attempt spent, not what

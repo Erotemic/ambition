@@ -1,5 +1,3 @@
-//! `apply_settings_option` + `close_menu_option` — mutating `UserSettings` in
-//! response to a settings-option nudge. Split out of the settings IR god-module.
 
 use super::*;
 use ambition_persistence::settings::video::CameraZoomPreset;

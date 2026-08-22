@@ -203,11 +203,8 @@ fn live_boss_spritesheet_ron_round_trips() {
         floor_slam.hitbox.is_some(),
         "floor_slam should have an authored hitbox (boss adapter declares it)"
     );
-    // The boss hurtbox is split into head + body parts so the
-    // player must aim at the central body (not extended arms).
-    // Pin both parts come through so a renderer regression that
-    // drops `hurtbox_parts` reverts to the loose single-bbox
-    // alpha hurtbox.
+    // The boss hurtbox is split into head + body parts so the player must aim at the central body
+    // (not extended arms).
     let rest = metrics.animations.get("rest").expect("rest animation");
     let rest_hurt = rest.hurtbox.as_ref().expect("rest hurtbox");
     assert!(
@@ -233,10 +230,6 @@ fn live_boss_spritesheet_ron_round_trips() {
     );
 }
 
-/// **Two manifests, one target, DIFFERENT frame geometry — the Broadside Bess
-/// shape.** The survivor crops the loser's image with the wrong grid, and the
-/// registry used to do it silently.
-///
 /// ⚠ the assertion is about the SURVIVOR, not about the log line: a test that
 /// captured the warning would be checking that a scanner sees its own fixture.
 /// What matters is that last-wins still resolves (so the seventeen legitimate
@@ -274,13 +267,11 @@ fn two_manifests_claiming_one_target_with_different_geometry_still_resolve() {
 /// IDENTICAL `record.target`, so a naive last-write-wins insert left
 /// `get("robot_slash")` returning the 8px potato frames — and any consumer that
 /// crops the full-res PNG with those tiny rects rendered a mis-cropped dark strip
-/// (the "translucent black box" slash-VFX bug, 2026-07-12). The base must win.
+/// . The base must win.
 ///
-/// Deterministic: hand-built table (the real `BAKED_SHEET_RONS` only carries
-/// variant rows when the gitignored `sprites_*x/` folders exist locally, so a
-/// registry-level assertion would silently pass in CI). Sorted order puts the
-/// base (`"slash"`) before the variant (`"slash.potato"`), so a target-keyed
-/// last-write-wins would otherwise pick potato — exactly the bug.
+/// Deterministic: hand-built table (the real `BAKED_SHEET_RONS` only carries variant rows when the
+/// gitignored `sprites_*x/` folders exist locally, so a registry-level assertion would silently
+/// pass in CI).
 #[test]
 fn quality_variant_records_do_not_clobber_the_base_registry() {
     let base = r#"[(target: "slash", image: "slash_spritesheet.png", label_width: 100,
@@ -310,11 +301,6 @@ fn quality_variant_records_do_not_clobber_the_base_registry() {
 /// A target packed into a SHARED pack references a sparse subset of the
 /// pack's pages, and the loader must load that subset — not the range
 /// `0..page_count`.
-///
-/// This is the boot-time regression that made one decorative prop pull in
-/// every page of the ultrapack: its frames sit on pages 4 and 53, so
-/// `page_count()` reports 54 and a `0..54` load decoded ~221 megapixels of
-/// pages nothing would ever sample. `used_pages()` reports exactly `{4, 53}`.
 #[test]
 fn packed_target_uses_only_the_pages_its_frames_reference() {
     let ron_text = r#"
@@ -506,11 +492,8 @@ fn a_refused_multi_record_sheet_indexes_none_of_its_records() {
 /// measured path, which is what a sheet publishing no per-pose hurtbox falls
 /// back to.
 ///
-/// ⚠ these three tests lived beside the catalog join in
-/// `ambition_platformer2d_actor_monolith` until 2026-08-09, reaching the method
-/// through a one-line private wrapper. They came here with the join: they name
-/// no catalog and no character, only [`BodyMetrics::body_pixel_extent`], and it
-/// had no tests of its own in the crate that defines it.
+/// They came here with the join: they name no catalog and no character, only
+/// [`BodyMetrics::body_pixel_extent`], and it had no tests of its own in the crate that defines it.
 fn metrics_with_bbox(bbox: Option<PixelRect>, parts: Vec<NamedPixelRect>) -> BodyMetrics {
     BodyMetrics {
         body_pixel_bbox: bbox,
@@ -591,12 +574,6 @@ fn body_extent_rejects_degenerate_box() {
 
 /// **A file root that names several records is refused, not truncated to the
 /// first one.**
-///
-/// ⛔ the bug this pins is not a wrong answer, it is an answer that depends on
-/// the packer's emission order — and the packer re-runs per quality tier, which
-/// is exactly the kind of "the tier changed and my character changed" symptom
-/// this repo has spent days on. Keeping `records[0]` made that a coin flip that
-/// happens to land the same way today.
 #[test]
 fn a_multi_record_file_root_is_refused_rather_than_silently_truncated() {
     let rec = |t: &str, img: &str| {
@@ -624,8 +601,6 @@ fn a_multi_record_file_root_is_refused_rather_than_silently_truncated() {
         "a single-record file root must still be indexed by its file root"
     );
 
-    // ⭐ THE POISON: before this change `reg.get("props")` returned
-    // `first_prop`, and nothing anywhere said which of the two it was.
     assert!(
         reg.get("props").is_none(),
         "the ambiguous root resolved to a record — this is the truncation bug: \

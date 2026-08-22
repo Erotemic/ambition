@@ -38,7 +38,7 @@ use ambition_sfx::SfxMessage;
 ///
 /// Two post-hit gates apply to the FINAL `InputState`:
 /// - `hard_lock_timer`: every verb, including the movement/flight steering
-///   axis, is zeroed so the body cannot act at all. ⚠ **two different facts
+///   axis, is zeroed so the body cannot act at all. **two different facts
 ///   produce it** and the caller takes the longer: the brief recoil throw at
 ///   the front of a knockback (`recoil_lock_timer`), and the authored landing
 ///   lag an aerial owes for touching down mid-move (`landing_lag_timer`). They
@@ -57,14 +57,7 @@ pub fn engine_input_from_actor_control(
     shield: &ae::BodyShieldState,
     control_dt: f32,
 ) -> ae::InputState {
-    // ⛔⛔ **THIS USED TO SPELL THE MAPPING OUT AGAIN**, sixty lines of
-    // `ActionEdges` construction identical field-for-field to
-    // `ActorControlFrame::to_input_state`, which the ACTOR road already calls.
-    // Two spellings of the control vocabulary, agreeing today and kept agreeing
-    // by nothing: a field added to the frame and wired into `to_input_state`
-    // reached every actor body and silently missed the controlled one.
-    //
-    // ⭐ what is genuinely this function's own is the two lines below it. The
+    // what is genuinely this function's own is the two lines below it. The
     // frame carries no clock — `to_input_state` leaves `control_dt` at zero on
     // purpose, because a brain runs at sim time — so a human's responsive-aim
     // window is stamped here; and the post-hit gates are the body's, not the
@@ -82,7 +75,7 @@ pub fn engine_input_from_actor_control(
 pub fn apply_post_hit_input_gates(
     input: &mut ae::InputState,
     feel: Platformer2dFeelTuningMonolith,
-    // ⛔ the BODY, so the two gates read the same authority and neither caller
+    // the BODY, so the two gates read the same authority and neither caller
     // can spell one of them differently. See `engine_input_from_actor_control`.
     combat: &ambition_characters::actor::BodyCombat,
     // A broken guard is the third fact that removes control outright, and it is
@@ -222,8 +215,6 @@ pub fn pogo_moveset_off_world_orbs(
         return;
     }
     let Some(assembled) = collision.solids() else {
-        // No room loaded, so no surface to pogo off. The room used to arrive as a
-        // `Single`, which made Bevy skip this system; this is that skip, stated.
         return;
     };
     for (hb_entity, owner, world_box, rise, cue) in pogo {

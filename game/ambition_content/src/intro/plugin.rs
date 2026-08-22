@@ -81,10 +81,8 @@ pub struct IntroPlugin;
 
 impl Plugin for IntroPlugin {
     fn build(&self, app: &mut App) {
-        // ⭐ **this plugin no longer touches the sim schedule at all** — the one
-        // system that did was the flag-gated lock walls, and that capability is
-        // an engine system now. What is left here is content INSTALLATION, which
-        // is what an intro-content plugin should be.
+        // What is left here is content INSTALLATION, which is what an intro-content plugin
+        // should be.
         app.init_resource::<IntroSpritesInstalled>()
             .init_resource::<IntroPropSpritesInstalled>()
             .init_resource::<IntroCutscenesInstalled>()

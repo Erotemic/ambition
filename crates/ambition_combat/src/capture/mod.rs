@@ -14,7 +14,7 @@
 //! * a pummel must not END the thing that lets it happen;
 //! * a throw ends it, at an authored frame rather than at a button press.
 //!
-//! ⛔ so this is not `HitVolume { damage: 0, grab: true }`, and it is not
+//! so this is not `HitVolume { damage: 0, grab: true }`, and it is not
 //! [`MovePlayback`](crate::moveset::MovePlayback) either. Those answer different
 //! questions and both answers are needed at once:
 //!
@@ -34,15 +34,10 @@ use ambition_platformer2d_core as ae;
 
 /// **Who is holding this body.** The one authority on a capture relationship.
 ///
-/// ⛔ **there is deliberately no `Capturing { victim }` on the captor.** Two
-/// mutable authorities for one relationship is two things to keep in agreement,
-/// and nothing in the engine would notice when they stopped agreeing — the
-/// failure would surface as a body held by somebody who does not think they are
-/// holding anybody. To ask *"who am I holding?"*, use [`captive_of`]: a scan
-/// over a handful of fighters is not a performance problem, and a wrong answer
-/// would be.
+/// To ask *"who am I holding?"*, use [`captive_of`]: a scan over a handful of fighters is not a
+/// performance problem, and a wrong answer would be.
 ///
-/// ⚠ if a measured customer ever needs a captor-side projection, it should be a
+/// if a measured customer ever needs a captor-side projection, it should be a
 /// DERIVED cache rebuilt from this, never a second thing to write.
 ///
 /// # Why live `Entity`, not `SimId`
@@ -64,23 +59,12 @@ pub struct CapturedBy {
     pub hold_offset_local: ae::Vec2,
     /// **What capture SUSPENDED and release must give back.**
     ///
-    /// ⚠ not assumed to be `1.0`. Flying bodies and special movement modes
-    /// already exist, and a release that wrote a constant would quietly convert
-    /// a floating character into a falling one — a bug that only ever appears
-    /// for the characters least likely to be tested.
+    /// not assumed to be `1.0`.
     pub prior_gravity_scale: f32,
-    // ⛔⛔ **`pummels_landed`, `held_for` and the escape clock LEFT THIS STRUCT
-    // on 2026-08-19** — see `ambition_characters::smash_capture::SmashHoldState`.
+    // What is left is the RELATION — who holds whom, where, and what physical state release must
+    // give back — and every field of it is answerable without knowing what genre is being played.
     //
-    // They were fine here while capture was being proven and they are not
-    // convincing final owners, which the 2026-08-19 GPT review put plainly: a
-    // radically different game may want "actor A constrains actor B" with no
-    // concept of pummels, mash escape, or a four-second grab timeout. What is
-    // left is the RELATION — who holds whom, where, and what physical state
-    // release must give back — and every field of it is answerable without
-    // knowing what genre is being played.
-    //
-    // ⚠ the split is not cosmetic: it is why a capture in another game does not
+    // the split is not cosmetic: it is why a capture in another game does not
     // pay to rewind a pummel counter it has no rule for.
 }
 
@@ -95,7 +79,7 @@ impl bevy::ecs::entity::MapEntities for CapturedBy {
 /// The deliberate answer to not mirroring the relation on the captor. Linear in
 /// captives — of which there are at most one per captor and a handful per stage.
 ///
-/// ⚠ **deterministic by construction**: at most one body may name a given
+/// **deterministic by construction**: at most one body may name a given
 /// captor, so there is no iteration-order question to get wrong. The runtime
 /// that establishes a capture is what upholds that, by refusing to acquire for a
 /// captor that already holds somebody.
@@ -112,7 +96,7 @@ pub fn captive_of(captor: Entity, captives: &Query<(Entity, &CapturedBy)>) -> Op
 /// `CAPTURE_ATTEMPT`), so the handler acquires on the first frame an eligible
 /// body overlaps and no-ops on the rest.
 ///
-/// ⚠ the ruleset's authored effect key never reaches the body runtime — a Smash
+/// the ruleset's authored effect key never reaches the body runtime — a Smash
 /// adapter recognises `"smash.capture_attempt"`, hydrates its params, and writes
 /// THIS. The generic runtime matches no strings.
 #[derive(Message, Clone, Copy, Debug, PartialEq)]
@@ -129,7 +113,7 @@ pub struct CaptureAttemptRequested {
 
 /// **A pummel's impact frame, landing on whoever this body already holds.**
 ///
-/// ⭐ it names no victim, and that is the point: the target was selected when
+/// it names no victim, and that is the point: the target was selected when
 /// the capture was established, so a pummel does not reacquire anybody through
 /// collision. This is the first authored technique in the codebase that targets
 /// a semantic RELATIONSHIP rather than a volume.
@@ -229,10 +213,8 @@ mod tests {
             held.captor, after,
             "the captor handle was not remapped, so a restored capture names the wrong body"
         );
-        // ⚠ the "own state" this guards used to be `pummels_landed`, which left
-        // for the fighter capability on 2026-08-19. The claim is unchanged —
-        // remapping touches the ENTITY HANDLE and nothing else — so it is now
-        // made against the fields the relation still carries.
+        // The claim is unchanged — remapping touches the ENTITY HANDLE and nothing else — so it is
+        // now made against the fields the relation still carries.
         assert_eq!(
             held.hold_offset_local,
             ae::Vec2::new(16.0, -2.0),

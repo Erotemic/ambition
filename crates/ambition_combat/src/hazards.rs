@@ -9,13 +9,13 @@ use super::*;
 /// Tick ECS-authored hazards and publish player damage through Bevy messages.
 /// **The set `update_ecs_hazards` runs in.**
 ///
-/// ⛔ two `ambition_content` plugins (`bosses`, `intro`) order against this
+/// two `ambition_content` plugins (`bosses`, `intro`) order against this
 /// function by name across a crate boundary. Same shape as
 /// `crate::strike::EffectExecutionSet` and
 /// `crate::…::FeatureWorldOverlaySet`: a general crate consumed by content owed
 /// its consumers a name to order against and did not have one.
 ///
-/// ⚠ ONE member, so `.before(HazardTickSet)` is exactly the
+/// ONE member, so `.before(HazardTickSet)` is exactly the
 /// `.before(update_ecs_hazards)` it replaces. The system sits inside a long
 /// chained tuple in the monolith's feature group; a set spanning its neighbours
 /// would change what a consumer waits for.
@@ -47,7 +47,7 @@ pub fn update_ecs_hazards(
         ),
     >,
     // Every OTHER body with a published footprint burns too (fable review
-    // 2026-07-02 §A4): hazards are relational-agnostic world danger — an NPC
+    // §A4): hazards are relational-agnostic world danger — an NPC
     // in lava takes the hit, a boss can be lured into spikes. Deliberately NOT
     // faction-gated (unified-actors guardrail 4). `Without<HazardFeature>`
     // keeps this read provably disjoint from the mutable hazard query.
@@ -141,11 +141,6 @@ pub fn update_ecs_hazards(
             // per-tick resolved frame.
             let side = resolved_frame.basis().side;
             let knockback_dir = (pos - hazard.pos).dot(side).signum();
-            // CM8: the hazard's sound is its STRIKE SOUND — carried to the ONE
-            // victim-side reaction instead of emitted here. The red spray and
-            // debris the player used to get (and an actor did NOT — the old
-            // is_player fork) now come from the victim's `HurtFeedback`, so both
-            // halves of this hazard land uniformly on whoever it hits.
             hit_events.write(HitEvent {
                 strike_sfx: Some(hazard_sfx_id(&hazard.name)),
                 volume: hazard.aabb().into(),

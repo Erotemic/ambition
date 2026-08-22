@@ -27,14 +27,14 @@ pub use ambition_vfx::vfx::{FireworksRequest, FxRequest, ParticleKind, SlashKind
 /// **What an [`FxId`] names**: the authored row, the sheet holding it, and the
 /// packed cue that ships with it.
 ///
-/// ⭐⭐ **this index IS the engine's effect vocabulary, and nothing declares it.**
+/// **this index IS the engine's effect vocabulary, and nothing declares it.**
 /// It is built by walking the FX sheets' own baked records and hashing each row
 /// name — so the set of drawable effects is the set of shipped rows, by
 /// construction. That is what replaced `move_vfx_kind` (name→enum),
 /// `explosion_anim` (enum→pose) and `explosion_sfx` (enum→cue): three tables
 /// whose whole job was getting back to the string the content already had.
 ///
-/// ⚠ `SfxId` is precomputed here rather than at every spawn: the cue name is
+/// `SfxId` is precomputed here rather than at every spawn: the cue name is
 /// derived from the row (`vfx.<family>.<row>`), and hashing it once at first
 /// use keeps the draw path allocation-free.
 struct EffectIndex {
@@ -68,7 +68,7 @@ pub fn effect_cue(fx: FxId) -> Option<SfxId> {
 /// SFX's policy, for SFX's reason: the vocabulary is open (a game may author
 /// effects the engine never heard of), so a miss is a report rather than a
 /// refusal — but a per-frame warning for a move that fires sixty times a second
-/// trains everyone to filter the channel. ⚠ the id is a one-way hash and the
+/// trains everyone to filter the channel. the id is a one-way hash and the
 /// name is not among the shipped rows *by definition of being a miss*, so the
 /// report can only print the hash. That is the honest amount of information.
 fn note_effect_miss(fx: FxId) {
@@ -140,13 +140,7 @@ pub struct FireworkBurstSpec {
 
 /// One floating line of speech.
 ///
-/// ⛔ **it does NOT know where it is drawn, and that is the point (D159).** A
-/// bubble is a [`WorldLabel`](crate::rendering::label_layout::WorldLabel) of
-/// family [`Speech`](crate::rendering::label_layout::WorldLabelFamily::Speech),
-/// so it publishes the anchor and the opacity it WANTS and the one ranked
-/// placement pass decides where the line actually lands — against every other
-/// bubble, every name plate and every authored sign at once. This struct is
-/// only the line's clock.
+/// This struct is only the line's clock.
 #[derive(Component)]
 pub struct SpeechBubbleVisual {
     pos: ae::Vec2,
@@ -198,18 +192,15 @@ pub fn process_fx_requests(
             pos: request.pos,
             fx: request.fx,
             scale: request.scale,
-            // ⭐ the REQUESTER's pose, not identity — this is the whole route a
-            // move's committed facing takes to the artwork (D154).
+            // the REQUESTER's pose, not identity — this is the whole route a move's committed
+            // facing takes to the artwork.
             pose: request.pose,
         });
         // The override if there is one, otherwise the cue the effect's own name
         // already addresses. A caller has nothing to remember.
         //
-        // ⭐ **and it goes out AS the requester**, which is what lets an authored
-        // move effect come through here instead of writing its own pair (D149).
-        // `unscoped` is the default and means what it always did — the active
-        // context's primary source decides — so every existing caller is
-        // byte-identical.
+        // `unscoped` is the default and means what it always did — the active context's primary
+        // source decides — so every existing caller is byte-identical.
         if let Some(id) = request.sfx.or_else(|| effect_cue(request.fx)) {
             let play = SfxMessage::Play {
                 id,
@@ -396,10 +387,6 @@ pub fn vfx_spawn_messages(
             VfxMessage::ResetEffects { from, to } => {
                 spawn_reset_effects(&mut commands, spawn_scope, world, from, to);
             }
-            // ⭐ **just spawn it.** No make-room routine, no column: the line
-            // publishes the anchor it wants and the shared placement pass
-            // separates it from every other bubble AND from the name plates it
-            // used to print through (D159).
             VfxMessage::SpeechBubble { pos, text } => {
                 spawn_speech_bubble(&mut commands, spawn_scope, world, pos, &text, &bubble_font);
             }
@@ -413,11 +400,6 @@ pub fn vfx_spawn_messages(
 /// rather than re-derive it: `None` here IS the particle fallback. Two ways to
 /// get it — the id names no shipped row, or the sheet holding that row is not
 /// decoded in these assets.
-///
-/// ⛔ the slot is re-resolved against the LOADED spec rather than trusted from
-/// the baked index. They are the same sheet today; a quality variant with a
-/// different row layout would make them disagree, and drawing the wrong row is
-/// exactly the failure `first_bound_row` was built to refuse.
 pub fn resolve_drawable(
     assets: Option<&ambition_sprite_sheet::game_assets::GameAssets>,
     fx: FxId,
@@ -434,14 +416,7 @@ pub fn resolve_drawable(
 
 /// **How big an unscaled authored effect is drawn, in world units.**
 ///
-/// ⛔ **this was `132.0` written inline, and it was every effect in the
-/// project.** Jon, 2026-08-16: *"right now we are seeing crazy upscaled vfx"*.
-/// Measured against a two-CPU Smash capture, a fighter's body stands about 60
-/// world units; a 132-unit square is more than twice her height, so a jab's
-/// spark and a screen-clearing super drew at the same size and both of them
-/// covered the fighter throwing them.
-///
-/// ⭐ **the number is now the DEFAULT, not the answer.** A move authors
+/// **the number is now the DEFAULT, not the answer.** A move authors
 /// `Vfx { scale }` (see `MoveEventKind::Vfx`), so a flourish asks for less and a
 /// super asks for more — which is the expressive range the constant took away.
 /// This value is a little under a fighter's height on purpose: an effect the
@@ -451,12 +426,9 @@ pub const FX_DEFAULT_WORLD_SIZE: f32 = 56.0;
 
 /// **Draw the authored effect `fx`, or say why not.**
 ///
-/// Three ways this ends, and they are different facts: the id names no shipped
-/// row (a counted miss — the authored id is wrong or the art was never made);
-/// the sheet holding the row is not decoded (`--no-assets`, or a build whose
-/// FX manifests were not baked); or it draws. Only the last one is art, and the
-/// other two share the particle fallback that used to be the ONLY outcome
-/// outside Ambition.
+/// Three ways this ends, and they are different facts: the id names no shipped row (a counted miss
+/// — the authored id is wrong or the art was never made); the sheet holding the row is not decoded
+/// (`--no-assets`, or a build whose FX manifests were not baked); or it draws.
 fn spawn_effect(
     commands: &mut Commands,
     session_scope: Option<SessionSpawnScope>,
@@ -503,46 +475,35 @@ fn spawn_effect(
 
 /// **The generic hit marker: what an ordinary impact looks like.**
 ///
-/// ⭐⭐ **`VfxMessage::Impact` is the most-drawn effect in the game** — every
-/// actor hit, projectile hit, item pickup and grapple bite writes one — and
-/// until now it drew [`spawn_impact`]'s bare yellow rectangle: a hard-edged
-/// untextured quad, 12 world units wide, on a stage where a fighter stands 46.
-/// That is what Jon photographed and reported as an *"untextured olive quad"*.
-///
-/// ⛔⛔ **the art was already shipped and nothing asked for it.** The engine's
+/// **the art was already shipped and nothing asked for it.** The engine's
 /// own `generic_action_fx` sheet carries `hit_soft`, `hit_hard`, `hit_metal` and
 /// `hit_energy`; the marker is simply a consumer that never joined — the same
 /// shape as the 189-rows-on-disk / 5-reachable-from-Rust finding that
 /// `ambition_sprite_sheet::fx` was built to close.
 ///
-/// ⚠ **`hit_soft` for every impact, deliberately.** [`ambition_vfx::ImpactMaterial`]
-/// already distinguishes flesh / robot / metal, and the sheet already draws all
-/// three — but the material lives on the VICTIM's `HurtFeedback` and
-/// `VfxMessage::Impact` carries a position and nothing else, so joining those two
-/// vocabularies is a message change and a taste call, not part of giving the
-/// marker art. Recorded in D128 rather than guessed at here.
+/// **`hit_soft` for every impact, deliberately.** [`ambition_vfx:ImpactMaterial`] already
+/// distinguishes flesh / robot / metal, and the sheet already draws all three — but the
+/// material lives on the VICTIM's `HurtFeedback` and `VfxMessage:Impact` carries a position and
+/// nothing else, so joining those two vocabularies is a message change and a taste call, not
+/// part of giving the marker art.
 pub const GENERIC_HIT_FX: FxId = FxId::from_static("hit_soft");
 
 /// **How big a generic hit draws**, as a multiple of [`FX_DEFAULT_WORLD_SIZE`].
 ///
-/// ⛔ **MEASURED, not reasoned.** The first attempt read the sheet's
+/// **MEASURED, not reasoned.** The first attempt read the sheet's
 /// `body_pixel_bbox` (48 of a 128px frame) and predicted that `0.9` would draw a
 /// 19-unit spark. Photographed, its solid core came out **51 x 56 world units**:
 /// the bbox describes ONE rect of the opening frame, and the clip's later frames
 /// fill the square. So the drawn size is the frame size, `0.9 x 56 = 50` — as
 /// tall as the 46-unit fighter being hit.
 ///
-/// ⚠ **that is the size a move's own burst wants, and a contact spark is not
-/// one.** [`FX_DEFAULT_WORLD_SIZE`]'s doc says 56 sits just under a body on
-/// purpose, *"an effect the same size as the body reads as the body's own"* —
-/// true for a super, wrong for the tick that says a punch landed. `0.6` puts the
-/// spark at about 34 units, two-thirds of a fighter: unmistakable at the contact
+/// `0.6` puts the spark at about 34 units, two-thirds of a fighter: unmistakable at the contact
 /// point without becoming the thing you look at.
 const GENERIC_HIT_FX_SCALE: f32 = 0.6;
 
 /// Draw the shipped hit art at `pos`, or fall back to the bare marker.
 ///
-/// ⚠ the fallback is [`spawn_impact`] and NOT [`spawn_effect`]'s particle burst:
+/// the fallback is [`spawn_impact`] and NOT [`spawn_effect`]'s particle burst:
 /// a composition with no decoded sheets should look exactly as it did before,
 /// and a burst of 24 sparks per hit is not "exactly as before".
 fn spawn_hit_marker(
@@ -589,7 +550,7 @@ fn draw_effect_clip(
 ) {
     let scale = scale.max(0.1);
     let render_size = BVec2::splat(FX_DEFAULT_WORLD_SIZE * scale);
-    // ⛔ NOT `build_character_sprite_with_render_size`: that opens on
+    // NOT `build_character_sprite_with_render_size`: that opens on
     // `CharacterAnim::Idle`, and an effect sheet has no idle row — asking for
     // one panics. The first frame of the clip is the right opening frame anyway.
     let mut sprite = Sprite::from_atlas_image(
@@ -600,12 +561,8 @@ fn draw_effect_clip(
         },
     );
     sprite.custom_size = Some(render_size);
-    // ⛔⛔ **the artwork was drawn world-upright no matter who threw it** (D154).
-    // The authored offset was already mirrored by the move's committed facing
-    // and rotated into the owner's frame, so an effect landed in the right PLACE
-    // pointing the wrong way — invisible on a radial burst, visibly wrong on a
-    // slice, a streak or an arrow. `FxPose::UPRIGHT` is the identity, so every
-    // emitter that never had an opinion draws exactly as before.
+    // `FxPose:UPRIGHT` is the identity, so every emitter that never had an opinion draws
+    // exactly as before.
     sprite.flip_x = pose.mirror;
     let mut animator = CharacterAnimator::new(asset);
     animator.request_clip(
@@ -623,10 +580,7 @@ fn draw_effect_clip(
             EffectVisual {
                 pos,
                 age: 0.0,
-                // ⭐ the AUTHORED length, not a magic 0.72. The row knows how
-                // many frames it has and how long each one holds; a fixed
-                // duration either cut a long effect off or held a short one on
-                // its last frame while it faded.
+                // the AUTHORED length, not a magic 0.72.
                 duration: effect.clip_secs().max(0.05),
             },
         ),
@@ -670,7 +624,7 @@ fn speech_bubble_alpha(age: f32, duration: f32) -> f32 {
 /// **Say where the line wants to be and how strongly it wants to be seen — and
 /// stop there.**
 ///
-/// ⛔ it writes neither the `Transform` nor the `TextColor`. The placement pass
+/// it writes neither the `Transform` nor the `TextColor`. The placement pass
 /// is the single writer of both for every [`WorldLabel`], and two writers
 /// sharing one placement is how a label drifts: a pass that reads back the
 /// transform it moved last frame accumulates its own correction.
@@ -801,11 +755,6 @@ pub fn update_impacts(
 }
 
 /// **How wide a bark may be, in world units.**
-///
-/// The smash stage is 640 wide, so this is under a fifth of it — a block over
-/// one fighter's head rather than a banner across the fight. Measured against
-/// the defect: the offending line was 265 units, and at 18pt roughly six units
-/// a character this wraps a 44-character bark into three readable rows.
 const SPEECH_BUBBLE_MAX_WIDTH: f32 = 120.0;
 
 pub fn spawn_speech_bubble(
@@ -823,12 +772,9 @@ pub fn spawn_speech_bubble(
     // meaningful fraction of the thing.
     font: &TextFont,
 ) {
-    // ⚠ this line is why the font MATTERS here more than anywhere else: the
-    // bubble supplies its own non-ASCII. Left at `TextFont::default()` the
-    // curly quotes resolved Bevy's built-in `FiraMono-subset.ttf` — the same
-    // handle the menu tofu came down to. ⚠ NOT yet photographed here: the
-    // menu's box does not reproduce everywhere that handle is used, so treat
-    // this as the same defect SHAPE rather than a confirmed sighting. See
+    // this line is why the font MATTERS here more than anywhere else: the bubble supplies its
+    // own non-ASCII. Left at `TextFont::default()` the curly quotes resolved Bevy's built-in
+    // `FiraMono-subset.ttf` — the same handle the menu tofu came down to. See
     // `ambition_menu::render::bevy_ui::MenuFont`.
     let bubble_text = format!("\u{201c}{text}\u{201d}");
     let Some(session_scope) = session_scope else {
@@ -847,14 +793,7 @@ pub fn spawn_speech_bubble(
                 font_size: 18.0,
                 ..font.clone()
             },
-            // ⛔⛔ **UNBOUNDED, A BARK IS ONE LINE HOWEVER LONG IT IS.**
-            // Photographed 2026-08-18 on a 640-wide stage: *"Either you are on
-            // the stage or you are not."* laid out as a single **265-unit**
-            // line — 41% of the stage, straight across the play area, with both
-            // fighters underneath it. D158→D159 stopped bubbles overlapping
-            // EACH OTHER; nothing stopped one overlapping the GAME.
-            //
-            // ⚠ **width only.** `TextBounds`' own doc says characters outside
+            // **width only.** `TextBounds`' own doc says characters outside
             // the bounds after wrapping are TRUNCATED, so a height bound would
             // silently eat the end of a long bark — the one thing worse than a
             // wide one.
@@ -869,11 +808,7 @@ pub fn spawn_speech_bubble(
             Name::new(format!("Speech bubble: {text}")),
         ),
     );
-    // ⛔ **the owner id has to be UNIQUE, not merely descriptive.** The pass
-    // hands placements back through a map keyed on it, so two lines sharing an
-    // id would read the SAME placement and print through each other — which is
-    // the defect, arriving by a different door. Two speakers can say the same
-    // words from the same spot; only the entity is theirs alone.
+    // Two speakers can say the same words from the same spot; only the entity is theirs alone.
     let owner_id = format!("speech:{}", bubble.id().index());
     let mut label = WorldLabel::new(owner_id, WorldLabelFamily::Speech, Vec3::ZERO)
         .with_colors(text_color, Some(outline_color));
@@ -898,7 +833,7 @@ pub fn spawn_speech_bubble(
                         font_size: 18.0,
                         ..font.clone()
                     },
-                    // ⭐ the shadow must wrap EXACTLY as the line it shadows;
+                    // the shadow must wrap EXACTLY as the line it shadows;
                     // a different bound here is four ghosts at four offsets.
                     TextBounds {
                         width: Some(SPEECH_BUBBLE_MAX_WIDTH),
@@ -947,9 +882,7 @@ pub fn spawn_reset_effects(
     from: ae::Vec2,
     to: ae::Vec2,
 ) {
-    // Reset is a teleport-like state transition. Showing both endpoints avoids
-    // the ambiguity where a burst at spawn can look like a coordinate bug when
-    // the player reset from somewhere else.
+    // Reset is a teleport-like state transition.
     if (from - to).length() > 8.0 {
         spawn_burst(
             commands,
@@ -1034,12 +967,10 @@ pub fn spawn_burst(
 
 /// **One coin, up and back down** — the acknowledgement a struck coin block owes.
 ///
-/// A single ballistic particle rather than a burst: the coin leaves straight up,
-/// gravity brings it back, and it is gone inside a third of a second. It is
-/// presentation only — no collider, no pickup, no session state — because the
-/// block already credited the purse before this was written.
+/// A single ballistic particle rather than a burst: the coin leaves straight up, gravity brings
+/// it back, and it is gone inside a third of a second.
 ///
-/// ⭐ **the four numbers are the whole feel and they are together on purpose.**
+/// **the four numbers are the whole feel and they are together on purpose.**
 /// Rise, gravity, size and colour are the dials worth turning; everything else
 /// about the effect follows from them.
 pub fn spawn_coin_pop(
@@ -1067,7 +998,7 @@ pub fn spawn_coin_pop(
             ParticleVisual {
                 kind: ParticleKind::Shard,
                 pos,
-                // ⚠ NEGATIVE y is up: world y is down-positive here.
+                // NEGATIVE y is up: world y is down-positive here.
                 vel: ae::Vec2::new(0.0, -RISE_SPEED),
                 age: 0.0,
                 // Long enough to rise and fall back past where it started.
@@ -1160,11 +1091,7 @@ pub fn spawn_blink_effects(
 
 /// Live ring of orbiting embers showing where the next blink will land.
 ///
-/// Pure consumer of the sim-resolved
-/// [`ambition_sim_view::BlinkPreviewFact`] (E4 slice 18):
-/// the destination is computed sim-side with the SAME resolution the actual
-/// blink uses, so the preview can never disagree with the eventual teleport
-/// endpoint. This system only draws the ember ring.
+/// This system only draws the ember ring.
 #[cfg(feature = "input")]
 pub fn update_blink_preview(
     mut commands: Commands,
@@ -1237,14 +1164,10 @@ mod tests {
 
     /// **The generic hit marker names a row the art actually ships.**
     ///
-    /// ⛔⛔ **its failure mode is silent and looks like nothing.** If `hit_soft`
-    /// is renamed, re-slotted, or dropped from `generic_action_fx`, the marker
-    /// does not panic and does not warn — [`spawn_hit_marker`] falls quietly back
-    /// to [`spawn_impact`]'s bare yellow rectangle, which is the exact defect
-    /// this joined art to (D128 defect 6). The only thing that would notice is
-    /// somebody photographing a match, which is how it was found the first time.
+    /// The only thing that would notice is somebody photographing a match, which is how it was
+    /// found the first time.
     ///
-    /// ⚠ **the id is a one-way hash**, so this asks the index rather than
+    /// **the id is a one-way hash**, so this asks the index rather than
     /// comparing strings: `authored_effect_for` answers only for a name the
     /// shipped sheets carry.
     #[test]
@@ -1316,7 +1239,7 @@ mod tests {
             assert_eq!(effect.name, name);
             assert_eq!(effect.sheet, "generic_explosions");
         }
-        // ⭐ and one from outside it, resolved by the same call — the property
+        // and one from outside it, resolved by the same call — the property
         // the enum made impossible.
         assert_eq!(
             authored_effect_for(ids::SONIC_BOOM).map(|e| e.sheet),
@@ -1331,17 +1254,12 @@ mod tests {
         assert!(authored_effect_for(FxId::new("kaboom")).is_none());
         assert!(effect_cue(FxId::new("kaboom")).is_none());
     }
-    /// **A request's SOURCE survives the fan-out.** (D149)
+    /// **A request's SOURCE survives the fan-out.**
     ///
-    /// ⛔ this is the half that had to exist before authored MOVE effects could
-    /// come through `FxRequest` at all. `dispatch_move_events` scopes its `Sfx`
-    /// arm by the event's presentation source, and its `Vfx` arm writes a bare
-    /// `VfxMessage::Effect` — going around the pairing. Routing it here while
-    /// this dropped the scoping would have traded remembered-sound ceremony for
-    /// a silently misattributed cue, which is a worse bug than the one being
-    /// fixed.
+    /// `dispatch_move_events` scopes its `Sfx` arm by the event's presentation source, and its
+    /// `Vfx` arm writes a bare `VfxMessage::Effect` — going around the pairing.
     ///
-    /// ⚠ both arms asserted: the unscoped default must stay on the plain write,
+    /// both arms asserted: the unscoped default must stay on the plain write,
     /// or every existing caller changes behaviour to buy this.
     #[test]
     fn a_requests_presentation_source_reaches_the_cue_it_pairs() {
@@ -1381,25 +1299,16 @@ mod tests {
         );
     }
 
-    // ── Speech-bubble placement (D158, then D159) ────────────────────────────
+    // ── Speech-bubble placement (, then ) ────────────────────────────
     //
-    // ⭐ **these guards read the DRAWN boxes, and there is only one placement
-    // model left to read.** D158 fixed bubble-vs-bubble collisions with a
-    // private column measured in elevation; D159 found the same frame still
-    // wrong because a name plate is placed by
-    // [`layout_world_labels`](crate::rendering::label_layout) and a bubble was
-    // not, so each pass truthfully reported "no overlaps found". The column is
-    // gone: a bubble is a `WorldLabel` and the shared ranked pass separates it
-    // from every other world label, its own family included. So the D158
-    // SCENARIOS survive here — same measured anchors, same questions — asked of
-    // the mechanism that now answers them.
+    // The column is gone: a bubble is a `WorldLabel` and the shared ranked pass separates it from
+    // every other world label, its own family included.
 
     use crate::rendering::label_layout::{
         label_size, LabelBox, WorldLabel, WorldLabelFamily, WorldLabelLayoutPlugin,
         WorldLabelLayoutSet, WorldLabelLayoutSettings,
     };
 
-    /// The stage the anchors below were measured on.
     fn stage() -> ambition_platformer2d_core::World {
         ambition_platformer2d_core::movement::containment::walled_box(
             ae::Vec2::new(1600.0, 900.0),
@@ -1473,7 +1382,7 @@ mod tests {
             ));
         }
 
-        /// ⚠ **`app.update()` is NOT a tick of sim time**, so the clock is
+        /// **`app.update()` is NOT a tick of sim time**, so the clock is
         /// advanced explicitly. Ageing is what makes "the older line" mean
         /// anything, and it is what moves a line's anchor as it floats.
         fn tick(&mut self, secs: f32) {
@@ -1484,9 +1393,6 @@ mod tests {
             self.app.update();
         }
 
-        /// Every world label still drawn, as the box it occupies — measured
-        /// with the same [`label_size`] the pass measured it with, so the
-        /// assertion asks the placement model rather than re-deriving it.
         fn drawn(&mut self) -> Vec<(String, LabelBox)> {
             let settings = self.settings.clone();
             self.app
@@ -1533,24 +1439,14 @@ mod tests {
     const TAUNT: &str = "Either you are on the stage or you are not.";
     const BELAY: &str = "Belay that, ye barnacle!";
 
-    /// **Two lines from two speakers never print through each other.** (D158)
+    /// **Two lines from two speakers never print through each other.**
     ///
-    /// ⭐ **the anchors below are MEASURED**, from the two-CPU smash match Jon
-    /// photographed: a taunt from the stage floor anchors at `y = 225.44` and
-    /// taunts from mid-air at `y = 208.84` and `y = 196.62`.
-    ///
-    /// ⛔ **D158's own failure is unreachable from here, by construction.** Its
-    /// column pushed each line by an offset measured from that speaker's OWN
-    /// head, so a step up from a grounded speaker landed on the untouched line
-    /// of a speaker hovering one step above — every offset distinct, every line
-    /// on top of another. The pass has no per-speaker offset to be right about:
-    /// it compares the BOXES the lines land in, in one space.
+    /// The pass has no per-speaker offset to be right about: it compares the BOXES the lines land
+    /// in, in one space.
     #[test]
     fn speakers_at_different_heights_do_not_print_through_each_other() {
         let floor = |x: f32| ae::Vec2::new(x, 225.44);
         let airborne = |x: f32| ae::Vec2::new(x, 208.84);
-        // A jump that put the speaker exactly one old stack step up — the
-        // anchor arithmetic that cancelled D158's push dead.
         let higher = |x: f32| ae::Vec2::new(x, 196.62);
 
         let pairs = [
@@ -1593,8 +1489,7 @@ mod tests {
         }
     }
 
-    /// **A line already on screen and a line born this frame are placed
-    /// together.** (D158)
+    /// **A line already on screen and a line born this frame are placed together.**
     ///
     /// The behavioural half. What the two deleted make-room routines could not
     /// give was that each swept its own population, so a bubble cleared every
@@ -1616,8 +1511,7 @@ mod tests {
         assert_no_overlap(&lines);
     }
 
-    /// **Four fighters all get a line, and a fifth speaker never costs
-    /// legibility.** (D158)
+    /// **Four fighters all get a line, and a fifth speaker never costs legibility.**
     ///
     /// A four-fighter free-for-all is the widest supported match, so four lines
     /// at four heights is the load the placement budget is sized for. The
@@ -1625,8 +1519,8 @@ mod tests {
     /// drawn onto its neighbour.
     #[test]
     fn a_four_fighter_free_for_all_fits_and_a_fifth_never_prints_through() {
-        // Four fighters at four heights — the same assorted anchors D158
-        // measured, which is where its per-speaker offsets cancelled.
+        // Four fighters at four heights — the same assorted anchors measured, which is where
+        // its per-speaker offsets cancelled.
         let assorted = [
             (ae::Vec2::new(131.1, 225.44), TAUNT),
             (ae::Vec2::new(150.7, 208.84), BELAY),
@@ -1658,15 +1552,7 @@ mod tests {
         assert_no_overlap(&lines);
     }
 
-    /// **A name plate and a speech bubble at one anchor do not print through
-    /// each other.** (D159)
-    ///
-    /// ⭐ **the cross-FAMILY half, and no amount of bubble-vs-bubble stacking
-    /// could ever have seen it.** Jon photographed it: the "George Booul" plate
-    /// sitting inside *"Either you are on the stage or you are not."* The plate
-    /// was placed by the shared pass and the bubble placed itself, so both
-    /// passes correctly reported "no overlaps found" about a wrong frame —
-    /// exactly the failure `label_layout`'s header was written to describe.
+    /// **A name plate and a speech bubble at one anchor do not print through each other.**
     #[test]
     fn a_name_plate_and_a_speech_bubble_do_not_print_through_each_other() {
         let speaker = ae::Vec2::new(150.7, 225.44);
@@ -1684,7 +1570,7 @@ mod tests {
         assert_no_overlap(&drawn);
     }
 
-    /// **The plate holds its ground and the LINE moves.** (D159)
+    /// **The plate holds its ground and the LINE moves.**
     ///
     /// The ranking argument, asserted rather than described: a plate is
     /// permanent furniture on a body the eye is tracking, so displacing it

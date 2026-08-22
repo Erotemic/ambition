@@ -126,11 +126,7 @@ def test_an_upsert_keeps_the_uids_every_placement_references():
     kind = next(f for f in after["fieldDefs"] if f["identifier"] == "kind")
     assert kind["uid"] == kind_uid, changes
     assert kind["defaultOverride"] == {"id": "V_String", "params": ["Brick"]}
-    # ⚠ the manifest's OWN fields plus the one this test appends — read off the
-    # spec rather than spelled out, because spelling them out is what went stale:
-    # `contents` landed an hour after this assertion was written, and the list
-    # said `["kind", "respawns"]` from then on. Two of us fixed this
-    # independently and the same way, which is a decent sign it was the fix.
+    # Two of us fixed this independently and the same way, which is a decent sign it was the fix.
     expected = [f["name"] for f in manifest["entities"][0]["fields"]]
     assert [f["identifier"] for f in after["fieldDefs"]] == expected, (
         "every field the manifest declares survives the upsert, in order"
@@ -171,17 +167,12 @@ def test_retiring_a_field_the_level_still_uses_is_reported_not_done():
 
     losses = plan_losses(project, manifest["entities"])
 
-    # ⚠ `contents` joined `kind` here on 2026-08-05, when 1-1 first AUTHORED a
-    # cammo block (a Brick holding a quasar). The field had existed on the def
-    # for a while and no placement had ever set it, so retiring it lost nothing
-    # and this assertion listed one path. Using a capability changes what
-    # retiring it would cost — which is exactly what this tool is for.
     assert [loss.path for loss in losses] == [
         "MaryOBlock.kind",
         "MaryOBlock.contents",
     ]
     assert losses[0].count == len(kind_values(project))
-    # ⭐ **derived from the level, not spelled out.** The literal set here has
+    # **derived from the level, not spelled out.** The literal set here has
     # gone stale twice — `Question`/`Hidden` joined when 1-2 got its own block
     # row, and `Quasar` LEFT when it became a `contents` value on a Brick. What
     # the tool owes is that it reports every distinct authored value, quoted;
@@ -206,10 +197,7 @@ def test_retyping_a_field_the_level_still_uses_is_reported_not_done():
     losses = plan_losses(project, manifest["entities"])
 
     assert [loss.path for loss in losses] == ["MaryOBlock.kind"]
-    # ⚠ the DESTINATION type, not the source's spelling. `kind` was a String
-    # when this was written and is `LocalEnum.MaryOBlockKind` since it gained a
-    # dropdown; what the assertion is about is that the tool names the change it
-    # refuses, and pinning the old source name only pinned the fixture.
+    # the DESTINATION type, not the source's spelling.
     assert "to Int" in losses[0].reason
 
 

@@ -17,7 +17,7 @@ use bevy::prelude::{App, Commands, Entity, Query, Update};
 
 /// A minimal world with the death beat wired and nothing else.
 ///
-/// ⚠ **`GoverningDeathRules` is deliberately unfurnished.** Both of its halves
+/// **`GoverningDeathRules` is deliberately unfurnished.** Both of its halves
 /// are optional and the absent case is the engine default, so this harness
 /// exercises the same code path a composition with no death declarations does.
 fn app_with_the_death_beat() -> App {
@@ -70,14 +70,6 @@ fn a_death_claims_the_sequence_hold() {
 
 /// **THE POINT: a body that died inside a capture stays held when the captor
 /// lets go.**
-///
-/// ⛔ this is the failure the claim protocol exists to prevent, and it is not
-/// hypothetical arithmetic — a thrown fighter can cross a blast zone while the
-/// grab relationship is still live, so the death and the release land in that
-/// order. With the marker stamped by hand, the captor's `release_control_hold`
-/// found an EMPTY claim set, concluded nobody was holding the body, and removed
-/// `ScriptedControl` from a corpse in the middle of its death interlude — after
-/// which ordinary input drove it for the rest of the window.
 #[test]
 fn a_captor_letting_go_cannot_free_a_body_that_died_in_its_grip() {
     let mut app = app_with_the_death_beat();
@@ -93,7 +85,7 @@ fn a_captor_letting_go_cannot_free_a_body_that_died_in_its_grip() {
 
     kill(&mut app, victim);
 
-    // ⭐ **both terms OBSERVED before the release.** A version of this test that
+    // **both terms OBSERVED before the release.** A version of this test that
     // went straight to the release would also pass on a world where the capture
     // hold had silently vanished, or where the death never ran — neither of
     // which is the state whose behaviour is being pinned.

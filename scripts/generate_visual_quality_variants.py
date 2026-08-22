@@ -990,7 +990,7 @@ def build_sheet_variant(source: SheetSource, ron_dst: Path, variant: Variant) ->
     for page, fname in zip(result.pages, page_names):
         page.save(ron_dst.parent / fname)
 
-    # ⚠ the decoded source pages belong to `source`, which the caller reuses for
+    # the decoded source pages belong to `source`, which the caller reuses for
     # the remaining tiers. Closing them here (as this did while the tier was the
     # outer loop and each sheet was opened afresh) leaves the next tier reading
     # from a closed image.
@@ -1311,7 +1311,7 @@ def generate_sprite_variants(
                 if not force and _published_and_current(ron_dst, stamp):
                     skipped[variant.suffix] += 1
                     continue
-                # ⚠ the phases are DISJOINT — nesting the parse inside the build
+                # the phases are DISJOINT — nesting the parse inside the build
                 # would bill its seconds to both, and a phase table that sums to
                 # more than the run is a table nobody can reason from.
                 if unit.target is not None:

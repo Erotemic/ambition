@@ -62,7 +62,7 @@ pub fn default_visual_quality_profile() -> VisualQualityProfile {
     }
 }
 
-/// ⚠ **`Ord` is declaration order, which is ascending quality** (Potato <
+/// **`Ord` is declaration order, which is ascending quality** (Potato <
 /// Quarter < Half < Full). Derived so a set of tiers has a deterministic
 /// iteration order for diagnostics; nothing decides policy by comparing two
 /// tiers, and nothing should — "which is better" is not the same question as

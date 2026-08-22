@@ -7,10 +7,10 @@
 # as include filters for submodule paths.
 #
 # Examples:
-#   ./push_workspace.sh
-#   ./push_workspace.sh formalizations submodules
-#   ./push_workspace.sh --submodules-only third_party
-#   ./push_workspace.sh --dry-run vendor
+# ./push_workspace.sh
+# ./push_workspace.sh formalizations submodules
+# ./push_workspace.sh --submodules-only third_party
+# ./push_workspace.sh --dry-run vendor
 
 set -u
 set -o pipefail

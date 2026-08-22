@@ -95,20 +95,16 @@ def rect(etype: str, px: tuple[int, int], size: tuple[int, int], **fields) -> di
 # the round `sanic_ring_prop` sprite (bound demo-side) isn't stretched; `px` is
 # its top-left, so a ring is centred on (cx, cy).
 RING_SIZE = (30, 30)
-#: The sheet each ring wears, authored on the placement.
-#:
-#: ⚠ **`PickupSpawn` does not carry a `sprite` field in the shared defs**, so
-#: `main()` mints one with `def update-entity` before the area is built. That
-#: field reached the committed world file out-of-band once (an `entity`/`def`
-#: edit run by hand), which left THIS script unable to reproduce it: a
-#: regeneration silently dropped the binding from all 35 rings and they fell
-#: back to the generic coin. Authoring it here is what makes the script the
-#: file's only author again.
+# : The sheet each ring wears, authored on the placement.
+# :
+# : **`PickupSpawn` does not carry a `sprite` field in the shared defs**, so
+# : `main()` mints one with `def update-entity` before the area is built. That
+# : field reached the committed world file out-of-band once (an `entity`/`def`
+# : edit run by hand), which left THIS script unable to reproduce it: a
+# : regeneration silently dropped the binding from all 35 rings and they fell
+# : back to the generic coin. Authoring it here is what makes the script the
+# : file's only author again.
 RING_SPRITE = "sanic_ring_prop"
-#: The badnik's catalog identity, authored on the spawn. Same story as
-#: `RING_SPRITE`: the demo used to rewrite every enemy's `name` in Rust after
-#: conversion, `EnemySpawn` grew a `character_id` field on 2026-08-06, and the
-#: world file was edited to use it without this script learning how.
 BADNIK_CHARACTER_ID = "sanic_badnik"
 BADNIK_DISPLAY_NAME = "Sanic Badnik"
 
@@ -211,16 +207,9 @@ def area_spec() -> dict:
         rect("ReboundPad", (1640, 650), (72, 22), impulseX=1120, impulseY=-260),
         rect("ReboundPad", (4680, 648), (48, 24), impulseX=0, impulseY=-1000),
         rect("ReboundPad", (5152, 648), (48, 24), impulseX=700, impulseY=-700),
-        # Hazards, and they are DIFFERENT KINDS OF HAZARD — which is the whole
-        # of Jon's *"hitting the spikes should not be an insta kill"* bug.
-        #
-        # ⛔ **`HazardBlock` has exactly one outcome: return the body to spawn.**
-        # It lowers to IntGrid value 5 → `BlockKind::Hazard` → `ResetCause::Hazard`,
-        # and no health, currency, or i-frame is ever consulted. That is RIGHT for
-        # the pit — falling out is not something that HIT you — and wrong for a
-        # row of spikes, which used to be authored with the same noun and so
-        # teleported a runner carrying 40 rings straight back to the start line.
-        # The ring shield was never broken; it was waiting for a damage event
+        # **`HazardBlock` has exactly one outcome: return the body to spawn.** It lowers to IntGrid
+        # value 5 → `BlockKind::Hazard` → `ResetCause::Hazard`, and no health, currency, or i-frame
+        # is ever consulted. The ring shield was never broken; it was waiting for a damage event
         # that the reset road does not emit.
         #
         # ⇒ the strip is a `DamageVolume`: the engine's damage hazard, which
@@ -231,16 +220,10 @@ def area_spec() -> dict:
         # emitter. It also finally LOOKS like spikes: a damage volume draws
         # `hazard_spikes` while a reset block draws the flat `hazard_tile`.
         #
-        # A third strip, "finish_warning_spikes", used to sit at x=6144 — 144px
-        # PAST the goal at GOAL_X=6000. It was not a warning about the finish; it
-        # was a punishment for reaching it. Crossing the line at speed carried
-        # Sanic into it and he died inside his own four-second results card
-        # (room-replay triage §1, which mis-diagnosed this as running out of
-        # level — measuring showed the death at x≈6130, well inside a 6400-wide
-        # course). Moving it before the line just made it an unjumpable wall on
-        # the only route, so it is DELETED: it never sat on a playable stretch,
-        # and the only thing it ever did was kill you after you won. A real last
-        # obstacle before the line is authoring work with a route to clear it.
+        # It was not a warning about the finish; it was a punishment for reaching it. Crossing
+        # the line at speed carried Sanic into it and he died inside his own four-second results
+        # card (room-replay triage §1, which mis-diagnosed this as running out of level —
+        # measuring showed the death at x≈6130, well inside a 6400-wide course).
         rect("HazardBlock", (PIT_LEFT, 704), (PIT_RIGHT - PIT_LEFT, 16), name="pit_hazard"),
         rect("DamageVolume", (5648, 656), (96, 16), name="mid_spikes", damage=1),
         # Badniks pace the flats (axis walkers cannot patrol chain hills yet —
@@ -275,21 +258,13 @@ def area_spec() -> dict:
 # named blocks to break + grant, so `area create`'s static-collision lowering
 # must not eat their names.
 #
-# ⛔ **`OneWayPlatform`, not `Solid`, and re-running this script used to undo
-# that.** A monitor is solid from ABOVE (you stomp its lid) and passable from
-# the SIDE (you roll through it to break it) — which is exactly `BlockKind::OneWay`.
-# Authored `Solid`, they became walls the moment the momentum solver learned to
-# sweep blocks while riding (2026-07-27): Sanic stopped dead at x=1474 in front
-# of the super monitor's lid at 1490, and could not break it because breaking
-# requires rolling and rolling requires moving. That was fixed by editing the
-# .ldtk directly and this script never learned, so it sat here as a loaded
-# regression — one regeneration away from putting the wall back.
+# Authored `Solid`, they became walls the moment the momentum solver learned to sweep blocks while
+# riding: Sanic stopped dead at x=1474 in front of the super monitor's lid at 1490, and could not
+# break it because breaking requires rolling and rolling requires moving.
 #
-# ⛔ **there is no super-form monitor and there must not be one.** Jon,
-# 2026-08-16: *"the sanic level should not offer super form. at all. There is a
-# key for it."* The transformation is reachable ONLY from the Utility action (D
-# in the classic preset) — a course pickup that hands it out is the thing being
-# removed, not a thing to re-author at a safer position.
+# There is a key for it."* The transformation is reachable ONLY from the Utility action (D in the
+# classic preset) — a course pickup that hands it out is the thing being removed, not a thing to
+# re-author at a safer position.
 MONITORS = {
     "level_id": "sanic_speedway",
     "entities": [
@@ -343,7 +318,7 @@ def main() -> None:
         "--add-field",
         "sprite:String:",
         "--in-place",
-        # ⚠ the tool's own repair+validate post-pass rejects a project with no
+        # the tool's own repair+validate post-pass rejects a project with no
         # levels, and at this point there are none — `area create` is the next
         # step. `main()`'s closing repair+validate covers the finished file.
         "--no-repair",

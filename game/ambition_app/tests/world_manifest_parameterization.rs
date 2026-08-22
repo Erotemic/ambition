@@ -1,16 +1,10 @@
 //! K2a acceptance: the world manifest is a VALUE, so two providers can prepare
 //! two DIFFERENT worlds in one process.
 //!
-//! This is the exit criterion for deleting the `OnceLock` that used to back
-//! `world_manifest()`. Under that seam the first `install_world_manifest` call
-//! won and every later one was silently dropped (`OnceLock::set` returns an
-//! ignored `Err`), so a process could hold exactly one world declaration — and
-//! the SECOND provider to prepare would silently load the FIRST provider's
-//! worlds and start in the FIRST provider's entry room, with no error anywhere.
-//!
-//! Every assertion below is written to fail under that old behavior: the two
-//! manifests share no world file and no entry room, so "B got A's rooms" is
-//! detectable rather than a coincidence.
+//! Under that seam the first `install_world_manifest` call won and every later one was silently
+//! dropped (`OnceLock::set` returns an ignored `Err`), so a process could hold exactly one world
+//! declaration — and the SECOND provider to prepare would silently load the FIRST provider's worlds
+//! and start in the FIRST provider's entry room, with no error anywhere.
 
 use ambition_platformer2d::ldtk_map::LdtkProject;
 use ambition_platformer2d::world::world_manifest::{WorldManifest, WorldSource};
@@ -234,10 +228,9 @@ fn the_real_content_provider_publishes_into_its_own_app_only() {
 
 /// A world-less manifest is a legal declaration, not a missing install.
 ///
-/// The `OnceLock` could only express "no manifest" as a panic on first read,
-/// which is why a procedural demo needed a whole parallel
-/// `build_sandbox_catalog_without_worlds` entry point rather than a value. That
-/// twin is now deleted; this is what replaced it.
+/// The `OnceLock` could only express "no manifest" as a panic on first read, which is why a
+/// procedural demo needed a whole parallel `build_sandbox_catalog_without_worlds` entry point
+/// rather than a value.
 #[test]
 fn a_world_less_manifest_is_a_value_not_a_panic() {
     let empty = WorldManifest::default();

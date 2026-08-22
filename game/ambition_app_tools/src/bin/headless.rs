@@ -1,10 +1,8 @@
 //! Headless Ambition sandbox driver.
 //!
-//! Builds the simulation App with no rendering, audio, or windowing plugins
-//! and runs `Update` for a fixed number of ticks, then exits. Useful for
-//! environments without a display (CI, remote VMs) and as a foundation for
-//! future RL drivers that need deterministic stepping. See
-//! `crate::headless::run_headless` for what is and is not exercised.
+//! Useful for environments without a display (CI, remote VMs) and as a foundation for future RL
+//! drivers that need deterministic stepping. See `crate::headless::run_headless` for what is
+//! and is not exercised.
 //!
 //! Usage:
 //!
@@ -130,8 +128,7 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
             combat_q.single(sim.world()).cloned().unwrap_or_default()
         };
 
-        // AC3.1.B: the melee AUTHORITY the trace's `attacking` column reads. It
-        // used to read a `BodyCombat` mirror maintained beside it.
+        // AC3.1.B: the melee AUTHORITY the trace's `attacking` column reads.
         let melee = {
             let mut melee_q = sim
                 .world_mut()
@@ -228,19 +225,9 @@ fn main() {
 
     // Plain run: the existing `run_headless` entry point.
     //
-    // ⚠ this used to warn *"--start-room only takes effect with --dump-trace
-    // (run_headless takes no options yet)"*, and that was FALSE — it told the
-    // user their flag had been ignored while the room was changing underneath
-    // them. `cli_start_room_arg()` reads `std::env::args()` directly, so the
-    // sandbox resource init honours the flag on EVERY path; the explicit
-    // `start_room` threaded into the trace-dump call below is how that path
-    // states it, not the only way it works.
-    //
-    // Verified rather than reasoned: `headless -- 30 --start-room
-    // goblin_encounter` prints `[ambition] start room: goblin_encounter` and
-    // `--start-room central_hub_main` now fails with the list of 72 ids
-    // (2026-07-29). A warning that contradicts the behaviour is worse than
-    // silence, because it sends the reader looking for a second mechanism.
+    // `cli_start_room_arg()` reads `std::env::args()` directly, so the sandbox resource init
+    // honours the flag on EVERY path; the explicit `start_room` threaded into the trace-dump
+    // call below is how that path states it, not the only way it works.
     match ambition_app::run_headless(max_ticks) {
         Ok(report) => {
             println!("{report}");

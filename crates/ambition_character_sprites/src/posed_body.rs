@@ -47,13 +47,9 @@
 //!
 //! ## When
 //!
-//! Before the movement phase, so the box a body sweeps with is the one it is
-//! showing. That puts it BEFORE the content rule that pins the pose (which has
-//! to run after movement, since it classifies contacts against resolved
-//! positions), so the box trails the pin by exactly one tick. That is the right
-//! way round: a stomp is judged against the body you actually landed on, and the
-//! shape it collapses into applies from the next tick — not retroactively to the
-//! contact that caused it.
+//! Before the movement phase, so the box a body sweeps with is the one it is showing. That puts it
+//! BEFORE the content rule that pins the pose (which has to run after movement, since it classifies
+//! contacts against resolved positions), so the box trails the pin by exactly one tick.
 
 use bevy::prelude::*;
 
@@ -107,13 +103,8 @@ pub fn posed_body_geometry(
 /// **The sheet's AUTHORED gameplay body, in sheet pixels — `None` when it only
 /// measured one.**
 ///
-/// The question a caller is really asking is *"may I scale this character by
-/// this rectangle?"*, and the honest answer is no for a measured alpha bbox: it
-/// is the extent of the drawing, hat and outstretched arms included, and using
-/// it as a body is how a collision box ends up 1.28× the character inside it.
-/// So this refuses rather than returning a number that looks usable
-/// (`BodyMetrics::authored_body` is the sheet's own claim, emitted only when a
-/// target authored the box).
+/// So this refuses rather than returning a number that looks usable (`BodyMetrics::authored_body`
+/// is the sheet's own claim, emitted only when a target authored the box).
 ///
 /// The `Idle` pose is the standing body — the same rectangle
 /// [`sync_sprite_posed_bodies`] restores `base_size` to.
@@ -184,15 +175,13 @@ pub fn sync_sprite_posed_bodies(
         // **The pose says how big the body IS; the MODE says what it is doing
         // with it, and the box is the composition of the two.**
         //
-        // ⛔ writing `geometry.collision` straight into `kin.size` silently
-        // undid every stance. The crouch is applied ONCE, on the tick the mode
-        // changes — `body_mode::mechanics` does `if mode == target { continue }`
-        // and `try_change_body_mode_clusters` early-returns on an unchanged mode
-        // — so nothing re-asserts the shorter box afterwards, while THIS pass
-        // runs every tick. A body on this seam crouched for one tick and then
-        // stood back up inside its own crouch, with `BodyModeState` still saying
-        // `Crouching`. Probed red before the fix
-        // (`a_stance_survives_the_per_tick_resync`).
+        // writing `geometry.collision` straight into `kin.size` silently undid every stance.
+        // The crouch is applied ONCE, on the tick the mode changes — `body_mode::mechanics`
+        // does `if mode == target { continue }` and `try_change_body_mode_clusters`
+        // early-returns on an unchanged mode — so nothing re-asserts the shorter box
+        // afterwards, while THIS pass runs every tick. A body on this seam crouched for one
+        // tick and then stood back up inside its own crouch, with `BodyModeState` still saying
+        // `Crouching`.
         //
         // `BodyMode::shape` is the same function the stance transition uses, so
         // the two cannot disagree about what crouching means — and applying it
@@ -203,21 +192,13 @@ pub fn sync_sprite_posed_bodies(
             mode.body_mode.shape(geometry.collision).size
         });
         if kin.size != posed_collision {
-            // Feet-anchored, through the engine's one feet-planted resize op:
-            // hold the +gravity face and move the centre by half the change, so a
-            // withdraw/emerge never drives the body through the ground it is
-            // standing on. This used to be a bare `kin.pos +=` here, which ADR
-            // 0024 forbids precisely because it re-derives an authority that
-            // already exists.
+            // Feet-anchored, through the engine's one feet-planted resize op: hold the +gravity
+            // face and move the centre by half the change, so a withdraw/emerge never drives the
+            // body through the ground it is standing on.
             //
-            // ⛔ **and it used to pass `DEFAULT_GRAVITY_DIR`**, under a comment
-            // promising that "a flipped-gravity variant passes its own gravity
-            // instead" — a variant that did not exist, on a system that serves
-            // every sprite-posed body. In a reversed or horizontal-gravity room
-            // the resize anchored the wrong face and pushed the body into or off
-            // its own support. The module's contract is that the +gravity face
-            // stays planted; the direction has to be the body's, not the
-            // default's (GPT 5.6 review, 2026-08-04).
+            // In a reversed or horizontal-gravity room the resize anchored the wrong face and
+            // pushed the body into or off its own support. The module's contract is that the
+            // +gravity face stays planted; the direction has to be the body's, not the default's.
             let gravity_dir = match (gravity.as_deref(), zones.as_deref()) {
                 (Some(field), Some(zones)) => {
                     ambition_platformer2d_shared_tangle::gravity::gravity_dir_for(

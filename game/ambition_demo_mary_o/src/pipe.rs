@@ -1,10 +1,5 @@
 //! **The pipe transit** — the scripted slide into one tube and out of the other.
 //!
-//! Warping used to be a single frame: you pressed DOWN and were simply somewhere
-//! else. That reads as a teleport, not as a pipe. A Mario pipe is a MOVE — you
-//! sink into the mouth over about half a second, the screen holds, and you rise
-//! out of the far end at the same pace.
-//!
 //! ## How it is composed, with no engine edits
 //!
 //! * **The motion** is [`ambition_platformer2d::engine_core::movement::transit_body`] re-issued

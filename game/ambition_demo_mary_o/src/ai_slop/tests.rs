@@ -118,9 +118,9 @@ fn the_stomp_never_squashes_a_non_ai_slop() {
     );
 }
 
-// ── Dormancy (D1's content half) ───────────────────────────────────────────
+// ── Dormancy ( content half) ───────────────────────────────────────────
 
-// ⛔ **`a_staged_ai_slop_is_given_its_dormancy_policy` MOVED, it did not go
+// **`a_staged_ai_slop_is_given_its_dormancy_policy` MOVED, it did not go
 // away.** It lives in `ambition_demo_mary_o_app`'s `one_placement_one_actor`
 // now, and the move was forced rather than chosen: the tag pass reads
 // `ActorConfig.brain`, and a game crate cannot BUILD an `ActorConfig`. It has no
@@ -128,14 +128,12 @@ fn the_stomp_never_squashes_a_non_ai_slop() {
 // `ArchetypeSpec` is not re-exported through the `ambition_platformer2d`
 // umbrella — which is the E9 oracle, so reaching past it is not an option.
 //
-// ⭐ **the replacement is stronger anyway**, and that is the part worth keeping
-// in mind before someone re-adds a synthetic one. The old fixture spawned a bare
-// `FeatureId` on an `App::new()` and asserted the pass answered it: it could only
-// ever prove the pass reacts to something a test invented. The integration
-// version asserts every slop the REAL construction path builds, from the real
-// authored level, gets its policy — and that nothing else does.
+// The old fixture spawned a bare `FeatureId` on an `App::new()` and asserted the pass answered
+// it: it could only ever prove the pass reacts to something a test invented. The integration
+// version asserts every slop the REAL construction path builds, from the real authored level,
+// gets its policy — and that nothing else does.
 
-/// ⭐ **The radius is DERIVED, and this is what makes that claim checkable.**
+/// **The radius is DERIVED, and this is what makes that claim checkable.**
 ///
 /// `AI_SLOP_WAKE_RADIUS` was chosen to clear the half-width of the widest view a
 /// PLAYER can select, so an actor is never popped into frame already moving. That
@@ -162,7 +160,7 @@ fn the_wake_radius_clears_the_widest_playable_view() {
         AI_SLOP_WAKE_RADIUS - half_width
     );
 
-    // ⚠ Debug's view is deliberately NOT cleared — see the constant's doc.
+    // Debug's view is deliberately NOT cleared — see the constant's doc.
     let (debug_width, _) = CameraZoomPreset::Debug.base_view();
     assert!(
         AI_SLOP_WAKE_RADIUS < debug_width * 0.5,

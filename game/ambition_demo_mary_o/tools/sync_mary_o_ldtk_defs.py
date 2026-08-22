@@ -17,7 +17,6 @@ schema/definition synchronization from destructive level regeneration."*
 it an author cannot pick a `kind` at all, which is the difference between
 authorable and authorable-by-someone-holding-the-source.
 
-## It used to claim this and not do it
 
 The first version shelled out to `def register-entity`, which refuses an
 identifier the project already has, and then matched that refusal's text and

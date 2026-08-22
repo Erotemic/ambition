@@ -17,7 +17,7 @@ render rate. Its own doc even stated the rule it was breaking: *"a sim mutator
 never lives in presentation"*. The code had moved out of the render module; the
 `add_systems` call had not.
 
-## ⛔ three ways the cheap version of this check lies (S35, all paid for)
+# # three ways the cheap version of this check lies (S35, all paid for)
 
 The first draft returned 87 rows and essentially all were artifacts:
 
@@ -37,7 +37,7 @@ The first draft returned 87 rows and essentially all were artifacts:
 registrations, and `run_if`/`after`/`before` name systems somebody ELSE
 registered. Both are imported rather than reimplemented.
 
-## What it deliberately is not
+# # What it deliberately is not
 
 ⚠ it reads the CANONICAL rollback registrations as the source of truth for what
 is snapshot state. A type rolled back through some other path is invisible here.
@@ -72,14 +72,9 @@ from check_engine_systems_are_engine_installed import (  # noqa: E402
 SOURCE_ROOTS = ["crates", "game"]
 ROLLBACK_REGISTRY = REPO / "crates/ambition_platformer2d_runtime/src/rollback/mod.rs"
 
-# Schedules that do NOT rewind. `sim_schedule()` resolves to `Update` for a
-# fixed-tick host and to the GGRS schedule for a rollback one — going through it
-# is exactly what this check is asking for, and a literal is what it flags.
+# Schedules that do NOT rewind.
 NON_REWINDING = ("Update", "PostUpdate", "PreUpdate", "FixedUpdate")
-# ⚠ `Startup` is deliberately ABSENT. It runs once, before any rewind exists, so
-# writing rollback state there is INITIALISATION — it is what the first snapshot
-# is taken of. Including it reported `setup_simulation_system` seeding
-# `MovingPlatformSet`, which is the correct way to do that and not a defect.
+# `Startup` is deliberately ABSENT.
 
 _CANONICAL = re.compile(r"rollback_(?:component|resource)_canonical::<([^>]+)>")
 _PUB_FN = re.compile(r"\bfn\s+([a-z_][a-z_0-9]*)\s*\(")

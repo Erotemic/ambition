@@ -168,13 +168,9 @@ fn ggrs_flagship_keeps_one_layout_across_a_resize() {
 /// integrates it once per RESIMULATED frame, so camera smoothing becomes a
 /// function of network conditions rather than of elapsed time.
 ///
-/// This is asserted structurally, on purpose. The behavioural half — that the
-/// facts a visible frame is built from agree — is covered by the coherence test
-/// above, which does fail when the resolve is moved back. The extra-integration
-/// hazard itself has no cheap behavioural probe: a stationary subject converges
-/// to the same eased target either way, so a "did the target move" assertion
-/// passes with the bug present and would be a guardrail that proves nothing.
-/// Schedule membership IS the invariant here, so that is what is checked.
+/// This is asserted structurally, on purpose. The behavioural half — that the facts a visible frame
+/// is built from agree — is covered by the coherence test above, which does fail when the resolve
+/// is moved back. Schedule membership IS the invariant here, so that is what is checked.
 #[test]
 fn the_camera_resolve_is_not_inside_the_rollback_schedule() {
     use ambition_platformer2d::rollback::GgrsSchedule;
@@ -205,7 +201,7 @@ fn the_camera_resolve_is_not_inside_the_rollback_schedule() {
          frame would integrate presentation easing again",
     );
 
-    // ⛔ **counting the SET was a proxy, and it broke the first time the set
+    // **counting the SET was a proxy, and it broke the first time the set
     // legitimately grew** (the camera-frame setting's applier joined it, which
     // has to be in this set to inherit the not-in-rollback guarantee). The
     // condition was never "the set has one member" — it is that the ONE writer of
@@ -216,7 +212,7 @@ fn the_camera_resolve_is_not_inside_the_rollback_schedule() {
     let in_set = graph
         .systems_in_set(set)
         .expect("the plugin registers CameraObservationSet in Update");
-    // ⚠ names come off the EXECUTABLE, not the graph: once a schedule is built
+    // names come off the EXECUTABLE, not the graph: once a schedule is built
     // its `SystemNode`s are drained into the executor, so `graph.systems.get`
     // answers `None` for every key and a name-based filter silently matches
     // nothing — a check that cannot fail in the direction that matters.

@@ -9,7 +9,7 @@
 //! shell/session/load lifecycle; `QuitToHome` retires the exact session and
 //! resumes the launcher; Exit leaves the process.
 //!
-//! ⚠ **a row need not lead to GAMEPLAY.** Smash's entry opens its character
+//! **a row need not lead to GAMEPLAY.** Smash's entry opens its character
 //! select — a frontend route the provider registers itself — and the stage
 //! arrives when that screen has decided. The host knows nothing about it: the
 //! row is derived from the registration like every other, and the registration
@@ -70,23 +70,12 @@ pub use ambition_content::provider::{
 /// in-session Quit to Home binding.
 /// The headless shell host, booted straight to a chosen route.
 ///
-/// ⭐ **K2b edit 1, landed additively.** Direct entry is meant to become *a shell
-/// host whose initial route is the gameplay route* — the recipe
-/// `ambition_demo_sanic_app` already proves. This is the parameter that lets a
-/// caller say so, and lets a test build BOTH paths and compare their worlds,
-/// which is the evidence the deletion stage needs. `compose_ambition_shell_host`
-/// keeps its launcher default, so nothing that exists today changes.
-/// **The ONE way to compose a playable Ambition, in three ordered steps.**
+/// This is the parameter that lets a caller say so, and lets a test build BOTH paths and compare
+/// their worlds, which is the evidence the deletion stage needs. `compose_ambition_shell_host`
+/// keeps its launcher default, so nothing that exists today changes. **The ONE way to compose a
+/// playable Ambition, in three ordered steps.**
 ///
-/// ⭐ **K2b edit 2 landed on top of this.** There used to be two ways to start a
-/// game: a shell activation, and a `SessionRoot` published at PLUGIN-BUILD time
-/// by `publish_direct_prepared_session_root`. Seven test files and two headless
-/// entry points each spelled the second one out by hand, so "how Ambition
-/// composes" was a recipe copied nine times rather than a function. Deleting the
-/// build-time root turned every copy into a failure at once, which is what this
-/// exists to answer.
-///
-/// ⚠ **the ORDER is load-bearing and not obvious**, which is the other reason
+/// **the ORDER is load-bearing and not obvious**, which is the other reason
 /// for a function:
 /// 1. [`AmbitionShellHosted`] goes in FIRST. Composing without it left the app
 ///    carrying the build-time root AND the activation's — two canonical roots,
@@ -102,7 +91,7 @@ pub use ambition_content::provider::{
 /// `MinimalPlugins`, or a windowed one) — that is a real choice and this does not
 /// make it. What it removes is the part nobody should be choosing.
 ///
-/// ⚠ this does NOT settle. Activation is asynchronous — a load barrier and eight
+/// this does NOT settle. Activation is asynchronous — a load barrier and eight
 /// preparation work items — so a caller that needs a live world calls
 /// `settle_until_session_world` after. Folding the settle in would hide a wait
 /// from callers that legitimately want to inspect the pre-activation frames.
@@ -127,11 +116,8 @@ fn compose_ambition_shell_host_inner(app: &mut App, initial_route: &str) {
     // loops this track whenever no gameplay session is live (and enforces
     // silence otherwise); the host names the song, the engine owns the seam.
     //
-    // ⚠ **the HOST DEFAULT, which is a narrower claim than it used to be.** This
-    // answers for the routes this host owns — startup, launcher, loading — and
-    // for any hosted route that declares nothing of its own. A provider whose
-    // own screen has its own score declares that beside its content and it
-    // travels here; smash's character select is the first.
+    // A provider whose own screen has its own score declares that beside its content and it travels
+    // here; smash's character select is the first.
     {
         use ambition_platformer2d::audio::selection::FrontendAudioAppExt;
         app.set_host_frontend_audio(
@@ -193,13 +179,7 @@ fn compose_ambition_shell_host_inner(app: &mut App, initial_route: &str) {
         .resource_mut::<ShellHostConfiguration>()
         .spec = Some(ShellHostSpec::new(initial_route, AMBITION_LAUNCHER_ROUTE));
 
-    // ⚠ ORDERED, not ambiguous. This reads `ShellEvent`, and the shell writes
-    // them in `AmbitionGameShellSet::Commands`; unordered it landed wherever
-    // Bevy put it, so whether `Exit` produced an `AppExit` in the SAME frame
-    // depended on system insertion order across unrelated plugins. Adding one
-    // system to the host's input chain on 2026-07-31 flipped it, and
-    // `the_full_multi_game_lifecycle_is_leak_free` went red for a reason that
-    // had nothing to do with what it tests.
+    // ORDERED, not ambiguous.
     app.add_systems(
         Update,
         exit_on_shell_request
@@ -256,21 +236,14 @@ fn ambition_startup_segments() -> Vec<ambition_platformer2d::game_shell::ShellSe
                 ..Default::default()
             },
         ),
-        // The AUTHORSHIP card — the authored comic beat, DRAWN rather than
-        // played back. It used to be `image_sequence_timed` over nine rendered
-        // frames from the content manifest, which meant the card only existed
-        // on a machine that had the git-ignored payload; a fresh clone played
-        // correctly-timed blank slots.
-        // `ambition_content::presentation::vanity_card_made_this_meme` draws the
-        // same beat out of UI nodes, so the card is a property of the source.
-        // Its length is still DERIVED — `made_this_meme_card_duration()` is
-        // `frame_ms × frames.len()` off `vanity_card_made_this_meme.ron` — so
-        // re-exporting the animation retimes this segment and there is nothing
-        // to keep in sync by hand.
+        // The AUTHORSHIP card — the authored comic beat, DRAWN rather than played back. Its length
+        // is still DERIVED — `made_this_meme_card_duration()` is `frame_ms × frames.len()` off
+        // `vanity_card_made_this_meme.ron` — so re-exporting the animation retimes this segment and
+        // there is nothing to keep in sync by hand.
         //
-        // ⚠ that RON is the BAKED RIG, not `vanity_card.ron`. The nine-frame
+        // that RON is the BAKED RIG, not `vanity_card.ron`. The nine-frame
         // manifest and its rendered payload are reference art with no reader in
-        // the workspace (Jon, 2026-08-03); naming "the same manifest" here sent
+        // the workspace; naming "the same manifest" here sent
         // readers to the dead one.
         //
         // The id is the punchline because the studio is unnamed. When there IS a
@@ -291,10 +264,8 @@ fn ambition_startup_segments() -> Vec<ambition_platformer2d::game_shell::ShellSe
 
 /// How long the composed startup run-in plays if nobody presses confirm.
 ///
-/// Derived from the same segment list the host actually composes, so a retimed
-/// card, an added card, or a re-exported vanity animation cannot leave a caller
-/// waiting on a stale constant. Headless callers convert this to frames against
-/// their own fixed timestep.
+/// Derived from the same segment list the host actually composes, so a retimed card, an added
+/// card, or a re-exported vanity animation cannot leave a caller waiting on a stale constant.
 pub fn ambition_startup_duration() -> std::time::Duration {
     ambition_startup_segments()
         .iter()
@@ -403,7 +374,7 @@ fn ambition_activate_session_visuals(
         let Some(world_entity) = active_session.active_world_entity() else {
             continue;
         };
-        // ⭐ the room GEOMETRY is no longer read here: the dressing wanted it only
+        // the room GEOMETRY is no longer read here: the dressing wanted it only
         // to place moving-platform sprites, and those are a render family's now.
         let Ok((_geometry, room_set, runtime_rooms)) = session_worlds.get(world_entity) else {
             continue;

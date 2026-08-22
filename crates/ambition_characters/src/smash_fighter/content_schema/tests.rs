@@ -1,9 +1,9 @@
-//! ⚠ these test the SCHEMA, not the facet. [`SmashFighterFacet::problems`] has
+//! these test the SCHEMA, not the facet. [`SmashFighterFacet::problems`] has
 //! its own probes next door; what is asked here is whether a facet the TYPE
 //! calls broken is one the COMPILER refuses, and whether a pack that compiles
 //! hands the runtime the value it validated rather than the bytes again.
 //!
-//! ⭐ **no temp directory.** [`ContentPackDraft::from_sources`] is the same road
+//! **no temp directory.** [`ContentPackDraft::from_sources`] is the same road
 //! a shipped pack takes with its embedded text, so these probes exercise the
 //! production reading path instead of a filesystem the production path does not
 //! use.
@@ -96,7 +96,7 @@ fn a_compiled_pack_carries_the_fighter_book_the_runtime_will_load() {
     assert_eq!(facet.capture.grab.reach.half_extents, (26.0, 13.0));
 }
 
-/// ⭐ **the aggregate runs for ONE source too.** Without that the artifact's
+/// **the aggregate runs for ONE source too.** Without that the artifact's
 /// TYPE would depend on how many files an author happened to write — see the
 /// same rule on `ContentSchemaHandler::aggregate` — and the test above would be
 /// the only shape that ever worked.
@@ -117,7 +117,7 @@ fn two_characters_share_one_book() {
     assert!(book.contains_key("test_george") && book.contains_key("test_alice"));
 }
 
-/// ⛔ two files claiming one fighter is a question with two answers. The refusal
+/// two files claiming one fighter is a question with two answers. The refusal
 /// names both FILES, because that is what an author has to open.
 #[test]
 fn two_files_claiming_one_character_are_refused_and_both_are_named() {
@@ -131,7 +131,7 @@ fn two_files_claiming_one_character_are_refused_and_both_are_named() {
     assert!(rendered.contains("test_george"), "{rendered}");
 }
 
-/// ⭐ **the case that parses cleanly and is still wrong.** Every field is a
+/// **the case that parses cleanly and is still wrong.** Every field is a
 /// plausible number; the grab is a recovery animation. This is the fault the
 /// schema exists to name at load rather than as "the grab feels bad" after an
 /// evening of play.

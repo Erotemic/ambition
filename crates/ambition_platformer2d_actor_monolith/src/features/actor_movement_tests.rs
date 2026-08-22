@@ -115,12 +115,9 @@ fn tick_peaceful(
         health_fraction: 1.0,
         sim_time: 0.0,
         dt,
-        // The snapshot's `max_run_speed` MUST be the body's actual physical
-        // capability (what the integrator scales `locomotion` by), so the
-        // brain's `locomotion_for(patrol_speed)` normalization round-trips to
-        // the intended patrol speed. (Was hardcoded NPC_PATROL_SPEED, which
-        // only round-tripped while the body's max_run_speed happened to equal
-        // it — now decoupled: capability 270 vs patrol policy 60.)
+        // The snapshot's `max_run_speed` MUST be the body's actual physical capability (what
+        // the integrator scales `locomotion` by), so the brain's `locomotion_for(patrol_speed)`
+        // normalization round-trips to the intended patrol speed.
         max_run_speed: seed.config.tuning.max_run_speed,
         // A fixture body on default tuning: `None` resolves to the engine's
         // canonical movement table, which is what this seed is built from.
@@ -154,9 +151,8 @@ fn tick_peaceful(
     );
 }
 
-/// Bug the user reported: NPCs floated wherever LDtk placed them because the
-/// runtime didn't tick gravity / collision on them. Pin: after a few ticks an
-/// NPC spawned in mid-air lands on the floor and `on_ground` flips true.
+/// Pin: after a few ticks an NPC spawned in mid-air lands on the floor and `on_ground` flips
+/// true.
 #[test]
 fn npc_falls_to_floor_under_gravity() {
     let (world, mut npc, mut brain, player) = world_with_patrolling_npc(0.0);
@@ -263,71 +259,38 @@ fn peaceful_npc_brain_is_not_hostile() {
         "peaceful NPC brain must report !is_hostile"
     );
 }
-/// ⛔⛔ **DELETED 2026-08-11 (ledger D89): `perfect_cellular_automaton_provokes_
-/// to_its_boss_archetype`.** It asserted that a string matcher resolved the PCA's
-/// id, display name or dialogue node to `cellular_automaton_fighter`, and then
-/// read that archetype row for the PCA's grounded-hybrid semantics — 60 HP,
-/// `is_aerial: Some(false)` beside `can_fly: true`, the glider, the reactive
-/// block.
-///
-/// **Every one of those facts is now authored on the CHARACTER**
-/// (`ambition_content::character_catalog::authored_intrinsics`), the matcher arm
-/// is gone, and the row is deleted — so this test asserted a mechanism that no
-/// longer exists and a table that no longer has an entry. A red demanding a value
-/// that lives nowhere is a product decided against, not a regression.
-///
-/// ⚠ **what it knew is not lost.** The grounded-hybrid reading it pinned — a body
-/// that prefers the ground and carries flight for traversal — is exactly what
-/// `baseline_free_flight: Some(false)` plus an intrinsic fly capability says on her definition,
-/// and the D89 row records the measurement that proved parity before the row was
-/// deleted.
+/// **what it knew is not lost.** The grounded-hybrid reading it pinned — a body that prefers
+/// the ground and carries flight for traversal — is exactly what `baseline_free_flight:
+/// Some(false)` plus an intrinsic fly capability says on her definition, and the row records
+/// the measurement that proved parity before the row was deleted.
 
-// ⛔⛔ **`enemy_brain_keys_resolve_to_their_rows` AND
-// `enemy_archetype_tunings_are_finite` WERE HERE AND ARE DELETED** (AC6): both
-// were tests OF the archetype table — that a known brain key found its own row
-// and an unknown one fell back to `combatant`, and that every row's numbers were
-// finite and non-negative. There is no table, no lookup and no fallback: a body
-// is built from a character, and a name that resolves none is a construction
-// refusal rather than a downgrade to a generic body.
+// There is no table, no lookup and no fallback: a body is built from a character, and a name
+// that resolves none is a construction refusal rather than a downgrade to a generic body.
 //
-// ⚠ what replaced the FINITENESS half is not another sweep. Those numbers live
-// on `CharacterDefinition` now, and a character that cannot state a body refuses
-// to build one (`body_blueprint` → `MissingCharacterFacts`), which is the same
-// claim enforced at construction instead of asserted over a file.
+// Those numbers live on `CharacterDefinition` now, and a character that cannot state a body refuses
+// to build one (`body_blueprint` → `MissingCharacterFacts`), which is the same claim enforced at
+// construction instead of asserted over a file.
 
-// ⛔ **`enemy_archetype_size_and_aggression_invariants` was deleted on
-// 2026-08-11 with the last of its population.** It pinned a size LADDER — small
-// < medium < large for health, and damage scaling with size class — across five
-// archetype rows. Four of the five are gone: `small_lurker` and `large_colossus`
-// were placed in zero levels, and `small_skitter` and `large_brute` had their
-// sandbox placements recast over real characters. A ladder with one rung is not
-// an invariant, and restating it against rows that no longer describe a size
-// class would be the test agreeing with itself.
+// Four of the five are gone: `small_lurker` and `large_colossus` were placed in zero levels, and
+// `small_skitter` and `large_brute` had their sandbox placements recast over real characters. A
+// ladder with one rung is not an invariant, and restating it against rows that no longer describe a
+// size class would be the test agreeing with itself.
 //
-// ⚠ what the ladder was FOR — that a bigger creature takes more punishment and
+// what the ladder was FOR — that a bigger creature takes more punishment and
 // deals more — is now a per-character claim, and belongs beside each character's
 // own numbers rather than in a cross-archetype sweep.
 
-// `enemy_test_world` was deleted alongside the legacy AI tests
-// that consumed it. The remaining patrol-collision test builds
-// its own collision world inline.
+// The remaining patrol-collision test builds its own collision world inline.
 
 fn enemy_aabb(pos: ae::Vec2) -> ae::Aabb {
     ae::Aabb::new(pos, ae::Vec2::new(14.0, 23.0))
 }
 
-// `enemy_ai_output_drives_chase_motion` was deleted with the
-// brain-authority GC pass that dropped the legacy
-// `build_control_frame` path. Chase motion now
-// comes from the brain's tick output, not from
-// `evaluate_character_ai_output`; brain-side tick equivalence
-// lives in `ambition_characters::brain::state_machine` tests.
+// Chase motion now comes from the brain's tick output, not from `evaluate_character_ai_output`;
+// brain-side tick equivalence lives in `ambition_characters::brain::state_machine` tests.
 
-// `path_enemy_holds_patrol_and_starts_attack_from_character_ai_output`
-// was deleted with the brain-authority GC pass. Path patrol +
-// melee-pressed routing now comes from the brain frame; the
-// integration's job is just to react to whatever frame the
-// brain emits. Brain-side coverage for path patrol lives in
+// Path patrol + melee-pressed routing now comes from the brain frame; the integration's job is
+// just to react to whatever frame the brain emits. Brain-side coverage for path patrol lives in
 // `ambition_characters::brain::state_machine::tick_patrol` tests.
 
 // Tests for the legacy fused PirateOnShark archetype (rider+shark
@@ -337,12 +300,8 @@ fn enemy_aabb(pos: ae::Vec2) -> ae::Aabb {
 // coverage lives in
 // `crate::features::ecs::mount::tests`.
 
-/// Aerial enemies (flying shark + rider) used to write `self.pos`
-/// directly from a steering target, which let
-/// them clip straight through solid walls. With the brain→sim
-/// seam (`ActorControlFrame` + uniform `step_motion`) the
-/// wall blocks them, so the position must stay on the safe side
-/// of the wall after one tick of forced chase.
+/// With the brain→sim seam (`ActorControlFrame` + uniform `step_motion`) the wall blocks them, so
+/// the position must stay on the safe side of the wall after one tick of forced chase.
 #[test]
 fn aerial_enemy_respects_world_collision_against_a_wall() {
     let world = ae::World::new(
@@ -401,11 +360,6 @@ fn aerial_enemy_respects_world_collision_against_a_wall() {
     );
 }
 
-/// Path-patrol enemies used to write `self.pos = motion.advance(...)`
-/// directly, bypassing world collision. With the brain→sim seam
-/// the path lookahead becomes a desired velocity that `step_motion`
-/// blocks against solids — so a wall placed on the patrol curve
-/// stops the body short of the wall instead of letting it clip.
 #[test]
 fn patrol_enemy_respects_world_collision_against_a_wall() {
     let world = ae::World::new(
@@ -543,14 +497,10 @@ fn sideways_wall_contact_is_reported_without_mutating_facing() {
     );
 }
 
-// `pirate_on_shark_fire_intent_lands_on_actor_control_frame`
-// was deleted with the brain-authority GC pass. Fire intent now
-// comes from the brain's tick output, not the legacy orbit-and-
-// fire branch that lived inside `build_control_frame`.
-// The EFFECTS-consumer test
-// `spawn_projectiles_from_brain_actions::tests::*` still
-// covers the projectile spawn shape; brain-side fire-intent
-// generation belongs in the relevant brain backend's tests.
+// Fire intent now comes from the brain's tick output, not the legacy orbit-and- fire branch
+// that lived inside `build_control_frame`. The EFFECTS-consumer test
+// `spawn_projectiles_from_brain_actions::tests::*` still covers the projectile spawn shape;
+// brain-side fire-intent generation belongs in the relevant brain backend's tests.
 
 /// A surface-walking enemy (PuppySlug) GLUED to a moving platform rides it by
 /// the full platform velocity — the emergent-riding fix for "slugs behave weird
@@ -618,7 +568,7 @@ fn a_surface_walker_rides_a_moving_platform() {
     );
 }
 
-/// Fable review 2026-07-02 §B2: a NON-surface-walker's published
+/// Fable review §B2: a NON-surface-walker's published
 /// `surface_normal` must track its live gravity (anti-gravity at its
 /// position), not its spawn constant — the shield-block side, slash
 /// knockback, and ranged muzzle all derive the body frame from it.
@@ -722,9 +672,6 @@ fn movement_integration_does_not_auto_turn_at_a_wall() {
     assert_eq!(body.kin.facing, 1.0);
 }
 
-/// Stopping in open space is not a wall. This is the regression for the old
-/// velocity-drop heuristic that could make an attack/release frame look like a
-/// collision and flip a fighter.
 #[test]
 fn stopping_in_open_space_preserves_facing() {
     let world = ae::World::new(

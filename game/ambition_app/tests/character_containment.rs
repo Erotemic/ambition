@@ -1,11 +1,9 @@
-//! **Every character in the shipped host stays inside a plain room.** (queue L6)
+//! **Every character in the shipped host stays inside a plain room.**
 //!
-//! L1 and L2 were the same shape, and neither was found by a test: a movement
-//! policy and a level, each correct alone, broken together. Sanic's
-//! surface-momentum policy had no horizontal collision on its riding arm for
-//! the whole life of the project, and nothing noticed, because the only level
-//! it was ever played in was a hand-authored chain course with nothing to run
-//! into. Put him in a room with walls and he ran out of it and fell forever.
+//! Sanic's surface-momentum policy had no horizontal collision on its riding arm for the whole
+//! life of the project, and nothing noticed, because the only level it was ever played in was a
+//! hand-authored chain course with nothing to run into. Put him in a room with walls and he ran
+//! out of it and fell forever.
 //!
 //! The instrument is embarrassingly cheap: put the character in a box, hold a
 //! direction, check it is still in the box. `ambition_platformer2d_core` owns the
@@ -26,8 +24,6 @@ use ambition_platformer2d::engine_core::movement::containment::{
 use ambition_platformer2d::engine_core::{Aabb, LocalAxes, Vec2};
 use ambition_app::app::{build_visible_app, VisibleRenderMode};
 
-/// A room the size of the versus arena — the smallest thing anybody would call
-/// a level, and the one the defect was found in.
 const ROOM: Vec2 = Vec2::new(960.0, 540.0);
 const WALL_PX: f32 = 16.0;
 
@@ -55,10 +51,7 @@ fn no_registered_character_can_leave_a_plain_walled_room() {
     let mut sized = 0usize;
     for id in &ids {
         let spec = ambition_platformer2d::actors::avatar::motion_model_spec_for_character_id(catalog, id);
-        // The character's OWN body, not a generic one. A wide fighter reaches a
-        // wall before a narrow one and a tall one can clip a ceiling the default
-        // never touches, so probing every character against one scratch body
-        // measured the POLICY and called it the character (L13).
+        // The character's OWN body, not a generic one.
         //
         // `None` for a character whose sheet publishes no body metrics — the
         // probe falls back to the engine default rather than inventing a size,
@@ -73,9 +66,7 @@ fn no_registered_character_can_leave_a_plain_walled_room() {
         if body.is_some() {
             sized += 1;
         }
-        // BOTH directions. A wall on one side is not evidence about the other,
-        // and an asymmetric solver bug is exactly the kind that survives a
-        // one-sided probe.
+        // BOTH directions.
         for (label, axes) in [
             ("right", LocalAxes::new(1.0, 0.0)),
             ("left", LocalAxes::new(-1.0, 0.0)),

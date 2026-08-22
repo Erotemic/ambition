@@ -22,9 +22,8 @@
 //!
 //! ## What it does and does not show
 //!
-//! It runs the REAL simulation: the speedway room, its rideable Sonic loop, a
-//! player body on the momentum kernel, and the mode-scoped act timer. It steps
-//! that sim on the fixed 60 Hz timeline and reports what the sim knows.
+//! It runs the REAL simulation: the speedway room, its rideable Sonic loop, a player body on
+//! the momentum kernel, and the mode-scoped act timer.
 //!
 //! By default it draws nothing and prints what the sim knows — the sim-only shell,
 //! which pays for no renderer at all. **Built with `--features visible` it opens a
@@ -58,8 +57,6 @@ fn main() {
 
     let ticks = ambition_platformer2d::demo_shell::headless_ticks(DEFAULT_TICKS);
 
-    // The assembly lives in `lib.rs` so the exit-3 regression test builds the
-    // SAME app this binary does.
     let mut app = ambition_demo_sanic_app::build_demo_app();
 
     app.update(); // Startup: builds the world, spawns the body. Zero ticks (dt=0).

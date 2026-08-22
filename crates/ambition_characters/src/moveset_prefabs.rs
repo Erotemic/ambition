@@ -3,11 +3,7 @@
 //! (`Simple{Melee,Ranged,Charge}Params`), and the `MovePrefabRegistry` into
 //! `MoveSpec`s, plus `build_actor_moveset` which assembles an
 //! actor's full `MovesetContract` from its catalog + worn equipment.
-//!
-//! Split out of the former `moveset.rs` for the D-B module-size gate. The runtime
-//! (`MovePlayback`, `advance_move_playback`, the systems) stays in `mod.rs`; this
-//! module shares its constants, imports, and component types via `use super::*`.
-// ⭐ **EXPLICIT, and the point is the MEASUREMENT** (campaign P1.7, 2026-08-12).
+// ⭐ **EXPLICIT, and the point is the MEASUREMENT**.
 // This was `use super::*`, which is how a module's real coupling stays unknown:
 // the bulk move this row needs cannot be planned against a glob. Made explicit,
 // what `prefabs.rs` actually needs is three groups, and only one of them is a
@@ -34,16 +30,11 @@ pub const SLASH_POKE_VFX: &str = "slash_poke";
 /// (`ambition_sfx::ids::PLAYER_SLASH` = `"player.slash"`) so the audio runtime
 /// resolves it to the guaranteed procedural sound.
 pub const SWING_SFX_CUE: &str = "player.slash";
-// ⛔⛔ **THE THREE `PLAYER_ROBOT_*` CUES AND THEIR OVERLAY ARE NOT HERE, and
-// this crate must not take them back.** They travelled down with the prefab
-// builders on 2026-08-12 for one reason — *they were adjacent in the file* —
-// and that is the whole of the bulk-move smell. The test is **does character
-// PREPARATION call it**, not *was it next to something preparation calls*:
-// `prepare_character` never reaches the overlay, whose only production caller
-// is `avatar/starting_character.rs`, the protagonist road. One character's
-// private sound policy is not the character DOMAIN.
-// ⇒ they are back in `ambition_combat::moveset`, beside the compile-time hash
-// pins that correctly never left it. (GPT 5.6 review of `1579ab3`, finding 4.)
+// The test is **does character PREPARATION call it**, not *was it next to something preparation
+// calls*: `prepare_character` never reaches the overlay, whose only production caller is
+// `avatar/starting_character.rs`, the protagonist road. One character's private sound policy is not
+// the character DOMAIN. ⇒ they are back in `ambition_combat::moveset`, beside the compile-time hash
+// pins that correctly never left it.
 
 /// ⚠ **THE COMPILE-TIME PINS STAYED IN `ambition_combat`, deliberately.** Three
 /// of these cues are asserted equal to `ambition_sfx::ids` entries at compile
@@ -269,17 +260,10 @@ pub fn simple_melee(p: &SimpleMeleeParams) -> MoveSpec {
     }
 }
 
-/// Convert an authored [`RangedActionSpec`] into a data-driven `"ranged"`
-/// [`MoveSpec`] — the ranged subsumption (fable review, option A). Ranged had NO
-/// windup/recovery before (it fired instantly on a body-side cooldown); giving it a
-/// move timeline is the expressivity win: a `Startup` draw/aim window, a single
-/// [`MoveEventKind::Ranged`] fire event at release (which spawns the projectile,
-/// sampling LIVE aim), and a `Recovery` settle window — all on the owner's
-/// proper-time clock, so a dilated shooter's draw slows with it. The projectile IS
-/// the damage (spawned by the event through the shared projectile-request consumer),
-/// so the move carries NO hit volume. Windup/recovery are authored defaults per
-/// spec kind (deferred-tuning); the body-side refire cooldown remains the hard rate
-/// floor, the move duration an additional cadence gate.
+/// The projectile IS the damage (spawned by the event through the shared projectile-request
+/// consumer), so the move carries NO hit volume. Windup/recovery are authored defaults per spec
+/// kind (deferred-tuning); the body-side refire cooldown remains the hard rate floor, the move
+/// duration an additional cadence gate.
 pub fn fire_move_from_ranged(spec: &RangedActionSpec) -> MoveSpec {
     // Draw/settle timing per weapon kind — Arrow winds up slowest (per its doc),
     // Pistol snappiest. New authored defaults (ranged had none); tune later.
@@ -369,10 +353,6 @@ pub fn simple_ranged(p: &SimpleRangedParams) -> MoveSpec {
             // completion before another starts". A brain that pokes on the way in
             // therefore starves its own melee: the press arrives, the trigger is
             // reached, the gesture is armed, and `cancel_permits` says no.
-            //
-            // Measured on a hostile Perfect Cellular Automaton: it played
-            // `ranged` on every frame it pressed melee, and swung zero times in
-            // 240 frames (queue AB4, 2026-07-29).
             //
             // The window covers the SETTLE only, never the draw — a shot still
             // commits once it is started, so this cannot cancel the fire event
@@ -706,14 +686,8 @@ fn directional_attack_variants(base: &MoveSpec) -> Vec<(String, MoveSpec)> {
     ]
 }
 
-/// Convert an authored [`SpecialActionSpec`] into a data-driven `"special"`
-/// [`MoveSpec`] — the special subsumption, the mirror of
-/// [`attack_move_from_melee`] / [`fire_move_from_ranged`]. `ActionSet.special`
-/// stopped being an executable path (the flat resolver arm was retired); it is a
-/// pure capability marker, and the concrete move must live in the body's moveset
-/// on the `"special"` verb for [`super::trigger_moveset_moves`] to fire it on
-/// `special_pressed`. Without this the canonical player's `Special("bubble_shield")`
-/// marker had no move — pressing Special did nothing.
+/// Convert an authored [`SpecialActionSpec`] into a data-driven `"special"` [`MoveSpec`] — the
+/// special subsumption, the mirror of [`attack_move_from_melee`] / [`fire_move_from_ranged`].
 ///
 /// The move is a short Startup/Active/Recovery timeline with NO hit volumes: a
 /// signature special is not necessarily a strike, and its concrete GAMEPLAY

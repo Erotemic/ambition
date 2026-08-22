@@ -205,7 +205,6 @@ pub fn select_active_presentation_profiles(
 }
 
 /// Publish the active route's CAMERA FEEL into the resources the camera reads.
-/// (D14)
 ///
 /// Exactly parallel to [`select_active_presentation_profiles`], and deliberately
 /// a separate system rather than a few more lines inside it: the camera tuning
@@ -222,10 +221,6 @@ pub fn publish_active_camera_feel(
     mut shake: ResMut<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeTuning>,
 ) {
     // Read the DEFAULT profile's feel rather than the environment-selected one.
-    // Viewport and framing legitimately differ between desk and handheld; how
-    // fast a camera eases is a statement about the GAME, and a zoom that changed
-    // rate because somebody picked up a controller would be a bug wearing a
-    // feature's clothes.
     let feel = active.0.default.camera_feel;
     if *ease != feel.ease {
         *ease = feel.ease;
@@ -292,7 +287,7 @@ mod tests {
         assert_eq!(active.0, Some(next));
     }
 
-    /// **D14: two games in one host can ease and shake differently.**
+    /// **: two games in one host can ease and shake differently.**
     ///
     /// The zoom rates and the snap epsilon were one global resource and the
     /// shake ceiling was a `const` inside `kick`, so a multi-game host had one
@@ -406,9 +401,7 @@ pub struct PlatformerExperienceAuthoring {
     /// How this experience wants gameplay framed on the physical display.
     /// `None` keeps the engine default (full-bleed, normal framing).
     pub presentation: Option<GameplayPresentationProfiles>,
-    /// What this experience's HUD reads out. `None` means it has no declared
-    /// HUD — the default, and what every experience did before this seam
-    /// existed.
+    /// What this experience's HUD reads out.
     pub hud: Option<ambition_platformer2d_shared_tangle::gameplay_presentation::HudDeclaration>,
     /// **Whether the launcher offers this experience to a player.**
     ///
@@ -444,13 +437,13 @@ impl PlatformerExperienceAuthoring {
 
     /// **Compose and route this experience, but keep it out of the launcher.**
     ///
-    /// ⭐ **for a stage that exists to be TESTED or DEVELOPED against**, not
+    /// **for a stage that exists to be TESTED or DEVELOPED against**, not
     /// chosen: a fixture, a scratch arena, a crossover that only one composition
     /// can host. Everything else is unchanged — the route is registered, the
     /// characters join the roster, the catalogs are installed, and a test that
     /// activates the route by id works exactly as before.
     ///
-    /// ⛔ **not the same as declaring it unavailable.** An unavailable
+    /// **not the same as declaring it unavailable.** An unavailable
     /// experience is SHOWN, greyed, with a reason, because the player is meant
     /// to know it exists. This one is simply not offered.
     pub fn unlisted(mut self) -> Self {

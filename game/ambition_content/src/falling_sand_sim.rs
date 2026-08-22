@@ -6,35 +6,20 @@
 //! deliberately **not** behind the `falling_sand` cargo feature and has no
 //! `bevy_falling_sand` dependency, so:
 //!
-//! - its conservation and settling proofs run in every
-//!   `cargo test -p ambition_content` (the F13 lesson: a feature-gated test is
-//!   a test that silently stops running), and
-//! - the headless `Platformer2dSimHarness` harness can drive the room end-to-end, which is
-//!   what the authored-room regression in `ambition_app` does.
-//!
-//! The feature-gated sibling [`crate::falling_sand`] keeps the
-//! `bevy_falling_sand` bridge for WATER and OIL (their slice has not landed)
-//! plus all presentation: particle rendering, nozzle sprites, the sand-grid
-//! texture, diagnostics. Registration: [`FallingSandSimPlugin`] is added by
-//! `AmbitionContentPlugin` under the `falling_sand` feature so feature-bundle
-//! semantics are unchanged; the presentation plugin remains visible-binary
-//! only.
+//! Registration: [`FallingSandSimPlugin`] is added by `AmbitionContentPlugin` under the
+//! `falling_sand` feature so feature-bundle semantics are unchanged; the presentation plugin
+//! remains visible-binary only.
 //!
 //! # One solver step per simulation tick
 //!
-//! [`step_sand_grid`] runs in the SIM schedule, so the CA advances exactly
-//! when the simulation does — never on render frames while the game is paused,
-//! never zero-or-twice under fixed-tick catch-up. (This is the property
-//! `bevy_falling_sand` structurally cannot provide; `falling-sand.md` §4
+//! (This is the property `bevy_falling_sand` structurally cannot provide; `falling-sand.md` §4
 //! records the adapt-vs-replace ruling.)
 //!
-//! This is deterministic for ordinary fixed-tick/headless execution, but it is
-//! NOT a rollback snapshot. `SandGrid` and `SettledSandLedger` are not in the
-//! GGRS registry; the authoritative-pass gate below prevents a replay from
-//! double-advancing them, but a historical replay still observes the grid's
-//! present/future state. The falling-sand room therefore remains outside the
-//! netcode acceptance surface until the explicitly blocked fork/rewrite work
-//! in `docs/planning/engine/falling-sand.md` is authorized.
+//! `SandGrid` and `SettledSandLedger` are not in the GGRS registry; the authoritative-pass gate
+//! below prevents a replay from double-advancing them, but a historical replay still observes
+//! the grid's present/future state. The falling-sand room therefore remains outside the netcode
+//! acceptance surface until the explicitly blocked fork/rewrite work in
+//! `docs/planning/engine/falling-sand.md` is authorized.
 
 pub mod sand_grid;
 
@@ -198,8 +183,7 @@ pub const MIXED_SPOUTS: [SpoutMouth; 3] = [
     },
 ];
 
-/// The mouths a switch state opens, in a fixed order. Pure, so the wiring from
-/// four switches to five streams is testable without a room.
+/// Pure, so the wiring from four switches to five streams is testable without a room.
 pub fn open_spouts(spouts: &FallingSandSpoutState) -> Vec<&'static SpoutMouth> {
     let mut open: Vec<&'static SpoutMouth> = Vec::new();
     if spouts.sand {
@@ -217,10 +201,8 @@ pub fn open_spouts(spouts: &FallingSandSpoutState) -> Vec<&'static SpoutMouth> {
     open
 }
 
-/// The room's sand matter, both owners in one resource: the loose grid and
-/// the settled ledger. `grid` is `Some` only while the falling-sand room is
-/// active; leaving the room clears both (matching the old particle-despawn
-/// semantics on room change).
+/// `grid` is `Some` only while the falling-sand room is active; leaving the room clears both
+/// (matching the old particle-despawn semantics on room change).
 #[derive(Resource, Default)]
 pub struct FallingSandWorld {
     pub grid: Option<SandGrid>,
@@ -446,9 +428,6 @@ pub fn step_sand_grid(state: Res<FallingSandRoomState>, mut sand: ResMut<Falling
 }
 
 /// Contribute the settled ledger's blocks to the per-frame collision overlay.
-/// The LEDGER is the persistent owner; the overlay is just this frame's
-/// composition of it — so the ground survives every rebuild without the grid
-/// re-proving density each frame (the transient-projection flicker defect).
 pub fn project_settled_sand(
     state: Res<FallingSandRoomState>,
     sand: Res<FallingSandWorld>,

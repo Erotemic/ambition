@@ -96,7 +96,7 @@ pub fn record_player_movement_intent(
 
 /// **What frame did the BODY actually receive?** — the kernel-side half.
 ///
-/// ⛔ **this exists because a brain trace could not answer a brain question.**
+/// **this exists because a brain trace could not answer a brain question.**
 /// The fighter's recovery thread reached a state where the decision trace read
 ///
 /// ```text
@@ -115,11 +115,11 @@ pub fn record_player_movement_intent(
 /// is what makes the two joinable: one `explain(tick, subject)` returns what the
 /// brain asked for and what the body was holding, side by side.
 ///
-/// ⚠ **it covers the bodies `record_player_movement_intent` cannot.** That one
+/// **it covers the bodies `record_player_movement_intent` cannot.** That one
 /// is keyed by SEAT and skips anything without a player slot, which is every AI
 /// fighter — precisely the bodies this thread is about.
 ///
-/// ⚠ **`ladder_probe` still prints its own `[seam]` line from a hand query.**
+/// **`ladder_probe` still prints its own `[seam]` line from a hand query.**
 /// Same observation, and this is the version to keep — it is a typed fact that
 /// joins with the brain's, where that one is text a human correlates by eye. The
 /// probe cannot read it until `ambition_platformer2d/causal` is enabled on that binary's
@@ -131,7 +131,7 @@ pub fn record_player_movement_intent(
 /// log the only thing held mutably.
 /// **The kernel's own movement operations, for the instrument.**
 ///
-/// ⛔ the causal log could say a body's velocity CHANGED and never which
+/// the causal log could say a body's velocity CHANGED and never which
 /// operation changed it, and the ten velocity writers inside
 /// `ambition_platformer2d_core` cannot publish for themselves: the kernel has no
 /// `ambition_causal` dependency and, under the floor contract, may depend only
@@ -143,7 +143,7 @@ pub fn record_player_movement_intent(
 /// until now only by FX and anim overlays. This message carries that list to the
 /// recorder, which has the log.
 ///
-/// ⚠ `Option<MessageWriter>` at the call site, for the reason the damage path
+/// `Option<MessageWriter>` at the call site, for the reason the damage path
 /// already documents: this is read by an INSTRUMENT and nothing else, so a
 /// composition with no inspector should publish nothing rather than panic.
 #[cfg(feature = "causal")]
@@ -203,29 +203,24 @@ pub fn record_body_control_frame(
         &ActorControl,
         &ambition_platformer2d_core::BodyDashState,
         Option<&DrivingParticipant>,
-        // ⛔ **WHY THE BODY MIGHT NOT BE OBEYING**, added 2026-08-01 after the
-        // first real measurement of this seam. A plain two-CPU match shows seven
-        // consecutive ticks pinned at exactly `-86` while the brain asks
-        // `+0.65` — neither obeying nor decelerating, so it is not a turnaround.
-        // The three candidates all live here, and without them the log can show
-        // that the body disagreed and never why (queue S51).
+        // A plain two-CPU match shows seven consecutive ticks pinned at exactly `-86` while the
+        // brain asks `+0.65` — neither obeying nor decelerating, so it is not a turnaround. The
+        // three candidates all live here, and without them the log can show that the body disagreed
+        // and never why.
         //
-        // ⚠ `Option`, because a body without a combat cluster is a legal body
+        // `Option`, because a body without a combat cluster is a legal body
         // and must not vanish from the log for lacking one.
         Option<&ambition_characters::actor::BodyCombat>,
-        // AC3.1.B: the melee AUTHORITY. `attacking` used to come from a
-        // `BodyCombat` mirror maintained beside it — and a mirror inside an
-        // instrument is the worst place for one, because the log exists to be
-        // believed about exactly this kind of disagreement.
+        // AC3.1.B: the melee AUTHORITY.
         Option<&crate::actor::BodyMelee>,
-        // ⛔ **THE INTEGRATOR'S OWN INPUTS**, added after six candidates were
+        // **THE INTEGRATOR'S OWN INPUTS**, added after six candidates were
         // eliminated one at a time and the cause was still not found (S51). The
         // unauthored steps are a near-constant `-99`/tick, which is an
         // ACCELERATION, and `integration.rs` adds exactly two:
         // `gravity_acceleration` and `external_acceleration`. Printing both
         // turns "which term produced -5940 px/s²?" from a search into a read.
         //
-        // ⚠ `Option` for a body without a resolved frame (bare test bodies).
+        // `Option` for a body without a resolved frame (bare test bodies).
         Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     )>,
 ) {
@@ -268,7 +263,7 @@ pub fn record_body_control_frame(
             .field("on_ground", ground.on_ground)
             .field("facing", kin.facing)
             .field("burst_pressed", frame.burst_pressed)
-            // ⚠ the dash state is here for a NAMED suspicion: the trace showed
+            // the dash state is here for a NAMED suspicion: the trace showed
             // the body reaching 750/s, which is dash speed (a run caps at 270),
             // while `Dash` appeared zero times in the brain's decisions. A dash
             // armed by something other than the decision shows up as a spent
@@ -279,15 +274,6 @@ pub fn record_body_control_frame(
             // tick — a disagreement under one is the system working.
             // `hitstun_timer` is the partial-control penalty, and `attacking` is
             // a move owning the body's motion.
-            //
-            // ⛔⛔ **this published `recoil_lock_timer`, which is HALF the gate.**
-            // The lock `apply_post_hit_input_gates` applies is
-            // `recoil_lock.max(landing_lag)` — so a body locked by landing lag
-            // alone traced as `recoil_lock: 0.0` and read as fully in control
-            // while its input was being zeroed. ⚠ that is the instrument shaped
-            // exactly like the bug it hunts: a causal trace exists to say WHY two
-            // runs diverged, and this one would have sent the reader past the
-            // reason. It asks the body for the whole gate now.
             .field(
                 "hard_lock",
                 combat.map_or(0.0, ambition_characters::actor::BodyCombat::hard_lock_timer),
@@ -310,14 +296,8 @@ pub fn record_body_control_frame(
 
 /// **The strongest stable subject a body has** — and never `None`.
 ///
-/// ⛔ a body-specific fact with no subject is a WORLD fact to `explain`, so it
-/// is returned for EVERY subject. A boss's hit reaction on tick 400 landed in
-/// seat 0's causal chain, and the inspector answered the wrong question exactly
-/// where it is needed most — a fight where several bodies act on one tick
-/// (GPT 5.6, 2026-08-01, finding 5).
-///
 /// Strongest first: the SEAT (survives death and respawn), then the actor's
-/// stable id, then an explicitly UNSTABLE entity key. ⚠ the unstable variant is
+/// stable id, then an explicitly UNSTABLE entity key. the unstable variant is
 /// a recorded API leak and still beats global: a recycled index can mislead one
 /// later query; a world fact misleads every query forever.
 fn body_subject(
@@ -342,7 +322,7 @@ fn body_subject(
 /// and `WalletShielded` are a spent defence, `Damaged` carries the amount and
 /// whether it killed.
 ///
-/// ⚠ **the raw damage travels beside the outcome**, because "asked for 30 and
+/// **the raw damage travels beside the outcome**, because "asked for 30 and
 /// dealt 0" and "asked for 0" are different findings and the outcome alone
 /// cannot tell them apart.
 pub fn record_hit_resolutions(
@@ -631,7 +611,7 @@ use ambition_characters::control::{PlayerSlot};
         }
     }
 
-    /// ⚠ **asked for 30 and dealt 0 is not the same finding as asked for 0.**
+    /// **asked for 30 and dealt 0 is not the same finding as asked for 0.**
     /// The outcome alone cannot tell them apart, which is why the raw damage
     /// travels beside it.
     #[test]
@@ -715,7 +695,7 @@ use ambition_characters::control::{PlayerSlot};
         app
     }
 
-    /// ⛔ **A short launch has three different causes, and the velocity cannot
+    /// **A short launch has three different causes, and the velocity cannot
     /// tell them apart.** That is the whole reason this fact exists.
     #[test]
     fn a_short_launch_distinguishes_a_weak_hit_from_a_well_steered_one() {

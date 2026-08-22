@@ -1,6 +1,5 @@
 //! **Does every fighter on the smash grid have a MOVESET?**
 //!
-//! Jon, 2026-08-05, on seeing the crossover roster: *"We might need to generate
 //! real smash movesets for the characters if they are missing them."*
 //!
 //! He is asking about a real gap and it is worth being precise about which gap.
@@ -16,7 +15,7 @@
 //! is unambiguously wrong — **a fighter with no melee at all**, who arrives on a
 //! platform-fighter stage unable to hit anybody.
 //!
-//! ⚠ **the number is a ratchet, not a target.** Authoring twelve movesets is a
+//! **the number is a ratchet, not a target.** Authoring twelve movesets is a
 //! content job; this exists so the count cannot quietly grow while it is being
 //! done, and so the list is derived from the roster rather than remembered.
 
@@ -25,57 +24,32 @@ use ambition_platformer2d::character::CharacterCatalog;
 
 /// Fighters on the grid whose catalog row gives them NO melee.
 ///
-/// ⭐ **measured 2026-08-05: SEVEN of the twelve.** All seven resolve to a
-/// `peaceful` preset — Ambition's, Mary-O's and Sanic's own — because standing
-/// in a room and talking is what they were authored for. The five that can hit
-/// are the ones whose rows already named a combat preset: George Booul and the
-/// demo's duelists (`smash::duelist`, 4 damage, 34px), and the Pirate Admiral,
-/// Shadow Oni Leader, Perfect Cellular Automaton and Goblin (Ambition's
-/// `striker_swipe` / `pirate_pistol`, 1 damage, 28px).
+/// The five that can hit are the ones whose rows already named a combat preset: George Booul and
+/// the demo's duelists (`smash::duelist`, 4 damage, 34px), and the Pirate Admiral, Shadow Oni
+/// Leader, Perfect Cellular Automaton and Goblin (Ambition's `striker_swipe` / `pirate_pistol`, 1
+/// damage, 28px).
 ///
-/// ⚠ **so it is not only the seven.** The five that CAN hit disagree by 4x on
-/// damage, because two of them are a demo's fighter and three are an
-/// adventure game's enemies. A platform fighter wants one authored kit per
-/// character, which is the job Jon is asking about; this list is the floor.
+/// **so it is not only the seven.** The five that CAN hit disagree by 4x on damage, because two of
+/// them are a demo's fighter and three are an adventure game's enemies.
 const KNOWN_UNARMED: &[&str] = &[
     "player_robot_v3",
-    // ⭐ TALL Mary-O is the one on the grid now; her kit is byte-identical to the
+    // TALL Mary-O is the one on the grid now; her kit is byte-identical to the
     // short form's, so she arrives here unarmed exactly as `mary_o` did.
     "mary_o_tall",
     "sanic",
     "npc_alice",
     "npc_bob",
-    // ⭐ **OILER LEFT THIS LIST 2026-08-16, which is what it is for.** He authors
-    // a sixteen-move repertoire now (`oiler_moveset`) and his row names
-    // `striker_swipe` instead of `peaceful`, because those are two different
-    // facts and a fighter needs both: the row says he MAY swing, the table says
-    // what the swing IS. He is on `WITH_REPERTOIRE` below.
+    // **AND EMMY LEFT IT THE SAME DAY**, for the same two reasons.
     //
-    // ⭐ **AND EMMY LEFT IT THE SAME DAY**, for the same two reasons. The list is
-    // down to six.
-    // ⭐ **ARRIVED 2026-08-12, and arriving is the point.** Jon added Stargan to
-    // the grid on 2026-08-11 and he was never on it: `SmashRoster::assemble`
-    // filters on the prepared REGISTRY, nothing registered him, and a dropped
-    // portrait is silent by design. Registering him put him on the grid and this
-    // census immediately reported what the grid had been hiding — his row says
-    // `peaceful`, so he stands there with no melee.
-    //
-    // ⚠ he is NOT unarmed in a match: the stage arms every seat (see the
-    // companion test below). This list is the record of who needs a real kit,
-    // and whether Stargan FIGHTS is a product question already filed as D96
-    // item 5 — so he belongs here rather than being given a swipe by a test
-    // that noticed him.
+    // he is NOT unarmed in a match: the stage arms every seat (see the companion test below).
 ];
 
 #[test]
 fn every_fighter_on_the_smash_grid_can_throw_a_punch() {
     let mut app =
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
-    // ⚠ ONE frame first, and it is load-bearing: the seatable registry is filled
-    // by a `Startup` system, so a build that has never updated has a catalog and
-    // no registry at all. The grid is filtered by what can be SEATED — see
-    // `SmashRoster::assemble` — so reading it before that frame would report an
-    // empty screen and call it content.
+    // ONE frame first, and it is load-bearing: the seatable registry is filled by a `Startup`
+    // system, so a build that has never updated has a catalog and no registry at all.
     app.update();
     let catalog = app
         .world()
@@ -86,11 +60,11 @@ fn every_fighter_on_the_smash_grid_can_throw_a_punch() {
         .get_resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>()
         .expect("the composed host has a prepared-character registry");
 
-    // ⚠ the ASSEMBLED grid, not the wish list: the demo's stand-in robots drop
+    // the ASSEMBLED grid, not the wish list: the demo's stand-in robots drop
     // out of a host that carries the real lineage, and measuring them here would
     // report a moveset nobody can pick.
     //
-    // ⚠ **assembled HERE rather than read from the resource**, because the
+    // **assembled HERE rather than read from the resource**, because the
     // resource is filled by a `Startup` system and `build_visible_app` has not
     // run a frame — reading it gave the DEFAULT (this demo's own two) and the
     // vacuity guard below caught it. `assemble` is a pure function of the
@@ -140,31 +114,27 @@ fn every_fighter_on_the_smash_grid_can_throw_a_punch() {
 
 /// **And the MATCH arms every one of them.**
 ///
-/// The catalog gap above is real and stays real: a Hall NPC's `peaceful` row is
-/// correct where they live, and the crossover stage is the one place allowed to
-/// say otherwise. `MatchParticipant::action_set` is where it says it — so this
-/// asserts the thing that actually reaches a body, rather than the row it came
-/// from.
+/// The catalog gap above is real and stays real: a Hall NPC's `peaceful` row is correct where
+/// they live, and the crossover stage is the one place allowed to say otherwise.
 ///
-/// ⚠ **the seam, not the numbers.** One kit for everybody is a FLOOR and is
+/// **the seam, not the numbers.** One kit for everybody is a FLOOR and is
 /// honestly a levelling; per-character kits are the content job. What must not
 /// regress is that a fighter reaches the stage able to hit somebody.
 /// **Every id on the wish list is a character somebody can actually pick.**
 ///
-/// ⛔ `SmashRoster::assemble` FILTERS to what the composition carries, which is
+/// `SmashRoster::assemble` FILTERS to what the composition carries, which is
 /// correct — the other demos' protagonists are only there when a host composes
 /// them — and it means a MISSPELLED id is indistinguishable from an absent one.
 /// The grid silently comes back one fighter short and the screen looks fine.
-/// Jon set this roster by hand and expects to keep editing it (*"we may go more
 /// than 8"*), so a typo dropping a fighter he asked for is the likely mistake.
 ///
-/// ⚠ **the SHIPPED composition is the population**, so ids that are genuinely
+/// **the SHIPPED composition is the population**, so ids that are genuinely
 /// composition-dependent must be named below rather than assumed present.
 #[test]
 fn every_id_on_the_smash_wish_list_names_a_real_character() {
     /// Ids the shipped host legitimately does not carry.
     ///
-    /// ⭐ empty today, and that is the finding: `ambition_app` composes Mary-O
+    /// empty today, and that is the finding: `ambition_app` composes Mary-O
     /// and Sanic, so every name on the list resolves in the real game. An entry
     /// here would mean "this fighter only exists in some other host", which is a
     /// claim worth making explicitly rather than by silence.
@@ -218,11 +188,8 @@ fn the_match_gives_every_seat_a_kit_that_can_hit() {
 
     let mut app =
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
-    // ⚠ ONE frame first, and it is load-bearing: the seatable registry is filled
-    // by a `Startup` system, so a build that has never updated has a catalog and
-    // no registry at all. The grid is filtered by what can be SEATED — see
-    // `SmashRoster::assemble` — so reading it before that frame would report an
-    // empty screen and call it content.
+    // ONE frame first, and it is load-bearing: the seatable registry is filled by a `Startup`
+    // system, so a build that has never updated has a catalog and no registry at all.
     app.update();
     let catalog = app
         .world()
@@ -259,25 +226,14 @@ fn the_match_gives_every_seat_a_kit_that_can_hit() {
     select.set_occupant(1, SlotOccupant::Cpu);
     select.set_pick(1, unarmed[1]);
 
-    // ⚠ **the floor is DECLARED here because a stage declares it** (2026-08-12).
-    // `roster()` is the convenience wrapper and it declares nothing, so calling
-    // it seats a kit-less character with no kit — correctly. What the shipped
-    // smash experience does is put this swipe on
-    // `DeclaredCombatRules::unarmed_melee`, and a fixture that skipped that step
-    // would be asserting about a stage nobody ships.
     let roster = select
         .roster_seeded(
             &grid,
             0,
             ambition_platformer2d::input::sources::InputAssignmentPolicy::UnifiedPrimary,
             &Default::default(),
-            // ⭐⭐ **FROM THE SHIPPED DECLARATION, not a copy of it** (D143).
-            // This used to spell the swipe out here, which made the test unable
-            // to fail on the thing that was actually broken: the publisher was
-            // reading a resource that did not exist yet and passing `None`, and
-            // a fixture that MANUFACTURES the value under test cannot fail on
-            // its absence. Both sides call one function now, so a stage that
-            // stops declaring a floor turns this red instead of passing.
+            // Both sides call one function now, so a stage that stops declaring a floor turns
+            // this red instead of passing.
             ambition_demo_smash::smash_declared_combat_rules().unarmed_melee,
         )
         .expect("two decided seats are a match");
@@ -296,14 +252,11 @@ fn the_match_gives_every_seat_a_kit_that_can_hit() {
 
 /// **The grid offers only ids the roster NAMES and the host can SEAT.**
 ///
-/// ⛔ moved here from `ambition_demo_smash`'s own unit tests when the filter
-/// moved from the CATALOG to the prepared registry. A row says what a character
-/// IS; `register_character` is what makes one BUILDABLE, and eight of the twelve
-/// shipped portraits were rows nothing had registered — seatable as player one,
-/// where the adopted home body consulted the registry OPTIONALLY, and
-/// unbuildable in every other seat. The demo crate cannot fill a registry (that
-/// needs the preparation barrier, which needs a composition), so the claim
-/// belongs against the REAL one.
+/// A row says what a character IS; `register_character` is what makes one BUILDABLE, and eight of
+/// the twelve shipped portraits were rows nothing had registered — seatable as player one, where
+/// the adopted home body consulted the registry OPTIONALLY, and unbuildable in every other seat.
+/// The demo crate cannot fill a registry (that needs the preparation barrier, which needs a
+/// composition), so the claim belongs against the REAL one.
 ///
 /// Both directions, because each alone is satisfiable by a broken filter: a
 /// grid of everything passes "only named ids" if it drops nothing, and an empty
@@ -340,27 +293,17 @@ fn the_grid_offers_only_named_and_seatable_fighters() {
     }
 }
 
-// ⛔⛔ **`the_grid_fighters_with_a_real_repertoire_only_grow` IS DELETED
-// (2026-08-16), and its own last line is what deleted it**: *"some fighter must
-// still be on the generic floor, or this test has stopped distinguishing
-// anything and P3.24 is DONE — in which case delete it rather than leave it
-// passing."* Every fighter on the grid authors a repertoire now (D144), so the
-// count it ratcheted has reached the cast and the list it kept was the whole
-// roster written out twice.
-//
-// ⭐ **the guard it provided did not go with it, and is stronger where it
-// landed.** *"A repertoire that stops arriving"* is caught by
-// `smash_in_the_host::the_grid_fighters_that_state_their_own_moves_only_grow`,
-// whose control arm now asserts the silent column is EMPTY, and by
-// `report_the_smash_kit_every_selectable_fighter_has` below, which fails when a
-// fighter drops below the full sixteen-press kit rather than when it loses its
-// table entirely.
+// **`the_grid_fighters_with_a_real_repertoire_only_grow` IS DELETED and its own last line is
+// what deleted it**: *"some fighter must still be on the generic floor, or this test has
+// stopped distinguishing anything and P3.24 is DONE — in which case delete it rather than leave
+// it passing."* Every fighter on the grid authors a repertoire now, so the count it ratcheted
+// has reached the cast and the list it kept was the whole roster written out twice.
 
 /// **THE STAND-IN ROBOTS STEP ASIDE IN A HOST THAT CARRIES THE REAL LINEAGE —
 /// and the copies stay in the standalone demo for a reason that is not
 /// historical.**
 ///
-/// ⛔ P5.39 asks whether the standalone demo's two robot copies can be deleted
+/// P5.39 asks whether the standalone demo's two robot copies can be deleted
 /// now that provider registration is clean. The answer is NO, and the exact
 /// dependency reason is one line of `game/ambition_demo_smash/Cargo.toml`:
 ///
@@ -373,14 +316,14 @@ fn the_grid_offers_only_named_and_seatable_fighters() {
 /// for — that a stocks match is expressible through the ENGINE facade alone —
 /// so the copies are the packaging boundary rather than a leftover.
 ///
-/// ⭐ what makes them harmless is that the duplication is CONDITIONAL:
+/// what makes them harmless is that the duplication is CONDITIONAL:
 /// `SmashRoster::assemble` drops each copy the moment the character it stands in
 /// for resolves, so no host ever shows two robots side by side with one of them
 /// wearing a made-up name. Three test files rely on that in a comment; nothing
 /// asserted it, and a stand-in that stopped stepping aside would show up as a
 /// duplicate portrait nobody was looking for.
 ///
-/// ⚠ **the poison is the standalone default**, which must still contain them —
+/// **the poison is the standalone default**, which must still contain them —
 /// otherwise this test passes on a build where the copies were simply gone from
 /// the roster and the drop rule had stopped running.
 #[test]
@@ -409,9 +352,6 @@ fn the_demos_robot_copies_step_aside_for_the_real_lineage() {
              so the grid is showing two robots and one of them has a made-up \
              name: {grid:?}"
         );
-        // ⭐ THE POISON: the standalone demo still declares it. Without this the
-        // assertion above passes on a build where the copies were deleted
-        // outright and the conditional drop had quietly stopped working.
         assert!(
             ambition_demo_smash::select::SmashRoster::default()
                 .ids()
@@ -422,12 +362,7 @@ fn the_demos_robot_copies_step_aside_for_the_real_lineage() {
     }
 }
 
-/// **EVERY FIGHTER ON THE SMASH GRID GETS THE BASIC SMASH KIT.** (Jon,
-/// 2026-08-16: *"in smash all characters should be sure they are granted the
-/// basic smash abilities"*, and before it *"ensure that every character in smash
-/// is authored with the ledge grab ability"*.)
-///
-/// ⛔⛔ **a MASK could not promise this, and the gap was invisible because
+/// **a MASK could not promise this, and the gap was invisible because
 /// almost nobody exercised it.** `MatchParticipantRoster::fighter_abilities` was
 /// one set, intersected:
 ///
@@ -436,19 +371,16 @@ fn the_demos_robot_copies_step_aside_for_the_real_lineage() {
 ///   character authors a kit    ->  kit ∩ stage                (two of fourteen)
 /// ```
 ///
-/// So the stage's `ledge_grab: true` reached twelve fighters unchanged and
-/// nobody noticed the rule had teeth. The Perfect Cellular Automaton authors one
-/// — written for the DUEL ARENA, based on `AbilitySet::basic()` — and arrived
-/// here with no double jump, no fast fall, no dodge and (until it was authored)
-/// no ledge grab. The one fighter on the grid whose sheet has ten ledge rows
-/// drawn for it was the one who could not use them.
+/// So the stage's `ledge_grab: true` reached twelve fighters unchanged and nobody noticed the
+/// rule had teeth. The one fighter on the grid whose sheet has ten ledge rows drawn for it was
+/// the one who could not use them.
 ///
-/// ⭐ **the stage GRANTS its kit now** (`MatchAbilities::levelled`), so this
+/// **the stage GRANTS its kit now** (`MatchAbilities::levelled`), so this
 /// asserts the whole kit rather than one verb of it, and it is a ratchet against
 /// the migration bridge shrinking: every character that gains an authored kit is
 /// one more chance to arrive missing something, and that count is meant to grow.
 ///
-/// ⚠ **it asks the ENGINE's own function.** That a seat actually WEARS this
+/// **it asks the ENGINE's own function.** That a seat actually WEARS this
 /// answer is pinned separately, on a live body, by `the_stage_kills.rs`'s
 /// `a_seated_fighter_carries_the_verbs_its_character_authored_and_not_the_engines`.
 #[test]
@@ -465,7 +397,7 @@ fn every_fighter_on_the_smash_grid_gets_the_basic_smash_kit() {
     let grid = SmashRoster::assemble(registry);
 
     // The stage's own declaration, from the stage's own roster builder rather
-    // than a literal. ⚠ the CAST does not matter: `smash_roster` states one rule
+    // than a literal. the CAST does not matter: `smash_roster` states one rule
     // for the match, which is the whole reason the fighters below can be
     // compared against a single kit.
     let rules = ambition_demo_smash::smash_roster(grid.ids().take(2))
@@ -478,7 +410,7 @@ fn every_fighter_on_the_smash_grid_gets_the_basic_smash_kit() {
 
     let mut wrong: Vec<String> = Vec::new();
     let mut report: Vec<String> = Vec::new();
-    // ⛔ NON-VACUITY, and it is the whole test: at least one fighter must author
+    // NON-VACUITY, and it is the whole test: at least one fighter must author
     // a kit that DIFFERS from the stage's, or the union is a no-op and this
     // would pass just as happily on the mask that could not promise anything.
     let mut authored_a_different_kit = false;
@@ -527,11 +459,10 @@ fn every_fighter_on_the_smash_grid_gets_the_basic_smash_kit() {
 
 /// **AND THE PLATFORMER PROTAGONISTS DO NOT TAKE THE FIGHTER'S KIT HOME.**
 ///
-/// Jon, 2026-08-16: *"we need to make sure mary-o and sanic do NOT get this
 /// ability in their games"* (the ledge grab), and then *"Sanic should never have
 /// fly, blink, or wall climb in any iteration"*.
 ///
-/// ⭐ **the other half of the test above, and the reason both are needed.** A
+/// **the other half of the test above, and the reason both are needed.** A
 /// character reaches a body down two different roads and they are not the same
 /// road:
 ///
@@ -545,16 +476,11 @@ fn every_fighter_on_the_smash_grid_gets_the_basic_smash_kit() {
 /// edit away from breaking the other. Asserting them in one file is what makes
 /// the split legible instead of a coincidence.
 ///
-/// ⛔ **Sanic's rows authored nothing until this landed**, and a row that
-/// authors nothing falls through to `EditableAbilitySet::default()` — which is
-/// `sandbox_all`. He was carrying flight, blink, wall climb, a ledge grab, swim,
-/// glide, dodge and a shield around his own speedway; his control gate resolves
-/// Attack and Utility onto spin dash and transform, so nothing on screen ever
-/// said so.
+/// He was carrying flight, blink, wall climb, a ledge grab, swim, glide, dodge and a shield around
+/// his own speedway; his control gate resolves Attack and Utility onto spin dash and transform, so
+/// nothing on screen ever said so.
 ///
-/// ⚠ **"any iteration" is Jon's own scope**, so the super form is here too: the
-/// transformation is SPEED, and a form that also unlocked verbs would make the D
-/// key a capability grant.
+/// The super form is included too: transformation changes speed, not available verbs.
 #[test]
 fn the_platformer_protagonists_keep_their_own_kits_at_home() {
     let mut app =
@@ -577,10 +503,6 @@ fn the_platformer_protagonists_keep_their_own_kits_at_home() {
             !kit.ledge_grab,
             "`{id}` can grab a ledge in its own game: {kit:?}"
         );
-        // ⚠ **`fly_toggle` and the three blink variants too**, not just the
-        // headline flags — `sane_subset` grants five of these six, which is how
-        // an earlier pass at this "answered" the ledge question and left three
-        // of the four verbs Jon named standing.
         assert!(
             !kit.fly && !kit.fly_toggle,
             "`{id}` can fly in its own game: {kit:?}"
@@ -596,7 +518,7 @@ fn the_platformer_protagonists_keep_their_own_kits_at_home() {
             !kit.wall_climb,
             "`{id}` can climb walls in its own game: {kit:?}"
         );
-        // ⛔ NON-VACUITY: a kit of nothing would satisfy every line above and
+        // NON-VACUITY: a kit of nothing would satisfy every line above and
         // would mean the character cannot move.
         assert!(
             kit.move_horizontal && kit.jump,
@@ -606,14 +528,14 @@ fn the_platformer_protagonists_keep_their_own_kits_at_home() {
     }
 }
 
-/// **WHO HAS A FULL SMASH KIT, AND WHAT IS EACH MISSING?** (Jon, 2026-08-16)
+/// **WHO HAS A FULL SMASH KIT, AND WHAT IS EACH MISSING?**
 ///
 /// The census above answers *does this fighter author a table at all*. This one
 /// answers the question that follows it: a table with a jab and one aerial is
 /// authored, and it is not a moveset. Sixteen presses is what a platform fighter
 /// asks a character for.
 ///
-/// ⭐⭐ **IT RESOLVES EACH PRESS THE WAY A BODY DOES**, through
+/// **IT RESOLVES EACH PRESS THE WAY A BODY DOES**, through
 /// `move_for_directional_verb`, rather than asking whether a verb key exists.
 /// The difference is the whole finding: `directional_verb_chain` FALLS BACK, so
 /// a fighter with no forward tilt does not press nothing — it presses its jab
@@ -621,7 +543,7 @@ fn the_platformer_protagonists_keep_their_own_kits_at_home() {
 /// experiences it as "this character has no forward tilt", and only one of those
 /// two readings tells you what to author.
 ///
-/// ⚠ **and it reads the MERGED kit** (`PreparedKit::projectable_moveset`), not
+/// **and it reads the MERGED kit** (`PreparedKit::projectable_moveset`), not
 /// `authored_moveset`. Authored moves OVERLAY the kit derived from the action
 /// set rather than replacing it, so a character can reach a press through either
 /// — the body resolves the merge, so the merge is what a report about the body
@@ -651,16 +573,11 @@ const SMASH_KIT: &[(&str, &str, ambition_platformer2d::entity_catalog::AttackDir
 /// **THE CAPTURE HALF OF THE KIT** — `(label, verb)`, resolved by verb rather
 /// than by direction.
 ///
-/// ⭐ **this is the ratchet growing exactly as it promised it would.** Jon, on
-/// the kit census: *"16 is the current target, but we will need to do more
-/// (trips, grabs, falls, techs, etc…)"*, and the assertion below reads
-/// `KIT_TOTAL` rather than a copied number so the target moves by itself.
-/// Grabs are the first of that list to become authorable across the whole
-/// roster: until 2026-08-20 fourteen movesets authored only `forward_throw` and
-/// left back/up/down `None`, so this list could not have been asserted on
-/// anybody.
+/// Grabs are the first of that list to become authorable across the whole roster: until
+/// fourteen movesets authored only `forward_throw` and left back/up/down `None`, so this list
+/// could not have been asserted on anybody.
 ///
-/// ⚠ **resolved with `move_for_verb`, NOT `move_for_directional_verb`, and that
+/// **resolved with `move_for_verb`, NOT `move_for_directional_verb`, and that
 /// is not a detail.** A throw is selected by the attack press INSIDE a capture
 /// relationship, not by a directional grab press — `smash_capture::verbs` says
 /// so explicitly, because naming them `grab_forward` would invite the
@@ -702,13 +619,10 @@ const KIT_TOTAL: usize = SMASH_KIT.len() + SMASH_CAPTURE_KIT.len();
 ///   specials              BOTH
 /// ```
 ///
-/// ⛔⛔ **asking only one posture INVENTS A GAP and HIDES another.** George
-/// Booul's down-B is a commanded plunge and is `airborne_only`; probed standing
-/// on the ground it is skipped by its own gate, falls down the directional chain
-/// to his neutral-B, and reads as "missing" in a census that never left the
-/// floor. He had it all along. Meanwhile nine other fighters had the mirror
-/// defect — a grounded-only down-B that walked past itself in the AIR — and a
-/// grounded-only census could not see any of them.
+/// **asking only one posture INVENTS A GAP and HIDES another.** George Booul's down-B is a
+/// commanded plunge and is `airborne_only`; probed standing on the ground it is skipped by its
+/// own gate, falls down the directional chain to his neutral-B, and reads as "missing" in a
+/// census that never left the floor. He had it all along.
 fn postures(label: &str) -> &'static [bool] {
     match label {
         "nair" | "fair" | "bair" | "uair" | "dair" => &[false],
@@ -718,13 +632,6 @@ fn postures(label: &str) -> &'static [bool] {
 }
 
 /// Whether EVERY posture this press is asked in owes an answer of its own.
-///
-/// ⭐ **Jon's ruling, 2026-08-16**: *"A down-b that has special airborne
-/// properties should also have an effect on ground. Think of bowser down b. In
-/// the air he just does a downward slam, but on the ground, it causes him to
-/// jump in an arc and then slam. Specials can have different effects in
-/// different contexts that should be ok, and makes for a richer smash game,
-/// although in most cases they shouldn't be context dependent."*
 ///
 /// ⇒ a special gated to one posture is NOT covered by answering in that one.
 /// Pressed in the other, the chain walks past it to the character's neutral
@@ -828,10 +735,7 @@ fn report_the_smash_kit_every_selectable_fighter_has() {
     eprintln!("[smash kit census]\n{}", rows.join("\n"));
     assert!(rows.len() >= 8, "the grid did not assemble: {rows:?}");
 
-    // ⭐⭐ **A RATCHET, because the target is settled** (Jon: *"16 is the current
-    // target, but we will need to do more (trips, grabs, falls, techs, etc…)"*).
-    //
-    // ⚠ **it fails on a DROP, never on the target moving.** When trips, grabs
+    // **it fails on a DROP, never on the target moving.** When trips, grabs
     // and techs join the vocabulary, `SMASH_KIT` grows and this reads the new
     // length by itself — the number is not a copy of the target, it IS the
     // target.
@@ -858,34 +762,23 @@ fn report_the_smash_kit_every_selectable_fighter_has() {
 /// **Fighters on the grid the stage's body cannot reach, because they do not
 /// move by the axis-swept model at all.**
 ///
-/// ⭐ **measured 2026-08-16: ONE of the fourteen.** Sanic's catalog row authors
-/// `momentum`, so `motion_model_spec` gives him `SurfaceMomentum` — and every
-/// evade window lives in `AxisManeuverState`, which that model does not have.
-/// `perception_body_for` says so out loud: a present non-axis model reads
-/// `AxisSweptMotion::default()`, so *"no window open"* is the honest answer for
-/// one. Supplying him a body changes nothing; he cannot air dodge on this stage
-/// whatever the stage says, and neither can he shield-parry or tumble.
+/// Supplying him a body changes nothing; he cannot air dodge on this stage whatever the stage says,
+/// and neither can he shield-parry or tumble.
 ///
-/// ⚠ **so this is NOT the defect above wearing a different hat, and it must not
-/// be fixed by widening the stage's body.** It is a momentum-model body standing
-/// on a platform-fighter stage, which is a question about what a crossover match
-/// owes a guest's locomotion — filed, not taken here.
-///
-/// ⛔ **a RATCHET: the list may only SHRINK.** What must never happen is a new
+/// **a RATCHET: the list may only SHRINK.** What must never happen is a new
 /// fighter joining it silently.
 const NOT_AN_AXIS_BODY: &[&str] = &["sanic"];
 
-/// **THE PLATFORM FIGHTER'S BODY REACHES NO GAME THAT DID NOT ASK FOR ONE.**
-/// (D146 slice 1b)
+/// **THE PLATFORM FIGHTER'S BODY REACHES NO GAME THAT DID NOT ASK FOR ONE.** ( slice 1b)
 ///
-/// ⛔ **the whole risk of a stage-supplied body is a floor LEAKING.** The
+/// **the whole risk of a stage-supplied body is a floor LEAKING.** The
 /// numbers `SMASH_FIGHTER_BODY` carries are wrong everywhere else and the engine
 /// says so in its own defaults: a jump squat is a different game's jump (Mary-O's
 /// SMB1 convergence needs the leap on the press tick), an air dodge steals the
 /// airborne burst press from every exploration body, and a tumble floor makes a
 /// wandering enemy stand up after every hit.
 ///
-/// ⭐ **a supply is opt-in by CONSTRUCTION, and this asserts the construction
+/// **a supply is opt-in by CONSTRUCTION, and this asserts the construction
 /// rather than a sample of its consequences**: a match receives a body only
 /// where its own roster declares one, so the two facts that matter are that the
 /// DEFAULT is no supply, and that the stage next door — the other match in this
@@ -910,7 +803,7 @@ fn the_smash_stages_body_reaches_no_game_that_did_not_ask_for_one() {
          fighter's extras"
     );
 
-    // ⛔ **AND THE ENGINE DEFAULT IS STILL THE ENGINE'S.** The cheapest way to
+    // **AND THE ENGINE DEFAULT IS STILL THE ENGINE'S.** The cheapest way to
     // make the grid census above pass is to move these four numbers, and doing
     // it would change Mary-O, the exploration protagonist and every wandering
     // enemy in the game at once. Each is zero (or the explorer's recoil) for a
@@ -926,10 +819,9 @@ fn the_smash_stages_body_reaches_no_game_that_did_not_ask_for_one() {
     );
 }
 
-/// **EVERY FIGHTER ON THE SMASH GRID GETS A BODY THAT CAN ACTUALLY DODGE.**
-/// (D146 slice 1b)
+/// **EVERY FIGHTER ON THE SMASH GRID GETS A BODY THAT CAN ACTUALLY DODGE.** ( slice 1b)
 ///
-/// ⛔⛔ **the companion above proves the stage GRANTS `dodge` to all fourteen,
+/// **the companion above proves the stage GRANTS `dodge` to all fourteen,
 /// and that was not enough.** A verb needs a WINDOW, and the window was
 /// authorable only on a CHARACTER:
 ///
@@ -940,19 +832,7 @@ fn the_smash_stages_body_reaches_no_game_that_did_not_ask_for_one() {
 ///                                           exploration body in the game
 /// ```
 ///
-/// So `available_dodge` fell straight through for every fighter whose character
-/// had not authored a platform fighter's body — measured on this host,
-/// **twelve of the fourteen**, `player_robot_v3` among them: the smash demo's
-/// careful tuning was authored on `smash_duelist_a`, the STAND-IN this host
-/// drops in favour of the real robot. Mary-O made thirteen: she authors a body,
-/// but she authored it for SMB1, which has no air dodge in it.
-///
-/// ⚠ **it did not read as broken until D146 slice 1.** Those twelve had `dash`
-/// from the kit, so an airborne burst press fell out of the dodge and into
-/// `apply_dash` and they air-dashed. Removing `dash` — correctly — left the
-/// press meaning nothing at all.
-///
-/// ⭐ **it asks the ENGINE's own resolver**, not a threshold of its own:
+/// **it asks the ENGINE's own resolver**, not a threshold of its own:
 /// `resolve_burst_maneuver` is the one expression the kernel and the autonomous
 /// driver both read, so a fighter this test calls capable is one the sim will
 /// actually air-dodge.
@@ -986,7 +866,7 @@ fn every_fighter_on_the_smash_grid_gets_a_body_that_can_air_dodge() {
 
     let mut report: Vec<String> = Vec::new();
     let mut shut: Vec<String> = Vec::new();
-    // ⛔ NON-VACUITY: at least one fighter must reach the stage's numbers over a
+    // NON-VACUITY: at least one fighter must reach the stage's numbers over a
     // body its CHARACTER authored, or this is only measuring the default case
     // and the composition could be a wholesale replacement.
     let mut composed_over_an_authored_body = false;
@@ -995,8 +875,8 @@ fn every_fighter_on_the_smash_grid_gets_a_body_that_can_air_dodge() {
             .get(id)
             .expect("the grid is assembled from the registry");
         let authored = prepared.movement_tuning;
-        // ⭐ the ENGINE's composition, asked once — not a second copy of it here.
-        // ⚠ the base for a character that authored none is `DEFAULT_TUNING`
+        // the ENGINE's composition, asked once — not a second copy of it here.
+        // the base for a character that authored none is `DEFAULT_TUNING`
         // rather than the seat's built tuning: this census is about the WINDOWS,
         // and none of them is a number a construction seed states.
         let body = rules
@@ -1005,7 +885,7 @@ fn every_fighter_on_the_smash_grid_gets_a_body_that_can_air_dodge() {
         if authored.is_some() {
             composed_over_an_authored_body = true;
         }
-        // ⚠ **the MODEL decides whether the window is even asked about.** A
+        // **the MODEL decides whether the window is even asked about.** A
         // non-axis body reads `AxisSweptMotion::default()` in
         // `perception_body_for`, so reading the tuning alone here would call a
         // momentum body capable of an evade it structurally cannot perform.
@@ -1072,7 +952,7 @@ fn every_fighter_on_the_smash_grid_gets_a_body_that_can_air_dodge() {
         unexpected.len(),
         report.join("\n")
     );
-    // ⭐ THE OTHER DIRECTION, so the list cannot quietly outlive what it names.
+    // THE OTHER DIRECTION, so the list cannot quietly outlive what it names.
     let cured: Vec<&&str> = NOT_AN_AXIS_BODY
         .iter()
         .filter(|id| !shut.iter().any(|shut| shut == *id) && grid.ids().any(|on| on == **id))
@@ -1087,11 +967,10 @@ fn every_fighter_on_the_smash_grid_gets_a_body_that_can_air_dodge() {
 
 /// **EVERY FIGHTER'S GROWTH IS IN THE STAGE'S UNITS — not just the stand-ins'.**
 ///
-/// ⛔⛔ **the guard for this existed and swept the wrong population.**
-/// `ambition_demo_smash::moveset`'s `an_authored_growth_is_the_stage_declaration_in_the_stage_units`
-/// iterates `fighter_moveset()`, which is the ELEVEN-VERB FALLBACK the two robot
-/// stand-ins carry. Every fighter who authors a real table — which is all
-/// fourteen, since D144 — was outside the only check that looks for this.
+/// **the guard for this existed and swept the wrong population.**
+/// `ambition_demo_smash:moveset`'s
+/// `an_authored_growth_is_the_stage_declaration_in_the_stage_units` iterates `fighter_moveset`,
+/// which is the ELEVEN-VERB FALLBACK the two robot stand-ins carry.
 ///
 /// What it looks for is a UNIT SLIP, and the slip is expensive: a volume's
 /// `knockback_growth` is absolute px/s per point, while the ruleset's is a
@@ -1100,13 +979,11 @@ fn every_fighter_on_the_smash_grid_gets_a_body_that_can_air_dodge() {
 /// grow ~40× slower than the stage declared while every test stays green. That
 /// is twice now that it surfaced as *"there does not seem to be any knockback"*.
 ///
-/// ⭐ **a BAND, not an equality, and the original guard's own doc says why**:
-/// *"A move MAY deliberately differ — that is what authoring is for — but it has
-/// to differ by a factor a reader can see, not by a unit."* Its `< 0.01`
-/// tolerance forbade the very latitude that sentence grants. George Booul's
-/// table sits at 0.85–1.05× of the declaration (`130 → 2.20`, `50 → 1.05`),
-/// which is a fighter being tuned; a unit slip is 40×. Measured 2026-08-17
-/// before widening the sweep, which is why those rows are not "fixed" here.
+/// **a BAND, not an equality, and the original guard's own doc says why**: *"A move MAY
+/// deliberately differ — that is what authoring is for — but it has to differ by a factor a reader
+/// can see, not by a unit."* Its `< 0.01` tolerance forbade the very latitude that sentence grants.
+/// George Booul's table sits at 0.85–1.05× of the declaration (`130 → 2.20`, `50 → 1.05`), which is
+/// a fighter being tuned; a unit slip is 40×.
 #[test]
 fn every_fighters_growth_is_a_tuning_choice_and_never_a_unit_slip() {
     /// How far from the declaration an authored growth may sit and still be
@@ -1144,7 +1021,7 @@ fn every_fighters_growth_is_a_tuning_choice_and_never_a_unit_slip() {
                 if volume.knockback <= 0.0 {
                     continue;
                 }
-                // ⛔⛔ **ZERO IS A SENTINEL, NOT A SLIP, and the first version of
+                // **ZERO IS A SENTINEL, NOT A SLIP, and the first version of
                 // this guard failed on it.** `resolved_hitbox_knockback_magnitude`
                 // reads `if growth > 0.0 { growth } else { base * ruleset_growth }`
                 // — so an unauthored growth DEFERS to the stage's declaration and
@@ -1175,7 +1052,7 @@ fn every_fighters_growth_is_a_tuning_choice_and_never_a_unit_slip() {
         }
     }
 
-    // ⛔ **the non-vacuity half, and it is the point of widening the sweep.** The
+    // **the non-vacuity half, and it is the point of widening the sweep.** The
     // guard this replaces passed for years while looking at one table nobody
     // fights with. A sweep that reached no fighter, or one fighter, would pass
     // here for exactly the same reason.

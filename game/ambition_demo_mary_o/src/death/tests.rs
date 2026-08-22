@@ -1,14 +1,5 @@
 //! What is left of the death beat that is Mary-O's own.
 //!
-//! ⛔ **most of this file is GONE, and that is the change** (ADR 0033). It used
-//! to drive `begin_death_sequence` / `run_death_sequence` /
-//! `restart_level_after_death` on a bare app and assert that she was pinned
-//! where she died, that a second death did not extend the beat, and that exactly
-//! one replay was requested when the dwell ran out. Every one of those is now an
-//! engine behaviour with no Mary-O code behind it — and the bare app those tests
-//! ran on had no movement kernel, which is precisely why they were green while
-//! the shipped game reset the room 192 times per death.
-//!
 //! What stays is what this crate still owns: the music, and its authorization.
 
 use super::*;

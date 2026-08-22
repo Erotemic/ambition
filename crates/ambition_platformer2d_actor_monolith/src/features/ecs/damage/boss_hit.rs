@@ -22,16 +22,12 @@ use super::*;
 /// Apply player damage to a boss ENTITY (the entity is the source of truth:
 /// HP on the shared `BodyHealth`, phase on `BossEncounter.encounter` — §A1).
 ///
-/// The health/death MECHANICS go through the ONE victim-side resolver
-/// [`crate::features::ecs::damage_apply::resolve_body_hit`] (fable review §A1 slice 2) — the
-/// same door every body's damage flows through (player, actor, and now boss).
-/// The invulnerable-PHASE gate stays boss POLICY (checked before the resolver):
-/// Intro / Transition / the `transition_lock` tell / Dormant / Death swallow the
-/// hit. The boss's `BodyHitFeel` makes the boss tuning EXPLICIT: NO post-hit
-/// i-frame (`damage_invuln_time: 0.0`, so `vulnerable()` never blocks and player
-/// DPS is unchanged) and no shield — the per-body feel knob that §A2 gave the
-/// player (0.75s) and actors (0.2s), now covering bosses too. A designer wanting
-/// boss i-frames changes ONE field here.
+/// The invulnerable-PHASE gate stays boss POLICY (checked before the resolver): Intro / Transition
+/// / the `transition_lock` tell / Dormant / Death swallow the hit. The boss's `BodyHitFeel` makes
+/// the boss tuning EXPLICIT: NO post-hit i-frame (`damage_invuln_time: 0.0`, so `vulnerable()`
+/// never blocks and player DPS is unchanged) and no shield — the per-body feel knob that §A2 gave
+/// the player (0.75s) and actors (0.2s), now covering bosses too. A designer wanting boss i-frames
+/// changes ONE field here.
 ///
 /// Returns `(applied, killed, wallet_spent)`: `applied` is false when an
 /// invulnerable phase swallows the hit; `killed` marks HP depletion; and
@@ -104,16 +100,12 @@ pub(crate) fn apply_entity_boss_damage(
     }
 }
 
-/// Apply one landed attacker-side hit to a single boss and emit its
-/// feedback. Mutates the boss ENTITY's HP + phase directly via
-/// [`apply_entity_boss_damage`] (the entity is the source of truth).
-/// Cut-rope puzzle bosses give honest local impact feedback but take no HP
+/// Mutates the boss ENTITY's HP + phase directly via [`apply_entity_boss_damage`] (the entity is
+/// the source of truth). Cut-rope puzzle bosses give honest local impact feedback but take no HP
 /// damage from ordinary player hits.
 ///
-/// Returns `true` when the boss took the hit (so the caller drives the
-/// shared landed-hit feedback). Early-returns `false` for a dead boss,
-/// a miss against the live damageable volumes, or an invulnerable-phase
-/// swallow.
+/// Early-returns `false` for a dead boss, a miss against the live damageable volumes, or an
+/// invulnerable-phase swallow.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn apply_boss_hit(
     boss_catalog: &ambition_boss_encounter::BossCatalog,

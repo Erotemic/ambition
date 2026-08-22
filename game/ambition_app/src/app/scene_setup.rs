@@ -1,11 +1,9 @@
 //! Presentation-side scene construction (composition root).
 //!
-//! `presentation_world` spawns the cameras, the player sprite, the HUD/quest-panel
-//! text, the static room visuals + parallax, and wires the audio library / SFX
-//! bank. It is the render+audio composition that pairs with
-//! `ambition_platformer2d::actors::session::setup::simulation_world` (which stays sim-only).
-//! Moved out of the machinery crate so the sim never imports the render layer —
-//! the app, as the composition root, owns the wiring that crosses the seam.
+//! `presentation_world` spawns the cameras, the player sprite, the HUD/quest-panel text, the static
+//! room visuals + parallax, and wires the audio library / SFX bank. It is the render+audio
+//! composition that pairs with `ambition_platformer2d::actors::session::setup::simulation_world`
+//! (which stays sim-only).
 #![allow(clippy::too_many_arguments)]
 
 use bevy::prelude::*;
@@ -196,14 +194,12 @@ fn load_bank_from_path(path: &std::path::Path) -> Option<BankProvider> {
 /// once at startup and never owned by a gameplay session — the launcher/title
 /// route renders through the same cameras a session does.
 pub fn host_presentation_scaffold(commands: &mut Commands) {
-    // The MAIN camera (order 0) renders the gameplay world (sprites on layer 0),
-    // portal-window meshes, and the main-camera-only parallax layer. It NO LONGER
-    // carries `IsDefaultUiCamera`: the default UI camera is now the dedicated
-    // FRONT camera below (order 9), so all bevy_ui draws IN FRONT of the order-8
-    // cube-menu `Camera3d`. The cube's dim-scrim is the one exception — it must
-    // draw BEHIND the cube — and it owns a display-scoped UI camera of its own
-    // for that (see `menu::kaleidoscope_app::scrim`). It used to borrow THIS
-    // camera, which made a full-screen scrim inherit the gameplay rectangle.
+    // The MAIN camera (order 0) renders the gameplay world (sprites on layer 0), portal-window
+    // meshes, and the main-camera-only parallax layer. It NO LONGER carries `IsDefaultUiCamera`:
+    // the default UI camera is now the dedicated FRONT camera below (order 9), so all bevy_ui draws
+    // IN FRONT of the order-8 cube-menu `Camera3d`. The cube's dim-scrim is the one exception — it
+    // must draw BEHIND the cube — and it owns a display-scoped UI camera of its own for that (see
+    // `menu::kaleidoscope_app::scrim`).
     let mut main_camera_layers = bevy::camera::visibility::RenderLayers::layer(0)
         .with(ambition_platformer2d::platformer::camera_layers::PARALLAX_BACKGROUND_LAYER);
     #[cfg(feature = "portal_render")]
@@ -249,15 +245,14 @@ pub fn host_presentation_scaffold(commands: &mut Commands) {
         Name::new("Front HUD Camera"),
     ));
 
-    // **The view this rig presents** (D116 M2). The view is spawned at plugin
-    // BUILD time, so it is already here; binding the link at SPAWN makes "which
-    // view does this camera show" a composition decision on the entity rather
-    // than a uniqueness assumption re-derived every frame in `camera_follow`.
+    // The view is spawned at plugin BUILD time, so it is already here; binding the link at
+    // SPAWN makes "which view does this camera show" a composition decision on the entity
+    // rather than a uniqueness assumption re-derived every frame in `camera_follow`.
     //
-    // ⚠ deferred, because this helper takes only `Commands` — the view is spawned
+    // deferred, because this helper takes only `Commands` — the view is spawned
     // at plugin BUILD time so it is already in the world when this runs.
     //
-    // ⛔ **and it is resolved by `ViewsOnHand`, not by `iter().next()`.** The
+    // **and it is resolved by `ViewsOnHand`, not by `iter().next()`.** The
     // first cut took the first view the archetype yielded, which is right for one
     // view and a coin flip for two — this scaffold spawns exactly ONE main
     // camera, so with several views there is no view it can honestly claim to
@@ -281,7 +276,7 @@ pub fn host_presentation_scaffold(commands: &mut Commands) {
         }
     });
 
-    // ⚠ **a single-camera SPAWN RECORD, published through the shared writer that
+    // **a single-camera SPAWN RECORD, published through the shared writer that
     // complains about a second rig instead of letting the last one win.** Nothing
     // in production reads it: `camera_follow` and the viewport applier each
     // resolve through the camera's own `PresentsView` link, and the cube's
@@ -296,11 +291,7 @@ pub fn host_presentation_scaffold(commands: &mut Commands) {
 
 /// Borrowed inputs for [`session_gameplay_dressing`].
 ///
-/// ⭐ **it carried the room geometry and the room set, and they are gone.** They
-/// existed for the moving-platform visual spawn; when that left for a render
-/// family the compiler reported them unused, which is the deletion this carve
-/// was actually worth. The dressing is text widgets now, and its signature says
-/// so.
+/// The dressing is text widgets now, and its signature says so.
 pub struct SessionDressingSetup<'a> {
     pub ui_fonts: Option<&'a UiFonts>,
 }
@@ -315,7 +306,7 @@ pub fn session_gameplay_dressing(
     params: SessionDressingSetup<'_>,
 ) {
     let ui_fonts = params.ui_fonts;
-    // ⛔ **the moving platforms' visuals are no longer spawned here.** They are
+    // **the moving platforms' visuals are no longer spawned here.** They are
     // reconciled by a render family from the authoritative `MovingPlatformSet`,
     // like every other room feature — see
     // `ambition_render::rendering::moving_platforms`.

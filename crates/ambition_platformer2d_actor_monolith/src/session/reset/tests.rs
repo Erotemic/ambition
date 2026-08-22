@@ -25,12 +25,6 @@ fn request_helper_sets_the_flag() {
 
 /// The transient clear follows the COMMITMENT, and a bare request — which is
 /// what a reset whose preflight refuses leaves behind — clears nothing.
-///
-/// That second half is the point. This system used to run first and read
-/// `NewGameResetRequested`, so a start room that failed its boundary check
-/// produced the one outcome the decline path exists to prevent: the player's
-/// hands emptied, the portals gone, the reset declined, and the old room still
-/// on screen (GPT 5.6, 2026-07-27).
 #[test]
 fn sandbox_reset_clears_portals_held_items_and_summons() {
     let mut app = App::new();
@@ -143,11 +137,8 @@ fn sandbox_reset_clears_portals_held_items_and_summons() {
 /// exactly those, and a reset taken in a room with an authored pickup rebuilt
 /// that room permanently one pickup short of itself.
 ///
-/// Both halves are asserted, because either alone is satisfiable by a broken
-/// system: sparing everything would leave the previous attempt's dropped weapon
-/// lying in the new session (nothing else retires a `spawn_session_scoped`
-/// drop), and sweeping everything is the defect. ROOM scope is the line, and it
-/// is the line precisely because `retire_outgoing` already owns that side.
+/// ROOM scope is the line, and it is the line precisely because `retire_outgoing` already owns that
+/// side.
 #[test]
 fn the_transient_clear_spares_the_rebuilt_rooms_own_items() {
     let mut app = App::new();
@@ -474,17 +465,13 @@ fn processor_restores_authored_start_room_platform() {
     assert_eq!(platform_set.0[0].size, authored.size);
 }
 
-/// **A DECLINED reset leaves the session exactly as it was.** (Campaign 4)
+/// **A DECLINED reset leaves the session exactly as it was.**
 ///
 /// Its completion criterion in as many words: *"a failed preparation leaves the
 /// current session byte-for-byte semantically unchanged except for
 /// diagnostics."* The decline path is documented in the processor and one test
 /// pins that teardown waits for the COMMIT rather than the request — but nothing
 /// asserted the criterion, and "the running session is untouched" was a comment.
-///
-/// An out-of-range start index makes `prepare_from_parts` return
-/// `UnknownRoom`, which is the shape of failure the path exists for: a preflight
-/// that says no before anything has been wiped.
 #[test]
 fn a_declined_reset_leaves_the_running_session_untouched() {
     let mut app = min_app();
@@ -498,7 +485,7 @@ fn a_declined_reset_leaves_the_running_session_untouched() {
     }
     // Point the session at a room that does not exist. Preparation must refuse.
     //
-    // ⚠ the `RoomSet` is a session-world COMPONENT, not a resource — it belongs
+    // the `RoomSet` is a session-world COMPONENT, not a resource — it belongs
     // to the session root so it dies with the session rather than outliving it
     // as a global.
     {

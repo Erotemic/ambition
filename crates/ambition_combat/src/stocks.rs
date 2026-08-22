@@ -70,11 +70,7 @@ pub struct FighterStockSpent {
 
 /// **The set [`spend_fighter_stocks`] runs in — this tick's stock spend lands.**
 ///
-/// A match's own rules (respawn placement, elimination, the winner announcement)
-/// run after the spend in the same phase, so a match decided before this tick's
-/// elimination does not announce the previous frame's answer.
-///
-/// ⚠ ONE member. `decide_stocks_match` is chained after and CONSUMES the spend;
+/// ONE member. `decide_stocks_match` is chained after and CONSUMES the spend;
 /// including it would make a game's rules wait on the engine's decision, which
 /// is the thing those rules are meant to run alongside.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -83,28 +79,23 @@ pub struct FighterStocksSpent;
 /// **The set the match-end decision runs in — after this, the outcome for this
 /// tick is settled.**
 ///
-/// ⭐ the twin of [`FighterStocksSpent`], and it exists because "run alongside
+/// the twin of [`FighterStocksSpent`], and it exists because "run alongside
 /// the decision" is safe for most of a ruleset and fatal for one kind of rule.
 /// The note above is right that a game's HUD, its respawn placement and its
 /// countdown are meant to run beside the engine's answer rather than behind it.
 /// But a rule that **REMOVES A PARTICIPANT** is not running alongside the
 /// question — it is destroying the question's input.
 ///
-/// ⛔⛔ **and that is a defect somebody played, not a hypothetical** (reported
-/// 2026-08-15: *"there seems like several cases where everyone but one player
-/// dying will not cause a match to end correctly"*). Smash's
-/// `take_eliminated_fighters_out_of_play` DESPAWNS an eliminated body, and
-/// `decide_stocks_match` reads the sides off the bodies that still exist. Both
-/// sat in `CombatSet::Settle` with no ordering between them, and the ruleset's
-/// own `.chain()` inserts an `ApplyDeferred`, so the despawn becomes visible
-/// part-way through the set. Lose the last loser's row and
-/// [`last_side_standing`] sees ONE side — and one side is not a match, so it
-/// answers `None`, forever. Whether a match ends therefore depended on how the
-/// scheduler happened to break a tie, which differs between the standalone demo
-/// and the hosted app: *"several cases"* is what an ambiguity looks like from
-/// the couch.
+/// Smash's `take_eliminated_fighters_out_of_play` DESPAWNS an eliminated body, and
+/// `decide_stocks_match` reads the sides off the bodies that still exist. Both sat in
+/// `CombatSet::Settle` with no ordering between them, and the ruleset's own `.chain()` inserts
+/// an `ApplyDeferred`, so the despawn becomes visible part-way through the set. Lose the last
+/// loser's row and [`last_side_standing`] sees ONE side — and one side is not a match, so it
+/// answers `None`, forever. Whether a match ends therefore depended on how the scheduler
+/// happened to break a tie, which differs between the standalone demo and the hosted app:
+/// *"several cases"* is what an ambiguity looks like from the couch.
 ///
-/// ⚠ so a ruleset orders **only its participant-removing rules** against this.
+/// so a ruleset orders **only its participant-removing rules** against this.
 /// Ordering a whole rules chain behind it would take away the concurrency the
 /// note above is protecting.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -112,7 +103,7 @@ pub struct MatchOutcomeDecided;
 
 /// Spend one stock per knockout, and clear the meter of anyone coming back.
 ///
-/// ⚠ **a fighter already eliminated is skipped, not spent again.** Without the
+/// **a fighter already eliminated is skipped, not spent again.** Without the
 /// `Without<FighterEliminated>` filter a body that is out but still standing —
 /// which it is, until a ruleset removes it — would keep absorbing knockouts, and
 /// `spend()` saturates at zero, so the elimination would be re-announced every
@@ -135,7 +126,7 @@ pub fn spend_fighter_stocks(
         let remaining = stocks.remaining;
         if eliminated {
             commands.entity(knockout.body).try_insert(FighterEliminated);
-            // ⭐ **and it stops being IN the fight**, which is the other half of
+            // **and it stops being IN the fight**, which is the other half of
             // being out of it. The body stays standing until a ruleset removes
             // it, so without this it goes on holding attack state and a place on
             // the anti-clump board — a corpse crowding the fighters who are still
@@ -170,7 +161,7 @@ pub fn spend_fighter_stocks(
 /// side has been wiped out and two are still fighting, which is the case a
 /// `survivors.len() == 1` test written the obvious way gets wrong in the other
 /// direction.
-/// ⚠ **the caller names the sides.** An earlier draft resolved a teamless seat to
+/// **the caller names the sides.** An earlier draft resolved a teamless seat to
 /// a label here and immediately baked a display convention into the engine — the
 /// versus stage numbers its seats from ONE, and the engine numbered from zero, so
 /// the two disagreed about who won. What a side is CALLED is the game's business;
@@ -211,25 +202,16 @@ pub struct StocksMatchDecided {
     pub winner: Option<String>,
 }
 
-// ⛔ **`StocksMatchSettled` used to live here, and it was in the wrong crate for
-// the same reason it was the wrong SHAPE** (D147). It is the latch that stops
-// `decide_stocks_match` announcing twice — and `decide_stocks_match` is not in
-// this crate, deliberately: this module owns the COUNT, and the QUESTION needs a
-// seat and a live match, which are the ruleset's. The latch is that question's
-// private state and now lives beside it, keyed to the match it is about rather
-// than to the process. See
+// It is the latch that stops `decide_stocks_match` announcing twice — and `decide_stocks_match` is
+// not in this crate, deliberately: this module owns the COUNT, and the QUESTION needs a seat and a
+// live match, which are the ruleset's. The latch is that question's private state and now lives
+// beside it, keyed to the match it is about rather than to the process. See
 // `ambition_platformer2d_actor_monolith::features::stocks_match::StocksMatchSettled`.
 
 /// **WHICH SIDE A SEATED FIGHTER FIGHTS FOR** — its declared team, or its own
 /// seat when the match declared none and every fighter is a side of one.
 ///
-/// ⭐ **one rule, and it had two copies.** `decide_stocks_match` folds bodies
-/// into sides with it and every scoreboard has to name the same sides back, so
-/// the day the seat wording changed ("seat 2" is 1-indexed on purpose — a
-/// scoreboard counts players, it does not index an array) one of the copies
-/// would have kept the old one and the winner card would have named a side no
-/// fighter was on. Naming it here makes "the same side" a call rather than a
-/// convention.
+/// Naming it here makes "the same side" a call rather than a convention.
 pub fn side_label(seat: usize, team: Option<&crate::targeting::MatchTeam>) -> String {
     team.map(|team| team.as_str().to_string())
         .unwrap_or_else(|| format!("seat {}", seat + 1))

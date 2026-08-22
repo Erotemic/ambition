@@ -1,11 +1,6 @@
 // Portal integration test: only built with the portal mechanic + RL stepping
 // API. Compiled out (empty test binary) when `portal` is disabled.
 #![cfg(all(feature = "portal", feature = "rl_sim"))]
-//! Room-level verification that the LDtk-authored `portal_lab` static portals are
-//! actually live and usable — i.e. a player who has NOT picked up the portal gun
-//! can walk onto an authored portal and be carried through it. (Jon hit "I still
-//! couldn't enter them"; the gun-less transit path + this test guard it.)
-//!
 //! Station A is a linked ground↔ground authored pair at x≈300 / x≈600 on the floor.
 //! Walking the player right across the entry portal must produce a TELEPORT —
 //! a single-frame position jump far larger than walking speed — which only the

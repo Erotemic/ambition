@@ -20,23 +20,13 @@ pub struct Platformer2dSimHarnessOptions {
     /// answer for that caller. The CLI flag is already strict for the opposite
     /// reason: somebody typed it, just now, meaning that room.
     ///
-    /// ⭐ **so this is the CALLER stating which of the two it is**, rather than
-    /// the verb changing meaning underneath both (D125). A test that names a
-    /// room means the room must be there; a silent fallback turns it into a test
-    /// of somewhere else — the failure that once had a sweep photograph the hub
-    /// twice and write a valid PNG for an invented id.
+    /// **so this is the CALLER stating which of the two it is**, rather than the verb changing
+    /// meaning underneath both.
     pub start_room_must_resolve: bool,
-    /// Run the SIM in `FixedUpdate` on `Time<Fixed>` (netcode N0.1) instead of
-    /// frame-stepped in `Update`.
-    ///
     /// The schedule GRAPH is identical either way — every sim plugin registers
     /// into `SimSchedule` rather than naming a literal — so this flag exists to
     /// prove exactly that: a suite parameterized over both modes is N0.1's exit
     /// check.
-    ///
-    /// When set, each `Platformer2dSimHarness::step` advances exactly one sim tick: the
-    /// frame dt handed to Bevy is pinned to the `Time<Fixed>` timestep, so the
-    /// accumulator expends once and only once.
     pub fixed_tick: bool,
     /// Drive the authoritative simulation through GGRS. `SyncTest` is the
     /// deterministic harness mode: GGRS repeatedly saves, rewinds, and
@@ -154,12 +144,8 @@ impl RollbackMode {
 /// real-time behavior. This is fine for "drive the sim at human pace"
 /// use cases (random walker, scripted demo).
 ///
-/// `Fixed { dt }` advances `Time` by exactly `dt` seconds per step
-/// before running `Update`. This is what RL training and replay
-/// debugging want: identical (action_seq, initial_state) tuples produce
-/// identical trajectories regardless of how fast the host machine
-/// runs the loop. The default fixed dt of `1.0 / 60.0` matches the
-/// visible binary's nominal 60 Hz target.
+/// This is what RL training and replay debugging want: identical (action_seq, initial_state)
+/// tuples produce identical trajectories regardless of how fast the host machine runs the loop.
 #[derive(Clone, Copy, Debug, Default)]
 pub enum TimestepMode {
     #[default]
@@ -170,7 +156,6 @@ pub enum TimestepMode {
 }
 
 impl TimestepMode {
-    /// 60 Hz fixed timestep — matches the sandbox's nominal frame rate.
     pub fn fixed_60hz() -> Self {
         TimestepMode::Fixed { dt: 1.0 / 60.0 }
     }

@@ -1,22 +1,12 @@
 //! **A LINK IS NOT A BOOT.**
 //!
-//! The web build gate compiles and links the release wasm. It passed on an app
-//! that loaded the page, initialized wgpu, painted a canvas, and showed nothing
-//! at all — no launcher, no room, no error. `run_web` had hand-spelled the game
-//! composition and its copy was missing `AmbitionShellHosted`, the shell host,
-//! an initial route, and `install_ambition_shell_visuals`; with no route there
-//! is nothing to boot into, and with no shell visuals there is no room.
+//! The web build gate compiles and links the release wasm. It passed on an app that loaded the
+//! page, initialized wgpu, painted a canvas, and showed nothing at all — no launcher, no room,
+//! no error.
 //!
-//! `capture_scene` had already lost *the entire room* to the identical omission
-//! two days running (2026-08-06 → 08-08). Two hand-spelled copies, two silent
-//! blanks — so the repair is one `compose_ambition_visible_game` that every
-//! platform host calls, and what this file pins is the small set of facts whose
-//! absence is invisible until a human looks at a screen.
-//!
-//! ⚠ **these are not "is the plugin list still the plugin list" assertions.**
-//! Each one names something that, when missing, produces a *silently blank*
-//! app: a state nothing prints a warning about, no test observed, and only Jon
-//! opening a browser could find.
+//! **these are not "is the plugin list still the plugin list" assertions.**
+//! Each assertion covers composition state whose absence produces a blank app without a
+//! diagnostic.
 
 use bevy::prelude::*;
 
@@ -25,25 +15,23 @@ use ambition_app::app::{build_visible_app, VisibleRenderMode};
 use ambition_platformer2d::game_shell::ShellHostConfiguration;
 use ambition_platformer2d::sprite_sheet::game_assets::GameAssetConfig;
 
-/// What every visible Ambition host owes, measured on a built App.
 struct CompositionContract {
     /// The resource `publish_direct_prepared_session_root` checks. Without it a
     /// host carries the build-time session root AND the activation's, which is
     /// two canonical roots.
     shell_hosted: bool,
-    /// The route the host boots into. `None` means the shell has nowhere to go
-    /// and the surface stays empty forever — the browser's exact symptom.
+    /// The route the host boots into.
     initial_route: Option<String>,
     /// Per-session room presentation. Missing it, the session activates, the
     /// simulation runs, and the world is never made visible.
     room_visuals: bool,
-    /// ⛔⛔ **SOMETHING THAT DRAWS A ROUTE.** A shell host routes; it does not
+    /// **SOMETHING THAT DRAWS A ROUTE.** A shell host routes; it does not
     /// paint. `MinimalShellPlugins` adds `BasicShellPresentationPlugin` only
     /// under the `basic_presentation` FEATURE, so a persona whose Cargo features
     /// omit it composes a perfectly correct host that boots to the launcher and
     /// renders nothing at all.
     ///
-    /// ⚠ **this is a FEATURE fact, which is why the first version of this file
+    /// **this is a FEATURE fact, which is why the first version of this file
     /// could not see it.** Every assertion here ran under the default desktop
     /// features, where the answer is trivially yes. The browser's feature set is
     /// a different build, and it was the one that was blank.
@@ -115,7 +103,7 @@ fn assert_contract_holds(persona: &str, app: &App) {
     );
 }
 
-/// ⭐ **this is the BROWSER's game-side composition, run on a native host.**
+/// **this is the BROWSER's game-side composition, run on a native host.**
 /// `shell_hosted` is read off `VisibleGameSpec::browser` rather than written as
 /// `true`, so what gets composed here is what `run_web` composes — the browser
 /// and this test cannot drift apart without the shared spec changing under
@@ -133,7 +121,7 @@ fn the_direct_gameplay_persona_composes_a_route_and_room_visuals() {
     assert_contract_holds("direct gameplay persona", &app);
 }
 
-/// ⛔ **THE POISON.** Every probe above reports "present" by reading a world;
+/// **THE POISON.** Every probe above reports "present" by reading a world;
 /// a probe that cannot report "absent" proves nothing. This is the pre-repair
 /// browser: Bevy's foundation and no Ambition composition on top of it.
 #[test]
@@ -154,7 +142,7 @@ fn the_probes_can_see_an_uncomposed_app() {
 /// three answers a `<canvas>` host gives can be read here rather than
 /// re-derived from a `cfg(wasm32)` function no native test can reach.
 ///
-/// ⚠ what this defends is the shape of the repair, not the booleans: as long as
+/// what this defends is the shape of the repair, not the booleans: as long as
 /// `run_web` is a platform foundation plus `compose_ambition_visible_game`, the
 /// composition above is the composition the browser gets. The day someone adds
 /// a fourth game-side step to `run_web` directly, this file is where the reader

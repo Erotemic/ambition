@@ -118,14 +118,6 @@ impl KeyboardPreset {
                 grab: KeyCode::KeyS,
                 taunt: KeyCode::KeyT,
                 interact: KeyCode::KeyF,
-                // ⚠ **X IS THE CLASSIC B BUTTON: hold to run, press to fire.**
-                // Binding `attack` AND `modifier` to the same key is DELIBERATE
-                // and is what Jon asked for ("z is jump, and x is hold to run,
-                // or if you have the spark blossom it fireballs if you press
-                // it"). It reads like a collision and has now been filed as a
-                // bug by two separate reviewers. It is not one. Do not "resolve"
-                // it by unbinding either action.
-                //
                 // How it actually works, since the obvious explanation is wrong:
                 // the run/fire pair is delivered ENTIRELY by the modifier slot —
                 // `modifier_held` is her run, `modifier_pressed` is her spark
@@ -145,10 +137,6 @@ impl KeyboardPreset {
                 // that would genuinely fire two actions is an actor carrying
                 // both a melee verb and a modifier technique; no such actor
                 // exists, and that, not the binding, is what would need guarding.
-                //
-                // It used to be `S`, which is a WASD key on a preset that steers
-                // with the arrows: the run button sat in the middle of the
-                // keyboard, nowhere near the two buttons the layout is named for.
                 modifier: KeyCode::KeyX,
                 utility: KeyCode::KeyD,
                 map: KeyCode::Tab,
@@ -277,22 +265,7 @@ impl KeyboardPreset {
 
     /// A map with the GAMEPAD half only.
     ///
-    /// This is what a second local seat gets. Handing player two the full
-    /// preset would bind them to the same keyboard player one is using, which
-    /// is the couch bug one layer up from the one device assignment fixes:
-    /// partitioning the controllers is pointless if WASD still moves both
-    /// fighters.
-    ///
-    /// Not a reduced or "good enough" binding set — it is the same gamepad
-    /// bindings player one has, so the two seats are symmetric on the pad and
-    /// nobody is playing a worse version of the game because they joined second.
-    /// (`Special` has no gamepad button on either seat: every face, shoulder,
-    /// trigger and stick button is already assigned, and double-binding one
-    /// would fire two actions at once. It is left to the remap UX and to a
-    /// GAME's [`crate::BindingLayout`], which PERMUTES the pad rather than
-    /// adding to it and so can free a button — Jon's smash layout puts Special
-    /// on X. `the_default_pad_leaves_special_to_a_profile_and_a_profile_can_take_it`
-    /// pins both halves.)
+    /// This is what a second local seat gets.
     #[cfg(feature = "input")]
     pub fn gamepad_only_map() -> InputMap<Platformer2dInputActionMonolith> {
         let mut map = InputMap::default();
@@ -343,7 +316,7 @@ impl KeyboardPreset {
         // would fire TWO actions at once), gamepad-Special is intentionally left
         // to the remap UX (P5) and to a game's `BindingLayout`. Keyboard (this
         // key) and the touch overlay's dedicated Special button cover it in
-        // Ambition. ⚠ **that is a claim about THIS DEFAULT, not about pads** — a
+        // Ambition. **that is a claim about THIS DEFAULT, not about pads** — a
         // layout permutes an already-full pad and so can free a button for
         // Special, which is what the smash profile does (X).
         // `special_is_a_dedicated_slot_...` and
@@ -640,12 +613,9 @@ fn insert_optional(
 
 /// The label a HUD should print for a key.
 ///
-/// ⭐ **public since 2026-08-04 so a GAME's on-screen legend can read the same
-/// table the BINDINGS do.** Sanic's speedway printed a hardcoded
-/// `"START   Z: JUMP   DOWN+X: REV   RELEASE DOWN: DASH   D: SUPER"` — and the
-/// preset binds no `D` at all. Jon reported it as *"in sanic the button text
-/// doesn't match what the controls really are"*, and a legend written as a
-/// string literal cannot help but drift from the preset beside it.
+/// **public so a GAME's on-screen legend can read the same table the BINDINGS do.** Sanic's
+/// speedway printed a hardcoded `"START Z: JUMP DOWN+X: REV RELEASE DOWN: DASH D: SUPER"` — and
+/// the preset binds no `D` at all.
 pub fn key_name(key: KeyCode) -> &'static str {
     match key {
         KeyCode::KeyA => "A",
@@ -706,18 +676,12 @@ mod tests {
         assert_eq!(KeyboardPreset::by_index(usize::MAX).id, PresetId::ArrowsZxc);
     }
 
-    /// Gate 5 (GPT-5.6 review) — the dynamic-slot policy for Special, pinned.
-    /// Special is a dedicated first-class slot: every keyboard preset binds it to
-    /// its OWN key, distinct from Blink (`secondary`) — the old alias is retired
-    /// at the binding layer too.
+    /// Gate 5 — the dynamic-slot policy for Special, pinned.
     ///
-    /// ⭐ **the gamepad half of this policy is a claim about the DEFAULT preset,
-    /// and D146 slice 3 made that distinction load-bearing.** The reason there
-    /// is no gamepad Special here has never been "Special does not deserve a
-    /// button" — it is that THIS pad is fully assigned, so adding one would
-    /// double-bind a button and fire two actions at once. A GAME's
-    /// [`crate::BindingLayout`] is a permutation, not an addition: it can free a
-    /// button first, and Jon's smash layout does exactly that (X = Special).
+    /// **the gamepad half of this policy is a claim about the DEFAULT preset, and made that
+    /// distinction load-bearing.** The reason there is no gamepad Special here has never been
+    /// "Special does not deserve a button" — it is that THIS pad is fully assigned, so adding
+    /// one would double-bind a button and fire two actions at once.
     ///
     /// So the policy is now stated with its scope attached, and the test asserts
     /// BOTH halves — the default still declines the button, and a mode layout
@@ -762,23 +726,16 @@ mod tests {
 
     /// **EVERY SLOT A BODY CAN CARRY IS ON THE KEYBOARD, ON EVERY PRESET.**
     ///
-    /// ⭐⭐ **the sweep this file had cases of but never a sweep.** Three verbs
-    /// have now been unreachable by a person while every other layer of them
-    /// worked, and each was found by a human pressing a button rather than by a
-    /// test: `Special` had no gamepad button in any composition; `Modifier` was
-    /// drawn on the touch overlay and sent nothing (2026-08-04); and `Grab` was
-    /// bound everywhere and dropped at the player brain (2026-08-18, Jon: *"grab
-    /// doesn't work on george when I press the button that says grab"*). The
-    /// existing tests pin the first two ONE CASE AT A TIME, which is a list that
-    /// grows only after each new verb has already shipped broken.
+    /// The existing tests pin the first two ONE CASE AT A TIME, which is a list that grows only
+    /// after each new verb has already shipped broken.
     ///
-    /// ⭐ **the keyboard is the right subject** and the pad is not: a pad may
+    /// **the keyboard is the right subject** and the pad is not: a pad may
     /// legitimately decline a slot (the default pad is fully assigned and leaves
     /// `Special` to a game's layout — the test above pins exactly that), while
     /// the keyboard is the device every composition always has. A slot with no
     /// key anywhere is a verb no keyboard player can reach.
     ///
-    /// ⚠ this guards the BINDING, which is one link. The two below it are
+    /// this guards the BINDING, which is one link. The two below it are
     /// guarded by the compiler: `ControlFrame`'s literal in `control.rs` has no
     /// rest pattern, and `brain/player.rs` destructures exhaustively.
     #[cfg(feature = "input")]

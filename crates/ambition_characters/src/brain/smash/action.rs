@@ -40,17 +40,6 @@ pub enum SpecificAction {
     Walk { dir: f32 },
     /// **Close hard** — the same direction as `Walk`, at FULL locomotion
     /// throttle instead of the walk's partial one.
-    ///
-    /// ⛔ this was `Dash`, and the name was the bug. It emitted `burst_pressed`
-    /// on top of the throttle, so a brain that had decided *close the gap* was
-    /// also asking for whatever the shared burst button meant on that body —
-    /// which on a smash fighter is a DODGE ROLL, i.e. an evade in the direction
-    /// it was trying to run. Closing distance is locomotion; it is not a
-    /// discrete authored verb and it consults no ability bit (D146). A body
-    /// genuinely wanting the burst asks
-    /// [`ambition_platformer2d_core::movement::resolve_burst_maneuver`]
-    /// what a press would MEAN first — reading `abilities.dash` is what that
-    /// resolver exists to replace.
     Sprint { dir: f32 },
     /// Press jump (single press edge). Vertical motion handled by
     /// the player-side physics; the brain just emits the edge.
@@ -70,23 +59,17 @@ pub enum SpecificAction {
     /// Trigger the actor's special. Resolved by the actor's
     /// `SpecialActionSpec`.
     Special,
-    /// **Raise a guard and stand ground.** The brain's OWN way of asking for the
-    /// same thing a person's shield button asks for — `emit_inputs` writes
-    /// `shield_held`, the body's `AbilitySet::shield` decides whether that means
-    /// anything, and no physical control name appears anywhere in the policy
-    /// (D146 slice 2, Jon: *"CPU logic should be able to request Shield
-    /// semantically without pretending to press a physical controller
-    /// trigger."*).
+    /// **Raise a guard and stand ground.** The brain's OWN way of asking for the same thing a
+    /// person's shield button asks for — `emit_inputs` writes `shield_held`, the body's
+    /// `AbilitySet:shield` decides whether that means anything, and no physical control name
+    /// appears anywhere in the policy.
     ///
-    /// ⚠ **not "player-only, reserved", which is what this said for months.** The
-    /// reactive block in `tick_smash` had been raising a guard by writing
-    /// `shield_held` directly beside this variant, so the guard had two producers
-    /// and the semantic action had none. It commits THIS now.
+    /// It commits THIS now.
     Shield,
     /// **Reach out and catch somebody** — the brain's own way of asking for the
     /// same thing a person's Grab button asks for.
     ///
-    /// ⭐ it writes `grab_pressed` and nothing else. There is deliberately no
+    /// it writes `grab_pressed` and nothing else. There is deliberately no
     /// `cpu_wants_grab` beside it and no capture API a brain can call: a CPU
     /// requests a grab the way a human does, and everything downstream —
     /// eligibility, arbitration, the relationship — reads one answer.
@@ -95,19 +78,16 @@ pub enum SpecificAction {
     /// throw. Carries no capture reference, because the relationship decides
     /// who: this is only the press and its direction.
     ///
-    /// ⚠ the same `melee_pressed` a free fighter's jab uses. What makes it a
+    /// the same `melee_pressed` a free fighter's jab uses. What makes it a
     /// pummel is the CONTEXT, resolved by `trigger_moveset_moves` — which is
     /// exactly the property that keeps a CPU and a human on one road.
     CaptureAttack { forward: bool },
     /// **Struggle out of somebody's grip** — the captive's half of a capture,
     /// and the only thing a held body can ask for.
     ///
-    /// ⭐ it writes an ordinary attack press, exactly as a person mashing
-    /// buttons would. Nothing downstream reads it as an attack: a captive's
-    /// frame is blanked before the combat phase sees it, and the one reader
-    /// placed before that blanking credits the press to the hold's escape. So a
-    /// CPU struggles through the same channel a person struggles through, and
-    /// there is no `cpu_mash_credit` anywhere.
+    /// it writes an ordinary attack press, exactly as a person mashing buttons would. So a CPU
+    /// struggles through the same channel a person struggles through, and there is no
+    /// `cpu_mash_credit` anywhere.
     CaptureStruggle,
     /// Spot/air dodge in `dir`. Reserved.
     Dodge { dir: ae::Vec2 },
@@ -214,15 +194,12 @@ pub fn choose_action(
             }
             // In range but on cooldown — hold ground, face target.
             //
-            // NOTE (§A1 subsumption): the moveset is the special EXECUTOR and the
-            // capability is on `ActionSet.special`, so wiring the autonomous brain to
-            // choose `SpecificAction::Special` here is a one-line change. It's LEFT
-            // OFF deliberately: a naive "fire special whenever melee recharges" cadence
-            // spams the move and crowds out the damage-triggered regroup kit (it broke
-            // the duel-arena regroup-dash). The autonomous special CADENCE is a feel/AI
-            // tuning pass for Jon against the landed system (needs a real special
-            // cooldown / spacing gate). Possession already fires the special via
-            // `special_pressed` → the moveset today.
+            // NOTE (§A1 subsumption): the moveset is the special EXECUTOR and the capability is on
+            // `ActionSet.special`, so wiring the autonomous brain to choose
+            // `SpecificAction::Special` here is a one-line change. It's LEFT OFF deliberately: a
+            // naive "fire special whenever melee recharges" cadence spams the move and crowds out
+            // the damage-triggered regroup kit (it broke the duel-arena regroup-dash). Possession
+            // already fires the special via `special_pressed` → the moveset today.
             SpecificAction::Idle
         }
         BroadMode::Reposition => {

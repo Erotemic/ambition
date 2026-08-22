@@ -20,17 +20,17 @@ pub struct ActorPlacementContext {
     /// its collision box is, so lowering needs it exactly where it needs the
     /// catalog.
     pub sheets: ambition_sprite_sheet::character::sheets::AuthoredSheets,
-    /// **The prepared characters this host can build**, so lowering can ask what
-    /// a character's own DEFAULT autonomous profile is (D73 phase 1).
+    /// **The prepared characters this host can build**, so lowering can ask what a character's
+    /// own DEFAULT autonomous profile is.
     ///
-    /// ⚠ cloned like its three neighbours, and for the same reason: lowering runs
+    /// cloned like its three neighbours, and for the same reason: lowering runs
     /// against a snapshot of authored content taken when staging was requested,
     /// not against live resources that may change mid-commit.
     pub prepared: crate::character_runtime::PreparedCharacterRegistry,
     /// **The shared controller policies this host published**, so a PLACEMENT
     /// may name one (`EnemySpawnSpec::brain_profile`).
     ///
-    /// ⭐ a separate authority from the catalog beside it, deliberately: a
+    /// a separate authority from the catalog beside it, deliberately: a
     /// character catalog answers who exists, and this answers what may drive a
     /// body. An EMPTY registry means "this composition publishes no shared
     /// policies", which is the correct reading for a fixture and for a host that
@@ -40,10 +40,10 @@ pub struct ActorPlacementContext {
 }
 
 impl ActorPlacementContext {
-    /// **Supply the prepared cast**, so lowering can read a character's own
-    /// default autonomous profile (D73 phase 1).
+    /// **Supply the prepared cast**, so lowering can read a character's own default autonomous
+    /// profile.
     ///
-    /// ⚠ **a builder rather than a fourth constructor argument, and that is a
+    /// **a builder rather than a fourth constructor argument, and that is a
     /// judgement not a shortcut.** Two of the four construction sites have the
     /// registry to hand and two do not (a summon system and a pair of
     /// construction fixtures), and an EMPTY registry is already a meaningful,

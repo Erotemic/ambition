@@ -1,7 +1,5 @@
 //! **THE NEIGHBOUR PREFETCH PREPARES ROOMS THE PLAYER CAN ACTUALLY WALK INTO.**
 //!
-//! Jon's 2026-08-15 log was one line repeating at frame rate for two minutes:
-//!
 //! ```text
 //! WARN could not prefetch construction for neighbor room 'basement_enemies':
 //!   `placement:EnemySpawn-0140` names character `goblin`, which this composition
@@ -17,13 +15,9 @@
 //! from scratch on the very next frame — a full room plan per neighbour per
 //! frame, thrown away, forever.
 //!
-//! ⛔⛔ **THIS IS THE THIRD ROAD, AND THE OTHER TWO WERE FIXED IN AUGUST.**
-//! `RoomConstructionPlan::prepare_from_world` carries a comment beginning *"THIS
-//! ROAD BUILT ITS ROOMS WITHOUT THE CAST, AND NOTHING SAID SO"* (AC6,
-//! 2026-08-13); the covered transition path in `loading.rs` supplies both
-//! authorities. Three sites hand-assembled the same context, two learned, and
-//! nobody counted the third. The context is built in ONE place now, so the next
-//! authority cannot be added to two roads out of three.
+//! Three sites hand-assembled the same context, two learned, and nobody counted the third. The
+//! context is built in ONE place now, so the next authority cannot be added to two roads out of
+//! three.
 
 use ambition_app::app::{build_visible_app, VisibleRenderMode};
 
@@ -102,20 +96,10 @@ fn every_neighbour_of_the_starting_room_gets_a_prepared_plan() {
 /// is a per-frame tax whose hit rate looks perfect, because every promotion does
 /// find an entry — one that was rebuilt moments earlier.
 ///
-/// ⚠ **written as a suspicion and FALSIFIED by its first run, which is why it
-/// stays.** The refresh condition ORs `room_set.is_changed()`, and `RoomSet` is
-/// rollback-registered state — the exact shape that made
-/// `advance_room_transition_content_epoch_system` bump its epoch every frame
-/// under a rollback host, repaired there by comparing room ids BY VALUE. The
-/// same reasoning predicted this prefetch re-derives its whole neighbourhood
-/// every frame on the shipped GGRS host. It does not: measured at zero
-/// preparations across 60 idle frames, on that host.
-///
-/// ⭐ so this is a guard, not a bug report. The analogy was good enough to act on
-/// and wrong, and the counter it needed (`preparations` — every other one
-/// describes promotions) is what told the difference. If a future change makes
-/// the refresh condition fire on rollback restores, this says so in numbers
-/// instead of the cost hiding behind a perfect hit rate.
+/// The analogy was good enough to act on and wrong, and the counter it needed (`preparations` —
+/// every other one describes promotions) is what told the difference. If a future change makes
+/// the refresh condition fire on rollback restores, this says so in numbers instead of the cost
+/// hiding behind a perfect hit rate.
 #[test]
 fn a_settled_neighbourhood_stops_preparing_itself() {
     let mut app = gameplay_after_startup();

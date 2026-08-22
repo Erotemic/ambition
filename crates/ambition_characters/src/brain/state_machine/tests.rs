@@ -1,12 +1,8 @@
 use super::*;
 use crate::brain::snapshot::BrainSnapshot;
 
-/// Pin the SignumOr trait's "near-zero → fallback" semantics.
-/// Many brain ticks lean on this to keep facing stable when
-/// movement input is briefly neutral; a regression to plain
-/// `signum()` would let actors snap to 0 facing on neutral
-/// frames. Edge cases: positive, negative, exactly zero,
-/// sub-epsilon positive.
+/// Pin the SignumOr trait's "near-zero → fallback" semantics. Edge cases: positive, negative,
+/// exactly zero, sub-epsilon positive.
 #[test]
 fn signum_or_falls_back_when_input_is_near_zero() {
     assert_eq!((0.0_f32).signum_or(1.0), 1.0);
@@ -567,11 +563,7 @@ fn sniper_holds_quiet_when_target_dead() {
 
 #[test]
 fn brain_tick_overwrites_prior_frame_intent() {
-    // Brain.tick treats `out` as a write target, not an
-    // accumulator. Pre-poisoned intent (melee_pressed=true,
-    // fire=Some) must be cleared before the brain writes its
-    // own intent. Pins this so a future stale-state bug
-    // doesn't sneak through.
+    // Brain.tick treats `out` as a write target, not an accumulator.
     let mut sm = StateMachineCfg::StandStill;
     let mut frame = crate::actor::control::ActorControlFrame::neutral();
     frame.melee_pressed = true;
@@ -626,11 +618,6 @@ fn shark_steers_away_from_aerial_crowding() {
 
 #[test]
 fn brain_dispatch_50_actors_under_one_millisecond() {
-    // Sustained dispatch perf: tick 50 brains' state machine
-    // once, all variants represented, total under 1ms. Pins
-    // the "brain dispatch is monomorphic per-variant" property
-    // — a regression to dyn dispatch or boxed brains would
-    // blow this.
     let mut sm_list = vec![
         StateMachineCfg::StandStill,
         StateMachineCfg::Patrol {
@@ -669,12 +656,6 @@ fn brain_dispatch_50_actors_under_one_millisecond() {
 
 #[test]
 fn brain_tick_cost_is_well_under_one_millisecond() {
-    // Smoke check on per-tick brain dispatch cost. Ten ticks
-    // of a MeleeBrute brain should complete well under 1ms on
-    // any reasonable hardware. A regression that adds heap
-    // allocation or expensive math inside the brain hot path
-    // would trip this — it'd grow per-tick by orders of
-    // magnitude.
     let mut sm = StateMachineCfg::MeleeBrute {
         cfg: MeleeBruteCfg::STRIKER_DEFAULT,
         state: MeleeBruteState::default(),

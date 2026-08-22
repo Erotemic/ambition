@@ -1,6 +1,4 @@
-//! Canonical 24-slot item catalog and owned-item state. The fixed slot order is
-//! gameplay data and is independent of the menu renderer; pickups, dialogue,
-//! equipment, and inventory presentation share this authority.
+//! Canonical 24-slot item catalog and owned-item state.
 
 pub mod equipment;
 pub mod shop;
@@ -89,17 +87,12 @@ pub enum Item {
 /// several functions with nothing stopping a forgotten arm. Row order must
 /// match the [`Item`] discriminants (pinned by `item_meta_table_is_index_aligned`).
 ///
-/// **Owned + serde-authorable (C1):** the fields are owned + `serde`-round-trippable,
-/// so a content game authors its item flavor/wiring as DATA in `items.ron`
-/// (installed via [`install_item_catalog`], the [`ItemCatalog`] override) — the same
-/// "content out of core" pattern as `boss_profiles.ron` / boss sheets (C6). The
-/// engine's built-in 24 stay in [`ITEM_META`] as the byte-identical default.
-/// ⚠ **`deny_unknown_fields` is load-bearing, not tidiness.** An authored field
-/// nothing consumes is the most expensive content bug there is: the row looks
-/// authored, the mechanic silently never fires, and nothing anywhere says so.
-/// The `item_catalog` schema maps the resulting serde error to
-/// `DiagnosticCode::UnknownField`. The built-in `ITEM_META` table is built in
-/// Rust rather than deserialized, so this constrains `items.ron` only.
+/// **Owned + serde-authorable (C1):** the fields are owned + `serde`-round-trippable, so a
+/// content game authors its item flavor/wiring as DATA in `items.ron` (installed via
+/// [`install_item_catalog`], the [`ItemCatalog`] override) — the same "content out of core"
+/// pattern as `boss_profiles.ron` / boss sheets (C6). The `item_catalog` schema maps the
+/// resulting serde error to `DiagnosticCode::UnknownField`. The built-in `ITEM_META` table is
+/// built in Rust rather than deserialized, so this constrains `items.ron` only.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ItemMeta {
@@ -533,7 +526,7 @@ impl Item {
 /// [`ItemCategory::Consumable`] it is a stack size. `equipped` is the slot the
 /// body is currently holding, written by the ONE take-custody operation.
 ///
-/// # ⭐⭐ WHAT THIS TABLE IS NOT AN AUTHORITY FOR (D132)
+/// # ⭐⭐ WHAT THIS TABLE IS NOT AN AUTHORITY FOR
 ///
 /// **A held object is NOT a row here.** Nine of the 24 slots
 /// ([`Item::held_item_id`] is `Some`) can be an INSTANCE in the world as well as
@@ -551,13 +544,7 @@ impl Item {
 /// is an entitlement with no object; an object is an occurrence the checkpoint
 /// owns — and the disagreement has nowhere to live.
 ///
-/// ⚠ [`Self::to_persisted`] therefore writes the STORED quantity, never
-/// [`Self::count`]. Persisting the hand as a quantity would put the object back
-/// in the save as a row, which is the same duplication arriving by the durable
-/// road.
-/// ⚠ `PartialEq` so a checkpoint baseline can skip rewriting an unchanged bag —
-/// the same "compare before writing" every other baseline does, and the reason
-/// a resting object does not mark the ledger changed on every tick of its life.
+/// ⚠ [`Self::to_persisted`] therefore writes the STORED quantity, never [`Self::count`].
 #[derive(Resource, Clone, Debug, PartialEq, Eq)]
 pub struct OwnedItems {
     counts: [u32; ITEM_COUNT],
@@ -575,12 +562,9 @@ impl Default for OwnedItems {
 
 /// **Somebody asked for an item to be granted; the simulation grants it.**
 ///
-/// ⛔ **`<<give_item>>` used to mutate [`OwnedItems`] directly**, from a
-/// presentation system, against a rollback-registered resource. A rewind
-/// restored the bag and did not re-run the command — the Yarn runner is not
-/// rewound, and it does not execute between resimulated ticks — so the grant
-/// silently un-happened, leaving the authoritative inventory disagreeing with
-/// the history the player had already been shown.
+/// A rewind restored the bag and did not re-run the command — the Yarn runner is not rewound, and
+/// it does not execute between resimulated ticks — so the grant silently un-happened, leaving the
+/// authoritative inventory disagreeing with the history the player had already been shown.
 ///
 /// The `count` is already floored to a whole number here: parsing "1.9 potions"
 /// is the command's business, and an applier that had to re-decide it would be a

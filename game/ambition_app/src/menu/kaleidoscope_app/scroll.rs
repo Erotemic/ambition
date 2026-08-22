@@ -1,7 +1,5 @@
 //! Cube-menu scroll handling: the System-face row count + the wheel and
 //! drag scroll appliers that clamp the scroll override.
-//!
-//! Split out of the kaleidoscope menu host (2026-06-15).
 
 use super::*;
 

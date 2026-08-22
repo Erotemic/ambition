@@ -1,6 +1,5 @@
 """Every `Text` the MENU renderer spawns names the font it draws with.
 
-## The bug
 
 Bevy's `TextFont` is a REQUIRED COMPONENT of `Text`. Spawning `Text::new(label)`
 with no `TextFont` is therefore not "unstyled" — Bevy inserts
@@ -57,12 +56,10 @@ MENU_RENDER_PATHS = (
 
 SPAWN_CALL = re.compile(r"\bspawn\s*\(")
 TEXT_CTOR = re.compile(r"\bText(2d)?\s*::\s*(new|default)\b")
-# ⚠ `font_size` must NOT count as a resolved font, and neither must the type
-# name `TextFont` — those are the two spellings present at every offending site.
-# Word boundaries exclude both: `_` is a word character, so `\bfont\b` cannot
-# match inside `font_size`, and there is no boundary before the `font` in
-# `TextFont`. Getting this wrong in the permissive direction is how the guard
-# would silently pass on the bug it exists to catch.
+# `font_size` must NOT count as a resolved font, and neither must the type name `TextFont` — those
+# are the two spellings present at every offending site. Word boundaries exclude both: `_` is a word
+# character, so `\bfont\b` cannot match inside `font_size`, and there is no boundary before the
+# `font` in `TextFont`.
 FONT_RESOLVED = re.compile(
     r"""
       font \s* :            # `TextFont { font: <handle>, .. }`

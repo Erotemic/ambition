@@ -1,12 +1,4 @@
 //! Default Ambition cutscene library + room→cutscene bindings.
-//!
-//! These are authored Ambition *content* — named scripts (`test_intro`,
-//! `boss_intro_gradient_sentinel`, `cutscene_lab_intro`) and the room ids they
-//! play in. They were previously hosted by `ambition_render::cutscene`; they now
-//! live with the rest of the named dialogue content. The reusable runtime types
-//! ([`CutsceneLibrary`], [`RoomCutsceneBindings`]) live in `ambition_cutscene`;
-//! the playback systems live in `ambition_platformer2d_actor_monolith::cutscene`. The intro
-//! slice layers more scripts/bindings on top via `crate::intro`.
 
 use ambition_cutscene::{CutsceneBeat, CutsceneLibrary, CutsceneScript, RoomCutsceneBindings};
 

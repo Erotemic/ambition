@@ -98,13 +98,8 @@ impl bevy::prelude::Plugin for MapStatePlugin {
     }
 }
 
-// ⭐ **THE MAP TAB'S RENDERER JOINED ITS STATE, 2026-08-17 (D33).** These four
-// modules lived in the actor monolith as `menu::map` and imported
-// `ambition_menu::map` for the very state they render — the renderer-agnostic
-// half was already here and the adapter half was a crate away. Nothing in the
-// simulation ever called them: their only consumers are the runtime's
-// progression schedule and the app's shell host, both of which reach this crate
-// directly.
+// Nothing in the simulation ever called them: their only consumers are the runtime's progression
+// schedule and the app's shell host, both of which reach this crate directly.
 mod input;
 mod pointer;
 mod systems;

@@ -5,16 +5,16 @@
 //! half: translating that vocabulary into the existing `bevy_ggrs` registration,
 //! checksum, mapping, probe, and load-clear machinery.
 //!
-//! ⭐ **the split is deliberate.** Generic registration over `T` requires a
+//! **the split is deliberate.** Generic registration over `T` requires a
 //! monomorphizing call site; it never required a netcode crate to own the list of
 //! `T`s. A domain invokes a generic trait method, this wrapper performs the GGRS
 //! operation, and no gameplay crate gains a `bevy_ggrs` dependency.
 //!
-//! ⚠ **a wrapper around `&mut App` is required by the orphan rule.** The trait
+//! **a wrapper around `&mut App` is required by the orphan rule.** The trait
 //! lives in the floor and `bevy_app::App` is foreign, so the runtime cannot
 //! implement the trait directly for `App`.
 //!
-//! ⛔ **this file must never grow a list of domains or concrete gameplay types.**
+//! **this file must never grow a list of domains or concrete gameplay types.**
 //! It owns HOW a rollback declaration is installed, never WHAT the declarations
 //! are.
 

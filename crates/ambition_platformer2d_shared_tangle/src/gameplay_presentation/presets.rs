@@ -48,9 +48,6 @@ pub mod profiles {
         }
     }
 
-    /// A fixed 4:3 gameplay viewport on every platform; the surround is
-    /// available to HUD and controls.
-    ///
     /// Touch-primary pins the rectangle to the TOP of the safe display rather
     /// than centering it, so the vertical slack collects under the gameplay
     /// area — which is exactly where thumbs are. On a display that is not

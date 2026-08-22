@@ -1,4 +1,4 @@
-// ⚠ no `bevy::prelude::*` here on purpose: every call this binary makes —
+// no `bevy::prelude::*` here on purpose: every call this binary makes —
 // `App::update`, `App::world`, `World::resource` — is an inherent method on a
 // type the demo crate hands back, so the glob import was unused and the
 // workspace's no-warnings gate refused it. The dependency stays in the manifest

@@ -256,11 +256,9 @@ fn reused_archetype_at_a_new_placement_is_not_pre_cleared() {
     );
 }
 
-/// Regression: a defeated boss must REVIVE after a same-room reset (the NPC
-/// "reset and start again" path). The in-place reset resets `health`/`alive` but
-/// must also clear the entity-local phase state — otherwise the boss stays in
-/// last attempt's `Death` phase and the death-resolution re-kills it the instant
-/// it "respawns". Reproduces the cut-rope replay bug at the generic boss level.
+/// The in-place reset resets `health`/`alive` but must also clear the entity-local phase state
+/// — otherwise the boss stays in last attempt's `Death` phase and the death-resolution re-kills
+/// it the instant it "respawns".
 #[test]
 fn boss_revives_after_a_room_reset() {
     let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
@@ -497,10 +495,9 @@ fn encounter_script_gate_force_kills_through_the_real_schedule() {
     );
 }
 
-/// **⭐⭐ THE ACCEPTANCE TEST for the same-room replay** — and it deliberately
+/// **THE ACCEPTANCE TEST for the same-room replay** — and it deliberately
 /// compares BEHAVIOUR rather than components.
 ///
-/// Jon, 2026-08-14: after "press reset and start again", the Smirking Behemoth
 /// comes back and stands inert; *leaving the room and re-entering restores its
 /// movement*. That second half is the important half. A room transition
 /// reconstructs the room through `RoomConstructionPlan`; the same-room replay
@@ -509,7 +506,7 @@ fn encounter_script_gate_force_kills_through_the_real_schedule() {
 /// room constructor, and every "which component did we forget?" answer makes
 /// its ledger longer.
 ///
-/// ⛔ this test must therefore never enumerate components. It measures what a
+/// this test must therefore never enumerate components. It measures what a
 /// player sees — does the boss wake, and does it move — on a freshly
 /// constructed boss, and demands the replayed one match. Whatever the two
 /// constructors disagree about, this fails until they are ONE.
@@ -582,7 +579,7 @@ fn a_replayed_boss_behaves_like_a_freshly_constructed_one() {
 /// What a player can see of a boss over one observation window: whether it woke
 /// out of `Dormant`, and how far it ended up from the spawn it was placed at.
 ///
-/// ⚠ DISPLACEMENT from spawn, not distance travelled per frame. A contact boss
+/// DISPLACEMENT from spawn, not distance travelled per frame. A contact boss
 /// closes its gap and then holds, so a per-frame sum only sees motion when the
 /// window happens to straddle the approach — which made this measure the
 /// fixture's timing rather than the boss's behaviour.

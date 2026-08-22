@@ -36,10 +36,8 @@ DEFAULT_TARGET = "ambition_platformer2d_core"
 # The crate under measurement. `--of` rewrites it; `_imports` and the alias
 # pattern are the only things that read it.
 #
-# ⚠ two module-level regexes (`USE_LINE`, `BARE_PATH`) stood here and were
-# NEVER CALLED — `_imports` builds its own inline. They were deleted rather than
-# parameterised: a regex that looks like the authority and matches nothing is a
-# place to "fix" the census without changing what it measures.
+# two module-level regexes (`USE_LINE`, `BARE_PATH`) stood here and were NEVER CALLED —
+# `_imports` builds its own inline.
 TARGET = DEFAULT_TARGET
 
 
@@ -193,7 +191,7 @@ def _workspace_edges() -> dict[str, set[str]]:
             dep["name"] for dep in pkg["dependencies"]
             if dep["name"] in names
             and dep.get("kind") in (None, "null")
-            # ⛔ OPTIONAL edges excluded, and this is not cosmetic. The closure
+            # OPTIONAL edges excluded, and this is not cosmetic. The closure
             # count above comes from `cargo tree --edges normal`, which resolves
             # DEFAULT features — so counting an off-by-default optional edge here
             # would make the two halves of this one instrument disagree about the
@@ -256,20 +254,15 @@ def main() -> int:
         key=lambda pkg: pkg["name"],
     )
     print(f"{len(dependents)} workspace crates DECLARE a dependency on {TARGET}")
-    # ⛔ **the number above is a count of MANIFESTS, not of builds.** Measured
-    # 2026-08-02: all four crates carved off core so far — `interaction`,
-    # `dialog`, `vfx`, `touch_input` — still reach it transitively, each through a
-    # DIFFERENT platformer crate it also depends on. Dropping a declared edge
-    # makes a manifest honest; it does not remove core from anybody's build. The
-    # census reported only the first number for a while and the carve-out plan
-    # was written against it, so it now reports both.
+    # Dropping a declared edge makes a manifest honest; it does not remove core from anybody's
+    # build.
     freed = [pkg["name"] for pkg in _members()
              if not _depends_on_target(pkg) and pkg["name"] != TARGET
              and TARGET not in _transitive_closure(pkg["name"])]
     print(f"{len(freed)} of {len(_members()) - 1} build WITHOUT it in their closure\n")
 
     if args.cuts:
-        # ⭐ **the actual planning question**, and the one a shortest-path list
+        # **the actual planning question**, and the one a shortest-path list
         # answers WRONGLY. Reading the `--paths` column, seven crates looked like
         # they reached core only through `ambition_input`; simulating the cut says
         # THREE. The others have additional core-carrying dependencies that a
@@ -302,7 +295,7 @@ def main() -> int:
         print()
 
     if args.paths:
-        # ⭐ the question the carve-out plan kept needing a manual `cargo tree -i`
+        # the question the carve-out plan kept needing a manual `cargo tree -i`
         # to answer: for a crate that still carries the target, WHAT is carrying
         # it. A one-hop path is a direct edge the crate could drop itself; a
         # longer one means the work is in somebody else's manifest first.

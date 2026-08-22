@@ -271,10 +271,6 @@ def test_unknown_entity_type_suggestion(tmp_path: Path) -> None:
             {
                 "id": "typo_area",
                 "level_id": "typo_level",
-                # Far from any authored level so the overlap check passes and
-                # we reach the entity-type validation. Tests in this file
-                # used to land at (26000, 1024) — that's now `crawl_lab`'s
-                # footprint.
                 "world_x": 100_000,
                 "world_y": 0,
                 "px_wid": 256,

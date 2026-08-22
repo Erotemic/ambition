@@ -11,7 +11,7 @@ crate-type = ["rlib"]
 
 [features]
 # The boss test FIXTURES (`test_boss_catalog`, `clusters::test_support`).
-# ⛔ dev-only by construction: `#[cfg(test)]` does not cross a crate boundary,
+# dev-only by construction: `#[cfg(test)]` does not cross a crate boundary,
 # and the monolith's boss-adjacent tests (damage routing, mount dissolution,
 # construction, spawn) build the same shapes. Enabled only from a
 # `[dev-dependencies]` edge so the fixtures never reach a shipping build.

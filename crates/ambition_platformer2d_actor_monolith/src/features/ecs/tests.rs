@@ -331,10 +331,10 @@ fn interact_buffered_starts_npc_dialogue() {
 
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_dialog::DialogState::default());
-    // ⚠ the AUTHORITY travels with the read-model. `interact_ecs_actors_and_
+    // the AUTHORITY travels with the read-model. `interact_ecs_actors_and_
     // switches` opens a conversation in the simulation and shows it in the UI,
     // so a fixture with only the second half fails Bevy's param validation.
-    // ⛔ NOT solved by making the param `Option`: that waiver would answer "may
+    // NOT solved by making the param `Option`: that waiver would answer "may
     // this be absent" when the question is who OWNS registering it, and in
     // production the feature plugin does.
     app.init_resource::<ambition_conversation::ActiveConversation>();
@@ -387,7 +387,7 @@ fn interact_buffered_starts_npc_dialogue() {
 
     // No switches in this test — the switch query will be empty and the
     // system will handle the NPC branch.
-    // ⚠ **the box is a PROJECTION now, so the projection has to run.** The
+    // **the box is a PROJECTION now, so the projection has to run.** The
     // interaction system decides that a conversation exists; the presentation
     // half opens the runner from that, outside the sim schedule. A fixture that
     // ran only the first would be asserting on a text box nothing was left to
@@ -414,16 +414,11 @@ fn interact_buffered_starts_npc_dialogue() {
 /// [`crate::schedule::Platformer2dSimulationPhaseMonolith::PresentationVisualSync`] must run
 /// after [`crate::schedule::Platformer2dSimulationPhaseMonolith::FeatureViewSync`].
 ///
-/// Structural check: inspect the actual Bevy schedule graph
-/// rather than depend on the executor's behavior with two
-/// otherwise-unordered systems. `.after()` between sets
-/// becomes a directed edge in `Schedule::graph().dependency()`,
-/// and the edge is materialized eagerly by `configure_sets` —
-/// we don't have to run the schedule or rely on any
-/// declaration-order fallback. The test FAILS the moment
-/// `PresentationVisualSync.after(FeatureViewSync)` is removed
-/// from `configure_platformer2d_simulation_phases`, regardless of what executor
-/// Bevy ships or how it tie-breaks unordered systems.
+/// Structural check: inspect the actual Bevy schedule graph rather than depend on the
+/// executor's behavior with two otherwise-unordered systems. `.after()` between sets becomes a
+/// directed edge in `Schedule::graph().dependency()`, and the edge is materialized eagerly by
+/// `configure_sets` — we don't have to run the schedule or rely on any declaration-order
+/// fallback.
 #[test]
 fn presentation_visual_sync_runs_after_feature_view_sync() {
     use crate::schedule::{

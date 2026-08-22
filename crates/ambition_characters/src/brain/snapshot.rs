@@ -21,16 +21,14 @@
 //!   brain needs wall-contact info; nobody else does. Construct the
 //!   snapshot with these set only when the relevant brain wants them.
 //!
-//! Construction is cheap and explicit — there's no builder pattern
-//! because the field set is fixed and small. Add new fields by name
-//! when a new brain template needs them; don't grow this into a
-//! pile of `Option<…>`s without a real consumer.
+//! Add new fields by name when a new brain template needs them; don't grow this into a pile of
+//! `Option<…>`s without a real consumer.
 
 use ambition_platformer2d_core as ae;
 
 /// What a brain sees this tick. Read-only; brains never mutate the
 /// snapshot (they write to `&mut ActorControlFrame` instead).
-/// ⚠ **not `Copy` since FB4b.** `attack_kit` is a `Vec`, and the alternatives
+/// **not `Copy` since FB4b.** `attack_kit` is a `Vec`, and the alternatives
 /// were worse: a lifetime on `BrainSnapshot` would infect every brain signature
 /// in the crate, and passing the kit beside the snapshot would put body-derived
 /// truth on a second channel — which is the split the world-in port exists to
@@ -104,7 +102,7 @@ pub struct BrainSnapshot {
     /// "why did this fighter walk off the stage" is worthless with two fighters
     /// on the stage and no way to tell whose decision is whose.
     ///
-    /// ⚠ **read by the instrument, never by a decision.** A brain that branched
+    /// **read by the instrument, never by a decision.** A brain that branched
     /// on its own id would be a brain that behaves differently depending on
     /// which body it woke up in, and every no-cheat property this crate argues
     /// for would be void. `None` — the default, and the honest answer for a
@@ -148,15 +146,10 @@ pub struct BrainSnapshot {
     /// **The movement law this body actually plays under**, for brains that
     /// PREDICT rather than steer.
     ///
-    /// A rollout has to simulate the body forward, and a shadow model that
-    /// restates the engine's default constants predicts the wrong body the
-    /// moment a character authors its own: `ShadowTuning` carried a hand-copied
-    /// gravity of 1400 against the engine's 2250 for weeks, which made every
-    /// offstage rollout price a longer airtime than exists. Body-derived truth
-    /// arriving through the world-in port, exactly like [`Self::actor_aerial`]
-    /// and [`Self::attack_kit`].
+    /// Body-derived truth arriving through the world-in port, exactly like
+    /// [`Self::actor_aerial`] and [`Self::attack_kit`].
     ///
-    /// ⚠ **this is NOT a second [`Self::max_run_speed`]**, and the two answer
+    /// **this is NOT a second [`Self::max_run_speed`]**, and the two answer
     /// different questions. `max_run_speed` is the throttle scale the caller
     /// wants this body's locomotion intent expressed against — deliberately `0`
     /// for a body whose integrator ignores it, and a boss's flight speed for a
@@ -178,7 +171,7 @@ pub struct BrainSnapshot {
     /// answer from the same position, and no list in the brain has to be kept in
     /// step for that to be true.
     ///
-    /// ⚠ **not a capability list for the brain to interpret.** [`Self::actor_aerial`]
+    /// **not a capability list for the brain to interpret.** [`Self::actor_aerial`]
     /// and `SelfView`'s `burst` exist precisely because a driver re-deriving the
     /// kernel's precedence rules is the failure mode; this field is never read to
     /// decide what to press, only handed to the kernel that owns the question.
@@ -225,10 +218,8 @@ pub struct BrainSnapshot {
     /// flying state-machine brains use it to avoid stacking in
     /// the air.
     pub crowding: Option<crate::brain::smash::CrowdingSignal>,
-    /// Mid-air jumps the actor has remaining until next landing.
-    /// `0` = no double-jump available (must land first). The
-    /// Smash brain reads this so an airborne actor can commit a
-    /// follow-up jump to chase a high target. Non-jumping brains
+    /// `0` = no double-jump available (must land first). The Smash brain reads this so an
+    /// airborne actor can commit a follow-up jump to chase a high target. Non-jumping brains
     /// can leave this at the default `0`.
     pub air_jumps_remaining: u8,
     /// Per-tick stage / ledge / hazard awareness. `None` for brains

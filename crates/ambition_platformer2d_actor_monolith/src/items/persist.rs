@@ -7,21 +7,18 @@
 //! `dialog_id` so the save survives catalog reordering. Equipped state is a
 //! handoff (re-equip from the grid on load).
 //!
-//! ⛔⛔ **it mirrors QUANTITIES, and a held object is not one.** `to_persisted`
+//! **it mirrors QUANTITIES, and a held object is not one.** `to_persisted`
 //! reads the stored counts, never `OwnedItems::count`, which projects the body's
 //! hand. Writing the projection would put the object into the save as a row, and
 //! the next load would restore the row while the room that authors the object
 //! re-authors the object — one weapon saved, two loaded.
 //!
-//! ⭐ **and the held object is kept by the OTHER leg now** (2026-08-16). D132
-//! recorded that a held weapon reached disk as nothing at all and was therefore
-//! LOST across save/load, and named that as not-a-resting-state.
-//! `crate::session::durable_horizon` closes it: an object is persisted as an
-//! OCCURRENCE — identity, whereabouts, and the hand holding it — never as a
-//! quantity. The two populations stay disjoint, which is what stops the "one
+//! **and the held object is kept by the OTHER leg now**. `crate:session:durable_horizon` closes
+//! it: an object is persisted as an OCCURRENCE — identity, whereabouts, and the hand holding it
+//! — never as a quantity. The two populations stay disjoint, which is what stops the "one
 //! weapon saved, two loaded" failure from arriving by the new road instead.
 //!
-//! ⭐ **the quantity/instance boundary now coordinates at both horizons.** The
+//! **the quantity/instance boundary now coordinates at both horizons.** The
 //! mint spends a granted quantity, `OwnedItemsBaseline` restores it on death,
 //! and this module adopts that baseline only after the saved bag itself has been
 //! applied. A held object remains an occurrence; a stored row remains a quantity.
@@ -37,11 +34,7 @@ use ambition_persistence::save::AmbitionGameSave;
 /// is loaded and the player exists. A fresh save (never persisted —
 /// `inventory_saved == false`) keeps the live starter set.
 ///
-/// The final durable-horizon completion system owns [`SaveRestored`]. This
-/// domain leg waits for a body carrying a `BodyWallet`, applies the saved bag,
-/// and adopts the item checkpoint baselines from those post-load values. The
-/// completion system runs after this one and cannot raise the latch or request a
-/// checkpoint resume until this domain has had its turn.
+/// The final durable-horizon completion system owns [`SaveRestored`].
 pub fn restore_inventory_from_save(
     restored: Res<SaveRestored>,
     save: Res<AmbitionGameSave>,
@@ -64,9 +57,7 @@ pub fn restore_inventory_from_save(
         owned.apply_persisted(&data.items);
         wallet.balance = data.wallet;
     }
-    // Domain-owned durable adoption. This must happen AFTER the saved bag is
-    // applied and BEFORE the latch is raised: the old central adopter ran in the
-    // opposite order and therefore captured the pre-load bag on a fresh process.
+    // Domain-owned durable adoption.
     crate::items::pickup::minted_horizon::adopt_checkpoint_baselines_from_save(
         data,
         &owned,

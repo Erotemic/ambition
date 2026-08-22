@@ -994,6 +994,13 @@ fn place_respawning_fighters(
         // Ambition has no stocks to lose and gets none of this; a mode that
         // wants none simply does not insert it. That is why this is here rather
         // than on a `CharacterDefinition`.
+        // A fighter KO'd mid-swing still carries that swing. Its move did not
+        // survive the stock it cost, and leaving it on would mean the returning
+        // body is "acting" on the frame it materialises — which spends the
+        // protection below before its owner has touched the controller.
+        commands
+            .entity(event.body)
+            .try_remove::<ambition_platformer2d::combat::moveset::MovePlayback>();
         commands.entity(event.body).try_insert(
             ambition_platformer2d::actors::features::empowerment::Empowered::for_seconds(
                 ambition_platformer2d::actors::features::empowerment::Empowerment::UNTOUCHABLE,

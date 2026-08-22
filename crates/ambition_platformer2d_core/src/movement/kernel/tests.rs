@@ -1328,3 +1328,91 @@ fn a_lone_mover_is_not_charged_for_a_neighbour_that_never_moves() {
          neighbour is not contesting the gap at all",
     );
 }
+
+/// **A BODY SET DOWN EXACTLY ON THE GROUND CAN STILL WALK.**
+///
+/// A respawn, a room placement or a scripted warp arrives at rest
+/// ([`TransitVelocity::Zero`]), and a caller that reuses the body's own resting
+/// height moves it sideways onto flat ground. If contact resolves from that pose
+/// in a way the controller then refuses, the body is inert for good: grounded, at
+/// rest, and deaf to input.
+#[test]
+fn a_body_transited_flush_with_the_ground_can_still_walk() {
+    let world = floor_world();
+    let down = Vec2::new(0.0, 1.0);
+    let frame = MotionFrame::from_direction(down, 900.0);
+    let mut scratch =
+        BodyClusterScratch::new_with_abilities(Vec2::new(200.0, 380.0), AbilitySet::default());
+    let mut model = MotionModel::axis_swept(AxisSweptParams::default());
+
+    // Let her land and come to rest, so the next pose is her OWN resting height.
+    for _ in 0..90 {
+        let mut clusters = scratch.as_mut();
+        step_motion(
+            &mut model,
+            &mut clusters,
+            MotionStepContext {
+                world: &world,
+                input: InputState::default(),
+                frame,
+                facing_intent: 0.0,
+                dt: DT,
+                contact: crate::movement::BodyContactField::NONE,
+            },
+        );
+    }
+    let resting = scratch.kinematics.pos;
+
+    // Move her sideways to the same height, exactly as a placement helper does.
+    {
+        let mut clusters = scratch.as_mut();
+        crate::movement::transit_body(
+            &mut model,
+            &mut clusters,
+            Vec2::new(resting.x + 100.0, resting.y),
+            crate::movement::TransitVelocity::Zero,
+        );
+    }
+    for _ in 0..30 {
+        let mut clusters = scratch.as_mut();
+        step_motion(
+            &mut model,
+            &mut clusters,
+            MotionStepContext {
+                world: &world,
+                input: InputState::default(),
+                frame,
+                facing_intent: 0.0,
+                dt: DT,
+                contact: crate::movement::BodyContactField::NONE,
+            },
+        );
+    }
+    let settled = scratch.kinematics.pos;
+
+    let mut input = InputState::default();
+    input.axes = LocalAxes::new(1.0, 0.0);
+    for _ in 0..60 {
+        let mut clusters = scratch.as_mut();
+        step_motion(
+            &mut model,
+            &mut clusters,
+            MotionStepContext {
+                world: &world,
+                input,
+                frame,
+                facing_intent: 1.0,
+                dt: DT,
+                contact: crate::movement::BodyContactField::NONE,
+            },
+        );
+    }
+
+    let walked = scratch.kinematics.pos.x - settled.x;
+    assert!(
+        walked > 20.0,
+        "a body set down flush with the ground walked {walked:.2}px in a second \
+         of held input — a transit that arrives at rest on flat ground must not \
+         leave the body inert",
+    );
+}

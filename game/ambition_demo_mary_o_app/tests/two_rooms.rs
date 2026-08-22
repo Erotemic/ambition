@@ -531,18 +531,27 @@ fn she_crosses_wearing_the_form_she_earned() {
 /// Knock the wand out of 1-1's own ?-block and put it on, entirely through the
 /// shipped systems: the demo's block rule mints the reward, the engine's
 /// touch-to-collect equips it, and nothing here writes any worn state.
+/// How far above the target a placement starts so the body LANDS on the surface
+/// instead of being inserted at a guessed height.
+const DROP_HEIGHT_PX: f32 = 100.0;
+
 fn earn_the_star_wand(app: &mut App) {
     let block = first_power_block();
     // `+y` is screen-down, so the block's `max.y` is the face she bonks.
     let underside = block.aabb.max.y;
 
-    // Set her down beneath it, at the height she is ALREADY standing at: 1-1's
-    // surface runs unbroken from her spawn to this block, so sliding her along
-    // that floor needs no guess about where the ground is (and a guessed y is
-    // how a placement ends up inside masonry).
+    // ⛔ **DROPPED IN, never set down at a guessed height.** This used to reuse
+    // her current resting `y` on the argument that 1-1's surface runs unbroken
+    // from her spawn to this block. It does not: the ground under the block is
+    // higher, so she was inserted INSIDE the terrain — grounded, at rest, and
+    // unable to walk or jump in any direction. Falling to the surface is how a
+    // player arrives, and it stays correct when the level's heights move.
     let start_y = player_body(app).0.y;
-    place_player(app, Vec2::new(block.aabb.center().x, start_y));
-    for _ in 0..30 {
+    place_player(
+        app,
+        Vec2::new(block.aabb.center().x, start_y - DROP_HEIGHT_PX),
+    );
+    for _ in 0..90 {
         step(app, ControlFrame::default());
     }
 

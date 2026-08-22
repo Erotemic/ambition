@@ -345,6 +345,74 @@ without the resolver still runs the guard. Breaking that hook takes the whole
 standing-goal mechanism down, and it can only be exercised by ending a turn,
 which is why the logic moved into a script a test can run.
 
+- ▢ **D181 — THE WAND A ?-BLOCK PAYS IS LOST BEFORE A WALKING PLAYER CAN TAKE
+  IT.** (measured 2026-08-22)
+
+`level_1_acceptance::a_grown_mary_o_bonks_a_question_block_and_wears_the_fire_flower`
+has been red for some time. The strike is fine — `struck_first` passes — and the
+reward IS minted:
+
+```text
+post-bonk 0   item (208.0, 304.0)   body (182.4, 336.0)   worn=false
+post-bonk 7   item (208.0, 294.8)   body (183.2, 353.5)   worn=false
+```
+
+⇒ the wand emerges from the block and RISES (y falling, block top is 288). By
+the end of the 600-frame chase it does not exist and is not worn: *"She is at
+Vec2(233.3, 400.0) … items are []"*.
+
+⛔ **so it is lost between emerging and being collectible**, and the question is
+content-and-feel, not a fixture bug: `chase_until_worn` only WALKS toward the
+item's x. If the wand comes to rest on TOP of the block it is unreachable on
+foot, which is not what the genre does — a Mario mushroom emerges and then
+slides along the ground to where a walking player meets it.
+
+⇒ **research the genre's rule and ship it** rather than escalating: the reward
+should leave the block and become reachable without a second platforming act.
+⚠ do NOT "fix" this by teaching the fixture to jump onto the block; that would
+assert a game nobody can play.
+
+⭐ the sibling defect in the same area is FIXED and is the reason this one is
+now visible — see D182.
+
+- ✔ **D182 — A BODY PLACED AT A GUESSED HEIGHT IS INSERTED INTO THE TERRAIN, AND
+  IS THEN INERT FOREVER.** (found and fixed 2026-08-22)
+
+`two_rooms::she_crosses_wearing_the_form_she_earned` had been red long enough to
+read as background. The body was grounded, at rest, correctly seated, in
+`Playing`, with the jump arriving in `SlotControls[PRIMARY]` — and did not move
+for 200 frames.
+
+⭐ **the eliminations are the durable output**, because every one of them looked
+like the answer:
+
+```text
+seat            DrivingParticipant(PlayerSlot(0)) present      ✖
+game mode       Playing                                        ✖
+session roots   exactly 1, so no skipped Single                ✖
+control holds   none; hitstun 0.0                              ✖
+ground state    on_ground = true, vel = ZERO                   ✖
+input arrival   jump_pressed/held true in the slot             ✖
+movement kernel a core repro of a flush transit WALKS FINE     ✖
+```
+
+⇒ **the discriminator was the x, not the y.** Placed under the block she is
+pinned; placed 300px to the right at the SAME height she walks immediately. The
+fixture reused her spawn height on the stated argument that *"1-1's surface runs
+unbroken from her spawn to this block"* — it does not, the ground under the
+block is higher, and she was inserted INSIDE it. A body embedded in terrain is
+blocked on both horizontal sweeps and reads exactly like a body ignoring input.
+
+Fixed by arriving the way a player does: dropped from `DROP_HEIGHT_PX` above and
+allowed to land. That survives the level's heights moving, which the file's own
+doc had already worried about.
+
+⚠ **the engine is NOT at fault and the new kernel regression says so** —
+`a_body_transited_flush_with_the_ground_can_still_walk` transits a body to
+exactly its own resting pose and walks it. It passes, and it is worth keeping:
+`transit_body` is the authority behind respawns, room placement and portal
+exits.
+
 - ▢ **D180 — THE PRESENTATION/AUTHORITY BOUNDARY AND THE IDENTITY VOCABULARY.**
   (found 2026-08-21, by GPT review of `f3b4b83a1`)
 

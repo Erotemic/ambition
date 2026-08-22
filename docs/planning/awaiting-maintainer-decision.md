@@ -36,7 +36,7 @@ investigation that led to the question. Same rule as
 [`README.md`](README.md#queue-contract); on 2026-08-17 this file was **739 lines
 for 9 open questions**, and the four answered ones held a third of it.
 
-## Open decisions — 13, numbered to 30 (§1, §6, §7, §9, §10, §11, §12, §13, §21, §22, §23, §25 and §27 are ANSWERED; §8 is DEFERRED)
+## Open decisions — NONE. All 15 open questions were answered 2026-08-22; §8 is DEFERRED and §28 is PARKED. Every section below is a receipt.
 
 ### 1. ✔ ANSWERED 2026-08-17 — a bolt hits what a sword hits (former D23)
 
@@ -98,413 +98,242 @@ the arbitration key gap 2 lacks — nearest TOI, with the existing spawn sequenc
 as the stable tie-break. ⛔ do not fix 2 alone by sorting on distance-to-centre;
 that is a proxy for the number the sweep would give for free.
 
-### 2. Advance the measurement-submodule pointer?
-
-`dev/ambition_dev_measurements` contains useful committed measurement history.
-The remaining policy question is whether the superproject should advance its
-submodule pointer whenever those measurement commits are accepted, or leave the
-pointer intentionally pinned. This currently blocks no engine work.
-
-### 3. Give rust-analyzer its own target directory?
-
-Jon's local `.vscode/settings.json` can set:
-
-```json
-"rust-analyzer.cargo.targetDir": true
-```
-
-This is build-hygiene only. It isolates rust-analyzer artifacts from the normal
-Cargo target directory; it is not established as the cause of the old linker
-failure.
-
-⭐ **MEASURED 2026-08-14, and it is no longer only hygiene — it is a throughput
-cost.** During a long agent session, rust-analyzer's
-`cargo check --workspace` restarted roughly **every 50 seconds** and took the
-target-directory lock each time. The agent's `cargo check -p ambition_app
---all-targets` — the 21-second gate — took **1m26s of actual work spread across
-about 9 minutes of blocking**, and one focused render test took 6 minutes. ⚠
-nothing was corrupted and no failure was mysterious; the entire cost was
-`Blocking waiting for file lock on build directory`.
-
-⇒ so the question has changed shape. It is not "does this prevent a linker
-failure" (unestablished, and probably no) but **"is a second target directory
-worth roughly 100 GB to stop the editor and the agents from serialising against
-each other?"**
-
-⭐⭐ **THE DISK HALF OF THIS IS RE-MEASURED 2026-08-17, and it moved a lot — in
-BOTH directions inside one day.**
-
-```text
-2026-08-14   volume 93% full, ~137 GB free, target 106 GB
-2026-08-17   volume 68% full,  156 GB free, target 210 GB
-             (target/debug/deps 151G · debug/incremental 35G · release 21G)
-```
-
-⚠ **the target directory DOUBLED in three days**, so "does not fit twice" is
-more true now, not less — even though free space went up. ⚠ and the free number
-is volatile rather than stable: the same volume hit **100% full** earlier on
-2026-08-17 (a `cargo test --workspace --tests` sweep), and 160 GB was recovered
-by deleting `target/debug/incremental`, which has since regrown to 35 GB.
-
-⇒ **so the honest framing for the disk half is not a headroom number but a
-policy**: `target/debug/incremental` is a safe, self-refilling 35 GB that can be
-deleted at any time, and it is roughly the size a rust-analyzer check directory
-would need. ⭐ the throughput half needs no re-measuring — the contention is
-still live and still reproducible: a plain `cargo check -p ambition_platformer2d_shared_tangle`
-this session printed `Blocking waiting for file lock on build directory` — which
-is why it is your call and not an agent's. A cheaper variant if the disk answer
-is no: leave the directory shared and accept that only one builder makes
-progress at a time.
-
-### 4. Mary-O restart report: which game, and roughly when? (former D68)
-
-Current Mary-O tests cover all three death routes — hit, timeout, and
-pit/hazard/kernel reset — and each returns the body to spawn; the pit fixture also
-re-arms a spent question block. The remaining observation cannot be reproduced
-from current Mary-O mechanics.
-
-Needed fact: **was the report actually in Mary-O, and was it before or after
-2026-08-08?** If it was Ambition or Sanic, investigation should move to that
-host instead of changing Mary-O's proven replay path.
-
-### 5. Smash CPUs walk off the stage at every difficulty — is this news? (measured 2026-08-14)
-
-⛔⛔ **THE HEADLINE EVIDENCE BELOW WAS A UNIT ERROR AND IS RETRACTED (2026-08-19).
-The CPUs fight hard, and they always did.** `0.84%` was **84%**.
-`BodyHealth::damage_percent` returns a RATIO — its own doc says *"`1.88` is a
-legal answer and is how a HUD prints `188%`"* — and `ladder_rig` printed it under
-a literal `%`, so every reading of that column was a hundredth of the truth. The
-rig's *"BUT NEITHER LANDED A HIT"* marker was then given a threshold picked to
-fit the misreading (`1.0`, which in the column's real units is a full 100% KO
-meter), so it fired on genuine duels.
-
-⭐ **the corrected table, same build, same fifteen seeds:**
-
-```text
-3 vs 1     48.0% :  45.0%     (was 0.48% : 0.45% — "NEITHER LANDED A HIT")
-5 vs 3    111.0% :  98.0%
-6 vs 5    139.0% : 101.0%
-9 vs 6    193.0% : 158.0%
-```
-
-⭐⭐ **and the ladder DISCRIMINATES in the column nobody could read**: peak damage
-rises monotonically with the rung, and the higher rung out-damages the lower on
-all four pairs — while the time column stays within spread on every row. The
-instrument had a working signal the whole time and it was being printed at 1%
-scale.
-
-✔ **confirmed independently in the shipped composition**, not just the demo app:
-two level-9 CPUs on `npc_pirate_admiral` (a character a player can pick off the
-grid) reach **169 damage against a pool of 100** in sixty seconds, spending 575
-ticks each in hitstun. Pinned by `app_it::smash_cpus_damage_each_other`, which
-states its units in the assertion message so this cannot be misread again.
-
-⛔⛔ **AND THE SELF-KO HALF IS STALE TOO — RE-MEASURED THE SAME DAY AT FIFTEEN
-SEEDS, AND IT POINTS THE OTHER WAY.** `ladder_probe --seeds 15` (one fighter,
-opponent cannot attack, so every loss is a self-KO):
-
-```text
-level  first self-KO              stocks lost
-    1  23.2s [17.7-46.3] +1 never      3
-    3  16.3s [12.0-45.3] +8 never      1
-    5  21.7s [16.0-46.5] +7 never      1
-    6  16.3s [14.5-27.1] +2 never      2
-    9  none in 60s                     0
-  9/d0  none in 60s                    0
- 9/d12  none in 60s                    0     ⭐ the A/B is FLAT
-```
-
-⇒ **the `rollout_depth` diagnosis is falsified by its own instrument**: depth 0
-and depth 12 both survive the clock with zero self-KOs, so *"a twelve-tick search
-is choosing to leave the stage"* no longer holds. And the row's other sentence —
-*"the upper half of the ladder is the half that self-destructs"* — is now exactly
-backwards: **level 9 never self-KOs and every rung below it does.**
-Self-preservation now improves with the rung, which is the direction a difficulty
-ladder is supposed to run.
-
-⚠ **three seeds would have said something else**, as this rig's own header warns:
-at the default 3, level 3 and level 9 both showed *no self-KO* and level 5 showed
-one. Fifteen is the number that answers.
-
-▢ **what is genuinely left for you is one design question, much smaller than the
-row it came from**: a level-1 CPU loses all three stocks to itself inside a
-minute. That may be exactly right for the easiest rung — a bad opponent should
-be bad — or it may read as broken rather than easy. That is taste, not
-engineering.
-
-▢ what stays open is the row's actual question — is CPU quality on the path to
-what Smash is for — now costed better: the gap between a rung that self-KOs and
-one that does not is a single authored field.
-
-⇒ engine-side this is a decision-model investigation, and it blocks ladder
-calibration entirely. The question for you is priority: is CPU quality on the
-path to what Smash is for, or is it acceptable that CPUs are currently sparring
-partners that suicide? Detail in [`engine/fighter-brain.md`](engine/fighter-brain.md).
-
-### 14. Two things the one-brick rescale forced, both wanting your eye
-
-Both fell out of the rig refactor and are recorded rather than guessed at,
-because each trades against something you tuned by looking at her.
-
-**a. The shared collision width went 64 px → 56 px.** Your ruling is one width
-for every form (*"we keep the width of collision the same for big and small"*),
-and the sheet's own guard wants the box narrower than the drawing so she never
-collides on her hat or her sleeves. Those two together are decided by the
-NARROWEST form, and the one-brick short form's whole drawing is **60 px** wide —
-so the old 64 collided on empty air beside her. 56 clears her and still hugs the
-grown torso (~62 px).
-
-⚠ **the cost is that the grown form's box narrowed too**, which is the price of
-the identical-width rule. The alternative is widening the short form's ART to
-~68 px, and her width is exactly what you tuned by eye, so it is your call.
-
-**b. Her one-brick box has 6 px of empty air above her hat.** (Her world size
-is settled: `SMALL_FORM_HEIGHT = T`, one tile small and two grown, whole suite
-green — the "level-wide rescale" this was blocked on was a unit error, not
-content. This is only about the 6 px inside her own sheet.) The box top is set
-by the height contract (small is one brick, grown is two, so short height ×2 =
-grown height exactly), not measured off the art. MEASURED: grown form 0 px of
-headroom, fire form −14 px (its flame frills clear the box on purpose), short
-form **+6 px**. So she is drawn very slightly shorter than one brick and will
-bump a ceiling with the air over her head.
-
-**c. Every walk frame puts her foot BELOW her standing line — on both forms.**
-MEASURED: small dips +0.50 to +1.00 units under its own idle foot line, grown
-+0.33 to +1.17. She walks through the floor by up to a fifth of a tile, and the
-renderer's clipping warning on those frames is just the canvas noticing (the
-small form has zero headroom, so any dip is also amputated). ⚠ pre-existing on
-the grown form — its walk frames came through the rig refactor byte-identical.
-⭐ **the cause is three authored numbers, not a mystery** — `SHORT_POSES["walk"]`
-and its tall twin:
-
-```text
-walk#0  leg_back_dy  = 1.0   the trailing leg is pushed DOWN a unit
-walk#2  leg_front_dy = 1.0   mirrored, same push
-walk#1  bob          = 0.4   and `foot_y = 30.2 + bob`, so the DIP moves her FEET
-```
-
-⇒ the stride's extension is being spelled as a downward translation, and the
-mid-stride dip lowers the contact point instead of the body above it. Both read
-fine in isolation; both put the foot under the floor.
-
-⇒ **listed rather than done, because it changes an animation you have seen** —
-and because the honest fix for the dip needs a pose field that lowers the TORSO
-without moving `foot_y`, which does not exist yet. Say the word and it is small.
-
-⇒ closing (b) means either raising her crown ~6 px — which moves the 40/40/20
-head/body/legs split you specified — or accepting the 6 px. The test bounds it at
-8 px so it cannot quietly grow while you decide.
-
-### 15. Whose hitstop owns the SCREEN when nobody is playing?
-
-Small, and it only exists in CPU-vs-CPU. ⛔ **not a defect** — I filed it as one
-("presentation hitstop is slot-0 only") and corrected it the same day, because
-the part that matters already works: D114 made both movement roads spend hitlag,
-so **both bodies stop on a connect**. That is the impact you see.
-
-What slot 0 additionally requests is the SIM CLOCK freezing — particles, VFX,
-other bodies — a flourish on top. And slot 0 is right for that system: its other
-arms are bullet-time and blink-hold, which are per-PLAYER feel affordances by
-ADR 0010/0011. A second player emits its own intent against its own clock.
-
-⚠ **in a CPU-vs-CPU match there is no `PrimaryPlayer` at all**, so nobody asks.
-That file already carries your 2026-08-07 freeze from exactly this shape — a
-paused match forced the clock to zero, nobody was left to ask for the neutral
-pace back, and the world ran at scale 0.0 forever (*"the characters are just
-stuck in air"*). ⇒ whatever answers this must also be able to hand the clock
-back.
-
-Defensible answers, none obviously right:
-
-```text
-nobody's           CPU matches simply never screen-freeze — simplest, and the
-                   bodies still stop, so the hit still reads
-the most recent    whichever fighter just connected owns the freeze
-the framed one     the fighter the camera is following owns it
-```
-
-⇒ recorded rather than guessed. If you have no view, "nobody's" is the one that
-cannot regress the 0.0-forever failure, because it never asks.
-
-### 16. Who owns a level's POSITION — its area spec, or the layout tool?
-
-`level diff-specs` exists to catch an area spec drifting from its live level. It
-was reading none of its subjects (YAML-only loader, every area spec is RON), and
-fixing that turns it on: **52 specs differ, 2 match, 78 coordinate mismatches**,
-some very large — `volatile_cache`'s spec says `world_x = 72000`, the live level
-is at `2048`.
-
-⚠ that is almost certainly not 52 broken levels. `world auto-layout` arranges
-Free-layout levels by their LoadingZone graph, and the tool's own message says
-*"live LDtk wins"* — so the specs' coordinates look like initial placements that
-stopped being authoritative and nobody re-recorded.
-
-```text
-specs own position    re-record the live values into 52 specs; drift is then real
-layout owns position  drop world_x/world_y from area specs; the graph decides
-                      placement and the spec stops claiming something it lost
-```
-
-⇒ **the check is fixed but deliberately NOT in CI**, because bulk-rewriting 52
-specs to silence it would answer this by accident. ⛔ 13 of the 52 are a
-different thing — specs for levels in another world file, which the command
-cannot see because it takes one `--ldtk`; that is a usage limit, worth a second
-flag whichever way you rule.
-
-### 17. How much floating text should a room show? (D161's residue)
-
-Every loading zone now carries authored prose instead of an id, so the original
-complaint is gone. What the measurement turned up on the way is a different
-question: **rooms are dense with floating text, from two independent sources.**
-
-```text
-room                    DebugLabels   always-on zone labels
-gate_stack_lower             14              3
-drain_alley                  13              2
-combat_calibration_lab        8              2
-first_system_boss             6              1
-intro_wake_room               2              1
-...12 rooms carry both; 3 more have a zone label and no signage
-```
-
-⚠ **`DebugLabel` is doing player-facing work** — *"creator's basement lab"* and
-*"→ corridor"* in the opening room are DebugLabels with `category: Custom`, not
-debug output. So the name says one thing and the usage says another, and nothing
-decides which rooms are dressed for a player.
-
-Two questions, either answerable in a sentence:
-
-```text
-is DebugLabel authored SIGNAGE or a debug affordance?
-  — if signage, it wants a better name and a pass for the rooms with 13 of them
-  — if debug, those rooms are showing debug text to players
-
-should a NON-Door zone draw an unconditional label at all?
-  — a Door's nameplate is proximity-gated and clearly wants its prose
-  — 24 of the 151 named zones are EdgeExit and draw theirs always, beside
-    signage that may already say it (the other 127 are Doors)
-```
-
-⇒ no longer urgent — nothing on screen is an id — so this is polish, recorded
-rather than guessed.
-
-### 18. Should a hit's ART know what it hit? (D128 defect 6's residue)
-
-The untextured quad you photographed is fixed: `VfxMessage::Impact` — the most
-drawn effect in the game, written by every actor hit, projectile hit, pickup and
-grapple — was a bare yellow rectangle, and it now draws the shipped `hit_soft`
-row at 0.6 x `FX_DEFAULT_WORLD_SIZE` (~33 world units against a 46-unit fighter).
-
-What that turned up is a question, not a defect: **two vocabularies already exist
-for this and have never been joined.**
-
-```text
-the engine ships     hit_soft   hit_hard   hit_metal   hit_energy     (generic_action_fx)
-the sim already has  Flesh      Robot      Metal                      (ImpactMaterial)
-```
-
-⛔ **I did not join them, deliberately**, for two reasons worth your ruling:
-
-```text
-PLUMBING   the material lives on the VICTIM's `HurtFeedback`, and
-           `VfxMessage::Impact` carries a position and nothing else — so this is
-           a message change touching ~10 emitters, not a lookup
-TASTE      `hit_hard` has no material at all; it reads as a STRENGTH distinction
-           (a jab vs a smash), which is the attack's fact, not the victim's.
-           So "material picks the row" only explains three of the four
-```
-
-⇒ one sentence settles it: **does a hit's art follow the body being hit, the
-strength of the blow, both, or neither?** ⚠ *"neither"* is a real answer — one
-spark for every hit is what fighting games mostly do, and it is what ships today.
-
-### 19. Should the sheet registry key by TARGET or by FILE ROOT? (D162's residue)
-
-Nothing is visibly broken and this is not urgent — it is a one-line ruling that
-closes a whole class, and the measurement is already done.
-
-Two lookups exist for the same baked sheets, and they key differently:
-
-```text
-record_index()                  keys by FILE ROOT  — 196 unique keys, no ambiguity
-                                (used by posed_body_geometry + the animation road)
-SheetRegistry::from_baked_table keys by TARGET     — 5 keys claimed by 48 files
-```
-
-The 48 are sheets authored against a shared rig adapter: **robot 18, toon 16,
-goblin 9, sandbag 3, ninja 2.** For those five keys the target-keyed registry
-cannot answer *"give me sheet X"* — whichever manifest loads last wins, and three
-of them currently take the key away from a same-named character's own sheet.
-
-⛔⛔ **CORRECTED 2026-08-19 — THE COUNT WAS RIGHT AND ALL THREE NAMED WINNERS
-WERE WRONG.** This row said `robot_archivist` over `robot`,
-`goblin_brute_hammer` over `goblin` and `sandbag_armored_review` over `sandbag`.
-In each case that is the **first** non-own claimant, not the last — the row read
-the collision list with last-wins inverted. Measured against the real generated
-baked table (812 entries, 166 targets, 39 geometry-differing collisions — the
-same 39 the crate's own comment records):
-
-```text
-robot    18 claimants   own 256x256  LOSES to tech_bro_disruptor  215x256
-goblin    9 claimants   own 239x253  LOSES to ranged_skirmisher   235x229
-sandbag   3 claimants   own 128x128  LOSES to sandbag_full_review 256x256
-toon     16 claimants   not a catalog id — no character resolves by it
-ninja     2 claimants   not a catalog id
-shrine    2 claimants   the SAME file via two directories, identical geometry
-```
-
-⚠ **the table sorts by file root with `_spritesheet` STRIPPED**, which is what
-makes `robot` sort before `robot_archivist`; modelling the sort with the suffix
-attached inverts exactly these three and reproduces the original mistake. ⇒ read
-the generated table, not a model of it.
-
-⭐ **and "stale manifest" is the wrong frame for two of the three.**
-`tech_bro_disruptor` and `ranged_skirmisher` are distinct characters whose
-manifests declare a shared rig target; neither file is stale and there is no
-pair to retire. Only `sandbag`'s three are one character's own variants. The
-full write-up is [`../../dev/reviews/sheet-target-collisions-2026-08-19.md`](../../dev/reviews/sheet-target-collisions-2026-08-19.md).
-
-⭐ **it appears harmless today**: every consumer of the target-keyed resource
-(shrine, slash, projectile, boss) looks up a name where root == target, and the
-character-geometry road uses the file-root index and cannot collide.
-
-```text
-switch to file root   the 148 root==target sheets are unaffected; the 48 each get
-                      their own key; the class becomes impossible
-leave it              keep the reporter that now names the three, and retire a
-                      stale manifest per pair by hand as they appear
-```
-
-⇒ I did not take it: it changes what a shared engine resource returns for 48
-files, on inference rather than on a stated intent for what that key MEANS.
-
-⭐⭐ **AND THE 2026-08-18 REVIEW SUPPLIES THE MISSING INTENT — read this before
-ruling, because it reframes the question from plumbing to identity.** Its words:
-*"Renderer target names, sheet/file roots, generated asset IDs, and canonical
-`CharacterId` are different namespaces. Do not let a sprite-renderer target
-string accidentally become the durable identity of a character package.
-Character identity should remain stable and semantic; renderer targets/products
-are implementation/presentation identities associated with it."*
-
-```text
-CharacterId        semantic, durable, the character package's name
-renderer target     an authoring/presentation choice — which generator drew it
-sheet file root     a PRODUCT — one published page
-generated asset id  a build artifact's name
-```
-
-⇒ **on that reading the two options stop being symmetric.** Keying a shared
-engine resource by TARGET is precisely letting a renderer-side string act as the
-durable identity of a thing the engine looks up — and the 48 collisions are that
-mistake becoming visible, since a shared rig adapter is an authoring detail that
-48 different characters happen to share. Keying by FILE ROOT names a product,
-which is what the registry actually serves.
-
-⚠ **still not taken, and now for a better-stated reason**: the review argues the
-PRINCIPLE, and the ruling also decides what `SheetRegistry` is FOR — a
-product lookup or a character lookup. If it is meant to be a character lookup, the
-right fix is neither key but a `CharacterId`, and that is a bigger change than
-either row above.
+### 2. ✔ ANSWERED 2026-08-22 — advance the measurement-submodule pointer periodically
+
+⭐ **Jon, verbatim:** *"It doesn't matter, as long as advance it every so often."*
+
+⇒ the ruling is that `dev/ambition_dev_measurements` must not go STALE
+INDEFINITELY, and nothing finer. Bump the superproject pointer when convenient —
+a batch of accepted measurements, or a repo citation that should stay checkable.
+
+⛔ leaving it permanently pinned is refused. ⛔ do not build a policy, a cadence
+or a check around this.
+
+### 3. ✔ ANSWERED 2026-08-22 — disable rust-analyzer; no second target directory
+
+⭐⭐ **Jon, verbatim:** *"Disable RA. I don't need it. If you aren't using it then
+its bloat."*
+
+⇒ ⭐ **he answered a question that was not asked.** Both offered answers spent
+something — ≈35–100 GB of disk for a second check directory, or a standing build
+tax from sharing one — and turning the consumer OFF spends neither.
+
+⇒ the measured contention disappears with the process rather than being routed
+around: rust-analyzer's `cargo check --workspace` restarted every ~50s and took
+the target-directory lock each time, turning a 21-second gate into 1m26s of work
+spread over ~9 minutes of `Blocking waiting for file lock on build directory`.
+
+⛔ do NOT set `rust-analyzer.cargo.targetDir`, and ⛔ do not propose a second
+target directory again on throughput grounds — the throughput problem has no
+source once RA is off.
+
+⚠ **the conditional in his answer is worth honouring**: agent sessions do have an
+`mcp__rust-analyzer__*` server wired in. If an agent workflow starts depending on
+it, that is a NEW fact and this decision should be revisited rather than quietly
+worked around.
+
+### 4. ✔ ANSWERED 2026-08-22 — it was Mary-O, and it is believed resolved
+
+⭐ **Jon, verbatim:** *"It was maryo, but I think it was resolved."*
+
+⇒ the row retires. Mary-O's three death routes — hit, timeout, and
+pit/hazard/kernel reset — are each covered and each returns the body to spawn,
+and the pit fixture re-arms a spent question block; nothing was reproducible
+against them because the defect had already been fixed.
+
+⛔ do NOT move the investigation to Ambition or Sanic — he named the host.
+⛔ do not change Mary-O's proven replay path chasing this.
+
+⚠ *"I think"* is the confidence: a restart failure observed again is a NEW report
+with fresh evidence, not this row reopened.
+
+### 5. ✔ ANSWERED 2026-08-22 — correct the level-1 CPU for feel
+
+⭐⭐ **RULED: the easiest rung is bad at FIGHTING, not self-destructive.** A
+level-1 CPU losing all three stocks to ITSELF inside a minute reads as broken
+rather than easy, and the easiest rung is the one a new player meets first.
+
+⭐ **the cost is small and already located**: the gap between a rung that self-KOs
+and one that does not is a single authored field. Nothing else in the ladder
+needs to move.
+
+⛔⛔ **THE ROW'S ORIGINAL EVIDENCE IS RETRACTED AND MUST NOT BE RE-CITED.**
+`0.84%` was **84%** — `damage_percent` returns a RATIO and the rig printed it
+under a literal `%`. The CPUs always fought hard, and the corrected ladder
+DISCRIMINATES: peak damage rises monotonically with the rung and the higher rung
+out-damages the lower on all four pairs (3v1 48:45, 9v6 193:158). Confirmed in
+the shipped composition by `app_it::smash_cpus_damage_each_other`, which states
+its units in the assertion message.
+
+⛔ the *"upper half self-destructs"* claim was exactly BACKWARDS: at 15 seeds
+level 9 never self-KOs and every rung below it does, so self-preservation already
+improves with difficulty. ⛔ the `rollout_depth` diagnosis is falsified by its own
+instrument — depth 0 and depth 12 are flat — do not reopen it.
+
+⚠ three seeds says something different from fifteen; fifteen is the number that
+answers.
+
+### 14. ✔ ANSWERED 2026-08-22 — 56 px stands, the crown rises, and the walk dip gets a real fix
+
+**a. ✔ THE SHARED COLLISION WIDTH STAYS 56 px ON BOTH FORMS.** Identical-width-
+for-every-form and box-inside-the-drawing are together decided by the NARROWEST
+form, and the one-brick short form draws 60 px wide — so the old 64 collided on
+empty air beside her. The grown form's box narrows too, and that is the accepted
+price of the identical-width rule. ⛔ widening the short form's ART to ~68 px to
+recover it was DECLINED.
+
+**b. ✔ THE SHORT FORM'S CROWN RISES ~6 px — the art moves to meet the box.** The
+box top comes from the height contract (short × 2 = grown exactly), not from the
+art, so closing the +6 px of empty air above her hat is a redraw rather than an
+acceptance. ⚠ **this knowingly moves the 40/40/20 head/body/legs split he
+specified** — the head grows against the other two — and the trade is taken so her
+silhouette matches her collision and ceiling contact reads correctly.
+⚠ unchanged elsewhere: grown 0 px headroom, fire −14 px (its flame frills clear
+the box on purpose).
+
+**c. ✔ THE WALK DIP GETS THE POSE FIELD — a torso lower that does NOT move
+`foot_y`.** The stride's extension is currently spelled as a downward
+TRANSLATION, which is why every walk frame puts her foot below her own idle line:
+small dips +0.50 to +1.00 units, grown +0.33 to +1.17, so she walks through the
+floor by up to a fifth of a tile and the renderer's clipping warning is the canvas
+noticing. The three authored numbers are `walk#0 leg_back_dy = 1.0`,
+`walk#2 leg_front_dy = 1.0`, and `walk#1 bob = 0.4` feeding `foot_y = 30.2 + bob`.
+
+⛔ **do not zero them.** Clamping removes the stride extension and the mid-stride
+bob rather than respelling them, and flattens the walk he tuned.
+
+⭐ the new field is engine vocabulary, not a Mary-O patch: every future pose gets
+the right way to say *"the body dips, the contact point does not"*.
+
+⚠ this changes an animation he has already seen and approved, taken deliberately;
+⚠ the grown form's dip is PRE-EXISTING — those frames came through the rig
+refactor byte-identical — so the fix corrects shipped behaviour on both forms.
+
+### 15. ✔ ANSWERED 2026-08-22 — impact hitstop is a bounded MATCH-LEVEL request
+
+⭐⭐ **Jon, verbatim:** *"Use a bounded match-level request emitted by a
+successful connect. Keep slot-0 time control for genuinely participant-specific
+affordances such as bullet time and blink hold. Impact hitstop belongs to combat
+presentation and should work without any PrimaryPlayer. The request expires using
+unscaled time; the clock returns to normal because arbitration has no remaining
+freeze request, so there is no explicit hand-back path capable of leaving the
+world at 0.0 forever."*
+
+⇒ ⭐⭐ **the question's framing was rejected.** All three options offered an OWNER
+(nobody / the most recent connect / the framed fighter); the answer is that
+impact hitstop has NO owner — a connect emits a bounded request and the match
+arbitrates.
+
+⛔⛔ **the 0.0-forever failure is designed out rather than guarded against.** The
+request expires on UNSCALED time and normal pace is the ABSENCE of any live
+request, so there is no hand-back path a missing `PrimaryPlayer` can fail to
+walk. The 2026-08-07 freeze (*"the characters are just stuck in air"*) cannot
+recur in this shape.
+
+⛔ **bullet-time and blink-hold do NOT move with it** — they are per-PARTICIPANT
+feel affordances by ADR 0010/0011 and stay slot-keyed.
+
+⚠ CPU-vs-CPU then screen-freezes correctly with nobody playing, which is the case
+that exposed this.
+
+### 16. ✔ ANSWERED 2026-08-22 — the layout tool owns position, and ownership follows the LAYOUT MODE
+
+⭐⭐ **Jon, verbatim:** *"choose 1, with one refinement: position ownership should
+follow the layout mode"*.
+
+⇒ where the tool computes placement — Free layout, arranged by `world auto-layout`
+from the LoadingZone graph — the area spec DROPS `world_x`/`world_y` and stops
+claiming something it lost.
+
+⭐ **the refinement is the load-bearing half**: ownership is a property of the
+world's LAYOUT MODE, not a project-wide constant. A world whose placement is not
+computed from a graph is a different case and must not have the field stripped by
+the same sweep. ⇒ what follows is engineering, per mode: which modes compute
+placement, and what `level diff-specs` compares in each.
+
+⛔ **do not bulk-rewrite the 52 drifting specs to silence the check.**
+Re-recording live values is the option NOT taken; doing it anyway answers this by
+accident.
+
+⚠ 13 of the 52 are a usage limit rather than drift — specs for levels in another
+world file, which the command cannot see because it takes one `--ldtk`. A second
+flag is warranted either way.
+
+### 17. ✔ ANSWERED 2026-08-22 — `DebugLabel` is debug, it keeps shipping, and edge-exit labels are proximity-gated
+
+⭐⭐ **Jon on the name, verbatim:** *"Its debugging, but we don't need to stop
+shipping it, we are nowhere close to a real exploration game. This is part of the
+scaffold and prototype, and if a GPT review claimed otherwise, then it was out of
+line."*
+
+⇒ the name is honest and stays. The density measurement — 14 DebugLabels in
+`gate_stack_lower`, 13 in `drain_alley`, 12 rooms carrying both sources —
+describes a PROTOTYPE, not a defect.
+
+⛔ **do not rename it to signage, do not gate it out of the build, and do not run
+a triage pass over the authored labels.**
+
+⛔⛔ **the standing lesson is the last clause, and it generalises**: *"we are
+nowhere close to a real exploration game"* answers a whole CLASS of polish
+findings. A reviewer measuring a prototype against a shipped game is out of line,
+and a finding of that shape is weighed against the project's stage before it is
+filed. ⚠ for the record this one came from the D161 density measurement rather
+than from a GPT review; the ruling on its class stands either way.
+
+⭐⭐ **Jon on the zone labels, verbatim:** *"Proximity gate them. Note, different
+games will want different behaviors here, and it should be easy to have them
+always on, vs proximity, vs dont use them at all."*
+
+⇒ the 24 always-on EdgeExit labels join the 127 Doors on the proximity gate.
+
+⭐⭐ **the second sentence is the engine half and outranks the first**: label
+visibility is a THREE-VALUED POLICY the consuming game selects — always on ·
+proximity · off — with proximity as Ambition's choice. ⛔ do not ship a second
+hardcoded rule; a game that wants always-on labels must not edit engine code.
+
+### 18. ✔ ANSWERED 2026-08-22 — a hit's art follows BOTH the victim's material and the blow's strength
+
+⭐⭐ **RULED: both.** `ImpactMaterial::{Flesh, Robot, Metal}` is the VICTIM's fact
+and picks the family; soft-vs-hard is the ATTACKER's fact and picks the intensity.
+
+⇒ the two vocabularies are joined and neither is subordinate. That is what
+explains all four shipped rows — `hit_soft` / `hit_hard` / `hit_metal` /
+`hit_energy` — which material alone could only explain three of.
+
+⛔ **the cost is a MESSAGE change, not a lookup.** The material lives on the
+victim's `HurtFeedback` and `VfxMessage::Impact` carries a position and nothing
+else, so ~10 emitters must start saying what was hit and how hard.
+
+⚠ the shipped row set is not a full cross product. A combination with no authored
+row needs a STATED fallback — the untextured yellow quad that started this is
+exactly what a silent one looks like.
+
+### 19. ✔ ANSWERED 2026-08-22 — the sheet registry keys by FILE ROOT
+
+⭐⭐ **RULED: key by FILE ROOT.** A file root names a PRODUCT — one published
+page — which is what the registry actually serves, and it is the key
+`record_index()` and the character-geometry road already use.
+
+⇒ the 148 root==target sheets are unaffected; the 48 that share a rig adapter
+(robot 18, toon 16, goblin 9, sandbag 3, ninja 2) each get their own key, so the
+last-manifest-wins class becomes IMPOSSIBLE rather than reported. `robot` stops
+losing its own 256x256 sheet to `tech_bro_disruptor`, `goblin` to
+`ranged_skirmisher`, `sandbag` to `sandbag_full_review`.
+
+⛔ **"retire the stale manifest" was never available for two of the three** —
+`tech_bro_disruptor` and `ranged_skirmisher` are distinct characters legitimately
+declaring a shared rig target, so there is no pair to retire.
+
+⛔⛔ the standing principle this executes, from the 2026-08-18 review: *"Do not
+let a sprite-renderer target string accidentally become the durable identity of a
+character package."* `CharacterId` is semantic and durable; a renderer target is
+an authoring choice; a sheet file root is a product. ⚠ promoting the key to
+`CharacterId` was offered and NOT taken — the registry is a product lookup.
+
+⚠ this changes what a shared engine resource returns for 48 files. Every live
+consumer looks up a name where root == target, so nothing shipped should move;
+verify that rather than assume it. Measurement: [`../../dev/reviews/sheet-target-collisions-2026-08-19.md`](../../dev/reviews/sheet-target-collisions-2026-08-19.md).
+
 ### 6. ✔ ANSWERED 2026-08-17 — hitlag freezes the body that is in it (former D114)
 
 ⭐⭐ **Jon, verbatim:** *"keep the landed fix and overrule the old prohibition …
@@ -789,95 +618,45 @@ per-route host     TwinTrack takes `fixed_tick`, Smash keeps rollback. ⚠ the
 genuinely wants rollback AND has two seats, and "who is playing" had been
 declarable only from inside the rollback backend.
 
-### 29. ▢ NEW 2026-08-21 — should the gate cover LIBRARY crates' test targets?
+### 29. ✔ ANSWERED 2026-08-22 — sweep the crates a CARVE touches, not the workspace
 
-`cargo check -p ambition_app --all-targets` builds the APP's test targets. It
-does not build each library crate's. **Two independent sessions left a library
-test build red on main within hours of each other on 2026-08-21**, and neither
-was caught by anything:
+⭐⭐ **RULED: the gate stays `cargo check -p ambition_app --all-targets`.** A carve
+additionally compiles `--all-targets` on each crate it touched.
 
-```text
-ambition_platformer2d_ldtk       `use entity_catalog::…` — no crate prefix
-  (d3bd6e95a)                    conversion/mod.rs, a test 20 lines above its use
-ambition_platformer2d_actor_monolith
-  (9ea8ea2fa, d3bd6e95a)         3 errors: a test module left behind by a carve
-                                 calling functions now private in another crate,
-                                 plus a privately re-exported `PickupKind`
-```
+⇒ that targets the actual failure mode: a carve moving a type or a function is
+exactly the change that breaks a SIBLING crate's test build, and the app gate
+builds none of them. The two 2026-08-21 breakages were both from that day's
+carves; a sweep of all 54 crates found zero others, so this is INCIDENTAL and
+correlated with carving rather than endemic rot.
 
-⚠ **both surfaced only by accident** — someone compiling those crates directly
-for unrelated work. A carve that moves a type or a function is exactly the change
-that breaks a sibling crate's tests, and D33 is a carving campaign, so the
-exposure is not incidental.
+⛔ **do not widen to `--workspace --all-targets` or `--workspace --tests`.**
+Measured: the 12-crate touched sweep took ~10 minutes cold, the full 54 is
+proportionally worse and would have bought nothing, and `--workspace --tests` has
+FILLED THIS DISK here.
 
-```text
-widen the gate    `--workspace --all-targets`, or a per-crate loop over the
-                  crates a commit touches. ⛔ measured cost: the full sweep of
-                  12 crates took ~10 minutes cold on this machine, and
-                  `--workspace --tests` has filled the disk here before
-leave it          a broken library test build is found by whoever next compiles
-                  that crate — which today was hours, and only by luck
-```
+⚠ D33 is a carving campaign, so this is a live discipline, not a precaution.
+⛔ a third instance of a red library test build must not be treated as a surprise.
 
-⭐ **AND THE REST OF THE WORKSPACE IS CLEAN — measured 2026-08-21, all 54
-crates.** After fixing the two above, every remaining crate compiles
-`--all-targets`. So this is INCIDENTAL and correlated with carving, not endemic
-rot:
+### 20. ✔ ANSWERED 2026-08-22 — a boss's hoard is per-boss eventually; currency for the demo
 
-```text
-54 crates swept, per-crate (never `--workspace --tests`, which has filled
-                            this disk before)
- 2 broken, both from today's carves, both now fixed
- 0 broken anywhere else
-```
+⭐⭐ **Jon, verbatim:** *"Decide per boss, for the current demo, the reward can
+just be currency. In the real game we will give different rewards."*
 
-⇒ that argues for the cheaper answer — sweep the crates a CARVE touches, not the
-workspace on every gate. The 12-crate touched-today sweep took ~10 minutes cold;
-the full 54 is proportionally worse and would buy nothing today.
+⇒ ⭐ **the shape is per-boss; the SCHEDULE is not.** The eight
+`PickupKind::Custom` ids in `boss_profiles.ron` — `pirate_hoard`, `gnu_scroll`,
+`noodly_relic`, `trex_bone_relic`, `collapsed_relic`, `divergence_shard`,
+`stack_frame_relic` and one more — become currency now, so a defeated boss stops
+paying nothing. The per-boss answer (an ability, a relic item, a quantity) is
+authored later, one boss at a time, in the real game.
 
-⇒ recorded rather than answered: this is a build-time-versus-coverage call, and
-this project is deliberately hostile to guardrail machinery. ⛔ what should NOT
-happen is a third instance being treated as a surprise.
+⛔ **do not invent eight item definitions to close this** — that option was not
+taken, and inventing them is authoring content policy at an engine seam.
+⛔ do not read the currency answer as the final one; it is the demo's placeholder.
 
-### 20. ▢ NEW 2026-08-19 — eight boss chests are authored with treasure that does not exist
-
-**The wiring half is FIXED and is not the question.** `ChestFeature::reward()`
-had zero callers: every chest in the game opened, sparked, played its sound,
-announced *"opened X"* and granted nothing, because `open_ecs_chests` asked for
-`With<ChestFeature>` and never `&ChestFeature`. It now routes the payload through
-the same `grant_pickup` the walk-over pickup uses — **130 authored chests in the
-shipped world start paying out**: 104 health chests, 13 `ability:test_key`, 13
-`flag:opened_basement_story_chest`.
-
-▢ **what is left is a CONTENT call and it is yours.** The eight boss reward
-chests in `boss_profiles.ron` are authored `PickupKind::Custom(..)` —
-`pirate_hoard`, `gnu_scroll`, `noodly_relic`, `trex_bone_relic`,
-`collapsed_relic`, `divergence_shard`, `stack_frame_relic` and one more — and
-**each of those ids appears in that one file and nowhere else in the tree**: no
-item, no ability, no flag, no catalog row. `Custom` has no reader in the engine
-at all. So a defeated boss still drops a chest that pays nothing, and closing the
-wiring did not change that.
-
-⇒ **the question is what a boss's hoard IS**, which is a design answer rather
-than an engineering one. The three shapes available today:
-
-```text
-an ABILITY      the boss teaches a verb — the north star's "every upgrade a
-                theorem" beat, and the road bosses already use for
-                `reward_ability` beside the chest
-a QUANTITY      currency/health — cheap, works now, says nothing about the boss
-a NEW ITEM      each relic becomes a real catalog item with art and a use;
-                the most work and the only one that makes the names mean
-                something
-```
-
-⚠ **not guessed at in the meantime, deliberately.** Inventing eight item
-definitions would be authoring content policy at an engine seam. What landed
-instead is that the unspendable case is now LOUD: a `Custom` payload reaching the
-grant warns with the id and says nobody was awarded it, so this stops being
-invisible. ⛔ the silent `_ => {}` that swallowed it is what let eight shipped
-bosses drop empty treasure without a single line of evidence.
-
+⚠ the mechanism is already loud: a `Custom` payload reaching the grant warns with
+the id and says nobody was awarded it, so a boss whose real reward has not been
+authored is visible rather than silent. ⛔ the silent `_ => {}` that swallowed it
+is what let eight shipped bosses drop empty treasure without a line of evidence.
 
 ### 21. ✔ ANSWERED — separating control authority from AI policy: TAKE THE BREAK (option A)
 
@@ -1540,142 +1319,104 @@ by rolling the superproject pointer back. The superproject commits depend on the
 submodule content; the pointer is the symptom, the credential is the cause.
 
 
-### 30. ▢ NEW 2026-08-22 — the height contract's WARN has a false premise; what should it compare?
+### 30. ✔ ANSWERED 2026-08-22 — height owns world size; art DENSITY is a separate, declared contract
 
-D165's ruling 2 (yours, 2026-08-17) says height is a contract, *"a tight
-tolerance **WARNS** when the resulting scale drifts far from 1.0"*, with the
-instruction to pick the tolerance from the measured population rather than
-inventing a round one.
+⭐⭐ **Jon, verbatim:** *"Neither the cast median nor 1.0 is the right authority.
+Split this from the height contract. Height owns world size; the measured scale is
+just the conversion from source pixels to world size. If consistent source-art
+density is desired, give the art/render pipeline an explicit authoring-density
+profile and warn when a sheet deviates from that declared profile. Do not infer
+the standard from the current cast. Until we have deliberately chosen that
+profile, remove the false 1.0 warning rather than replacing it with a
+median-based one."*
 
-⛔ **Measured 2026-08-22, and no character is anywhere near 1.0.** Across the 95
-catalog characters with a resolvable height and a body bbox:
+⇒ ⭐⭐ **this AMENDS his own 2026-08-17 ruling.** *"Warns when the scale drifts far
+from 1.0"* rested on a false premise: measured across 95 catalog characters the
+scale runs 0.188–0.571, median 0.320, so a band around 1.0 warns on 100% of the
+cast — the mirror of a check that cannot fail.
 
-```text
-scale = declared height / body pixel height
-  min 0.188 · p10 0.223 · median 0.320 · p90 0.456 · max 0.571
-```
+⛔ **DELETE the warn. Do not substitute a median-based one** — a cast-derived
+standard drifts as the cast changes, so enough dense-art characters silently move
+what counts as normal.
 
-Every sheet is authored two to five times larger than the world size it draws
-at — `npc_ninja_shadow_oni_leader` is a 256px body drawn 48 world px tall
-(0.188). ⇒ **a tolerance around 1.0 would warn on 100% of the cast**, which is
-the mirror of a check that cannot fail.
+⭐ the density question is real and stays open as a FUTURE contract: an explicit
+authoring-density profile, DECLARED once by the art/render pipeline, with sheets
+warned against that.
 
-⚠ what the spread actually says is that the cast does NOT share an art
-resolution: at 0.188 a character carries three times the on-screen pixel density
-of one at 0.571, so neighbours in the same room are drawn from very differently
-sized art. That is a real thing to warn about — it is just not "far from 1.0".
+⚠ nothing else in the height contract moves — the authored number still wins and
+every character still renders at its declared height.
 
-**The decision:** should the warn compare a sheet's scale to
-- (a) **the cast median** (0.320), warning outside some band — this catches "your
-  art is much denser/coarser than everyone else's", or
-- (b) **a declared per-project art resolution** (e.g. "bodies are authored at 3×
-  world"), warning on any sheet that disagrees — the same check, but with the
-  expectation stated once instead of inferred from whoever is in the catalog, or
-- (c) nothing yet — the spread is intentional and a warn would be noise.
+### 31. ✔ ANSWERED 2026-08-22 — `SeatRawFrames` stays RAW; the split is source-local vs world-dependent
 
-⚠ **and no tolerance should be picked before this is answered**, because (a) and
-(b) measure different things: (a) drifts as the cast changes, (b) does not.
+⭐⭐ **Jon, verbatim:** *"Choose 1, but don't encode “portal warp is
+proposal-side” into the design. Keep SeatRawFrames genuinely raw/proposed and
+stop shape_seat_frame from dual-writing raw + published state. Establish one
+canonical per-tick input after the fixed-step/GGRS boundary, then derive
+effective controls deterministically from that. Source-local normalization
+happens before the boundary; world-dependent semantics such as
+portal/reference-frame transforms and fast-fall happen after it. The
+post-boundary value does not need to mean “confirmed” in the networking
+sense—GGRS may be using predicted remote input—so name it something like
+CanonicalSeatInput or TickSeatInput, not necessarily ConfirmedSeatInput."*
 
-### 31. ▢ NEW 2026-08-22 — is `SeatRawFrames` a PROPOSAL, or is it also where derived semantics land? (D175)
-
-Raised by a GPT review of the overnight snapshot, and the code half is verified:
-`shape_seat_frame` (`control/queries.rs`) ends with
-
-```rust
-slots.set(slot, frame);
-raw.set(slot, frame);
-```
-
-so a shaper writes BOTH tables. That contradicts `SeatRawFrames`' own type-level
-contract — *"EVERY SEAT'S RAW FRAME, BEFORE ANY SHAPING STAGE HAS RUN"* and
-*"THIS TABLE IS THE PROPOSAL, NOT THE AGREEMENT"* — because after a shaping pass
-it holds a post-shaping value.
-
-⭐ **the dual write is not a mistake, it is a compatibility bridge, and it works.**
-There are three hosts (fixed-tick latch, GGRS, frame-step) and they disagree about
-which table already holds this tick's input; writing both is what made all three
-correct at once, which is the multiplayer fix D175 was for. The question is
-whether that bridge should become the permanent shape.
-
-⚠ **the reviewer's case, and it is a fair one:** fast-fall is derived from
-CONFIRMED input plus rollback-backed gesture history, so it is not a modification
-to the physical proposal a device made — yet the helper writes it back into the
-proposal table. Their suggested stage model:
+⇒ the stage model is taken, with TWO corrections to the reviewer's version:
 
 ```text
-device sample -> LocalSeatProposal -> latch/GGRS agreement -> ConfirmedSeatInput
-              -> deterministic gesture derivation -> EffectiveSlotControls
+device sample -> raw seat proposal        source-local normalization ONLY
+              -> fixed-step / GGRS boundary
+              -> CanonicalSeatInput       (or TickSeatInput)
+              -> deterministic derivation portal / reference-frame transforms,
+                                          fast-fall, other world-dependent semantics
+              -> effective slot controls
 ```
 
-with each transformation editing exactly ONE stage, portal warping on the
-proposal side (it must be part of the agreed input) and fast-fall on the
-confirmed side.
+⛔ **the axis is SOURCE-LOCAL vs WORLD-DEPENDENT, not proposal vs confirmed.**
+Portal / reference-frame transforms are world-dependent and belong AFTER the
+boundary beside fast-fall — do not place portal warping on the proposal side,
+which is what the review proposed.
 
-⛔ **they also asked for a guard preventing new `shape_seat_frame` callers, and
-that is declined**: a check that counts call sites is source-text meta-test
-machinery, which AGENTS.md forbids and which this project has refused before —
-the standing note even predicts that an LLM review will ask for exactly this.
-The question above is a real design decision and belongs here; a tripwire around
-it is not the way to hold it open.
+⛔ **the post-boundary table must not be called "confirmed"**: GGRS may be
+feeding PREDICTED remote input, so the name may not claim agreement.
 
-**What is needed from you:** whether `SeatRawFrames` keeps its stated contract —
-in which case the derived-semantics writes move to a separate published table and
-the three-host knowledge leaves the shaper — or whether the contract is rewritten
-to say what the code now does. ⚠ either answer is cheap TODAY and gets more
-expensive per input mechanic added, because each one currently learns the
-fixed-step / GGRS / frame-step distinction on its way in.
+⇒ `shape_seat_frame`'s dual write ends and the three-host (fixed-tick latch /
+GGRS / frame-step) knowledge leaves the shaper; `SeatRawFrames` keeps its stated
+type contract instead of having it rewritten.
 
-### 26. Rename the blast zone out of every world's authoring schema? (D169)
+⛔ the reviewer's guard against new `shape_seat_frame` callers stays DECLINED —
+a check that counts call sites is source-text meta-test machinery AGENTS.md
+forbids, and the standing note predicts an LLM review asking for exactly it.
 
-⭐ **the measurement first, because it changes the question the plan asked.**
-`world-geometry-and-spatial-semantics.md` argues the engine provides a bespoke
-platform-fighter primitive that Smash should instead declare over generic
-geometry. Measured at HEAD, the MECHANISM is already generic:
-`apply_world_hazard_gate` computes a per-axis distance past the world AABB and
-emits `ResetCause::LeftTheWorld` — *"policies flag; the body's owner applies its
-reset policy"* — so Smash loses a stock, Mary-O respawns, and Ambition calls it
-out of bounds, all from one engine fact. `blast_margin`'s own doc already says
-it: *"a platformer's pit depth and a platform fighter's blast zone — the same
-number, and it belongs to the STAGE."*
+### 26. ✔ ANSWERED 2026-08-22 — rename the blast zone out of every world (D169)
 
-⇒ **what leaks is the WORD, and it leaks furthest in the place you actually
-meet it.** All six shipped LDtk worlds carry all three fields in
-`defs.levelFields`:
-
-```text
-sanic_speedway · intro · sandbox · you_have_to_cut_the_rope
-hall_of_characters · mary_o          blast_margin, side_blast_margin, ceiling_blast_margin
-```
-
-⭐⭐ **and ZERO levels author a value** — 18 schema entries, no data behind any
-of them. So this costs no content migration. Every author of every world is
-shown three platform-fighter fields nobody has ever filled in.
-
-**The decision is yours because the `.ldtk` files are yours.** The converter reads
-the authored key by name, so the struct field and the authored field are ONE name:
-renaming the Rust half alone needs a mapping, and a mapping is the shim this
-project refuses. It is one change or it is not worth 206 sites.
-
-**What I would do, if you want it done:**
+⭐⭐ **RULED: the full rename, Rust and LDtk in ONE change.**
 
 ```text
 World { blast_margin, side_blast_margin, ceiling_blast_margin }
   -> World { edges: WorldEdgeMargins { fall: f32, side: Option<f32>, rise: Option<f32> } }
+LDtk keys -> fall_out_margin / side_out_margin / rise_out_margin
 ```
 
-One field instead of three, named for the axis role rather than the genre, and
-the kernel destructures it EXHAUSTIVELY so a fourth axis is a compile error
-rather than a forgotten comparison — the same shape as `CapabilityLanes`. The
-LDtk keys become `fall_out_margin` / `side_out_margin` / `rise_out_margin`, which
-is a `defs.levelFields` rename in six files and no value to carry.
+⇒ one field instead of three, named for the AXIS ROLE rather than the genre, and
+the kernel destructures it EXHAUSTIVELY so a fourth axis is a compile error rather
+than a forgotten comparison — the same shape as `CapabilityLanes`.
 
-⚠ **options if you would rather not:** (a) leave it — the leak is lexical and the
-engine is correct, and the doc comments already explain the generic meaning to
-anyone who reads them; (b) rename the Rust struct only and accept the mapping,
-which I do not recommend; (c) do the whole rename, which is mechanical and
-guarded by `a_level_authors_its_own_blast_margin` plus the LDtk contract prover.
+⭐ **the MECHANISM was already generic and does not change**:
+`apply_world_hazard_gate` computes a per-axis distance past the world AABB and
+emits `ResetCause::LeftTheWorld` — Smash loses a stock, Mary-O respawns, Ambition
+calls it out of bounds. What leaks is the WORD, and it leaks in the authoring
+schema every author meets.
 
-⛔ **`BlockKind` is the plan's other half and is NOT this.** Its diagnosis — one
-enum mixing contact law, traversal permission, world consequence and contact
-affordance — was re-measured as correct, and its trigger has not fired. Nothing
-here proposes touching it.
+⭐⭐ **it costs NO content migration.** All six shipped worlds
+(`sanic_speedway`, `intro`, `sandbox`, `you_have_to_cut_the_rope`,
+`hall_of_characters`, `mary_o`) carry all three fields in `defs.levelFields`, and
+ZERO levels author a value — 18 schema entries with no data behind any of them.
+
+⛔ **it is one change or it is not worth 206 sites.** The converter reads the
+authored key by name, so the struct field and the authored key are ONE name;
+renaming the Rust half alone needs a mapping, and a mapping is the shim this
+project refuses. Guarded by `a_level_authors_its_own_blast_margin` plus the LDtk
+contract prover.
+
+⛔ **`BlockKind` is the plan's other half and is NOT in scope.** Its diagnosis
+— one enum mixing contact law, traversal permission, world consequence and contact
+affordance — was re-measured as correct, and its trigger has not fired.

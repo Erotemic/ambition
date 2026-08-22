@@ -49,6 +49,36 @@ prohibition, an instructively wrong measurement, a design refused for cause —
 and that is one clause, never a section. Full rule in
 [`README.md`](README.md#queue-contract).
 
+⭐⭐⭐ **JON ANSWERED EVERY OPEN MAINTAINER QUESTION — 2026-08-22. There are
+ZERO open decisions.** All fifteen are recorded verbatim in
+[`maintainer-decisions.md`](maintainer-decisions.md), with receipts in
+[`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md).
+⛔ **do not re-ask any of these, and do not infer around them.** The ones that
+unblock a ledger row:
+
+| § | ruling | unblocks |
+| --- | --- | --- |
+| 26 | **Full rename**: `World.edges: WorldEdgeMargins { fall, side, rise }`, Rust + LDtk keys in ONE change; no content migration (zero levels author a value). ⛔ `BlockKind` not in scope | D169 |
+| 19 | **Sheet registry keys by FILE ROOT.** A renderer target string may not be a durable engine identity | D162 |
+| 31 | **`SeatRawFrames` stays RAW.** Split is SOURCE-LOCAL vs WORLD-DEPENDENT — portal transforms go AFTER the boundary, beside fast-fall. ⛔ post-boundary table is NOT "confirmed" (GGRS predicts): `CanonicalSeatInput` / `TickSeatInput` | D175 · D180 |
+| 30 | **DELETE the 1.0 height warn; do not replace it with a median.** Density becomes a separately DECLARED authoring profile | D165 |
+| 29 | **Sweep the crates a CARVE touches**, not the workspace. ⛔ never `--workspace --tests` | D33 |
+| 16 | **The layout tool owns a level's position, and ownership FOLLOWS THE LAYOUT MODE.** ⛔ do not bulk-rewrite the 52 specs | D163 residue |
+| 18 | **A hit's art follows BOTH** the victim's material and the blow's strength — a ~10-emitter message change | D128 residue |
+| 15 | **Impact hitstop is a bounded MATCH-LEVEL request** expiring on UNSCALED time; no owner, no hand-back path | D72 |
+| 17 | **`DebugLabel` is debug and keeps shipping** — the world is scaffold. **Proximity-gate EdgeExit labels**, and label visibility is a three-valued GAME-SELECTABLE policy | D161 residue |
+| 20 | **Boss hoards are per-boss eventually; CURRENCY for the demo.** ⛔ do not invent eight item definitions | D125 residue |
+| 5 | **Correct the level-1 CPU for feel.** ⛔ its original evidence is RETRACTED — `0.84%` was 84% | fighter-brain |
+| 14 | Mary-O: **keep 56 px**, **raise the short crown ~6 px**, **fix the walk dip with a torso pose field**. ⛔ do not zero the three numbers | D129 |
+| 3 | **Disable rust-analyzer.** ⛔ no second target directory | — |
+| 4 | The Mary-O restart report **was Mary-O and is believed resolved** — retired | D70 |
+| 2 | Advance the measurement submodule pointer **every so often**; cadence does not matter | — |
+
+⛔⛔ **AND ONE RULING GENERALISES BEYOND ITS ROW.** §17, Jon verbatim: *"we are
+nowhere close to a real exploration game. This is part of the scaffold and
+prototype, and if a GPT review claimed otherwise, then it was out of line."*
+⇒ weigh a polish finding against the PROJECT'S STAGE before filing it.
+
 D73 is closed and its working-memory documents are archived under
 [`../archive/planning-superseded/2026-08-13/`](../archive/planning-superseded/2026-08-13/).
 The successor strategy is

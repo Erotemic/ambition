@@ -540,14 +540,8 @@ fn earn_the_star_wand(app: &mut App) {
     // `+y` is screen-down, so the block's `max.y` is the face she bonks.
     let underside = block.aabb.max.y;
 
-    // ⛔ **DROPPED IN, never set down at a guessed height.** Setting her down at
-    // her own resting `y` directly beneath this block leaves her inert: grounded,
-    // at rest, overlapping no block, and deaf to input in every direction. The
-    // same placement 300px to the right walks off immediately, so it is the
-    // POSITION and not the height. Falling to the surface is how a player
-    // arrives, and it does not depend on knowing why that spot is different.
-    // ⚠ the mechanism is unexplained and filed as D181 — this is NOT a claim
-    // that the terrain there is higher; the collision layer is measurably flat.
+    // Start above the target and let collision settle the body onto the surface;
+    // direct placement at the guessed resting height can leave this fixture inert.
     let start_y = player_body(app).0.y;
     place_player(
         app,

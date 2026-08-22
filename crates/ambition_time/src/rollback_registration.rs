@@ -1,7 +1,4 @@
-//! This crate's own rollback declarations; the host supplies the backend registrar.
-//!
-//! ⭐ they are here because the TYPES are, and a domain that registers its own
-//! state is what keeps the runtime free of gameplay type paths.
+//! Domain-owned rollback declarations; the host supplies the backend registrar.
 
 use ambition_platformer2d_core::snapshot::RollbackRegistrar;
 

@@ -165,20 +165,9 @@ impl Plugin for PlayerSchedulePlugin {
         app.add_systems(
             sim,
             (
-                // ⚠ **STILL IN `InputSet::Route`, though neither writes the
-                // global `ControlFrame` any more.** By the set's own definition
-                // they no longer belong in it; what keeps them here is the
-                // ORDERING it carries — Route is pinned before
-                // `PrimarySlotInputCommit`, and the portal warp is pinned after
-                // `InteractionInputBuffered` and before that same commit. Moving
-                // either of these past the commit makes that unsolvable, because
-                // a warp may not rewrite the axes until the interact press has
-                // been buffered against the UNWARPED ones.
-                //
-                // ⛔ **these belong in the SIM schedule, not the device window.**
-                // They derive from confirmed input and `SlotInteractionState`,
-                // which is canonical rollback state, on a clock the rollback host
-                // rewinds. `Update` is where the wall clock lives.
+                // `InputSet::Route` supplies the ordering window: interaction is
+                // buffered before portal warping, and both happen before
+                // `PrimarySlotInputCommit`. Confirmed-input derivations run in the sim schedule.
                 ambition_platformer2d_actor_monolith::control::input_timer_system
                     .in_set(ambition_platformer2d_actor_monolith::control::InputTimersAdvanced)
                     .run_if(gameplay_allowed)

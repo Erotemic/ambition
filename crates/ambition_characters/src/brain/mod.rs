@@ -119,30 +119,11 @@ impl SlotControls {
     }
 }
 
-/// **EVERY SEAT'S RAW FRAME, BEFORE ANY SHAPING STAGE HAS RUN.**
+/// Per-seat device frames before proposal-side shaping and input latching.
 ///
-/// ⭐ **the stage that had to exist for a seat other than zero to have
-/// semantics.** A device sample is not yet a control frame: a double-tap becomes
-/// `fast_fall_pressed`, a portal warps the axes, a scripted driver substitutes
-/// its own. Seat zero had a place for that — the global `ControlFrame` — and no
-/// other seat had one at all, so the shapers were its by construction and
-/// **player two could not fast-fall** (D175). This is that place, for everybody.
-///
-/// ⛔⛔ **THIS TABLE IS THE PROPOSAL, NOT THE AGREEMENT.** A stage whose input is
-/// the local device or a wall clock belongs here, before the latch and before any
-/// peer has agreed to anything.
-///
-/// ⚠ **a stage that derives from CONFIRMED input does not.** `fast_fall_pressed`
-/// is derived in the sim schedule from `SlotInteractionState`, which is canonical
-/// rollback state, on a clock the rollback host rewinds; moving it here would put
-/// it on the wall clock. `seat_frame_this_tick` decides which table a stage
-/// reads.
-///
-/// ⚠ **not the same table as [`SlotControls`], and merging them would undo
-/// this.** `SlotControls` is what the simulation READS — confirmed, post-latch,
-/// and under GGRS written from the session's own inputs on a resimulated tick.
-/// This is what the local device PROPOSED, this frame, before anybody agreed to
-/// it.
+/// Device- or wall-clock-derived stages use this table before
+/// `PrimarySlotInputCommit`. Confirmed-input stages run in the simulation schedule.
+/// [`SlotControls`] is the post-latch simulation input; the two tables are distinct.
 #[derive(bevy::ecs::resource::Resource, Clone, Copy, Debug, Default)]
 pub struct SeatRawFrames {
     slots: [ambition_platformer2d_core::ControlFrame; SlotControls::MAX_SLOTS],
@@ -186,16 +167,11 @@ impl SeatRawFrames {
     }
 }
 
-// ── Slot-keyed GESTURE state ──────────────────────────────────────────────
-//
-// ⭐ these live beside `SlotControls` / `SlotControlLatches` / `SeatRawFrames`
-// because they are the same kind of thing: a table keyed by controller slot.
-// They depend on nothing but primitives and `PlayerSlot`.
+// Controller-slot gesture state.
 
 /// One controller slot's double-tap timers and interact buffer.
 ///
-/// ⚠ deliberately NOT a `Component`: the gestures belong to the controller, so a
-/// possessed body reads the slot driving it rather than a privileged home avatar.
+/// Controller-local state; possessed bodies read the gesture state of their driving slot.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct SlotGestures {
     /// Non-zero means a down-tap is live and a second one would be a double-tap.
@@ -296,24 +272,8 @@ impl SlotInteractionState {
         self.slots.get(slot.0 as usize).copied().unwrap_or_default()
     }
 
-    /// **Mutable access to a slot's gestures — `None` for a slot that does not
-    /// exist.**
-    ///
-    /// ⛔ **it used to CLAMP, and clamping a participant identifier is not a
-    /// defensive measure, it is a wrong write to somebody else's controller.**
-    /// `PlayerSlot(9)` resolved to the LAST valid slot, so a caller that had
-    /// mistaken a slot could take player 4's buffered interact and consume it —
-    /// a bug that presents as "somebody else's door opened" and can never be
-    /// traced back to an index. (The comment on the old body was wrong in its
-    /// own right: it promised a fallback to slot 0 while the code clamped to
-    /// the last one, so neither the promise nor the behaviour was defensible.)
-    ///
-    /// ⭐ **`SlotControls` already models the honest policy** — a write to a
-    /// slot that does not exist is ignored — and returning `Option` states the
-    /// same thing where the caller can see it. [`get`](Self::get) still answers
-    /// `default()` for an out-of-range READ, which is a different question with
-    /// a defensible answer: a controller that does not exist is pressing
-    /// nothing.
+    /// Mutable access to a slot's gestures. Invalid slots return `None` rather
+    /// than redirecting the write to another participant.
     pub fn get_mut(&mut self, slot: PlayerSlot) -> Option<&mut SlotGestures> {
         self.slots.get_mut(slot.0 as usize)
     }
@@ -323,37 +283,20 @@ impl SlotInteractionState {
         self.get(PlayerSlot::PRIMARY)
     }
 
-    /// Mutable primary-controller gestures.
-    ///
-    /// ⚠ **the one unconditional accessor on this type, and it is sound by
-    /// construction rather than by a caller's care**: the const assertion below
-    /// pins that the primary slot is inside the array, so this cannot become
-    /// the clamp it replaced by way of a later change to either constant.
+    /// Mutable primary-controller gestures. The const assertion below guarantees
+    /// that the primary slot is in bounds.
     pub fn primary_mut(&mut self) -> &mut SlotGestures {
         &mut self.slots[PlayerSlot::PRIMARY.0 as usize]
     }
 }
 
-/// The primary slot exists. `primary_mut` indexes unconditionally on the
-/// strength of this, so a build where the two constants disagreed would fail
-/// here rather than panic in a frame.
+/// Compile-time guard for `primary_mut`'s unconditional index.
 const _: () = assert!((PlayerSlot::PRIMARY.0 as usize) < SlotControls::MAX_SLOTS);
 
-/// **THE FRAME→TICK INPUT LATCH, ONE PER SEAT — INCLUDING SEAT ZERO.**
+/// Frame-to-tick input latches keyed by participant slot.
 ///
-/// A tap that opens and closes between two ticks must still reach the sim, so a
-/// fixed-tick host folds device samples on the FEEL clock and drains them on the
-/// TICK clock. That is what a latch is.
-///
-/// ⛔⛔ **seat zero used to have its OWN spelling of this and it was a FORK.**
-/// `ControlFrameLatch` was a standalone `Resource` beside an array covering
-/// slots 1.., whose doc said *"slot 0 is deliberately NOT latched here"* — a type
-/// whose doc says it mirrors another type is a fork with a note attached, and
-/// every consumer paid for it twice. Seat zero is row zero now.
-///
-/// ⚠ **the ELEMENT type survives and is still `ControlFrameLatch`**: it was
-/// always the right thing, it was just also a resource. What is deleted is the
-/// second home for one seat's copy of it.
+/// Device samples accumulate on the frame clock and are drained on simulation ticks,
+/// preserving edges that begin and end between ticks.
 #[derive(bevy::ecs::resource::Resource, Clone, Copy, Debug, Default)]
 pub struct SlotControlLatches {
     slots: [ambition_platformer2d_core::ControlFrameLatch; SlotControls::MAX_SLOTS],

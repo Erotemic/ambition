@@ -42,15 +42,21 @@ fn main() {
     click(&mut app, 0, layout.role_button(0), "P1 takes a controller");
     click(&mut app, 1, layout.role_button(1), "P2 takes a controller");
     click(&mut app, 2, layout.role_button(2), "P3 takes a controller");
-    click(&mut app, 2, layout.role_button(2), "…and hands that card to a CPU");
+    click(
+        &mut app,
+        2,
+        layout.role_button(2),
+        "…and hands that card to a CPU",
+    );
 
     // Human hands can select portraits directly. The CPU has no hand, so P1
     // borrows its token to choose that card's fighter.
-    for (owner_slot, driving_seat, character) in
-        [(0usize, 0u8, 4usize), (1, 1, 0), (2, 0, 6)]
-    {
+    for (owner_slot, driving_seat, character) in [(0usize, 0u8, 4usize), (1, 1, 0), (2, 0, 6)] {
         if matches!(
-            app.world().resource::<SmashSelect>().slot(owner_slot).occupant,
+            app.world()
+                .resource::<SmashSelect>()
+                .slot(owner_slot)
+                .occupant,
             ambition_demo_smash::select::SlotOccupant::Cpu
         ) {
             let token = placed_token(&app, &layout, owner_slot);
@@ -106,6 +112,7 @@ fn click(
     app.world_mut()
         .resource_mut::<SelectCursors>()
         .seat_mut(seat as usize)
+        .expect("seat is bounded by the caller's seat count")
         .move_to(rect.center());
     let mut frames = app.world_mut().resource_mut::<SeatMenuFrames>();
     frames.clear();
@@ -132,7 +139,12 @@ fn show(app: &mut App, what: &str) {
         .world()
         .get_resource::<ambition_platformer2d::character::CharacterCatalog>()
         .cloned();
-    let carrying = app.world().resource::<SelectCursors>().seat(0).carrying;
+    let carrying = app
+        .world()
+        .resource::<SelectCursors>()
+        .seat(0)
+        .expect("seat 0")
+        .carrying;
     let asked = app.world().resource::<StartRequested>().0;
     println!("\n── {what} ──");
     println!("   ┌────────────────────────────────────────────────┐");

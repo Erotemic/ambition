@@ -296,18 +296,8 @@ fn a_deliberate_double_tap_up_opens_a_door_and_one_press_does_not() {
     );
 }
 
-/// **The third way in: hold Up.**
-///
-/// Jon asked for a hands-free way into a door. The gesture is deliberately the
-/// slow one — as long as a possession takes — so it cannot fire while somebody
-/// is jumping past, and the one-second guard below is what pins that: the press
-/// and the double-tap both open in a handful of ticks, so a door that opens
-/// early has been opened by one of them and not by this.
-///
-/// ⛔ **A HOLD SENDS THE EDGE ONCE.** `AgentAction::up_pressed` is the rising
-/// edge, not the level, and re-sending it every tick is a machine-gun
-/// double-tap that opened the door in FOUR ticks — the first draft of this test
-/// passed with the hold entirely unwired. The level is `move_y`.
+/// Holding Up opens the door only after the hold threshold and emits one
+/// interaction edge. `AgentAction::up_pressed` is the rising edge; the held level is `move_y`.
 #[test]
 fn holding_up_opens_a_door_and_a_short_hold_does_not() {
     let mut sim = fixed_60hz_sim();

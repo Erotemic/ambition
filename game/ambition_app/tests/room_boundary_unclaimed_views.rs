@@ -104,20 +104,8 @@ fn step(app: &mut App) {
     std::thread::sleep(Duration::from_millis(4));
 }
 
-/// Step one frame and give the asset threads NOTHING.
-///
-/// ⭐ **the sleep in [`step`] is the difference between a settled population and
-/// a transient one, and D46 is about the transient one.** Measured 2026-08-09:
-/// crossing into the Hall of Characters — 129 bodies, the heaviest room the app
-/// has — with [`step`] draws **zero** unclaimed placeholders at any point,
-/// because 4 ms per frame is enough for every decode to land before the view is
-/// published. The window the magenta flash lives in does not exist under that
-/// driver.
-///
-/// ⚠ **that makes [`step`] correct for its own test and structurally blind for
-/// this one** — an instrument whose noise floor is above the signal, and the
-/// general form is that narrowing a seam to quieten one domain silences every
-/// other domain that spoke through it.
+/// Step one frame without sleeping for asset threads.
+/// This keeps transient unclaimed views observable; [`step`] may let them settle first.
 fn step_fast(app: &mut App) {
     app.update();
 }
@@ -425,59 +413,14 @@ fn cover_is_up(app: &mut App) -> bool {
         .any(|name| name.as_str().starts_with("room transition cover"))
 }
 
-/// **⭐ D46's FALSIFIER — does a magenta placeholder ever reach the screen?**
+/// Sample frames after a room change and fail if an unclaimed placeholder is
+/// visible after the transition cover retires.
 ///
-/// Jon, 2026-08-08: *"Changing rooms flashes magenta squares for a brief moment.
-/// We need to have cleaner transitions between rooms than that."*
-///
-/// The cover exists to hide exactly that, and it is NOT giving up: a real 290 s
-/// desktop session logged **190 `no render family claimed` and 0 `cover gave up
-/// waiting`**. So either the flash comes from a placeholder spawned AFTER the
-/// cover retires — the cover's condition was `unclaimed_placeholders.count() ==
-/// 0`, a snapshot rather than a settled state — or it comes from somewhere this
-/// test will not find, and the D46 hypothesis is wrong.
-///
-/// ⚠ **that condition is HISTORY as of 2026-08-09.** The cover now waits on the
-/// `UnclaimedFeatureViews` census instead of on the diagnostic's population,
-/// which removes this mechanism as a *possible* cause — it does not prove the
-/// flash is gone, because this harness never reproduced it. Un-ignoring it is
-/// still the way to find out.
-///
-/// ⛔ **this samples PAST the room change**, which the other test in this file
-/// does not: `cross()` returns the instant the active room flips, and the whole
-/// suspicion is about the frames after that.
-///
-/// ## ⛔⛔ `#[ignore]`d, AND THE REASON IS THE FINDING
-///
-/// **This harness never draws a magenta placeholder at all**, so it cannot say
-/// anything about one being visible. Three attempts, 2026-08-09, each refuted:
-///
-/// | attempt | result |
-/// |---|---|
-/// | cross hub → `proving_grounds` | **0** placeholders ever drawn |
-/// | cross hub → Hall of Characters (129 bodies, the heaviest room) | **0** |
-/// | …with the 4 ms asset sleep removed ([`step_fast`]) | **0** |
-///
-/// ⭐ **the vacuity guards below are what caught all three.** The very first run
-/// PASSED — and meant nothing, because the condition it checks
-/// (`placeholders && !cover`) was never once evaluated with placeholders
-/// present. A green from this test without `saw_placeholders` is a green about
-/// nothing, which is why that assertion exists and why it is not negotiable.
-///
-/// ⇒ **the flash is not reproducible in `build_visible_app` on desktop.** The
-/// 190 `no render family claimed` lines in the 290 s desktop profile came from
-/// somewhere this composition does not reach — a different route, or the
-/// windowed app's own presentation wiring — a composition can be a silent
-/// half-engine, installing the systems a class of presentation needs while
-/// never selecting that class, so nothing is missing and nothing runs. ⛔ **do not tune
-/// `presentation_settle_deadline` on the strength of this file** — it has not
-/// observed the phenomenon.
-///
-/// **Un-ignore it the moment something makes a placeholder appear here**: the
-/// assertion, the sampling and the guards are all correct and ready. What is
-/// missing is a crossing that actually produces the transient.
+/// Ignored because this harness currently produces no unclaimed placeholders; the
+/// `saw_placeholders` guard prevents a vacuous pass. Do not tune
+/// `presentation_settle_deadline` from this test until it observes the transient.
 #[test]
-#[ignore = "cannot observe the magenta flash: this harness draws no unclaimed placeholder at all — see the doc comment, queue D46"]
+#[ignore = "harness currently draws no unclaimed placeholders"]
 fn no_magenta_placeholder_is_visible_while_the_cover_is_down() {
     let mut app = gameplay_app();
     settle(&mut app);

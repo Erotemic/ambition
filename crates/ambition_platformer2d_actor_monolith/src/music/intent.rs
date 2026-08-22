@@ -31,18 +31,12 @@ use ambition_audio::music::{AdaptiveMusicCatalogRegistry, EncounterMusicBinding,
 /// (large-brute) state. Content tuning — owned here, not by the director.
 pub(super) const LARGE_BRUTE_DELAY_SECONDS: f32 = 3.5;
 
-/// **Release a conversation's music claim when the room changes.**
-///
-/// A `<<music>>` claim deliberately outlives the dialogue box — the fight it
-/// scores starts after the box closes — so the ROOM is what bounds it. Without
-/// this the track follows the player through doors with nothing able to stop it.
+/// Clear room-scoped narrative music when the active room changes.
 pub fn release_narrative_music_on_room_change(
     active_room: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
         crate::rooms::ActiveRoomMetadata,
     >,
-    // ⚠ OPTIONAL, like every other resource this module reads: the audio plugin
-    // is installed in apps that never add `ConversationPlugin`, and a plain
-    // `ResMut` panics rather than skipping when nobody owns the resource.
+    // Conversation support is optional in hosts that still install the audio plugin.
     narrative_music: Option<ResMut<ambition_conversation::NarrativeMusicRequest>>,
 ) {
     let Some(mut narrative_music) = narrative_music else {
@@ -123,9 +117,7 @@ pub fn compute_music_intent(
 /// conversation asked for > radio > room default > sandbox default. The director
 /// plays the first id that exists in its `AudioLibrary`, so this stays a pure
 /// list of candidate ids (no audio backend access here).
-///
-/// ⚠ a live fight outranks a conversation: the encounter scoring itself is the
-/// more specific claim, and the narrative request survives the box that made it.
+
 pub(super) fn simple_track_candidates(
     room_music: &RoomMusicRequest,
     narrative_music: Option<&ambition_conversation::NarrativeMusicRequest>,

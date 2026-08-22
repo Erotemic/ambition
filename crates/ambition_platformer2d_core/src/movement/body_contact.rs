@@ -34,18 +34,8 @@ use crate::{Aabb, AabbExt};
 pub struct BodyContactBlocker {
     /// Where this body is, in the common pre-integration snapshot.
     pub aabb: Aabb,
-    /// **How fast it was travelling as the snapshot was taken** — the evidence
-    /// that it is coming the other way, and the only thing that lets a mover
-    /// tell "the gap is mine to spend" from "we are both spending it".
-    ///
-    /// ⛔ **ENTRY velocity, and the name says so because it is NOT the step
-    /// being constrained.** The snapshot precedes every controller, so a body
-    /// that starts, stops, accelerates or reverses this tick is described here
-    /// by its previous state. The division is therefore an APPROXIMATION, and a
-    /// conservative one: both halves of a pair read the same stale pair of
-    /// numbers, so their shares still sum to the gap, and a start or a reversal
-    /// costs one tick of approach rather than an overlap. See
-    /// [`constrain_motion`].
+    /// Velocity at contact-snapshot time. Both bodies use the same entry-state
+    /// pair when dividing a closing gap, so the conservative shares remain symmetric.
     pub entry_velocity: crate::Vec2,
 }
 
@@ -90,13 +80,8 @@ pub struct BodyContactField<'a> {
     /// a hard stop, and neither is more correct. `1.0` stops the body at contact;
     /// `0.25` lets it keep a quarter of the motion that would take it deeper.
     pub resistance: f32,
-    /// **THIS body's own ENTRY velocity from that same snapshot.**
-    ///
-    /// ⛔⛔ **both halves of a pair must divide one gap the same way, and that
-    /// is only possible from numbers they both see.** Splitting by each body's
-    /// ACTUAL proposed step would have each computing its share from a figure
-    /// the other cannot read, and two shares derived from different arithmetic
-    /// do not add up to the gap. See [`constrain_motion`].
+    /// This body's velocity from the same contact snapshot. Pairwise gap shares
+    /// must be derived from values visible to both bodies.
     pub own_entry_velocity: crate::Vec2,
 }
 

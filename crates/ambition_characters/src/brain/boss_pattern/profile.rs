@@ -270,16 +270,12 @@ pub enum LimbMotion {
     Hold,
 }
 
-/// Q18 (G3): a strike's limb ROUTE — which of the mount's limb slots it drives,
-/// and the [`LimbMotion`] each performs. Keyed by move id inside
-/// [`BossBehaviorProfile::limb_routing`]. Authored in RON:
-/// `("hand_slam", (slots: [HandLeft, HandRight], motion: SlamDown))`.
+/// Limb slots and motion driven by a strike, keyed by move id in
+/// [`BossBehaviorProfile::limb_routing`].
 #[derive(Clone, Debug, PartialEq, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct LimbRoute {
-    /// The slots the strike drives. A route to a slot the rig doesn't carry is
-    /// simply inert — but a slot that doesn't EXIST is now a content load
-    /// error, where the `Vec<String>` this replaced dropped it in silence.
+    /// The slots the strike drives. Slots absent from the host rig are inert.
     pub slots: Vec<LimbSlot>,
     /// How each named slot moves during the strike.
     pub motion: LimbMotion,

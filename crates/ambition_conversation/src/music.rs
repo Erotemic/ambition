@@ -1,17 +1,8 @@
-//! **A track a conversation asked for**, and the room that bounds it.
+//! Conversation-selected music is presentation state scoped to the current room.
 //!
-//! ⛔ **presentation-side ON PURPOSE, and that is the whole design decision.**
-//! Every other gameplay-bearing Yarn command routes through
-//! [`crate::ledger::NarrativeInputLedger`] because it writes rollback state from
-//! `Update`, where a rewind would erase it. Music is not rollback state: nothing
-//! in the simulation branches on which track is playing, and rewinding the
-//! soundtrack would stutter it for the same reason rewinding the dialogue box
-//! would. So this is its own channel, like `play_sfx`.
-//!
-//! ⚠ **it is bounded by the ROOM, not by the conversation.** A dialogue-claimed
-//! track outlives the box that claimed it — that is the point, since the fight
-//! it scores starts after the box closes — but a claim that also outlived the
-//! ROOM would follow the player into unrelated rooms with no way to stop it.
+//! It bypasses [`crate::ledger::NarrativeInputLedger`] because simulation state
+//! never depends on the soundtrack. A request may outlive the dialogue that
+//! created it, but room transitions clear it.
 
 use bevy::prelude::Resource;
 

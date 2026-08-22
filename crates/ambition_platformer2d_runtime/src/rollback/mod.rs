@@ -49,11 +49,7 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
     ambition_platformer2d_shared_tangle::register_rollback_state(registrar);
     ambition_vfx::register_rollback_state(registrar);
     ambition_items::register_rollback_state(registrar);
-    // ⚠ **the ROW is behind `portal`, the same shape and for the same reason as
-    // `ambition_platformer2d_ldtk`'s: a composition without portals has no such
-    // state to rewind, and gating the row says that rather than registering an
-    // empty one. It is a stated schema fork — the recorded baselines are the
-    // with-portal set, which every shipping composition is.
+    // Portal rollback state exists only when the portal capability is enabled.
     #[cfg(feature = "portal")]
     ambition_portal2d::register_rollback_state(registrar);
     ambition_cutscene::register_rollback_state(registrar);
@@ -416,22 +412,9 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
             ENGINE,
             "body.ability_base",
         )
-        // The renderer's runtime-visual DISCOVERY marker. An actor staged outside the
-        // authored `RoomSpec` lists (a duel fighter, a runtime-spawned mount) is only
-        // given the sprite pipeline because it carries this, so losing it across a
-        // restore leaves the actor rendering invisibly for the rest of the session.
-        // Same class as `PlayerVisual`, which this instrument caught the same way:
-        // presentation, but presentation whose ABSENCE is permanent. Surfaced by the
-        // A20 mounted-pair sweep — no swept ROOM stages an actor imperatively.
-        // Which provider's bank an entity's cues come out of (G1). For a BODY this is
-        // republished every sim tick from its worn character, so it would survive a
-        // restore either way — but for a PROJECTILE it is stamped once, at spawn, from a
-        // firer that may be dead by the time the bolt lands. Unregistered, bevy_ggrs
-        // recreates the bolt without it and the impact reverts to the session's voice
-        // for the rest of the shot's life. Same class as `PlayerVisual` and
-        // `RuntimeStagedActor`: presentation, but presentation whose ABSENCE is
-        // permanent. Probed by value, because the value is the whole fact and a count
-        // of "how many entities have a source" says nothing about WHOSE.
+        // Runtime-staged actors need this marker after restore so presentation can
+        // rediscover them. `SfxSource` must also survive for projectiles because it
+        // is stamped at spawn and may outlive the firing body; probe it by value.
         .rollback_component_clone_probed::<ambition_sfx::BodyPresentationSource>(
             ENGINE,
             "presentation.body_source",
@@ -444,17 +427,8 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
             ENGINE,
             "presentation.body_source_derived",
         )
-        // Portal-gun runtime (deep review 2026-07-19 §2.2). `PortalBody`/`Policy`/
-        // `Transit`/`PlacedPortal` were registered but the gun-side state was not,
-        // so a rewind could carry a cooldown latch or an in-flight shot in from an
-        // abandoned future — permitting or blocking a transit the confirmed
-        // timeline never saw.
-        // The pickup's ARM TIMER is ticked every sim tick by `arm_portal_pickups`, so a
-        // rewind that kept an abandoned future's timer would let the same press that
-        // dropped a gun immediately re-grab it — or refuse a grab the confirmed
-        // timeline allowed. Surfaced by the coverage sweep only once its population was
-        // derived from the rollback vocabulary: a pickup carries neither
-        // `FeatureSimEntity` nor `BodyKinematics`.
+        // Portal-gun cooldown, in-flight shot, and pickup arm timers affect future
+        // transit/grab decisions and therefore must rewind with portal state.
         .rollback_component_clone::<bevy::prelude::Name>(ENGINE, "entity.name")
         .rollback_component_clone::<bevy::prelude::Transform>(ENGINE, "entity.transform");
 

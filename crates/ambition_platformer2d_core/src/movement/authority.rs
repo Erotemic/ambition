@@ -297,13 +297,7 @@ mod tests {
         }
     }
 
-    /// **SDI MAY NOT ENTER A WALL.**
-    ///
-    /// ⛔⛔ **it could, and the comment claiming otherwise was the tell.** This
-    /// authority was a bare `pos +=` whose doc said the kernel's own contact
-    /// correction would resolve the overlap on the next moving tick. It cannot:
-    /// the frozen tick calls `step_motion` with `dt == 0`, and the kernel returns
-    /// before it sweeps anything. Nothing ever saw the displacement.
+    /// SDI is swept during hitlag and may not enter a wall.
     #[test]
     fn a_frozen_shift_stops_at_a_wall_instead_of_entering_it() {
         let world = walled_world(600.0, 40.0);

@@ -1,10 +1,4 @@
-//! The clock ARBITRATION's own tests — regime permissions, grant/deny/rebind,
-//! and what a reset does to both the live and the requested scale.
-//!
-//! ⚠ the tests that stayed in the actor monolith did so for a reason each:
-//! the ramp needs combat feel tuning, the `WorldTime` frame tests need the
-//! host's schedule, and two are repo scanners whose paths are relative to
-//! where they sit.
+//! Clock-arbitration tests for regime permissions and reset behavior.
 
 use super::*;
 use crate::{ClockDomain, ClockObserver, ClockState, ProperTimeScale};
@@ -93,11 +87,7 @@ fn cinematic_grants_scripted_denies_player() {
     );
 }
 
-/// End-to-end: build a minimal app, fire a request, run the
-/// system, observe the target change. This is the canonical
-/// regression check that the dispatch pipeline is wired.
-/// RoomTransitionCooldown::time_scale is touched by the SMOOTHER
-/// (smooth_sim_clock_toward_target_system), not by this system.
+/// A granted request updates the requested scale through the dispatch pipeline.
 #[test]
 fn solo_grant_writes_requested_clock_scale() {
     let mut app = App::new();
@@ -119,15 +109,8 @@ fn solo_grant_writes_requested_clock_scale() {
     assert!((target.sim_clock - 0.125).abs() < 1e-6);
 }
 
-/// **The bug this arbitration exists for.** A transformation beat asks for 0.35
-/// from `PlayerSimulation`; `emit_player_time_intent_system` asks for 1.0 from
-/// the frame tail, every frame, because "nothing is happening" is how it says
-/// nothing. Under the old last-wins reduction the 1.0 landed second and the
-/// dilation never reached the clock — so both demos' transformation slow-motion
-/// did nothing at all, while the beat's own test (which asserts the message, not
-/// the effect) stayed green.
-///
-/// Asserted in both orders, because "it depends on who ran last" is the defect.
+/// Multiple requests reduce by strength rather than scheduler order.
+/// Assert both input orders to keep the result order-independent.
 #[test]
 fn the_strongest_slow_wins_regardless_of_who_asked_last() {
     for reversed in [false, true] {

@@ -180,39 +180,19 @@ pub fn input_timer_system(
     }
 }
 
-/// Fold the three ways to interact — the explicit `Interact` action, a
-/// double-tap up, and a sustained Up hold — gate the result on the CONTROLLED
-/// body's hit-stun, and advance the per-frame interact buffer on each
-/// controller's slot (`SlotInteractionState`).
-///
-/// Downstream consumers read the buffered signal from
-/// `SlotInteractionState::primary().buffered()` (or the controlled body's slot).
-/// The host gates this on `gameplay_allowed` so the buffer does not tick down
-/// while paused, in dialogue, or mid-cutscene.
-///
-/// Ordering: must run after `input_timer_system` (which decrements the controlled
-/// body's `combat.hitstun_timer` and sets `double_tap_up_pending` from
-/// `register_up_tap`) and before `detect_room_transition_system` (which consumes
-/// the buffered signal post-player-tick).
-/// **The set [`interaction_input_system`] runs in — the interact buffer is armed.**
-///
-/// The portal input-warp window opens after this: a warp must not rewrite the
-/// frame before the interact press has been buffered for the slot, or the press
-/// is attributed to the post-warp state. `portal_schedule` said that by naming
-/// this function from another crate.
-///
-/// ⚠ ONE member. The neighbours in `PlayerInputSet::Device` are the timer
-/// decrement before it and the frame commit after it — the two things this sits
-/// BETWEEN — so a wider set would erase exactly the window the consumer wants.
+/// Ordering point after interaction gestures are buffered and before portal input
+/// warping and `PrimarySlotInputCommit`.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct InteractionInputBuffered;
 
+/// Fold explicit Interact, double-tap Up, and held Up into each controller slot's
+/// buffered interaction, gated by gameplay state and the driven body's hit stun.
+/// Fold explicit Interact, double-tap Up, and held Up into each controller slot's
+/// buffered interaction, gated by gameplay state and the driven body's hit stun.
 pub fn interaction_input_system(
     time: Res<Time>,
     feel_tuning: Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>,
-    // This seat's input for THIS TICK, which is what this read as
-    // `Res<ControlFrame>` before that resource became an output mirror — and
-    // which of the two tables holds it depends on the clock.
+    // Proposal-side input for this frame; confirmed simulation input is in `slots`.
     raw: Res<ambition_characters::brain::SeatRawFrames>,
     slots: Res<ambition_characters::brain::SlotControls>,
     latches: Option<Res<ambition_characters::brain::SlotControlLatches>>,

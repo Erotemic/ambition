@@ -1,98 +1,20 @@
-//! Yarn command + function + markup registrations — the "vocabulary"
-//! that authored `.yarn` content can invoke at runtime.
+//! Yarn command, function, and markup registrations available to authored `.yarn` content.
 //!
-//! ⛔ **this lived in the ENGINE crate**
-//! (`ambition_conversation::dialog::yarn_bindings`) and named
-//! this game's items, shop, brains and save flags from inside it. That is an
-//! ownership error, not a decomposition one: `ambition_dialog` already exposes
-//! [`YarnContentBindings`](ambition_dialog::YarnContentBindings) precisely so a
-//! HOST pushes its own vocabulary in from outside, and this crate already
-//! pushed two installers through that seam (the duel, the cut-rope commands).
-//! It is the third.
+//! This game owns its content vocabulary and installs it through
+//! [`YarnContentBindings`](ambition_dialog::YarnContentBindings).
 //!
-//! ⚠ **and it is not a decomposition win** — the monolith still names
-//! `ambition_dialog` through `conversation`, so no Cargo edge moved. Recorded as
-//! what it is in `docs/planning/engine/actor-monolith-decomposition.md`.
+//! Gameplay-bearing commands must enter the simulation through
+//! [`NarrativeInputLedger`](ambition_conversation::NarrativeInputLedger). Presentation
+//! commands use presentation channels directly. Persistent dialogue/quest metadata is
+//! save state and is not rewound with the simulation.
 //!
-//! The bindings split into three concerns:
+//! New generic gameplay verbs should use
+//! [`ambition_conversation::dialog::authored_commands`]; new reads should prefer
+//! published conditions through [`ambition_conversation::dialog::authored_conditions`].
 //!
-//! **Commands** (`<<challenge>>` syntax). Bevy systems with
-//! `In<T>` parameters. Registered on the runner's `commands_mut()`
-//! via `world.register_system(...)`. Each one writes to a typed
-//! game-state channel (`ChallengeRequested`, `SfxMessage::Play`,
-//! …). Authored dialogue uses them to *drive* gameplay.
-//!
-//! ⛔ **a new gameplay verb should NOT be added here.** The engine has one
-//! generic `<<command "domain.verb" arg…>>` binding that reaches any command a
-//! domain published — see
-//! [`ambition_conversation::dialog::authored_commands`]. What is left in this
-//! file is the remainder: verbs whose subject is the CONVERSATION itself (the
-//! speaker being challenged, their brain) or whose target is presentation, both
-//! of which the command catalog has no vocabulary for yet.
-//!
-//! **Functions** (`<<if boss_cleared("X")>>` syntax). Pure closures
-//! registered on the runner's `library_mut()`, reading save state
-//! through a shared [`YarnStateMirror`] refreshed each frame by
-//! [`refresh_yarn_state_mirror`]. Authored dialogue uses them to
-//! *read* gameplay.
-//!
-//! ⛔ **this module's header used to say functions "can't be Bevy systems", and
-//! that was FALSE of the crate in the lockfile.** `SystemId<In<P>, O>` implements
-//! `YarnFn` and `bevy_yarnspinner` hands it the interpreter's live `&mut World`.
-//! ⇒ the mirror is a convenience for what has no published condition, not a
-//! necessity — and `flag(id)` is gone because `world.flag_set` is published. A
-//! new read here should first ask whether its domain can publish a condition
-//! instead; see
-//! [`ambition_conversation::dialog::authored_conditions`].
-//!
-//! **Markup cues** (`Speaker: [shout]LINE[/shout]` inline). The
-//! bridge's `on_present_line` observer scans `LocalizedLine.attributes`
-//! and writes [`ambition_dialog::YarnPresentationCue`] resource entries that the
-//! camera and audio layers consume. Authored dialogue uses these to
-//! *spice* the presentation.
-//!
-//! ## Why a single module
-//!
-//! Per the migration design, the "what verbs / functions /
-//! markup can authored dialogue invoke" surface lives here as a
-//! single source of truth. Couples to `AmbitionGameSave`, `SfxMessage`,
-//! `GameplayEffect`, etc. — that's the bridge's whole job.
-//!
-//! ## ⛔ Which side of the rollback boundary each command is on
-//!
-//! **This table is the classification, and it is the point of the module.**
-//! Every command here runs in `Update`, driven by a Yarn runner that is content
-//! executing in real time — outside the simulation and outside rollback,
-//! deliberately, because rewinding a typewriter would stutter the box. A command
-//! that reaches from there into the simulation has no replay story: the channels
-//! it writes are cleared on rollback, the resources it mutates are restored, and
-//! the runner does not execute between resimulated ticks to produce either
-//! again.
-//!
-//! So a **gameplay-bearing** command records a request in the conversation's
-//! [`NarrativeInputLedger`](ambition_conversation::NarrativeInputLedger) and a
-//! simulation system applies it on the tick it was stamped for. A
-//! **presentation-facing** command writes its own channel exactly as before,
-//! because its consumer is already downstream of the effect quarantine's release
-//! and nothing about it is authoritative.
-//!
-//! | command | crosses into the sim? | how |
-//! |---|---|---|
-//! | `challenge` | yes — it starts a fight | ledger → `ChallengeRequested` |
-//! | `use_brain` / `restore_brain` | yes — it changes autonomous behaviour | ledger → `BrainCommand` / `ReleaseProvocation` |
-//! | `give_item` | yes — `OwnedItems` is rollback state | ledger → `ItemGrantRequested` |
-//! | `buy_item` / `sell_item` | yes — so is `BodyWallet` | ledger → `ShopTransactionRequested` |
-//! | `play_sfx` | **no** — reaches the speakers, never read back | its own channel |
-//! | `music` | **no** — nothing in the sim branches on the soundtrack | its own channel |
-//! | `spawn_fireworks` | **no** — a visual sequence | its own channel |
-//! | `spawn_chest`, `camera_zoom` | **no** — logged stubs with no consumer | nothing |
-//!
-//! ⚠ **persistent metadata is a third category and stays where it is.** Dialogue
-//! visit counts and quest advancement are SAVE state, not simulation state: they
-//! are not rewound, nothing in the sim branches on them within a tick, and
-//! routing them through a rollback-shaped seam would be machinery for a
-//! guarantee they do not need. Classified deliberately rather than by whichever
-//! side happens to call them.
+//! Conversation-specific verbs, presentation commands, Yarn functions, and markup cues
+//! remain here because they are host content rather than engine vocabulary.
+
 
 //! The generic binding machinery (the [`YarnStateMirror`] shape, the
 //! [`ambition_dialog::YarnPresentationCue`], the [`ambition_dialog::YarnContentBindings`] installer seam, and
@@ -411,16 +333,8 @@ pub fn cmd_play_sfx(In(id_str): In<String>, mut sfx: ambition_sfx::SfxWriter) {
     });
 }
 
-/// `<<music "track_id">>` — ask for a track. An empty id hands the room its own
-/// music back.
-///
-/// ⛔ **not on `<<challenge>>`.** Scoring a fight is content's call, not the
-/// generic combat trigger's: a track there would play for every challenge in the
-/// game. The two commands compose on one authored choice instead.
-///
-/// ⚠ the claim is bounded by the ROOM, not by the dialogue box — it has to
-/// outlive the box, since the fight starts after the box closes. See
-/// [`ambition_conversation::NarrativeMusicRequest`].
+/// `<<music "track_id">>` requests room-scoped presentation music. An empty id
+/// clears the request. Fight scoring stays authored separately from `<<challenge>>`.
 pub fn cmd_music(
     In(track): In<String>,
     mut music: ResMut<ambition_conversation::NarrativeMusicRequest>,

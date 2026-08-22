@@ -202,18 +202,9 @@ impl Plugin for HostInputBindingsPlugin {
             // spelling of the latch — see `SlotControlLatches`.
             app.init_resource::<ambition_platformer2d_runtime::host_input::SlotControlLatches>();
         }
-        // ⛔⛔ **AFTER every PROPOSAL-SIDE stage.** `InputSet::Route` holds the
-        // window between the device read and this fold — a scripted substitution,
-        // the reset clear, a portal warp. A stage whose input is the local device
-        // or a wall clock must land before it, or the frame it shapes is one the
-        // latch has already taken. Stages that derive from CONFIRMED input run in
-        // the sim schedule instead.
-        //
-        // ⚠ **EVERY host, not only the latching ones.** The latch decides the
-        // DESTINATION — fold and let the tick drain, or publish straight through
-        // — and the system asks for it as an `Option`. Gating the commit itself
-        // on having a latch is how a frame-stepped composition would end up
-        // filling a raw table nothing ever reads.
+        // Fold after proposal-side input shaping and before confirmed-input derivations.
+        // Device- or wall-clock-derived shaping belongs in `InputSet::Route`; confirmed
+        // input derivations belong in the simulation schedule.
         app.add_systems(
             Update,
             commit_seat_raw_frames

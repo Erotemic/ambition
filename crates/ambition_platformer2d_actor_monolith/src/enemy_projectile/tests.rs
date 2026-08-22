@@ -778,7 +778,7 @@ fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
                 size: ae::Vec2::new(24.0, 40.0),
                 facing: 1.0,
             },
-            // The published combat footprint every body carries (§A6).
+            // Published combat footprint used by victim geometry.
             ae::CenteredAabb::from_center_size(player_pos, ae::Vec2::new(24.0, 40.0)),
             BodyBaseSize {
                 base_size: ae::Vec2::new(24.0, 40.0),
@@ -792,7 +792,7 @@ fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
                 ..Default::default()
             },
             BodyCombat::default(),
-            // `step_projectiles` reads the victim's resolved frame (ADR 0024).
+            // Projectile victim queries read the resolved motion frame.
             crate::physics::ResolvedMotionFrame::default(),
         ))
         .id();
@@ -889,15 +889,7 @@ fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
             .chain(),
     );
 
-    // Stand-in for the firing boss/enemy entity.
-    //
-    // ⛔ **it was `spawn_empty()`, and that made this test pass for the wrong
-    // reason.** A firer with no `ActorFaction` fails the owner lookup, and an
-    // unresolved owner used to mean INDISCRIMINATE — so the shot landed on the
-    // player as environmental damage, by the one road a real enemy bolt never
-    // travels. The assertion below is about ATTRIBUTION, and it was reading a
-    // hit produced by a hazard rather than by an enemy. A stand-in for an enemy
-    // has to be hostile to something, or it is standing in for a falling rock.
+    // Give the firing stand-in an enemy faction so attribution follows the real enemy path.
     let attacker = app.world_mut().spawn(ActorFaction::Enemy).id();
 
     // A vulnerable player (no parry / dodge / invuln) at the shot's origin.
@@ -910,13 +902,9 @@ fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
             size: ae::Vec2::new(24.0, 40.0),
             facing: 1.0,
         },
-        // The published combat footprint every body carries (§A6).
+        // Published combat footprint used by victim geometry.
         ae::CenteredAabb::from_center_size(player_pos, ae::Vec2::new(24.0, 40.0)),
-        // The player is a body with a FACTION like any other — the real bundle
-        // (`avatar::bundles`) carries `ActorFaction::Player`, and every unified
-        // victim path (melee's `hitbox` loop and now projectiles') resolves
-        // damage relationally through it. The fixture omitted it, which made the
-        // player invisible to a faction-relational query.
+        // Match production faction routing so hostility is tested relationally.
         ActorFaction::Player,
         BodyBaseSize {
             base_size: ae::Vec2::new(24.0, 40.0),
@@ -925,7 +913,7 @@ fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
         ambition_platformer2d_core::BodyMotionFacts::default(),
         BodyShieldState::default(),
         BodyCombat::default(),
-        // `step_projectiles` reads the victim's resolved frame (ADR 0024).
+        // Projectile victim queries read the resolved motion frame.
         crate::physics::ResolvedMotionFrame::default(),
     ));
 
@@ -963,47 +951,16 @@ fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
     );
 }
 
-/// **The tangibility gate at the PROJECTILE boundary.** The bolt-side twin of
-/// `ambition_combat::hitbox::tests::a_dead_victim_is_intangible_to_a_swing`.
+/// A projectile uses the same published victim geometry as melee.
 ///
-/// An EMPTY published `DamageableVolumes` means *this body cannot be hit
-/// anywhere* — `strike_reaches_victim` keys its coarse-box fallback on the
-/// component's ABSENCE precisely so that an emptied list stays a miss instead of
-/// degrading into the bounding rectangle. Melee and feature hits both ask it.
-/// `step_projectiles` asked nobody: it tested the coarse `CenteredAabb`, so a
-/// silhouette decided whether a sword landed and never decided whether a bolt
-/// did (`614f098f2`, queue row D23).
-///
-/// The empty list here is produced **the way production produces it** — the
-/// shipped `refresh_body_damageable_volumes` clears a corpse, and a corpse
-/// outlives its own death (`spend_fighter_stocks`: *"the body stays standing
-/// until a ruleset removes it"*). So the two halves of this test differ in
-/// exactly one authored fact, the body's HP, and the live half is what keeps the
-/// miss from being the uninteresting kind — a bolt that reaches nothing hits
-/// nothing.
-///
-/// ⚠ **the INTANGIBILITY half of D23.** The PRECISION half — a bolt testing the
-/// authored rectangles rather than the coarse box — was Jon's feel call, he
-/// ruled for it (decision 1, 2026-08-17), and it is pinned by
-/// [`a_bolt_misses_the_gap_in_an_authored_silhouette`] below.
-/// **A bolt misses what a sword would miss: the gap in an authored silhouette.**
-///
-/// Jon's ruling (decision 1, 2026-08-17): *"the projectile respects the AUTHORED
-/// HURT VOLUME — the same geometry melee uses"*, so a crouching or ledge-hanging
-/// fighter reads the same to a bolt and to a swing.
-///
-/// ⛔ **the control is the whole test.** A body whose published volume COVERS the
-/// bolt must still be hit — otherwise "it missed" would prove only that the
-/// fixture never overlapped, which is the failure mode the sibling above names.
-/// Both arms use the same body, the same bolt and the same position; the only
-/// thing that changes is which rectangle the victim published.
+/// A published silhouette collides only where its authored rectangles overlap the
+/// bolt. The control arm covers the same body/bolt position to prove the miss is
+/// geometric rather than a fixture failure.
 #[test]
 fn a_bolt_misses_the_gap_in_an_authored_silhouette() {
     use ambition_characters::actor::{BodyHealth, Health};
 
-    /// One Enemy bolt overlapping a Player body whose published silhouette is
-    /// `volume` — authored directly, so this measures the GEOMETRY rule and not
-    /// whatever the shipped publisher happens to emit.
+    /// Spawn one enemy bolt against a player publishing `volume`, isolating victim geometry.
     fn arena_publishing(volume: ae::Aabb) -> App {
         let mut app = arena_projectile_app(crate::features::FactionRelations::default());
         let pos = ae::Vec2::new(300.0, 100.0);

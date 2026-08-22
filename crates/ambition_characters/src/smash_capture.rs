@@ -194,7 +194,6 @@ pub struct CaptureThrowParams {
 pub fn grab_shell(id: &str, clip: &str, startup_s: f32, active_s: f32, recover_s: f32) -> MoveSpec {
     let active_end = startup_s + active_s;
     MoveSpec {
-        // These helpers author generic verbs; the title-cased id is the label.
         display_name: None,
         id: id.to_string(),
         clip: ambition_entity_catalog::ClipBinding {
@@ -231,7 +230,6 @@ pub fn grab_shell(id: &str, clip: &str, startup_s: f32, active_s: f32, recover_s
 /// [`author_pummel`] or [`author_throw`].
 pub fn capture_beat(id: &str, clip: &str, duration_s: f32) -> MoveSpec {
     MoveSpec {
-        // These helpers author generic verbs; the title-cased id is the label.
         display_name: None,
         id: id.to_string(),
         clip: ambition_entity_catalog::ClipBinding {

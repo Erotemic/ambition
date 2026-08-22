@@ -238,19 +238,9 @@ pub struct SelectCursors {
 }
 
 impl SelectCursors {
-    /// ⛔⛔ **an out-of-range seat resolves to NO seat, never to a neighbour.**
-    ///
-    /// This used to clamp with `seat.min(MAX - 1)` under a doc that said,
-    /// correctly, that *"clamping hands one person another's cursor"* — loud in
-    /// debug and silently wrong in release, which is the build where a stranger
-    /// moving your cursor is not survivable. An invalid identity is not a
-    /// nearby identity, and a menu that answers for the wrong person is worse
-    /// than one that answers for nobody (GPT review, 2026-08-22).
-    ///
-    /// ⚠ **no caller pays for this.** Every production reader runs inside
-    /// `for seat in 0..MAX_SMASH_SEATS`, so the `Option` is always `Some` and
-    /// the change is free where it matters; what it removes is the ability for
-    /// a future caller to pass a seat it got from data and be handed somebody.
+    /// An out-of-range seat is an invalid identity, not a nearby one: it
+    /// resolves to `None` rather than being clamped onto another player's
+    /// cursor. Every production reader is inside `0..MAX_SMASH_SEATS`.
     pub fn seat(&self, seat: usize) -> Option<&SelectCursor> {
         self.seats.get(seat)
     }

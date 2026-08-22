@@ -202,7 +202,6 @@ pub fn simple_melee(p: &SimpleMeleeParams) -> MoveSpec {
         vfx: Some(SLASH_ARC_VFX.to_string()),
     };
     MoveSpec {
-        // These helpers author generic verbs; the title-cased id is the label.
         display_name: None,
         landing_lag_s: None,
         autocancel_after_s: None,
@@ -332,7 +331,6 @@ pub fn simple_ranged(p: &SimpleRangedParams) -> MoveSpec {
     let recover = p.recover_s.max(0.0);
     let duration = windup + recover;
     MoveSpec {
-        // These helpers author generic verbs; the title-cased id is the label.
         display_name: None,
         landing_lag_s: None,
         autocancel_after_s: None,
@@ -506,7 +504,6 @@ pub fn simple_charge(p: &SimpleChargeParams) -> MoveSpec {
         vfx: Some(SLASH_ARC_VFX.to_string()),
     };
     MoveSpec {
-        // These helpers author generic verbs; the title-cased id is the label.
         display_name: None,
         landing_lag_s: None,
         autocancel_after_s: None,
@@ -604,11 +601,8 @@ fn directional_attack_variants(base: &MoveSpec) -> Vec<(String, MoveSpec)> {
             Dir::Back => ((-ox, oy), (hx, hy)),
         }
     }
-    // ⭐ `label` is the genre's name for the variant, not a restatement of the
-    // id: this doc calls them "up-/down-tilt + the four aerials" and that IS the
-    // design language, so the control prompt should say so. Without it the
-    // player reads "Attack Air Down" where every platform fighter says "Down
-    // Air". The title-cased fallback stays correct for every other move.
+    // `label` is the genre-facing name for the directional variant; other moves
+    // keep the title-cased id fallback.
     let variant =
         |id: &str, label: &str, clip: &str, grounded: bool, dir: Dir, pogo: bool| -> MoveSpec {
             let mut m = base.clone();
@@ -731,7 +725,6 @@ pub fn special_move_from_spec(spec: &SpecialActionSpec) -> MoveSpec {
     let SpecialActionSpec::Special(key) = spec;
     let (windup, active, recover) = (0.08, 0.24, 0.13);
     MoveSpec {
-        // These helpers author generic verbs; the title-cased id is the label.
         display_name: None,
         landing_lag_s: None,
         autocancel_after_s: None,

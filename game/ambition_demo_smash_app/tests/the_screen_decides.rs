@@ -171,6 +171,7 @@ fn point_at(app: &mut App, seat: u8, rect: HitRect) {
     app.world_mut()
         .resource_mut::<SelectCursors>()
         .seat_mut(seat as usize)
+        .expect("seat is bounded by the caller's seat count")
         .move_to(rect.center());
 }
 
@@ -415,14 +416,22 @@ fn a_carried_token_stays_in_hand_until_it_reaches_a_selection() {
         "empty-space interaction changed the token owner's selection"
     );
     assert_eq!(
-        app.world().resource::<SelectCursors>().seat(0).carrying,
+        app.world()
+            .resource::<SelectCursors>()
+            .seat(0)
+            .expect("seat 0")
+            .carrying,
         Some(0),
         "empty-space interaction invented a resting token state"
     );
 
     press(&mut app, 0, back());
     assert_eq!(
-        app.world().resource::<SelectCursors>().seat(0).carrying,
+        app.world()
+            .resource::<SelectCursors>()
+            .seat(0)
+            .expect("seat 0")
+            .carrying,
         Some(0),
         "B dropped a token that was already in hand"
     );
@@ -580,7 +589,12 @@ fn the_arrows_alone_can_work_the_whole_screen() {
     for _ in 0..12 {
         press(&mut app, 0, arrow("down"));
     }
-    let position = app.world().resource::<SelectCursors>().seat(0).position;
+    let position = app
+        .world()
+        .resource::<SelectCursors>()
+        .seat(0)
+        .expect("seat 0")
+        .position;
     let layout = layout(&app);
     assert!(
         (0..MAX_SMASH_SEATS).any(|slot| layout.role_button(slot).contains(position)),
@@ -599,7 +613,12 @@ fn the_arrows_alone_can_work_the_whole_screen() {
     for _ in 0..12 {
         press(&mut app, 0, arrow("up"));
     }
-    let position = app.world().resource::<SelectCursors>().seat(0).position;
+    let position = app
+        .world()
+        .resource::<SelectCursors>()
+        .seat(0)
+        .expect("seat 0")
+        .position;
     assert!(
         (0..app.world().resource::<SmashRoster>().len()).any(|index| layout
             .portrait(index)
